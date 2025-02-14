@@ -105,17 +105,20 @@ export async function uploadImage(
     // Generate safe filename
     const safeFileName = generateUniqueFileName(file.name);
     
-    console.log('Attempting to upload file:', {
-      fileName: safeFileName,
-      fileType: file.type,
-      fileSize: file.size,
+    // Ensure clean path construction
+    const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
+    
+    console.log('Upload details:', {
+      originalFileName: file.name,
+      safeFileName,
+      cleanPath,
       bucket
     });
 
-    // Upload file - let Supabase handle the path
+    // Upload file with clean path
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(safeFileName, file, {
+      .upload(cleanPath, file, {
         cacheControl,
         contentType: file.type,
         upsert
@@ -139,21 +142,29 @@ export async function uploadImage(
       throw error;
     }
 
-    console.log('File uploaded successfully:', uploadData.path);
+    console.log('Upload response:', {
+      uploadDataPath: uploadData.path,
+      bucket
+    });
 
-    // Get public URL - use path directly from Supabase
+    // Get public URL - construct it carefully
     const { data: { publicUrl } } = supabase.storage
       .from(bucket)
-      .getPublicUrl(uploadData.path);
+      .getPublicUrl(uploadData.path.replace(/^\/+|\/+$/g, ''));
 
-    // Only ensure HTTPS
-    const finalUrl = normalizeStorageUrl(publicUrl);
+    console.log('URL generation steps:', {
+      uploadPath: uploadData.path,
+      rawPublicUrl: publicUrl,
+    });
+
+    // Normalize the URL more aggressively
+    const finalUrl = publicUrl
+      .replace(/([^:]\/)\/+/g, '$1') // Replace multiple slashes with single slash, except after colon
+      .replace(/^http:/, 'https:'); // Ensure HTTPS
     
-    // Log URL for debugging
-    console.log('Generated public URL:', {
-      original: publicUrl,
-      final: finalUrl,
-      path: uploadData.path
+    console.log('Final URL processing:', {
+      originalUrl: publicUrl,
+      normalizedUrl: finalUrl
     });
     
     // Verify accessibility
