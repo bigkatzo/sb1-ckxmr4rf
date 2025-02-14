@@ -4,11 +4,13 @@ const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY;
 
 // Primary RPC endpoint with fallbacks
 const RPC_ENDPOINTS = {
-  primary: `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+  primary: ALCHEMY_API_KEY 
+    ? `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+    : 'https://api.mainnet-beta.solana.com',
   fallbacks: [
-    'https://api.mainnet-beta.solana.com',
     'https://solana-api.projectserum.com',
-    'https://rpc.ankr.com/solana'
+    'https://rpc.ankr.com/solana',
+    'https://solana.public-rpc.com'
   ]
 };
 
@@ -18,7 +20,9 @@ const CONNECTION_CONFIG = {
   commitment: 'finalized' as Commitment,
   confirmTransactionInitialTimeout: 60000,
   disableRetryOnRateLimit: false,
-  wsEndpoint: `wss://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+  wsEndpoint: ALCHEMY_API_KEY 
+    ? `wss://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+    : undefined
 };
 
 // Create connection with improved retry logic
