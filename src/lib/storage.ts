@@ -12,12 +12,28 @@ interface UploadOptions {
 // Normalize storage URLs to ensure consistent format
 export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
-  return url
+  
+  // First normalize the protocol and domain part
+  let normalizedUrl = url
     .replace(/^http:/, 'https:') // Ensure HTTPS
-    .replace(/^https:\/([^/])/, 'https://$1') // Fix protocol slashes if missing
-    .replace(/([^:])\/+/g, '$1/') // Replace multiple slashes with single slash, except after protocol
-    .replace(/^\/+/, '') // Remove leading slashes
-    .replace(/\/+$/, ''); // Remove trailing slashes
+    .replace(/^https:\/([^/])/, 'https://$1'); // Fix protocol slashes if missing
+
+  // Split the URL into base and path parts
+  const [base, ...pathParts] = normalizedUrl.split('/storage/');
+  
+  if (pathParts.length === 0) {
+    // If there's no storage part, just clean up any multiple slashes
+    return normalizedUrl.replace(/([^:])\/+/g, '$1/').replace(/\/+$/, '');
+  }
+
+  // Clean up the path part (after /storage/)
+  const cleanPath = pathParts.join('/storage/')
+    .split('/')
+    .filter(Boolean) // Remove empty segments
+    .join('/');
+
+  // Reconstruct the URL
+  return `${base}/storage/${cleanPath}`;
 }
 
 // Sanitize filename to remove problematic characters
