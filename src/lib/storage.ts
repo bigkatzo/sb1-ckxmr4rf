@@ -16,37 +16,89 @@ export function normalizeStorageUrl(url: string): string {
   // Ensure HTTPS
   let normalizedUrl = url.replace(/^http:/, 'https:');
   
+  // Remove query params and hash fragments
+  normalizedUrl = normalizedUrl.replace(/[?#].*$/, '');
+  
   // Remove double slashes (except after protocol)
-  normalizedUrl = normalizedUrl.replace(/(?<!:)\/+/g, '/');
+  // First split by protocol to preserve the double slashes there
+  const [protocol, ...rest] = normalizedUrl.split('://');
+  if (rest.length > 0) {
+    // Join the rest and replace double slashes
+    const path = rest.join('://').replace(/\/+/g, '/');
+    normalizedUrl = `${protocol}://${path}`;
+  }
+  
+  // Log the URL transformation
+  console.log('URL normalization:', JSON.stringify({
+    originalUrl: url,
+    normalizedUrl,
+    steps: {
+      ensureHttps: url.replace(/^http:/, 'https:'),
+      removeParams: url.replace(/[?#].*$/, ''),
+      removeDoubleSlashes: normalizedUrl
+    }
+  }, null, 2));
   
   return normalizedUrl;
 }
 
 // Sanitize filename to remove problematic characters
 function sanitizeFileName(fileName: string): string {
-  // Remove any path traversal characters and leading/trailing slashes
-  const name = fileName.replace(/^.*[/\\]/, '').replace(/^\/+|\/+$/g, '');
+  // Remove any path traversal characters
+  const name = fileName.replace(/^.*[/\\]/, '');
   
-  // Remove any non-alphanumeric characters except for common extensions
-  const baseName = name.replace(/\.[^/.]+$/, '');
-  const extension = name.match(/\.[^/.]+$/)?.[0] || '';
-  
-  // Replace spaces and special chars with hyphens, collapse multiple hyphens
-  const sanitizedBase = baseName
+  // Convert to lowercase and remove non-alphanumeric characters
+  const sanitized = name
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-    
-  return `${sanitizedBase}${extension.toLowerCase()}`;
+    .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
+    .replace(/-+/g, '-')          // Replace multiple hyphens with single hyphen
+    .replace(/^-+|-+$/g, '');     // Remove leading/trailing hyphens
+  
+  // Log the sanitization
+  console.log('Filename sanitization:', JSON.stringify({
+    input: fileName,
+    removedPath: name,
+    sanitized,
+    steps: {
+      lowercase: name.toLowerCase(),
+      replaceNonAlphanumeric: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      removeMultipleHyphens: sanitized
+    }
+  }, null, 2));
+  
+  return sanitized;
 }
 
 // Generate a unique filename with timestamp and random string
 function generateUniqueFileName(originalName: string): string {
-  const timestamp = Date.now();
-  const randomString = Math.random().toString(36).substring(2, 15);
-  const sanitizedName = sanitizeFileName(originalName);
-  return `${timestamp}-${randomString}-${sanitizedName}`;
+  // Extract extension
+  const extension = originalName.match(/\.[^/.]+$/)?.[0] || '';
+  const baseName = originalName.replace(/\.[^/.]+$/, '');
+  
+  // Generate timestamp in a consistent format (YYYYMMDDHHMMSS)
+  const timestamp = new Date().toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/[T.]/g, '')
+    .slice(0, 14);
+  
+  // Generate a fixed-length random string
+  const randomString = Math.random().toString(36).substring(2, 10);
+  
+  // Clean the base name
+  const sanitizedName = sanitizeFileName(baseName);
+  
+  // Log the filename generation
+  console.log('Filename generation:', JSON.stringify({
+    originalName,
+    baseName,
+    extension,
+    timestamp,
+    randomString,
+    sanitizedName,
+    finalName: `${timestamp}-${randomString}-${sanitizedName}${extension.toLowerCase()}`
+  }, null, 2));
+  
+  return `${timestamp}-${randomString}-${sanitizedName}${extension.toLowerCase()}`;
 }
 
 // Verify file meets requirements
@@ -147,77 +199,24 @@ export async function uploadImage(
       bucket
     }, null, 2));
 
-    // Clean the path before getting public URL - ensure no double slashes
-    const cleanUploadPath = uploadData.path.replace(/^\/+|\/+$/g, '');
-
     // Get public URL - construct it carefully
     const { data: { publicUrl } } = supabase.storage
       .from(bucket)
-      .getPublicUrl(cleanUploadPath);
+      .getPublicUrl(uploadData.path);
 
-    console.log('URL generation steps:', JSON.stringify({
-      uploadPath: uploadData.path,
-      cleanUploadPath,
-      rawPublicUrl: publicUrl,
-      bucketPath: `${bucket}/${cleanUploadPath}`
-    }, null, 2));
-
-    // Function to check for unwanted double slashes (excluding protocol)
-    const hasUnwantedDoubleSlash = (url: string) => {
-      // Split URL into protocol and rest
-      const [protocol, ...rest] = url.split('://');
-      // Check for double slashes in the rest of the URL
-      return rest.join('://').includes('//');
-    };
-
-    // Normalize the URL
-    let finalUrl = publicUrl;
+    // Normalize the URL to ensure consistency
+    const finalUrl = normalizeStorageUrl(publicUrl);
     
-    // First ensure the bucket path is correct (no double slashes)
-    const bucketPathPattern = new RegExp(`/${bucket}//`);
-    if (bucketPathPattern.test(finalUrl)) {
-      finalUrl = finalUrl.replace(bucketPathPattern, `/${bucket}/`);
-    }
-    
-    // Then normalize any remaining double slashes and ensure HTTPS
-    finalUrl = finalUrl
-      .replace(/([^:]\/)\/+/g, '$1')  // Replace multiple slashes with single slash, except after colon
-      .replace(/^http:/, 'https:');    // Ensure HTTPS
-    
-    console.log('Final URL processing:', JSON.stringify({
+    console.log('Final URL:', JSON.stringify({
       originalUrl: publicUrl,
       normalizedUrl: finalUrl,
-      hasUnwantedDoubleSlash: hasUnwantedDoubleSlash(finalUrl),
-      pathParts: finalUrl.split('/').filter(Boolean)
+      path: uploadData.path,
+      bucket
     }, null, 2));
-    
-    // Double-check if we still have unwanted double slashes
-    if (hasUnwantedDoubleSlash(finalUrl)) {
-      console.warn('Warning: Unwanted double slash detected in final URL:', finalUrl);
-      
-      // Last resort fix - manually construct the URL
-      const urlParts = finalUrl.split('/').filter(Boolean);
-      const protocol = urlParts[0].replace(':', '');
-      const domain = urlParts[1];
-      const path = urlParts.slice(2).join('/');
-      finalUrl = `${protocol}://${domain}/${path}`;
-      
-      console.log('URL reconstruction:', JSON.stringify({
-        protocol,
-        domain,
-        path,
-        finalUrl
-      }, null, 2));
-    }
-    
-    // Verify accessibility
-    await verifyUrlAccessibility(finalUrl);
-    
+
     return finalUrl;
   } catch (error) {
-    console.error(`Image upload error (${bucket}):`, error);
-    const message = error instanceof Error ? error.message : 'Failed to upload image';
-    toast.error(message);
-    throw error instanceof Error ? error : new Error(message);
+    console.error('Upload error:', error);
+    throw error;
   }
 } 
