@@ -94,6 +94,14 @@ async function verifyUrlAccessibility(url: string): Promise<void> {
   }
 }
 
+// Clean file path by removing any extra slashes
+function cleanFilePath(path: string): string {
+  return path
+    .split('/')
+    .filter(Boolean) // Remove empty segments that cause double slashes
+    .join('/');
+}
+
 /**
  * Upload an image to a specified storage bucket
  * @param file The file to upload
@@ -118,7 +126,7 @@ export async function uploadImage(
 
     // Generate safe filename and ensure clean path
     const safeFileName = generateUniqueFileName(file.name);
-    const filePath = normalizeStorageUrl(safeFileName);
+    const filePath = cleanFilePath(safeFileName);
     
     console.log('Attempting to upload file:', {
       fileName: filePath,
