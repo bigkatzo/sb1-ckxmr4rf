@@ -12,34 +12,13 @@ interface UploadOptions {
 // Normalize storage URLs to ensure consistent format
 export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
-  
-  // First normalize the protocol and domain part
-  let normalizedUrl = url
-    .replace(/^http:/, 'https:') // Ensure HTTPS
-    .replace(/^https:\/([^/])/, 'https://$1'); // Fix protocol slashes if missing
-
-  // Split the URL into base and path parts
-  const [base, ...pathParts] = normalizedUrl.split('/storage/');
-  
-  if (pathParts.length === 0) {
-    // If there's no storage part, just clean up any multiple slashes
-    return normalizedUrl.replace(/([^:])\/+/g, '$1/').replace(/\/+$/, '');
-  }
-
-  // Clean up the path part (after /storage/)
-  const cleanPath = pathParts.join('/storage/')
-    .split('/')
-    .filter(Boolean) // Remove empty segments that would cause double slashes
-    .join('/');
-
-  // Reconstruct the URL without adding extra slashes
-  return `${base}/storage/${cleanPath}`;
+  return url.replace(/^http:/, 'https:'); // Only ensure HTTPS, let Supabase handle paths
 }
 
 // Sanitize filename to remove problematic characters
 function sanitizeFileName(fileName: string): string {
-  // Remove any path traversal characters
-  const name = fileName.replace(/^.*[/\\]/, '');
+  // Remove any path traversal characters and leading/trailing slashes
+  const name = fileName.replace(/^.*[/\\]/, '').replace(/^\/+|\/+$/g, '');
   
   // Remove any non-alphanumeric characters except for common extensions
   const baseName = name.replace(/\.[^/.]+$/, '');
@@ -94,14 +73,6 @@ async function verifyUrlAccessibility(url: string): Promise<void> {
   }
 }
 
-// Clean file path by removing any extra slashes
-function cleanFilePath(path: string): string {
-  return path
-    .split('/')
-    .filter(Boolean) // Remove empty segments that cause double slashes
-    .join('/');
-}
-
 /**
  * Upload an image to a specified storage bucket
  * @param file The file to upload
@@ -124,7 +95,7 @@ export async function uploadImage(
     // Validate file
     validateFile(file, maxSizeMB);
 
-    // Generate safe filename without any path or leading slash
+    // Generate safe filename
     const safeFileName = generateUniqueFileName(file.name);
     
     console.log('Attempting to upload file:', {
@@ -134,10 +105,10 @@ export async function uploadImage(
       bucket
     });
 
-    // Upload file - using the filename directly without any path manipulation or leading slash
+    // Upload file - let Supabase handle the path
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(safeFileName.replace(/^\/+/, ''), file, {
+      .upload(safeFileName, file, {
         cacheControl,
         contentType: file.type,
         upsert
@@ -163,12 +134,12 @@ export async function uploadImage(
 
     console.log('File uploaded successfully:', uploadData.path);
 
-    // Get public URL
+    // Get public URL - use path directly from Supabase
     const { data: { publicUrl } } = supabase.storage
       .from(bucket)
-      .getPublicUrl(uploadData.path.replace(/^\/+/, '')); // Ensure no leading slash
+      .getPublicUrl(uploadData.path);
 
-    // Clean and normalize the URL
+    // Only ensure HTTPS
     const finalUrl = normalizeStorageUrl(publicUrl);
     
     // Log URL for debugging
