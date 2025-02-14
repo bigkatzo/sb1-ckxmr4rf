@@ -12,7 +12,14 @@ interface UploadOptions {
 // Normalize storage URLs to ensure consistent format
 export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
-  return url.replace(/^http:/, 'https:'); // Only ensure HTTPS, let Supabase handle paths
+  
+  // Ensure HTTPS
+  let normalizedUrl = url.replace(/^http:/, 'https:');
+  
+  // Remove double slashes (except after protocol)
+  normalizedUrl = normalizedUrl.replace(/(?<!:)\/+/g, '/');
+  
+  return normalizedUrl;
 }
 
 // Sanitize filename to remove problematic characters
