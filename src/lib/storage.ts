@@ -92,8 +92,11 @@ export async function uploadImage(
     // Generate safe filename
     const safeFileName = generateUniqueFileName(file.name);
     
+    // Ensure clean path without leading slash
+    const filePath = safeFileName.replace(/^\/+/, '');
+    
     console.log('Attempting to upload file:', {
-      fileName: safeFileName,
+      fileName: filePath,
       fileType: file.type,
       fileSize: file.size,
       bucket
@@ -102,7 +105,7 @@ export async function uploadImage(
     // Upload file
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(safeFileName, file, {
+      .upload(filePath, file, {
         cacheControl,
         contentType: file.type,
         upsert
@@ -133,8 +136,11 @@ export async function uploadImage(
       .from(bucket)
       .getPublicUrl(uploadData.path);
 
-    // Ensure HTTPS
-    const finalUrl = publicUrl.replace(/^http:/, 'https:');
+    // Clean and normalize the URL
+    let finalUrl = publicUrl
+      .replace(/^http:/, 'https:') // Ensure HTTPS
+      .replace(/\/\/+/g, '/') // Replace multiple slashes with single slash
+      .replace('https:/', 'https://'); // Fix protocol slashes
     
     // Log URL for debugging
     console.log('Generated public URL:', {
