@@ -13,56 +13,89 @@ interface UploadOptions {
 export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
   
-  // Ensure HTTPS
-  let normalizedUrl = url.replace(/^http:/, 'https:');
-  
-  // Remove query params and hash fragments
-  normalizedUrl = normalizedUrl.replace(/[?#].*$/, '');
-  
-  // Remove double slashes (except after protocol)
-  // First split by protocol to preserve the double slashes there
-  const [protocol, ...rest] = normalizedUrl.split('://');
-  if (rest.length > 0) {
-    // Join the rest and replace double slashes
-    const path = rest.join('://').replace(/\/+/g, '/');
-    normalizedUrl = `${protocol}://${path}`;
-  }
-  
-  // Log the URL transformation
-  console.log('URL normalization:', JSON.stringify({
-    originalUrl: url,
-    normalizedUrl,
-    steps: {
-      ensureHttps: url.replace(/^http:/, 'https:'),
-      removeParams: url.replace(/[?#].*$/, ''),
-      removeDoubleSlashes: normalizedUrl
+  try {
+    // Parse the URL to handle it properly
+    const parsedUrl = new URL(url);
+    
+    // Ensure HTTPS
+    parsedUrl.protocol = 'https:';
+    
+    // Always use render/image endpoint
+    let path = parsedUrl.pathname;
+    
+    // If the path doesn't already use render/image, convert it
+    if (!path.includes('/render/image/')) {
+      path = path
+        .replace('/storage/v1/object/', '/storage/v1/render/image/')
+        .replace('/storage/v1/', '/storage/v1/render/image/');
     }
-  }, null, 2));
-  
-  return normalizedUrl;
+    
+    // Clean up the path
+    // 1. Remove any double slashes
+    path = path.replace(/\/+/g, '/');
+    // 2. Ensure proper structure: /storage/v1/render/image/public/{bucket}/{filename}
+    if (!path.includes('/public/')) {
+      path = path.replace(/\/([^/]+)\/([^/]+)$/, '/public/$1/$2');
+    }
+    
+    // Reconstruct the URL without query parameters
+    const normalizedUrl = `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
+    
+    // Log the transformation
+    console.log('URL normalization:', JSON.stringify({
+      originalUrl: url,
+      normalizedUrl,
+      steps: {
+        parsed: parsedUrl.toString(),
+        pathNormalized: path,
+        final: normalizedUrl
+      }
+    }, null, 2));
+    
+    return normalizedUrl;
+  } catch (error) {
+    console.error('Error normalizing URL:', error);
+    // If URL parsing fails, fall back to regex-based normalization
+    let normalizedUrl = url.replace(/^http:/, 'https:');
+    normalizedUrl = normalizedUrl.replace(/[?#].*$/, '');
+    normalizedUrl = normalizedUrl.replace('/storage/v1/object/', '/storage/v1/render/image/');
+    normalizedUrl = normalizedUrl.replace(/\/+/g, '/');
+    if (!normalizedUrl.includes('/public/')) {
+      normalizedUrl = normalizedUrl.replace(/\/([^/]+)\/([^/]+)$/, '/public/$1/$2');
+    }
+    return normalizedUrl;
+  }
 }
 
 // Sanitize filename to remove problematic characters
 function sanitizeFileName(fileName: string): string {
-  // Remove any path traversal characters
+  // Remove any path traversal characters and get the base name
   const name = fileName.replace(/^.*[/\\]/, '');
   
-  // Convert to lowercase and remove non-alphanumeric characters
-  const sanitized = name
+  // Remove dimensions and other common problematic patterns
+  const cleaned = name
+    .replace(/[-_]?\d+x\d+[-_]?/g, '') // Remove dimensions like 1500x500
+    .replace(/[-_]?\d{13,}[-_]?/g, '') // Remove long numbers (timestamps)
+    .replace(/[-_]?copy[-_]?\d*$/i, '') // Remove "copy" and "copy 1", etc.
+    .replace(/[-_]?new[-_]?\d*$/i, ''); // Remove "new" and "new 1", etc.
+  
+  // Convert to lowercase and normalize characters
+  const sanitized = cleaned
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
+    .replace(/[^a-z0-9.]+/g, '-') // Replace non-alphanumeric with single hyphen
     .replace(/-+/g, '-')          // Replace multiple hyphens with single hyphen
-    .replace(/^-+|-+$/g, '');     // Remove leading/trailing hyphens
+    .replace(/^-+|-+$/g, '')      // Remove leading/trailing hyphens
+    .replace(/^\.+|\.+$/g, '');   // Remove leading/trailing dots
   
   // Log the sanitization
   console.log('Filename sanitization:', JSON.stringify({
     input: fileName,
-    removedPath: name,
+    cleaned,
     sanitized,
     steps: {
-      lowercase: name.toLowerCase(),
-      replaceNonAlphanumeric: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      removeMultipleHyphens: sanitized
+      removedPath: name,
+      cleanedPatterns: cleaned,
+      final: sanitized
     }
   }, null, 2));
   
@@ -71,8 +104,8 @@ function sanitizeFileName(fileName: string): string {
 
 // Generate a unique filename with timestamp and random string
 function generateUniqueFileName(originalName: string): string {
-  // Extract extension
-  const extension = originalName.match(/\.[^/.]+$/)?.[0] || '';
+  // Extract extension safely
+  const extension = (originalName.match(/\.[^/.]+$/)?.[0] || '').toLowerCase();
   const baseName = originalName.replace(/\.[^/.]+$/, '');
   
   // Generate timestamp in a consistent format (YYYYMMDDHHMMSS)
@@ -81,24 +114,29 @@ function generateUniqueFileName(originalName: string): string {
     .replace(/[T.]/g, '')
     .slice(0, 14);
   
-  // Generate a fixed-length random string
+  // Generate a fixed-length random string (8 chars)
   const randomString = Math.random().toString(36).substring(2, 10);
   
   // Clean the base name
   const sanitizedName = sanitizeFileName(baseName);
   
-  // Log the filename generation
+  // Construct final filename
+  const finalName = `${timestamp}-${randomString}-${sanitizedName}${extension}`;
+  
+  // Log the generation
   console.log('Filename generation:', JSON.stringify({
     originalName,
-    baseName,
-    extension,
-    timestamp,
-    randomString,
-    sanitizedName,
-    finalName: `${timestamp}-${randomString}-${sanitizedName}${extension.toLowerCase()}`
+    steps: {
+      extension,
+      baseName,
+      sanitizedName,
+      timestamp,
+      randomString,
+      finalName
+    }
   }, null, 2));
   
-  return `${timestamp}-${randomString}-${sanitizedName}${extension.toLowerCase()}`;
+  return finalName;
 }
 
 // Verify file meets requirements
@@ -194,23 +232,25 @@ export async function uploadImage(
       throw error;
     }
 
-    console.log('Upload response:', JSON.stringify({
-      uploadDataPath: uploadData.path,
-      bucket
-    }, null, 2));
-
-    // Get public URL - construct it carefully
+    // Construct the URL directly using the render/image endpoint
     const { data: { publicUrl } } = supabase.storage
       .from(bucket)
       .getPublicUrl(uploadData.path);
-
+    
+    // Get the base URL from the public URL
+    const baseUrl = new URL(publicUrl).origin;
+    const renderUrl = `${baseUrl}/storage/v1/render/image/public/${bucket}/${uploadData.path}`;
+    
     // Normalize the URL to ensure consistency
-    const finalUrl = normalizeStorageUrl(publicUrl);
+    const finalUrl = normalizeStorageUrl(renderUrl);
+    
+    // Verify the URL is accessible
+    await verifyUrlAccessibility(finalUrl);
     
     console.log('Final URL:', JSON.stringify({
-      originalUrl: publicUrl,
-      normalizedUrl: finalUrl,
-      path: uploadData.path,
+      uploadPath: uploadData.path,
+      renderUrl,
+      finalUrl,
       bucket
     }, null, 2));
 
