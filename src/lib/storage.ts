@@ -14,9 +14,10 @@ export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
   return url
     .replace(/^http:/, 'https:') // Ensure HTTPS
-    .replace(/([^:])\/\/+/g, '$1/') // Replace multiple slashes with single slash, except after protocol
-    .replace(/\/$/, '') // Remove trailing slash
-    .replace(/^\/+/, ''); // Remove leading slashes
+    .replace(/^https:\/([^/])/, 'https://$1') // Fix protocol slashes if missing
+    .replace(/([^:])\/+/g, '$1/') // Replace multiple slashes with single slash, except after protocol
+    .replace(/^\/+/, '') // Remove leading slashes
+    .replace(/\/+$/, ''); // Remove trailing slashes
 }
 
 // Sanitize filename to remove problematic characters
