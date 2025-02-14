@@ -1,0 +1,122 @@
+-- Drop existing image validation functions
+DO $$ BEGIN
+  DROP FUNCTION IF EXISTS validate_storage_url(text) CASCADE;
+  DROP FUNCTION IF EXISTS sanitize_image_url(text) CASCADE;
+EXCEPTION
+  WHEN undefined_object THEN null;
+END $$;
+
+-- Create improved storage URL validation function
+CREATE OR REPLACE FUNCTION validate_storage_url(url text)
+RETURNS boolean AS $$
+BEGIN
+  -- Basic URL validation
+  IF url IS NULL OR url = '' THEN
+    RETURN false;
+  END IF;
+
+  -- Check if it's a valid URL
+  IF NOT (url ~* '^https?://') THEN
+    RETURN false;
+  END IF;
+
+  -- Allow all URLs from our Supabase project (with query params)
+  IF url ~* '^https?://sakysysfksculqobozxi\.supabase\.co/storage/v1/object/public/[^?#]+([?#].*)?$' THEN
+    RETURN true;
+  END IF;
+
+  -- Allow all URLs that look like images or storage (with query params)
+  IF (
+    -- Common image extensions with query params and special chars
+    url ~* '\.(jpg|jpeg|png|gif|webp|avif)([?#][^?#]*)?$' OR
+    -- Storage paths with query params
+    url ~* '/storage/v1/object/(public|sign)/[^?#]+([?#][^?#]*)?$' OR
+    -- Image-like paths with query params
+    url ~* '/(image|photo|media|storage|assets|uploads?)/[^?#]+([?#][^?#]*)?$'
+  ) THEN
+    RETURN true;
+  END IF;
+
+  RETURN false;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Create function to preserve query parameters
+CREATE OR REPLACE FUNCTION sanitize_image_url(url text)
+RETURNS text AS $$
+DECLARE
+  base_url text;
+  query_params text;
+  hash_fragment text;
+BEGIN
+  -- Return null for invalid URLs
+  IF NOT validate_storage_url(url) THEN
+    RETURN NULL;
+  END IF;
+
+  -- Extract query params and hash fragment
+  query_params := (regexp_matches(url, '\?([^#]*)'))[1];
+  hash_fragment := (regexp_matches(url, '#(.*)'))[1];
+  
+  -- Get base URL without query params and hash
+  base_url := regexp_replace(url, '[?#].*$', '');
+
+  -- Return full URL with query params and hash preserved
+  RETURN base_url || 
+    CASE WHEN query_params IS NOT NULL THEN '?' || query_params ELSE '' END ||
+    CASE WHEN hash_fragment IS NOT NULL THEN '#' || hash_fragment ELSE '' END;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Create function to fix all image URLs
+CREATE OR REPLACE FUNCTION fix_all_image_urls()
+RETURNS TABLE (
+  entity_type text,
+  fixed_count int,
+  details text
+) AS $$
+DECLARE
+  v_collection_count int := 0;
+  v_product_count int := 0;
+BEGIN
+  -- Fix collection images
+  WITH updated AS (
+    UPDATE collections
+    SET image_url = sanitize_image_url(image_url)
+    WHERE image_url IS NOT NULL
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_collection_count FROM updated;
+  
+  entity_type := 'Collections';
+  fixed_count := v_collection_count;
+  details := format('Fixed %s collection images', v_collection_count);
+  RETURN NEXT;
+
+  -- Fix product images
+  WITH updated AS (
+    UPDATE products
+    SET images = (
+      SELECT array_agg(sanitize_image_url(img))
+      FROM unnest(images) img
+      WHERE sanitize_image_url(img) IS NOT NULL
+    )
+    WHERE images IS NOT NULL
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_product_count FROM updated;
+
+  entity_type := 'Products';
+  fixed_count := v_product_count;
+  details := format('Fixed %s products with images', v_product_count);
+  RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Run image fixes
+SELECT * FROM fix_all_image_urls();
+
+-- Grant necessary permissions
+GRANT EXECUTE ON FUNCTION validate_storage_url(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION sanitize_image_url(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION fix_all_image_urls() TO authenticated;

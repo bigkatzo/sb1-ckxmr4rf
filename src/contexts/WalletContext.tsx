@@ -1,0 +1,168 @@
+import React, { createContext, useContext, useState, useCallback } from 'react';
+import { ConnectionProvider, WalletProvider as SolanaWalletProvider, useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { Transaction, PublicKey } from '@solana/web3.js';
+import { SOLANA_CONNECTION } from '../config/solana';
+import '@solana/wallet-adapter-react-ui/styles.css';
+
+interface WalletContextType {
+  isConnected: boolean;
+  walletAddress: string | null;
+  publicKey: PublicKey | null;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  signAndSendTransaction: (transaction: Transaction) => Promise<string>;
+  error: Error | null;
+  notifications: WalletNotification[];
+  dismissNotification: (id: string) => void;
+}
+
+interface WalletNotification {
+  id: string;
+  type: 'success' | 'error';
+  message: string;
+  timestamp: number;
+}
+
+const WalletContext = createContext<WalletContextType>({
+  isConnected: false,
+  walletAddress: null,
+  publicKey: null,
+  connect: async () => {},
+  disconnect: async () => {},
+  signAndSendTransaction: async () => '',
+  error: null,
+  notifications: [],
+  dismissNotification: () => {}
+});
+
+export function WalletProvider({ children }: { children: React.ReactNode }) {
+  // Initialize wallet adapters
+  const wallets = React.useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter()
+    ],
+    []
+  );
+
+  return (
+    <ConnectionProvider endpoint={SOLANA_CONNECTION.rpcEndpoint}>
+      <SolanaWalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          <WalletContextProvider>
+            {children}
+          </WalletContextProvider>
+        </WalletModalProvider>
+      </SolanaWalletProvider>
+    </ConnectionProvider>
+  );
+}
+
+function WalletContextProvider({ children }: { children: React.ReactNode }) {
+  const { publicKey, connected, disconnect: nativeDisconnect, signTransaction, sendTransaction } = useSolanaWallet();
+  const [error, setError] = useState<Error | null>(null);
+  const [notifications, setNotifications] = useState<WalletNotification[]>([]);
+
+  const addNotification = useCallback((type: 'success' | 'error', message: string) => {
+    const notification: WalletNotification = {
+      id: crypto.randomUUID(),
+      type,
+      message,
+      timestamp: Date.now()
+    };
+    setNotifications(prev => [...prev, notification]);
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+      dismissNotification(notification.id);
+    }, 5000);
+  }, []);
+
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  const connect = useCallback(async () => {
+    try {
+      setError(null);
+      // Connection is handled by the wallet modal
+      addNotification('success', 'Wallet connected successfully');
+    } catch (error) {
+      console.error('Connect error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
+      setError(error instanceof Error ? error : new Error(errorMessage));
+      addNotification('error', errorMessage);
+      throw error;
+    }
+  }, [addNotification]);
+
+  const disconnect = useCallback(async () => {
+    try {
+      setError(null);
+      await nativeDisconnect();
+      addNotification('success', 'Wallet disconnected');
+    } catch (error) {
+      console.error('Disconnect error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to disconnect wallet';
+      setError(error instanceof Error ? error : new Error(errorMessage));
+      addNotification('error', errorMessage);
+    }
+  }, [nativeDisconnect, addNotification]);
+
+  const signAndSendTransaction = useCallback(async (transaction: Transaction): Promise<string> => {
+    if (!connected || !publicKey || !signTransaction || !sendTransaction) {
+      throw new Error('Wallet not connected');
+    }
+
+    try {
+      setError(null);
+
+      // Get fresh blockhash
+      const { blockhash, lastValidBlockHeight } = await SOLANA_CONNECTION.getLatestBlockhash();
+      
+      // Update transaction
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      // Sign transaction
+      const signedTransaction = await signTransaction(transaction);
+      
+      // Send transaction
+      const signature = await sendTransaction(signedTransaction, SOLANA_CONNECTION);
+      addNotification('success', `Transaction sent: ${signature.slice(0, 8)}...`);
+
+      return signature;
+    } catch (error) {
+      console.error('Transaction error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Transaction failed';
+      setError(error instanceof Error ? error : new Error(errorMessage));
+      addNotification('error', errorMessage);
+      throw error;
+    }
+  }, [connected, publicKey, signTransaction, sendTransaction, addNotification]);
+
+  return (
+    <WalletContext.Provider value={{
+      isConnected: connected,
+      walletAddress: publicKey?.toBase58() || null,
+      publicKey,
+      connect,
+      disconnect,
+      signAndSendTransaction,
+      error,
+      notifications,
+      dismissNotification
+    }}>
+      {children}
+    </WalletContext.Provider>
+  );
+}
+
+export const useWallet = () => {
+  const context = useContext(WalletContext);
+  if (!context) {
+    throw new Error('useWallet must be used within WalletProvider');
+  }
+  return context;
+};
