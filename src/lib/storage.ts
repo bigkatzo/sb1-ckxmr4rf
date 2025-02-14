@@ -162,7 +162,15 @@ export async function uploadImage(
       bucketPath: `${bucket}/${cleanUploadPath}`
     }, null, 2));
 
-    // Normalize the URL more aggressively
+    // Function to check for unwanted double slashes (excluding protocol)
+    const hasUnwantedDoubleSlash = (url: string) => {
+      // Split URL into protocol and rest
+      const [protocol, ...rest] = url.split('://');
+      // Check for double slashes in the rest of the URL
+      return rest.join('://').includes('//');
+    };
+
+    // Normalize the URL
     let finalUrl = publicUrl;
     
     // First ensure the bucket path is correct (no double slashes)
@@ -179,12 +187,27 @@ export async function uploadImage(
     console.log('Final URL processing:', JSON.stringify({
       originalUrl: publicUrl,
       normalizedUrl: finalUrl,
-      hasDoubleSlash: finalUrl.includes('//')
+      hasUnwantedDoubleSlash: hasUnwantedDoubleSlash(finalUrl),
+      pathParts: finalUrl.split('/').filter(Boolean)
     }, null, 2));
     
     // Double-check if we still have unwanted double slashes
-    if (finalUrl.match(/([^:])\/\/+/)) {
-      console.warn('Warning: Double slash detected in final URL:', finalUrl);
+    if (hasUnwantedDoubleSlash(finalUrl)) {
+      console.warn('Warning: Unwanted double slash detected in final URL:', finalUrl);
+      
+      // Last resort fix - manually construct the URL
+      const urlParts = finalUrl.split('/').filter(Boolean);
+      const protocol = urlParts[0].replace(':', '');
+      const domain = urlParts[1];
+      const path = urlParts.slice(2).join('/');
+      finalUrl = `${protocol}://${domain}/${path}`;
+      
+      console.log('URL reconstruction:', JSON.stringify({
+        protocol,
+        domain,
+        path,
+        finalUrl
+      }, null, 2));
     }
     
     // Verify accessibility
