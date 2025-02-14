@@ -105,15 +105,15 @@ export async function uploadImage(
     // Generate safe filename
     const safeFileName = generateUniqueFileName(file.name);
     
-    // Ensure clean path construction
+    // Ensure clean path construction - no leading/trailing slashes
     const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
     
-    console.log('Upload details:', {
+    console.log('Upload details:', JSON.stringify({
       originalFileName: file.name,
       safeFileName,
       cleanPath,
       bucket
-    });
+    }, null, 2));
 
     // Upload file with clean path
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -142,30 +142,50 @@ export async function uploadImage(
       throw error;
     }
 
-    console.log('Upload response:', {
+    console.log('Upload response:', JSON.stringify({
       uploadDataPath: uploadData.path,
       bucket
-    });
+    }, null, 2));
+
+    // Clean the path before getting public URL - ensure no double slashes
+    const cleanUploadPath = uploadData.path.replace(/^\/+|\/+$/g, '');
 
     // Get public URL - construct it carefully
     const { data: { publicUrl } } = supabase.storage
       .from(bucket)
-      .getPublicUrl(uploadData.path.replace(/^\/+|\/+$/g, ''));
+      .getPublicUrl(cleanUploadPath);
 
-    console.log('URL generation steps:', {
+    console.log('URL generation steps:', JSON.stringify({
       uploadPath: uploadData.path,
+      cleanUploadPath,
       rawPublicUrl: publicUrl,
-    });
+      bucketPath: `${bucket}/${cleanUploadPath}`
+    }, null, 2));
 
     // Normalize the URL more aggressively
-    const finalUrl = publicUrl
-      .replace(/([^:]\/)\/+/g, '$1') // Replace multiple slashes with single slash, except after colon
-      .replace(/^http:/, 'https:'); // Ensure HTTPS
+    let finalUrl = publicUrl;
     
-    console.log('Final URL processing:', {
+    // First ensure the bucket path is correct (no double slashes)
+    const bucketPathPattern = new RegExp(`/${bucket}//`);
+    if (bucketPathPattern.test(finalUrl)) {
+      finalUrl = finalUrl.replace(bucketPathPattern, `/${bucket}/`);
+    }
+    
+    // Then normalize any remaining double slashes and ensure HTTPS
+    finalUrl = finalUrl
+      .replace(/([^:]\/)\/+/g, '$1')  // Replace multiple slashes with single slash, except after colon
+      .replace(/^http:/, 'https:');    // Ensure HTTPS
+    
+    console.log('Final URL processing:', JSON.stringify({
       originalUrl: publicUrl,
-      normalizedUrl: finalUrl
-    });
+      normalizedUrl: finalUrl,
+      hasDoubleSlash: finalUrl.includes('//')
+    }, null, 2));
+    
+    // Double-check if we still have unwanted double slashes
+    if (finalUrl.match(/([^:])\/\/+/)) {
+      console.warn('Warning: Double slash detected in final URL:', finalUrl);
+    }
     
     // Verify accessibility
     await verifyUrlAccessibility(finalUrl);
