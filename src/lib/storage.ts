@@ -36,25 +36,6 @@ function generateUniqueFileName(originalName: string): string {
   return `${timestamp}-${randomString}-${sanitizedName}`;
 }
 
-// Verify bucket exists and is accessible
-async function verifyBucket(bucket: StorageBucket): Promise<void> {
-  const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
-  
-  if (bucketError) {
-    console.error('Failed to list buckets:', bucketError);
-    toast.error('Storage system not accessible');
-    throw bucketError;
-  }
-
-  const bucketExists = buckets.some(b => b.name === bucket);
-  if (!bucketExists) {
-    const error = new Error(`Storage not properly configured: ${bucket} bucket missing`);
-    console.error(error);
-    toast.error(error.message);
-    throw error;
-  }
-}
-
 // Verify file meets requirements
 function validateFile(file: File, maxSizeMB: number = 5): void {
   if (!file.type.startsWith('image/')) {
@@ -105,9 +86,8 @@ export async function uploadImage(
   } = options;
 
   try {
-    // Validate file and bucket
+    // Validate file
     validateFile(file, maxSizeMB);
-    await verifyBucket(bucket);
 
     // Generate safe filename
     const safeFileName = generateUniqueFileName(file.name);
@@ -129,8 +109,14 @@ export async function uploadImage(
       });
 
     if (uploadError) {
-      console.error('Storage upload error:', uploadError);
-      toast.error(`Upload failed: ${uploadError.message}`);
+      // If bucket doesn't exist or isn't accessible
+      if (uploadError.message.includes('bucket') || (uploadError as any).statusCode === 400) {
+        console.error(`Storage bucket '${bucket}' error:`, uploadError);
+        toast.error(`Storage bucket '${bucket}' is not properly configured. Please contact support.`);
+      } else {
+        console.error('Storage upload error:', uploadError);
+        toast.error(`Upload failed: ${uploadError.message}`);
+      }
       throw uploadError;
     }
     
