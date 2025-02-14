@@ -124,21 +124,20 @@ export async function uploadImage(
     // Validate file
     validateFile(file, maxSizeMB);
 
-    // Generate safe filename and ensure clean path
+    // Generate safe filename without any path
     const safeFileName = generateUniqueFileName(file.name);
-    const filePath = cleanFilePath(safeFileName);
     
     console.log('Attempting to upload file:', {
-      fileName: filePath,
+      fileName: safeFileName,
       fileType: file.type,
       fileSize: file.size,
       bucket
     });
 
-    // Upload file
+    // Upload file - using the filename directly without any path manipulation
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(filePath, file, {
+      .upload(safeFileName, file, {
         cacheControl,
         contentType: file.type,
         upsert
