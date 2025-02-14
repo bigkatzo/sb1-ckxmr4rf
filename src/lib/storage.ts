@@ -9,6 +9,14 @@ interface UploadOptions {
   upsert?: boolean;
 }
 
+// Normalize storage URLs to ensure consistent format
+export function normalizeStorageUrl(url: string): string {
+  return url
+    .replace(/^http:/, 'https:') // Ensure HTTPS
+    .replace(/([^:])\/\/+/g, '$1/') // Replace multiple slashes with single slash, except after protocol
+    .replace(/\/$/, ''); // Remove trailing slash
+}
+
 // Sanitize filename to remove problematic characters
 function sanitizeFileName(fileName: string): string {
   // Remove any path traversal characters
@@ -137,10 +145,7 @@ export async function uploadImage(
       .getPublicUrl(uploadData.path);
 
     // Clean and normalize the URL
-    let finalUrl = publicUrl
-      .replace(/^http:/, 'https:') // Ensure HTTPS
-      .replace(/\/\/+/g, '/') // Replace multiple slashes with single slash
-      .replace('https:/', 'https://'); // Fix protocol slashes
+    const finalUrl = normalizeStorageUrl(publicUrl);
     
     // Log URL for debugging
     console.log('Generated public URL:', {

@@ -4,6 +4,7 @@ import { handleCollectionError } from '../utils/error-handlers';
 import { isValidCollectionSlug } from '../utils/validation';
 import { useCollectionCache } from '../contexts/CollectionContext';
 import type { Category, Collection, Product } from '../types';
+import { normalizeStorageUrl } from '../lib/storage';
 
 export function useCollection(slug: string) {
   const [collection, setCollection] = useState<Collection | null>(null);
@@ -68,11 +69,11 @@ export function useCollection(slug: string) {
           id: collectionData.id,
           name: collectionData.name,
           description: collectionData.description,
-          imageUrl: collectionData.image_url,
+          imageUrl: collectionData.image_url ? normalizeStorageUrl(collectionData.image_url) : '',
           launchDate: new Date(collectionData.launch_date),
-          featured: collectionData.featured,
+          featured: collectionData.featured || false,
           visible: collectionData.visible,
-          saleEnded: collectionData.sale_ended,
+          saleEnded: collectionData.sale_ended || false,
           slug: collectionData.slug,
           categories: (categoriesResponse.data || []).map(category => ({
             id: category.id,
@@ -89,8 +90,8 @@ export function useCollection(slug: string) {
             name: product.name,
             description: product.description,
             price: product.price,
-            imageUrl: product.images?.[0] || '',
-            images: product.images || [],
+            imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
+            images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
             categoryId: product.category_id,
             category: product.categories ? {
               id: product.categories.id,
