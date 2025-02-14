@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { transformProduct } from '../lib/realtime/transformers';
+import { normalizeStorageUrl } from '../lib/storage';
 import type { Product } from '../types';
 
 export function useProduct(collectionSlug?: string, productSlug?: string) {
@@ -40,8 +41,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           name: data.name,
           description: data.description,
           price: data.price,
-          imageUrl: data.images?.[0] || '',
-          images: data.images || [],
+          imageUrl: data.images?.[0] ? normalizeStorageUrl(data.images[0]) : '',
+          images: (data.images || []).map((img: string) => normalizeStorageUrl(img)),
           categoryId: data.category_id,
           category: data.categories ? {
             id: data.categories.id,

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase, withRetry } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import { normalizeStorageUrl } from '../lib/storage';
 import type { Collection } from '../types';
 
 export function useFeaturedCollections() {
@@ -13,49 +14,39 @@ export function useFeaturedCollections() {
     async function fetchFeaturedCollections() {
       try {
         setLoading(true);
-        setError(null);
 
-        const { data, error } = await withRetry(async () => 
-          supabase
-            .from('collections')
-            .select(`
+        const { data, error } = await supabase
+          .from('collections')
+          .select(`
+            *,
+            categories (
               id,
               name,
               description,
-              image_url,
-              launch_date,
-              featured,
-              visible,
-              sale_ended,
-              slug,
-              categories (
-                id,
-                name,
-                description,
-                type,
-                eligibility_rules
-              )
-            `)
-            .eq('featured', true)
-            .eq('visible', true)
-            .order('launch_date', { ascending: true })
-            .limit(1)
-        );
+              type,
+              eligibility_rules
+            )
+          `)
+          .eq('visible', true)
+          .eq('featured', true)
+          .lte('launch_date', new Date().toISOString())
+          .eq('sale_ended', false)
+          .order('launch_date', { ascending: false })
+          .limit(1);
 
         if (error) throw error;
-        if (!isMounted) return;
 
         const transformedCollections = (data || []).map(collection => ({
           id: collection.id,
           name: collection.name,
           description: collection.description,
-          imageUrl: collection.image_url,
+          imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
           launchDate: new Date(collection.launch_date),
           featured: collection.featured,
           visible: collection.visible,
           saleEnded: collection.sale_ended,
           slug: collection.slug,
-          categories: (collection.categories || []).map(category => ({
+          categories: (collection.categories || []).map((category: any) => ({
             id: category.id,
             name: category.name,
             description: category.description,
@@ -67,8 +58,10 @@ export function useFeaturedCollections() {
           products: []
         }));
 
-        setCollections(transformedCollections);
-        setError(null);
+        if (isMounted) {
+          setCollections(transformedCollections);
+          setError(null);
+        }
       } catch (err) {
         console.error('Error fetching featured collections:', err);
         if (isMounted) {

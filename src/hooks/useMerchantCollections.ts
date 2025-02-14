@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
+import { normalizeStorageUrl } from '../lib/storage';
 import type { Collection } from '../types';
 
 export function useMerchantCollections() {
@@ -33,7 +34,7 @@ export function useMerchantCollections() {
         id: collection.id,
         name: collection.name,
         description: collection.description,
-        imageUrl: collection.image_url,
+        imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
         launchDate: new Date(collection.launch_date),
         featured: collection.featured,
         visible: collection.visible,

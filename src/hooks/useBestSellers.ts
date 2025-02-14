@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase, withRetry } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import { handleError } from '../lib/error-handling';
+import { normalizeStorageUrl } from '../lib/storage';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
 import type { Product } from '../types';
 
@@ -7,7 +9,7 @@ export function useBestSellers(limit = 6) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryIndices, setCategoryIndices] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -15,34 +17,23 @@ export function useBestSellers(limit = 6) {
     async function fetchBestSellers() {
       try {
         setLoading(true);
-        setError(null);
-
-        const { data, error } = await withRetry(async () =>
-          supabase
-            .from('products')
-            .select(`
-              *,
-              categories:category_id (
-                id,
-                name,
-                description,
-                type,
-                eligibility_rules
-              ),
-              collections:collection_id (
-                id,
-                name,
-                slug,
-                launch_date,
-                sale_ended
-              )
-            `)
-            .order('created_at', { ascending: false })
-            .limit(limit)
-        );
+        const { data, error } = await supabase
+          .from('products')
+          .select(`
+            *,
+            categories:category_id (*),
+            collections:collection_id (
+              id,
+              name,
+              slug,
+              launch_date,
+              sale_ended
+            )
+          `)
+          .order('quantity', { ascending: false })
+          .limit(limit);
 
         if (error) throw error;
-        if (!isMounted) return;
 
         const transformedProducts = (data || []).map(product => ({
           id: product.id,
@@ -50,8 +41,8 @@ export function useBestSellers(limit = 6) {
           name: product.name,
           description: product.description,
           price: product.price,
-          imageUrl: product.images?.[0] || '',
-          images: product.images || [],
+          imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
+          images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
           categoryId: product.category_id,
           category: product.categories ? {
             id: product.categories.id,
@@ -69,19 +60,22 @@ export function useBestSellers(limit = 6) {
           collectionSaleEnded: product.collections?.sale_ended,
           slug: product.slug,
           stock: product.quantity || 0,
+          minimumOrderQuantity: product.minimum_order_quantity || 50,
           variants: product.variants || [],
           variantPrices: product.variant_prices || {},
           variantStock: product.variant_stock || {}
         }));
 
-        setProducts(transformedProducts);
-        const indices = createCategoryIndicesFromProducts(transformedProducts);
-        setCategoryIndices(indices);
-        setError(null);
+        if (isMounted) {
+          setProducts(transformedProducts);
+          const indices = createCategoryIndicesFromProducts(transformedProducts);
+          setCategoryIndices(indices);
+          setError(null);
+        }
       } catch (err) {
         console.error('Error fetching best sellers:', err);
         if (isMounted) {
-          setError(err instanceof Error ? err : new Error('Failed to fetch best sellers'));
+          setError(handleError(err));
           setProducts([]);
           setCategoryIndices({});
         }

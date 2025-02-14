@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, safeQuery } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
-import type { Collection } from '../types';
+import { normalizeStorageUrl } from '../lib/storage';
+import type { Collection, Category } from '../types';
 
 export function useCollections(filter: 'upcoming' | 'latest' | 'popular') {
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -13,19 +14,10 @@ export function useCollections(filter: 'upcoming' | 'latest' | 'popular') {
       setLoading(true);
       setError(null);
 
-      const now = new Date().toISOString();
       let query = supabase
         .from('collections')
         .select(`
-          id,
-          name,
-          description,
-          image_url,
-          launch_date,
-          featured,
-          visible,
-          sale_ended,
-          slug,
+          *,
           categories (
             id,
             name,
@@ -36,22 +28,30 @@ export function useCollections(filter: 'upcoming' | 'latest' | 'popular') {
         `)
         .eq('visible', true);
 
-      // Apply filters
-      if (filter === 'upcoming') {
-        query = query.gt('launch_date', now);
-      } else if (filter === 'latest') {
-        query = query.lte('launch_date', now);
+      // Apply filter
+      const now = new Date().toISOString();
+      switch (filter) {
+        case 'upcoming':
+          query = query
+            .gt('launch_date', now)
+            .order('launch_date', { ascending: true });
+          break;
+        case 'latest':
+          query = query
+            .lte('launch_date', now)
+            .eq('sale_ended', false)
+            .order('launch_date', { ascending: false });
+          break;
+        case 'popular':
+          query = query
+            .lte('launch_date', now)
+            .eq('sale_ended', false)
+            .order('featured', { ascending: false })
+            .order('launch_date', { ascending: false });
+          break;
       }
 
-      // Add ordering
-      if (filter === 'popular') {
-        query = query.order('featured', { ascending: false });
-      }
-      query = query.order('launch_date', { ascending: filter === 'upcoming' });
-
-      const { data, error } = await safeQuery(() => 
-        query.limit(12)
-      );
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -59,13 +59,13 @@ export function useCollections(filter: 'upcoming' | 'latest' | 'popular') {
         id: collection.id,
         name: collection.name,
         description: collection.description,
-        imageUrl: collection.image_url,
+        imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
         launchDate: new Date(collection.launch_date),
         featured: collection.featured,
         visible: collection.visible,
         saleEnded: collection.sale_ended,
         slug: collection.slug,
-        categories: (collection.categories || []).map(category => ({
+        categories: (collection.categories || []).map((category: any) => ({
           id: category.id,
           name: category.name,
           description: category.description,

@@ -72,9 +72,9 @@ export function useCollection(slug: string) {
           imageUrl: collectionData.image_url ? normalizeStorageUrl(collectionData.image_url) : '',
           launchDate: new Date(collectionData.launch_date),
           featured: collectionData.featured || false,
-          visible: collectionData.visible,
+          visible: collectionData.visible ?? true,
           saleEnded: collectionData.sale_ended || false,
-          slug: collectionData.slug,
+          slug: collectionData.slug || '',
           categories: (categoriesResponse.data || []).map(category => ({
             id: category.id,
             name: category.name,

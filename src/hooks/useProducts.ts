@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError, isValidId } from '../lib/error-handling';
+import { normalizeStorageUrl } from '../lib/storage';
 import type { Product } from '../types';
 
 export function useProducts(collectionId?: string, categoryId?: string) {
@@ -54,8 +55,8 @@ export function useProducts(collectionId?: string, categoryId?: string) {
         name: product.name,
         description: product.description,
         price: product.price,
-        imageUrl: product.images?.[0] || '',
-        images: product.images || [],
+        imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
+        images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
         categoryId: product.category_id,
         category: product.categories ? {
           id: product.categories.id,

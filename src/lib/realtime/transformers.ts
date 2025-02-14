@@ -1,15 +1,17 @@
 import type { Collection, Category, Product } from '../../types';
 import type { ProductVariant } from '../../types/variants';
+import { normalizeStorageUrl } from '../storage';
 
 export function transformCollection(dbCollection: any): Collection {
   return {
     id: dbCollection.id,
     name: dbCollection.name,
     description: dbCollection.description,
-    imageUrl: dbCollection.image_url,
+    imageUrl: dbCollection.image_url ? normalizeStorageUrl(dbCollection.image_url) : '',
     launchDate: new Date(dbCollection.launch_date),
     featured: dbCollection.featured || false,
     visible: dbCollection.visible ?? true,
+    saleEnded: dbCollection.sale_ended || false,
     slug: dbCollection.slug || '',
     categories: [],
     products: []
@@ -34,8 +36,8 @@ export function transformProduct(dbProduct: any): Product {
     name: dbProduct.name,
     description: dbProduct.description,
     price: dbProduct.price,
-    imageUrl: dbProduct.images?.[0] || '',
-    images: dbProduct.images || [],
+    imageUrl: dbProduct.images?.[0] ? normalizeStorageUrl(dbProduct.images[0]) : '',
+    images: (dbProduct.images || []).map((img: string) => normalizeStorageUrl(img)),
     categoryId: dbProduct.category_id,
     category,
     collectionId: dbProduct.collection_id,
@@ -43,8 +45,8 @@ export function transformProduct(dbProduct: any): Product {
     collectionSlug: dbProduct.collections?.slug,
     slug: dbProduct.slug || '',
     stock: dbProduct.quantity || 0,
+    minimumOrderQuantity: dbProduct.minimum_order_quantity || 50,
     variants,
-    variantPrices: dbProduct.variant_prices || {},
-    variantStock: dbProduct.variant_stock || {}
+    variantPrices: dbProduct.variant_prices || {}
   };
 }
