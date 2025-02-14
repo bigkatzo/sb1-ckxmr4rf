@@ -11,10 +11,12 @@ interface UploadOptions {
 
 // Normalize storage URLs to ensure consistent format
 export function normalizeStorageUrl(url: string): string {
+  if (!url) return '';
   return url
     .replace(/^http:/, 'https:') // Ensure HTTPS
     .replace(/([^:])\/\/+/g, '$1/') // Replace multiple slashes with single slash, except after protocol
-    .replace(/\/$/, ''); // Remove trailing slash
+    .replace(/\/$/, '') // Remove trailing slash
+    .replace(/^\/+/, ''); // Remove leading slashes
 }
 
 // Sanitize filename to remove problematic characters
@@ -97,11 +99,9 @@ export async function uploadImage(
     // Validate file
     validateFile(file, maxSizeMB);
 
-    // Generate safe filename
+    // Generate safe filename and ensure clean path
     const safeFileName = generateUniqueFileName(file.name);
-    
-    // Ensure clean path without leading slash
-    const filePath = safeFileName.replace(/^\/+/, '');
+    const filePath = normalizeStorageUrl(safeFileName);
     
     console.log('Attempting to upload file:', {
       fileName: filePath,
