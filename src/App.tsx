@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
@@ -14,6 +14,13 @@ import { usePayment } from './hooks/usePayment';
 import { ToastContainer } from 'react-toastify';
 import { EnvTest } from './components/EnvTest';
 import 'react-toastify/dist/ReactToastify.css';
+
+// Debug logging
+console.log('Environment Variables:', {
+  SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+  NODE_ENV: import.meta.env.MODE,
+  DEV: import.meta.env.DEV,
+});
 
 function TransactionStatusWrapper() {
   const { status, resetStatus } = usePayment();
@@ -43,6 +50,41 @@ function NotificationsWrapper() {
   );
 }
 
+function AppContent() {
+  useEffect(() => {
+    console.log('App mounted');
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
+      <Navbar />
+      <main className="flex-1 pt-16">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 w-full">
+          {import.meta.env.DEV && <EnvTest />}
+          <Outlet />
+        </div>
+      </main>
+      <Footer />
+      <div className="fixed bottom-0 right-0 z-40 p-4 space-y-4 max-w-full">
+        <TransactionStatusWrapper />
+        <NotificationsWrapper />
+      </div>
+      <ToastContainer
+        position="bottom-right"
+        theme="dark"
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        className="z-[9999] max-w-[90vw] sm:max-w-md"
+      />
+    </div>
+  );
+}
+
 export function App() {
   return (
     <ErrorBoundary>
@@ -50,32 +92,7 @@ export function App() {
         <AuthProvider>
           <CollectionProvider>
             <ModalProvider>
-              <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
-                <Navbar />
-                <main className="flex-1 pt-16">
-                  <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 w-full">
-                    {import.meta.env.DEV && <EnvTest />}
-                    <Outlet />
-                  </div>
-                </main>
-                <Footer />
-                <div className="fixed bottom-0 right-0 z-40 p-4 space-y-4 max-w-full">
-                  <TransactionStatusWrapper />
-                  <NotificationsWrapper />
-                </div>
-                <ToastContainer
-                  position="bottom-right"
-                  theme="dark"
-                  hideProgressBar={false}
-                  newestOnTop
-                  closeOnClick
-                  rtl={false}
-                  pauseOnFocusLoss
-                  draggable
-                  pauseOnHover
-                  className="z-[9999] max-w-[90vw] sm:max-w-md"
-                />
-              </div>
+              <AppContent />
             </ModalProvider>
           </CollectionProvider>
         </AuthProvider>
