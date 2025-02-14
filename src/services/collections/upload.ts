@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { withRetry } from '../../lib/supabase';
+import { toast } from 'react-toastify';
 
 // Sanitize filename to remove problematic characters
 function sanitizeFileName(fileName: string): string {
@@ -24,12 +25,16 @@ export async function uploadCollectionImage(file: File): Promise<string> {
   try {
     // Validate file
     if (!file.type.startsWith('image/')) {
-      throw new Error('Invalid file type. Only images are allowed.');
+      const error = new Error('Invalid file type. Only images are allowed.');
+      toast.error(error.message);
+      throw error;
     }
 
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
-      throw new Error('File size too large. Maximum size is 5MB.');
+      const error = new Error('File size too large. Maximum size is 5MB.');
+      toast.error(error.message);
+      throw error;
     }
 
     // Generate safe filename with better sanitization
@@ -38,36 +43,51 @@ export async function uploadCollectionImage(file: File): Promise<string> {
     const sanitizedName = sanitizeFileName(file.name);
     const safeFileName = `${timestamp}-${randomString}-${sanitizedName}`;
     
+    console.log('Attempting to upload file:', {
+      fileName: safeFileName,
+      fileType: file.type,
+      fileSize: file.size
+    });
+
     // Upload with retries - include cache control
     const { data: uploadData, error: uploadError } = await withRetry(() =>
       supabase.storage
         .from('collection-images')
         .upload(safeFileName, file, {
-          cacheControl: '31536000', // 1 year cache
+          cacheControl: '3600', // Reduced to 1 hour for testing
           contentType: file.type,
           upsert: false
         })
     );
 
-    if (uploadError) throw uploadError;
-    if (!uploadData?.path) throw new Error('No upload path returned');
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      toast.error(`Upload failed: ${uploadError.message}`);
+      throw uploadError;
+    }
+    
+    if (!uploadData?.path) {
+      const error = new Error('No upload path returned');
+      toast.error(error.message);
+      throw error;
+    }
 
-    // Get public URL with transformation options
+    console.log('File uploaded successfully:', uploadData.path);
+
+    // Get public URL without transformation options since they're not supported in free tier
     const { data: { publicUrl } } = supabase.storage
       .from('collection-images')
-      .getPublicUrl(uploadData.path, {
-        transform: {
-          quality: 80,
-          format: 'webp'
-        }
-      });
+      .getPublicUrl(uploadData.path);
 
     // Ensure the URL uses HTTPS
     const finalUrl = publicUrl.replace(/^http:/, 'https:');
+    console.log('Generated public URL:', finalUrl);
     
     return finalUrl;
   } catch (error) {
     console.error('Collection image upload error:', error);
-    throw error instanceof Error ? error : new Error('Failed to upload collection image');
+    const message = error instanceof Error ? error.message : 'Failed to upload collection image';
+    toast.error(message);
+    throw error instanceof Error ? error : new Error(message);
   }
 }
