@@ -29,10 +29,10 @@ export function normalizeStorageUrl(url: string): string {
   // Clean up the path part (after /storage/)
   const cleanPath = pathParts.join('/storage/')
     .split('/')
-    .filter(Boolean) // Remove empty segments
+    .filter(Boolean) // Remove empty segments that would cause double slashes
     .join('/');
 
-  // Reconstruct the URL
+  // Reconstruct the URL without adding extra slashes
   return `${base}/storage/${cleanPath}`;
 }
 
@@ -124,7 +124,7 @@ export async function uploadImage(
     // Validate file
     validateFile(file, maxSizeMB);
 
-    // Generate safe filename without any path
+    // Generate safe filename without any path or leading slash
     const safeFileName = generateUniqueFileName(file.name);
     
     console.log('Attempting to upload file:', {
@@ -134,10 +134,10 @@ export async function uploadImage(
       bucket
     });
 
-    // Upload file - using the filename directly without any path manipulation
+    // Upload file - using the filename directly without any path manipulation or leading slash
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(safeFileName, file, {
+      .upload(safeFileName.replace(/^\/+/, ''), file, {
         cacheControl,
         contentType: file.type,
         upsert
@@ -166,7 +166,7 @@ export async function uploadImage(
     // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from(bucket)
-      .getPublicUrl(uploadData.path);
+      .getPublicUrl(uploadData.path.replace(/^\/+/, '')); // Ensure no leading slash
 
     // Clean and normalize the URL
     const finalUrl = normalizeStorageUrl(publicUrl);
