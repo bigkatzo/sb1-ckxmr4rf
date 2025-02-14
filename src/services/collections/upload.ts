@@ -46,15 +46,35 @@ export async function uploadCollectionImage(file: File): Promise<string> {
     console.log('Attempting to upload file:', {
       fileName: safeFileName,
       fileType: file.type,
-      fileSize: file.size
+      fileSize: file.size,
+      bucket: 'collection-images'
     });
+
+    // First check if bucket exists
+    const { data: buckets, error: bucketError } = await supabase
+      .storage
+      .listBuckets();
+    
+    if (bucketError) {
+      console.error('Failed to list buckets:', bucketError);
+      toast.error('Storage system not accessible');
+      throw bucketError;
+    }
+
+    const bucketExists = buckets.some(b => b.name === 'collection-images');
+    if (!bucketExists) {
+      const error = new Error('Storage not properly configured: collection-images bucket missing');
+      console.error(error);
+      toast.error(error.message);
+      throw error;
+    }
 
     // Upload with retries - include cache control
     const { data: uploadData, error: uploadError } = await withRetry(() =>
       supabase.storage
         .from('collection-images')
         .upload(safeFileName, file, {
-          cacheControl: '3600', // Reduced to 1 hour for testing
+          cacheControl: '3600',
           contentType: file.type,
           upsert: false
         })
@@ -74,14 +94,33 @@ export async function uploadCollectionImage(file: File): Promise<string> {
 
     console.log('File uploaded successfully:', uploadData.path);
 
-    // Get public URL without transformation options since they're not supported in free tier
+    // Get public URL and ensure it's using the correct domain
     const { data: { publicUrl } } = supabase.storage
       .from('collection-images')
       .getPublicUrl(uploadData.path);
 
-    // Ensure the URL uses HTTPS
-    const finalUrl = publicUrl.replace(/^http:/, 'https:');
-    console.log('Generated public URL:', finalUrl);
+    // Ensure the URL uses HTTPS and the correct domain
+    let finalUrl = publicUrl.replace(/^http:/, 'https:');
+    
+    // Log the URL for debugging
+    console.log('Generated public URL:', {
+      original: publicUrl,
+      final: finalUrl,
+      path: uploadData.path
+    });
+    
+    // Verify the URL is accessible
+    try {
+      const response = await fetch(finalUrl, { method: 'HEAD' });
+      if (!response.ok) {
+        console.warn('Warning: Generated image URL may not be publicly accessible:', {
+          status: response.status,
+          url: finalUrl
+        });
+      }
+    } catch (error) {
+      console.warn('Warning: Could not verify image URL accessibility:', error);
+    }
     
     return finalUrl;
   } catch (error) {
