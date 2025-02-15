@@ -181,7 +181,7 @@ export function FeaturedCollection() {
                       to={`/${collection.slug}`}
                       className="mt-3 sm:mt-4 md:mt-6 inline-flex items-center space-x-2 rounded-full bg-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-6 md:py-3 text-xs sm:text-sm font-medium text-black transition-colors hover:bg-gray-100"
                       onClick={(e) => {
-                        if (isDragging) {
+                        if (isDragging && Math.abs(dragOffset) > minSwipeDistance) {
                           e.preventDefault();
                         }
                       }}
