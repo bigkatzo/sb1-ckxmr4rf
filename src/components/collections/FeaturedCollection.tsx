@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Clock, Image as ImageIcon, Ban, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFeaturedCollections } from '../../hooks/useFeaturedCollections';
@@ -7,6 +7,48 @@ import { CountdownTimer } from '../ui/CountdownTimer';
 export function FeaturedCollection() {
   const { collections, loading } = useFeaturedCollections();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  // Required minimum swipe distance in pixels
+  const minSwipeDistance = 50;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+    setTouchEnd(null);
+    setIsDragging(true);
+    setDragOffset(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart || !isDragging) return;
+    
+    const currentTouch = e.targetTouches[0].clientX;
+    const diff = touchStart - currentTouch;
+    setDragOffset(diff);
+    setTouchEnd(currentTouch);
+  };
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      nextSlide();
+    } else if (isRightSwipe) {
+      prevSlide();
+    }
+
+    setTouchStart(null);
+    setTouchEnd(null);
+    setIsDragging(false);
+    setDragOffset(0);
+  }, [touchStart, touchEnd]);
 
   // Auto-advance the slider every 10 seconds
   useEffect(() => {
@@ -41,22 +83,33 @@ export function FeaturedCollection() {
     return null;
   }
 
+  const translateX = isDragging 
+    ? -(currentIndex * 100) + (dragOffset / window.innerWidth * 100)
+    : -(currentIndex * 100);
+
   return (
-    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group">
+    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group touch-pan-y">
       <div 
-        className="flex h-full transition-transform duration-500 ease-out" 
-        style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+        className="flex h-full transition-transform duration-500 ease-out touch-pan-y"
+        style={{ 
+          transform: `translateX(${translateX}%)`,
+          transition: isDragging ? 'none' : 'transform 500ms ease-out'
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {collections.map((collection, index) => {
           const isUpcoming = new Date(collection.launchDate) > new Date();
           
           return (
-            <div key={collection.id} className="w-full h-full flex-shrink-0">
+            <div key={collection.id} className="w-full h-full flex-shrink-0 select-none">
               {collection.imageUrl ? (
                 <img
                   src={collection.imageUrl}
                   alt={collection.name}
                   className="absolute inset-0 h-full w-full object-cover"
+                  draggable={false}
                 />
               ) : (
                 <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
@@ -119,6 +172,11 @@ export function FeaturedCollection() {
                   <Link
                     to={`/${collection.slug}`}
                     className="inline-flex items-center space-x-2 rounded-full bg-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-6 md:py-3 text-xs sm:text-sm font-medium text-black transition-colors hover:bg-gray-100"
+                    onClick={(e) => {
+                      if (isDragging) {
+                        e.preventDefault();
+                      }
+                    }}
                   >
                     <span>View Collection</span>
                     <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
