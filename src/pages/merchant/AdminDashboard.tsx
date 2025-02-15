@@ -28,52 +28,22 @@ export function AdminDashboard() {
           return;
         }
 
-        // Check admin status using the debug function first
-        const { data: debugData, error: debugError } = await supabase.rpc('debug_admin_access');
-        
-        if (debugError) {
-          console.error('Error checking admin access:', debugError);
-          setError('Error verifying admin access. Please try again.');
-          setIsAdmin(false);
-          return;
-        }
+        // Check if user has admin role
+        const { data: isAdminCheck, error: adminError } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
 
-        // Log debug info for troubleshooting
-        console.log('Admin access debug info:', debugData);
-
-        // Check for error in debug data
-        if (debugData.error) {
-          setError(`Admin access error: ${debugData.error}`);
-          setIsAdmin(false);
-          return;
-        }
-
-        // Check if user has admin access
-        if (!debugData.is_admin) {
-          // Get detailed error message from debug data
-          const errorDetails = [
-            !debugData.profile_exists && 'No user profile found',
-            debugData.profile_exists && debugData.profile_role !== 'admin' && 'User profile does not have admin role',
-            debugData.metadata_role !== 'admin' && 'User metadata does not reflect admin role'
-          ].filter(Boolean).join(', ');
-
-          setError(`You do not have admin access. ${errorDetails}`);
-          setIsAdmin(false);
-          return;
-        }
-
-        // Double check with is_admin function
-        const { data: isAdminCheck, error: adminError } = await supabase.rpc('is_admin');
-        
         if (adminError) {
-          console.error('Error in secondary admin check:', adminError);
-          setError('Error verifying admin access. Please try again.');
+          console.error('Error checking admin status:', adminError);
+          setError('Error verifying admin access');
           setIsAdmin(false);
           return;
         }
 
-        if (!isAdminCheck) {
-          setError('Admin access verification failed. Please contact support if you believe this is an error.');
+        if (!isAdminCheck || isAdminCheck.role !== 'admin') {
+          setError('You do not have admin access');
           setIsAdmin(false);
           return;
         }
@@ -82,7 +52,7 @@ export function AdminDashboard() {
         setError(null);
       } catch (err) {
         console.error('Unexpected error checking admin status:', err);
-        setError('An unexpected error occurred while verifying admin access. Please try again.');
+        setError('An unexpected error occurred');
         setIsAdmin(false);
       }
     }
