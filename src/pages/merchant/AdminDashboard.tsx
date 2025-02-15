@@ -23,49 +23,47 @@ export function AdminDashboard() {
       try {
         // First verify we have a session
         if (!session?.user?.id) {
-          console.error('No user session found');
           setError('Please sign in to access admin settings');
           setIsAdmin(false);
           return;
         }
 
-        // Check admin status
-        const { data, error: rpcError } = await supabase.rpc('is_admin');
+        // Check admin status using the debug function first
+        const { data: debugData, error: debugError } = await supabase.rpc('debug_admin_access');
         
-        if (rpcError) {
-          console.error('Error checking admin status:', rpcError);
-          setError(rpcError.message);
-          setIsAdmin(false);
-          return;
-        }
-
-        // Verify user profile exists
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profileError) {
-          console.error('Error fetching user profile:', profileError);
+        if (debugError) {
+          console.error('Error checking admin access:', debugError);
           setError('Error verifying admin access');
           setIsAdmin(false);
           return;
         }
 
-        if (!profile) {
-          console.error('No user profile found');
-          setError('User profile not found');
+        if (!debugData.is_admin) {
+          console.log('User is not an admin. Debug info:', debugData);
+          setError('You do not have admin access');
           setIsAdmin(false);
           return;
         }
 
-        setIsAdmin(data === true);
+        // Double check with is_admin function
+        const { data: isAdminCheck, error: adminError } = await supabase.rpc('is_admin');
         
-        if (data !== true) {
-          console.log('User is not an admin. Profile role:', profile.role);
-          setError('You do not have admin access');
+        if (adminError) {
+          console.error('Error in secondary admin check:', adminError);
+          setError('Error verifying admin access');
+          setIsAdmin(false);
+          return;
         }
+
+        if (!isAdminCheck) {
+          console.error('Secondary admin check failed');
+          setError('Admin access verification failed');
+          setIsAdmin(false);
+          return;
+        }
+
+        setIsAdmin(true);
+        setError(null);
       } catch (err) {
         console.error('Unexpected error checking admin status:', err);
         setError('An unexpected error occurred');
@@ -92,22 +90,19 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="border-b border-gray-800 pb-4 mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold">Admin Settings</h1>
-        <p className="text-xs sm:text-sm text-gray-400 mt-1">Manage users, wallets, and system settings</p>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+      
+      <div className="mb-6">
+        <Tabs
+          tabs={tabs}
+          activeId={activeTab}
+          onChange={setActiveTab}
+        />
       </div>
 
-      <div className="border-b border-gray-800 -mx-4 sm:-mx-6 lg:-mx-8">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <Tabs tabs={tabs} activeId={activeTab} onChange={setActiveTab} />
-        </div>
-      </div>
-
-      <div className="min-h-[500px]">
-        {activeTab === 'users' && <UserManagement />}
-        {activeTab === 'wallets' && <WalletManagement />}
-      </div>
+      {activeTab === 'users' && <UserManagement />}
+      {activeTab === 'wallets' && <WalletManagement />}
     </div>
   );
 }
