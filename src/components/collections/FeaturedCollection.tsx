@@ -93,7 +93,8 @@ export function FeaturedCollection() {
         className="flex h-full transition-transform duration-500 ease-out touch-pan-y"
         style={{ 
           transform: `translateX(${translateX}%)`,
-          transition: isDragging ? 'none' : 'transform 500ms ease-out'
+          transition: isDragging ? 'none' : 'transform 500ms ease-out',
+          width: `${collections.length * 100}%`
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -103,16 +104,16 @@ export function FeaturedCollection() {
           const isUpcoming = new Date(collection.launchDate) > new Date();
           
           return (
-            <div key={collection.id} className="w-full h-full flex-shrink-0 select-none">
+            <div key={collection.id} className="relative w-full h-full flex-shrink-0 select-none">
               {collection.imageUrl ? (
                 <img
                   src={collection.imageUrl}
                   alt={collection.name}
-                  className="absolute inset-0 h-full w-full object-cover"
+                  className="h-full w-full object-cover"
                   draggable={false}
                 />
               ) : (
-                <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                <div className="h-full w-full bg-gray-800 flex items-center justify-center">
                   <ImageIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-600" />
                 </div>
               )}
