@@ -26,7 +26,8 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
-    const scrollAmount = direction === 'left' ? -400 : 400;
+    const containerWidth = scrollRef.current.clientWidth;
+    const scrollAmount = direction === 'left' ? -(containerWidth * 0.8) : containerWidth * 0.8;
     scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   };
 
@@ -53,13 +54,13 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
     <div className="relative group">
       <div
         ref={scrollRef}
-        className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
+        className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
       >
         {collections.map((collection) => (
           <div
             key={collection.id}
             onClick={() => navigate(`/${collection.slug}`)}
-            className="flex-shrink-0 w-[280px] sm:w-[320px] cursor-pointer"
+            className="flex-shrink-0 w-[280px] sm:w-[320px] cursor-pointer snap-start"
           >
             <CollectionCard 
               collection={collection} 

@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductCardCompact } from './ProductCardCompact';
 import { ProductModal } from './ProductModal';
 import { useBestSellers } from '../../hooks/useBestSellers';
+import type { Product } from '../../types';
 
 export function BestSellers() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -11,7 +12,8 @@ export function BestSellers() {
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
-    const scrollAmount = direction === 'left' ? -400 : 400;
+    const containerWidth = scrollRef.current.clientWidth;
+    const scrollAmount = direction === 'left' ? -(containerWidth * 0.8) : containerWidth * 0.8;
     scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   };
 
@@ -35,10 +37,10 @@ export function BestSellers() {
       <div className="relative group">
         <div
           ref={scrollRef}
-          className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
+          className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
         >
           {products.map((product) => (
-            <div key={product.id} className="flex-shrink-0 w-[140px] sm:w-[200px]">
+            <div key={product.id} className="flex-shrink-0 w-[140px] sm:w-[200px] snap-start">
               <ProductCardCompact 
                 product={product}
                 onClick={() => setSelectedProduct(product)}

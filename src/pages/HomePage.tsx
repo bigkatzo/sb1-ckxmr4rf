@@ -7,7 +7,7 @@ import { SectionHeader } from '../components/ui/SectionHeader';
 
 export function HomePage() {
   return (
-    <div className="space-y-8 sm:space-y-12">
+    <div className="space-y-8 sm:space-y-12 scroll-smooth">
       <FeaturedCollection />
       
       <section>

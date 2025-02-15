@@ -141,7 +141,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
             </div>
 
             <div className="flex flex-col h-full max-h-[60vh] md:max-h-[90vh] overflow-hidden">
-              <div className="p-4 space-y-4 flex-1 overflow-y-auto md:overflow-y-scroll scrollbar-hide">
+              <div className="p-4 space-y-4 flex-1 overflow-y-auto md:overflow-y-scroll scrollbar-hide scroll-smooth">
                 {product.collectionSlug && product.collectionName && (
                   <Link
                     to={`/${product.collectionSlug}`}

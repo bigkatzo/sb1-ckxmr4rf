@@ -107,14 +107,15 @@ export function FeaturedCollection() {
     <div className="space-y-2">
       <div className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group touch-pan-y">
         <div 
-          className="flex h-full transition-transform duration-500 ease-out touch-pan-y"
+          className="flex h-full transition-transform duration-500 ease-out touch-pan-y will-change-transform"
           style={{ 
             transform: `translateX(${translateX}%)`,
-            transition: isDragging ? 'none' : 'transform 500ms ease-out'
+            transition: isDragging ? 'none' : 'transform 500ms cubic-bezier(0.4, 0, 0.2, 1)'
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
         >
           {collections.map((collection, index) => {
             const isUpcoming = new Date(collection.launchDate) > new Date();
@@ -222,9 +223,10 @@ export function FeaturedCollection() {
             <button
               key={index}
               onClick={() => goToSlide(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentIndex ? 'bg-gray-800 w-4' : 'bg-gray-400'
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                index === currentIndex ? 'bg-gray-800 w-4' : 'bg-gray-400 hover:bg-gray-600'
               }`}
+              aria-label={`Go to slide ${index + 1}`}
             />
           ))}
         </div>

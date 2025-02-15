@@ -6,9 +6,10 @@ import type { Collection } from '../../types';
 interface CollectionCardProps {
   collection: Collection;
   variant?: 'default' | 'large';
+  categoryIndices?: Record<string, number>;
 }
 
-export function CollectionCard({ collection, variant = 'default' }: CollectionCardProps) {
+export function CollectionCard({ collection, variant = 'default', categoryIndices = {} }: CollectionCardProps) {
   const now = new Date();
   const isUpcoming = collection.launchDate > now;
   const isNew = !isUpcoming && (now.getTime() - collection.launchDate.getTime()) < 7 * 24 * 60 * 60 * 1000;
@@ -36,7 +37,7 @@ export function CollectionCard({ collection, variant = 'default' }: CollectionCa
         )}
         
         <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/25 to-transparent">
-          {(isUpcoming || isNew || collection.sale_ended) && (
+          {(isUpcoming || isNew || collection.saleEnded) && (
             <div className="absolute inset-x-0 bottom-2 sm:bottom-3 flex justify-center">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 {isUpcoming && (
@@ -50,7 +51,7 @@ export function CollectionCard({ collection, variant = 'default' }: CollectionCa
                     New Drop
                   </span>
                 )}
-                {collection.sale_ended && (
+                {collection.saleEnded && (
                   <span className="inline-flex items-center rounded-full bg-red-500/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
                     <Ban className="mr-1 h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     Sale Ended

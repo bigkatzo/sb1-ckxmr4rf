@@ -50,7 +50,7 @@ export function CollectionGrid({ filter }: CollectionGridProps) {
         <div
           key={collection.id}
           onClick={() => navigate(`/${collection.slug}`)}
-          className="cursor-pointer"
+          className="cursor-pointer animate-fade-in"
         >
           <CollectionCard 
             collection={collection} 

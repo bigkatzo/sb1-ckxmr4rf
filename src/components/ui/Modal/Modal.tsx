@@ -44,7 +44,7 @@ export function Modal({ isOpen, onClose, title, children, className = '' }: Moda
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="max-h-[calc(100vh-8rem)] overflow-y-auto">
+            <div className="max-h-[calc(100vh-8rem)] overflow-y-auto scroll-smooth scrollbar-hide">
               {children}
             </div>
           </div>

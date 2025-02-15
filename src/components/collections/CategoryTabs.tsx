@@ -26,14 +26,14 @@ export function CategoryTabs({ categories, selectedId, onChange, categoryIndices
       <div className="border-b border-gray-800 -mx-4 sm:mx-0">
         <div 
           ref={scrollRef}
-          className="flex overflow-x-auto scrollbar-hide px-4 sm:px-0 -mb-px gap-1 sm:gap-2"
+          className="flex overflow-x-auto scrollbar-hide px-4 sm:px-0 -mb-px gap-1 sm:gap-2 scroll-smooth snap-x snap-mandatory"
         >
           {categories.map((category) => (
             <button
               key={category.id}
               onClick={() => handleTabClick(category.id)}
               className={`
-                flex items-center gap-2 border-b-2 px-2.5 py-3 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors
+                flex items-center gap-2 border-b-2 px-2.5 py-3 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors snap-start
                 ${selectedId === category.id
                   ? 'border-purple-500 text-white'
                   : 'border-transparent text-gray-400 hover:border-gray-700 hover:text-gray-300'
