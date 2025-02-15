@@ -33,7 +33,7 @@ export function AdminDashboard() {
         
         if (debugError) {
           console.error('Error checking admin access:', debugError);
-          setError('Error verifying admin access');
+          setError('Error verifying admin access. Please try again.');
           setIsAdmin(false);
           return;
         }
@@ -41,15 +41,22 @@ export function AdminDashboard() {
         // Log debug info for troubleshooting
         console.log('Admin access debug info:', debugData);
 
+        // Check for error in debug data
+        if (debugData.error) {
+          setError(`Admin access error: ${debugData.error}`);
+          setIsAdmin(false);
+          return;
+        }
+
+        // Check if user has admin access
         if (!debugData.is_admin) {
           // Get detailed error message from debug data
           const errorDetails = [
             !debugData.profile_exists && 'No user profile found',
-            debugData.profile_role !== 'admin' && 'User profile does not have admin role',
+            debugData.profile_exists && debugData.profile_role !== 'admin' && 'User profile does not have admin role',
             debugData.metadata_role !== 'admin' && 'User metadata does not reflect admin role'
           ].filter(Boolean).join(', ');
 
-          console.log('User is not an admin. Reason:', errorDetails);
           setError(`You do not have admin access. ${errorDetails}`);
           setIsAdmin(false);
           return;
@@ -60,13 +67,12 @@ export function AdminDashboard() {
         
         if (adminError) {
           console.error('Error in secondary admin check:', adminError);
-          setError('Error verifying admin access');
+          setError('Error verifying admin access. Please try again.');
           setIsAdmin(false);
           return;
         }
 
         if (!isAdminCheck) {
-          console.error('Secondary admin check failed');
           setError('Admin access verification failed. Please contact support if you believe this is an error.');
           setIsAdmin(false);
           return;
@@ -76,7 +82,7 @@ export function AdminDashboard() {
         setError(null);
       } catch (err) {
         console.error('Unexpected error checking admin status:', err);
-        setError('An unexpected error occurred while verifying admin access');
+        setError('An unexpected error occurred while verifying admin access. Please try again.');
         setIsAdmin(false);
       }
     }

@@ -60,6 +60,24 @@ export function UserManagement() {
       setLoading(true);
       setError(null);
 
+      // First verify we have a session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error('No active session found');
+      }
+
+      // Check if user is admin
+      const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin');
+      if (adminError) {
+        console.error('Error checking admin status:', adminError);
+        throw new Error('Failed to verify admin access');
+      }
+
+      if (!isAdmin) {
+        throw new Error('Only admin users can access this page');
+      }
+
+      // Fetch users with proper error handling
       const { data, error } = await supabase.rpc('admin_list_users', {
         p_search: searchQuery || null,
         p_role: roleFilter || null,
@@ -67,7 +85,16 @@ export function UserManagement() {
         p_offset: page * 10
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from admin_list_users:', error);
+        throw error;
+      }
+
+      if (!data) {
+        throw new Error('No data returned from admin_list_users');
+      }
+
+      console.log('Fetched users:', data); // Debug log
 
       setUsers(data.map((user: AdminListUsersResponse) => ({
         id: user.id,
@@ -79,9 +106,10 @@ export function UserManagement() {
         metadata: user.metadata
       })));
     } catch (err) {
-      console.error('Error fetching users:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch users');
-      toast.error(err instanceof Error ? err.message : 'Failed to fetch users');
+      console.error('Error in fetchUsers:', err);
+      const message = err instanceof Error ? err.message : 'Failed to fetch users';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -93,7 +121,7 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
-      const { data, error: createError } = await supabase.rpc(
+      const { data: userId, error: createError } = await supabase.rpc(
         'admin_create_user',
         {
           p_email: createUserData.email,
