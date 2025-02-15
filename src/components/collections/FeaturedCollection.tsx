@@ -91,7 +91,7 @@ export function FeaturedCollection() {
 
   if (loading) {
     return (
-      <div className="relative h-[40vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl animate-pulse bg-gray-800" />
+      <div className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl animate-pulse bg-gray-800" />
     );
   }
 
@@ -104,138 +104,142 @@ export function FeaturedCollection() {
     : -(currentIndex * 100);
 
   return (
-    <div className="relative h-[40vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group touch-pan-y">
-      <div 
-        className="flex h-full transition-transform duration-500 ease-out touch-pan-y"
-        style={{ 
-          transform: `translateX(${translateX}%)`,
-          transition: isDragging ? 'none' : 'transform 500ms ease-out'
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {collections.map((collection, index) => {
-          const isUpcoming = new Date(collection.launchDate) > new Date();
-          
-          return (
-            <div 
-              key={collection.id} 
-              className="relative min-w-full h-full flex-shrink-0 select-none"
-            >
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                {collection.imageUrl ? (
-                  <img
-                    src={collection.imageUrl}
-                    alt={collection.name}
-                    className="h-full w-full object-cover"
-                    draggable={false}
-                  />
-                ) : (
-                  <ImageIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-600" />
-                )}
-              </div>
-              
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                {(isUpcoming || collection.saleEnded) && (
-                  <>
-                    {isUpcoming && (
-                      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-8 md:right-8">
-                        <CountdownTimer
-                          targetDate={collection.launchDate}
-                          className="text-sm sm:text-base md:text-xl text-purple-400 bg-black/50 px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg backdrop-blur-sm"
-                        />
-                      </div>
-                    )}
-                    <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8">
-                      {isUpcoming ? (
-                        <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
-                          <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                          <span className="text-sm sm:text-base font-medium">Coming Soon</span>
-                        </div>
-                      ) : collection.saleEnded && (
-                        <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
-                          <Ban className="h-4 w-4 sm:h-5 sm:w-5" />
-                          <span className="text-sm sm:text-base font-medium">Sale Ended</span>
+    <div className="space-y-2">
+      <div className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group touch-pan-y">
+        <div 
+          className="flex h-full transition-transform duration-500 ease-out touch-pan-y"
+          style={{ 
+            transform: `translateX(${translateX}%)`,
+            transition: isDragging ? 'none' : 'transform 500ms ease-out'
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {collections.map((collection, index) => {
+            const isUpcoming = new Date(collection.launchDate) > new Date();
+            
+            return (
+              <div 
+                key={collection.id} 
+                className="relative min-w-full h-full flex-shrink-0 select-none"
+              >
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                  {collection.imageUrl ? (
+                    <img
+                      src={collection.imageUrl}
+                      alt={collection.name}
+                      className="h-full w-full object-cover"
+                      draggable={false}
+                    />
+                  ) : (
+                    <ImageIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-600" />
+                  )}
+                </div>
+                
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+                  {(isUpcoming || collection.saleEnded) && (
+                    <>
+                      {isUpcoming && (
+                        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-8 md:right-8">
+                          <CountdownTimer
+                            targetDate={collection.launchDate}
+                            className="text-sm sm:text-base md:text-xl text-purple-400 bg-black/50 px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg backdrop-blur-sm"
+                          />
                         </div>
                       )}
+                      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8">
+                        {isUpcoming ? (
+                          <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
+                            <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                            <span className="text-sm sm:text-base font-medium">Coming Soon</span>
+                          </div>
+                        ) : collection.saleEnded && (
+                          <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
+                            <Ban className="h-4 w-4 sm:h-5 sm:w-5" />
+                            <span className="text-sm sm:text-base font-medium">Sale Ended</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 w-full px-4 sm:px-6 md:px-8 space-y-2 sm:space-y-3 md:space-y-4">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="inline-block rounded-full bg-purple-500 px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm font-medium">
+                        Featured Drop
+                      </span>
+                      {isUpcoming && (
+                        <span className="inline-block rounded-full bg-purple-500/20 text-purple-300 px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm font-medium">
+                          Upcoming
+                        </span>
+                      )}
+                      {collection.saleEnded && (
+                        <span className="inline-block rounded-full bg-red-500/20 text-red-300 px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm font-medium">
+                          Sale Ended
+                        </span>
+                      )}
                     </div>
-                  </>
-                )}
 
-                <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 w-full px-4 sm:px-6 md:px-8 space-y-2 sm:space-y-3 md:space-y-4">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="inline-block rounded-full bg-purple-500 px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm font-medium">
-                      Featured Drop
-                    </span>
-                    {isUpcoming && (
-                      <span className="inline-block rounded-full bg-purple-500/20 text-purple-300 px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm font-medium">
-                        Upcoming
-                      </span>
-                    )}
-                    {collection.saleEnded && (
-                      <span className="inline-block rounded-full bg-red-500/20 text-red-300 px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm font-medium">
-                        Sale Ended
-                      </span>
-                    )}
+                    <h1 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold text-white max-w-2xl">
+                      {collection.name}
+                    </h1>
+                    
+                    <p className="text-xs sm:text-sm md:text-base text-gray-300 max-w-xl line-clamp-2 sm:line-clamp-none">
+                      {collection.description}
+                    </p>
+
+                    <Link
+                      to={`/${collection.slug}`}
+                      className="inline-flex items-center space-x-2 rounded-full bg-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-6 md:py-3 text-xs sm:text-sm font-medium text-black transition-colors hover:bg-gray-100"
+                      onClick={(e) => {
+                        if (isDragging) {
+                          e.preventDefault();
+                        }
+                      }}
+                    >
+                      <span>View Collection</span>
+                      <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
+                    </Link>
                   </div>
-
-                  <h1 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold text-white max-w-2xl">
-                    {collection.name}
-                  </h1>
-                  
-                  <p className="text-xs sm:text-sm md:text-base text-gray-300 max-w-xl line-clamp-2 sm:line-clamp-none">
-                    {collection.description}
-                  </p>
-
-                  <Link
-                    to={`/${collection.slug}`}
-                    className="inline-flex items-center space-x-2 rounded-full bg-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-6 md:py-3 text-xs sm:text-sm font-medium text-black transition-colors hover:bg-gray-100"
-                    onClick={(e) => {
-                      if (isDragging) {
-                        e.preventDefault();
-                      }
-                    }}
-                  >
-                    <span>View Collection</span>
-                    <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </Link>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        {/* Navigation Arrows - Hidden on mobile */}
+        {collections.length > 1 && (
+          <>
+            <button
+              onClick={prevSlide}
+              className="hidden sm:flex absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <button
+              onClick={nextSlide}
+              className="hidden sm:flex absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Navigation Arrows */}
+      {/* Slide Indicators - Now below the slider */}
       {collections.length > 1 && (
-        <>
-          <button
-            onClick={prevSlide}
-            className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </button>
-          <button
-            onClick={nextSlide}
-            className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </button>
-
-          {/* Slide Indicators */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2">
-            {collections.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => goToSlide(index)}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  index === currentIndex ? 'bg-white w-4' : 'bg-white/50'
-                }`}
-              />
-            ))}
-          </div>
-        </>
+        <div className="flex justify-center gap-2">
+          {collections.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === currentIndex ? 'bg-gray-800 w-4' : 'bg-gray-400'
+              }`}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
