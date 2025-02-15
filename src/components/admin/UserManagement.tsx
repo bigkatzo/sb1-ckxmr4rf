@@ -23,10 +23,14 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [createUserData, setCreateUserData] = useState({
-    username: '',
+  const [createUserData, setCreateUserData] = useState<{
+    email: string;
+    password: string;
+    role: 'admin' | 'merchant' | 'user';
+  }>({
+    email: '',
     password: '',
-    role: 'user' as const
+    role: 'merchant'
   });
 
   useEffect(() => {
@@ -38,10 +42,23 @@ export function UserManagement() {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase.rpc('list_users');
+      const { data: { users }, error } = await supabase.auth.admin.listUsers();
       if (error) throw error;
 
-      setUsers(data || []);
+      // Get user profiles
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('id, role');
+
+      // Map profiles to users
+      const userProfiles = new Map(profiles?.map(p => [p.id, p.role]) || []);
+      
+      setUsers(users.map(user => ({
+        id: user.id,
+        email: user.email || '',
+        role: userProfiles.get(user.id) || 'merchant',
+        created_at: user.created_at
+      })));
     } catch (err) {
       console.error('Error fetching users:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch users');
@@ -56,15 +73,24 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
-      const { error } = await supabase.rpc('create_user_with_username', {
-        p_username: createUserData.username,
-        p_password: createUserData.password,
-        p_role: createUserData.role
+      // Create user with Supabase auth
+      const { data: { user }, error: createError } = await supabase.auth.admin.createUser({
+        email: createUserData.email,
+        password: createUserData.password,
+        email_confirm: true
       });
 
-      if (error) throw error;
+      if (createError) throw createError;
+      if (!user) throw new Error('Failed to create user');
 
-      setCreateUserData({ username: '', password: '', role: 'user' });
+      // Create user profile
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .insert([{ id: user.id, role: createUserData.role }]);
+
+      if (profileError) throw profileError;
+
+      setCreateUserData({ email: '', password: '', role: 'merchant' });
       setShowCreateModal(false);
       await fetchUsers();
       toast.success('User created successfully');
@@ -83,27 +109,34 @@ export function UserManagement() {
 
     try {
       const formData = new FormData(e.target as HTMLFormElement);
-      const username = formData.get('username') as string;
+      const email = formData.get('email') as string;
       const role = formData.get('role') as 'admin' | 'merchant' | 'user';
       const password = formData.get('password') as string;
 
-      // Update user role
-      const { error: roleError } = await supabase.rpc('manage_user_role', {
-        p_user_id: editingUser.id,
-        p_role: role
-      });
-
-      if (roleError) throw roleError;
+      // Update user email if changed
+      if (email !== editingUser.email) {
+        const { error: emailError } = await supabase.auth.admin.updateUserById(
+          editingUser.id,
+          { email }
+        );
+        if (emailError) throw emailError;
+      }
 
       // Update password if provided
       if (password) {
-        const { error: passwordError } = await supabase.rpc('change_user_password', {
-          p_user_id: editingUser.id,
-          p_new_password: password
-        });
-
+        const { error: passwordError } = await supabase.auth.admin.updateUserById(
+          editingUser.id,
+          { password }
+        );
         if (passwordError) throw passwordError;
       }
+
+      // Update role in profile
+      const { error: roleError } = await supabase
+        .from('user_profiles')
+        .upsert({ id: editingUser.id, role });
+
+      if (roleError) throw roleError;
 
       setShowEditModal(false);
       setEditingUser(null);
@@ -117,10 +150,7 @@ export function UserManagement() {
 
   async function deleteUser(userId: string) {
     try {
-      const { error } = await supabase.rpc('delete_user', {
-        p_user_id: userId
-      });
-
+      const { error } = await supabase.auth.admin.deleteUser(userId);
       if (error) throw error;
 
       setShowDeleteModal(false);
@@ -241,12 +271,12 @@ export function UserManagement() {
             
             <form onSubmit={createUser} className="space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Username</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Email</label>
                 <input
-                  type="text"
+                  type="email"
                   required
-                  value={createUserData.username}
-                  onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
+                  value={createUserData.email}
+                  onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
@@ -314,12 +344,12 @@ export function UserManagement() {
             
             <form onSubmit={updateUser} className="space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Username</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Email</label>
                 <input
-                  type="text"
-                  name="username"
+                  type="email"
+                  name="email"
                   required
-                  defaultValue={editingUser.email.split('@')[0]}
+                  defaultValue={editingUser.email}
                   className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
