@@ -139,10 +139,10 @@ export function FeaturedCollection() {
                 </div>
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                  {/* Status Tags */}
-                  {isUpcoming ? (
-                    <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 md:top-8 md:left-8 md:right-8 flex items-start justify-between">
-                      <div className="flex flex-col gap-2">
+                  {/* Status Tags - All in top left corner */}
+                  <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8 flex flex-col gap-2">
+                    {isUpcoming ? (
+                      <>
                         <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
                           <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
                           <span className="text-sm sm:text-base font-medium">Coming Soon</span>
@@ -156,34 +156,22 @@ export function FeaturedCollection() {
                           targetDate={collection.launchDate}
                           className="sm:hidden text-sm text-purple-400 bg-black/50 px-3 py-1.5 rounded-xl backdrop-blur-sm"
                         />
+                      </>
+                    ) : (
+                      <div className={`flex items-center gap-2 ${isNew ? 'bg-green-500/90' : 'bg-purple-500/90'} backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl`}>
+                        <span className="text-sm sm:text-base font-medium">{isNew ? 'New Drop' : 'Featured Drop'}</span>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-8 md:right-8">
-                      {isNew ? (
-                        <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
-                          <span className="text-sm sm:text-base font-medium">New Drop</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
-                          <span className="text-sm sm:text-base font-medium">Featured Drop</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
 
-                  <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 w-full px-4 sm:px-6 md:px-8 space-y-2 sm:space-y-3 md:space-y-4">
+                  <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 w-full px-4 sm:px-6 md:px-8">
                     <h1 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold text-white max-w-2xl">
                       {collection.name}
                     </h1>
-                    
-                    <p className="text-xs sm:text-sm md:text-base text-gray-300 max-w-xl line-clamp-2 sm:line-clamp-none">
-                      {collection.description}
-                    </p>
 
                     <Link
                       to={`/${collection.slug}`}
-                      className="inline-flex items-center space-x-2 rounded-full bg-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-6 md:py-3 text-xs sm:text-sm font-medium text-black transition-colors hover:bg-gray-100"
+                      className="mt-3 sm:mt-4 md:mt-6 inline-flex items-center space-x-2 rounded-full bg-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-6 md:py-3 text-xs sm:text-sm font-medium text-black transition-colors hover:bg-gray-100"
                       onClick={(e) => {
                         if (isDragging) {
                           e.preventDefault();
