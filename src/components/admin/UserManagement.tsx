@@ -61,25 +61,31 @@ export function UserManagement() {
       setError(null);
 
       // First verify we have a session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       console.log('Session check:', { 
         hasSession: !!session,
-        email: session?.user?.email 
+        email: session?.user?.email,
+        error: sessionError?.message
       });
+
+      if (sessionError) {
+        throw new Error(`Session error: ${sessionError.message}`);
+      }
 
       if (!session?.user) {
         throw new Error('No active session found');
       }
 
       if (session.user.email !== 'admin420@merchant.local') {
-        throw new Error('Only admin420 can access this page');
+        throw new Error(`Access denied. User ${session.user.email} is not admin420@merchant.local`);
       }
 
       // Fetch users with proper error handling
       console.log('Fetching users with params:', { 
         searchQuery, 
         roleFilter, 
-        page 
+        page,
+        jwt: session.access_token // Log JWT for debugging
       });
 
       const { data, error } = await supabase.rpc('admin_list_users', {
@@ -92,11 +98,19 @@ export function UserManagement() {
       console.log('User fetch response:', { 
         success: !error,
         userCount: data?.length,
-        error: error?.message 
+        error: error?.message,
+        errorDetails: error?.details,
+        hint: error?.hint,
+        code: error?.code
       });
 
       if (error) {
-        console.error('Error from admin_list_users:', error);
+        console.error('Error from admin_list_users:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
 
@@ -116,7 +130,12 @@ export function UserManagement() {
 
       console.log('Successfully loaded users:', {
         count: transformedUsers.length,
-        roles: transformedUsers.map((u: User) => u.role)
+        roles: transformedUsers.map((u: User) => u.role),
+        sampleUser: transformedUsers[0] ? {
+          email: transformedUsers[0].email,
+          role: transformedUsers[0].role,
+          collections: transformedUsers[0].collection_count
+        } : null
       });
       
       setUsers(transformedUsers);
