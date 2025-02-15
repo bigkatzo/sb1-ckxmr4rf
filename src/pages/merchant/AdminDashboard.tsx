@@ -29,7 +29,7 @@ export function AdminDashboard() {
         }
 
         // Check if user has admin role
-        const { data: isAdminCheck, error: adminError } = await supabase
+        const { data: profile, error: adminError } = await supabase
           .from('user_profiles')
           .select('role')
           .eq('id', session.user.id)
@@ -42,7 +42,7 @@ export function AdminDashboard() {
           return;
         }
 
-        if (!isAdminCheck || isAdminCheck.role !== 'admin') {
+        if (!profile || profile.role !== 'admin') {
           setError('You do not have admin access');
           setIsAdmin(false);
           return;

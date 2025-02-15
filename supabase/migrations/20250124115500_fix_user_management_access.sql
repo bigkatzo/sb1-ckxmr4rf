@@ -14,25 +14,23 @@ END $$;
 CREATE OR REPLACE FUNCTION auth.is_admin()
 RETURNS boolean AS $$
 DECLARE
-  v_email text;
-  v_claims jsonb;
+  v_user_id uuid;
 BEGIN
-  -- Get JWT claims with error handling
-  BEGIN
-    v_claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
-  EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Error getting JWT claims: %', SQLERRM;
+  -- Get current user ID
+  v_user_id := auth.uid();
+  
+  -- Exit early if no user ID
+  IF v_user_id IS NULL THEN
     RETURN false;
-  END;
+  END IF;
 
-  -- Extract email from claims
-  v_email := v_claims->>'email';
-  
-  -- Log the check (for debugging)
-  RAISE NOTICE 'Checking admin access for email: %', v_email;
-  
-  -- Check if admin
-  RETURN v_email = 'admin420@merchant.local';
+  -- Check if user has admin role in profile
+  RETURN EXISTS (
+    SELECT 1 
+    FROM user_profiles 
+    WHERE id = v_user_id 
+    AND role = 'admin'
+  );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -87,8 +85,7 @@ BEGIN
       GROUP BY user_id
     ) uc ON uc.user_id = u.id
     WHERE 
-      u.email != 'admin420@merchant.local'
-      AND (p_search IS NULL OR u.email ILIKE '%' || p_search || '%')
+      (p_search IS NULL OR u.email ILIKE '%' || p_search || '%')
       AND (p_role IS NULL OR p.role = p_role)
     ORDER BY u.created_at DESC
     LIMIT LEAST(p_limit, 100)
