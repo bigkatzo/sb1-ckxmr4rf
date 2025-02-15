@@ -29,10 +29,7 @@ export function useFeaturedCollections() {
           `)
           .eq('visible', true)
           .eq('featured', true)
-          .lte('launch_date', new Date().toISOString())
-          .eq('sale_ended', false)
-          .order('launch_date', { ascending: false })
-          .limit(1);
+          .order('launch_date', { ascending: false });
 
         if (error) throw error;
 
