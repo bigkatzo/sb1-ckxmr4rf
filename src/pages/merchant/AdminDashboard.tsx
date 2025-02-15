@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Tabs } from '../../components/ui/Tabs';
+import { toast } from 'react-toastify';
 
 const tabs = [
   { id: 'users', label: 'Users' },
@@ -15,27 +16,64 @@ export function AdminDashboard() {
   const { session } = useAuth();
   const [activeTab, setActiveTab] = useState('users');
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     async function checkAdmin() {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', session?.user?.id)
-        .single();
+      try {
+        // First verify we have a session
+        if (!session?.user?.id) {
+          console.error('No user session found');
+          setError('Please sign in to access admin settings');
+          setIsAdmin(false);
+          return;
+        }
 
-      if (error) {
-        console.error('Error checking admin status:', error);
+        // Check admin status
+        const { data, error: rpcError } = await supabase.rpc('is_admin');
+        
+        if (rpcError) {
+          console.error('Error checking admin status:', rpcError);
+          setError(rpcError.message);
+          setIsAdmin(false);
+          return;
+        }
+
+        // Verify user profile exists
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Error fetching user profile:', profileError);
+          setError('Error verifying admin access');
+          setIsAdmin(false);
+          return;
+        }
+
+        if (!profile) {
+          console.error('No user profile found');
+          setError('User profile not found');
+          setIsAdmin(false);
+          return;
+        }
+
+        setIsAdmin(data === true);
+        
+        if (data !== true) {
+          console.log('User is not an admin. Profile role:', profile.role);
+          setError('You do not have admin access');
+        }
+      } catch (err) {
+        console.error('Unexpected error checking admin status:', err);
+        setError('An unexpected error occurred');
         setIsAdmin(false);
-        return;
       }
-
-      setIsAdmin(data?.role === 'admin');
     }
 
-    if (session?.user) {
-      checkAdmin();
-    }
+    checkAdmin();
   }, [session]);
 
   if (isAdmin === null) {
@@ -47,6 +85,9 @@ export function AdminDashboard() {
   }
 
   if (!isAdmin) {
+    if (error) {
+      toast.error(error);
+    }
     return <Navigate to="/merchant/dashboard" replace />;
   }
 

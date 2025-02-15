@@ -11,6 +11,13 @@ interface User {
   created_at: string;
 }
 
+interface AdminListUsersResponse {
+  id: string;
+  email: string;
+  role: 'admin' | 'merchant' | 'user';
+  created_at: string;
+}
+
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,21 +49,13 @@ export function UserManagement() {
       setLoading(true);
       setError(null);
 
-      const { data: { users }, error } = await supabase.auth.admin.listUsers();
+      const { data, error } = await supabase.rpc('admin_list_users');
       if (error) throw error;
 
-      // Get user profiles
-      const { data: profiles } = await supabase
-        .from('user_profiles')
-        .select('id, role');
-
-      // Map profiles to users
-      const userProfiles = new Map(profiles?.map(p => [p.id, p.role]) || []);
-      
-      setUsers(users.map(user => ({
+      setUsers(data.map((user: AdminListUsersResponse) => ({
         id: user.id,
-        email: user.email || '',
-        role: userProfiles.get(user.id) || 'merchant',
+        email: user.email,
+        role: user.role,
         created_at: user.created_at
       })));
     } catch (err) {
