@@ -72,22 +72,16 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
-      // Create user with Supabase auth
-      const { data: { user }, error: createError } = await supabase.auth.admin.createUser({
-        email: createUserData.email,
-        password: createUserData.password,
-        email_confirm: true
-      });
+      const { data: userId, error: createError } = await supabase.rpc(
+        'admin_create_user',
+        {
+          p_email: createUserData.email,
+          p_password: createUserData.password,
+          p_role: createUserData.role
+        }
+      );
 
       if (createError) throw createError;
-      if (!user) throw new Error('Failed to create user');
-
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert([{ id: user.id, role: createUserData.role }]);
-
-      if (profileError) throw profileError;
 
       setCreateUserData({ email: '', password: '', role: 'merchant' });
       setShowCreateModal(false);
