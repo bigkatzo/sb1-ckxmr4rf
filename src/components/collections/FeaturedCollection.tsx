@@ -91,7 +91,7 @@ export function FeaturedCollection() {
 
   if (loading) {
     return (
-      <div className="relative h-[40vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl animate-pulse bg-gray-800" />
+      <div className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl animate-pulse bg-gray-800" />
     );
   }
 
@@ -105,7 +105,7 @@ export function FeaturedCollection() {
 
   return (
     <div className="space-y-2">
-      <div className="relative h-[40vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group touch-pan-y">
+      <div className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group touch-pan-y">
         <div 
           className="flex h-full transition-transform duration-500 ease-out touch-pan-y"
           style={{ 
@@ -140,30 +140,32 @@ export function FeaturedCollection() {
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
                   {/* Status Tags */}
-                  <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8 flex flex-col gap-2">
-                    {isUpcoming ? (
-                      <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
-                        <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                        <span className="text-sm sm:text-base font-medium">Coming Soon</span>
+                  {isUpcoming ? (
+                    <>
+                      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8">
+                        <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
+                          <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                          <span className="text-sm sm:text-base font-medium">Coming Soon</span>
+                        </div>
                       </div>
-                    ) : isNew ? (
-                      <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
-                        <span className="text-sm sm:text-base font-medium">New Drop</span>
+                      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-8 md:right-8">
+                        <CountdownTimer
+                          targetDate={collection.launchDate}
+                          className="text-sm sm:text-base md:text-xl text-purple-400 bg-black/50 px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg backdrop-blur-sm"
+                        />
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
-                        <span className="text-sm sm:text-base font-medium">Featured Drop</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Countdown Timer */}
-                  {isUpcoming && (
+                    </>
+                  ) : (
                     <div className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-8 md:right-8">
-                      <CountdownTimer
-                        targetDate={collection.launchDate}
-                        className="text-sm sm:text-base md:text-xl text-purple-400 bg-black/50 px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg backdrop-blur-sm"
-                      />
+                      {isNew ? (
+                        <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
+                          <span className="text-sm sm:text-base font-medium">New Drop</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg">
+                          <span className="text-sm sm:text-base font-medium">Featured Drop</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
