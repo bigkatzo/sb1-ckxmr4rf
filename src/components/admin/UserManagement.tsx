@@ -161,30 +161,14 @@ export function UserManagement() {
       const role = formData.get('role') as 'admin' | 'merchant' | 'user';
       const password = formData.get('password') as string;
 
-      // Update user email if changed
-      if (email !== editingUser.email) {
-        const { error: emailError } = await supabase.auth.admin.updateUserById(
-          editingUser.id,
-          { email }
-        );
-        if (emailError) throw emailError;
-      }
+      const { error } = await supabase.rpc('admin_update_user', {
+        p_user_id: editingUser.id,
+        p_email: email !== editingUser.email ? email : null,
+        p_password: password || null,
+        p_role: role !== editingUser.role ? role : null
+      });
 
-      // Update password if provided
-      if (password) {
-        const { error: passwordError } = await supabase.auth.admin.updateUserById(
-          editingUser.id,
-          { password }
-        );
-        if (passwordError) throw passwordError;
-      }
-
-      // Update role in profile
-      const { error: roleError } = await supabase
-        .from('user_profiles')
-        .upsert({ id: editingUser.id, role });
-
-      if (roleError) throw roleError;
+      if (error) throw error;
 
       setShowEditModal(false);
       setEditingUser(null);
