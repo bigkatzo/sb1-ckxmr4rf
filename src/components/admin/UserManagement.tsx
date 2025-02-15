@@ -64,7 +64,7 @@ export function UserManagement() {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       console.log('Session check:', { 
         hasSession: !!session,
-        email: session?.user?.email,
+        userId: session?.user?.id,
         error: sessionError?.message
       });
 
@@ -76,16 +76,32 @@ export function UserManagement() {
         throw new Error('No active session found');
       }
 
-      if (session.user.email !== 'admin420@merchant.local') {
-        throw new Error(`Access denied. User ${session.user.email} is not admin420@merchant.local`);
+      // Check if user has admin role
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      console.log('Admin check:', {
+        userId: session.user.id,
+        role: profile?.role,
+        error: profileError?.message
+      });
+
+      if (profileError) {
+        throw new Error(`Error checking admin status: ${profileError.message}`);
+      }
+
+      if (!profile || profile.role !== 'admin') {
+        throw new Error('Only admin users can access this page');
       }
 
       // Fetch users with proper error handling
       console.log('Fetching users with params:', { 
         searchQuery, 
         roleFilter, 
-        page,
-        jwt: session.access_token // Log JWT for debugging
+        page
       });
 
       const { data, error } = await supabase.rpc('admin_list_users', {
@@ -101,7 +117,8 @@ export function UserManagement() {
         error: error?.message,
         errorDetails: error?.details,
         hint: error?.hint,
-        code: error?.code
+        code: error?.code,
+        data: data ? data.slice(0, 1) : null  // Log first user for debugging
       });
 
       if (error) {
@@ -111,7 +128,7 @@ export function UserManagement() {
           hint: error.hint,
           code: error.code
         });
-        throw error;
+        throw new Error(`Failed to fetch users: ${error.message} (${error.code})`);
       }
 
       if (!data) {
@@ -131,10 +148,12 @@ export function UserManagement() {
       console.log('Successfully loaded users:', {
         count: transformedUsers.length,
         roles: transformedUsers.map((u: User) => u.role),
+        hasAdmin: transformedUsers.some((u: User) => u.role === 'admin'),
         sampleUser: transformedUsers[0] ? {
           email: transformedUsers[0].email,
           role: transformedUsers[0].role,
-          collections: transformedUsers[0].collection_count
+          collections: transformedUsers[0].collection_count,
+          metadata: transformedUsers[0].metadata
         } : null
       });
       
