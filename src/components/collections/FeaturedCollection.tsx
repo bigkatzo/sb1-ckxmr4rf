@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Clock, Image as ImageIcon, Ban, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFeaturedCollections } from '../../hooks/useFeaturedCollections';
@@ -11,9 +11,23 @@ export function FeaturedCollection() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
+  const autoScrollTimer = useRef<NodeJS.Timeout>();
 
   // Required minimum swipe distance in pixels
   const minSwipeDistance = 50;
+
+  // Reset auto-scroll timer
+  const resetAutoScroll = useCallback(() => {
+    if (autoScrollTimer.current) {
+      clearInterval(autoScrollTimer.current);
+    }
+
+    if (collections.length <= 1) return;
+
+    autoScrollTimer.current = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % collections.length);
+    }, 10000);
+  }, [collections.length]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientX);
@@ -50,27 +64,29 @@ export function FeaturedCollection() {
     setDragOffset(0);
   }, [touchStart, touchEnd]);
 
-  // Auto-advance the slider every 10 seconds
+  // Initialize auto-scroll
   useEffect(() => {
-    if (collections.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % collections.length);
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [collections.length]);
+    resetAutoScroll();
+    return () => {
+      if (autoScrollTimer.current) {
+        clearInterval(autoScrollTimer.current);
+      }
+    };
+  }, [resetAutoScroll]);
 
   const goToSlide = (index: number) => {
     setCurrentIndex(index);
+    resetAutoScroll();
   };
 
   const nextSlide = () => {
     setCurrentIndex((prev) => (prev + 1) % collections.length);
+    resetAutoScroll();
   };
 
   const prevSlide = () => {
     setCurrentIndex((prev) => (prev - 1 + collections.length) % collections.length);
+    resetAutoScroll();
   };
 
   if (loading) {
@@ -93,8 +109,7 @@ export function FeaturedCollection() {
         className="flex h-full transition-transform duration-500 ease-out touch-pan-y"
         style={{ 
           transform: `translateX(${translateX}%)`,
-          transition: isDragging ? 'none' : 'transform 500ms ease-out',
-          width: `${collections.length * 100}%`
+          transition: isDragging ? 'none' : 'transform 500ms ease-out'
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -104,19 +119,22 @@ export function FeaturedCollection() {
           const isUpcoming = new Date(collection.launchDate) > new Date();
           
           return (
-            <div key={collection.id} className="relative w-full h-full flex-shrink-0 select-none">
-              {collection.imageUrl ? (
-                <img
-                  src={collection.imageUrl}
-                  alt={collection.name}
-                  className="h-full w-full object-cover"
-                  draggable={false}
-                />
-              ) : (
-                <div className="h-full w-full bg-gray-800 flex items-center justify-center">
+            <div 
+              key={collection.id} 
+              className="relative min-w-full h-full flex-shrink-0 select-none"
+            >
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                {collection.imageUrl ? (
+                  <img
+                    src={collection.imageUrl}
+                    alt={collection.name}
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                  />
+                ) : (
                   <ImageIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-600" />
-                </div>
-              )}
+                )}
+              </div>
               
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
                 {(isUpcoming || collection.saleEnded) && (
@@ -145,7 +163,7 @@ export function FeaturedCollection() {
                   </>
                 )}
 
-                <div className="absolute bottom-0 w-full p-4 sm:p-6 md:p-8 space-y-2 sm:space-y-3 md:space-y-4">
+                <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 w-full px-4 sm:px-6 md:px-8 space-y-2 sm:space-y-3 md:space-y-4">
                   <div className="flex flex-wrap gap-2">
                     <span className="inline-block rounded-full bg-purple-500 px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm font-medium">
                       Featured Drop
@@ -206,7 +224,7 @@ export function FeaturedCollection() {
           </button>
 
           {/* Slide Indicators */}
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-2">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2">
             {collections.map((_, index) => (
               <button
                 key={index}
