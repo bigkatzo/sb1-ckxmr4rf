@@ -142,21 +142,15 @@ export function FeaturedCollection() {
                   {/* Status Tags - All in top left corner */}
                   <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8 flex flex-col gap-2">
                     {isUpcoming ? (
-                      <>
-                        <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
-                          <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                          <span className="text-sm sm:text-base font-medium">Coming Soon</span>
-                          <span className="hidden sm:block mx-2 w-px h-5 bg-white/30" />
-                          <CountdownTimer
-                            targetDate={collection.launchDate}
-                            className="hidden sm:block text-sm sm:text-base text-purple-200"
-                          />
-                        </div>
+                      <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
+                        <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="text-sm sm:text-base font-medium">Coming Soon</span>
+                        <span className="mx-2 w-px h-4 sm:h-5 bg-white/30" />
                         <CountdownTimer
                           targetDate={collection.launchDate}
-                          className="sm:hidden text-sm text-purple-400 bg-black/50 px-3 py-1.5 rounded-xl backdrop-blur-sm"
+                          className="text-sm sm:text-base text-purple-200"
                         />
-                      </>
+                      </div>
                     ) : (
                       <div className={`flex items-center gap-2 ${isNew ? 'bg-green-500/90' : 'bg-purple-500/90'} backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl`}>
                         <span className="text-sm sm:text-base font-medium">{isNew ? 'New Drop' : 'Featured Drop'}</span>
