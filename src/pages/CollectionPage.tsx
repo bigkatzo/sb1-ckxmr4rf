@@ -36,6 +36,7 @@ export function CollectionPage() {
 
   const categoryIndices = createCategoryIndices(collection.categories);
   const isUpcoming = collection.launchDate > new Date();
+  const isNew = !isUpcoming && (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000);
 
   return (
     <div className={`space-y-6 sm:space-y-8 ${loading && !isInitialLoad ? 'opacity-60' : ''}`}>
@@ -76,6 +77,10 @@ export function CollectionPage() {
               <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
                 <Ban className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="text-sm sm:text-base font-medium">Sale Ended</span>
+              </div>
+            ) : isNew ? (
+              <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
+                <span className="text-sm sm:text-base font-medium">New Drop</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
