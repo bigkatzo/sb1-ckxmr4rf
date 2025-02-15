@@ -31,7 +31,7 @@ export function CollectionPage() {
   }
 
   if (error || !collection) {
-    return <CollectionNotFound error={error} />;
+    return <CollectionNotFound error={error || undefined} />;
   }
 
   const categoryIndices = createCategoryIndices(collection.categories);
@@ -54,31 +54,35 @@ export function CollectionPage() {
         )}
         
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-          {(isUpcoming || collection.saleEnded) && (
-            <>
-              {isUpcoming && (
-                <div className="absolute top-4 right-4 sm:top-8 sm:right-8">
+          {/* Status Tags */}
+          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8 flex flex-col gap-2">
+            {isUpcoming ? (
+              <>
+                <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="text-sm sm:text-base font-medium">Coming Soon</span>
+                  <span className="hidden sm:block mx-2 w-px h-5 bg-white/30" />
                   <CountdownTimer
                     targetDate={collection.launchDate}
-                    className="text-base sm:text-xl text-purple-400 bg-black/50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg backdrop-blur-sm"
+                    className="hidden sm:block text-sm sm:text-base text-purple-200"
                   />
                 </div>
-              )}
-              <div className="absolute top-4 left-4 sm:top-8 sm:left-8">
-                {isUpcoming ? (
-                  <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg">
-                    <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span className="text-sm sm:text-base font-medium">Coming Soon</span>
-                  </div>
-                ) : collection.saleEnded && (
-                  <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg">
-                    <Ban className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span className="text-sm sm:text-base font-medium">Sale Ended</span>
-                  </div>
-                )}
+                <CountdownTimer
+                  targetDate={collection.launchDate}
+                  className="sm:hidden text-sm text-purple-400 bg-black/50 px-3 py-1.5 rounded-xl backdrop-blur-sm"
+                />
+              </>
+            ) : collection.saleEnded ? (
+              <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
+                <Ban className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="text-sm sm:text-base font-medium">Sale Ended</span>
               </div>
-            </>
-          )}
+            ) : (
+              <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
+                <span className="text-sm sm:text-base font-medium">Featured Drop</span>
+              </div>
+            )}
+          </div>
 
           <div className="absolute bottom-0 w-full p-4 sm:p-8">
             <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white max-w-2xl">
