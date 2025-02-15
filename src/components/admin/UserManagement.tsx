@@ -9,6 +9,9 @@ interface User {
   email: string;
   role: 'admin' | 'merchant' | 'user';
   created_at: string;
+  collection_count: number;
+  last_active: string;
+  metadata: any;
 }
 
 interface AdminListUsersResponse {
@@ -16,6 +19,9 @@ interface AdminListUsersResponse {
   email: string;
   role: 'admin' | 'merchant' | 'user';
   created_at: string;
+  collection_count: number;
+  last_active: string;
+  metadata: any;
 }
 
 export function UserManagement() {
@@ -30,37 +36,52 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'admin' | 'merchant' | 'user' | null>(null);
+  const [page, setPage] = useState(0);
   const [createUserData, setCreateUserData] = useState<{
     email: string;
     password: string;
     role: 'admin' | 'merchant' | 'user';
+    metadata?: Record<string, any>;
   }>({
     email: '',
     password: '',
-    role: 'merchant'
+    role: 'merchant',
+    metadata: {}
   });
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [searchQuery, roleFilter, page]);
 
   async function fetchUsers() {
     try {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase.rpc('admin_list_users');
+      const { data, error } = await supabase.rpc('admin_list_users', {
+        p_search: searchQuery || null,
+        p_role: roleFilter || null,
+        p_limit: 10,
+        p_offset: page * 10
+      });
+
       if (error) throw error;
 
       setUsers(data.map((user: AdminListUsersResponse) => ({
         id: user.id,
         email: user.email,
         role: user.role,
-        created_at: user.created_at
+        created_at: user.created_at,
+        collection_count: user.collection_count,
+        last_active: user.last_active,
+        metadata: user.metadata
       })));
     } catch (err) {
       console.error('Error fetching users:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch users');
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch users');
     } finally {
       setLoading(false);
     }
@@ -72,18 +93,24 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
-      const { data: userId, error: createError } = await supabase.rpc(
+      const { data, error: createError } = await supabase.rpc(
         'admin_create_user',
         {
           p_email: createUserData.email,
           p_password: createUserData.password,
-          p_role: createUserData.role
+          p_role: createUserData.role,
+          p_metadata: createUserData.metadata || {}
         }
       );
 
       if (createError) throw createError;
 
-      setCreateUserData({ email: '', password: '', role: 'merchant' });
+      setCreateUserData({ 
+        email: '', 
+        password: '', 
+        role: 'merchant',
+        metadata: {}
+      });
       setShowCreateModal(false);
       await fetchUsers();
       toast.success('User created successfully');
