@@ -34,9 +34,6 @@ export function SignInPage() {
       });
 
       if (signInError) {
-        if (signInError.message.includes('Invalid login credentials')) {
-          throw new Error('Invalid username/email or password');
-        }
         throw signInError;
       }
 
@@ -44,31 +41,9 @@ export function SignInPage() {
         throw new Error('No user data returned');
       }
 
-      // Get user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profileError) {
-        if (profileError.code !== 'PGRST116') {
-          throw profileError;
-        }
-        // No profile means no access
-        throw new Error('Account does not have merchant dashboard access');
-      }
-
-      if (!profile || !['admin', 'merchant'].includes(profile.role)) {
-        throw new Error('Account does not have merchant dashboard access');
-      }
-
-      // Redirect based on role
-      if (profile.role === 'admin') {
-        navigate('/merchant/admin');
-      } else {
-        navigate('/merchant/dashboard');
-      }
+      // Simply redirect to dashboard - we'll handle permissions there
+      navigate('/merchant/dashboard');
+      
     } catch (err) {
       console.error('Sign in error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during sign in');
