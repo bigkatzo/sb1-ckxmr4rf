@@ -56,32 +56,46 @@ export function CollectionPage() {
         
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
           {/* Status Tags */}
-          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8 flex flex-col gap-2">
-            {isUpcoming ? (
-              <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="text-sm sm:text-base font-medium">Coming Soon</span>
-                <span className="mx-2 w-px h-4 sm:h-5 bg-white/30" />
+          {isUpcoming ? (
+            <>
+              <div className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-8 md:right-8">
                 <CountdownTimer
                   targetDate={collection.launchDate}
-                  className="text-sm sm:text-base text-purple-200"
+                  className="text-sm sm:text-base text-purple-400 bg-black/50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl backdrop-blur-sm"
                 />
               </div>
-            ) : collection.saleEnded ? (
+              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8">
+                <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="text-sm sm:text-base font-medium">Coming Soon</span>
+                  <span className="hidden sm:block mx-2 w-px h-5 bg-white/30" />
+                  <CountdownTimer
+                    targetDate={collection.launchDate}
+                    className="hidden sm:block text-sm sm:text-base text-purple-200"
+                  />
+                </div>
+              </div>
+            </>
+          ) : collection.saleEnded ? (
+            <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8">
               <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
                 <Ban className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="text-sm sm:text-base font-medium">Sale Ended</span>
               </div>
-            ) : isNew ? (
+            </div>
+          ) : isNew ? (
+            <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8">
               <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
                 <span className="text-sm sm:text-base font-medium">New Drop</span>
               </div>
-            ) : (
+            </div>
+          ) : (
+            <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8">
               <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
                 <span className="text-sm sm:text-base font-medium">Featured Drop</span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="absolute bottom-0 w-full p-4 sm:p-8">
             <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white max-w-2xl">
