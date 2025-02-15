@@ -38,9 +38,19 @@ export function AdminDashboard() {
           return;
         }
 
+        // Log debug info for troubleshooting
+        console.log('Admin access debug info:', debugData);
+
         if (!debugData.is_admin) {
-          console.log('User is not an admin. Debug info:', debugData);
-          setError('You do not have admin access');
+          // Get detailed error message from debug data
+          const errorDetails = [
+            !debugData.profile_exists && 'No user profile found',
+            debugData.profile_role !== 'admin' && 'User profile does not have admin role',
+            debugData.metadata_role !== 'admin' && 'User metadata does not reflect admin role'
+          ].filter(Boolean).join(', ');
+
+          console.log('User is not an admin. Reason:', errorDetails);
+          setError(`You do not have admin access. ${errorDetails}`);
           setIsAdmin(false);
           return;
         }
@@ -57,7 +67,7 @@ export function AdminDashboard() {
 
         if (!isAdminCheck) {
           console.error('Secondary admin check failed');
-          setError('Admin access verification failed');
+          setError('Admin access verification failed. Please contact support if you believe this is an error.');
           setIsAdmin(false);
           return;
         }
@@ -66,7 +76,7 @@ export function AdminDashboard() {
         setError(null);
       } catch (err) {
         console.error('Unexpected error checking admin status:', err);
-        setError('An unexpected error occurred');
+        setError('An unexpected error occurred while verifying admin access');
         setIsAdmin(false);
       }
     }
