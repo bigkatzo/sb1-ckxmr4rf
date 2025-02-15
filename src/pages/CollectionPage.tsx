@@ -70,29 +70,29 @@ export function CollectionPage() {
                   />
                 </div>
                 {/* Mobile: Side by side tags */}
-                <div className="sm:hidden flex items-center gap-2">
-                  <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-2xl">
-                    <Clock className="h-4 w-4" />
-                    <span className="text-sm font-medium">Coming Soon</span>
+                <div className="sm:hidden flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 bg-purple-500/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-xl">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">Coming Soon</span>
                   </div>
                   <CountdownTimer
                     targetDate={collection.launchDate}
-                    className="text-sm text-purple-400 bg-black/50 px-3 py-1.5 rounded-xl backdrop-blur-sm"
+                    className="text-xs text-purple-400 bg-black/50 px-2.5 py-1 rounded-lg backdrop-blur-sm"
                   />
                 </div>
               </>
             ) : collection.saleEnded ? (
-              <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
-                <Ban className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="text-sm sm:text-base font-medium">Sale Ended</span>
+              <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
+                <Ban className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                <span className="text-xs sm:text-base font-medium">Sale Ended</span>
               </div>
             ) : isNew ? (
-              <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
-                <span className="text-sm sm:text-base font-medium">New Drop</span>
+              <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
+                <span className="text-xs sm:text-base font-medium">New Drop</span>
               </div>
             ) : collection.featured ? (
-              <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
-                <span className="text-sm sm:text-base font-medium">Featured Drop</span>
+              <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
+                <span className="text-xs sm:text-base font-medium">Featured Drop</span>
               </div>
             ) : null}
           </div>
