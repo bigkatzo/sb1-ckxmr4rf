@@ -14,8 +14,6 @@ const RPC_ENDPOINTS = {
   ]
 };
 
-export const MERCHANT_WALLET = '811WxG7vYZtQwerbQFPT3QiSG11LkQDmMvFdA7Enwoxo';
-
 const CONNECTION_CONFIG = {
   commitment: 'finalized' as Commitment,
   confirmTransactionInitialTimeout: 60000,

@@ -12,15 +12,11 @@ import { WalletNotifications } from './components/wallet/WalletNotifications';
 import { useWallet } from './contexts/WalletContext';
 import { usePayment } from './hooks/usePayment';
 import { ToastContainer } from 'react-toastify';
-import { EnvTest } from './components/EnvTest';
+import { validateEnvironmentVariables } from './utils/env-validation';
 import 'react-toastify/dist/ReactToastify.css';
 
-// Debug logging
-console.log('Environment Variables:', {
-  SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-  NODE_ENV: import.meta.env.MODE,
-  DEV: import.meta.env.DEV,
-});
+// Validate environment variables at startup
+validateEnvironmentVariables();
 
 function TransactionStatusWrapper() {
   const { status, resetStatus } = usePayment();
@@ -51,16 +47,11 @@ function NotificationsWrapper() {
 }
 
 function AppContent() {
-  useEffect(() => {
-    console.log('App mounted');
-  }, []);
-
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
       <Navbar />
       <main className="flex-1 pt-16">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 w-full">
-          {import.meta.env.DEV && <EnvTest />}
           <Outlet />
         </div>
       </main>

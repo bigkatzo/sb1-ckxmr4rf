@@ -1,5 +1,20 @@
 import { PublicKey } from '@solana/web3.js';
-import { SOLANA_CONNECTION, MERCHANT_WALLET } from '../config/solana';
+import { SOLANA_CONNECTION } from '../config/solana';
+import { supabase } from '../lib/supabase';
+
+async function getMainWalletAddress(): Promise<string> {
+  const { data, error } = await supabase
+    .from('merchant_wallets')
+    .select('address')
+    .eq('is_main', true)
+    .eq('is_active', true)
+    .single();
+
+  if (error) throw new Error('Failed to get main wallet');
+  if (!data) throw new Error('No active main wallet found');
+  
+  return data.address;
+}
 
 export async function testSolanaConnection(): Promise<boolean> {
   try {
@@ -40,8 +55,9 @@ export async function testSolanaConnection(): Promise<boolean> {
         console.log('✅ Current slot:', slot);
 
         // Test balance retrieval with timeout
-        const merchantPubkey = new PublicKey(MERCHANT_WALLET);
-        const balancePromise = SOLANA_CONNECTION.getBalance(merchantPubkey, 'confirmed');
+        const mainWalletAddress = await getMainWalletAddress();
+        const mainWalletPubkey = new PublicKey(mainWalletAddress);
+        const balancePromise = SOLANA_CONNECTION.getBalance(mainWalletPubkey, 'confirmed');
         const balance = await Promise.race([
           balancePromise,
           new Promise((_, reject) => setTimeout(() => reject(new Error('Balance check timeout')), 5000))

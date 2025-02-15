@@ -5,7 +5,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables');
+  throw new Error('Missing Supabase configuration');
 }
 
 // Create client with retries and better timeout settings
@@ -26,7 +26,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
       eventsPerSecond: 10
     }
   },
-  // Add retry configuration
+  // Add retry configuration with secure error handling
   fetch: (url, options = {}) => {
     return fetch(url, {
       ...options,
@@ -34,17 +34,18 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
         ...options.headers,
         'x-client-info': 'store.fun'
       },
-      // Add retry logic
       signal: options.signal || new AbortController().signal,
     }).then(async response => {
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || response.statusText);
+        // Don't include potentially sensitive error details in the message
+        throw new Error('Database operation failed');
       }
       return response;
     }).catch(error => {
-      console.error('Supabase request failed:', { url, error });
-      throw error;
+      // Log minimal error info without exposing details
+      console.error('Database operation failed');
+      throw new Error('Database operation failed');
     });
   }
 });
