@@ -7,9 +7,8 @@ export function SignInPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [debugInfo, setDebugInfo] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -17,51 +16,29 @@ export function SignInPage() {
 
     setLoading(true);
     setError('');
-    setDebugInfo('');
 
     try {
-      // Validate input
-      if (!identifier || !password) {
-        throw new Error('Please enter both username/email and password');
+      // Basic validation
+      if (!email || !password) {
+        throw new Error('Please enter both email and password');
       }
 
-      // Determine if input is email or username
-      const isEmail = identifier.includes('@');
-      const email = isEmail ? identifier : `${identifier}@merchant.local`;
-
-      // Log the attempt
-      console.log('Attempting login with:', { email, isEmail });
-
-      // Sign in with email/password
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      // Simple sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password.trim()
       });
 
       if (signInError) {
-        console.error('Supabase auth error:', signInError);
-        setDebugInfo(`Login attempt failed for email: ${email}`);
         throw signInError;
       }
 
-      if (!data.user) {
-        throw new Error('No user data returned');
-      }
-
-      console.log('Login successful:', data.user);
-      
-      // Simply redirect to dashboard - we'll handle permissions there
+      // Redirect to dashboard
       navigate('/merchant/dashboard');
       
     } catch (err) {
       console.error('Sign in error:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-        setDebugInfo(`Full error: ${JSON.stringify(err)}`);
-      } else {
-        setError('An error occurred during sign in');
-        setDebugInfo(`Unknown error: ${JSON.stringify(err)}`);
-      }
+      setError(err instanceof Error ? err.message : 'An error occurred during sign in');
     } finally {
       setLoading(false);
     }
@@ -88,9 +65,6 @@ export function SignInPage() {
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                  {debugInfo && (
-                    <p className="mt-1 text-xs text-red-600">{debugInfo}</p>
-                  )}
                 </div>
               </div>
             </div>
@@ -98,17 +72,17 @@ export function SignInPage() {
           
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="identifier" className="sr-only">Username or Email</label>
+              <label htmlFor="email" className="sr-only">Email</label>
               <input
-                id="identifier"
-                name="identifier"
-                type="text"
-                autoComplete="username"
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                placeholder="Username or Email"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
               />
             </div>
