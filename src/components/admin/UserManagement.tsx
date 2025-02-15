@@ -9,19 +9,6 @@ interface User {
   email: string;
   role: 'admin' | 'merchant' | 'user';
   created_at: string;
-  collection_count: number;
-  last_active: string;
-  metadata: any;
-}
-
-interface AdminListUsersResponse {
-  id: string;
-  email: string;
-  role: 'admin' | 'merchant' | 'user';
-  created_at: string;
-  collection_count: number;
-  last_active: string;
-  metadata: any;
 }
 
 export function UserManagement() {
@@ -36,133 +23,28 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'admin' | 'merchant' | 'user' | null>(null);
-  const [page, setPage] = useState(0);
-  const [createUserData, setCreateUserData] = useState<{
-    email: string;
-    password: string;
-    role: 'admin' | 'merchant' | 'user';
-    metadata?: Record<string, any>;
-  }>({
-    email: '',
+  const [createUserData, setCreateUserData] = useState({
+    username: '',
     password: '',
-    role: 'merchant',
-    metadata: {}
+    role: 'user' as const
   });
 
   useEffect(() => {
     fetchUsers();
-  }, [searchQuery, roleFilter, page]);
+  }, []);
 
   async function fetchUsers() {
     try {
       setLoading(true);
       setError(null);
 
-      // First verify we have a session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log('Session check:', { 
-        hasSession: !!session,
-        userId: session?.user?.id,
-        error: sessionError?.message
-      });
+      const { data, error } = await supabase.rpc('list_users');
+      if (error) throw error;
 
-      if (sessionError) {
-        throw new Error(`Session error: ${sessionError.message}`);
-      }
-
-      if (!session?.user) {
-        throw new Error('No active session found');
-      }
-
-      // Check if user has admin role
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-
-      console.log('Admin check:', {
-        userId: session.user.id,
-        role: profile?.role,
-        error: profileError?.message
-      });
-
-      if (profileError) {
-        throw new Error(`Error checking admin status: ${profileError.message}`);
-      }
-
-      if (!profile || profile.role !== 'admin') {
-        throw new Error('Only admin users can access this page');
-      }
-
-      // Fetch users with proper error handling
-      console.log('Fetching users with params:', { 
-        searchQuery, 
-        roleFilter, 
-        page
-      });
-
-      const { data, error } = await supabase.rpc('admin_list_users', {
-        p_search: searchQuery || null,
-        p_role: roleFilter || null,
-        p_limit: 10,
-        p_offset: page * 10
-      });
-
-      console.log('User fetch response:', { 
-        success: !error,
-        userCount: data?.length,
-        error: error?.message,
-        errorDetails: error?.details,
-        hint: error?.hint,
-        code: error?.code,
-        data: data ? data.slice(0, 1) : null  // Log first user for debugging
-      });
-
-      if (error) {
-        console.error('Error from admin_list_users:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw new Error(`Failed to fetch users: ${error.message} (${error.code})`);
-      }
-
-      if (!data) {
-        throw new Error('No data returned from admin_list_users');
-      }
-
-      const transformedUsers = data.map((user: AdminListUsersResponse) => ({
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        created_at: user.created_at,
-        collection_count: user.collection_count,
-        last_active: user.last_active,
-        metadata: user.metadata
-      }));
-
-      console.log('Successfully loaded users:', {
-        count: transformedUsers.length,
-        roles: transformedUsers.map((u: User) => u.role),
-        hasAdmin: transformedUsers.some((u: User) => u.role === 'admin'),
-        sampleUser: transformedUsers[0] ? {
-          email: transformedUsers[0].email,
-          role: transformedUsers[0].role,
-          collections: transformedUsers[0].collection_count,
-          metadata: transformedUsers[0].metadata
-        } : null
-      });
-      
-      setUsers(transformedUsers);
+      setUsers(data || []);
     } catch (err) {
-      console.error('Error in fetchUsers:', err);
-      const message = err instanceof Error ? err.message : 'Failed to fetch users';
-      setError(message);
-      toast.error(message);
+      console.error('Error fetching users:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch users');
     } finally {
       setLoading(false);
     }
@@ -174,24 +56,15 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
-      const { data: userId, error: createError } = await supabase.rpc(
-        'admin_create_user',
-        {
-          p_email: createUserData.email,
-          p_password: createUserData.password,
-          p_role: createUserData.role,
-          p_metadata: createUserData.metadata || {}
-        }
-      );
-
-      if (createError) throw createError;
-
-      setCreateUserData({ 
-        email: '', 
-        password: '', 
-        role: 'merchant',
-        metadata: {}
+      const { error } = await supabase.rpc('create_user_with_username', {
+        p_username: createUserData.username,
+        p_password: createUserData.password,
+        p_role: createUserData.role
       });
+
+      if (error) throw error;
+
+      setCreateUserData({ username: '', password: '', role: 'user' });
       setShowCreateModal(false);
       await fetchUsers();
       toast.success('User created successfully');
@@ -210,18 +83,27 @@ export function UserManagement() {
 
     try {
       const formData = new FormData(e.target as HTMLFormElement);
-      const email = formData.get('email') as string;
+      const username = formData.get('username') as string;
       const role = formData.get('role') as 'admin' | 'merchant' | 'user';
       const password = formData.get('password') as string;
 
-      const { error } = await supabase.rpc('admin_update_user', {
+      // Update user role
+      const { error: roleError } = await supabase.rpc('manage_user_role', {
         p_user_id: editingUser.id,
-        p_email: email !== editingUser.email ? email : null,
-        p_password: password || null,
-        p_role: role !== editingUser.role ? role : null
+        p_role: role
       });
 
-      if (error) throw error;
+      if (roleError) throw roleError;
+
+      // Update password if provided
+      if (password) {
+        const { error: passwordError } = await supabase.rpc('change_user_password', {
+          p_user_id: editingUser.id,
+          p_new_password: password
+        });
+
+        if (passwordError) throw passwordError;
+      }
 
       setShowEditModal(false);
       setEditingUser(null);
@@ -235,7 +117,10 @@ export function UserManagement() {
 
   async function deleteUser(userId: string) {
     try {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      const { error } = await supabase.rpc('delete_user', {
+        p_user_id: userId
+      });
+
       if (error) throw error;
 
       setShowDeleteModal(false);
@@ -283,7 +168,7 @@ export function UserManagement() {
             {/* User Info */}
             <div className="p-2.5 sm:p-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="flex items-center gap-2 min-w-0">
                   <div className="p-1.5 sm:p-2 bg-gray-800 rounded-lg">
                     {user.role === 'admin' ? (
                       <Shield className="h-4 w-4 text-red-400" />
@@ -293,25 +178,15 @@ export function UserManagement() {
                       <Users className="h-4 w-4 text-blue-400" />
                     )}
                   </div>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0">
                     <p className="text-xs sm:text-sm font-medium truncate">{user.email}</p>
-                    <div className="flex items-center gap-x-3 text-[10px] sm:text-xs text-gray-400">
-                      <span className="capitalize">{user.role || 'No role'}</span>
-                      <span>•</span>
-                      <span>{user.collection_count} collections</span>
-                      <span>•</span>
-                      <span>Created {new Date(user.created_at).toLocaleDateString()}</span>
-                      {user.last_active && (
-                        <>
-                          <span>•</span>
-                          <span>Last active {new Date(user.last_active).toLocaleDateString()}</span>
-                        </>
-                      )}
-                    </div>
+                    <p className="text-[10px] sm:text-xs text-gray-400">
+                      {user.role || 'No role assigned'}
+                    </p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
                       setEditingUser(user);
@@ -366,12 +241,12 @@ export function UserManagement() {
             
             <form onSubmit={createUser} className="space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Email</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Username</label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={createUserData.email}
-                  onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
+                  value={createUserData.username}
+                  onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
                   className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
@@ -439,12 +314,12 @@ export function UserManagement() {
             
             <form onSubmit={updateUser} className="space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Email</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Username</label>
                 <input
-                  type="email"
-                  name="email"
+                  type="text"
+                  name="username"
                   required
-                  defaultValue={editingUser.email}
+                  defaultValue={editingUser.email.split('@')[0]}
                   className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
