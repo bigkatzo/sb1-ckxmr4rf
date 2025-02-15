@@ -9,6 +9,7 @@ export function SignInPage() {
   const [error, setError] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -16,6 +17,7 @@ export function SignInPage() {
 
     setLoading(true);
     setError('');
+    setDebugInfo('');
 
     try {
       // Validate input
@@ -27,6 +29,9 @@ export function SignInPage() {
       const isEmail = identifier.includes('@');
       const email = isEmail ? identifier : `${identifier}@merchant.local`;
 
+      // Log the attempt
+      console.log('Attempting login with:', { email, isEmail });
+
       // Sign in with email/password
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
@@ -34,6 +39,8 @@ export function SignInPage() {
       });
 
       if (signInError) {
+        console.error('Supabase auth error:', signInError);
+        setDebugInfo(`Login attempt failed for email: ${email}`);
         throw signInError;
       }
 
@@ -41,12 +48,20 @@ export function SignInPage() {
         throw new Error('No user data returned');
       }
 
+      console.log('Login successful:', data.user);
+      
       // Simply redirect to dashboard - we'll handle permissions there
       navigate('/merchant/dashboard');
       
     } catch (err) {
       console.error('Sign in error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during sign in');
+      if (err instanceof Error) {
+        setError(err.message);
+        setDebugInfo(`Full error: ${JSON.stringify(err)}`);
+      } else {
+        setError('An error occurred during sign in');
+        setDebugInfo(`Unknown error: ${JSON.stringify(err)}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -73,6 +88,9 @@ export function SignInPage() {
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-red-800">{error}</h3>
+                  {debugInfo && (
+                    <p className="mt-1 text-xs text-red-600">{debugInfo}</p>
+                  )}
                 </div>
               </div>
             </div>
