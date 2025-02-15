@@ -7,7 +7,7 @@ export function SignInPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -19,9 +19,13 @@ export function SignInPage() {
 
     try {
       // Validate input
-      if (!email || !password) {
-        throw new Error('Please enter both email and password');
+      if (!identifier || !password) {
+        throw new Error('Please enter both username/email and password');
       }
+
+      // Determine if input is email or username
+      const isEmail = identifier.includes('@');
+      const email = isEmail ? identifier : `${identifier}@merchant.local`;
 
       // Sign in with email/password
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -31,7 +35,7 @@ export function SignInPage() {
 
       if (signInError) {
         if (signInError.message.includes('Invalid login credentials')) {
-          throw new Error('Invalid email or password');
+          throw new Error('Invalid username/email or password');
         }
         throw signInError;
       }
@@ -101,17 +105,17 @@ export function SignInPage() {
           
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email" className="sr-only">Email</label>
+              <label htmlFor="identifier" className="sr-only">Username or Email</label>
               <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="identifier"
+                name="identifier"
+                type="text"
+                autoComplete="username"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Username or Email"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 disabled={loading}
               />
             </div>
