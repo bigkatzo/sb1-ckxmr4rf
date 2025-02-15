@@ -35,9 +35,14 @@ export function DashboardPage() {
       
       if (!user) return;
 
-      // Check if admin
-      const isAdmin = user.email === 'admin420@merchant.local';
-      setIsAdmin(isAdmin);
+      // Check if admin using user_profiles
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      setIsAdmin(profile?.role === 'admin');
 
       // Check if user has collections
       const { data: collections } = await supabase
@@ -45,7 +50,7 @@ export function DashboardPage() {
         .select('id')
         .eq('user_id', user.id);
 
-      setHasCollections(collections?.length > 0);
+      setHasCollections(!!collections && collections.length > 0);
     }
     checkPermissions();
   }, []);

@@ -10,7 +10,11 @@ END $$;
 CREATE OR REPLACE FUNCTION auth.is_admin()
 RETURNS boolean AS $$
 BEGIN
-  RETURN NULLIF(current_setting('request.jwt.claims', true)::jsonb->>'email', '') = 'admin420@merchant.local';
+  RETURN EXISTS (
+    SELECT 1 FROM user_profiles
+    WHERE id = auth.uid()
+    AND role = 'admin'
+  );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -23,11 +27,11 @@ BEGIN
     RETURN true;
   END IF;
 
-  -- Check user metadata for merchant role
-  RETURN (
-    SELECT raw_app_meta_data->>'role' = 'merchant'
-    FROM auth.users
+  -- Check user profile for merchant role
+  RETURN EXISTS (
+    SELECT 1 FROM user_profiles
     WHERE id = auth.uid()
+    AND role = 'merchant'
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -40,18 +44,10 @@ BEGIN
   INSERT INTO user_profiles (id, role)
   VALUES (
     NEW.id,
-    CASE 
-      WHEN NEW.email = 'admin420@merchant.local' THEN 'admin'
-      WHEN NEW.raw_app_meta_data->>'role' = 'merchant' THEN 'merchant'
-      ELSE 'user'
-    END
+    COALESCE(NEW.raw_app_meta_data->>'role', 'user')::user_role
   )
   ON CONFLICT (id) DO UPDATE
-  SET role = CASE 
-    WHEN EXCLUDED.id IN (SELECT id FROM auth.users WHERE email = 'admin420@merchant.local') THEN 'admin'
-    WHEN NEW.raw_app_meta_data->>'role' = 'merchant' THEN 'merchant'
-    ELSE 'user'
-  END;
+  SET role = COALESCE(NEW.raw_app_meta_data->>'role', 'user')::user_role;
   
   RETURN NEW;
 END;

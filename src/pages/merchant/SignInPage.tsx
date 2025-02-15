@@ -7,7 +7,7 @@ export function SignInPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -19,19 +19,19 @@ export function SignInPage() {
 
     try {
       // Validate input
-      if (!username || !password) {
-        throw new Error('Please enter both username and password');
+      if (!email || !password) {
+        throw new Error('Please enter both email and password');
       }
 
       // Sign in with email/password
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: `${username.trim()}@merchant.local`,
+        email: email.trim(),
         password: password.trim()
       });
 
       if (signInError) {
         if (signInError.message.includes('Invalid login credentials')) {
-          throw new Error('Invalid username or password');
+          throw new Error('Invalid email or password');
         }
         throw signInError;
       }
@@ -47,115 +47,100 @@ export function SignInPage() {
         .eq('id', data.user.id)
         .single();
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.warn('Profile fetch warning:', profileError);
-        // Don't throw - user might not have profile yet
+      if (profileError) {
+        if (profileError.code !== 'PGRST116') {
+          throw profileError;
+        }
+        // No profile means no access
+        throw new Error('Account does not have merchant dashboard access');
       }
 
-      // Check for collection access
-      const [{ data: collections }, { data: access }] = await Promise.all([
-        supabase
-          .from('collections')
-          .select('id')
-          .eq('user_id', data.user.id)
-          .limit(1),
-        supabase
-          .from('collection_access')
-          .select('id')
-          .eq('user_id', data.user.id)
-          .limit(1)
-      ]);
-
-      // Allow access if user has:
-      // 1. A role in user_profiles
-      // 2. Owned collections
-      // 3. Collection access grants
-      const hasAccess = 
-        profile?.role || 
-        (collections && collections.length > 0) ||
-        (access && access.length > 0);
-
-      if (!hasAccess) {
-        throw new Error('You do not have access to the merchant dashboard. Please contact support.');
+      if (!profile || !['admin', 'merchant'].includes(profile.role)) {
+        throw new Error('Account does not have merchant dashboard access');
       }
 
-      // Redirect to dashboard
-      navigate('/merchant/dashboard');
-    } catch (error) {
-      console.error('Sign in error:', error);
-      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      // Redirect based on role
+      if (profile.role === 'admin') {
+        navigate('/merchant/admin');
+      } else {
+        navigate('/merchant/dashboard');
+      }
+    } catch (err) {
+      console.error('Sign in error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during sign in');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-600 mb-4">
-            <ShoppingBag className="w-8 h-8" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <div className="mx-auto h-12 w-12 text-purple-600">
+            <ShoppingBag className="h-12 w-12" />
           </div>
-          <h1 className="text-2xl font-bold">Merchant Dashboard</h1>
-          <p className="text-gray-400 mt-2">Sign in to manage your collections</p>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Sign in to Merchant Dashboard
+          </h2>
         </div>
-
-        <form onSubmit={handleSubmit} className="bg-gray-900 rounded-xl p-6 space-y-6">
+        
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-3 rounded">
-              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-              <p className="text-sm">{error}</p>
+            <div className="rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
+                </div>
+              </div>
             </div>
           )}
-
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium mb-2">
-              Username
-            </label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              disabled={loading}
-              autoComplete="username"
-            />
+          
+          <div className="rounded-md shadow-sm -space-y-px">
+            <div>
+              <label htmlFor="email" className="sr-only">Email</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="sr-only">Password</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-2">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            <button
+              type="submit"
               disabled={loading}
-              autoComplete="current-password"
-            />
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
+            </button>
           </div>
-
-          <button
-            type="submit"
-            disabled={loading || !username || !password}
-            className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
-                <span>Signing in...</span>
-              </>
-            ) : (
-              'Sign In'
-            )}
-          </button>
         </form>
       </div>
     </div>
