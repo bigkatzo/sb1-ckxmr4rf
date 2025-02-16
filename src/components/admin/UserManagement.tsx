@@ -62,6 +62,10 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
+      if (!supabaseAdmin) {
+        throw new Error('Admin client not available - please check environment variables');
+      }
+
       // Use admin client for user creation
       const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: `${createUserData.username}@merchant.local`,

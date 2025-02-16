@@ -5,24 +5,26 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey || !supabaseServiceKey) {
-  throw new Error('Missing Supabase environment variables');
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing required Supabase environment variables');
 }
 
 // Regular client for normal operations
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
-// Service role client for admin operations
-export const supabaseAdmin = createClient<Database>(
-  supabaseUrl, 
-  supabaseServiceKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+// Service role client for admin operations (only available in production)
+export const supabaseAdmin = supabaseServiceKey 
+  ? createClient<Database>(
+      supabaseUrl, 
+      supabaseServiceKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+  : null;
 
 // Add retry logic for failed requests
 export async function withRetry<T>(

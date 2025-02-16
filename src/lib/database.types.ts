@@ -40,6 +40,30 @@ export interface Database {
           created_at: string
         }>
       }
+      manage_user_role: {
+        Args: {
+          p_user_id: string
+          p_role: 'admin' | 'merchant' | 'user'
+        }
+        Returns: void
+      }
+      change_user_password: {
+        Args: {
+          p_user_id: string
+          p_new_password: string
+        }
+        Returns: void
+      }
+      delete_user: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: void
+      }
+      check_database_connection: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
     }
   }
 } 
