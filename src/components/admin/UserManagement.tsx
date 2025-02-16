@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, Store, Plus, X, ChevronDown, ChevronUp, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, supabaseAdmin } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
 
@@ -62,7 +62,8 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
-      const { data: userData, error: createError } = await supabase.auth.admin.createUser({
+      // Use admin client for user creation
+      const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: `${createUserData.username}@merchant.local`,
         password: createUserData.password,
         email_confirm: true,

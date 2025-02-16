@@ -3,52 +3,26 @@ import type { Database } from './database.types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase configuration');
+if (!supabaseUrl || !supabaseKey || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables');
 }
 
-// Create client with retries and better timeout settings
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  },
-  global: {
-    headers: { 'x-application-name': 'store.fun' }
-  },
-  db: {
-    schema: 'public'
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
+// Regular client for normal operations
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+
+// Service role client for admin operations
+export const supabaseAdmin = createClient<Database>(
+  supabaseUrl, 
+  supabaseServiceKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
     }
-  },
-  // Add retry configuration with secure error handling
-  fetch: (url, options = {}) => {
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'x-client-info': 'store.fun'
-      },
-      signal: options.signal || new AbortController().signal,
-    }).then(async response => {
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        // Don't include potentially sensitive error details in the message
-        throw new Error('Database operation failed');
-      }
-      return response;
-    }).catch(error => {
-      // Log minimal error info without exposing details
-      console.error('Database operation failed');
-      throw new Error('Database operation failed');
-    });
   }
-});
+);
 
 // Add retry logic for failed requests
 export async function withRetry<T>(
