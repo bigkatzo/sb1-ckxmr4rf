@@ -11,6 +11,14 @@ const serviceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
 // Check if we're in production (Netlify)
 const isProduction = import.meta.env.PROD;
 
+// Debug logging
+console.log('Environment Check:', {
+  isProduction,
+  hasServiceKey: !!serviceRoleKey,
+  url: !!supabaseUrl,
+  anonKey: !!supabaseKey
+});
+
 // Validate required environment variables
 if (!supabaseUrl) {
   throw new Error(
@@ -49,22 +57,31 @@ if (!supabaseAdmin) {
   if (isProduction) {
     console.error(
       '🚨 Critical: Admin features are disabled because SUPABASE_SERVICE_ROLE_KEY is not detected.\n\n' +
+      'Current Environment Status:\n' +
+      `- Production Mode: ${isProduction}\n` +
+      `- Service Key Present: ${!!serviceRoleKey}\n` +
+      `- URL Present: ${!!supabaseUrl}\n` +
+      `- Anon Key Present: ${!!supabaseKey}\n\n` +
       'To fix this:\n' +
-      '1. Verify the key is set in Netlify (Site settings > Build & deploy > Environment)\n' +
-      '2. Make sure the key is correct (from Supabase Dashboard > Project Settings > API)\n' +
-      '3. Ensure "All scopes" is selected in Netlify\n' +
-      '4. Try triggering a new deployment\n\n' +
-      'Current environment: Production (Netlify)'
+      '1. Go to Netlify dashboard\n' +
+      '2. Site settings > Build & deploy > Environment\n' +
+      '3. Verify SUPABASE_SERVICE_ROLE_KEY exists and has a value\n' +
+      '4. Ensure the key is from Supabase Project Settings > API > service_role key\n' +
+      '5. Make sure "All scopes" is selected\n' +
+      '6. Trigger a new deployment'
     );
   } else {
     console.info(
       '📝 Local Development: Admin features are disabled\n\n' +
-      'This is normal in development unless you specifically need admin features.\n\n' +
+      'Current Environment Status:\n' +
+      `- Development Mode: ${!isProduction}\n` +
+      `- Service Key Present: ${!!serviceRoleKey}\n` +
+      `- URL Present: ${!!supabaseUrl}\n` +
+      `- Anon Key Present: ${!!supabaseKey}\n\n` +
       'To enable admin features locally:\n' +
       '1. Get your service role key from Supabase Dashboard > Project Settings > API\n' +
       '2. Add to your .env file: SUPABASE_SERVICE_ROLE_KEY=your_key\n' +
-      '3. Restart your dev server\n\n' +
-      'Current environment: Development'
+      '3. Restart your dev server'
     );
   }
 }
@@ -73,10 +90,12 @@ if (!supabaseAdmin) {
 export const isAdminEnabled = (): boolean => {
   const hasAdminClient = supabaseAdmin !== null;
   if (!hasAdminClient) {
-    const message = isProduction
-      ? 'Admin features are disabled. The service role key is not detected in Netlify environment variables.'
-      : 'Admin features are disabled. Add SUPABASE_SERVICE_ROLE_KEY to your .env file for local testing.';
-    console.error(message);
+    console.error(
+      'Admin Client Status:\n' +
+      `- Production: ${isProduction}\n` +
+      `- Has Service Key: ${!!serviceRoleKey}\n` +
+      `- Admin Client Created: ${!!supabaseAdmin}\n`
+    );
   }
   return hasAdminClient;
 };
