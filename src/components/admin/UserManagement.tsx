@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, Store, Plus, X, ChevronDown, ChevronUp, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
-import { supabase, supabaseAdmin } from '../../lib/supabase';
+import { supabase, supabaseAdmin, isAdminEnabled } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
 
@@ -62,8 +62,8 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
-      if (!supabaseAdmin) {
-        throw new Error('Admin features are not available in development mode. Please ensure the service role key is set in production.');
+      if (!isAdminEnabled() || !supabaseAdmin) {
+        throw new Error('Admin features are currently disabled. Please check your environment configuration.');
       }
 
       // Validate input
