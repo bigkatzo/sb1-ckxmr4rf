@@ -29,6 +29,26 @@ export interface Database {
           updated_at?: string
         }
       }
+      collections: {
+        Row: {
+          id: string
+          user_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Functions: {
       list_users: {
@@ -64,6 +84,21 @@ export interface Database {
         Args: Record<string, never>
         Returns: boolean
       }
+      is_admin: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
+      create_user_with_username: {
+        Args: {
+          p_username: string
+          p_password: string
+          p_role?: 'admin' | 'merchant' | 'user'
+        }
+        Returns: string
+      }
+    }
+    Enums: {
+      user_role: 'admin' | 'merchant' | 'user'
     }
   }
 } 

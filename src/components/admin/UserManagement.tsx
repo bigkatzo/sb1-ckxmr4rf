@@ -63,7 +63,12 @@ export function UserManagement() {
       setError(null);
 
       if (!supabaseAdmin) {
-        throw new Error('Admin client not available - please check environment variables');
+        throw new Error('Admin features are not available in development mode. Please ensure the service role key is set in production.');
+      }
+
+      // Validate input
+      if (!createUserData.username || !createUserData.password) {
+        throw new Error('Username and password are required');
       }
 
       // Use admin client for user creation
@@ -84,18 +89,21 @@ export function UserManagement() {
 
       if (createError) throw createError;
 
-      if (userData?.user) {
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: userData.user.id,
-            role: createUserData.role,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-
-        if (profileError) throw profileError;
+      if (!userData?.user) {
+        throw new Error('Failed to create user - no user data returned');
       }
+
+      // Create user profile
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: userData.user.id,
+          role: createUserData.role,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (profileError) throw profileError;
 
       setCreateUserData({ username: '', password: '', role: 'user' });
       setShowCreateModal(false);
@@ -103,8 +111,9 @@ export function UserManagement() {
       toast.success('User created successfully');
     } catch (err) {
       console.error('Error creating user:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create user');
-      toast.error(err instanceof Error ? err.message : 'Failed to create user');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create user';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setCreating(false);
     }

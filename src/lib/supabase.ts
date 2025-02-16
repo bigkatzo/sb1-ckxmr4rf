@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
+// Required environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+// Service role key is optional and only used in production
+const serviceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing required Supabase environment variables');
@@ -13,10 +16,10 @@ if (!supabaseUrl || !supabaseKey) {
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
 // Service role client for admin operations (only available in production)
-export const supabaseAdmin = supabaseServiceKey 
+export const supabaseAdmin = serviceRoleKey 
   ? createClient<Database>(
       supabaseUrl, 
-      supabaseServiceKey,
+      serviceRoleKey,
       {
         auth: {
           autoRefreshToken: false,
@@ -25,6 +28,10 @@ export const supabaseAdmin = supabaseServiceKey
       }
     )
   : null;
+
+if (!supabaseAdmin) {
+  console.warn('Supabase admin client is not initialized. Some admin features may be unavailable.');
+}
 
 // Add retry logic for failed requests
 export async function withRetry<T>(
