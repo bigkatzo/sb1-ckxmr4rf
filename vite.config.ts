@@ -11,6 +11,10 @@ export default defineConfig({
       }
     })
   ],
+  define: {
+    'process.env': {},
+  },
+  envPrefix: ['VITE_'],
   build: {
     sourcemap: true,
     target: 'esnext',
