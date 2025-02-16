@@ -8,19 +8,28 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // Service role key - no VITE_ prefix as it's server-side only
 const serviceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Check if we're in development mode
+const isDevelopment = import.meta.env.DEV;
+
 // Validate required environment variables
 if (!supabaseUrl) {
-  throw new Error('Missing VITE_SUPABASE_URL environment variable');
+  throw new Error(
+    'Missing VITE_SUPABASE_URL environment variable\n' +
+    'Make sure you have VITE_SUPABASE_URL set in your .env file'
+  );
 }
 
 if (!supabaseKey) {
-  throw new Error('Missing VITE_SUPABASE_ANON_KEY environment variable');
+  throw new Error(
+    'Missing VITE_SUPABASE_ANON_KEY environment variable\n' +
+    'Make sure you have VITE_SUPABASE_ANON_KEY set in your .env file'
+  );
 }
 
 // Regular client for normal operations
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
-// Service role client for admin operations (only available in production)
+// Service role client for admin operations
 export const supabaseAdmin = serviceRoleKey 
   ? createClient<Database>(
       supabaseUrl, 
@@ -35,9 +44,31 @@ export const supabaseAdmin = serviceRoleKey
     )
   : null;
 
-// Log warning if admin client is not available
+// Log appropriate warning based on environment
 if (!supabaseAdmin) {
-  console.warn('Supabase admin client not initialized - admin features will be disabled');
+  if (isDevelopment) {
+    console.warn(
+      '⚠️ Admin features are disabled in development mode\n\n' +
+      'To enable admin features locally:\n' +
+      '1. Go to https://supabase.com/dashboard\n' +
+      '2. Select your project\n' +
+      '3. Go to Project Settings > API\n' +
+      '4. Copy the "service_role key" (NOT the anon key)\n' +
+      '5. Add to your .env file: SUPABASE_SERVICE_ROLE_KEY=your_key\n' +
+      '6. Restart your dev server\n\n' +
+      'Note: Keep this key secret and never commit it to version control!'
+    );
+  } else {
+    console.error(
+      '🚨 Admin features are disabled in production\n\n' +
+      'To fix this:\n' +
+      '1. Go to your Netlify dashboard\n' +
+      '2. Navigate to Site settings > Build & deploy > Environment\n' +
+      '3. Add environment variable: SUPABASE_SERVICE_ROLE_KEY\n' +
+      '4. Trigger a new deployment\n\n' +
+      'For better security, consider moving admin operations to Netlify Functions'
+    );
+  }
 }
 
 // Add retry logic for failed requests
