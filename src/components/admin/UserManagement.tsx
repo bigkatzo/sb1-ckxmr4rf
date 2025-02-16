@@ -11,6 +11,12 @@ interface User {
   created_at: string;
 }
 
+interface CreateUserData {
+  username: string;
+  password: string;
+  role: 'admin' | 'merchant' | 'user';
+}
+
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,10 +29,10 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [createUserData, setCreateUserData] = useState({
+  const [createUserData, setCreateUserData] = useState<CreateUserData>({
     username: '',
     password: '',
-    role: 'user' as const
+    role: 'user'
   });
 
   useEffect(() => {
@@ -56,13 +62,35 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
-      const { error } = await supabase.rpc('create_user_with_username', {
-        p_username: createUserData.username,
-        p_password: createUserData.password,
-        p_role: createUserData.role
+      const { data: userData, error: createError } = await supabase.auth.admin.createUser({
+        email: `${createUserData.username}@merchant.local`,
+        password: createUserData.password,
+        email_confirm: true,
+        user_metadata: { 
+          username: createUserData.username,
+          role: createUserData.role
+        },
+        app_metadata: {
+          provider: 'email',
+          providers: ['email'],
+          role: createUserData.role
+        }
       });
 
-      if (error) throw error;
+      if (createError) throw createError;
+
+      if (userData?.user) {
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: userData.user.id,
+            role: createUserData.role,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (profileError) throw profileError;
+      }
 
       setCreateUserData({ username: '', password: '', role: 'user' });
       setShowCreateModal(false);
