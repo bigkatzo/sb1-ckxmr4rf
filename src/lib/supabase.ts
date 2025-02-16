@@ -1,15 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-// Required environment variables
+// Required environment variables - keep VITE_ prefix for these
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Service role key is optional and only used in production
+// Service role key - no VITE_ prefix as it's server-side only
 const serviceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing required Supabase environment variables');
+// Validate required environment variables
+if (!supabaseUrl) {
+  throw new Error('Missing VITE_SUPABASE_URL environment variable');
+}
+
+if (!supabaseKey) {
+  throw new Error('Missing VITE_SUPABASE_ANON_KEY environment variable');
 }
 
 // Regular client for normal operations
@@ -23,14 +28,16 @@ export const supabaseAdmin = serviceRoleKey
       {
         auth: {
           autoRefreshToken: false,
-          persistSession: false
+          persistSession: false,
+          detectSessionInUrl: false
         }
       }
     )
   : null;
 
+// Log warning if admin client is not available
 if (!supabaseAdmin) {
-  console.warn('Supabase admin client is not initialized. Some admin features may be unavailable.');
+  console.warn('Supabase admin client not initialized - admin features will be disabled');
 }
 
 // Add retry logic for failed requests
