@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, Store, Plus, X, ChevronDown, ChevronUp, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
-import { supabase, supabaseAdmin, isAdminEnabled } from '../../lib/supabase';
+import { supabase, supabaseAdmin, isAdminEnabled, adminQuery, withRetry, safeQuery } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
 
@@ -15,6 +15,27 @@ interface CreateUserData {
   username: string;
   password: string;
   role: 'admin' | 'merchant' | 'user';
+}
+
+// Helper function to validate admin access
+async function validateAdminAccess() {
+  if (!isAdminEnabled()) {
+    const isProduction = import.meta.env.PROD;
+    const errorMessage = isProduction
+      ? 'Admin features are disabled in production. Please check Netlify environment variables.'
+      : 'Admin features are disabled in development. Please add SUPABASE_SERVICE_ROLE_KEY to your .env file.';
+    throw new Error(errorMessage);
+  }
+
+  // Verify admin role in database
+  const { data: profile, error } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .single();
+
+  if (error || !profile || profile.role !== 'admin') {
+    throw new Error('You do not have admin access to perform this operation');
+  }
 }
 
 export function UserManagement() {
@@ -36,6 +57,20 @@ export function UserManagement() {
   });
 
   useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        await validateAdminAccess();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to verify admin access';
+        setError(message);
+        toast.error(message);
+      }
+    };
+    
+    checkAdmin();
+  }, []);
+
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -44,13 +79,24 @@ export function UserManagement() {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase.rpc('list_users');
-      if (error) throw error;
+      await validateAdminAccess();
 
+      const { data, error } = await withRetry(async () => {
+        return adminQuery(async (adminClient) => {
+          if (!adminClient) throw new Error('Admin client is not available');
+          const response = await adminClient.rpc('list_users');
+          if (response.error) throw response.error;
+          return response;
+        });
+      });
+
+      if (error) throw error;
       setUsers(data || []);
     } catch (err) {
       console.error('Error fetching users:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch users');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch users';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -62,48 +108,58 @@ export function UserManagement() {
       setCreating(true);
       setError(null);
 
-      if (!isAdminEnabled() || !supabaseAdmin) {
-        throw new Error('Admin features are currently disabled. Please check your environment configuration.');
-      }
+      await validateAdminAccess();
 
-      // Validate input
       if (!createUserData.username || !createUserData.password) {
         throw new Error('Username and password are required');
       }
 
-      // Use admin client for user creation
-      const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: `${createUserData.username}@merchant.local`,
-        password: createUserData.password,
-        email_confirm: true,
-        user_metadata: { 
-          username: createUserData.username,
-          role: createUserData.role
-        },
-        app_metadata: {
-          provider: 'email',
-          providers: ['email'],
-          role: createUserData.role
-        }
-      });
+      await withRetry(async () => {
+        return adminQuery(async (adminClient) => {
+          if (!adminClient) throw new Error('Admin client is not available');
 
-      if (createError) throw createError;
+          // First create the user
+          const { data: userData, error: createError } = await adminClient.auth.admin.createUser({
+            email: `${createUserData.username}@merchant.local`,
+            password: createUserData.password,
+            email_confirm: true,
+            user_metadata: { 
+              username: createUserData.username,
+              role: createUserData.role
+            },
+            app_metadata: {
+              provider: 'email',
+              providers: ['email'],
+              role: createUserData.role
+            }
+          });
 
-      if (!userData?.user) {
-        throw new Error('Failed to create user - no user data returned');
-      }
+          if (createError) throw createError;
+          if (!userData?.user) throw new Error('Failed to create user - no user data returned');
 
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: userData.user.id,
-          role: createUserData.role,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          // Then create the profile
+          const { error: profileError } = await adminClient
+            .from('user_profiles')
+            .insert({
+              id: userData.user.id,
+              role: createUserData.role,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+
+          if (profileError) {
+            // If profile creation fails, attempt to clean up the auth user
+            try {
+              await adminClient.auth.admin.deleteUser(userData.user.id);
+            } catch (cleanupError) {
+              console.error('Failed to clean up auth user after profile creation failed:', cleanupError);
+            }
+            throw profileError;
+          }
+
+          return userData;
         });
-
-      if (profileError) throw profileError;
+      });
 
       setCreateUserData({ username: '', password: '', role: 'user' });
       setShowCreateModal(false);
@@ -124,28 +180,47 @@ export function UserManagement() {
     if (!editingUser) return;
 
     try {
+      await validateAdminAccess();
+
       const formData = new FormData(e.target as HTMLFormElement);
       const username = formData.get('username') as string;
       const role = formData.get('role') as 'admin' | 'merchant' | 'user';
       const password = formData.get('password') as string;
 
-      // Update user role
-      const { error: roleError } = await supabase.rpc('manage_user_role', {
-        p_user_id: editingUser.id,
-        p_role: role
-      });
+      await withRetry(async () => {
+        return adminQuery(async (adminClient) => {
+          if (!adminClient) throw new Error('Admin client is not available');
 
-      if (roleError) throw roleError;
+          // Update role first
+          const { error: roleError } = await adminClient.rpc('manage_user_role', {
+            p_user_id: editingUser.id,
+            p_role: role
+          });
 
-      // Update password if provided
-      if (password) {
-        const { error: passwordError } = await supabase.rpc('change_user_password', {
-          p_user_id: editingUser.id,
-          p_new_password: password
+          if (roleError) throw roleError;
+
+          // Then update password if provided
+          if (password) {
+            const { error: passwordError } = await adminClient.rpc('change_user_password', {
+              p_user_id: editingUser.id,
+              p_new_password: password
+            });
+
+            if (passwordError) throw passwordError;
+          }
+
+          // Update metadata to match new role
+          const { error: metadataError } = await adminClient.auth.admin.updateUserById(
+            editingUser.id,
+            {
+              app_metadata: { role },
+              user_metadata: { role }
+            }
+          );
+
+          if (metadataError) throw metadataError;
         });
-
-        if (passwordError) throw passwordError;
-      }
+      });
 
       setShowEditModal(false);
       setEditingUser(null);
@@ -159,11 +234,26 @@ export function UserManagement() {
 
   async function deleteUser(userId: string) {
     try {
-      const { error } = await supabase.rpc('delete_user', {
-        p_user_id: userId
-      });
+      await validateAdminAccess();
 
-      if (error) throw error;
+      await withRetry(async () => {
+        return adminQuery(async (adminClient) => {
+          if (!adminClient) throw new Error('Admin client is not available');
+
+          // Delete profile first
+          const { error: profileError } = await adminClient
+            .from('user_profiles')
+            .delete()
+            .eq('id', userId);
+
+          if (profileError) throw profileError;
+
+          // Then delete auth user
+          const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
+          
+          if (authError) throw authError;
+        });
+      });
 
       setShowDeleteModal(false);
       setDeletingUser(null);
@@ -207,7 +297,6 @@ export function UserManagement() {
       <div className="space-y-2">
         {users.map((user) => (
           <div key={user.id} className="bg-gray-900 rounded-lg">
-            {/* User Info */}
             <div className="p-2.5 sm:p-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
@@ -265,7 +354,6 @@ export function UserManagement() {
               </div>
             </div>
 
-            {/* Collection Access */}
             {expandedUser === user.id && (
               <div className="px-3 pb-3 border-t border-gray-800 mt-2 pt-3">
                 <CollectionAccess userId={user.id} />
@@ -275,7 +363,6 @@ export function UserManagement() {
         ))}
       </div>
 
-      {/* Create User Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-900 rounded-xl max-w-md w-full p-4">
@@ -348,7 +435,6 @@ export function UserManagement() {
         </div>
       )}
 
-      {/* Edit User Modal */}
       {showEditModal && editingUser && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-900 rounded-xl max-w-md w-full p-4">
@@ -422,7 +508,6 @@ export function UserManagement() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && deletingUser && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-900 rounded-xl max-w-md w-full p-4">
