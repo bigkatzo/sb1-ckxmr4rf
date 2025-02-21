@@ -237,8 +237,10 @@ GRANT SELECT ON public.orders TO authenticated;
 DROP FUNCTION IF EXISTS public.grant_collection_access(uuid, uuid, text);
 DROP FUNCTION IF EXISTS public.grant_collection_access(uuid, uuid, uuid, uuid, text);
 DROP FUNCTION IF EXISTS public.grant_content_access(uuid, uuid, uuid, uuid, text);
+DROP FUNCTION IF EXISTS public.revoke_collection_access(uuid, uuid, uuid, uuid);
+DROP FUNCTION IF EXISTS public.revoke_content_access(uuid, uuid, uuid, uuid);
 
-CREATE OR REPLACE FUNCTION public.grant_content_access(
+CREATE OR REPLACE FUNCTION public.grant_collection_access(
     p_user_id uuid,
     p_collection_id uuid DEFAULT NULL,
     p_category_id uuid DEFAULT NULL,
@@ -290,7 +292,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-CREATE OR REPLACE FUNCTION public.revoke_collection_access(
+CREATE OR REPLACE FUNCTION public.revoke_content_access(
     p_user_id uuid,
     p_collection_id uuid DEFAULT NULL,
     p_category_id uuid DEFAULT NULL,
@@ -316,7 +318,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.grant_content_access(uuid, uuid, uuid, uuid, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.revoke_collection_access(uuid, uuid, uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.revoke_content_access(uuid, uuid, uuid, uuid) TO authenticated;
 
 -- Verify setup
 DO $$

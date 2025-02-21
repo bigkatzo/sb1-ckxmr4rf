@@ -4,13 +4,15 @@ import { Database } from '@/types/supabase';
 import { Button, Select, Table, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
+type AccessType = 'view' | 'edit';
+
 interface UserAccess {
   id: string;
   user_id: string;
   collection_id: string | null;
   category_id: string | null;
   product_id: string | null;
-  access_type: 'view' | 'edit';
+  access_type: AccessType;
   granted_at: string;
   user_email: string;
   content_name: string;
@@ -35,7 +37,7 @@ const UserAccessManager: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedContentType, setSelectedContentType] = useState<'collection' | 'category' | 'product'>('collection');
   const [selectedContent, setSelectedContent] = useState<string>('');
-  const [selectedAccessLevel, setSelectedAccessLevel] = useState<'view' | 'edit'>('view');
+  const [selectedAccessType, setSelectedAccessType] = useState<AccessType>('view');
 
   useEffect(() => {
     fetchData();
@@ -140,10 +142,10 @@ const UserAccessManager: React.FC = () => {
         p_collection_id: selectedContentType === 'collection' ? selectedContent : null,
         p_category_id: selectedContentType === 'category' ? selectedContent : null,
         p_product_id: selectedContentType === 'product' ? selectedContent : null,
-        p_access_type: selectedAccessLevel
+        p_access_type: selectedAccessType
       };
 
-      console.log('Calling grant_collection_access with:', params);
+      console.log('Granting access with params:', params);
       const { data, error } = await supabase.rpc('grant_collection_access', params);
       
       if (error) throw error;
@@ -155,7 +157,7 @@ const UserAccessManager: React.FC = () => {
       setSelectedUser('');
       setSelectedContentType('collection');
       setSelectedContent('');
-      setSelectedAccessLevel('view');
+      setSelectedAccessType('view');
     } catch (error) {
       console.error('Error granting access:', error);
       message.error('Failed to grant access');
@@ -261,9 +263,9 @@ const UserAccessManager: React.FC = () => {
             }
           />
           <Select
-            placeholder="Access Level"
-            value={selectedAccessLevel}
-            onChange={setSelectedAccessLevel}
+            placeholder="Access Type"
+            value={selectedAccessType}
+            onChange={setSelectedAccessType}
             className="w-full"
             options={[
               { label: 'View', value: 'view' },
