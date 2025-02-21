@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { ShoppingBag, AlertCircle, CheckCircle } from 'lucide-react';
@@ -12,23 +12,6 @@ export function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Add useEffect to inspect table on component mount
-  useEffect(() => {
-    async function checkTable() {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select()
-        .limit(1);
-      
-      if (error) {
-        console.error('Error checking table:', error);
-      } else {
-        console.log('Table structure:', data);
-      }
-    }
-    checkTable();
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (loading) return;
@@ -38,39 +21,52 @@ export function RegisterPage() {
     setSuccess('');
 
     try {
-      // Basic validation
+      // Enhanced validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!email || !password || !confirmPassword) {
         throw new Error('Please fill in all fields');
       }
-
+      if (!emailRegex.test(email)) {
+        throw new Error('Please enter a valid email address');
+      }
       if (password !== confirmPassword) {
         throw new Error('Passwords do not match');
       }
-
-      if (password.length < 8) {
-        throw new Error('Password must be at least 8 characters long');
+      if (password.length < 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+        throw new Error('Password must be at least 8 characters and include uppercase, lowercase, and numbers');
       }
 
       // Create the user
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password.trim(),
+        options: {
+          data: {
+            role: 'user'
+          }
+        }
       });
 
-      if (signUpError) throw signUpError;
+      if (signUpError) {
+        if (signUpError.message?.includes('already registered')) {
+          throw new Error('This email is already registered');
+        }
+        throw signUpError;
+      }
 
-      // Log the response to understand the structure
       console.log('Signup response:', data);
 
-      if (data?.user && data?.session) {
-        // User is signed up and confirmed
-        navigate('/merchant/dashboard');
-      } else if (data?.user && !data?.session) {
-        // Email confirmation is required
-        setSuccess('Please check your email to confirm your account before signing in.');
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
+      if (data?.user) {
+        if (data.session) {
+          // User is signed up and confirmed
+          navigate('/merchant/dashboard');
+        } else {
+          // Email confirmation required
+          setSuccess('Please check your email to confirm your account before signing in.');
+          setEmail('');
+          setPassword('');
+          setConfirmPassword('');
+        }
       } else {
         throw new Error('Something went wrong during signup');
       }
@@ -92,6 +88,9 @@ export function RegisterPage() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Create your merchant account
           </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Fill in your details to get started
+          </p>
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -146,7 +145,7 @@ export function RegisterPage() {
                 autoComplete="new-password"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
+                placeholder="Password (8+ chars, uppercase, lowercase, number)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
@@ -175,7 +174,17 @@ export function RegisterPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating account...
+                </span>
+              ) : (
+                'Create account'
+              )}
             </button>
           </div>
 
