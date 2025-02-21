@@ -51,33 +51,28 @@ export function RegisterPage() {
         throw new Error('Password must be at least 8 characters long');
       }
 
-      // Create the user with email confirmation
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      // Create the user
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password.trim(),
-        options: {
-          emailRedirectTo: `${window.location.origin}/merchant/signin`,
-          data: {
-            role: 'user'
-          }
-        }
       });
 
       if (signUpError) throw signUpError;
 
-      if (authData.user) {
-        // Check if email confirmation is required
-        if (authData.session === null) {
-          setSuccess('Registration successful! Please check your email for a confirmation link to complete your registration.');
-          // Clear form
-          setEmail('');
-          setPassword('');
-          setConfirmPassword('');
-          return;
-        }
-        
-        // If no email confirmation required, redirect to dashboard
+      // Log the response to understand the structure
+      console.log('Signup response:', data);
+
+      if (data?.user && data?.session) {
+        // User is signed up and confirmed
         navigate('/merchant/dashboard');
+      } else if (data?.user && !data?.session) {
+        // Email confirmation is required
+        setSuccess('Please check your email to confirm your account before signing in.');
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+      } else {
+        throw new Error('Something went wrong during signup');
       }
     } catch (err) {
       console.error('Registration error:', err);
