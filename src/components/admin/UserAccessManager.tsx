@@ -143,8 +143,8 @@ const UserAccessManager: React.FC = () => {
         p_access_type: selectedAccessLevel
       };
 
-      console.log('Calling grant_content_access with:', params);
-      const { data, error } = await supabase.rpc('grant_content_access', params);
+      console.log('Calling grant_collection_access with:', params);
+      const { data, error } = await supabase.rpc('grant_collection_access', params);
       
       if (error) throw error;
       
@@ -171,8 +171,8 @@ const UserAccessManager: React.FC = () => {
         p_product_id: record.product_id
       };
 
-      console.log('Calling revoke_content_access with:', params);
-      const { data, error } = await supabase.rpc('revoke_content_access', params);
+      console.log('Calling revoke_collection_access with:', params);
+      const { data, error } = await supabase.rpc('revoke_collection_access', params);
       
       if (error) throw error;
       
