@@ -95,7 +95,7 @@ BEGIN
         
         -- List all policies with correct column names
         FOR r IN
-            SELECT policyname, polcmd AS command_type, polroles::text AS role_list
+            SELECT policyname, cmd AS command_type, roles::text AS role_list
             FROM pg_policies
             WHERE schemaname = 'public' AND tablename = 'user_profiles'
         LOOP
