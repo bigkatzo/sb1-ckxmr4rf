@@ -15,23 +15,21 @@ export async function createUser(email: string, password: string): Promise<Creat
       email: email.trim(),
       password: password.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}/merchant/signin`,
-        data: {
-          role: 'merchant' // User metadata stored in auth.users
-        }
+        emailRedirectTo: `${window.location.origin}/merchant/signin`
       }
     });
 
     // Step 2: Handle signup errors
     if (signUpError) {
+      console.error('Signup error:', signUpError);
       if (signUpError.message?.includes('already registered')) {
         throw new Error('This email is already registered');
       }
-      throw new Error(signUpError.message || 'Failed to create user');
+      throw signUpError;
     }
 
     // Step 3: Check signup response
-    if (!data.user) {
+    if (!data?.user) {
       throw new Error('User creation failed: No user data returned');
     }
 
