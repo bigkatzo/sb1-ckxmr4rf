@@ -4,6 +4,7 @@ import { HomePage } from '../pages/HomePage';
 import { CollectionPage } from '../pages/CollectionPage';
 import { ProductPage } from '../pages/ProductPage';
 import { SignInPage } from '../pages/merchant/SignInPage';
+import { RegisterPage } from '../pages/merchant/RegisterPage';
 import { DashboardPage } from '../pages/merchant/DashboardPage';
 import { AdminDashboard } from '../pages/merchant/AdminDashboard';
 import { PrivacyPolicyPage } from '../pages/legal/PrivacyPolicyPage';
@@ -33,8 +34,12 @@ export const router = createBrowserRouter([
         element: <ProductPage />
       },
       {
-        path: 'merchant',
+        path: 'merchant/signin',
         element: <SignInPage />
+      },
+      {
+        path: 'merchant/register',
+        element: <RegisterPage />
       },
       {
         path: 'merchant/dashboard',

@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { ShoppingBag, AlertCircle } from 'lucide-react';
 
-export function SignInPage() {
+export function RegisterPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -19,26 +20,47 @@ export function SignInPage() {
 
     try {
       // Basic validation
-      if (!email || !password) {
-        throw new Error('Please enter both email and password');
+      if (!email || !password || !confirmPassword) {
+        throw new Error('Please fill in all fields');
       }
 
-      // Simple sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      if (password !== confirmPassword) {
+        throw new Error('Passwords do not match');
+      }
+
+      if (password.length < 8) {
+        throw new Error('Password must be at least 8 characters long');
+      }
+
+      // Create the user
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
-        password: password.trim()
+        password: password.trim(),
       });
 
-      if (signInError) {
-        throw signInError;
-      }
+      if (signUpError) throw signUpError;
 
-      // Redirect to dashboard
-      navigate('/merchant/dashboard');
-      
+      if (authData.user) {
+        // Create user profile
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .insert([
+            {
+              id: authData.user.id,
+              email: authData.user.email,
+              role: 'user', // Default role
+              created_at: new Date().toISOString(),
+            },
+          ]);
+
+        if (profileError) throw profileError;
+
+        // Redirect to dashboard
+        navigate('/merchant/dashboard');
+      }
     } catch (err) {
-      console.error('Sign in error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during sign in');
+      console.error('Registration error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during registration');
     } finally {
       setLoading(false);
     }
@@ -52,7 +74,7 @@ export function SignInPage() {
             <ShoppingBag className="h-12 w-12" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to Merchant Dashboard
+            Create your merchant account
           </h2>
         </div>
         
@@ -79,7 +101,7 @@ export function SignInPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -92,12 +114,27 @@ export function SignInPage() {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label htmlFor="confirmPassword" className="sr-only">Confirm Password</label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={loading}
               />
             </div>
@@ -109,21 +146,21 @@ export function SignInPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Creating account...' : 'Create account'}
             </button>
           </div>
 
           <div className="text-center">
             <button
               type="button"
-              onClick={() => navigate('/merchant/register')}
+              onClick={() => navigate('/merchant/signin')}
               className="text-sm text-purple-600 hover:text-purple-500"
             >
-              Don't have an account? Register here
+              Already have an account? Sign in
             </button>
           </div>
         </form>
       </div>
     </div>
   );
-}
+} 
