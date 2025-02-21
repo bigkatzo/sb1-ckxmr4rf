@@ -34,7 +34,7 @@ export function Footer() {
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 order-1 sm:order-2">
             <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
               <Link 
-                to="/merchant" 
+                to="/merchant/signin" 
                 className="text-[10px] sm:text-xs hover:text-purple-400 transition-colors"
               >
                 Merchant Portal
