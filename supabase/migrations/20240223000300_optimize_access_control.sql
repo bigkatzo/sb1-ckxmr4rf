@@ -1,5 +1,19 @@
 -- Optimized dashboard collection access control
 
+-- Add unique constraint to collection_access if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_constraint 
+        WHERE conname = 'unique_user_content_access'
+    ) THEN
+        ALTER TABLE public.collection_access
+        ADD CONSTRAINT unique_user_content_access 
+        UNIQUE (user_id, collection_id, category_id, product_id) NULLS NOT DISTINCT;
+    END IF;
+END $$;
+
 -- Enable RLS on tables
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
@@ -82,8 +96,8 @@ BEGIN
             OR (v_parent_collection_id IS NOT NULL AND ca.collection_id = v_parent_collection_id)
         )
         AND (
-            p_required_level = 'view'
-            OR (p_required_level = 'edit' AND ca.access_type = 'edit')
+            lower(p_required_level) = 'view'
+            OR (lower(p_required_level) = 'edit' AND lower(ca.access_type) = 'edit')
         )
     ) OR (
         v_is_merchant AND EXISTS (
@@ -101,6 +115,15 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
+
+-- Add admin-specific policy for collections
+CREATE POLICY "collections_admin_all_access"
+ON public.collections
+FOR ALL
+TO authenticated
+USING (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+);
 
 -- Update policies to explicitly check admin status first
 CREATE OR REPLACE POLICY "collection_access_view_own"
@@ -294,9 +317,9 @@ BEGIN
         RAISE EXCEPTION 'Only administrators can grant access';
     END IF;
 
-    -- Validate access type
-    IF p_access_type NOT IN ('view', 'edit') THEN
-        RAISE EXCEPTION 'Invalid access type. Must be view or edit';
+    -- Validate access type (case-insensitive)
+    IF lower(p_access_type) NOT IN ('view', 'edit') THEN
+        RAISE EXCEPTION 'Invalid access type "%". Must be "view" or "edit"', p_access_type;
     END IF;
 
     -- Validate that at least one content ID is provided
@@ -318,12 +341,10 @@ BEGIN
         p_collection_id,
         p_category_id,
         p_product_id,
-        p_access_type,
+        lower(p_access_type),
         auth.uid()
     )
-    ON CONFLICT (user_id, COALESCE(collection_id, '00000000-0000-0000-0000-000000000000'::uuid), 
-                 COALESCE(category_id, '00000000-0000-0000-0000-000000000000'::uuid), 
-                 COALESCE(product_id, '00000000-0000-0000-0000-000000000000'::uuid))
+    ON CONFLICT ON CONSTRAINT unique_user_content_access
     DO UPDATE SET
         access_type = EXCLUDED.access_type,
         granted_by = EXCLUDED.granted_by;
@@ -360,21 +381,54 @@ GRANT EXECUTE ON FUNCTION public.revoke_content_access(uuid, uuid, uuid, uuid) T
 
 -- Verify setup
 DO $$
-DECLARE
-    r RECORD;
 BEGIN
-    FOR r IN (VALUES ('categories'), ('products'), ('orders'), ('collection_access'))
-    LOOP
-        IF EXISTS (
-            SELECT 1
-            FROM pg_tables
-            WHERE schemaname = 'public'
-            AND tablename = r.column1
-            AND rowsecurity = true
-        ) THEN
-            RAISE NOTICE 'RLS enabled for %', r.column1;
-        ELSE
-            RAISE WARNING 'RLS NOT enabled for %', r.column1;
-        END IF;
-    END LOOP;
+    -- Check RLS status
+    IF EXISTS (
+        SELECT 1
+        FROM pg_tables
+        WHERE schemaname = 'public'
+        AND tablename = 'collections'
+        AND rowsecurity = true
+    ) THEN
+        RAISE NOTICE 'RLS enabled for collections';
+    ELSE
+        RAISE WARNING 'RLS NOT enabled for collections';
+    END IF;
+
+    -- Check admin policy
+    IF EXISTS (
+        SELECT 1
+        FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'collections'
+        AND policyname = 'collections_admin_all_access'
+    ) THEN
+        RAISE NOTICE 'Admin policy configured for collections';
+    ELSE
+        RAISE WARNING 'Admin policy missing for collections';
+    END IF;
+
+    -- Check unique constraint
+    IF EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'unique_user_content_access'
+        AND contype = 'u'
+    ) THEN
+        RAISE NOTICE 'Unique constraint unique_user_content_access exists';
+    ELSE
+        RAISE WARNING 'Unique constraint unique_user_content_access missing';
+    END IF;
+
+    -- Check admin role exists
+    IF EXISTS (
+        SELECT 1
+        FROM pg_type
+        WHERE typname = 'user_role'
+        AND typtype = 'e'
+    ) THEN
+        RAISE NOTICE 'user_role enum type exists';
+    ELSE
+        RAISE WARNING 'user_role enum type missing';
+    END IF;
 END $$;
