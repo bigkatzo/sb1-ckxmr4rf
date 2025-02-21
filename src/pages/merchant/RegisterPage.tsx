@@ -41,22 +41,19 @@ export function RegisterPage() {
       // Create user using the auth utility
       const result = await createUser(email, password);
 
-      if (result.success) {
-        setSuccess(result.message || '');
-        if (result.session) {
-          // User is signed in immediately
-          navigate('/merchant/dashboard');
-        } else {
-          // Email confirmation required
-          setEmail('');
-          setPassword('');
-          setConfirmPassword('');
-        }
+      if (!result.success) {
+        throw new Error(result.error || 'An error occurred during registration');
+      }
+
+      setSuccess(result.message || '');
+      if (result.session) {
+        // User is signed in immediately
+        navigate('/merchant/dashboard');
       } else {
-        if (result.error?.includes('already registered') || result.error?.includes('already in use')) {
-          throw new Error('This email address is already registered. Please use a different email or sign in.');
-        }
-        throw new Error(result.error);
+        // Email confirmation required
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
       }
     } catch (err) {
       console.error('Registration error:', err);
