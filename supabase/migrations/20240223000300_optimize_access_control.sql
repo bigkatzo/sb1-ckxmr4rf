@@ -232,7 +232,6 @@ GRANT SELECT ON public.collection_access TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.categories TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.products TO authenticated;
 GRANT SELECT ON public.orders TO authenticated;
-GRANT SELECT ON public.order_items TO authenticated;
 
 -- Functions for managing collection access
 CREATE OR REPLACE FUNCTION public.grant_collection_access(
