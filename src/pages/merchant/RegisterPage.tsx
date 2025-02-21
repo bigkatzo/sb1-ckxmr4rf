@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { ShoppingBag, AlertCircle } from 'lucide-react';
@@ -10,6 +10,23 @@ export function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Add useEffect to inspect table on component mount
+  useEffect(() => {
+    async function checkTable() {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select()
+        .limit(1);
+      
+      if (error) {
+        console.error('Error checking table:', error);
+      } else {
+        console.log('Table structure:', data);
+      }
+    }
+    checkTable();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,21 +58,7 @@ export function RegisterPage() {
       if (signUpError) throw signUpError;
 
       if (authData.user) {
-        // Create user profile
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert([
-            {
-              id: authData.user.id,
-              email: authData.user.email,
-              role: 'user', // Default role
-              created_at: new Date().toISOString(),
-            },
-          ]);
-
-        if (profileError) throw profileError;
-
-        // Redirect to dashboard
+        // Profile will be automatically created by Supabase
         navigate('/merchant/dashboard');
       }
     } catch (err) {
