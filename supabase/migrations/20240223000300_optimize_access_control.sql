@@ -6,7 +6,7 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collection_access ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if they exist
+-- Drop existing policies
 DO $$
 DECLARE
     pol record;
@@ -89,7 +89,7 @@ BEGIN
             FROM public.collections c
             LEFT JOIN public.categories cat ON cat.collection_id = c.id
             LEFT JOIN public.products p ON p.category_id = cat.id
-            WHERE c.user_id = p_user_id
+            WHERE c.created_by = p_user_id
             AND (
                 c.id = COALESCE(p_collection_id, v_parent_collection_id)
                 OR cat.id = p_category_id
@@ -127,6 +127,12 @@ TO authenticated
 USING (has_content_access(auth.uid(), collection_id, id, NULL, 'edit'))
 WITH CHECK (has_content_access(auth.uid(), collection_id, id, NULL, 'edit'));
 
+CREATE POLICY "categories_users_delete_own_or_granted"
+ON public.categories
+FOR DELETE
+TO authenticated
+USING (has_content_access(auth.uid(), collection_id, id, NULL, 'edit'));
+
 -- Policies for products
 CREATE POLICY "products_users_view_own_or_granted"
 ON public.products
@@ -147,14 +153,20 @@ TO authenticated
 USING (has_content_access(auth.uid(), NULL, category_id, id, 'edit'))
 WITH CHECK (has_content_access(auth.uid(), NULL, category_id, id, 'edit'));
 
+CREATE POLICY "products_users_delete_own_or_granted"
+ON public.products
+FOR DELETE
+TO authenticated
+USING (has_content_access(auth.uid(), NULL, category_id, id, 'edit'));
+
 -- Policies for orders
-CREATE POLICY "orders_select_buyer"
+CREATE POLICY "orders_users_view_buyers"
 ON public.orders
 FOR SELECT
 TO authenticated
 USING (wallet_address = auth.jwt()->>'wallet_address');
 
-CREATE POLICY "orders_select_merchant"
+CREATE POLICY "orders_users_view_dashboard"
 ON public.orders
 FOR SELECT
 TO authenticated
@@ -162,32 +174,30 @@ USING (
     EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
     OR EXISTS (
         SELECT 1
-        FROM public.products p
+        FROM public.order_items oi
+        JOIN public.products p ON p.id = oi.product_id
         JOIN public.categories c ON c.id = p.category_id
         JOIN public.collections col ON col.id = c.collection_id
-        WHERE p.id = orders.product_id
+        WHERE oi.order_id = orders.id
         AND (
-            col.user_id = auth.uid()
+            col.created_by = auth.uid()
             OR has_content_access(auth.uid(), col.id, c.id, p.id, 'view')
         )
     )
 );
 
-CREATE POLICY "orders_update_merchant"
+CREATE POLICY "orders_users_update_admin_only"
 ON public.orders
 FOR UPDATE
 TO authenticated
-USING (
-    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
-    OR EXISTS (
-        SELECT 1
-        FROM public.products p
-        JOIN public.categories c ON c.id = p.category_id
-        JOIN public.collections col ON col.id = c.collection_id
-        WHERE p.id = orders.product_id
-        AND col.user_id = auth.uid()
-    )
-);
+USING (EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role))
+WITH CHECK (EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role));
+
+CREATE POLICY "orders_users_delete_admin_only"
+ON public.orders
+FOR DELETE
+TO authenticated
+USING (EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role));
 
 -- Add performance indexes
 DO $$
@@ -215,38 +225,26 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_products_category_id') THEN
         CREATE INDEX idx_products_category_id ON public.products(category_id);
     END IF;
+
+    -- Order items indexes
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_order_items_order_id') THEN
+        CREATE INDEX idx_order_items_order_id ON public.order_items(order_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_order_items_product_id') THEN
+        CREATE INDEX idx_order_items_product_id ON public.order_items(product_id);
+    END IF;
 END $$;
 
 -- Grant minimal required permissions
 GRANT USAGE ON SCHEMA public TO authenticated, anon;
 GRANT SELECT ON public.collection_access TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.categories TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.products TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.categories TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.products TO authenticated;
 GRANT SELECT ON public.orders TO authenticated;
-
--- Verify setup
-DO $$
-DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN (VALUES ('categories'), ('products'), ('orders'), ('collection_access'))
-    LOOP
-        IF EXISTS (
-            SELECT 1
-            FROM pg_tables
-            WHERE schemaname = 'public'
-            AND tablename = r.column1
-            AND rowsecurity = true
-        ) THEN
-            RAISE NOTICE 'RLS enabled for %', r.column1;
-        ELSE
-            RAISE WARNING 'RLS NOT enabled for %', r.column1;
-        END IF;
-    END LOOP;
-END $$;
+GRANT SELECT ON public.order_items TO authenticated;
 
 -- Functions for managing collection access
-CREATE OR REPLACE FUNCTION grant_collection_access(
+CREATE OR REPLACE FUNCTION public.grant_collection_access(
     p_user_id uuid,
     p_collection_id uuid DEFAULT NULL,
     p_category_id uuid DEFAULT NULL,
@@ -289,14 +287,16 @@ BEGIN
         p_access_type,
         auth.uid()
     )
-    ON CONFLICT (user_id, collection_id, category_id, product_id)
+    ON CONFLICT (user_id, COALESCE(collection_id, '00000000-0000-0000-0000-000000000000'::uuid), 
+                 COALESCE(category_id, '00000000-0000-0000-0000-000000000000'::uuid), 
+                 COALESCE(product_id, '00000000-0000-0000-0000-000000000000'::uuid))
     DO UPDATE SET
         access_type = EXCLUDED.access_type,
         granted_by = EXCLUDED.granted_by;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-CREATE OR REPLACE FUNCTION revoke_collection_access(
+CREATE OR REPLACE FUNCTION public.revoke_collection_access(
     p_user_id uuid,
     p_collection_id uuid DEFAULT NULL,
     p_category_id uuid DEFAULT NULL,
@@ -318,8 +318,29 @@ BEGIN
     AND category_id IS NOT DISTINCT FROM p_category_id
     AND product_id IS NOT DISTINCT FROM p_product_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Grant execute permissions
-GRANT EXECUTE ON FUNCTION grant_collection_access(uuid, uuid, uuid, uuid, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION revoke_collection_access(uuid, uuid, uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.grant_collection_access(uuid, uuid, uuid, uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.revoke_collection_access(uuid, uuid, uuid, uuid) TO authenticated;
+
+-- Verify setup
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (VALUES ('categories'), ('products'), ('orders'), ('collection_access'))
+    LOOP
+        IF EXISTS (
+            SELECT 1
+            FROM pg_tables
+            WHERE schemaname = 'public'
+            AND tablename = r.column1
+            AND rowsecurity = true
+        ) THEN
+            RAISE NOTICE 'RLS enabled for %', r.column1;
+        ELSE
+            RAISE WARNING 'RLS NOT enabled for %', r.column1;
+        END IF;
+    END LOOP;
+END $$;
