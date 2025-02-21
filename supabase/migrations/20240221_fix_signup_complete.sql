@@ -7,12 +7,14 @@ BEGIN
     DROP TRIGGER IF EXISTS handle_auth_user_trigger ON auth.users;
     DROP TRIGGER IF EXISTS ensure_user_profile_trigger ON auth.users;
     DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+    DROP TRIGGER IF EXISTS on_auth_user_confirmed ON auth.users;
     
     -- Then drop functions
     DROP FUNCTION IF EXISTS validate_user_creation();
     DROP FUNCTION IF EXISTS handle_auth_user();
     DROP FUNCTION IF EXISTS ensure_user_profile();
     DROP FUNCTION IF EXISTS public.handle_new_user();
+    DROP FUNCTION IF EXISTS public.handle_email_confirmation();
     
     RAISE NOTICE 'Successfully dropped all existing triggers and functions';
 EXCEPTION WHEN undefined_object THEN
@@ -20,7 +22,7 @@ EXCEPTION WHEN undefined_object THEN
     RAISE NOTICE 'Some objects did not exist, continuing...';
 END $$;
 
--- Create a simple, reliable trigger function for new users
+-- Create function to handle new user registration
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -42,16 +44,19 @@ BEGIN
     -- Ensure role is set
     NEW.role := 'authenticated';
     
-    -- Create user profile
-    BEGIN
+    -- Handle merchant.local emails differently
+    IF NEW.email LIKE '%@merchant.local' THEN
+        -- Auto-confirm merchant.local emails
+        NEW.email_confirmed_at := COALESCE(NEW.email_confirmed_at, now());
+        
+        -- Create profile immediately for merchant.local
         INSERT INTO public.user_profiles (id, role)
         VALUES (NEW.id, 'merchant')
         ON CONFLICT (id) DO UPDATE
         SET role = 'merchant';
-        RAISE NOTICE 'Created/updated user profile for %', NEW.email;
-    EXCEPTION WHEN others THEN
-        RAISE WARNING 'Error creating user profile: % %', SQLERRM, SQLSTATE;
-    END;
+        
+        RAISE NOTICE 'Created profile immediately for merchant.local user: %', NEW.email;
+    END IF;
     
     RETURN NEW;
 EXCEPTION WHEN others THEN
@@ -60,21 +65,41 @@ EXCEPTION WHEN others THEN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Ensure the trigger doesn't exist before creating it
-DO $$
+-- Create function to handle email confirmation
+CREATE OR REPLACE FUNCTION public.handle_email_confirmation()
+RETURNS TRIGGER AS $$
 BEGIN
-    -- Drop the trigger if it exists
-    DROP TRIGGER IF EXISTS handle_new_user_trigger ON auth.users;
-    RAISE NOTICE 'Previous trigger dropped (if existed)';
+    -- Only proceed if email was just confirmed (email_confirmed_at changed from null to a timestamp)
+    IF OLD.email_confirmed_at IS NULL AND NEW.email_confirmed_at IS NOT NULL THEN
+        -- Don't create profile for merchant.local (already done in handle_new_user)
+        IF NEW.email NOT LIKE '%@merchant.local' THEN
+            -- Create user profile after email confirmation
+            INSERT INTO public.user_profiles (id, role)
+            VALUES (NEW.id, 'merchant')
+            ON CONFLICT (id) DO UPDATE
+            SET role = 'merchant';
+            
+            RAISE NOTICE 'Created profile after email confirmation for: %', NEW.email;
+        END IF;
+    END IF;
+    
+    RETURN NEW;
 EXCEPTION WHEN others THEN
-    RAISE WARNING 'Error dropping previous trigger: % %', SQLERRM, SQLSTATE;
-END $$;
+    RAISE WARNING 'Error in handle_email_confirmation: % %', SQLERRM, SQLSTATE;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create new trigger
+-- Create triggers
 CREATE TRIGGER handle_new_user_trigger
     BEFORE INSERT ON auth.users
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_user();
+
+CREATE TRIGGER handle_email_confirmation_trigger
+    AFTER UPDATE OF email_confirmed_at ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_email_confirmation();
 
 -- Ensure proper permissions
 GRANT USAGE ON SCHEMA public TO postgres, authenticator, anon, authenticated;
@@ -86,32 +111,32 @@ DO $$
 BEGIN
     RAISE NOTICE 'Checking configuration...';
     
-    -- Check if trigger exists
+    -- Check if triggers exist
     IF EXISTS (
         SELECT 1 
         FROM pg_trigger t
         JOIN pg_class c ON t.tgrelid = c.oid
         JOIN pg_namespace n ON c.relnamespace = n.oid
-        WHERE t.tgname = 'handle_new_user_trigger'
+        WHERE t.tgname IN ('handle_new_user_trigger', 'handle_email_confirmation_trigger')
         AND n.nspname = 'auth'
         AND c.relname = 'users'
     ) THEN
-        RAISE NOTICE 'Trigger handle_new_user_trigger is properly configured';
+        RAISE NOTICE 'Triggers are properly configured';
     ELSE
-        RAISE WARNING 'Trigger handle_new_user_trigger is missing';
+        RAISE WARNING 'One or more triggers are missing';
     END IF;
     
-    -- Check if function exists
+    -- Check if functions exist
     IF EXISTS (
         SELECT 1 
         FROM pg_proc p
         JOIN pg_namespace n ON p.pronamespace = n.oid
-        WHERE p.proname = 'handle_new_user'
+        WHERE p.proname IN ('handle_new_user', 'handle_email_confirmation')
         AND n.nspname = 'public'
     ) THEN
-        RAISE NOTICE 'Function handle_new_user is properly configured';
+        RAISE NOTICE 'Functions are properly configured';
     ELSE
-        RAISE WARNING 'Function handle_new_user is missing';
+        RAISE WARNING 'One or more functions are missing';
     END IF;
     
     -- Check user_profiles table
