@@ -17,7 +17,9 @@ BEGIN
     -- Disable RLS temporarily
     ALTER TABLE public.user_profiles DISABLE ROW LEVEL SECURITY;
 
-    -- Drop existing permissions
+    -- Drop existing permissions and triggers
+    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+    DROP FUNCTION IF EXISTS public.handle_new_user();
     REVOKE ALL ON public.user_profiles FROM anon, authenticated, service_role, postgres, authenticator, supabase_auth_admin;
     
     -- Grant permissions in correct order
@@ -38,20 +40,22 @@ BEGIN
     SET search_path = public
     AS $TRIGFUNC$
     BEGIN
-        RAISE NOTICE 'Trigger started for user ID: %, Role: %', NEW.id, current_user;
+        RAISE NOTICE 'Trigger started for user ID: %, Email: %', NEW.id, NEW.email;
+        
+        -- Create user profile without email domain restriction
         INSERT INTO public.user_profiles (id, role)
         VALUES (NEW.id, 'merchant'::user_role)
         ON CONFLICT (id) DO NOTHING;
-        RAISE NOTICE 'Insert completed for user ID: %', NEW.id;
+        
+        RAISE NOTICE 'Profile created for user ID: %', NEW.id;
         RETURN NEW;
     EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'Error in handle_new_user: % (State: %)', SQLERRM, SQLSTATE;
+        RAISE WARNING 'Error in handle_new_user: % (State: %)', SQLERRM, SQLSTATE;
         RETURN NEW;
     END;
     $TRIGFUNC$;
 
     -- 4. Create trigger
-    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
     CREATE TRIGGER on_auth_user_created
         AFTER INSERT ON auth.users
         FOR EACH ROW
@@ -62,11 +66,9 @@ BEGIN
 END;
 $MAINBLOCK$;
 
--- Verify permissions
+-- Verify setup
 DO $$
 BEGIN
-    RAISE NOTICE 'Checking permissions on user_profiles...';
-    
     -- Check trigger existence
     IF EXISTS (
         SELECT 1 
@@ -75,5 +77,14 @@ BEGIN
         WHERE t.tgname = 'on_auth_user_created'
     ) THEN
         RAISE NOTICE 'Trigger exists and is properly configured';
+    END IF;
+    
+    -- Check for any existing domain restrictions
+    IF EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgname LIKE '%email_check%'
+    ) THEN
+        RAISE WARNING 'Found potential email restriction triggers';
     END IF;
 END $$;
