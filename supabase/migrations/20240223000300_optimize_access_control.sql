@@ -234,6 +234,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.products TO authenticated;
 GRANT SELECT ON public.orders TO authenticated;
 
 -- Functions for managing collection access
+DROP FUNCTION IF EXISTS public.grant_collection_access(uuid, uuid, text);
+DROP FUNCTION IF EXISTS public.grant_collection_access(uuid, uuid, uuid, uuid, text);
+DROP FUNCTION IF EXISTS public.grant_content_access(uuid, uuid, uuid, uuid, text);
+
 CREATE OR REPLACE FUNCTION public.grant_content_access(
     p_user_id uuid,
     p_collection_id uuid DEFAULT NULL,
