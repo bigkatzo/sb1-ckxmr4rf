@@ -1,6 +1,7 @@
--- Drop existing trigger and function
+-- Drop existing triggers and function
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS handle_new_user();
+DROP TRIGGER IF EXISTS handle_new_user_trigger ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
 
 -- Recreate function with email handling
 CREATE OR REPLACE FUNCTION handle_new_user()
