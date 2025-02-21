@@ -9,7 +9,7 @@ ALTER TABLE user_profiles
 ADD COLUMN email TEXT UNIQUE;
 
 -- Create index for faster email lookups
-CREATE INDEX user_profiles_email_idx ON user_profiles (email);
+CREATE UNIQUE INDEX IF NOT EXISTS user_profiles_email_unique_idx ON user_profiles (email);
 
 -- Update existing profiles with emails from auth.users
 UPDATE user_profiles
@@ -106,4 +106,64 @@ BEGIN
     RAISE EXCEPTION 'Data integrity check failed: % user profiles are missing emails', missing_emails;
   END IF;
 END;
-$$; 
+$$;
+
+-- Create optimized email availability check function
+CREATE OR REPLACE FUNCTION public.check_email_availability(p_email TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- Use the unique index for efficient lookup
+    RETURN NOT EXISTS (
+        SELECT 1 
+        FROM public.user_profiles 
+        WHERE email = p_email
+        LIMIT 1  -- Optimize for early exit
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permission to authenticated and anon users
+GRANT EXECUTE ON FUNCTION public.check_email_availability(TEXT) TO authenticated, anon;
+
+-- Verify function exists
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_proc 
+        WHERE proname = 'check_email_availability'
+        AND pronamespace = 'public'::regnamespace
+    ) THEN
+        RAISE EXCEPTION 'Function check_email_availability not created properly';
+    END IF;
+END $$;
+
+-- Create trigger for updating timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Drop existing trigger if it exists
+DROP TRIGGER IF EXISTS update_user_profiles_timestamp ON public.user_profiles;
+
+-- Create trigger
+CREATE TRIGGER update_user_profiles_timestamp
+    BEFORE UPDATE ON public.user_profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Verify trigger exists
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_trigger 
+        WHERE tgname = 'update_user_profiles_timestamp'
+    ) THEN
+        RAISE EXCEPTION 'Trigger update_user_profiles_timestamp not created properly';
+    END IF;
+END $$; 

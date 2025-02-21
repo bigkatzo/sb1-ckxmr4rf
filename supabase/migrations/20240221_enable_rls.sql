@@ -2,40 +2,66 @@
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if any
-DROP POLICY IF EXISTS "Users can view their own profile" ON public.user_profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile" ON public.user_profiles;
-DROP POLICY IF EXISTS "Authenticated users can view profiles" ON public.user_profiles;
-DROP POLICY IF EXISTS "Service role can manage all profiles" ON public.user_profiles;
+DO $$
+DECLARE
+    pol record;
+BEGIN
+    FOR pol IN (
+        SELECT policyname
+        FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'user_profiles'
+    )
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.user_profiles', pol.policyname);
+    END LOOP;
+END $$;
 
 -- Create policies for user_profiles table
 -- 1. Users can view their own profile
 CREATE POLICY "Users can view their own profile"
 ON public.user_profiles
 FOR SELECT
+TO authenticated
 USING (auth.uid() = id);
 
--- 2. Users can update their own profile
+-- 2. Users can update their own profile (excluding role changes)
 CREATE POLICY "Users can update their own profile"
 ON public.user_profiles
 FOR UPDATE
+TO authenticated
 USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
+WITH CHECK (
+    auth.uid() = id 
+    AND (OLD.role = NEW.role OR auth.is_admin()) -- Only admins can change roles
+);
 
--- 3. Service role and triggers can manage all profiles
-CREATE POLICY "Service role can manage all profiles"
+-- 3. System role for profile creation via trigger
+CREATE POLICY "System can create user profiles"
 ON public.user_profiles
-FOR ALL
-TO service_role
-USING (true)
+FOR INSERT
+TO authenticator
 WITH CHECK (true);
 
--- 4. Authenticated users can view merchant profiles (for product pages, etc.)
-CREATE POLICY "Authenticated users can view merchant profiles"
+-- 4. Merchants can be viewed by authenticated users (for product pages)
+CREATE POLICY "View merchant profiles"
 ON public.user_profiles
 FOR SELECT
 TO authenticated
 USING (role = 'merchant'::user_role);
+
+-- 5. Admin full access policy
+CREATE POLICY "Admins manage all profiles"
+ON public.user_profiles
+FOR ALL
+TO authenticated
+USING (auth.is_admin())
+WITH CHECK (auth.is_admin());
+
+-- Grant minimal necessary permissions
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT SELECT, UPDATE ON public.user_profiles TO authenticated;
+GRANT ALL ON public.user_profiles TO authenticator; -- For profile creation
 
 -- Verify RLS is enabled and policies are in place
 DO $$
