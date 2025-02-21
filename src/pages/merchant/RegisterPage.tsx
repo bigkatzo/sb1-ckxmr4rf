@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { createUser } from '../../lib/auth';
 import { ShoppingBag, AlertCircle, CheckCircle } from 'lucide-react';
 
 export function RegisterPage() {
@@ -36,39 +36,22 @@ export function RegisterPage() {
         throw new Error('Password must be at least 8 characters and include uppercase, lowercase, and numbers');
       }
 
-      // Create the user
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password.trim(),
-        options: {
-          data: {
-            role: 'user'
-          }
-        }
-      });
+      // Create user using the auth utility
+      const result = await createUser(email, password);
 
-      if (signUpError) {
-        if (signUpError.message?.includes('already registered')) {
-          throw new Error('This email is already registered');
-        }
-        throw signUpError;
-      }
-
-      console.log('Signup response:', data);
-
-      if (data?.user) {
-        if (data.session) {
-          // User is signed up and confirmed
+      if (result.success) {
+        setSuccess(result.message || '');
+        if (result.session) {
+          // User is signed in immediately
           navigate('/merchant/dashboard');
         } else {
           // Email confirmation required
-          setSuccess('Please check your email to confirm your account before signing in.');
           setEmail('');
           setPassword('');
           setConfirmPassword('');
         }
       } else {
-        throw new Error('Something went wrong during signup');
+        throw new Error(result.error);
       }
     } catch (err) {
       console.error('Registration error:', err);
