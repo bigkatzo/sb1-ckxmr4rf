@@ -174,12 +174,15 @@ const UserAccessManager: React.FC = () => {
         p_collection_id: selectedContentType === 'collection' ? selectedContent : null,
         p_category_id: selectedContentType === 'category' ? selectedContent : null,
         p_product_id: selectedContentType === 'product' ? selectedContent : null,
-        p_access_level: selectedAccessLevel,
+        p_access_level: selectedAccessLevel
       };
 
       const { error } = await supabase.rpc('grant_content_access', params);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error details:', error);
+        throw error;
+      }
       
       message.success('Access granted successfully');
       fetchData();
