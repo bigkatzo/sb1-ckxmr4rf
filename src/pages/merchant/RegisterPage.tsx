@@ -51,6 +51,9 @@ export function RegisterPage() {
           setConfirmPassword('');
         }
       } else {
+        if (result.error?.includes('already registered') || result.error?.includes('already in use')) {
+          throw new Error('This email address is already registered. Please use a different email or sign in.');
+        }
         throw new Error(result.error);
       }
     } catch (err) {
