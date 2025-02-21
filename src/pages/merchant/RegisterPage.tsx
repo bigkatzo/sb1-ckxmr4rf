@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { ShoppingBag, AlertCircle } from 'lucide-react';
+import { ShoppingBag, AlertCircle, CheckCircle } from 'lucide-react';
 
 export function RegisterPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,6 +35,7 @@ export function RegisterPage() {
 
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
       // Basic validation
@@ -49,16 +51,32 @@ export function RegisterPage() {
         throw new Error('Password must be at least 8 characters long');
       }
 
-      // Create the user
+      // Create the user with email confirmation
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/merchant/signin`,
+          data: {
+            role: 'user'
+          }
+        }
       });
 
       if (signUpError) throw signUpError;
 
       if (authData.user) {
-        // Profile will be automatically created by Supabase
+        // Check if email confirmation is required
+        if (authData.session === null) {
+          setSuccess('Registration successful! Please check your email for a confirmation link to complete your registration.');
+          // Clear form
+          setEmail('');
+          setPassword('');
+          setConfirmPassword('');
+          return;
+        }
+        
+        // If no email confirmation required, redirect to dashboard
         navigate('/merchant/dashboard');
       }
     } catch (err) {
@@ -90,6 +108,19 @@ export function RegisterPage() {
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-red-800">{error}</h3>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {success && (
+            <div className="rounded-md bg-green-50 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <CheckCircle className="h-5 w-5 text-green-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-green-800">{success}</h3>
                 </div>
               </div>
             </div>
