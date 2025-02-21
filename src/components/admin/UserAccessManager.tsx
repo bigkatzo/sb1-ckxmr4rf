@@ -165,13 +165,14 @@ const UserAccessManager: React.FC = () => {
   const handleRevokeAccess = async (record: UserAccess) => {
     try {
       const params = {
-        user_id: record.user_id,
-        collection_id: record.collection_id,
-        category_id: record.category_id,
-        product_id: record.product_id,
+        p_user_id: record.user_id,
+        p_collection_id: record.collection_id,
+        p_category_id: record.category_id,
+        p_product_id: record.product_id
       };
 
-      const { error } = await supabase.rpc('revoke_content_access', params);
+      console.log('Calling revoke_content_access with:', params);
+      const { data, error } = await supabase.rpc('revoke_content_access', params);
       
       if (error) throw error;
       
