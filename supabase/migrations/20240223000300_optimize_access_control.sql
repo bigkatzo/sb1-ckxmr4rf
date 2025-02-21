@@ -1,4 +1,12 @@
--- Drop existing policies for relevant tables
+-- Optimized dashboard content access control
+
+-- Enable RLS on tables
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.collection_access ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
 DO $$
 DECLARE
     pol record;
@@ -14,20 +22,6 @@ BEGIN
     END LOOP;
 END $$;
 
--- Ensure RLS is enabled
-ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.collection_access ENABLE ROW LEVEL SECURITY;
-
--- Create user_role type if not exists
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
-        CREATE TYPE user_role AS ENUM ('admin', 'merchant', 'user');
-    END IF;
-END $$;
-
 -- Optimized has_content_access function
 CREATE OR REPLACE FUNCTION public.has_content_access(
     p_user_id uuid,
@@ -41,31 +35,40 @@ DECLARE
     v_is_merchant boolean;
     v_parent_collection_id uuid;
 BEGIN
-    -- Check admin status using auth.is_admin()
-    v_is_admin := auth.is_admin();
+    -- Check admin status
+    SELECT EXISTS (
+        SELECT 1 FROM public.user_profiles 
+        WHERE id = p_user_id AND role = 'admin'::user_role
+    ) INTO v_is_admin;
 
     IF v_is_admin THEN
         RETURN true;
     END IF;
 
-    -- Check merchant status (cached for performance)
-    SELECT role = 'merchant'::user_role INTO v_is_merchant
-    FROM public.user_profiles 
-    WHERE user_id = p_user_id;
+    -- Check merchant status
+    SELECT EXISTS (
+        SELECT 1 FROM public.user_profiles 
+        WHERE id = p_user_id AND role = 'merchant'::user_role
+    ) INTO v_is_merchant;
 
-    -- Resolve parent collection ID (single query path)
+    -- Resolve parent collection ID with null safety
     IF p_category_id IS NOT NULL THEN
         SELECT collection_id INTO v_parent_collection_id
         FROM public.categories
         WHERE id = p_category_id;
+        IF v_parent_collection_id IS NULL THEN
+            RETURN false;
+        END IF;
     ELSIF p_product_id IS NOT NULL THEN
         SELECT c.collection_id INTO v_parent_collection_id
         FROM public.products p
         JOIN public.categories c ON c.id = p.category_id
         WHERE p.id = p_product_id;
+        IF v_parent_collection_id IS NULL THEN
+            RETURN false;
+        END IF;
     END IF;
 
-    -- Check explicit or inherited access (optimized single query)
     RETURN EXISTS (
         SELECT 1
         FROM public.collection_access ca
@@ -97,21 +100,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
 
--- Collection access policies
-CREATE POLICY "collection_access_users_view_own"
+-- Policies for collection_access
+CREATE POLICY "collection_access_view_own"
 ON public.collection_access
 FOR SELECT
 TO authenticated
 USING (user_id = auth.uid());
 
-CREATE POLICY "collection_access_admin_all"
-ON public.collection_access
-FOR ALL
-TO authenticated
-USING (auth.is_admin())
-WITH CHECK (auth.is_admin());
-
--- Categories policies with granular operations
+-- Policies for categories
 CREATE POLICY "categories_users_view_own_or_granted"
 ON public.categories
 FOR SELECT
@@ -122,9 +118,7 @@ CREATE POLICY "categories_users_insert_own_or_granted"
 ON public.categories
 FOR INSERT
 TO authenticated
-WITH CHECK (
-    has_content_access(auth.uid(), collection_id, NULL, NULL, 'edit')
-);
+WITH CHECK (has_content_access(auth.uid(), collection_id, NULL, NULL, 'edit'));
 
 CREATE POLICY "categories_users_update_own_or_granted"
 ON public.categories
@@ -133,13 +127,7 @@ TO authenticated
 USING (has_content_access(auth.uid(), collection_id, id, NULL, 'edit'))
 WITH CHECK (has_content_access(auth.uid(), collection_id, id, NULL, 'edit'));
 
-CREATE POLICY "categories_users_delete_own_or_granted"
-ON public.categories
-FOR DELETE
-TO authenticated
-USING (has_content_access(auth.uid(), collection_id, id, NULL, 'edit'));
-
--- Products policies with granular operations
+-- Policies for products
 CREATE POLICY "products_users_view_own_or_granted"
 ON public.products
 FOR SELECT
@@ -150,9 +138,7 @@ CREATE POLICY "products_users_insert_own_or_granted"
 ON public.products
 FOR INSERT
 TO authenticated
-WITH CHECK (
-    has_content_access(auth.uid(), NULL, category_id, NULL, 'edit')
-);
+WITH CHECK (has_content_access(auth.uid(), NULL, category_id, NULL, 'edit'));
 
 CREATE POLICY "products_users_update_own_or_granted"
 ON public.products
@@ -161,61 +147,47 @@ TO authenticated
 USING (has_content_access(auth.uid(), NULL, category_id, id, 'edit'))
 WITH CHECK (has_content_access(auth.uid(), NULL, category_id, id, 'edit'));
 
-CREATE POLICY "products_users_delete_own_or_granted"
-ON public.products
-FOR DELETE
+-- Policies for orders
+CREATE POLICY "orders_select_buyer"
+ON public.orders
+FOR SELECT
 TO authenticated
-USING (has_content_access(auth.uid(), NULL, category_id, id, 'edit'));
+USING (wallet_address = auth.jwt()->>'wallet_address');
 
--- Orders policies with granular operations
-CREATE POLICY "orders_users_view_own_or_merchant_or_granted"
+CREATE POLICY "orders_select_merchant"
 ON public.orders
 FOR SELECT
 TO authenticated
 USING (
-    auth.is_admin()
-    OR user_id = auth.uid()
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
     OR EXISTS (
         SELECT 1
-        FROM public.order_items oi
-        JOIN public.products p ON p.id = oi.product_id
+        FROM public.products p
         JOIN public.categories c ON c.id = p.category_id
         JOIN public.collections col ON col.id = c.collection_id
-        WHERE oi.order_id = orders.id
+        WHERE p.id = orders.product_id
         AND (
-            col.created_by = auth.uid() 
+            col.created_by = auth.uid()
             OR has_content_access(auth.uid(), col.id, c.id, p.id, 'view')
         )
     )
 );
 
-CREATE POLICY "orders_users_insert_own"
-ON public.orders
-FOR INSERT
-TO authenticated
-WITH CHECK (
-    auth.is_admin()
-    OR user_id = auth.uid()
-);
-
-CREATE POLICY "orders_users_update_admin_or_own"
+CREATE POLICY "orders_update_merchant"
 ON public.orders
 FOR UPDATE
 TO authenticated
 USING (
-    auth.is_admin()
-    OR user_id = auth.uid()
-)
-WITH CHECK (
-    auth.is_admin()
-    OR user_id = auth.uid()
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR EXISTS (
+        SELECT 1
+        FROM public.products p
+        JOIN public.categories c ON c.id = p.category_id
+        JOIN public.collections col ON col.id = c.collection_id
+        WHERE p.id = orders.product_id
+        AND col.created_by = auth.uid()
+    )
 );
-
-CREATE POLICY "orders_users_delete_admin_only"
-ON public.orders
-FOR DELETE
-TO authenticated
-USING (auth.is_admin());
 
 -- Add performance indexes
 DO $$
@@ -243,38 +215,21 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_products_category_id') THEN
         CREATE INDEX idx_products_category_id ON public.products(category_id);
     END IF;
-
-    -- Orders and order items indexes
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_orders_user_id') THEN
-        CREATE INDEX idx_orders_user_id ON public.orders(user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_order_items_order_id') THEN
-        CREATE INDEX idx_order_items_order_id ON public.order_items(order_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_order_items_product_id') THEN
-        CREATE INDEX idx_order_items_product_id ON public.order_items(product_id);
-    END IF;
 END $$;
 
 -- Grant minimal required permissions
 GRANT USAGE ON SCHEMA public TO authenticated, anon;
 GRANT SELECT ON public.collection_access TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.categories TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.products TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.orders TO authenticated;
-GRANT SELECT ON public.order_items TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.categories TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.products TO authenticated;
+GRANT SELECT ON public.orders TO authenticated;
 
 -- Verify setup
 DO $$
 DECLARE
     r RECORD;
 BEGIN
-    FOR r IN (VALUES 
-        ('categories'), 
-        ('products'), 
-        ('orders'),
-        ('collection_access')
-    )
+    FOR r IN (VALUES ('categories'), ('products'), ('orders'), ('collection_access'))
     LOOP
         IF EXISTS (
             SELECT 1
@@ -288,4 +243,4 @@ BEGIN
             RAISE WARNING 'RLS NOT enabled for %', r.column1;
         END IF;
     END LOOP;
-END $$; 
+END $$;
