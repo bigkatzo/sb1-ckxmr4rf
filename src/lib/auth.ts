@@ -29,11 +29,16 @@ export async function createUser(email: string, password: string): Promise<Creat
     }
 
     // Step 2: Sign up the user with Supabase Auth
+    const isMerchantLocal = email.endsWith('@merchant.local');
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password: password.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}/merchant/signin`
+        emailRedirectTo: `${window.location.origin}/merchant/signin`,
+        data: {
+          role: 'merchant',
+          email_confirmed: isMerchantLocal // Auto-confirm merchant.local emails
+        }
       }
     });
 
@@ -46,6 +51,13 @@ export async function createUser(email: string, password: string): Promise<Creat
         return {
           success: false,
           error: 'This email is already registered'
+        };
+      }
+      
+      if (signUpError.message?.includes('Database error')) {
+        return {
+          success: false,
+          error: 'Unable to create user profile. Please try again.'
         };
       }
 
@@ -63,14 +75,24 @@ export async function createUser(email: string, password: string): Promise<Creat
       };
     }
 
-    // Step 5: Return success with confirmation message
-    return {
-      success: true,
-      user: data.user,
-      session: null, // Always null as we require email confirmation
-      message: 'Please check your email to confirm your account before signing in.'
-    };
-    
+    // Step 5: Return result based on email type and session
+    if (isMerchantLocal || data.session) {
+      // User is signed in immediately (merchant.local or no email confirmation required)
+      return {
+        success: true,
+        user: data.user,
+        session: data.session,
+        message: 'Account created successfully. Redirecting to dashboard...'
+      };
+    } else {
+      // Email confirmation is required for non-merchant.local addresses
+      return {
+        success: true,
+        user: data.user,
+        session: null,
+        message: 'Please check your email to confirm your account before signing in.'
+      };
+    }
   } catch (error) {
     console.error('User creation error:', error);
     return {
