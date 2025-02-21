@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { Database } from '@/types/supabase';
-import { Button, Select, Table, message } from 'antd';
+import { Button, Select, Table, message, Tag, Space, Modal } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 type AccessType = 'view' | 'edit';
@@ -24,16 +24,47 @@ interface ContentItem {
   name: string;
 }
 
+interface UserWithAccess {
+  id: string;
+  email: string;
+  role: string;
+  existingAccess?: {
+    content_type: 'collection' | 'category' | 'product';
+    content_name: string;
+    access_type: AccessType;
+  }[];
+}
+
+interface AccessData {
+  id: string;
+  user_id: string;
+  collection_id: string | null;
+  category_id: string | null;
+  product_id: string | null;
+  access_type: string;
+  granted_at: string;
+  user_profiles: { email: string } | null;
+  collections: { name: string } | null;
+  categories: { name: string } | null;
+  products: { name: string } | null;
+}
+
+interface UserData {
+  user_id: string;
+  email: string;
+  role: string;
+}
+
 const UserAccessManager: React.FC = () => {
   const supabase = useSupabaseClient<Database>();
   const [loading, setLoading] = useState(true);
-  const [accessList, setAccessList] = useState<UserAccess[]>([]);
-  const [users, setUsers] = useState<{ id: string; email: string }[]>([]);
+  const [users, setUsers] = useState<UserWithAccess[]>([]);
   const [collections, setCollections] = useState<ContentItem[]>([]);
   const [categories, setCategories] = useState<ContentItem[]>([]);
   const [products, setProducts] = useState<ContentItem[]>([]);
 
-  // Form states for granting new access
+  // Modal states for assigning access
+  const [isAssignModalVisible, setIsAssignModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedContentType, setSelectedContentType] = useState<'collection' | 'category' | 'product'>('collection');
   const [selectedContent, setSelectedContent] = useState<string>('');
@@ -46,37 +77,12 @@ const UserAccessManager: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch users
+      // Fetch users with their existing access
       const { data: userData, error: userError } = await supabase
         .from('user_profiles')
-        .select('user_id, email');
+        .select('user_id, email, role');
       
       if (userError) throw userError;
-      setUsers(userData.map(u => ({ id: u.user_id, email: u.email })));
-
-      // Fetch collections
-      const { data: collectionData, error: collectionError } = await supabase
-        .from('collections')
-        .select('id, name');
-      
-      if (collectionError) throw collectionError;
-      setCollections(collectionData);
-
-      // Fetch categories
-      const { data: categoryData, error: categoryError } = await supabase
-        .from('categories')
-        .select('id, name');
-      
-      if (categoryError) throw categoryError;
-      setCategories(categoryData);
-
-      // Fetch products
-      const { data: productData, error: productError } = await supabase
-        .from('products')
-        .select('id, name');
-      
-      if (productError) throw productError;
-      setProducts(productData);
 
       // Fetch current access list
       const { data: accessData, error: accessError } = await supabase
@@ -97,20 +103,13 @@ const UserAccessManager: React.FC = () => {
       
       if (accessError) throw accessError;
       
-      const formattedAccessList = accessData.map(access => {
-        let contentName = '';
-        let contentType: 'collection' | 'category' | 'product' = 'collection';
-        
-        if (access.collection_id && access.collections) {
-          contentName = access.collections.name;
-          contentType = 'collection';
-        } else if (access.category_id && access.categories) {
-          contentName = access.categories.name;
-          contentType = 'category';
-        } else if (access.product_id && access.products) {
-          contentName = access.products.name;
-          contentType = 'product';
-        }
+      // Process access data
+      const formattedAccessList = (accessData as AccessData[]).map(access => {
+        const contentType = access.collection_id 
+          ? 'collection' as const
+          : access.category_id 
+          ? 'category' as const 
+          : 'product' as const;
 
         return {
           id: access.id,
@@ -118,15 +117,45 @@ const UserAccessManager: React.FC = () => {
           collection_id: access.collection_id,
           category_id: access.category_id,
           product_id: access.product_id,
-          access_type: access.access_type,
+          access_type: access.access_type as AccessType,
           granted_at: access.granted_at,
           user_email: access.user_profiles?.email || '',
-          content_name: contentName,
+          content_name: access.collections?.name || access.categories?.name || access.products?.name || '',
           content_type: contentType,
         };
       });
 
-      setAccessList(formattedAccessList);
+      // Combine user data with their access information
+      const usersWithAccess = (userData as UserData[]).map(user => ({
+        id: user.user_id,
+        email: user.email,
+        role: user.role,
+        existingAccess: formattedAccessList
+          .filter(access => access.user_id === user.user_id)
+          .map(access => ({
+            content_type: access.content_type,
+            content_name: access.content_name,
+            access_type: access.access_type,
+          })),
+      })) as UserWithAccess[];
+
+      setUsers(usersWithAccess);
+
+      // Fetch collections, categories, and products
+      const [collectionResult, categoryResult, productResult] = await Promise.all([
+        supabase.from('collections').select('id, name'),
+        supabase.from('categories').select('id, name'),
+        supabase.from('products').select('id, name'),
+      ]);
+
+      if (collectionResult.error) throw collectionResult.error;
+      if (categoryResult.error) throw categoryResult.error;
+      if (productResult.error) throw productResult.error;
+
+      setCollections(collectionResult.data);
+      setCategories(categoryResult.data);
+      setProducts(productResult.data);
+
     } catch (error) {
       console.error('Error fetching data:', error);
       message.error('Failed to load data');
@@ -146,15 +175,15 @@ const UserAccessManager: React.FC = () => {
       };
 
       console.log('Granting access with params:', params);
-      const { data, error } = await supabase.rpc('grant_collection_access', params);
+      const { error } = await supabase.rpc('grant_collection_access', params);
       
       if (error) throw error;
       
       message.success('Access granted successfully');
+      setIsAssignModalVisible(false);
       fetchData();
       
       // Reset form
-      setSelectedUser('');
       setSelectedContentType('collection');
       setSelectedContent('');
       setSelectedAccessType('view');
@@ -164,17 +193,17 @@ const UserAccessManager: React.FC = () => {
     }
   };
 
-  const handleRevokeAccess = async (record: UserAccess) => {
+  const handleRevokeAccess = async (userId: string, access: NonNullable<UserWithAccess['existingAccess']>[0]) => {
     try {
       const params = {
-        p_user_id: record.user_id,
-        p_collection_id: record.collection_id,
-        p_category_id: record.category_id,
-        p_product_id: record.product_id
+        p_user_id: userId,
+        p_collection_id: access.content_type === 'collection' ? selectedContent : null,
+        p_category_id: access.content_type === 'category' ? selectedContent : null,
+        p_product_id: access.content_type === 'product' ? selectedContent : null
       };
 
       console.log('Calling revoke_collection_access with:', params);
-      const { data, error } = await supabase.rpc('revoke_collection_access', params);
+      const { error } = await supabase.rpc('revoke_collection_access', params);
       
       if (error) throw error;
       
@@ -186,42 +215,86 @@ const UserAccessManager: React.FC = () => {
     }
   };
 
-  const columns: ColumnsType<UserAccess> = [
+  const expandedRowRender = (record: UserWithAccess) => {
+    const accessColumns: ColumnsType<NonNullable<UserWithAccess['existingAccess']>[0]> = [
+      {
+        title: 'Content Type',
+        dataIndex: 'content_type',
+        key: 'content_type',
+        render: (text: string) => text.charAt(0).toUpperCase() + text.slice(1),
+      },
+      {
+        title: 'Content Name',
+        dataIndex: 'content_name',
+        key: 'content_name',
+      },
+      {
+        title: 'Access Type',
+        dataIndex: 'access_type',
+        key: 'access_type',
+        render: (text: string) => (
+          <Tag color={text === 'edit' ? 'blue' : 'green'}>
+            {text.charAt(0).toUpperCase() + text.slice(1)}
+          </Tag>
+        ),
+      },
+      {
+        title: 'Action',
+        key: 'action',
+        render: (_: unknown, access: NonNullable<UserWithAccess['existingAccess']>[0]) => (
+          <Button 
+            type="link" 
+            danger 
+            onClick={() => handleRevokeAccess(record.id, access)}
+          >
+            Unlink
+          </Button>
+        ),
+      },
+    ];
+
+    return (
+      <div>
+        <div className="mb-4">
+          <Button 
+            type="primary" 
+            onClick={() => {
+              setSelectedUser(record.id);
+              setIsAssignModalVisible(true);
+            }}
+          >
+            Assign Collection
+          </Button>
+        </div>
+        <Table
+          columns={accessColumns}
+          dataSource={record.existingAccess || []}
+          pagination={false}
+        />
+      </div>
+    );
+  };
+
+  const columns: ColumnsType<UserWithAccess> = [
     {
       title: 'User',
-      dataIndex: 'user_email',
-      key: 'user_email',
+      dataIndex: 'email',
+      key: 'email',
     },
     {
-      title: 'Content Type',
-      dataIndex: 'content_type',
-      key: 'content_type',
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
       render: (text: string) => text.charAt(0).toUpperCase() + text.slice(1),
-    },
-    {
-      title: 'Content Name',
-      dataIndex: 'content_name',
-      key: 'content_name',
-    },
-    {
-      title: 'Access Type',
-      dataIndex: 'access_type',
-      key: 'access_type',
-      render: (text: string) => text.charAt(0).toUpperCase() + text.slice(1),
-    },
-    {
-      title: 'Granted At',
-      dataIndex: 'granted_at',
-      key: 'granted_at',
-      render: (text: string) => new Date(text).toLocaleString(),
     },
     {
       title: 'Action',
       key: 'action',
-      render: (_, record) => (
-        <Button danger onClick={() => handleRevokeAccess(record)}>
-          Revoke
-        </Button>
+      render: (_: unknown, record: UserWithAccess) => (
+        <Space>
+          <Button>Edit</Button>
+          <Button danger>Delete</Button>
+        </Space>
       ),
     },
   ];
@@ -229,15 +302,26 @@ const UserAccessManager: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Grant Access</h2>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Select
-            placeholder="Select User"
-            value={selectedUser}
-            onChange={setSelectedUser}
-            className="w-full"
-            options={users.map(user => ({ label: user.email, value: user.id }))}
-          />
+        <Table
+          columns={columns}
+          expandable={{
+            expandedRowRender,
+            expandRowByClick: true,
+          }}
+          dataSource={users}
+          loading={loading}
+          rowKey="id"
+        />
+      </div>
+
+      {/* Assign Collection Modal */}
+      <Modal
+        title="Assign Collection"
+        open={isAssignModalVisible}
+        onOk={handleGrantAccess}
+        onCancel={() => setIsAssignModalVisible(false)}
+      >
+        <div className="space-y-4">
           <Select
             placeholder="Content Type"
             value={selectedContentType}
@@ -272,21 +356,8 @@ const UserAccessManager: React.FC = () => {
               { label: 'Edit', value: 'edit' },
             ]}
           />
-          <Button type="primary" onClick={handleGrantAccess}>
-            Grant Access
-          </Button>
         </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Current Access List</h2>
-        <Table
-          columns={columns}
-          dataSource={accessList}
-          loading={loading}
-          rowKey="id"
-        />
-      </div>
+      </Modal>
     </div>
   );
 };
