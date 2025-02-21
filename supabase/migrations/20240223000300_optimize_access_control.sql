@@ -174,11 +174,10 @@ USING (
     EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
     OR EXISTS (
         SELECT 1
-        FROM public.order_items oi
-        JOIN public.products p ON p.id = oi.product_id
+        FROM public.products p
         JOIN public.categories c ON c.id = p.category_id
         JOIN public.collections col ON col.id = c.collection_id
-        WHERE oi.order_id = orders.id
+        WHERE p.id = orders.product_id
         AND (
             col.created_by = auth.uid()
             OR has_content_access(auth.uid(), col.id, c.id, p.id, 'view')
@@ -224,14 +223,6 @@ BEGIN
     -- Products indexes
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_products_category_id') THEN
         CREATE INDEX idx_products_category_id ON public.products(category_id);
-    END IF;
-
-    -- Order items indexes
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_order_items_order_id') THEN
-        CREATE INDEX idx_order_items_order_id ON public.order_items(order_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_order_items_product_id') THEN
-        CREATE INDEX idx_order_items_product_id ON public.order_items(product_id);
     END IF;
 END $$;
 
