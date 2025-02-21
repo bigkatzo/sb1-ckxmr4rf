@@ -244,3 +244,82 @@ BEGIN
         END IF;
     END LOOP;
 END $$;
+
+-- Functions for managing content access
+CREATE OR REPLACE FUNCTION grant_content_access(
+    p_user_id uuid,
+    p_collection_id uuid DEFAULT NULL,
+    p_category_id uuid DEFAULT NULL,
+    p_product_id uuid DEFAULT NULL,
+    p_access_level text DEFAULT 'view'
+) RETURNS void AS $$
+BEGIN
+    -- Check admin status
+    IF NOT EXISTS (
+        SELECT 1 FROM public.user_profiles 
+        WHERE id = auth.uid() AND role = 'admin'::user_role
+    ) THEN
+        RAISE EXCEPTION 'Only administrators can grant access';
+    END IF;
+
+    -- Validate access level
+    IF p_access_level NOT IN ('view', 'edit') THEN
+        RAISE EXCEPTION 'Invalid access level. Must be view or edit';
+    END IF;
+
+    -- Validate that at least one content ID is provided
+    IF p_collection_id IS NULL AND p_category_id IS NULL AND p_product_id IS NULL THEN
+        RAISE EXCEPTION 'Must specify at least one content item to grant access to';
+    END IF;
+
+    -- Insert or update access
+    INSERT INTO public.collection_access (
+        user_id,
+        collection_id,
+        category_id,
+        product_id,
+        access_type,
+        granted_by
+    )
+    VALUES (
+        p_user_id,
+        p_collection_id,
+        p_category_id,
+        p_product_id,
+        p_access_level,
+        auth.uid()
+    )
+    ON CONFLICT (user_id, collection_id, category_id, product_id)
+    DO UPDATE SET
+        access_type = EXCLUDED.access_type,
+        granted_by = EXCLUDED.granted_by;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION revoke_content_access(
+    p_user_id uuid,
+    p_collection_id uuid DEFAULT NULL,
+    p_category_id uuid DEFAULT NULL,
+    p_product_id uuid DEFAULT NULL
+) RETURNS void AS $$
+BEGIN
+    -- Check admin status
+    IF NOT EXISTS (
+        SELECT 1 FROM public.user_profiles 
+        WHERE id = auth.uid() AND role = 'admin'::user_role
+    ) THEN
+        RAISE EXCEPTION 'Only administrators can revoke access';
+    END IF;
+
+    -- Delete access record
+    DELETE FROM public.collection_access
+    WHERE user_id = p_user_id
+    AND collection_id IS NOT DISTINCT FROM p_collection_id
+    AND category_id IS NOT DISTINCT FROM p_category_id
+    AND product_id IS NOT DISTINCT FROM p_product_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permissions
+GRANT EXECUTE ON FUNCTION grant_content_access(uuid, uuid, uuid, uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION revoke_content_access(uuid, uuid, uuid, uuid) TO authenticated;
