@@ -29,6 +29,7 @@ interface UserWithAccess {
   email: string;
   role: string;
   existingAccess?: {
+    id: string;
     content_type: 'collection' | 'category' | 'product';
     content_name: string;
     access_type: AccessType;
@@ -111,13 +112,15 @@ const UserAccessManager: React.FC = () => {
           ? 'category' as const 
           : 'product' as const;
 
+        const contentId = access.collection_id || access.category_id || access.product_id;
+
         return {
           id: access.id,
           user_id: access.user_id,
           collection_id: access.collection_id,
           category_id: access.category_id,
           product_id: access.product_id,
-          access_type: access.access_type as AccessType,
+          access_type: access.access_type.toLowerCase() as AccessType,
           granted_at: access.granted_at,
           user_email: access.user_profiles?.email || '',
           content_name: access.collections?.name || access.categories?.name || access.products?.name || '',
@@ -133,6 +136,7 @@ const UserAccessManager: React.FC = () => {
         existingAccess: formattedAccessList
           .filter(access => access.user_id === user.user_id)
           .map(access => ({
+            id: access.collection_id || access.category_id || access.product_id || '',
             content_type: access.content_type,
             content_name: access.content_name,
             access_type: access.access_type,
@@ -171,7 +175,7 @@ const UserAccessManager: React.FC = () => {
         p_collection_id: selectedContentType === 'collection' ? selectedContent : null,
         p_category_id: selectedContentType === 'category' ? selectedContent : null,
         p_product_id: selectedContentType === 'product' ? selectedContent : null,
-        p_access_type: selectedAccessType
+        p_access_type: selectedAccessType.toLowerCase()
       };
 
       console.log('Granting access with params:', params);
@@ -197,13 +201,13 @@ const UserAccessManager: React.FC = () => {
     try {
       const params = {
         p_user_id: userId,
-        p_collection_id: access.content_type === 'collection' ? selectedContent : null,
-        p_category_id: access.content_type === 'category' ? selectedContent : null,
-        p_product_id: access.content_type === 'product' ? selectedContent : null
+        p_collection_id: access.content_type === 'collection' ? access.id : null,
+        p_category_id: access.content_type === 'category' ? access.id : null,
+        p_product_id: access.content_type === 'product' ? access.id : null
       };
 
-      console.log('Calling revoke_collection_access with:', params);
-      const { error } = await supabase.rpc('revoke_collection_access', params);
+      console.log('Calling revoke_content_access with:', params);
+      const { error } = await supabase.rpc('revoke_content_access', params);
       
       if (error) throw error;
       
