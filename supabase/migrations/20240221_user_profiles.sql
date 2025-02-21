@@ -1,11 +1,7 @@
--- Set up user_profiles and trigger safely
+-- Set up proper permissions for API and auth service
 DO $MAINBLOCK$ 
 BEGIN
-    -- Drop trigger and function only
-    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-    DROP FUNCTION IF EXISTS public.handle_new_user();
-    
-    -- Recreate user_role enum if missing
+    -- Ensure user_role enum exists
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
         CREATE TYPE user_role AS ENUM ('admin', 'merchant', 'user');
     END IF;
@@ -18,10 +14,23 @@ BEGIN
         updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Disable RLS for testing
+    -- Disable RLS temporarily
     ALTER TABLE public.user_profiles DISABLE ROW LEVEL SECURITY;
 
-    -- Create trigger function with robust logging
+    -- Drop existing permissions
+    REVOKE ALL ON public.user_profiles FROM anon, authenticated, service_role, postgres, authenticator, supabase_auth_admin;
+    
+    -- Grant permissions in correct order
+    -- 1. Schema usage
+    GRANT USAGE ON SCHEMA public TO service_role, postgres, authenticator, supabase_auth_admin, anon, authenticated;
+    
+    -- 2. Table permissions
+    GRANT ALL ON public.user_profiles TO service_role;
+    GRANT ALL ON public.user_profiles TO supabase_auth_admin;
+    GRANT ALL ON public.user_profiles TO authenticator;
+    GRANT SELECT, UPDATE ON public.user_profiles TO authenticated;
+    
+    -- 3. Create simple trigger function with logging
     CREATE OR REPLACE FUNCTION public.handle_new_user()
     RETURNS TRIGGER
     LANGUAGE plpgsql
@@ -30,7 +39,6 @@ BEGIN
     AS $TRIGFUNC$
     BEGIN
         RAISE NOTICE 'Trigger started for user ID: %, Role: %', NEW.id, current_user;
-        RAISE NOTICE 'Attempting insert into user_profiles';
         INSERT INTO public.user_profiles (id, role)
         VALUES (NEW.id, 'merchant'::user_role)
         ON CONFLICT (id) DO NOTHING;
@@ -42,15 +50,30 @@ BEGIN
     END;
     $TRIGFUNC$;
 
-    -- Grant permissions
-    GRANT ALL ON public.user_profiles TO supabase_auth_admin;
-    GRANT ALL ON public.user_profiles TO authenticator;
-    GRANT SELECT, UPDATE ON public.user_profiles TO authenticated;
-
-    -- Create trigger
+    -- 4. Create trigger
+    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
     CREATE TRIGGER on_auth_user_created
         AFTER INSERT ON auth.users
         FOR EACH ROW
         EXECUTE FUNCTION public.handle_new_user();
+
+    -- Log configuration
+    RAISE NOTICE 'Permissions and trigger configured';
 END;
 $MAINBLOCK$;
+
+-- Verify permissions
+DO $$
+BEGIN
+    RAISE NOTICE 'Checking permissions on user_profiles...';
+    
+    -- Check trigger existence
+    IF EXISTS (
+        SELECT 1 
+        FROM pg_trigger t 
+        JOIN pg_class c ON t.tgrelid = c.oid 
+        WHERE t.tgname = 'on_auth_user_created'
+    ) THEN
+        RAISE NOTICE 'Trigger exists and is properly configured';
+    END IF;
+END $$;
