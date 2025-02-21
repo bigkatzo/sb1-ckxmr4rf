@@ -1,7 +1,8 @@
 -- Drop all existing triggers and functions that might interfere
 DO $$ 
 BEGIN
-    -- Drop triggers first
+    -- Drop triggers first (including the new one we're trying to create)
+    DROP TRIGGER IF EXISTS handle_new_user_trigger ON auth.users;
     DROP TRIGGER IF EXISTS validate_user_creation_trigger ON auth.users;
     DROP TRIGGER IF EXISTS handle_auth_user_trigger ON auth.users;
     DROP TRIGGER IF EXISTS ensure_user_profile_trigger ON auth.users;
@@ -13,9 +14,10 @@ BEGIN
     DROP FUNCTION IF EXISTS ensure_user_profile();
     DROP FUNCTION IF EXISTS public.handle_new_user();
     
+    RAISE NOTICE 'Successfully dropped all existing triggers and functions';
 EXCEPTION WHEN undefined_object THEN
     -- Ignore errors from non-existent objects
-    NULL;
+    RAISE NOTICE 'Some objects did not exist, continuing...';
 END $$;
 
 -- Create a simple, reliable trigger function for new users
@@ -41,17 +43,32 @@ BEGIN
     NEW.role := 'authenticated';
     
     -- Create user profile
-    INSERT INTO public.user_profiles (id, role)
-    VALUES (NEW.id, 'merchant')
-    ON CONFLICT (id) DO UPDATE
-    SET role = 'merchant';
+    BEGIN
+        INSERT INTO public.user_profiles (id, role)
+        VALUES (NEW.id, 'merchant')
+        ON CONFLICT (id) DO UPDATE
+        SET role = 'merchant';
+        RAISE NOTICE 'Created/updated user profile for %', NEW.email;
+    EXCEPTION WHEN others THEN
+        RAISE WARNING 'Error creating user profile: % %', SQLERRM, SQLSTATE;
+    END;
     
     RETURN NEW;
 EXCEPTION WHEN others THEN
-    RAISE LOG 'Error in handle_new_user: % %', SQLERRM, SQLSTATE;
+    RAISE WARNING 'Error in handle_new_user: % %', SQLERRM, SQLSTATE;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Ensure the trigger doesn't exist before creating it
+DO $$
+BEGIN
+    -- Drop the trigger if it exists
+    DROP TRIGGER IF EXISTS handle_new_user_trigger ON auth.users;
+    RAISE NOTICE 'Previous trigger dropped (if existed)';
+EXCEPTION WHEN others THEN
+    RAISE WARNING 'Error dropping previous trigger: % %', SQLERRM, SQLSTATE;
+END $$;
 
 -- Create new trigger
 CREATE TRIGGER handle_new_user_trigger
@@ -72,8 +89,12 @@ BEGIN
     -- Check if trigger exists
     IF EXISTS (
         SELECT 1 
-        FROM pg_trigger 
-        WHERE tgname = 'handle_new_user_trigger'
+        FROM pg_trigger t
+        JOIN pg_class c ON t.tgrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE t.tgname = 'handle_new_user_trigger'
+        AND n.nspname = 'auth'
+        AND c.relname = 'users'
     ) THEN
         RAISE NOTICE 'Trigger handle_new_user_trigger is properly configured';
     ELSE
@@ -83,8 +104,10 @@ BEGIN
     -- Check if function exists
     IF EXISTS (
         SELECT 1 
-        FROM pg_proc 
-        WHERE proname = 'handle_new_user'
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE p.proname = 'handle_new_user'
+        AND n.nspname = 'public'
     ) THEN
         RAISE NOTICE 'Function handle_new_user is properly configured';
     ELSE
@@ -95,7 +118,8 @@ BEGIN
     IF EXISTS (
         SELECT 1 
         FROM pg_tables 
-        WHERE tablename = 'user_profiles'
+        WHERE schemaname = 'public'
+        AND tablename = 'user_profiles'
     ) THEN
         RAISE NOTICE 'Table user_profiles exists';
     ELSE
