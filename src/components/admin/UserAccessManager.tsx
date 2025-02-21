@@ -34,7 +34,7 @@ interface CollectionAccess {
   collection_id: string | null;
   category_id: string | null;
   product_id: string | null;
-  access_type: 'view' | 'edit';
+  access_level: 'view' | 'edit';
   granted_at: string;
   user_profiles?: {
     email: string;
@@ -107,16 +107,16 @@ const UserAccessManager: React.FC = () => {
 
       // Fetch current access list
       const { data: accessData, error: accessError } = await supabase
-        .from('collection_access')
+        .from('content_access')
         .select(`
           id,
           user_id,
           collection_id,
           category_id,
           product_id,
-          access_type,
+          access_level,
           granted_at,
-          user_profiles!collection_access_user_id_fkey(email),
+          user_profiles!content_access_user_id_fkey(email),
           collections(name),
           categories(name),
           products(name)
@@ -145,7 +145,7 @@ const UserAccessManager: React.FC = () => {
           collection_id: access.collection_id,
           category_id: access.category_id,
           product_id: access.product_id,
-          access_type: access.access_type,
+          access_type: access.access_level,
           granted_at: access.granted_at,
           user_email: access.user_profiles?.email || '',
           content_name: contentName,
@@ -204,12 +204,15 @@ const UserAccessManager: React.FC = () => {
         p_user_id: record.user_id,
         p_collection_id: record.collection_id,
         p_category_id: record.category_id,
-        p_product_id: record.product_id,
+        p_product_id: record.product_id
       };
 
       const { error } = await supabase.rpc('revoke_content_access', params);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error details:', error);
+        throw error;
+      }
       
       message.success('Access revoked successfully');
       fetchData();
@@ -259,14 +262,14 @@ const UserAccessManager: React.FC = () => {
         { text: 'View Only', value: 'view' },
         { text: 'Edit Access', value: 'edit' },
       ],
-      onFilter: (value, record) => record.access_type === value,
+      onFilter: (value: string | number | boolean, record: UserAccess) => record.access_type === value,
     },
     {
       title: 'Granted At',
       dataIndex: 'granted_at',
       key: 'granted_at',
       render: (text: string) => new Date(text).toLocaleString(),
-      sorter: (a, b) => new Date(a.granted_at).getTime() - new Date(b.granted_at).getTime(),
+      sorter: (a: UserAccess, b: UserAccess) => new Date(a.granted_at).getTime() - new Date(b.granted_at).getTime(),
     },
     {
       title: 'Action',
