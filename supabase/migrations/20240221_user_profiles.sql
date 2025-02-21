@@ -1,42 +1,53 @@
 -- Create a secure schema for users
 create schema if not exists auth;
 
--- Create a table for user profiles
-create table if not exists auth.user_profiles (
-    id uuid references auth.users on delete cascade primary key,
-    email text,
-    role text default 'merchant',
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-);
+-- Check if table exists first
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'user_profiles') THEN
+        -- Create user_profiles table if it doesn't exist
+        CREATE TABLE public.user_profiles (
+            id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+            role user_role NOT NULL DEFAULT 'merchant',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
 
--- Enable RLS
-alter table auth.user_profiles enable row level security;
+        -- Enable RLS
+        ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
--- Create policies
-create policy "Users can view own profile"
-    on auth.user_profiles for select
-    using ( auth.uid() = id );
+        -- Create policies
+        CREATE POLICY "Users can view own profile"
+            ON public.user_profiles
+            FOR SELECT
+            USING (auth.uid() = id);
 
-create policy "Users can update own profile"
-    on auth.user_profiles for update
-    using ( auth.uid() = id );
+        CREATE POLICY "Users can update own profile"
+            ON public.user_profiles
+            FOR UPDATE
+            USING (auth.uid() = id);
 
--- Create a function to handle user creation
-create or replace function auth.handle_new_user()
-returns trigger
-language plpgsql
-security definer set search_path = public
-as $$
-begin
-    insert into auth.user_profiles (id, email, role)
-    values (new.id, new.email, 'merchant');
-    return new;
-end;
-$$;
+        -- Create trigger function for profile creation
+        CREATE OR REPLACE FUNCTION public.handle_new_user()
+        RETURNS TRIGGER
+        LANGUAGE plpgsql
+        SECURITY DEFINER
+        SET search_path = public
+        AS $$
+        BEGIN
+            INSERT INTO public.user_profiles (id, role)
+            VALUES (NEW.id, 'merchant')
+            ON CONFLICT (id) DO NOTHING;
+            RETURN NEW;
+        END;
+        $$;
 
--- Create a trigger to automatically create user profiles
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-    after insert on auth.users
-    for each row execute procedure auth.handle_new_user(); 
+        -- Create trigger (only if it doesn't exist)
+        DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+        CREATE TRIGGER on_auth_user_created
+            AFTER INSERT ON auth.users
+            FOR EACH ROW
+            EXECUTE FUNCTION public.handle_new_user();
+    END IF;
+END
+$$; 
