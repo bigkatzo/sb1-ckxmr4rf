@@ -35,17 +35,18 @@ DECLARE
     v_is_merchant boolean;
     v_parent_collection_id uuid;
 BEGIN
-    -- Check admin status
+    -- Check admin status first - admins always have full access
     SELECT EXISTS (
         SELECT 1 FROM public.user_profiles 
         WHERE id = p_user_id AND role = 'admin'::user_role
     ) INTO v_is_admin;
 
+    -- Admins have full access to everything
     IF v_is_admin THEN
         RETURN true;
     END IF;
 
-    -- Check merchant status
+    -- For non-admins, check merchant status
     SELECT EXISTS (
         SELECT 1 FROM public.user_profiles 
         WHERE id = p_user_id AND role = 'merchant'::user_role
@@ -69,6 +70,7 @@ BEGIN
         END IF;
     END IF;
 
+    -- For non-admins, check explicit access or merchant ownership
     RETURN EXISTS (
         SELECT 1
         FROM public.collection_access ca
@@ -100,73 +102,109 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
 
--- Policies for collection_access
-CREATE POLICY "collection_access_view_own"
+-- Update policies to explicitly check admin status first
+CREATE OR REPLACE POLICY "collection_access_view_own"
 ON public.collection_access
 FOR SELECT
 TO authenticated
-USING (user_id = auth.uid());
+USING (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR user_id = auth.uid()
+);
 
--- Policies for categories
-CREATE POLICY "categories_users_view_own_or_granted"
+-- Policies for categories with explicit admin check
+CREATE OR REPLACE POLICY "categories_users_view_own_or_granted"
 ON public.categories
 FOR SELECT
 TO authenticated
-USING (has_content_access(auth.uid(), collection_id, id, NULL, 'view'));
+USING (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), collection_id, id, NULL, 'view')
+);
 
-CREATE POLICY "categories_users_insert_own_or_granted"
+CREATE OR REPLACE POLICY "categories_users_insert_own_or_granted"
 ON public.categories
 FOR INSERT
 TO authenticated
-WITH CHECK (has_content_access(auth.uid(), collection_id, NULL, NULL, 'edit'));
+WITH CHECK (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), collection_id, NULL, NULL, 'edit')
+);
 
-CREATE POLICY "categories_users_update_own_or_granted"
+CREATE OR REPLACE POLICY "categories_users_update_own_or_granted"
 ON public.categories
 FOR UPDATE
 TO authenticated
-USING (has_content_access(auth.uid(), collection_id, id, NULL, 'edit'))
-WITH CHECK (has_content_access(auth.uid(), collection_id, id, NULL, 'edit'));
+USING (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), collection_id, id, NULL, 'edit')
+)
+WITH CHECK (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), collection_id, id, NULL, 'edit')
+);
 
-CREATE POLICY "categories_users_delete_own_or_granted"
+CREATE OR REPLACE POLICY "categories_users_delete_own_or_granted"
 ON public.categories
 FOR DELETE
 TO authenticated
-USING (has_content_access(auth.uid(), collection_id, id, NULL, 'edit'));
+USING (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), collection_id, id, NULL, 'edit')
+);
 
--- Policies for products
-CREATE POLICY "products_users_view_own_or_granted"
+-- Policies for products with explicit admin check
+CREATE OR REPLACE POLICY "products_users_view_own_or_granted"
 ON public.products
 FOR SELECT
 TO authenticated
-USING (has_content_access(auth.uid(), NULL, category_id, id, 'view'));
+USING (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), NULL, category_id, id, 'view')
+);
 
-CREATE POLICY "products_users_insert_own_or_granted"
+CREATE OR REPLACE POLICY "products_users_insert_own_or_granted"
 ON public.products
 FOR INSERT
 TO authenticated
-WITH CHECK (has_content_access(auth.uid(), NULL, category_id, NULL, 'edit'));
+WITH CHECK (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), NULL, category_id, NULL, 'edit')
+);
 
-CREATE POLICY "products_users_update_own_or_granted"
+CREATE OR REPLACE POLICY "products_users_update_own_or_granted"
 ON public.products
 FOR UPDATE
 TO authenticated
-USING (has_content_access(auth.uid(), NULL, category_id, id, 'edit'))
-WITH CHECK (has_content_access(auth.uid(), NULL, category_id, id, 'edit'));
+USING (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), NULL, category_id, id, 'edit')
+)
+WITH CHECK (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), NULL, category_id, id, 'edit')
+);
 
-CREATE POLICY "products_users_delete_own_or_granted"
+CREATE OR REPLACE POLICY "products_users_delete_own_or_granted"
 ON public.products
 FOR DELETE
 TO authenticated
-USING (has_content_access(auth.uid(), NULL, category_id, id, 'edit'));
+USING (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR has_content_access(auth.uid(), NULL, category_id, id, 'edit')
+);
 
--- Policies for orders
-CREATE POLICY "orders_users_view_buyers"
+-- Update orders policies to check admin status first
+CREATE OR REPLACE POLICY "orders_users_view_buyers"
 ON public.orders
 FOR SELECT
 TO authenticated
-USING (wallet_address = auth.jwt()->>'wallet_address');
+USING (
+    EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND role = 'admin'::user_role)
+    OR wallet_address = auth.jwt()->>'wallet_address'
+);
 
-CREATE POLICY "orders_users_view_dashboard"
+CREATE OR REPLACE POLICY "orders_users_view_dashboard"
 ON public.orders
 FOR SELECT
 TO authenticated
