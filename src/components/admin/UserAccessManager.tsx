@@ -78,16 +78,16 @@ const UserAccessManager: React.FC = () => {
 
       // Fetch current access list
       const { data: accessData, error: accessError } = await supabase
-        .from('content_access')
+        .from('collection_access')
         .select(`
           id,
           user_id,
           collection_id,
           category_id,
           product_id,
-          access_level,
+          access_type,
           granted_at,
-          user_profiles!content_access_user_id_fkey(email),
+          user_profiles!collection_access_user_id_fkey(email),
           collections(name),
           categories(name),
           products(name)
@@ -116,7 +116,7 @@ const UserAccessManager: React.FC = () => {
           collection_id: access.collection_id,
           category_id: access.category_id,
           product_id: access.product_id,
-          access_level: access.access_level,
+          access_level: access.access_type,
           granted_at: access.granted_at,
           user_email: access.user_profiles?.email || '',
           content_name: contentName,
