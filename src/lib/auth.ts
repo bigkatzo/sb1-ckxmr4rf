@@ -28,12 +28,20 @@ export async function createUser(email: string, password: string): Promise<Creat
       };
     }
 
-    // Step 2: Check if user already exists
-    const { data: existingUser } = await supabase
+    // Step 2: Check if email already exists in user_profiles
+    const { data: existingUser, error: lookupError } = await supabase
       .from('user_profiles')
       .select('id')
       .eq('email', email.trim())
-      .single();
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error('Error checking for existing user:', lookupError);
+      return {
+        success: false,
+        error: 'Unable to verify email availability. Please try again.'
+      };
+    }
 
     if (existingUser) {
       return {
@@ -59,14 +67,6 @@ export async function createUser(email: string, password: string): Promise<Creat
     // Step 4: Handle signup errors
     if (signUpError) {
       console.error('Signup error:', signUpError);
-      
-      // Handle specific error cases
-      if (signUpError.message?.includes('already registered') || signUpError.message?.includes('already in use')) {
-        return {
-          success: false,
-          error: 'This email address is already registered. Please use a different email or sign in.'
-        };
-      }
       
       if (signUpError.message?.includes('Database error')) {
         return {
