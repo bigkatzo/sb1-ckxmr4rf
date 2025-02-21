@@ -89,7 +89,7 @@ BEGIN
             FROM public.collections c
             LEFT JOIN public.categories cat ON cat.collection_id = c.id
             LEFT JOIN public.products p ON p.category_id = cat.id
-            WHERE c.created_by = p_user_id
+            WHERE c.user_id = p_user_id
             AND (
                 c.id = COALESCE(p_collection_id, v_parent_collection_id)
                 OR cat.id = p_category_id
@@ -167,7 +167,7 @@ USING (
         JOIN public.collections col ON col.id = c.collection_id
         WHERE p.id = orders.product_id
         AND (
-            col.created_by = auth.uid()
+            col.user_id = auth.uid()
             OR has_content_access(auth.uid(), col.id, c.id, p.id, 'view')
         )
     )
@@ -185,7 +185,7 @@ USING (
         JOIN public.categories c ON c.id = p.category_id
         JOIN public.collections col ON col.id = c.collection_id
         WHERE p.id = orders.product_id
-        AND col.created_by = auth.uid()
+        AND col.user_id = auth.uid()
     )
 );
 
