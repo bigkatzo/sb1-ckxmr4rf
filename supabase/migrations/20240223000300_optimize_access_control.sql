@@ -234,7 +234,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.products TO authenticated;
 GRANT SELECT ON public.orders TO authenticated;
 
 -- Functions for managing collection access
-CREATE OR REPLACE FUNCTION public.grant_collection_access(
+CREATE OR REPLACE FUNCTION public.grant_content_access(
     p_user_id uuid,
     p_collection_id uuid DEFAULT NULL,
     p_category_id uuid DEFAULT NULL,
@@ -311,7 +311,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Grant execute permissions
-GRANT EXECUTE ON FUNCTION public.grant_collection_access(uuid, uuid, uuid, uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.grant_content_access(uuid, uuid, uuid, uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.revoke_collection_access(uuid, uuid, uuid, uuid) TO authenticated;
 
 -- Verify setup

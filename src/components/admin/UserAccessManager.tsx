@@ -169,19 +169,28 @@ const UserAccessManager: React.FC = () => {
     }
 
     try {
+      console.log('Granting access with params:', {
+        selectedUser,
+        selectedContent,
+        selectedContentType,
+        selectedAccessLevel
+      });
+
       const params = {
         p_user_id: selectedUser,
         p_collection_id: selectedContentType === 'collection' ? selectedContent : null,
         p_category_id: selectedContentType === 'category' ? selectedContent : null,
         p_product_id: selectedContentType === 'product' ? selectedContent : null,
-        p_access_level: selectedAccessLevel
+        p_access_type: selectedAccessLevel
       };
 
-      const { error } = await supabase.rpc('grant_content_access', params);
+      console.log('Calling grant_content_access with:', params);
+      const { data, error } = await supabase.rpc('grant_content_access', params);
       
       if (error) {
         console.error('Error details:', error);
-        throw error;
+        message.error(`Failed to grant access: ${error.message}`);
+        return;
       }
       
       message.success('Access granted successfully');
