@@ -35,7 +35,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         ]);
 
         // If user has collections or access, they can enter
-        if (collections?.length > 0 || access?.length > 0) {
+        if ((collections?.length ?? 0) > 0 || (access?.length ?? 0) > 0) {
           setHasAccess(true);
           return;
         }
@@ -67,7 +67,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!session || !hasAccess) {
-    return <Navigate to="/merchant" replace />;
+    return <Navigate to="/merchant/signin" replace />;
   }
 
   return <>{children}</>;
