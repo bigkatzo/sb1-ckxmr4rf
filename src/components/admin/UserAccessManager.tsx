@@ -10,7 +10,7 @@ interface UserAccess {
   collection_id: string | null;
   category_id: string | null;
   product_id: string | null;
-  access_level: 'view' | 'edit';
+  access_type: 'view' | 'edit';
   granted_at: string;
   user_email: string;
   content_name: string;
@@ -116,7 +116,7 @@ const UserAccessManager: React.FC = () => {
           collection_id: access.collection_id,
           category_id: access.category_id,
           product_id: access.product_id,
-          access_level: access.access_type,
+          access_type: access.access_type,
           granted_at: access.granted_at,
           user_email: access.user_profiles?.email || '',
           content_name: contentName,
@@ -202,9 +202,9 @@ const UserAccessManager: React.FC = () => {
       key: 'content_name',
     },
     {
-      title: 'Access Level',
-      dataIndex: 'access_level',
-      key: 'access_level',
+      title: 'Access Type',
+      dataIndex: 'access_type',
+      key: 'access_type',
       render: (text: string) => text.charAt(0).toUpperCase() + text.slice(1),
     },
     {
