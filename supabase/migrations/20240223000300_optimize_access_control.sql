@@ -1,4 +1,4 @@
--- Optimized dashboard content access control
+-- Optimized dashboard collection access control
 
 -- Enable RLS on tables
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
@@ -245,13 +245,13 @@ BEGIN
     END LOOP;
 END $$;
 
--- Functions for managing content access
-CREATE OR REPLACE FUNCTION grant_content_access(
+-- Functions for managing collection access
+CREATE OR REPLACE FUNCTION grant_collection_access(
     p_user_id uuid,
     p_collection_id uuid DEFAULT NULL,
     p_category_id uuid DEFAULT NULL,
     p_product_id uuid DEFAULT NULL,
-    p_access_level text DEFAULT 'view'
+    p_access_type text DEFAULT 'view'
 ) RETURNS void AS $$
 BEGIN
     -- Check admin status
@@ -262,9 +262,9 @@ BEGIN
         RAISE EXCEPTION 'Only administrators can grant access';
     END IF;
 
-    -- Validate access level
-    IF p_access_level NOT IN ('view', 'edit') THEN
-        RAISE EXCEPTION 'Invalid access level. Must be view or edit';
+    -- Validate access type
+    IF p_access_type NOT IN ('view', 'edit') THEN
+        RAISE EXCEPTION 'Invalid access type. Must be view or edit';
     END IF;
 
     -- Validate that at least one content ID is provided
@@ -286,7 +286,7 @@ BEGIN
         p_collection_id,
         p_category_id,
         p_product_id,
-        p_access_level,
+        p_access_type,
         auth.uid()
     )
     ON CONFLICT (user_id, collection_id, category_id, product_id)
@@ -296,7 +296,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION revoke_content_access(
+CREATE OR REPLACE FUNCTION revoke_collection_access(
     p_user_id uuid,
     p_collection_id uuid DEFAULT NULL,
     p_category_id uuid DEFAULT NULL,
@@ -321,5 +321,5 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant execute permissions
-GRANT EXECUTE ON FUNCTION grant_content_access(uuid, uuid, uuid, uuid, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION revoke_content_access(uuid, uuid, uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION grant_collection_access(uuid, uuid, uuid, uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION revoke_collection_access(uuid, uuid, uuid, uuid) TO authenticated;
