@@ -28,7 +28,21 @@ export async function createUser(email: string, password: string): Promise<Creat
       };
     }
 
-    // Step 2: Sign up the user with Supabase Auth
+    // Step 2: Check if user already exists
+    const { data: existingUser } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('email', email.trim())
+      .single();
+
+    if (existingUser) {
+      return {
+        success: false,
+        error: 'This email address is already registered. Please use a different email or sign in.'
+      };
+    }
+
+    // Step 3: Sign up the user with Supabase Auth
     const isMerchantLocal = email.endsWith('@merchant.local');
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -42,15 +56,15 @@ export async function createUser(email: string, password: string): Promise<Creat
       }
     });
 
-    // Step 3: Handle signup errors
+    // Step 4: Handle signup errors
     if (signUpError) {
       console.error('Signup error:', signUpError);
       
       // Handle specific error cases
-      if (signUpError.message?.includes('already registered')) {
+      if (signUpError.message?.includes('already registered') || signUpError.message?.includes('already in use')) {
         return {
           success: false,
-          error: 'This email is already registered'
+          error: 'This email address is already registered. Please use a different email or sign in.'
         };
       }
       
@@ -67,7 +81,7 @@ export async function createUser(email: string, password: string): Promise<Creat
       };
     }
 
-    // Step 4: Check signup response
+    // Step 5: Check signup response
     if (!data?.user) {
       return {
         success: false,
@@ -75,7 +89,7 @@ export async function createUser(email: string, password: string): Promise<Creat
       };
     }
 
-    // Step 5: Return result based on email type and session
+    // Step 6: Return result based on email type and session
     if (isMerchantLocal || data.session) {
       // User is signed in immediately (merchant.local or no email confirmation required)
       return {
