@@ -13,7 +13,7 @@ DROP POLICY IF EXISTS "Authenticator can manage profiles" ON public.user_profile
 -- Grant necessary permissions first
 GRANT USAGE ON SCHEMA public TO postgres, authenticator, authenticated, anon;
 GRANT ALL ON public.user_profiles TO postgres, authenticator, service_role;
-GRANT SELECT, UPDATE ON public.user_profiles TO authenticated;
+GRANT SELECT, UPDATE, INSERT ON public.user_profiles TO authenticated;
 
 -- Create comprehensive set of policies
 
@@ -48,7 +48,14 @@ TO authenticated
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
 
--- 5. Users can view merchant profiles (needed for product pages)
+-- 5. Users can insert their own profile
+CREATE POLICY "users_can_insert_own_profile"
+ON public.user_profiles
+FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = id);
+
+-- 6. Users can view merchant profiles (needed for product pages)
 CREATE POLICY "users_can_view_merchant_profiles"
 ON public.user_profiles
 FOR SELECT
@@ -60,6 +67,8 @@ ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
 -- Verify setup
 DO $$
+DECLARE
+    r RECORD;
 BEGIN
     -- Check if RLS is enabled
     IF EXISTS (
@@ -83,13 +92,13 @@ BEGIN
     ) THEN
         RAISE NOTICE 'Policies are configured for user_profiles';
         
-        -- List all policies
-        FOR r IN (
-            SELECT polname, polpermissive, polroles::text, polcmd, polqual::text
+        -- List all policies with correct column names
+        FOR r IN
+            SELECT policyname, cmd as command_type, roles::text as role_list
             FROM pg_policies
             WHERE schemaname = 'public' AND tablename = 'user_profiles'
-        ) LOOP
-            RAISE NOTICE 'Policy: % (% for %)', r.polname, r.polcmd, r.polroles;
+        LOOP
+            RAISE NOTICE 'Policy: % (% for %)', r.policyname, r.command_type, r.role_list;
         END LOOP;
     ELSE
         RAISE WARNING 'No policies found for user_profiles';
@@ -108,5 +117,17 @@ BEGIN
         RAISE NOTICE 'Authenticator role has required permissions';
     ELSE
         RAISE WARNING 'Authenticator role may be missing required permissions';
+    END IF;
+
+    -- Test authenticated user permissions
+    IF EXISTS (
+        SELECT 1 FROM information_schema.role_table_grants 
+        WHERE table_name = 'user_profiles' 
+        AND grantee = 'authenticated'
+        AND privilege_type IN ('SELECT', 'UPDATE', 'INSERT')
+    ) THEN
+        RAISE NOTICE 'Authenticated users have required permissions';
+    ELSE
+        RAISE WARNING 'Authenticated users may be missing required permissions';
     END IF;
 END $$; 
