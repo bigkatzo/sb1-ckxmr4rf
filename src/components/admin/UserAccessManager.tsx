@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { Database } from '@/types/supabase';
-import { Button, Select, Table, message, Space, Tooltip } from 'antd';
+import { Button, Select, Table, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 interface UserAccess {
@@ -10,7 +10,7 @@ interface UserAccess {
   collection_id: string | null;
   category_id: string | null;
   product_id: string | null;
-  access_type: 'view' | 'edit';
+  access_level: 'view' | 'edit';
   granted_at: string;
   user_email: string;
   content_name: string;
@@ -20,34 +20,6 @@ interface UserAccess {
 interface ContentItem {
   id: string;
   name: string;
-}
-
-interface UserProfile {
-  id: string;
-  email: string;
-  role?: string;
-}
-
-interface CollectionAccess {
-  id: string;
-  user_id: string;
-  collection_id: string | null;
-  category_id: string | null;
-  product_id: string | null;
-  access_level: 'view' | 'edit';
-  granted_at: string;
-  user_profiles?: {
-    email: string;
-  } | null;
-  collections?: {
-    name: string;
-  } | null;
-  categories?: {
-    name: string;
-  } | null;
-  products?: {
-    name: string;
-  } | null;
 }
 
 const UserAccessManager: React.FC = () => {
@@ -75,11 +47,10 @@ const UserAccessManager: React.FC = () => {
       // Fetch users
       const { data: userData, error: userError } = await supabase
         .from('user_profiles')
-        .select('id, email')
-        .neq('role', 'admin');
+        .select('user_id, email');
       
       if (userError) throw userError;
-      setUsers(userData?.map((u: UserProfile) => ({ id: u.id, email: u.email })) || []);
+      setUsers(userData.map(u => ({ id: u.user_id, email: u.email })));
 
       // Fetch collections
       const { data: collectionData, error: collectionError } = await supabase
@@ -124,7 +95,7 @@ const UserAccessManager: React.FC = () => {
       
       if (accessError) throw accessError;
       
-      const formattedAccessList = accessData?.map((access: CollectionAccess) => {
+      const formattedAccessList = accessData.map(access => {
         let contentName = '';
         let contentType: 'collection' | 'category' | 'product' = 'collection';
         
@@ -145,13 +116,13 @@ const UserAccessManager: React.FC = () => {
           collection_id: access.collection_id,
           category_id: access.category_id,
           product_id: access.product_id,
-          access_type: access.access_level,
+          access_level: access.access_level,
           granted_at: access.granted_at,
           user_email: access.user_profiles?.email || '',
           content_name: contentName,
           content_type: contentType,
         };
-      }) || [];
+      });
 
       setAccessList(formattedAccessList);
     } catch (error) {
@@ -163,19 +134,7 @@ const UserAccessManager: React.FC = () => {
   };
 
   const handleGrantAccess = async () => {
-    if (!selectedUser || !selectedContent || !selectedContentType || !selectedAccessLevel) {
-      message.error('Please fill in all fields');
-      return;
-    }
-
     try {
-      console.log('Granting access with params:', {
-        selectedUser,
-        selectedContent,
-        selectedContentType,
-        selectedAccessLevel
-      });
-
       const params = {
         p_user_id: selectedUser,
         p_collection_id: selectedContentType === 'collection' ? selectedContent : null,
@@ -187,11 +146,7 @@ const UserAccessManager: React.FC = () => {
       console.log('Calling grant_content_access with:', params);
       const { data, error } = await supabase.rpc('grant_content_access', params);
       
-      if (error) {
-        console.error('Error details:', error);
-        message.error(`Failed to grant access: ${error.message}`);
-        return;
-      }
+      if (error) throw error;
       
       message.success('Access granted successfully');
       fetchData();
@@ -210,18 +165,15 @@ const UserAccessManager: React.FC = () => {
   const handleRevokeAccess = async (record: UserAccess) => {
     try {
       const params = {
-        p_user_id: record.user_id,
-        p_collection_id: record.collection_id,
-        p_category_id: record.category_id,
-        p_product_id: record.product_id
+        user_id: record.user_id,
+        collection_id: record.collection_id,
+        category_id: record.category_id,
+        product_id: record.product_id,
       };
 
       const { error } = await supabase.rpc('revoke_content_access', params);
       
-      if (error) {
-        console.error('Error details:', error);
-        throw error;
-      }
+      if (error) throw error;
       
       message.success('Access revoked successfully');
       fetchData();
@@ -236,54 +188,34 @@ const UserAccessManager: React.FC = () => {
       title: 'User',
       dataIndex: 'user_email',
       key: 'user_email',
-      sorter: (a: UserAccess, b: UserAccess) => a.user_email.localeCompare(b.user_email),
     },
     {
       title: 'Content Type',
       dataIndex: 'content_type',
       key: 'content_type',
       render: (text: string) => text.charAt(0).toUpperCase() + text.slice(1),
-      filters: [
-        { text: 'Collection', value: 'collection' },
-        { text: 'Category', value: 'category' },
-        { text: 'Product', value: 'product' },
-      ],
-      onFilter: (value: string | number | boolean, record: UserAccess) => record.content_type === value,
     },
     {
       title: 'Content Name',
       dataIndex: 'content_name',
       key: 'content_name',
-      sorter: (a: UserAccess, b: UserAccess) => a.content_name.localeCompare(b.content_name),
     },
     {
       title: 'Access Level',
-      dataIndex: 'access_type',
-      key: 'access_type',
-      render: (text: string) => (
-        <Tooltip title={text === 'edit' ? 'Can view and edit content' : 'Can only view content'}>
-          <span className={text === 'edit' ? 'text-green-600' : 'text-blue-600'}>
-            {text.charAt(0).toUpperCase() + text.slice(1)}
-          </span>
-        </Tooltip>
-      ),
-      filters: [
-        { text: 'View Only', value: 'view' },
-        { text: 'Edit Access', value: 'edit' },
-      ],
-      onFilter: (value: string | number | boolean, record: UserAccess) => record.access_type === value,
+      dataIndex: 'access_level',
+      key: 'access_level',
+      render: (text: string) => text.charAt(0).toUpperCase() + text.slice(1),
     },
     {
       title: 'Granted At',
       dataIndex: 'granted_at',
       key: 'granted_at',
       render: (text: string) => new Date(text).toLocaleString(),
-      sorter: (a: UserAccess, b: UserAccess) => new Date(a.granted_at).getTime() - new Date(b.granted_at).getTime(),
     },
     {
       title: 'Action',
       key: 'action',
-      render: (_: unknown, record: UserAccess) => (
+      render: (_, record) => (
         <Button danger onClick={() => handleRevokeAccess(record)}>
           Revoke
         </Button>
@@ -302,8 +234,6 @@ const UserAccessManager: React.FC = () => {
             onChange={setSelectedUser}
             className="w-full"
             options={users.map(user => ({ label: user.email, value: user.id }))}
-            showSearch
-            optionFilterProp="label"
           />
           <Select
             placeholder="Content Type"
@@ -328,8 +258,6 @@ const UserAccessManager: React.FC = () => {
                 ? categories.map(c => ({ label: c.name, value: c.id }))
                 : products.map(p => ({ label: p.name, value: p.id }))
             }
-            showSearch
-            optionFilterProp="label"
           />
           <Select
             placeholder="Access Level"
@@ -337,8 +265,8 @@ const UserAccessManager: React.FC = () => {
             onChange={setSelectedAccessLevel}
             className="w-full"
             options={[
-              { label: 'View Only', value: 'view' },
-              { label: 'Edit Access', value: 'edit' },
+              { label: 'View', value: 'view' },
+              { label: 'Edit', value: 'edit' },
             ]}
           />
           <Button type="primary" onClick={handleGrantAccess}>
@@ -354,7 +282,6 @@ const UserAccessManager: React.FC = () => {
           dataSource={accessList}
           loading={loading}
           rowKey="id"
-          pagination={{ pageSize: 10 }}
         />
       </div>
     </div>
