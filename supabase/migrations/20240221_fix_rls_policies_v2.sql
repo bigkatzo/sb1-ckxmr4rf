@@ -1,23 +1,22 @@
--- First, disable RLS temporarily to ensure clean policy setup
+-- Disable RLS temporarily
 ALTER TABLE public.user_profiles DISABLE ROW LEVEL SECURITY;
 
--- Drop all existing policies to start fresh
-DROP POLICY IF EXISTS "Users can view their own profile" ON public.user_profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile" ON public.user_profiles;
-DROP POLICY IF EXISTS "Authenticated users can view profiles" ON public.user_profiles;
-DROP POLICY IF EXISTS "Service role can manage all profiles" ON public.user_profiles;
-DROP POLICY IF EXISTS "Enable insert for auth" ON public.user_profiles;
-DROP POLICY IF EXISTS "Authenticator can manage profiles" ON public.user_profiles;
+-- Drop existing policies (match created policy names)
+DROP POLICY IF EXISTS "users_can_view_own_profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "users_can_update_own_profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "users_can_insert_own_profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "users_can_view_merchant_profiles" ON public.user_profiles;
+DROP POLICY IF EXISTS "service_role_bypass" ON public.user_profiles;
+DROP POLICY IF EXISTS "authenticator_bypass" ON public.user_profiles;
+DROP POLICY IF EXISTS "anon_can_view_merchant_profiles" ON public.user_profiles;
 
--- Grant necessary permissions first
+-- Grant permissions
 GRANT USAGE ON SCHEMA public TO postgres, authenticator, authenticated, anon;
 GRANT ALL ON public.user_profiles TO postgres, authenticator, service_role;
 GRANT SELECT, UPDATE, INSERT ON public.user_profiles TO authenticated;
+GRANT SELECT ON public.user_profiles TO anon;
 
--- Create comprehensive set of policies
-
--- 1. Service role bypass (needed for Supabase functions and admin operations)
+-- Create policies
 CREATE POLICY "service_role_bypass"
 ON public.user_profiles
 FOR ALL
@@ -25,7 +24,6 @@ TO service_role
 USING (true)
 WITH CHECK (true);
 
--- 2. Authenticator role bypass (needed for auth triggers and initial setup)
 CREATE POLICY "authenticator_bypass"
 ON public.user_profiles
 FOR ALL
@@ -33,14 +31,12 @@ TO authenticator
 USING (true)
 WITH CHECK (true);
 
--- 3. Users can view their own profile (essential for login flow)
 CREATE POLICY "users_can_view_own_profile"
 ON public.user_profiles
 FOR SELECT
 TO authenticated
 USING (auth.uid() = id);
 
--- 4. Users can update their own profile
 CREATE POLICY "users_can_update_own_profile"
 ON public.user_profiles
 FOR UPDATE
@@ -48,19 +44,24 @@ TO authenticated
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
 
--- 5. Users can insert their own profile
 CREATE POLICY "users_can_insert_own_profile"
 ON public.user_profiles
 FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = id);
 
--- 6. Users can view merchant profiles (needed for product pages)
 CREATE POLICY "users_can_view_merchant_profiles"
 ON public.user_profiles
 FOR SELECT
 TO authenticated
 USING (role = 'merchant'::user_role AND id != auth.uid());
+
+-- Allow anon to view merchant profiles (needed for public product pages)
+CREATE POLICY "anon_can_view_merchant_profiles"
+ON public.user_profiles
+FOR SELECT
+TO anon
+USING (role = 'merchant'::user_role);
 
 -- Re-enable RLS
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
@@ -94,7 +95,7 @@ BEGIN
         
         -- List all policies with correct column names
         FOR r IN
-            SELECT policyname, cmd as command_type, roles::text as role_list
+            SELECT policyname, polcmd AS command_type, polroles::text AS role_list
             FROM pg_policies
             WHERE schemaname = 'public' AND tablename = 'user_profiles'
         LOOP
@@ -129,5 +130,17 @@ BEGIN
         RAISE NOTICE 'Authenticated users have required permissions';
     ELSE
         RAISE WARNING 'Authenticated users may be missing required permissions';
+    END IF;
+
+    -- Test anon permissions
+    IF EXISTS (
+        SELECT 1 FROM information_schema.role_table_grants 
+        WHERE table_name = 'user_profiles' 
+        AND grantee = 'anon'
+        AND privilege_type = 'SELECT'
+    ) THEN
+        RAISE NOTICE 'Anon role has required SELECT permission';
+    ELSE
+        RAISE WARNING 'Anon role may be missing SELECT permission';
     END IF;
 END $$; 
