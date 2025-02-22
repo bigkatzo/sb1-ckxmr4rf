@@ -41,11 +41,12 @@ export function useMerchantCollections() {
         .from('collections')
         .select(`
           *,
-          collection_access!collection_access_user_id_fkey (
+          collection_access (
             access_type,
             user_id
           )
         `)
+        .or(`user_id.eq.${user.id},collection_access.user_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
