@@ -171,7 +171,7 @@ BEGIN
     sale_ended,
     slug
   )
-  VALUES (
+  SELECT
     'Admin Collection',
     'Default admin collection',
     v_admin_id,
@@ -180,13 +180,26 @@ BEGIN
     now(),
     false,
     'admin-collection'
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.collections 
+    WHERE user_id = v_admin_id AND slug = 'admin-collection'
   )
-  ON CONFLICT (user_id, slug) DO UPDATE
-  SET 
-    visible = true,
-    featured = false,
-    sale_ended = false
   RETURNING id INTO v_collection_id;
+
+  -- If collection already exists, get its id
+  IF v_collection_id IS NULL THEN
+    SELECT id INTO v_collection_id
+    FROM public.collections
+    WHERE user_id = v_admin_id AND slug = 'admin-collection';
+
+    -- Update existing collection
+    UPDATE public.collections
+    SET 
+      visible = true,
+      featured = false,
+      sale_ended = false
+    WHERE id = v_collection_id;
+  END IF;
 
   -- Create default category if not exists
   INSERT INTO public.categories (
