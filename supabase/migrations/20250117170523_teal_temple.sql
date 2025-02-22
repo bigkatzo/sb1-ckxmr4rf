@@ -44,7 +44,7 @@ BEGIN
   -- Verify caller is admin
   IF NOT EXISTS (
     SELECT 1 FROM public.user_profiles 
-    WHERE id = auth.uid() AND role = 'admin'::user_role
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
   ) THEN
     RAISE EXCEPTION 'Only admin can change user roles';
   END IF;
@@ -81,7 +81,7 @@ BEGIN
   -- Verify caller is admin
   IF NOT EXISTS (
     SELECT 1 FROM public.user_profiles 
-    WHERE user_profiles.id = auth.uid() AND role = 'admin'::user_role
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
   ) THEN
     RAISE EXCEPTION 'Only admin can list users';
   END IF;
@@ -111,7 +111,7 @@ BEGIN
   -- Verify caller is admin
   IF NOT EXISTS (
     SELECT 1 FROM public.user_profiles 
-    WHERE id = auth.uid() AND role = 'admin'::user_role
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
   ) THEN
     RAISE EXCEPTION 'Only admin can delete users';
   END IF;
