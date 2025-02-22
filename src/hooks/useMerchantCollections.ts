@@ -36,27 +36,20 @@ export function useMerchantCollections() {
 
       const isAdmin = profile?.role === 'admin';
 
-      let query = supabase
+      // Fetch collections - RLS will handle access control
+      const { data: allCollections, error: collectionsError } = await supabase
         .from('collections')
         .select(`
           *,
-          collection_access!inner (
+          collection_access (
             access_type,
             user_id
           )
-        `);
-
-      // If not admin, only fetch collections the user has access to
-      if (!isAdmin) {
-        query = query.or(`user_id.eq.${user.id}, collection_access.user_id.eq.${user.id}`);
-      }
-
-      query = query.order('created_at', { ascending: false });
-
-      const { data: allCollections, error: collectionsError } = await query;
+        `)
+        .order('created_at', { ascending: false });
 
       if (collectionsError) throw collectionsError;
-      
+
       const transformedCollections = (allCollections || []).map(collection => ({
         id: collection.id,
         name: collection.name,
@@ -69,7 +62,7 @@ export function useMerchantCollections() {
         slug: collection.slug,
         categories: [],
         products: [],
-        // Add access type information - admin has owner access to all collections
+        // Set access type based on user role and ownership
         accessType: isAdmin || collection.user_id === user.id ? 'owner' as const : 
                    ((collection.collection_access as CollectionAccess[])?.find(access => access.user_id === user.id)?.access_type || null) as ('view' | 'edit' | null)
       }));
