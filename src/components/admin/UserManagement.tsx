@@ -94,53 +94,90 @@ export function UserManagement() {
     if (!editingUser) return;
 
     try {
-      await validateAdminAccess();
-
       const formData = new FormData(e.target as HTMLFormElement);
       const role = formData.get('role') as 'admin' | 'merchant' | 'user';
 
-      await withRetry(async () => {
-        return adminQuery(async (client) => {
-          const { error: roleError } = await client.rpc('manage_user_role', {
-            p_user_id: editingUser.id,
-            p_role: role
-          });
+      // Validate role
+      if (!['admin', 'merchant', 'user'].includes(role)) {
+        throw new Error('Invalid role selected');
+      }
 
-          if (roleError) throw roleError;
-        });
+      // Prevent modifying admin420
+      if (editingUser.email === 'admin420@merchant.local') {
+        throw new Error('Cannot modify admin user role');
+      }
+
+      const { error: roleError } = await supabase.rpc('manage_user_role', {
+        p_user_id: editingUser.id,
+        p_role: role
       });
+
+      if (roleError) throw roleError;
 
       setShowEditModal(false);
       setEditingUser(null);
       await fetchUsers();
-      toast.success('User updated successfully');
+      toast.success('User role updated successfully');
     } catch (err) {
       console.error('Error updating user:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to update user');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update user role';
+      toast.error(errorMessage);
     }
   }
 
   async function deleteUser(userId: string) {
     try {
-      await validateAdminAccess();
+      // Check if trying to delete admin420
+      const userToDelete = users.find(u => u.id === userId);
+      
+      if (userToDelete?.email === 'admin420@merchant.local') {
+        throw new Error('Cannot delete admin user');
+      }
 
-      await withRetry(async () => {
-        return adminQuery(async (client) => {
-          const { error: deleteError } = await client.rpc('delete_user', {
-            p_user_id: userId
-          });
+      // Check if user has collections
+      const { data: collections, error: collectionsError } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('user_id', userId);
 
-          if (deleteError) throw deleteError;
-        });
+      if (collectionsError) throw collectionsError;
+
+      if (collections && collections.length > 0) {
+        const confirmTransfer = confirm(
+          `This user owns ${collections.length} collection(s). Would you like to delete these collections as well? Click OK to delete both the user and their collections, or Cancel to keep the collections.`
+        );
+
+        if (confirmTransfer) {
+          // Delete collections first
+          const { error: deleteCollectionsError } = await supabase
+            .from('collections')
+            .delete()
+            .eq('user_id', userId);
+
+          if (deleteCollectionsError) throw deleteCollectionsError;
+        } else {
+          toast.info('Please transfer or delete the collections before deleting the user.');
+          return;
+        }
+      }
+
+      // Confirm user deletion
+      if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+        return;
+      }
+
+      const { error: deleteError } = await supabase.rpc('delete_user', {
+        p_user_id: userId
       });
 
-      setShowEditModal(false);
-      setEditingUser(null);
+      if (deleteError) throw deleteError;
+
       await fetchUsers();
       toast.success('User deleted successfully');
     } catch (err) {
       console.error('Error deleting user:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to delete user');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
+      toast.error(errorMessage);
     }
   }
 
