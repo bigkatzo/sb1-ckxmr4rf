@@ -238,9 +238,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION list_users()
 RETURNS TABLE (
   id uuid,
+  username text,
   email text,
   role text,
-  created_at timestamptz
+  created_at timestamptz,
+  has_collections boolean,
+  has_access boolean
 ) AS $$
 BEGIN
   -- Verify caller is admin
@@ -251,9 +254,16 @@ BEGIN
   RETURN QUERY
   SELECT 
     u.id,
+    u.raw_user_meta_data->>'username' as username,
     u.email,
-    COALESCE(p.role::text, 'user'),
-    u.created_at
+    COALESCE(p.role, 'user') as role,
+    u.created_at,
+    EXISTS (
+      SELECT 1 FROM collections c WHERE c.user_id = u.id
+    ) as has_collections,
+    EXISTS (
+      SELECT 1 FROM collection_access ca WHERE ca.user_id = u.id
+    ) as has_access
   FROM auth.users u
   LEFT JOIN user_profiles p ON p.id = u.id
   WHERE u.email != 'admin420@merchant.local'
@@ -365,42 +375,3 @@ BEGIN
     RAISE EXCEPTION 'User420 setup verification failed';
   END IF;
 END $$;
-
--- Create function to manage user roles
-CREATE OR REPLACE FUNCTION manage_user_role(
-  p_user_id uuid,
-  p_role text
-)
-RETURNS void AS $$
-BEGIN
-  -- Verify caller is admin
-  IF NOT auth.is_admin() THEN
-    RAISE EXCEPTION 'Only admin can manage user roles';
-  END IF;
-
-  -- Validate role
-  IF p_role NOT IN ('admin', 'merchant', 'user') THEN
-    RAISE EXCEPTION 'Invalid role. Must be admin, merchant, or user';
-  END IF;
-
-  -- Don't allow modifying admin420's role
-  IF EXISTS (
-    SELECT 1 FROM auth.users
-    WHERE id = p_user_id
-    AND email = 'admin420@merchant.local'
-  ) THEN
-    RAISE EXCEPTION 'Cannot modify admin user role';
-  END IF;
-
-  -- Update role with proper casting
-  UPDATE user_profiles
-  SET 
-    role = p_role::user_role,
-    updated_at = now()
-  WHERE id = p_user_id;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'User not found';
-  END IF;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
