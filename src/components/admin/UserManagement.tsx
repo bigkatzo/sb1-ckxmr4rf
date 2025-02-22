@@ -70,7 +70,7 @@ export function UserManagement() {
 
       const { error: roleError } = await supabase.rpc('manage_user_role', {
         p_user_id: editingUser.id,
-        p_role: role
+        p_role: role as 'admin' | 'merchant' | 'user'
       });
 
       if (roleError) throw roleError;
