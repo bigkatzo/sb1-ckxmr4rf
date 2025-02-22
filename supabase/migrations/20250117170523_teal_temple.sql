@@ -254,10 +254,10 @@ BEGIN
   RETURN QUERY
   SELECT 
     u.id,
-    u.email,
-    COALESCE(p.role, 'user') as role,
+    u.email::text,
+    COALESCE(p.role::text, 'user'),
     u.created_at,
-    u.raw_user_meta_data->>'username' as username,
+    (u.raw_user_meta_data->>'username')::text as username,
     EXISTS (
       SELECT 1 FROM collections c WHERE c.user_id = u.id
     ) as has_collections,
