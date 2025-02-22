@@ -132,20 +132,82 @@ GRANT EXECUTE ON FUNCTION public.change_user_role(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.list_users() TO authenticated;
 GRANT ALL ON public.user_profiles TO authenticated;
 
--- Ensure admin user exists
+-- Restore admin data
 DO $$
+DECLARE
+  v_admin_id uuid;
+  v_collection_id uuid;
 BEGIN
-  -- Create admin user in auth.users if not exists
-  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin420@merchant.local') THEN
-    INSERT INTO auth.users (email, role)
-    VALUES ('admin420@merchant.local', 'authenticated');
+  -- Get existing admin user id
+  SELECT id INTO v_admin_id FROM auth.users WHERE email = 'admin420@merchant.local';
+  
+  IF v_admin_id IS NULL THEN
+    RAISE EXCEPTION 'Admin user not found';
   END IF;
 
-  -- Ensure admin profile exists with admin role
+  -- Update admin profile to superadmin
   INSERT INTO public.user_profiles (id, role)
-  SELECT id, 'admin'::user_role
-  FROM auth.users
-  WHERE email = 'admin420@merchant.local'
+  VALUES (v_admin_id, 'admin'::user_role)
   ON CONFLICT (id) DO UPDATE
   SET role = 'admin'::user_role;
+
+  -- Update auth.users metadata
+  UPDATE auth.users
+  SET raw_user_meta_data = jsonb_build_object(
+    'role', 'admin',
+    'provider', 'email',
+    'providers', ARRAY['email']
+  )
+  WHERE id = v_admin_id;
+
+  -- Create admin's default collection if not exists
+  INSERT INTO public.collections (
+    name,
+    description,
+    user_id,
+    visible,
+    featured,
+    launch_date,
+    sale_ended,
+    slug
+  )
+  VALUES (
+    'Admin Collection',
+    'Default admin collection',
+    v_admin_id,
+    true,
+    false,
+    now(),
+    false,
+    'admin-collection'
+  )
+  ON CONFLICT (user_id, slug) DO UPDATE
+  SET 
+    visible = true,
+    featured = false,
+    sale_ended = false
+  RETURNING id INTO v_collection_id;
+
+  -- Create default category if not exists
+  INSERT INTO public.categories (
+    name,
+    description,
+    collection_id,
+    type,
+    eligibility_rules
+  )
+  VALUES (
+    'Default Category',
+    'Default admin category',
+    v_collection_id,
+    'default',
+    '{"rules": []}'::jsonb
+  )
+  ON CONFLICT (collection_id, name) DO NOTHING;
+
+  -- Grant admin all necessary permissions
+  UPDATE auth.users
+  SET is_super_admin = true
+  WHERE id = v_admin_id;
+
 END $$;
