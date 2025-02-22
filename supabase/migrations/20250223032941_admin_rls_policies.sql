@@ -47,8 +47,14 @@ EXCEPTION
   WHEN undefined_object THEN null;
 END $$;
 
+-- Enable RLS on all tables
+ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
 -- Create RLS policies for collections
-CREATE POLICY "collections_view"
+CREATE POLICY "collections_select"
   ON collections
   FOR SELECT
   TO authenticated
@@ -63,12 +69,12 @@ CREATE POLICY "collections_view"
     -- User owns the collection
     user_id = auth.uid()
     OR 
-    -- User has any type of access to the collection
+    -- User has access through collection_access
     EXISTS (
-      SELECT 1 FROM collection_access ca
-      WHERE ca.collection_id = collections.id
-      AND ca.user_id = auth.uid()
-      AND ca.access_type IN ('view', 'edit')
+      SELECT 1 FROM collection_access
+      WHERE collection_id = id
+      AND user_id = auth.uid()
+      AND access_type IN ('view', 'edit')
     )
   );
 
@@ -84,7 +90,7 @@ CREATE POLICY "collections_insert"
       AND role = 'admin'
     )
     OR
-    -- User owns the collection
+    -- User is the owner
     user_id = auth.uid()
   );
 
@@ -93,21 +99,22 @@ CREATE POLICY "collections_update"
   FOR UPDATE
   TO authenticated
   USING (
-    -- Admin can edit all collections
+    -- Admin can update all collections
     EXISTS (
       SELECT 1 FROM user_profiles
       WHERE id = auth.uid()
       AND role = 'admin'
     )
     OR
-    -- User owns the collection or has edit access
+    -- User owns the collection
     user_id = auth.uid()
     OR
+    -- User has edit access
     EXISTS (
-      SELECT 1 FROM collection_access ca
-      WHERE ca.collection_id = collections.id
-      AND ca.user_id = auth.uid()
-      AND ca.access_type = 'edit'
+      SELECT 1 FROM collection_access
+      WHERE collection_id = id
+      AND user_id = auth.uid()
+      AND access_type = 'edit'
     )
   );
 
@@ -123,33 +130,35 @@ CREATE POLICY "collections_delete"
       AND role = 'admin'
     )
     OR
-    -- Only owner can delete
+    -- Only owner can delete their collections
     user_id = auth.uid()
   );
 
 -- Create RLS policies for categories
-CREATE POLICY "categories_view"
+CREATE POLICY "categories_select"
   ON categories
   FOR SELECT
   TO authenticated
   USING (
+    -- Admin can view all categories
     EXISTS (
-      SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE c.id = categories.collection_id
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+    OR
+    -- User has access to the parent collection
+    EXISTS (
+      SELECT 1 FROM collections
+      WHERE id = collection_id
       AND (
-        -- Admin can view all categories
-        EXISTS (
-          SELECT 1 FROM user_profiles
-          WHERE id = auth.uid()
-          AND role = 'admin'
+        user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type IN ('view', 'edit')
         )
-        OR
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has any type of access to the collection
-        ca.access_type IN ('view', 'edit')
       )
     )
   );
@@ -159,23 +168,25 @@ CREATE POLICY "categories_insert"
   FOR INSERT
   TO authenticated
   WITH CHECK (
+    -- Admin can insert categories
     EXISTS (
-      SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE c.id = categories.collection_id
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+    OR
+    -- User has edit access to the parent collection
+    EXISTS (
+      SELECT 1 FROM collections
+      WHERE id = collection_id
       AND (
-        -- Admin can insert categories
-        EXISTS (
-          SELECT 1 FROM user_profiles
-          WHERE id = auth.uid()
-          AND role = 'admin'
+        user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type = 'edit'
         )
-        OR
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has edit access to the collection
-        ca.access_type = 'edit'
       )
     )
   );
@@ -185,23 +196,25 @@ CREATE POLICY "categories_update"
   FOR UPDATE
   TO authenticated
   USING (
+    -- Admin can update categories
     EXISTS (
-      SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE c.id = categories.collection_id
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+    OR
+    -- User has edit access to the parent collection
+    EXISTS (
+      SELECT 1 FROM collections
+      WHERE id = collection_id
       AND (
-        -- Admin can update categories
-        EXISTS (
-          SELECT 1 FROM user_profiles
-          WHERE id = auth.uid()
-          AND role = 'admin'
+        user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type = 'edit'
         )
-        OR
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has edit access to the collection
-        ca.access_type = 'edit'
       )
     )
   );
@@ -211,50 +224,54 @@ CREATE POLICY "categories_delete"
   FOR DELETE
   TO authenticated
   USING (
+    -- Admin can delete categories
     EXISTS (
-      SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE c.id = categories.collection_id
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+    OR
+    -- User has edit access to the parent collection
+    EXISTS (
+      SELECT 1 FROM collections
+      WHERE id = collection_id
       AND (
-        -- Admin can delete categories
-        EXISTS (
-          SELECT 1 FROM user_profiles
-          WHERE id = auth.uid()
-          AND role = 'admin'
+        user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type = 'edit'
         )
-        OR
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has edit access to the collection
-        ca.access_type = 'edit'
       )
     )
   );
 
 -- Create RLS policies for products
-CREATE POLICY "products_view"
+CREATE POLICY "products_select"
   ON products
   FOR SELECT
   TO authenticated
   USING (
+    -- Admin can view all products
     EXISTS (
-      SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE c.id = products.collection_id
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+    OR
+    -- User has access to the parent collection
+    EXISTS (
+      SELECT 1 FROM collections
+      WHERE id = collection_id
       AND (
-        -- Admin can view all products
-        EXISTS (
-          SELECT 1 FROM user_profiles
-          WHERE id = auth.uid()
-          AND role = 'admin'
+        user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type IN ('view', 'edit')
         )
-        OR
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has any type of access to the collection
-        ca.access_type IN ('view', 'edit')
       )
     )
   );
@@ -264,23 +281,25 @@ CREATE POLICY "products_insert"
   FOR INSERT
   TO authenticated
   WITH CHECK (
+    -- Admin can insert products
     EXISTS (
-      SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE c.id = products.collection_id
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+    OR
+    -- User has edit access to the parent collection
+    EXISTS (
+      SELECT 1 FROM collections
+      WHERE id = collection_id
       AND (
-        -- Admin can insert products
-        EXISTS (
-          SELECT 1 FROM user_profiles
-          WHERE id = auth.uid()
-          AND role = 'admin'
+        user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type = 'edit'
         )
-        OR
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has edit access to the collection
-        ca.access_type = 'edit'
       )
     )
   );
@@ -290,23 +309,25 @@ CREATE POLICY "products_update"
   FOR UPDATE
   TO authenticated
   USING (
+    -- Admin can update products
     EXISTS (
-      SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE c.id = products.collection_id
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+    OR
+    -- User has edit access to the parent collection
+    EXISTS (
+      SELECT 1 FROM collections
+      WHERE id = collection_id
       AND (
-        -- Admin can update products
-        EXISTS (
-          SELECT 1 FROM user_profiles
-          WHERE id = auth.uid()
-          AND role = 'admin'
+        user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type = 'edit'
         )
-        OR
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has edit access to the collection
-        ca.access_type = 'edit'
       )
     )
   );
@@ -316,29 +337,31 @@ CREATE POLICY "products_delete"
   FOR DELETE
   TO authenticated
   USING (
+    -- Admin can delete products
     EXISTS (
-      SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE c.id = products.collection_id
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+    OR
+    -- User has edit access to the parent collection
+    EXISTS (
+      SELECT 1 FROM collections
+      WHERE id = collection_id
       AND (
-        -- Admin can delete products
-        EXISTS (
-          SELECT 1 FROM user_profiles
-          WHERE id = auth.uid()
-          AND role = 'admin'
+        user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type = 'edit'
         )
-        OR
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has edit access to the collection
-        ca.access_type = 'edit'
       )
     )
   );
 
 -- Create RLS policies for orders
-CREATE POLICY "orders_view"
+CREATE POLICY "orders_select"
   ON orders
   FOR SELECT
   TO authenticated
@@ -350,17 +373,19 @@ CREATE POLICY "orders_view"
       AND role = 'admin'
     )
     OR
+    -- User has access to the parent collection
     EXISTS (
-      SELECT 1 FROM products p
-      JOIN collections c ON c.id = p.collection_id
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE p.id = orders.product_id
+      SELECT 1 FROM products
+      JOIN collections ON collections.id = products.collection_id
+      WHERE products.id = product_id
       AND (
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has any type of access to the collection
-        ca.access_type IN ('view', 'edit')
+        collections.user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type IN ('view', 'edit')
+        )
       )
     )
   );
@@ -377,17 +402,19 @@ CREATE POLICY "orders_insert"
       AND role = 'admin'
     )
     OR
+    -- User has edit access to the parent collection
     EXISTS (
-      SELECT 1 FROM products p
-      JOIN collections c ON c.id = p.collection_id
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE p.id = orders.product_id
+      SELECT 1 FROM products
+      JOIN collections ON collections.id = products.collection_id
+      WHERE products.id = product_id
       AND (
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has edit access to the collection
-        ca.access_type = 'edit'
+        collections.user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type = 'edit'
+        )
       )
     )
   );
@@ -404,17 +431,19 @@ CREATE POLICY "orders_update"
       AND role = 'admin'
     )
     OR
+    -- User has edit access to the parent collection
     EXISTS (
-      SELECT 1 FROM products p
-      JOIN collections c ON c.id = p.collection_id
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE p.id = orders.product_id
+      SELECT 1 FROM products
+      JOIN collections ON collections.id = products.collection_id
+      WHERE products.id = product_id
       AND (
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has edit access to the collection
-        ca.access_type = 'edit'
+        collections.user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type = 'edit'
+        )
       )
     )
   );
@@ -431,17 +460,19 @@ CREATE POLICY "orders_delete"
       AND role = 'admin'
     )
     OR
+    -- User has edit access to the parent collection
     EXISTS (
-      SELECT 1 FROM products p
-      JOIN collections c ON c.id = p.collection_id
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-      WHERE p.id = orders.product_id
+      SELECT 1 FROM products
+      JOIN collections ON collections.id = products.collection_id
+      WHERE products.id = product_id
       AND (
-        -- User owns the collection
-        c.user_id = auth.uid()
-        OR 
-        -- User has edit access to the collection
-        ca.access_type = 'edit'
+        collections.user_id = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM collection_access
+          WHERE collection_id = collections.id
+          AND user_id = auth.uid()
+          AND access_type = 'edit'
+        )
       )
     )
   ); 

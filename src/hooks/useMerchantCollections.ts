@@ -41,7 +41,7 @@ export function useMerchantCollections() {
         .from('collections')
         .select(`
           *,
-          collection_access (
+          collection_access!collection_id(
             access_type,
             user_id
           )
