@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { UserManagement } from '../../components/admin/UserManagement';
 import { WalletManagement } from '../../components/admin/WalletManagement';
 import { useAuth } from '../../contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Tabs } from '../../components/ui/Tabs';
 import { toast } from 'react-toastify';
+import { ArrowLeft } from 'lucide-react';
 
 const tabs = [
   { id: 'users', label: 'Users' },
@@ -14,6 +15,7 @@ const tabs = [
 
 export function AdminDashboard() {
   const { session } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -77,7 +79,18 @@ export function AdminDashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/merchant/dashboard')}
+            className="inline-flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
+            title="Back to Merchant Dashboard"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+        </div>
+      </div>
       
       <div className="mb-6">
         <Tabs
