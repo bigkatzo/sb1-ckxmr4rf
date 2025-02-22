@@ -7,6 +7,22 @@ interface CollectionAccessProps {
   userId: string;
 }
 
+interface CollectionAccessData {
+  collection_id: string;
+  access_type: 'view' | 'edit';
+  collections: {
+    id: string;
+    name: string;
+    description: string;
+    imageUrl: string | null;
+    launchDate: string;
+    featured: boolean;
+    visible: boolean;
+    saleEnded: boolean;
+    slug: string;
+  };
+}
+
 export function CollectionAccess({ userId }: CollectionAccessProps) {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
@@ -14,7 +30,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
   const [error, setError] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<string>('');
-  const [selectedAccessType, setSelectedAccessType] = useState<'view' | 'manage'>('view');
+  const [selectedAccessType, setSelectedAccessType] = useState<'view' | 'edit'>('view');
 
   useEffect(() => {
     fetchCollections();
@@ -42,15 +58,31 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
           collections (
             id,
             name,
-            description
+            description,
+            imageUrl,
+            launchDate,
+            featured,
+            visible,
+            saleEnded,
+            slug
           )
         `)
         .eq('user_id', userId);
       if (accessError) throw accessError;
 
       // Transform data to include collection details
-      const collectionsWithAccess = accessData.map(access => ({
-        ...access.collections,
+      const collectionsWithAccess: Collection[] = ((accessData as unknown) as CollectionAccessData[]).map(access => ({
+        id: access.collections.id,
+        name: access.collections.name,
+        description: access.collections.description,
+        imageUrl: access.collections.imageUrl || '',
+        launchDate: new Date(access.collections.launchDate),
+        featured: access.collections.featured || false,
+        visible: access.collections.visible || false,
+        saleEnded: access.collections.saleEnded || false,
+        slug: access.collections.slug || '',
+        categories: [],
+        products: [],
         accessType: access.access_type
       }));
 
@@ -146,11 +178,11 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    collection.accessType === 'manage' 
+                    collection.accessType === 'edit' 
                       ? 'bg-purple-500/10 text-purple-400'
                       : 'bg-blue-500/10 text-blue-400'
                   }`}>
-                    {collection.accessType === 'manage' ? 'Full Access' : 'View Only'}
+                    {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
                   </span>
                 </div>
               </div>
@@ -197,11 +229,11 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                 <label className="block text-sm font-medium mb-2">Access Type</label>
                 <select
                   value={selectedAccessType}
-                  onChange={(e) => setSelectedAccessType(e.target.value as 'view' | 'manage')}
+                  onChange={(e) => setSelectedAccessType(e.target.value as 'view' | 'edit')}
                   className="w-full bg-gray-800 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="view">View Only</option>
-                  <option value="manage">Full Access</option>
+                  <option value="edit">Full Access</option>
                 </select>
               </div>
 

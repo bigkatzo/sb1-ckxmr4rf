@@ -18,6 +18,7 @@ export interface Collection {
   slug: string;
   categories: Category[];
   products: Product[];
+  accessType?: 'view' | 'edit';
 }
 
 export interface Category {
