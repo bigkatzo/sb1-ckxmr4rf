@@ -39,13 +39,11 @@ export function useCollections(filter: 'upcoming' | 'latest' | 'popular') {
         case 'latest':
           query = query
             .lte('launch_date', now)
-            .eq('sale_ended', false)
             .order('launch_date', { ascending: false });
           break;
         case 'popular':
           query = query
             .lte('launch_date', now)
-            .eq('sale_ended', false)
             .order('featured', { ascending: false })
             .order('launch_date', { ascending: false });
           break;
