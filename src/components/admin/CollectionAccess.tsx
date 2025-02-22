@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Store, Unlink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Collection } from '../../types';
+import { message } from 'antd';
 
 interface CollectionAccessProps {
   userId: string;
@@ -99,6 +100,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
     if (!selectedCollection || !selectedAccessType) return;
 
     try {
+      const selectedCollectionName = allCollections.find(c => c.id === selectedCollection)?.name;
       const { error } = await supabase.rpc('grant_collection_access', {
         p_user_id: userId,
         p_collection_id: selectedCollection,
@@ -107,28 +109,36 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
 
       if (error) throw error;
 
+      message.success(`Successfully granted ${selectedAccessType} access to collection "${selectedCollectionName}"`);
       setShowAssignModal(false);
       setSelectedCollection('');
       setSelectedAccessType('view');
       await fetchCollections();
     } catch (err) {
       console.error('Error assigning collection:', err);
-      setError(err instanceof Error ? err.message : 'Failed to assign collection');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to assign collection';
+      message.error(errorMessage);
+      setError(errorMessage);
     }
   }
 
   async function handleRevokeAccess(collectionId: string) {
     try {
+      const collectionName = collections.find(c => c.id === collectionId)?.name;
       const { error } = await supabase.rpc('revoke_collection_access', {
         p_user_id: userId,
         p_collection_id: collectionId
       });
 
       if (error) throw error;
+
+      message.success(`Successfully revoked access to collection "${collectionName}"`);
       await fetchCollections();
     } catch (err) {
       console.error('Error revoking access:', err);
-      setError(err instanceof Error ? err.message : 'Failed to revoke access');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to revoke access';
+      message.error(errorMessage);
+      setError(errorMessage);
     }
   }
 
