@@ -40,17 +40,18 @@ export function useMerchantCollections() {
         .from('collections')
         .select(`
           *,
-          collection_access (
+          collection_access!inner (
             access_type,
             user_id
           )
-        `)
-        .order('created_at', { ascending: false });
+        `);
 
       // If not admin, only fetch collections the user has access to
       if (!isAdmin) {
-        query = query.or(`user_id.eq.${user.id},collection_access.user_id.eq.${user.id}`);
+        query = query.or(`user_id.eq.${user.id}, collection_access.user_id.eq.${user.id}`);
       }
+
+      query = query.order('created_at', { ascending: false });
 
       const { data: allCollections, error: collectionsError } = await query;
 
