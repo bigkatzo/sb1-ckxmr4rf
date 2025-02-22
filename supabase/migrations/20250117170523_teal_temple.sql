@@ -238,10 +238,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION list_users()
 RETURNS TABLE (
   id uuid,
-  username text,
   email text,
   role text,
   created_at timestamptz,
+  username text,
   has_collections boolean,
   has_access boolean
 ) AS $$
@@ -254,10 +254,10 @@ BEGIN
   RETURN QUERY
   SELECT 
     u.id,
-    u.raw_user_meta_data->>'username' as username,
     u.email,
     COALESCE(p.role, 'user') as role,
     u.created_at,
+    u.raw_user_meta_data->>'username' as username,
     EXISTS (
       SELECT 1 FROM collections c WHERE c.user_id = u.id
     ) as has_collections,
