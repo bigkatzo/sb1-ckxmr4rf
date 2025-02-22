@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, Store, Plus, X, ChevronDown, ChevronUp, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
-import { supabase, adminQuery, withRetry, safeQuery } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
@@ -18,23 +18,6 @@ interface CreateUserData {
   role: 'admin' | 'merchant' | 'user';
 }
 
-// Helper function to validate admin access
-async function validateAdminAccess() {
-  try {
-    const { data: isAdmin, error: adminCheckError } = await supabase.rpc('is_admin');
-    
-    if (adminCheckError || !isAdmin) {
-      const isProduction = import.meta.env.PROD;
-      const errorMessage = isProduction
-        ? 'Admin features are disabled in production. Please check Netlify environment variables.'
-        : 'Admin features are disabled in development. Please check your database configuration.';
-      throw new Error(errorMessage);
-    }
-  } catch (error) {
-    throw new Error('Failed to verify admin access: ' + (error instanceof Error ? error.message : 'Unknown error'));
-  }
-}
-
 export function UserManagement() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
@@ -45,20 +28,6 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const checkAdmin = async () => {
-      try {
-        await validateAdminAccess();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to verify admin access';
-        setError(message);
-        toast.error(message);
-      }
-    };
-    
-    checkAdmin();
-  }, []);
-
-  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -67,15 +36,7 @@ export function UserManagement() {
       setLoading(true);
       setError(null);
 
-      await validateAdminAccess();
-
-      const { data, error } = await withRetry(async () => {
-        return adminQuery(async (client) => {
-          const response = await client.rpc('list_users');
-          if (response.error) throw response.error;
-          return response;
-        });
-      });
+      const { data, error } = await supabase.rpc('list_users');
 
       if (error) throw error;
       setUsers(data || []);
