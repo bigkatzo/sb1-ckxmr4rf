@@ -3,6 +3,7 @@ import { Users, Shield, Store, Plus, X, ChevronDown, ChevronUp, Pencil, Trash2, 
 import { supabase, adminQuery, withRetry, safeQuery } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 interface User {
   id: string;
@@ -35,22 +36,16 @@ async function validateAdminAccess() {
 }
 
 export function UserManagement() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [createUserData, setCreateUserData] = useState<CreateUserData>({
-    username: '',
-    password: '',
-    role: 'user'
-  });
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -94,50 +89,6 @@ export function UserManagement() {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function createUser(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      setCreating(true);
-      setError(null);
-
-      await validateAdminAccess();
-
-      if (!createUserData.username || !createUserData.password) {
-        throw new Error('Username and password are required');
-      }
-
-      await withRetry(async () => {
-        return adminQuery(async (client) => {
-          const { data: userId, error: createError } = await client.rpc(
-            'create_user_with_username',
-            {
-              p_username: createUserData.username,
-              p_password: createUserData.password,
-              p_role: createUserData.role
-            }
-          );
-
-          if (createError) throw createError;
-          if (!userId) throw new Error('Failed to create user - no user ID returned');
-
-          return userId;
-        });
-      });
-
-      setCreateUserData({ username: '', password: '', role: 'user' });
-      setShowCreateModal(false);
-      await fetchUsers();
-      toast.success('User created successfully');
-    } catch (err) {
-      console.error('Error creating user:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create user';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setCreating(false);
     }
   }
 
@@ -223,7 +174,7 @@ export function UserManagement() {
       <div className="flex justify-between items-center">
         <h2 className="text-base sm:text-lg font-semibold">User Management</h2>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => navigate('/merchant/register')}
           className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
         >
           <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -305,78 +256,6 @@ export function UserManagement() {
           </div>
         ))}
       </div>
-
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-xl max-w-md w-full p-4">
-            <h3 className="text-lg font-semibold mb-4">Create New User</h3>
-            
-            <form onSubmit={createUser} className="space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Username</label>
-                <input
-                  type="text"
-                  required
-                  value={createUserData.username}
-                  onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
-                  className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    minLength={8}
-                    value={createUserData.password}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, password: e.target.value }))}
-                    className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Role</label>
-                <select
-                  value={createUserData.role}
-                  onChange={(e) => setCreateUserData(prev => ({ ...prev, role: e.target.value as 'admin' | 'merchant' | 'user' }))}
-                  className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="user">User</option>
-                  <option value="merchant">Merchant</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 sm:gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-400 hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
-                >
-                  {creating ? 'Creating...' : 'Create User'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {showEditModal && editingUser && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
