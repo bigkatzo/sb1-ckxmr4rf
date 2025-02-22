@@ -63,14 +63,9 @@ export function UserManagement() {
         throw new Error('Invalid role selected');
       }
 
-      // Prevent modifying admin420
-      if (editingUser.email === 'admin420@merchant.local') {
-        throw new Error('Cannot modify admin user role');
-      }
-
-      const { error: roleError } = await supabase.rpc('manage_user_role', {
+      const { error: roleError } = await supabase.rpc('change_user_role', {
         p_user_id: editingUser.id,
-        p_role: role as 'admin' | 'merchant' | 'user'
+        p_new_role: role
       });
 
       if (roleError) throw roleError;
@@ -88,18 +83,11 @@ export function UserManagement() {
 
   async function deleteUser(userId: string) {
     try {
-      // Check if trying to delete admin420
-      const userToDelete = users.find(u => u.id === userId);
-      
-      if (userToDelete?.email === 'admin420@merchant.local') {
-        throw new Error('Cannot delete admin user');
-      }
-
       // Check if user has collections
       const { data: collections, error: collectionsError } = await supabase
         .from('collections')
         .select('id')
-        .eq('user_id', userId);
+        .eq('created_by', userId);
 
       if (collectionsError) throw collectionsError;
 
@@ -113,7 +101,7 @@ export function UserManagement() {
           const { error: deleteCollectionsError } = await supabase
             .from('collections')
             .delete()
-            .eq('user_id', userId);
+            .eq('created_by', userId);
 
           if (deleteCollectionsError) throw deleteCollectionsError;
         } else {
