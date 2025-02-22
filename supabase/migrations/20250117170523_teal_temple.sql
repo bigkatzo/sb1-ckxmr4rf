@@ -131,3 +131,21 @@ GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT EXECUTE ON FUNCTION public.change_user_role(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.list_users() TO authenticated;
 GRANT ALL ON public.user_profiles TO authenticated;
+
+-- Ensure admin user exists
+DO $$
+BEGIN
+  -- Create admin user in auth.users if not exists
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin420@merchant.local') THEN
+    INSERT INTO auth.users (email, role)
+    VALUES ('admin420@merchant.local', 'authenticated');
+  END IF;
+
+  -- Ensure admin profile exists with admin role
+  INSERT INTO public.user_profiles (id, role)
+  SELECT id, 'admin'::user_role
+  FROM auth.users
+  WHERE email = 'admin420@merchant.local'
+  ON CONFLICT (id) DO UPDATE
+  SET role = 'admin'::user_role;
+END $$;
