@@ -41,11 +41,8 @@ export function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [deletingUser, setDeletingUser] = useState<User | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -101,27 +98,15 @@ export function UserManagement() {
 
       const formData = new FormData(e.target as HTMLFormElement);
       const role = formData.get('role') as 'admin' | 'merchant' | 'user';
-      const password = formData.get('password') as string;
 
       await withRetry(async () => {
         return adminQuery(async (client) => {
-          // Update role
           const { error: roleError } = await client.rpc('manage_user_role', {
             p_user_id: editingUser.id,
             p_role: role
           });
 
           if (roleError) throw roleError;
-
-          // Update password if provided
-          if (password) {
-            const { error: passwordError } = await client.rpc('change_user_password', {
-              p_user_id: editingUser.id,
-              p_new_password: password
-            });
-
-            if (passwordError) throw passwordError;
-          }
         });
       });
 
@@ -149,8 +134,8 @@ export function UserManagement() {
         });
       });
 
-      setShowDeleteModal(false);
-      setDeletingUser(null);
+      setShowEditModal(false);
+      setEditingUser(null);
       await fetchUsers();
       toast.success('User deleted successfully');
     } catch (err) {
@@ -224,17 +209,6 @@ export function UserManagement() {
                   </button>
 
                   <button
-                    onClick={() => {
-                      setDeletingUser(user);
-                      setShowDeleteModal(true);
-                    }}
-                    className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                    title="Delete user"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-
-                  <button
                     onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}
                     className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
                   >
@@ -260,40 +234,12 @@ export function UserManagement() {
       {showEditModal && editingUser && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-900 rounded-xl max-w-md w-full p-4">
-            <h3 className="text-lg font-semibold mb-4">Edit User</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Edit User</h3>
+              <div className="text-sm text-gray-400">{editingUser.email}</div>
+            </div>
             
             <form onSubmit={updateUser} className="space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Username</label>
-                <input
-                  type="text"
-                  name="username"
-                  required
-                  defaultValue={editingUser.email.split('@')[0]}
-                  className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">New Password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    minLength={8}
-                    placeholder="Leave blank to keep current password"
-                    className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs sm:text-sm font-medium mb-1.5">Role</label>
                 <select
@@ -307,55 +253,34 @@ export function UserManagement() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 sm:gap-3 mt-6">
+              <div className="flex justify-between gap-2 sm:gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingUser(null);
-                  }}
-                  className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-400 hover:text-white transition-colors"
+                  onClick={() => deleteUser(editingUser.id)}
+                  className="bg-red-600 hover:bg-red-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
                 >
-                  Cancel
+                  Delete User
                 </button>
-                <button
-                  type="submit"
-                  className="bg-purple-600 hover:bg-purple-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
-                >
-                  Update User
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingUser(null);
+                    }}
+                    className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-purple-600 hover:bg-purple-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
+                  >
+                    Update Role
+                  </button>
+                </div>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {showDeleteModal && deletingUser && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-xl max-w-md w-full p-4">
-            <h3 className="text-lg font-semibold mb-4">Delete User</h3>
-            
-            <p className="text-gray-300 mb-6">
-              Are you sure you want to delete this user? This action cannot be undone.
-            </p>
-
-            <div className="flex justify-end gap-2 sm:gap-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeletingUser(null);
-                }}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => deleteUser(deletingUser.id)}
-                className="bg-red-600 hover:bg-red-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
-              >
-                Delete User
-              </button>
-            </div>
           </div>
         </div>
       )}
