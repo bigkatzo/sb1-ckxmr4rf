@@ -100,6 +100,7 @@ BEGIN
     ) as has_access
   FROM auth.users u
   LEFT JOIN public.user_profiles p ON p.id = u.id
+  WHERE u.email != 'admin420@merchant.local'
   ORDER BY u.created_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
@@ -131,96 +132,3 @@ GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT EXECUTE ON FUNCTION public.change_user_role(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.list_users() TO authenticated;
 GRANT ALL ON public.user_profiles TO authenticated;
-
--- Restore admin data
-DO $$
-DECLARE
-  v_admin_id uuid;
-  v_collection_id uuid;
-BEGIN
-  -- Get existing admin user id
-  SELECT id INTO v_admin_id FROM auth.users WHERE email = 'admin420@merchant.local';
-  
-  IF v_admin_id IS NULL THEN
-    RAISE EXCEPTION 'Admin user not found';
-  END IF;
-
-  -- Update admin profile to superadmin
-  INSERT INTO public.user_profiles (id, role)
-  VALUES (v_admin_id, 'admin'::user_role)
-  ON CONFLICT (id) DO UPDATE
-  SET role = 'admin'::user_role;
-
-  -- Update auth.users metadata
-  UPDATE auth.users
-  SET raw_user_meta_data = jsonb_build_object(
-    'role', 'admin',
-    'provider', 'email',
-    'providers', ARRAY['email']
-  )
-  WHERE id = v_admin_id;
-
-  -- Create admin's default collection if not exists
-  INSERT INTO public.collections (
-    name,
-    description,
-    user_id,
-    visible,
-    featured,
-    launch_date,
-    sale_ended,
-    slug
-  )
-  SELECT
-    'Admin Collection',
-    'Default admin collection',
-    v_admin_id,
-    true,
-    false,
-    now(),
-    false,
-    'admin-collection'
-  WHERE NOT EXISTS (
-    SELECT 1 FROM public.collections 
-    WHERE user_id = v_admin_id AND slug = 'admin-collection'
-  )
-  RETURNING id INTO v_collection_id;
-
-  -- If collection already exists, get its id
-  IF v_collection_id IS NULL THEN
-    SELECT id INTO v_collection_id
-    FROM public.collections
-    WHERE user_id = v_admin_id AND slug = 'admin-collection';
-
-    -- Update existing collection
-    UPDATE public.collections
-    SET 
-      visible = true,
-      featured = false,
-      sale_ended = false
-    WHERE id = v_collection_id;
-  END IF;
-
-  -- Create default category if not exists
-  INSERT INTO public.categories (
-    name,
-    description,
-    collection_id,
-    type,
-    eligibility_rules
-  )
-  VALUES (
-    'Default Category',
-    'Default admin category',
-    v_collection_id,
-    'default',
-    '{"rules": []}'::jsonb
-  )
-  ON CONFLICT (collection_id, name) DO NOTHING;
-
-  -- Grant admin all necessary permissions
-  UPDATE auth.users
-  SET is_super_admin = true
-  WHERE id = v_admin_id;
-
-END $$;
