@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Image as ImageIcon, ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
-import { OrderItem } from './OrderItem';
 
 interface OrderListProps {
   orders: Order[];
@@ -44,11 +43,98 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   return (
     <div className="space-y-3">
       {orders.map((order) => (
-        <OrderItem
-          key={order.id}
-          order={order}
-          onStatusUpdate={onStatusUpdate}
-        />
+        <div key={order.id} className="bg-gray-900 rounded-lg p-3 group">
+          <div className="flex items-start gap-3">
+            {order.product.imageUrl ? (
+              <img
+                src={order.product.imageUrl}
+                alt={order.product.name}
+                className="w-16 h-16 rounded object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
+                <ImageIcon className="h-5 w-5 text-gray-600" />
+              </div>
+            )}
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
+                  <p className="text-gray-400 text-xs mt-1">
+                    SKU: {order.product.sku}
+                  </p>
+                  {order.product.collection && (
+                    <p className="text-gray-400 text-xs mt-1">
+                      Collection: {order.product.collection.name}
+                    </p>
+                  )}
+                  {order.product.category && (
+                    <p className="text-gray-400 text-xs mt-1">
+                      Category: {order.product.category.name}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
+                    {getStatusIcon(order.status)}
+                    <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                  </div>
+                  {onStatusUpdate && (
+                    <select
+                      value={order.status}
+                      onChange={(e) => onStatusUpdate(order.id, e.target.value as OrderStatus)}
+                      className="bg-gray-800 rounded px-2 py-1 text-xs"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="confirmed">Confirmed</option>
+                      <option value="shipped">Shipped</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  )}
+                </div>
+              </div>
+              
+              <div className="mt-3 text-xs text-gray-400">
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  <div>
+                    <span className="font-medium">Order ID:</span> {order.id}
+                  </div>
+                  <div>
+                    <span className="font-medium">Wallet:</span> {order.walletAddress}
+                  </div>
+                  <div>
+                    <span className="font-medium">Created:</span> {formatDistanceToNow(order.createdAt, { addSuffix: true })}
+                  </div>
+                </div>
+                
+                {order.variants && order.variants.length > 0 && (
+                  <div className="mt-2">
+                    <span className="font-medium">Variants:</span>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {order.variants.map((variant, index) => (
+                        <span key={index} className="bg-gray-800 px-2 py-1 rounded">
+                          {variant.name}: {variant.value}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {order.shippingInfo && (
+                  <div className="mt-2">
+                    <span className="font-medium">Shipping Info:</span>
+                    <div className="mt-1">
+                      <div>Address: {order.shippingInfo.address}</div>
+                      <div>Contact: {order.shippingInfo.contactType} - {order.shippingInfo.contactValue}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
