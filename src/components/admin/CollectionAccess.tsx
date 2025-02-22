@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Store, Unlink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Collection } from '../../types';
-import { message } from 'antd';
 
 interface CollectionAccessProps {
   userId: string;
@@ -36,15 +35,27 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
       setLoading(true);
       setError(null);
 
-      // Fetch all collections for the assign modal
+      // Fetch all collections for the assign modal - only need id and name
       const { data: allCollectionsData, error: allCollectionsError } = await supabase
         .from('collections')
-        .select('*')
+        .select('id, name')
         .order('name');
       if (allCollectionsError) throw allCollectionsError;
-      setAllCollections(allCollectionsData);
+      setAllCollections(allCollectionsData.map(c => ({
+        id: c.id,
+        name: c.name,
+        description: '',
+        imageUrl: '',
+        launchDate: new Date(),
+        featured: false,
+        visible: true,
+        saleEnded: false,
+        slug: '',
+        categories: [],
+        products: []
+      })));
 
-      // Fetch user's collection access
+      // Fetch user's collection access - only need minimal collection data
       const { data: accessData, error: accessError } = await supabase
         .from('collection_access')
         .select(`
@@ -59,11 +70,11 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
         .eq('user_id', userId);
       if (accessError) throw accessError;
 
-      // Transform data to include collection details
+      // Transform data with minimal fields
       const collectionsWithAccess: Collection[] = ((accessData as unknown) as CollectionAccessData[]).map(access => ({
         id: access.collections.id,
         name: access.collections.name,
-        description: '', // Default empty string for required Collection interface
+        description: '',
         imageUrl: '',
         launchDate: new Date(),
         featured: false,
@@ -88,7 +99,6 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
     if (!selectedCollection || !selectedAccessType) return;
 
     try {
-      const selectedCollectionName = allCollections.find(c => c.id === selectedCollection)?.name;
       const { error } = await supabase.rpc('grant_collection_access', {
         p_user_id: userId,
         p_collection_id: selectedCollection,
@@ -97,36 +107,28 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
 
       if (error) throw error;
 
-      message.success(`Successfully granted ${selectedAccessType} access to collection "${selectedCollectionName}"`);
       setShowAssignModal(false);
       setSelectedCollection('');
       setSelectedAccessType('view');
       await fetchCollections();
     } catch (err) {
       console.error('Error assigning collection:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to assign collection';
-      message.error(errorMessage);
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Failed to assign collection');
     }
   }
 
   async function handleRevokeAccess(collectionId: string) {
     try {
-      const collectionName = collections.find(c => c.id === collectionId)?.name;
       const { error } = await supabase.rpc('revoke_collection_access', {
         p_user_id: userId,
         p_collection_id: collectionId
       });
 
       if (error) throw error;
-
-      message.success(`Successfully revoked access to collection "${collectionName}"`);
       await fetchCollections();
     } catch (err) {
       console.error('Error revoking access:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to revoke access';
-      message.error(errorMessage);
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Failed to revoke access');
     }
   }
 
