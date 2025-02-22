@@ -15,11 +15,11 @@ interface CollectionAccessData {
     id: string;
     name: string;
     description: string;
-    imageUrl: string | null;
-    launchDate: string;
+    image_url: string | null;
+    launch_date: string;
     featured: boolean;
     visible: boolean;
-    saleEnded: boolean;
+    sale_ended: boolean;
     slug: string;
   };
 }
@@ -60,11 +60,11 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
             id,
             name,
             description,
-            imageUrl,
-            launchDate,
+            image_url,
+            launch_date,
             featured,
             visible,
-            saleEnded,
+            sale_ended,
             slug
           )
         `)
@@ -76,11 +76,11 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
         id: access.collections.id,
         name: access.collections.name,
         description: access.collections.description,
-        imageUrl: access.collections.imageUrl || '',
-        launchDate: new Date(access.collections.launchDate),
+        imageUrl: access.collections.image_url || '',
+        launchDate: new Date(access.collections.launch_date),
         featured: access.collections.featured || false,
         visible: access.collections.visible || false,
-        saleEnded: access.collections.saleEnded || false,
+        saleEnded: access.collections.sale_ended || false,
         slug: access.collections.slug || '',
         categories: [],
         products: [],
