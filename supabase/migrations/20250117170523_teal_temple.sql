@@ -132,3 +132,89 @@ GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT EXECUTE ON FUNCTION public.change_user_role(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.list_users() TO authenticated;
 GRANT ALL ON public.user_profiles TO authenticated;
+
+-- Update wallet policies to use our custom admin check
+DROP POLICY IF EXISTS "merchant_wallets_read" ON merchant_wallets;
+DROP POLICY IF EXISTS "merchant_wallets_write" ON merchant_wallets;
+DROP POLICY IF EXISTS "merchant_wallets_modify" ON merchant_wallets;
+DROP POLICY IF EXISTS "merchant_wallets_delete" ON merchant_wallets;
+DROP POLICY IF EXISTS "collection_wallets_read" ON collection_wallets;
+DROP POLICY IF EXISTS "collection_wallets_write" ON collection_wallets;
+DROP POLICY IF EXISTS "collection_wallets_modify" ON collection_wallets;
+DROP POLICY IF EXISTS "collection_wallets_delete" ON collection_wallets;
+
+-- Enable RLS
+ALTER TABLE merchant_wallets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE collection_wallets ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for merchant_wallets
+CREATE POLICY "merchant_wallets_read"
+  ON merchant_wallets FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "merchant_wallets_write"
+  ON merchant_wallets FOR INSERT
+  TO authenticated
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
+  ));
+
+CREATE POLICY "merchant_wallets_modify"
+  ON merchant_wallets FOR UPDATE
+  TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
+  ))
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
+  ));
+
+CREATE POLICY "merchant_wallets_delete"
+  ON merchant_wallets FOR DELETE
+  TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
+  ));
+
+-- Create policies for collection_wallets
+CREATE POLICY "collection_wallets_read"
+  ON collection_wallets FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "collection_wallets_write"
+  ON collection_wallets FOR INSERT
+  TO authenticated
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
+  ));
+
+CREATE POLICY "collection_wallets_modify"
+  ON collection_wallets FOR UPDATE
+  TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
+  ))
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
+  ));
+
+CREATE POLICY "collection_wallets_delete"
+  ON collection_wallets FOR DELETE
+  TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE user_profiles.id = auth.uid() AND user_profiles.role = 'admin'::user_role
+  ));
+
+-- Grant necessary permissions
+GRANT ALL ON merchant_wallets TO authenticated;
+GRANT ALL ON collection_wallets TO authenticated;
