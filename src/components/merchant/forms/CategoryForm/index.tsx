@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ModalForm } from '../../../ui/Modal/ModalForm';
 import { CategoryRules } from './CategoryRules';
 import type { CategoryFormData, CategoryRule } from './types';
+import { toast } from 'react-toastify';
 
 interface CategoryFormProps {
   onClose: () => void;
@@ -16,9 +17,45 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    formData.append('rules', JSON.stringify(rules));
-    onSubmit(formData);
+    try {
+      const formData = new FormData(e.currentTarget);
+      
+      // Validate required fields
+      const name = formData.get('name');
+      const description = formData.get('description');
+      
+      if (!name || !description) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      // Validate rules format
+      const validRules = rules.every(rule => 
+        rule.type && 
+        rule.value && 
+        (rule.type !== 'token' || (typeof rule.quantity === 'number' && rule.quantity > 0))
+      );
+
+      if (rules.length > 0 && !validRules) {
+        toast.error('Please ensure all rules are properly filled out');
+        return;
+      }
+
+      // Ensure rules are properly formatted
+      formData.set('rules', JSON.stringify(rules));
+      
+      // Log the data being submitted
+      console.log('Submitting form data:', {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        rules: JSON.parse(formData.get('rules') as string)
+      });
+
+      onSubmit(formData);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to submit form');
+    }
   };
 
   return (

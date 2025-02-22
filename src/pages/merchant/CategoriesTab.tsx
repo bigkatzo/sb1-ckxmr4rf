@@ -26,6 +26,11 @@ export function CategoriesTab() {
 
   const handleSubmit = async (data: FormData) => {
     try {
+      if (!selectedCollection) {
+        toast.error('Please select a collection first');
+        return;
+      }
+
       if (editingCategory) {
         await updateCategory(editingCategory.id, data);
         toast.success('Category updated successfully');
@@ -38,7 +43,8 @@ export function CategoriesTab() {
       refreshCategories();
     } catch (error) {
       console.error('Error with category:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save category');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save category';
+      toast.error(errorMessage);
     }
   };
 
