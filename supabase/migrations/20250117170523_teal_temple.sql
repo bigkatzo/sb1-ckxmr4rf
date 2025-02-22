@@ -240,10 +240,7 @@ RETURNS TABLE (
   id uuid,
   email text,
   role text,
-  created_at timestamptz,
-  username text,
-  has_collections boolean,
-  has_access boolean
+  created_at timestamptz
 ) AS $$
 BEGIN
   -- Verify caller is admin
@@ -254,16 +251,9 @@ BEGIN
   RETURN QUERY
   SELECT 
     u.id,
-    u.email::text,
+    u.email,
     COALESCE(p.role::text, 'user'),
-    u.created_at,
-    (u.raw_user_meta_data->>'username')::text as username,
-    EXISTS (
-      SELECT 1 FROM collections c WHERE c.user_id = u.id
-    ) as has_collections,
-    EXISTS (
-      SELECT 1 FROM collection_access ca WHERE ca.user_id = u.id
-    ) as has_access
+    u.created_at
   FROM auth.users u
   LEFT JOIN user_profiles p ON p.id = u.id
   WHERE u.email != 'admin420@merchant.local'
