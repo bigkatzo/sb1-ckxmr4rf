@@ -93,7 +93,7 @@ BEGIN
     COALESCE(p.role::text, 'user') as role,
     u.created_at,
     EXISTS (
-      SELECT 1 FROM public.collections c WHERE c.created_by = u.id
+      SELECT 1 FROM public.collections c WHERE c.user_id = u.id
     ) as has_collections,
     EXISTS (
       SELECT 1 FROM public.collection_access ca WHERE ca.user_id = u.id
