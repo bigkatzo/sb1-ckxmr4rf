@@ -69,10 +69,10 @@ CREATE POLICY "collections_select"
     -- User owns the collection
     user_id = auth.uid()
     OR 
-    -- User has access through collection_access
+    -- User has explicit access through collection_access
     EXISTS (
       SELECT 1 FROM collection_access
-      WHERE collection_id = id
+      WHERE collection_id = collections.id
       AND user_id = auth.uid()
       AND access_type IN ('view', 'edit')
     )
@@ -109,10 +109,10 @@ CREATE POLICY "collections_update"
     -- User owns the collection
     user_id = auth.uid()
     OR
-    -- User has edit access
+    -- User has explicit edit access
     EXISTS (
       SELECT 1 FROM collection_access
-      WHERE collection_id = id
+      WHERE collection_id = collections.id
       AND user_id = auth.uid()
       AND access_type = 'edit'
     )
@@ -150,9 +150,9 @@ CREATE POLICY "categories_select"
     -- User has access to the parent collection
     EXISTS (
       SELECT 1 FROM collections
-      WHERE id = collection_id
+      WHERE collections.id = categories.collection_id
       AND (
-        user_id = auth.uid()
+        collections.user_id = auth.uid()
         OR EXISTS (
           SELECT 1 FROM collection_access
           WHERE collection_id = collections.id
@@ -178,9 +178,9 @@ CREATE POLICY "categories_insert"
     -- User has edit access to the parent collection
     EXISTS (
       SELECT 1 FROM collections
-      WHERE id = collection_id
+      WHERE collections.id = collection_id
       AND (
-        user_id = auth.uid()
+        collections.user_id = auth.uid()
         OR EXISTS (
           SELECT 1 FROM collection_access
           WHERE collection_id = collections.id
@@ -206,9 +206,9 @@ CREATE POLICY "categories_update"
     -- User has edit access to the parent collection
     EXISTS (
       SELECT 1 FROM collections
-      WHERE id = collection_id
+      WHERE collections.id = categories.collection_id
       AND (
-        user_id = auth.uid()
+        collections.user_id = auth.uid()
         OR EXISTS (
           SELECT 1 FROM collection_access
           WHERE collection_id = collections.id
@@ -234,9 +234,9 @@ CREATE POLICY "categories_delete"
     -- User has edit access to the parent collection
     EXISTS (
       SELECT 1 FROM collections
-      WHERE id = collection_id
+      WHERE collections.id = categories.collection_id
       AND (
-        user_id = auth.uid()
+        collections.user_id = auth.uid()
         OR EXISTS (
           SELECT 1 FROM collection_access
           WHERE collection_id = collections.id
@@ -263,9 +263,9 @@ CREATE POLICY "products_select"
     -- User has access to the parent collection
     EXISTS (
       SELECT 1 FROM collections
-      WHERE id = collection_id
+      WHERE collections.id = products.collection_id
       AND (
-        user_id = auth.uid()
+        collections.user_id = auth.uid()
         OR EXISTS (
           SELECT 1 FROM collection_access
           WHERE collection_id = collections.id
@@ -291,9 +291,9 @@ CREATE POLICY "products_insert"
     -- User has edit access to the parent collection
     EXISTS (
       SELECT 1 FROM collections
-      WHERE id = collection_id
+      WHERE collections.id = collection_id
       AND (
-        user_id = auth.uid()
+        collections.user_id = auth.uid()
         OR EXISTS (
           SELECT 1 FROM collection_access
           WHERE collection_id = collections.id
@@ -319,9 +319,9 @@ CREATE POLICY "products_update"
     -- User has edit access to the parent collection
     EXISTS (
       SELECT 1 FROM collections
-      WHERE id = collection_id
+      WHERE collections.id = products.collection_id
       AND (
-        user_id = auth.uid()
+        collections.user_id = auth.uid()
         OR EXISTS (
           SELECT 1 FROM collection_access
           WHERE collection_id = collections.id
@@ -347,9 +347,9 @@ CREATE POLICY "products_delete"
     -- User has edit access to the parent collection
     EXISTS (
       SELECT 1 FROM collections
-      WHERE id = collection_id
+      WHERE collections.id = products.collection_id
       AND (
-        user_id = auth.uid()
+        collections.user_id = auth.uid()
         OR EXISTS (
           SELECT 1 FROM collection_access
           WHERE collection_id = collections.id
@@ -377,7 +377,7 @@ CREATE POLICY "orders_select"
     EXISTS (
       SELECT 1 FROM products
       JOIN collections ON collections.id = products.collection_id
-      WHERE products.id = product_id
+      WHERE products.id = orders.product_id
       AND (
         collections.user_id = auth.uid()
         OR EXISTS (
@@ -435,7 +435,7 @@ CREATE POLICY "orders_update"
     EXISTS (
       SELECT 1 FROM products
       JOIN collections ON collections.id = products.collection_id
-      WHERE products.id = product_id
+      WHERE products.id = orders.product_id
       AND (
         collections.user_id = auth.uid()
         OR EXISTS (
@@ -464,7 +464,7 @@ CREATE POLICY "orders_delete"
     EXISTS (
       SELECT 1 FROM products
       JOIN collections ON collections.id = products.collection_id
-      WHERE products.id = product_id
+      WHERE products.id = orders.product_id
       AND (
         collections.user_id = auth.uid()
         OR EXISTS (
