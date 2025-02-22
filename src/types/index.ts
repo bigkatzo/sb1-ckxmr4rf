@@ -16,9 +16,9 @@ export interface Collection {
   visible: boolean;
   saleEnded: boolean;
   slug: string;
-  categories: Category[];
-  products: Product[];
-  accessType?: 'view' | 'edit';
+  categories: any[];
+  products: any[];
+  accessType: 'view' | 'edit' | 'owner' | null;
 }
 
 export interface Category {

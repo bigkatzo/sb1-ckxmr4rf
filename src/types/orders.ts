@@ -22,16 +22,35 @@ export interface OrderProduct {
   };
 }
 
+export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+
 export interface Order {
   id: string;
   orderNumber: string;
-  product: OrderProduct;
-  variants?: OrderVariant[];
-  shippingInfo: OrderShippingInfo;
-  transactionId: string;
-  transactionStatus: 'pending' | 'confirmed' | 'failed';
+  status: OrderStatus;
   walletAddress: string;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  transactionId: string;
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+    collection?: {
+      id: string;
+      name: string;
+    };
+    category?: {
+      id: string;
+      name: string;
+    };
+  };
+  variants?: Array<{
+    name: string;
+    value: string;
+  }>;
+  shippingInfo: {
+    address: string;
+    contactType: string;
+    contactValue: string;
+  };
   createdAt: Date;
-  updatedAt: Date;
 }

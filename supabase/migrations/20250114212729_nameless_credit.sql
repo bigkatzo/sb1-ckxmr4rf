@@ -12,6 +12,7 @@ RETURNS TABLE (
   product_sku text,
   product_price numeric,
   product_image text,
+  collection_id uuid,
   collection_name text,
   category_name text,
   variants jsonb,
@@ -34,6 +35,7 @@ BEGIN
       (SELECT unnest(p.images) LIMIT 1),
       NULL
     ) as product_image,
+    c.id as collection_id,
     c.name as collection_name,
     cat.name as category_name,
     o.variants,
@@ -48,7 +50,8 @@ BEGIN
   JOIN products p ON p.id = o.product_id
   JOIN collections c ON c.id = p.collection_id
   LEFT JOIN categories cat ON cat.id = p.category_id
-  WHERE c.user_id = auth.uid()
+  LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
+  WHERE c.user_id = auth.uid() OR ca.access_type IN ('view', 'edit')
   ORDER BY o.created_at DESC
   LIMIT p_limit
   OFFSET p_offset;

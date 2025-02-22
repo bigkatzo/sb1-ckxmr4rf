@@ -1,24 +1,24 @@
 import React from 'react';
 import { Star } from 'lucide-react';
 
-interface StarButtonProps {
-  featured: boolean;
+export interface StarButtonProps {
+  active: boolean;
   onClick: () => void;
   className?: string;
 }
 
-export function StarButton({ featured, onClick, className = '' }: StarButtonProps) {
+export function StarButton({ active, onClick, className = '' }: StarButtonProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`p-2 rounded-lg transition-colors ${
-        featured 
-          ? 'text-yellow-400 hover:text-yellow-500 bg-yellow-400/10 hover:bg-yellow-400/20' 
-          : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800'
-      } ${className}`}
-      title={featured ? 'Remove from featured' : 'Add to featured'}
+      className={`p-1.5 rounded-lg hover:bg-gray-800 transition-colors ${className}`}
     >
-      <Star className="h-4 w-4" fill={featured ? 'currentColor' : 'none'} />
+      <Star
+        className={`h-4 w-4 ${
+          active ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'
+        }`}
+      />
     </button>
   );
 }

@@ -4,6 +4,11 @@ import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
 import type { Collection } from '../types';
 
+interface CollectionAccess {
+  access_type: 'view' | 'edit';
+  user_id: string;
+}
+
 export function useMerchantCollections() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,10 +27,25 @@ export function useMerchantCollections() {
         return;
       }
 
+      // Get user profile to check if admin
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      const isAdmin = profile?.role === 'admin';
+
+      // Fetch collections - all for admin, or owned/shared for regular users
       const { data, error } = await supabase
         .from('collections')
-        .select('*')
-        .eq('user_id', user.id)
+        .select(`
+          *,
+          collection_access!collection_access_user_id_fkey (
+            access_type,
+            user_id
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -41,7 +61,10 @@ export function useMerchantCollections() {
         saleEnded: collection.sale_ended,
         slug: collection.slug,
         categories: [],
-        products: []
+        products: [],
+        // Add access type information - admin has owner access to all collections
+        accessType: isAdmin || collection.user_id === user.id ? 'owner' as const : 
+                   ((collection.collection_access as CollectionAccess[])?.find(access => access.user_id === user.id)?.access_type || null) as ('view' | 'edit' | null)
       }));
 
       setCollections(transformedCollections);

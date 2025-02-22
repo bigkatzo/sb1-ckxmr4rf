@@ -2,6 +2,24 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Order } from '../types/orders';
 
+interface RawOrder {
+  id: string;
+  order_number: string;
+  product_name: string;
+  product_sku: string;
+  product_price: number;
+  product_image: string | null;
+  collection_id: string;
+  collection_name: string;
+  category_name: string | null;
+  variants: any;
+  shipping_info: any;
+  transaction_id: string;
+  status: Order['status'];
+  wallet_address: string;
+  created_at: string;
+}
+
 export function useMerchantOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +38,7 @@ export function useMerchantOrders() {
 
       if (error) throw error;
 
-      const transformedOrders: Order[] = (data || []).map(order => ({
+      const transformedOrders: Order[] = (data || []).map((order: RawOrder) => ({
         id: order.id,
         orderNumber: order.order_number,
         product: {
@@ -29,6 +47,7 @@ export function useMerchantOrders() {
           price: order.product_price,
           imageUrl: order.product_image,
           collection: order.collection_name ? {
+            id: order.collection_id,
             name: order.collection_name
           } : undefined,
           category: order.category_name ? {
@@ -38,17 +57,16 @@ export function useMerchantOrders() {
         variants: order.variants,
         shippingInfo: order.shipping_info,
         transactionId: order.transaction_id,
-        transactionStatus: order.transaction_status,
-        walletAddress: order.wallet_address,
         status: order.status,
-        createdAt: new Date(order.created_at),
-        updatedAt: new Date(order.updated_at)
+        walletAddress: order.wallet_address,
+        createdAt: new Date(order.created_at)
       }));
 
       setOrders(transformedOrders);
     } catch (err) {
       console.error('Error fetching merchant orders:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch orders');
+      setOrders([]);
     } finally {
       setLoading(false);
     }

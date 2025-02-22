@@ -8,8 +8,8 @@ import type { Product } from '../../types';
 
 interface ProductListItemProps {
   product: Product;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 export function ProductListItem({ product, onEdit, onDelete }: ProductListItemProps) {
@@ -31,18 +31,25 @@ export function ProductListItem({ product, onEdit, onDelete }: ProductListItemPr
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="font-medium truncate text-xs sm:text-sm">{product.name}</h3>
-              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">SKU: {product.sku}</p>
+              <h3 className="font-medium text-xs sm:text-sm truncate">{product.name}</h3>
+              <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
+                {product.description}
+              </p>
+              <div className="mt-2">
+                <span className="inline-block bg-gray-800 text-xs px-2 py-1 rounded">
+                  {product.sku}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <EditButton onClick={onEdit} className="scale-75 sm:scale-90" />
-              <DeleteButton onClick={onDelete} className="scale-75 sm:scale-90" />
+              {onEdit && (
+                <EditButton onClick={onEdit} className="scale-75 sm:scale-90" />
+              )}
+              {onDelete && (
+                <DeleteButton onClick={onDelete} className="scale-75 sm:scale-90" />
+              )}
             </div>
           </div>
-          
-          <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
-            {product.description}
-          </p>
           
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2">
             <span className="text-[10px] sm:text-xs font-medium">

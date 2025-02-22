@@ -143,8 +143,9 @@ BEGIN
     SELECT 1 FROM orders o
     JOIN products p ON p.id = o.product_id
     JOIN collections c ON c.id = p.collection_id
+    LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
     WHERE o.id = p_order_id
-    AND c.user_id = auth.uid()
+    AND (c.user_id = auth.uid() OR ca.access_type = 'edit')
   ) THEN
     RAISE EXCEPTION 'Access denied';
   END IF;

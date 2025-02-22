@@ -103,67 +103,83 @@ export function CollectionsTab() {
         </div>
       ) : (
         <div className="space-y-2 sm:space-y-3">
-          {collections.map((collection) => (
-            <div key={collection.id} className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
-              <div className="flex items-start gap-2 sm:gap-3">
-                {collection.imageUrl ? (
-                  <img
-                    src={collection.imageUrl}
-                    alt={collection.name}
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-                    <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-xs sm:text-sm truncate">{collection.name}</h3>
-                      <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-2 mt-1">
-                        {collection.description}
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-purple-400 mt-1.5">
-                        Launches {new Date(collection.launchDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <StarButton
-                        featured={collection.featured}
-                        onClick={() => handleToggleFeatured(collection.id, collection.featured)}
-                        className="scale-75 sm:scale-90"
-                      />
-                      <EditButton 
-                        onClick={() => {
-                          setEditingCollection(collection);
-                          setShowForm(true);
-                        }}
-                        className="scale-75 sm:scale-90"
-                      />
-                      <DeleteButton 
-                        onClick={() => {
-                          setDeletingId(collection.id);
-                          setShowConfirmDialog(true);
-                        }}
-                        className="scale-75 sm:scale-90"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <Toggle
-                      checked={collection.saleEnded}
-                      onChange={() => handleToggleSaleEnded(collection.id, collection.saleEnded)}
-                      label="End Sale"
-                      description={collection.saleEnded ? "Sales are currently disabled" : "Sales are currently enabled"}
-                      disabled={togglingIds.has(collection.id)}
-                      size="sm"
+          {collections.map((collection) => {
+            const canEdit = collection.accessType === 'owner' || collection.accessType === 'edit';
+            const isOwner = collection.accessType === 'owner';
+            
+            return (
+              <div key={collection.id} className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  {collection.imageUrl ? (
+                    <img
+                      src={collection.imageUrl}
+                      alt={collection.name}
+                      className="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover flex-shrink-0"
                     />
+                  ) : (
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
+                      <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-xs sm:text-sm truncate">{collection.name}</h3>
+                        <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
+                          {collection.description}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          {isOwner && (
+                            <Toggle
+                              checked={collection.saleEnded}
+                              onChange={() => handleToggleSaleEnded(collection.id, collection.saleEnded)}
+                              loading={togglingIds.has(collection.id)}
+                              className="scale-75 sm:scale-90"
+                            >
+                              {collection.saleEnded ? 'Sale Ended' : 'Sale Active'}
+                            </Toggle>
+                          )}
+                          {!isOwner && (
+                            <span className={`text-xs px-2 py-1 rounded ${collection.accessType === 'edit' ? 'bg-purple-900 text-purple-100' : 'bg-gray-800 text-gray-300'}`}>
+                              {collection.accessType === 'edit' ? 'Edit Access' : 'View Access'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {isOwner && (
+                          <StarButton
+                            active={collection.featured}
+                            onClick={() => handleToggleFeatured(collection.id, collection.featured)}
+                            className="scale-75 sm:scale-90"
+                          />
+                        )}
+                        {canEdit && (
+                          <EditButton
+                            onClick={() => {
+                              setEditingCollection(collection);
+                              setShowForm(true);
+                            }}
+                            className="scale-75 sm:scale-90"
+                          />
+                        )}
+                        {isOwner && (
+                          <DeleteButton
+                            onClick={() => {
+                              setDeletingId(collection.id);
+                              setShowConfirmDialog(true);
+                            }}
+                            className="scale-75 sm:scale-90"
+                          />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -181,7 +197,7 @@ export function CollectionsTab() {
       {showConfirmDialog && deletingId && (
         <ConfirmDialog
           title="Delete Collection"
-          message="Are you sure you want to delete this collection? All products and categories in this collection will also be deleted. This action cannot be undone."
+          message="Are you sure you want to delete this collection? This action cannot be undone."
           onConfirm={async () => {
             try {
               await deleteCollection(deletingId);
