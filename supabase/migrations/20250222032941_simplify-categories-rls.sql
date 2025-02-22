@@ -96,14 +96,14 @@ CREATE POLICY "categories_view"
   USING (
     EXISTS (
       SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id
+      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
       WHERE c.id = categories.collection_id
       AND (
         -- User owns the collection
         c.user_id = auth.uid()
         OR 
         -- User has any type of access to the collection
-        (ca.user_id = auth.uid() AND ca.access_type IN ('view', 'edit'))
+        ca.access_type IN ('view', 'edit')
       )
     )
   );
@@ -115,14 +115,14 @@ CREATE POLICY "categories_edit"
   USING (
     EXISTS (
       SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id
+      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
       WHERE c.id = categories.collection_id
       AND (
         -- User owns the collection
         c.user_id = auth.uid()
         OR 
         -- User has edit access to the collection
-        (ca.user_id = auth.uid() AND ca.access_type = 'edit')
+        ca.access_type = 'edit'
       )
     )
   );
@@ -135,14 +135,14 @@ CREATE POLICY "products_view"
   USING (
     EXISTS (
       SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id
+      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
       WHERE c.id = products.collection_id
       AND (
         -- User owns the collection
         c.user_id = auth.uid()
         OR 
         -- User has any type of access to the collection
-        (ca.user_id = auth.uid() AND ca.access_type IN ('view', 'edit'))
+        ca.access_type IN ('view', 'edit')
       )
     )
   );
@@ -154,14 +154,14 @@ CREATE POLICY "products_edit"
   USING (
     EXISTS (
       SELECT 1 FROM collections c
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id
+      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
       WHERE c.id = products.collection_id
       AND (
         -- User owns the collection
         c.user_id = auth.uid()
         OR 
         -- User has edit access to the collection
-        (ca.user_id = auth.uid() AND ca.access_type = 'edit')
+        ca.access_type = 'edit'
       )
     )
   );
@@ -175,14 +175,14 @@ CREATE POLICY "orders_view"
     EXISTS (
       SELECT 1 FROM products p
       JOIN collections c ON c.id = p.collection_id
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id
+      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
       WHERE p.id = orders.product_id
       AND (
         -- User owns the collection
         c.user_id = auth.uid()
         OR 
         -- User has any type of access to the collection
-        (ca.user_id = auth.uid() AND ca.access_type IN ('view', 'edit'))
+        ca.access_type IN ('view', 'edit')
       )
     )
   );
@@ -195,14 +195,14 @@ CREATE POLICY "orders_edit"
     EXISTS (
       SELECT 1 FROM products p
       JOIN collections c ON c.id = p.collection_id
-      LEFT JOIN collection_access ca ON ca.collection_id = c.id
+      LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
       WHERE p.id = orders.product_id
       AND (
         -- User owns the collection
         c.user_id = auth.uid()
         OR 
         -- User has edit access to the collection
-        (ca.user_id = auth.uid() AND ca.access_type = 'edit')
+        ca.access_type = 'edit'
       )
     )
   );
