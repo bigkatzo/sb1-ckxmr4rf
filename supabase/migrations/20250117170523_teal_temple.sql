@@ -81,14 +81,14 @@ BEGIN
   -- Verify caller is admin
   IF NOT EXISTS (
     SELECT 1 FROM public.user_profiles 
-    WHERE id = auth.uid() AND role = 'admin'::user_role
+    WHERE user_profiles.id = auth.uid() AND role = 'admin'::user_role
   ) THEN
     RAISE EXCEPTION 'Only admin can list users';
   END IF;
 
   RETURN QUERY
   SELECT 
-    u.id,  -- Explicitly specify we want the id from auth.users
+    u.id,
     u.email::varchar(255),
     COALESCE(p.role::text, 'user') as role,
     u.created_at,
