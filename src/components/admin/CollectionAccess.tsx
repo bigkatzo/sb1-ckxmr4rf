@@ -14,12 +14,6 @@ interface CollectionAccessData {
   collections: {
     id: string;
     name: string;
-    description: string;
-    image_url: string | null;
-    launch_date: string;
-    featured: boolean;
-    visible: boolean;
-    sale_ended: boolean;
     slug: string;
   };
 }
@@ -59,12 +53,6 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
           collections (
             id,
             name,
-            description,
-            image_url,
-            launch_date,
-            featured,
-            visible,
-            sale_ended,
             slug
           )
         `)
@@ -75,13 +63,13 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
       const collectionsWithAccess: Collection[] = ((accessData as unknown) as CollectionAccessData[]).map(access => ({
         id: access.collections.id,
         name: access.collections.name,
-        description: access.collections.description,
-        imageUrl: access.collections.image_url || '',
-        launchDate: new Date(access.collections.launch_date),
-        featured: access.collections.featured || false,
-        visible: access.collections.visible || false,
-        saleEnded: access.collections.sale_ended || false,
-        slug: access.collections.slug || '',
+        description: '', // Default empty string for required Collection interface
+        imageUrl: '',
+        launchDate: new Date(),
+        featured: false,
+        visible: true,
+        saleEnded: false,
+        slug: access.collections.slug,
         categories: [],
         products: [],
         accessType: access.access_type
