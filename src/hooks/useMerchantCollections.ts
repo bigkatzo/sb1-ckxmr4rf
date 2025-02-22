@@ -36,8 +36,8 @@ export function useMerchantCollections() {
 
       const isAdmin = profile?.role === 'admin';
 
-      // Fetch collections - all for admin, or owned/shared for regular users
-      const { data, error } = await supabase
+      // Fetch owned collections
+      const { data: ownedCollections, error: ownedError } = await supabase
         .from('collections')
         .select(`
           *,
@@ -46,12 +46,31 @@ export function useMerchantCollections() {
             user_id
           )
         `)
-        .or(`user_id.eq.${user.id},collection_access.user_id.eq.${user.id}`)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (ownedError) throw ownedError;
+
+      // Fetch shared collections
+      const { data: sharedCollections, error: sharedError } = await supabase
+        .from('collections')
+        .select(`
+          *,
+          collection_access (
+            access_type,
+            user_id
+          )
+        `)
+        .neq('user_id', user.id)
+        .eq('collection_access.user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (sharedError) throw sharedError;
+
+      // Combine and transform collections
+      const allCollections = [...(ownedCollections || []), ...(sharedCollections || [])];
       
-      const transformedCollections = (data || []).map(collection => ({
+      const transformedCollections = allCollections.map(collection => ({
         id: collection.id,
         name: collection.name,
         description: collection.description,
