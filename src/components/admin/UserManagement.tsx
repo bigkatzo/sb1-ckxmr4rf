@@ -87,7 +87,7 @@ export function UserManagement() {
       const { data: collections, error: collectionsError } = await supabase
         .from('collections')
         .select('id')
-        .eq('created_by', userId);
+        .eq('user_id', userId);
 
       if (collectionsError) throw collectionsError;
 
@@ -101,7 +101,7 @@ export function UserManagement() {
           const { error: deleteCollectionsError } = await supabase
             .from('collections')
             .delete()
-            .eq('created_by', userId);
+            .eq('user_id', userId);
 
           if (deleteCollectionsError) throw deleteCollectionsError;
         } else {
