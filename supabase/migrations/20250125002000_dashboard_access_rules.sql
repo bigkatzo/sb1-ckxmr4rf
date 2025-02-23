@@ -9,7 +9,29 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- Helper function to check if user is admin
+-- Save existing user_profiles policies that depend on auth.is_admin()
+CREATE OR REPLACE FUNCTION recreate_user_profile_policies() 
+RETURNS void AS $$
+BEGIN
+  -- Recreate the policies that were dropped by CASCADE
+  DROP POLICY IF EXISTS "admin_manage_profiles" ON user_profiles;
+  CREATE POLICY "admin_manage_profiles" ON user_profiles
+    USING (auth.is_admin());
+
+  DROP POLICY IF EXISTS "view_own_profile" ON user_profiles;
+  CREATE POLICY "view_own_profile" ON user_profiles
+    FOR SELECT
+    USING (auth.uid() = id OR auth.is_admin());
+END;
+$$ LANGUAGE plpgsql;
+
+-- Drop existing functions with CASCADE to handle dependencies
+DROP FUNCTION IF EXISTS auth.is_admin() CASCADE;
+DROP FUNCTION IF EXISTS auth.is_merchant() CASCADE;
+DROP FUNCTION IF EXISTS auth.has_collection_access(uuid, access_type) CASCADE;
+DROP FUNCTION IF EXISTS grant_collection_access() CASCADE;
+
+-- Create helper functions first
 CREATE OR REPLACE FUNCTION auth.is_admin()
 RETURNS boolean AS $$
 BEGIN
@@ -21,7 +43,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Helper function to check if user is merchant
 CREATE OR REPLACE FUNCTION auth.is_merchant()
 RETURNS boolean AS $$
 BEGIN
@@ -33,7 +54,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Helper function to check collection access
 CREATE OR REPLACE FUNCTION auth.has_collection_access(collection_id uuid, required_access access_type)
 RETURNS boolean AS $$
 BEGIN
@@ -55,7 +75,33 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Collections table policies
+-- Create trigger function
+CREATE OR REPLACE FUNCTION grant_collection_access()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Always create access entry, even for admins, for tracking purposes
+  INSERT INTO collection_access (collection_id, user_id, access_type)
+  VALUES (NEW.id, NEW.user_id, 'edit');
+  RETURN NEW;
+EXCEPTION
+  WHEN unique_violation THEN
+    -- If entry already exists, update it to edit
+    UPDATE collection_access 
+    SET access_type = 'edit'
+    WHERE collection_id = NEW.id AND user_id = NEW.user_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Enable RLS on tables
+ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE collection_access ENABLE ROW LEVEL SECURITY;
+
+-- Ensure proper table grants
+GRANT ALL ON collections TO authenticated;
+GRANT ALL ON collection_access TO authenticated;
+
+-- Now create policies after functions exist
 CREATE POLICY "collections_view_policy" ON collections
 FOR SELECT TO authenticated
 USING (
@@ -97,24 +143,7 @@ USING (
   auth.is_admin() OR auth.has_collection_access(collection_id, 'edit'::access_type)
 );
 
--- Trigger to automatically grant edit access to collection creator
-CREATE OR REPLACE FUNCTION grant_collection_access()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Always create access entry, even for admins, for tracking purposes
-  INSERT INTO collection_access (collection_id, user_id, access_type)
-  VALUES (NEW.id, NEW.user_id, 'edit');
-  RETURN NEW;
-EXCEPTION
-  WHEN unique_violation THEN
-    -- If entry already exists, update it to edit
-    UPDATE collection_access 
-    SET access_type = 'edit'
-    WHERE collection_id = NEW.id AND user_id = NEW.user_id;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
+-- Create trigger after function exists
 DROP TRIGGER IF EXISTS collection_access_trigger ON collections;
 CREATE TRIGGER collection_access_trigger
   AFTER INSERT ON collections
@@ -184,31 +213,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Enable RLS on tables
-ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
-ALTER TABLE collection_access ENABLE ROW LEVEL SECURITY;
-
--- Grant admin bypass of RLS
+-- Recreate user_profiles policies using DO block
 DO $$ 
 BEGIN
-  EXECUTE format(
-    'ALTER TABLE collections FORCE ROW LEVEL SECURITY;' ||
-    'ALTER TABLE collection_access FORCE ROW LEVEL SECURITY;' ||
-    'GRANT ALL ON collections TO authenticated;' ||
-    'GRANT ALL ON collection_access TO authenticated;' ||
-    'CREATE ROLE admin BYPASSRLS;' ||
-    'GRANT admin TO authenticator;'
-  );
-EXCEPTION
-  WHEN duplicate_object THEN null;
+  -- Drop existing policies first
+  DROP POLICY IF EXISTS "admin_manage_profiles" ON user_profiles;
+  DROP POLICY IF EXISTS "view_own_profile" ON user_profiles;
+  
+  -- Create new policies
+  CREATE POLICY "admin_manage_profiles" ON user_profiles
+    USING (auth.is_admin());
+    
+  CREATE POLICY "view_own_profile" ON user_profiles
+    FOR SELECT
+    USING (auth.uid() = id OR auth.is_admin());
 END $$;
 
--- Ensure proper table grants
-GRANT ALL ON collections TO authenticated;
-GRANT ALL ON collection_access TO authenticated;
+-- Drop the temporary function as it's no longer needed
+DROP FUNCTION IF EXISTS recreate_user_profile_policies();
 
+-- Add function comments
 COMMENT ON FUNCTION auth.is_admin() IS 'Checks if the current user has admin role';
 COMMENT ON FUNCTION auth.is_merchant() IS 'Checks if the current user has merchant or admin role';
-COMMENT ON FUNCTION auth.has_collection_access() IS 'Checks if the current user has specified access level to a collection';
+COMMENT ON FUNCTION auth.has_collection_access(uuid, access_type) IS 'Checks if the current user has specified access level to a collection';
 COMMENT ON FUNCTION grant_collection_access() IS 'Automatically grants edit access to collection creator';
 COMMENT ON FUNCTION test_collection_creation() IS 'Test function to verify automatic access granting on collection creation'; 
