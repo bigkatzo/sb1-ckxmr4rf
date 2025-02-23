@@ -121,41 +121,59 @@ export function CollectionsTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="font-medium text-xs sm:text-sm truncate">{collection.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium text-xs sm:text-sm truncate">{collection.name}</h3>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                          !collection.accessType ? 'bg-purple-500/10 text-purple-500' :
+                          collection.accessType === 'edit' ? 'bg-green-500/10 text-green-500' :
+                          'bg-blue-500/10 text-blue-500'
+                        }`}>
+                          {!collection.accessType ? 'Owner' :
+                           collection.accessType === 'edit' ? 'Edit' : 'View'}
+                        </span>
+                      </div>
                       <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
                         {collection.description}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
-                        <Toggle
-                          checked={collection.saleEnded}
-                          onChange={() => handleToggleSaleEnded(collection.id, collection.saleEnded)}
-                          loading={togglingIds.has(collection.id)}
-                          className="scale-75 sm:scale-90"
-                        >
-                          {collection.saleEnded ? 'Sale Ended' : 'Sale Active'}
-                        </Toggle>
+                        {(collection.accessType === 'edit' || !collection.accessType) && (
+                          <Toggle
+                            checked={collection.saleEnded}
+                            onChange={() => handleToggleSaleEnded(collection.id, collection.saleEnded)}
+                            loading={togglingIds.has(collection.id)}
+                            className="scale-75 sm:scale-90"
+                          >
+                            {collection.saleEnded ? 'Sale Ended' : 'Sale Active'}
+                          </Toggle>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <StarButton
-                        active={collection.featured}
-                        onClick={() => handleToggleFeatured(collection.id, collection.featured)}
-                        className="scale-75 sm:scale-90"
-                      />
-                      <EditButton
-                        onClick={() => {
-                          setEditingCollection(collection);
-                          setShowForm(true);
-                        }}
-                        className="scale-75 sm:scale-90"
-                      />
-                      <DeleteButton
-                        onClick={() => {
-                          setDeletingId(collection.id);
-                          setShowConfirmDialog(true);
-                        }}
-                        className="scale-75 sm:scale-90"
-                      />
+                      {(collection.accessType === 'edit' || !collection.accessType) && (
+                        <>
+                          <StarButton
+                            active={collection.featured}
+                            onClick={() => handleToggleFeatured(collection.id, collection.featured)}
+                            className="scale-75 sm:scale-90"
+                          />
+                          <EditButton
+                            onClick={() => {
+                              setEditingCollection(collection);
+                              setShowForm(true);
+                            }}
+                            className="scale-75 sm:scale-90"
+                          />
+                        </>
+                      )}
+                      {!collection.accessType && (
+                        <DeleteButton
+                          onClick={() => {
+                            setDeletingId(collection.id);
+                            setShowConfirmDialog(true);
+                          }}
+                          className="scale-75 sm:scale-90"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -179,7 +197,7 @@ export function CollectionsTab() {
       {showConfirmDialog && deletingId && (
         <ConfirmDialog
           title="Delete Collection"
-          message="Are you sure you want to delete this collection? This action cannot be undone."
+          message="Are you sure you want to delete this collection? All products and categories in this collection will also be deleted. This action cannot be undone."
           onConfirm={async () => {
             try {
               await deleteCollection(deletingId);
