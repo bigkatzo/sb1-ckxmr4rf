@@ -48,13 +48,6 @@ export function CategoriesTab() {
     }
   };
 
-  // Find the selected collection's access type
-  const selectedCollectionAccess = selectedCollection 
-    ? collections.find(c => c.id === selectedCollection)?.accessType 
-    : null;
-  
-  const canEdit = selectedCollectionAccess === 'owner' || selectedCollectionAccess === 'edit';
-
   if (collectionsLoading) {
     return (
       <div className="px-3 sm:px-6 lg:px-8 animate-pulse space-y-4">
@@ -89,19 +82,17 @@ export function CategoriesTab() {
               </option>
             ))}
           </select>
-          {canEdit && (
-            <button
-              onClick={() => {
-                setEditingCategory(null);
-                setShowForm(true);
-              }}
-              disabled={!selectedCollection}
-              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Category</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setEditingCategory(null);
+              setShowForm(true);
+            }}
+            disabled={!selectedCollection}
+            className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Category</span>
+          </button>
         </div>
       </div>
 
@@ -140,18 +131,16 @@ export function CategoriesTab() {
                         </span>
                       </div>
                     </div>
-                    {canEdit && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <EditButton onClick={() => {
-                          setEditingCategory(category);
-                          setShowForm(true);
-                        }} className="scale-75 sm:scale-90" />
-                        <DeleteButton onClick={() => {
-                          setDeletingId(category.id);
-                          setShowConfirmDialog(true);
-                        }} className="scale-75 sm:scale-90" />
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <EditButton onClick={() => {
+                        setEditingCategory(category);
+                        setShowForm(true);
+                      }} className="scale-75 sm:scale-90" />
+                      <DeleteButton onClick={() => {
+                        setDeletingId(category.id);
+                        setShowConfirmDialog(true);
+                      }} className="scale-75 sm:scale-90" />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -22,20 +22,8 @@ export function ProductsTab() {
   const { categories } = useCategories(selectedCollection);
   const { products, loading: productsLoading, error: productsError, refreshProducts } = useProducts(selectedCollection);
 
-  // Get the selected collection's access type
-  const selectedCollectionAccess = selectedCollection 
-    ? collections.find(c => c.id === selectedCollection)?.accessType 
-    : null;
-  
-  const canEdit = selectedCollectionAccess === 'owner' || selectedCollectionAccess === 'edit';
-
   const handleSubmit = async (data: FormData) => {
     try {
-      if (!canEdit) {
-        setToast({ message: 'You do not have permission to modify products', type: 'error' });
-        return;
-      }
-
       if (editingProduct) {
         await updateProduct(editingProduct.id, data);
         setToast({ message: 'Product updated successfully', type: 'success' });
@@ -57,10 +45,7 @@ export function ProductsTab() {
   };
 
   const handleDelete = async () => {
-    if (!deletingId || !canEdit) {
-      setToast({ message: 'You do not have permission to delete products', type: 'error' });
-      return;
-    }
+    if (!deletingId) return;
     
     try {
       await deleteProduct(deletingId);
@@ -112,19 +97,17 @@ export function ProductsTab() {
               </option>
             ))}
           </select>
-          {canEdit && (
-            <button
-              onClick={() => {
-                setEditingProduct(null);
-                setShowForm(true);
-              }}
-              disabled={!selectedCollection}
-              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Product</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setEditingProduct(null);
+              setShowForm(true);
+            }}
+            disabled={!selectedCollection}
+            className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Product</span>
+          </button>
         </div>
       </div>
 
@@ -151,14 +134,14 @@ export function ProductsTab() {
             <ProductListItem
               key={product.id}
               product={product}
-              onEdit={canEdit ? () => {
+              onEdit={() => {
                 setEditingProduct(product);
                 setShowForm(true);
-              } : undefined}
-              onDelete={canEdit ? () => {
+              }}
+              onDelete={() => {
                 setDeletingId(product.id);
                 setShowConfirmDialog(true);
-              } : undefined}
+              }}
             />
           ))}
         </div>
