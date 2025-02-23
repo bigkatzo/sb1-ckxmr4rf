@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, Store, Plus, X, ChevronDown, ChevronUp, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Users, Shield, Store, ChevronDown, ChevronUp, Pencil, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
 import { RefreshButton } from '../ui/RefreshButton';
 
 interface User {
@@ -13,14 +12,7 @@ interface User {
   created_at: string;
 }
 
-interface CreateUserData {
-  username: string;
-  password: string;
-  role: 'admin' | 'merchant' | 'user';
-}
-
 export function UserManagement() {
-  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,55 +74,6 @@ export function UserManagement() {
     }
   }
 
-  async function deleteUser(userId: string) {
-    try {
-      // Check if user has collections
-      const { data: collections, error: collectionsError } = await supabase
-        .from('collections')
-        .select('id')
-        .eq('user_id', userId);
-
-      if (collectionsError) throw collectionsError;
-
-      if (collections && collections.length > 0) {
-        const confirmTransfer = confirm(
-          `This user owns ${collections.length} collection(s). Would you like to delete these collections as well? Click OK to delete both the user and their collections, or Cancel to keep the collections.`
-        );
-
-        if (confirmTransfer) {
-          // Delete collections first
-          const { error: deleteCollectionsError } = await supabase
-            .from('collections')
-            .delete()
-            .eq('user_id', userId);
-
-          if (deleteCollectionsError) throw deleteCollectionsError;
-        } else {
-          toast.info('Please transfer or delete the collections before deleting the user.');
-          return;
-        }
-      }
-
-      // Confirm user deletion
-      if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-        return;
-      }
-
-      const { error: deleteError } = await supabase.rpc('delete_user', {
-        p_user_id: userId
-      });
-
-      if (deleteError) throw deleteError;
-
-      await fetchUsers();
-      toast.success('User deleted successfully');
-    } catch (err) {
-      console.error('Error deleting user:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
-      toast.error(errorMessage);
-    }
-  }
-
   if (loading) {
     return (
       <div className="animate-pulse space-y-3">
@@ -148,13 +91,6 @@ export function UserManagement() {
           <h2 className="text-base sm:text-lg font-semibold">User Management</h2>
           <RefreshButton onRefresh={fetchUsers} className="scale-90" />
         </div>
-        <button
-          onClick={() => navigate('/merchant/register')}
-          className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
-        >
-          <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          <span>Add User</span>
-        </button>
       </div>
 
       {error && (
@@ -243,32 +179,23 @@ export function UserManagement() {
                 </select>
               </div>
 
-              <div className="flex justify-between gap-2 sm:gap-3 mt-6">
+              <div className="flex justify-end gap-2 mt-6">
                 <button
                   type="button"
-                  onClick={() => deleteUser(editingUser.id)}
-                  className="bg-red-600 hover:bg-red-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingUser(null);
+                  }}
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  Delete User
+                  Cancel
                 </button>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setEditingUser(null);
-                    }}
-                    className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-400 hover:text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-purple-600 hover:bg-purple-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
-                  >
-                    Update Role
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
+                >
+                  Update Role
+                </button>
               </div>
             </form>
           </div>
@@ -276,4 +203,4 @@ export function UserManagement() {
       )}
     </div>
   );
-}
+} 

@@ -67,18 +67,65 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Grant execute permission on the new function
 GRANT EXECUTE ON FUNCTION auth.is_super_admin() TO authenticated;
 
--- Update the is_admin function to include super admin check
+-- Drop the old admin check function
+DROP FUNCTION IF EXISTS auth.is_admin();
+
+-- Create a proper role-based admin check
 CREATE OR REPLACE FUNCTION auth.is_admin()
 RETURNS boolean AS $$
 BEGIN
-  RETURN (
-    SELECT EXISTS (
-      SELECT 1 
-      FROM auth.users u
-      JOIN user_profiles p ON p.id = u.id
-      WHERE u.id = auth.uid() 
-      AND (p.role = 'admin' OR u.is_super_admin = true)
-    )
+  -- Check if the current user has the admin role in the profiles table
+  RETURN EXISTS (
+    SELECT 1 
+    FROM profiles 
+    WHERE id = auth.uid() 
+    AND role = 'admin'
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER; 
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Ensure we have a role column in profiles
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_name = 'profiles' 
+    AND column_name = 'role'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN role text NOT NULL DEFAULT 'user';
+  END IF;
+END $$;
+
+-- Create an index on the role column for faster lookups
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+
+-- Update RLS policies to use role-based checks
+CREATE OR REPLACE FUNCTION auth.is_merchant()
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 
+    FROM profiles 
+    WHERE id = auth.uid() 
+    AND role IN ('admin', 'merchant')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Drop any existing policies that might conflict
+DROP POLICY IF EXISTS "collections_policy" ON collections;
+
+-- Create new role-based policy
+CREATE POLICY "collections_policy" ON collections
+USING (
+  -- Anyone can view collections
+  true
+)
+WITH CHECK (
+  -- Only admins and merchants can modify collections
+  auth.is_merchant()
+);
+
+COMMENT ON FUNCTION auth.is_admin() IS 'Checks if the current user has admin role';
+COMMENT ON FUNCTION auth.is_merchant() IS 'Checks if the current user has merchant or admin role'; 

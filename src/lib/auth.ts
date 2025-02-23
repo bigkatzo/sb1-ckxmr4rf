@@ -48,15 +48,13 @@ export async function createUser(email: string, password: string): Promise<Creat
     }
 
     // Step 3: Sign up the user with Supabase Auth
-    const isMerchantLocal = email.endsWith('@merchant.local');
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password: password.trim(),
       options: {
         emailRedirectTo: `${window.location.origin}/merchant/signin`,
         data: {
-          role: 'merchant',
-          email_confirmed: isMerchantLocal // Auto-confirm merchant.local emails
+          role: 'user' // Default role for new users
         }
       }
     });
@@ -86,9 +84,9 @@ export async function createUser(email: string, password: string): Promise<Creat
       };
     }
 
-    // Step 6: Return result based on email type and session
-    if (isMerchantLocal || data.session) {
-      // User is signed in immediately (merchant.local or no email confirmation required)
+    // Step 6: Return result based on session state
+    if (data.session) {
+      // User is signed in immediately (no email confirmation required)
       return {
         success: true,
         user: data.user,
@@ -96,7 +94,7 @@ export async function createUser(email: string, password: string): Promise<Creat
         message: 'Account created successfully. Redirecting to dashboard...'
       };
     } else {
-      // Email confirmation is required for non-merchant.local addresses
+      // Email confirmation is required
       return {
         success: true,
         user: data.user,
