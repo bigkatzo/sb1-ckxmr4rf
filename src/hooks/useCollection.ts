@@ -6,6 +6,18 @@ import { useCollectionCache } from '../contexts/CollectionContext';
 import type { Category, Collection, Product } from '../types';
 import { normalizeStorageUrl } from '../lib/storage';
 
+interface PublicCollection {
+  id: string;
+  name: string;
+  description: string;
+  image_url: string | null;
+  launch_date: string;
+  featured: boolean;
+  visible: boolean;
+  sale_ended: boolean;
+  slug: string;
+}
+
 export function useCollection(slug: string) {
   const [collection, setCollection] = useState<Collection | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,50 +43,41 @@ export function useCollection(slug: string) {
         setLoading(true);
         setError(null);
 
+        // Fetch collection from public view
         const { data: collectionData, error: collectionError } = await supabase
-          .from('collections')
-          .select('*, sale_ended')
+          .from('public_collections')
+          .select('*')
           .eq('slug', slug)
           .single();
 
         if (collectionError) throw collectionError;
         if (!collectionData) throw new Error('Collection not found');
 
-        // Then fetch categories and products in parallel
+        // Then fetch categories and products in parallel from public views
         const [categoriesResponse, productsResponse] = await Promise.all([
           supabase
-            .from('categories')
-            .select('*, eligibility_rules')
+            .from('public_categories')
+            .select('*')
             .eq('collection_id', collectionData.id),
           supabase
-            .from('products')
-            .select(`
-              *,
-              categories:category_id (
-                id,
-                name,
-                description,
-                type,
-                eligibility_rules
-              )
-            `)
+            .from('public_products')
+            .select('*')
             .eq('collection_id', collectionData.id)
         ]);
 
         if (categoriesResponse.error) throw categoriesResponse.error;
         if (productsResponse.error) throw productsResponse.error;
 
-        // Transform the data
         const transformedCollection: Collection = {
           id: collectionData.id,
           name: collectionData.name,
           description: collectionData.description,
           imageUrl: collectionData.image_url ? normalizeStorageUrl(collectionData.image_url) : '',
           launchDate: new Date(collectionData.launch_date),
-          featured: collectionData.featured || false,
-          visible: collectionData.visible ?? true,
-          saleEnded: collectionData.sale_ended || false,
-          slug: collectionData.slug || '',
+          featured: collectionData.featured,
+          visible: collectionData.visible,
+          saleEnded: collectionData.sale_ended,
+          slug: collectionData.slug,
           categories: (categoriesResponse.data || []).map(category => ({
             id: category.id,
             name: category.name,
@@ -93,15 +96,6 @@ export function useCollection(slug: string) {
             imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
             images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
             categoryId: product.category_id,
-            category: product.categories ? {
-              id: product.categories.id,
-              name: product.categories.name,
-              description: product.categories.description,
-              type: product.categories.type,
-              eligibilityRules: {
-                rules: product.categories.eligibility_rules?.rules || []
-              }
-            } : undefined,
             collectionId: collectionData.id,
             collectionName: collectionData.name,
             collectionSlug: collectionData.slug,
@@ -112,7 +106,8 @@ export function useCollection(slug: string) {
             minimumOrderQuantity: product.minimum_order_quantity || 50,
             variants: product.variants || [],
             variantPrices: product.variant_prices || {}
-          }))
+          })),
+          accessType: null // Public collections don't have access type
         };
 
         setCollection(transformedCollection);

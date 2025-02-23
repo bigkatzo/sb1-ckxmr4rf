@@ -28,18 +28,10 @@ export function useProducts(collectionId?: string, categoryId?: string) {
       setLoading(true);
 
       let query = supabase
-        .from('products')
-        .select(`
-          *,
-          categories:category_id (*),
-          collections:collection_id (
-            id,
-            name,
-            slug
-          )
-        `)
+        .from('public_products')
+        .select('*')
         .eq('collection_id', collectionId)
-        .order('id', { ascending: true }); // Add explicit ordering by primary key
+        .order('id', { ascending: true });
       
       if (categoryId) {
         query = query.eq('category_id', categoryId);
@@ -58,18 +50,11 @@ export function useProducts(collectionId?: string, categoryId?: string) {
         imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
         images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
         categoryId: product.category_id,
-        category: product.categories ? {
-          id: product.categories.id,
-          name: product.categories.name,
-          description: product.categories.description,
-          type: product.categories.type,
-          eligibilityRules: {
-            rules: product.categories.eligibility_rules?.rules || []
-          }
-        } : undefined,
         collectionId: product.collection_id,
-        collectionName: product.collections?.name,
-        collectionSlug: product.collections?.slug,
+        collectionName: product.collection_name,
+        collectionSlug: product.collection_slug,
+        collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
+        collectionSaleEnded: product.collection_sale_ended,
         slug: product.slug || '',
         stock: product.quantity || 0,
         minimumOrderQuantity: product.minimum_order_quantity || 50,

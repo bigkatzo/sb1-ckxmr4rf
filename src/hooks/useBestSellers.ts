@@ -18,20 +18,7 @@ export function useBestSellers(limit = 6) {
       try {
         setLoading(true);
         const { data, error } = await supabase
-          .from('products')
-          .select(`
-            *,
-            categories:category_id (*),
-            collections:collection_id (
-              id,
-              name,
-              slug,
-              launch_date,
-              sale_ended
-            )
-          `)
-          .order('quantity', { ascending: false })
-          .limit(limit);
+          .rpc('get_best_sellers', { p_limit: limit });
 
         if (error) throw error;
 
@@ -44,20 +31,11 @@ export function useBestSellers(limit = 6) {
           imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
           images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
           categoryId: product.category_id,
-          category: product.categories ? {
-            id: product.categories.id,
-            name: product.categories.name,
-            description: product.categories.description,
-            type: product.categories.type,
-            eligibilityRules: {
-              rules: product.categories.eligibility_rules?.rules || []
-            }
-          } : undefined,
           collectionId: product.collection_id,
-          collectionName: product.collections?.name,
-          collectionSlug: product.collections?.slug,
-          collectionLaunchDate: product.collections?.launch_date ? new Date(product.collections.launch_date) : undefined,
-          collectionSaleEnded: product.collections?.sale_ended,
+          collectionName: product.collection_name,
+          collectionSlug: product.collection_slug,
+          collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
+          collectionSaleEnded: product.collection_sale_ended,
           slug: product.slug,
           stock: product.quantity || 0,
           minimumOrderQuantity: product.minimum_order_quantity || 50,

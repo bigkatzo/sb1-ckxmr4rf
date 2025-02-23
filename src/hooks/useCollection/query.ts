@@ -42,5 +42,6 @@ export function getCollectionQuery(slug: string) {
       )
     `)
     .eq('slug', slug)
+    .eq('visible', true)
     .single();
 }

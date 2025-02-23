@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
-import { transformProduct } from '../lib/realtime/transformers';
 import { normalizeStorageUrl } from '../lib/storage';
 import type { Product } from '../types';
 
@@ -16,19 +15,9 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
 
       try {
         const { data, error } = await supabase
-          .from('products')
-          .select(`
-            *,
-            categories:category_id (*),
-            collections:collection_id (
-              id,
-              name,
-              slug,
-              launch_date,
-              sale_ended
-            )
-          `)
-          .eq('collections.slug', collectionSlug)
+          .from('public_products')
+          .select('*')
+          .eq('collection_slug', collectionSlug)
           .eq('slug', productSlug)
           .single();
 
@@ -44,20 +33,11 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           imageUrl: data.images?.[0] ? normalizeStorageUrl(data.images[0]) : '',
           images: (data.images || []).map((img: string) => normalizeStorageUrl(img)),
           categoryId: data.category_id,
-          category: data.categories ? {
-            id: data.categories.id,
-            name: data.categories.name,
-            description: data.categories.description,
-            type: data.categories.type,
-            eligibilityRules: {
-              rules: data.categories.eligibility_rules?.rules || []
-            }
-          } : undefined,
           collectionId: data.collection_id,
-          collectionName: data.collections?.name,
-          collectionSlug: data.collections?.slug,
-          collectionLaunchDate: data.collections?.launch_date ? new Date(data.collections.launch_date) : undefined,
-          collectionSaleEnded: data.collections?.sale_ended,
+          collectionName: data.collection_name,
+          collectionSlug: data.collection_slug,
+          collectionLaunchDate: data.collection_launch_date ? new Date(data.collection_launch_date) : undefined,
+          collectionSaleEnded: data.collection_sale_ended,
           slug: data.slug,
           stock: data.quantity || 0,
           minimumOrderQuantity: data.minimum_order_quantity || 50,

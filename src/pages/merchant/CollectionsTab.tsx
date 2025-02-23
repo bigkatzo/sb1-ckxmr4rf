@@ -104,7 +104,7 @@ export function CollectionsTab() {
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <StarButton
-                        featured={collection.featured}
+                        active={collection.featured}
                         onClick={() => handleToggleFeatured(collection.id, collection.featured)}
                         className="scale-90"
                       />

@@ -1,59 +1,41 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
-import type { Collection, Category } from '../types';
+import type { Collection } from '../types';
+import { handleError } from '../lib/error-handling';
+
+interface PublicCollection {
+  id: string;
+  name: string;
+  description: string;
+  image_url: string | null;
+  launch_date: string;
+  featured: boolean;
+  visible: boolean;
+  sale_ended: boolean;
+  slug: string;
+}
 
 export function useCollections(filter: 'upcoming' | 'latest' | 'popular') {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchCollections = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      let query = supabase
-        .from('collections')
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            description,
-            type,
-            eligibility_rules
-          )
-        `)
-        .eq('visible', true);
-
-      // Apply filter
-      const now = new Date().toISOString();
-      switch (filter) {
-        case 'upcoming':
-          query = query
-            .gt('launch_date', now)
-            .order('launch_date', { ascending: true });
-          break;
-        case 'latest':
-          query = query
-            .lte('launch_date', now)
-            .order('launch_date', { ascending: false });
-          break;
-        case 'popular':
-          query = query
-            .lte('launch_date', now)
-            .order('featured', { ascending: false })
-            .order('launch_date', { ascending: false });
-          break;
-      }
-
-      const { data, error } = await query;
+      // Use the appropriate function based on filter
+      const { data, error } = await supabase.rpc(
+        filter === 'upcoming' ? 'get_upcoming_collections' :
+        filter === 'latest' ? 'get_latest_collections' :
+        'get_latest_collections' // For 'popular', use latest and sort client-side
+      );
 
       if (error) throw error;
 
-      const transformedCollections = (data || []).map(collection => ({
+      const transformedCollections = (data || []).map((collection: PublicCollection) => ({
         id: collection.id,
         name: collection.name,
         description: collection.description,
@@ -63,23 +45,25 @@ export function useCollections(filter: 'upcoming' | 'latest' | 'popular') {
         visible: collection.visible,
         saleEnded: collection.sale_ended,
         slug: collection.slug,
-        categories: (collection.categories || []).map((category: any) => ({
-          id: category.id,
-          name: category.name,
-          description: category.description,
-          type: category.type,
-          eligibilityRules: {
-            rules: category.eligibility_rules?.rules || []
-          }
-        })),
-        products: []
+        products: [], // Products are loaded separately when needed
+        categories: [] // Categories are loaded separately when needed
       }));
+
+      // For 'popular' filter, sort by featured status
+      if (filter === 'popular') {
+        transformedCollections.sort((a: Collection, b: Collection) => {
+          if (a.featured === b.featured) {
+            return b.launchDate.getTime() - a.launchDate.getTime();
+          }
+          return b.featured ? 1 : -1;
+        });
+      }
 
       setCollections(transformedCollections);
       setError(null);
     } catch (err) {
       console.error('Error fetching collections:', err);
-      setError(handleError(err));
+      setError(err instanceof Error ? err : new Error(String(err)));
       setCollections([]);
     } finally {
       setLoading(false);

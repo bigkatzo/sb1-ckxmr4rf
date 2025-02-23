@@ -16,20 +16,7 @@ export function useFeaturedCollections() {
         setLoading(true);
 
         const { data, error } = await supabase
-          .from('collections')
-          .select(`
-            *,
-            categories (
-              id,
-              name,
-              description,
-              type,
-              eligibility_rules
-            )
-          `)
-          .eq('visible', true)
-          .eq('featured', true)
-          .order('launch_date', { ascending: false });
+          .rpc('get_featured_collections');
 
         if (error) throw error;
 
@@ -42,17 +29,7 @@ export function useFeaturedCollections() {
           featured: collection.featured,
           visible: collection.visible,
           saleEnded: collection.sale_ended,
-          slug: collection.slug,
-          categories: (collection.categories || []).map((category: any) => ({
-            id: category.id,
-            name: category.name,
-            description: category.description,
-            type: category.type,
-            eligibilityRules: {
-              rules: category.eligibility_rules?.rules || []
-            }
-          })),
-          products: []
+          slug: collection.slug
         }));
 
         if (isMounted) {
