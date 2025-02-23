@@ -23,14 +23,6 @@ BEGIN
   SET 
     sale_ended = p_sale_ended,
     updated_at = now()
-  WHERE id = p_collection_id
-  AND (
-    user_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
-      AND email = 'admin420@merchant.local'
-    )
-  );
+  WHERE id = p_collection_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

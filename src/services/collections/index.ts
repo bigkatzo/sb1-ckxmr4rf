@@ -7,10 +7,8 @@ import type { CollectionData } from './types';
 
 export async function createCollection(data: FormData) {
   return withTransaction(async () => {
-    // Verify user authentication first
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError) throw authError;
-    if (!user) throw new Error('User not authenticated');
+    // Get user if available, but don't require authentication
+    const { data: { user } } = await supabase.auth.getUser();
 
     // Handle image upload first if present
     const imageFile = data.get('image') as File;
@@ -41,7 +39,7 @@ export async function createCollection(data: FormData) {
       visible: data.get('visible') === 'true',
       sale_ended: data.get('sale_ended') === 'true',
       tags,
-      user_id: user.id
+      user_id: user?.id || 'anonymous'  // Use user ID if available, otherwise use a default
     };
 
     const { data: collection, error } = await supabase

@@ -41,11 +41,11 @@ export function CollectionsTab() {
   const handleToggleFeatured = async (id: string, featured: boolean) => {
     try {
       await toggleFeatured(id, !featured);
-      refreshCollections();
+      await refreshCollections();
       toast.success(featured ? 'Collection unfeatured' : 'Collection featured');
     } catch (error) {
       console.error('Error toggling featured status:', error);
-      toast.error('Failed to update featured status');
+      toast.error(error instanceof Error ? error.message : 'Failed to update featured status');
     }
   };
 
@@ -57,7 +57,7 @@ export function CollectionsTab() {
       toast.success(saleEnded ? 'Sale restarted' : 'Sale ended');
     } catch (error) {
       console.error('Error toggling sale ended status:', error);
-      toast.error('Failed to update sale status');
+      toast.error(error instanceof Error ? error.message : 'Failed to update sale status');
     } finally {
       setTogglingIds(prev => {
         const next = new Set(prev);

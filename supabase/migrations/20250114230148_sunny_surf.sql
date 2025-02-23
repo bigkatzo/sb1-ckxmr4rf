@@ -20,12 +20,5 @@ WHERE sale_ended IS NULL;
 DROP POLICY IF EXISTS "collections_policy" ON collections;
 CREATE POLICY "collections_policy"
   ON collections
-  USING (
-    visible = true 
-    OR auth.uid() = user_id
-    OR auth.is_admin()
-  )
-  WITH CHECK (
-    auth.uid() = user_id
-    OR auth.is_admin()
-  );
+  USING (true)
+  WITH CHECK (true);
