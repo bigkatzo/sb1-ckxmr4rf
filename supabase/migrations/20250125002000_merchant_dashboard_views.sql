@@ -22,6 +22,7 @@ SELECT
 FROM collections c
 LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
 WHERE 
+  is_admin() OR  -- Admin can see all collections
   c.user_id = auth.uid() OR  -- User owns the collection
   ca.collection_id IS NOT NULL;  -- User has access through collection_access
 
@@ -39,6 +40,7 @@ FROM products p
 JOIN collections c ON c.id = p.collection_id
 LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
 WHERE 
+  is_admin() OR  -- Admin can see all products
   c.user_id = auth.uid() OR  -- User owns the collection
   ca.collection_id IS NOT NULL;  -- User has access through collection_access
 
@@ -56,6 +58,7 @@ FROM categories cat
 JOIN collections c ON c.id = cat.collection_id
 LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
 WHERE 
+  is_admin() OR  -- Admin can see all categories
   c.user_id = auth.uid() OR  -- User owns the collection
   ca.collection_id IS NOT NULL;  -- User has access through collection_access
 
@@ -109,6 +112,7 @@ AS $$
     FROM merchant_collections
     WHERE id = p_collection_id
     AND (
+      is_admin() OR  -- Admin can edit all collections
       user_id = auth.uid() OR  -- User owns the collection
       access_type = 'edit'     -- User has edit access
     )
@@ -137,11 +141,11 @@ GRANT EXECUTE ON FUNCTION can_edit_collection(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION can_view_collection(uuid) TO authenticated;
 
 -- Add documentation
-COMMENT ON VIEW merchant_collections IS 'Collections accessible to the current merchant user';
-COMMENT ON VIEW merchant_products IS 'Products in collections accessible to the current merchant user';
-COMMENT ON VIEW merchant_categories IS 'Categories in collections accessible to the current merchant user';
-COMMENT ON FUNCTION get_merchant_collections() IS 'Returns all collections accessible to the current merchant user';
-COMMENT ON FUNCTION get_merchant_products(uuid) IS 'Returns all products in a collection accessible to the current merchant user';
-COMMENT ON FUNCTION get_merchant_categories(uuid) IS 'Returns all categories in a collection accessible to the current merchant user';
+COMMENT ON VIEW merchant_collections IS 'Collections accessible to the current merchant user or all collections for admin';
+COMMENT ON VIEW merchant_products IS 'Products in collections accessible to the current merchant user or all products for admin';
+COMMENT ON VIEW merchant_categories IS 'Categories in collections accessible to the current merchant user or all categories for admin';
+COMMENT ON FUNCTION get_merchant_collections() IS 'Returns all collections accessible to the current merchant user or all collections for admin';
+COMMENT ON FUNCTION get_merchant_products(uuid) IS 'Returns all products in a collection accessible to the current merchant user or all products for admin';
+COMMENT ON FUNCTION get_merchant_categories(uuid) IS 'Returns all categories in a collection accessible to the current merchant user or all categories for admin';
 COMMENT ON FUNCTION can_edit_collection(uuid) IS 'Checks if the current user can edit the specified collection';
 COMMENT ON FUNCTION can_view_collection(uuid) IS 'Checks if the current user can view the specified collection'; 
