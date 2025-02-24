@@ -2,6 +2,37 @@
 DROP POLICY IF EXISTS "collections_policy" ON collections;
 DROP POLICY IF EXISTS "products_policy" ON products;
 DROP POLICY IF EXISTS "categories_policy" ON categories;
+DROP POLICY IF EXISTS "public_view_collections" ON collections;
+DROP POLICY IF EXISTS "public_view_products" ON products;
+DROP POLICY IF EXISTS "public_view_categories" ON categories;
+DROP POLICY IF EXISTS "merchant_manage_collections" ON collections;
+DROP POLICY IF EXISTS "merchant_manage_products" ON products;
+DROP POLICY IF EXISTS "merchant_manage_categories" ON categories;
+
+-- Drop any existing collection access functions with CASCADE to handle dependencies
+DROP FUNCTION IF EXISTS auth.has_collection_access(uuid) CASCADE;
+DROP FUNCTION IF EXISTS auth.has_collection_access(collection_id uuid) CASCADE;
+
+-- Create helper function to check if user has access to collection
+CREATE OR REPLACE FUNCTION auth.has_collection_access(p_collection_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM collections c
+    WHERE c.id = p_collection_id
+    AND (
+      c.user_id = auth.uid() OR
+      EXISTS (
+        SELECT 1 FROM collection_access ca
+        WHERE ca.collection_id = c.id
+        AND ca.user_id = auth.uid()
+      )
+    )
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMENT ON FUNCTION auth.has_collection_access(uuid) IS 'Checks if the current user has access to a collection';
 
 -- Public Storefront Policies
 -- These policies allow anyone to view public content based on visibility flag
@@ -98,25 +129,4 @@ CREATE POLICY "merchant_manage_categories"
         )
       )
     )
-  );
-
--- Create helper function to check if user has access to collection
-CREATE OR REPLACE FUNCTION auth.has_collection_access(collection_id uuid)
-RETURNS boolean AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM collections c
-    WHERE c.id = collection_id
-    AND (
-      c.user_id = auth.uid() OR
-      EXISTS (
-        SELECT 1 FROM collection_access ca
-        WHERE ca.collection_id = c.id
-        AND ca.user_id = auth.uid()
-      )
-    )
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-COMMENT ON FUNCTION auth.has_collection_access IS 'Checks if the current user has access to a collection'; 
+  ); 
