@@ -9,7 +9,11 @@ DROP FUNCTION IF EXISTS get_merchant_products(uuid);
 DROP FUNCTION IF EXISTS get_merchant_categories(uuid);
 DROP FUNCTION IF EXISTS can_edit_collection(uuid);
 DROP FUNCTION IF EXISTS can_view_collection(uuid);
-DROP FUNCTION IF EXISTS is_admin();
+DROP FUNCTION IF EXISTS is_admin() CASCADE;
+
+-- Drop existing policies that might conflict
+DROP POLICY IF EXISTS collections_admin_all_policy ON collections;
+DROP POLICY IF EXISTS collection_access_admin_all_policy ON collection_access;
 
 -- Create admin check function first
 CREATE OR REPLACE FUNCTION is_admin()
@@ -25,6 +29,17 @@ AS $$
     AND role = 'admin'
   );
 $$;
+
+-- Recreate the policies that depend on is_admin()
+CREATE POLICY collections_admin_all_policy ON collections
+  FOR ALL
+  TO authenticated
+  USING ((SELECT is_admin()));
+
+CREATE POLICY collection_access_admin_all_policy ON collection_access
+  FOR ALL
+  TO authenticated
+  USING ((SELECT is_admin()));
 
 -- Create merchant dashboard views
 CREATE VIEW merchant_collections AS
