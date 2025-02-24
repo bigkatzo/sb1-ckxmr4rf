@@ -9,6 +9,22 @@ DROP FUNCTION IF EXISTS get_merchant_products(uuid);
 DROP FUNCTION IF EXISTS get_merchant_categories(uuid);
 DROP FUNCTION IF EXISTS can_edit_collection(uuid);
 DROP FUNCTION IF EXISTS can_view_collection(uuid);
+DROP FUNCTION IF EXISTS is_admin();
+
+-- Create admin check function first
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 
+    FROM user_profiles 
+    WHERE id = auth.uid() 
+    AND role = 'admin'
+  );
+$$;
 
 -- Create merchant dashboard views
 CREATE VIEW merchant_collections AS
@@ -22,7 +38,7 @@ SELECT
 FROM collections c
 LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
 WHERE 
-  is_admin() OR  -- Admin can see all collections
+  (SELECT is_admin()) OR  -- Admin can see all collections
   c.user_id = auth.uid() OR  -- User owns the collection
   ca.collection_id IS NOT NULL;  -- User has access through collection_access
 
@@ -40,7 +56,7 @@ FROM products p
 JOIN collections c ON c.id = p.collection_id
 LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
 WHERE 
-  is_admin() OR  -- Admin can see all products
+  (SELECT is_admin()) OR  -- Admin can see all products
   c.user_id = auth.uid() OR  -- User owns the collection
   ca.collection_id IS NOT NULL;  -- User has access through collection_access
 
@@ -58,7 +74,7 @@ FROM categories cat
 JOIN collections c ON c.id = cat.collection_id
 LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
 WHERE 
-  is_admin() OR  -- Admin can see all categories
+  (SELECT is_admin()) OR  -- Admin can see all categories
   c.user_id = auth.uid() OR  -- User owns the collection
   ca.collection_id IS NOT NULL;  -- User has access through collection_access
 
@@ -112,7 +128,7 @@ AS $$
     FROM merchant_collections
     WHERE id = p_collection_id
     AND (
-      is_admin() OR  -- Admin can edit all collections
+      (SELECT is_admin()) OR  -- Admin can edit all collections
       user_id = auth.uid() OR  -- User owns the collection
       access_type = 'edit'     -- User has edit access
     )
@@ -134,6 +150,7 @@ AS $$
 $$;
 
 -- Grant execute permissions
+GRANT EXECUTE ON FUNCTION is_admin() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_merchant_collections() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_merchant_products(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_merchant_categories(uuid) TO authenticated;
@@ -141,6 +158,7 @@ GRANT EXECUTE ON FUNCTION can_edit_collection(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION can_view_collection(uuid) TO authenticated;
 
 -- Add documentation
+COMMENT ON FUNCTION is_admin() IS 'Checks if the current user is an admin';
 COMMENT ON VIEW merchant_collections IS 'Collections accessible to the current merchant user or all collections for admin';
 COMMENT ON VIEW merchant_products IS 'Products in collections accessible to the current merchant user or all products for admin';
 COMMENT ON VIEW merchant_categories IS 'Categories in collections accessible to the current merchant user or all categories for admin';
