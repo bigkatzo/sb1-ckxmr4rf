@@ -3,6 +3,13 @@ DROP VIEW IF EXISTS merchant_collections CASCADE;
 DROP VIEW IF EXISTS merchant_products CASCADE;
 DROP VIEW IF EXISTS merchant_categories CASCADE;
 
+-- Drop existing functions with full signatures
+DROP FUNCTION IF EXISTS get_merchant_collections();
+DROP FUNCTION IF EXISTS get_merchant_products(uuid);
+DROP FUNCTION IF EXISTS get_merchant_categories(uuid);
+DROP FUNCTION IF EXISTS can_edit_collection(uuid);
+DROP FUNCTION IF EXISTS can_view_collection(uuid);
+
 -- Create merchant dashboard views
 CREATE VIEW merchant_collections AS
 SELECT 
