@@ -1,0 +1,140 @@
+-- Drop existing merchant views if they exist
+DROP VIEW IF EXISTS merchant_collections CASCADE;
+DROP VIEW IF EXISTS merchant_products CASCADE;
+DROP VIEW IF EXISTS merchant_categories CASCADE;
+
+-- Create merchant dashboard views
+CREATE VIEW merchant_collections AS
+SELECT 
+  c.*,
+  CASE 
+    WHEN c.user_id = auth.uid() THEN NULL
+    WHEN ca.access_type IS NOT NULL THEN ca.access_type
+    ELSE NULL
+  END as access_type
+FROM collections c
+LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
+WHERE 
+  c.user_id = auth.uid() OR  -- User owns the collection
+  ca.collection_id IS NOT NULL;  -- User has access through collection_access
+
+CREATE VIEW merchant_products AS
+SELECT 
+  p.*,
+  c.name as collection_name,
+  c.user_id as collection_owner_id,
+  CASE 
+    WHEN c.user_id = auth.uid() THEN NULL
+    WHEN ca.access_type IS NOT NULL THEN ca.access_type
+    ELSE NULL
+  END as access_type
+FROM products p
+JOIN collections c ON c.id = p.collection_id
+LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
+WHERE 
+  c.user_id = auth.uid() OR  -- User owns the collection
+  ca.collection_id IS NOT NULL;  -- User has access through collection_access
+
+CREATE VIEW merchant_categories AS
+SELECT 
+  cat.*,
+  c.name as collection_name,
+  c.user_id as collection_owner_id,
+  CASE 
+    WHEN c.user_id = auth.uid() THEN NULL
+    WHEN ca.access_type IS NOT NULL THEN ca.access_type
+    ELSE NULL
+  END as access_type
+FROM categories cat
+JOIN collections c ON c.id = cat.collection_id
+LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
+WHERE 
+  c.user_id = auth.uid() OR  -- User owns the collection
+  ca.collection_id IS NOT NULL;  -- User has access through collection_access
+
+-- Grant access to authenticated users
+GRANT SELECT ON merchant_collections TO authenticated;
+GRANT SELECT ON merchant_products TO authenticated;
+GRANT SELECT ON merchant_categories TO authenticated;
+
+-- Helper functions for merchant dashboard
+CREATE OR REPLACE FUNCTION get_merchant_collections()
+RETURNS SETOF merchant_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM merchant_collections
+  ORDER BY created_at DESC;
+$$;
+
+CREATE OR REPLACE FUNCTION get_merchant_products(p_collection_id uuid)
+RETURNS SETOF merchant_products
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM merchant_products
+  WHERE collection_id = p_collection_id
+  ORDER BY created_at DESC;
+$$;
+
+CREATE OR REPLACE FUNCTION get_merchant_categories(p_collection_id uuid)
+RETURNS SETOF merchant_categories
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM merchant_categories
+  WHERE collection_id = p_collection_id
+  ORDER BY created_at DESC;
+$$;
+
+-- Function to check if user can edit a collection
+CREATE OR REPLACE FUNCTION can_edit_collection(p_collection_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 
+    FROM merchant_collections
+    WHERE id = p_collection_id
+    AND (
+      user_id = auth.uid() OR  -- User owns the collection
+      access_type = 'edit'     -- User has edit access
+    )
+  );
+$$;
+
+-- Function to check if user can view a collection
+CREATE OR REPLACE FUNCTION can_view_collection(p_collection_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 
+    FROM merchant_collections
+    WHERE id = p_collection_id
+  );
+$$;
+
+-- Grant execute permissions
+GRANT EXECUTE ON FUNCTION get_merchant_collections() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_merchant_products(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_merchant_categories(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION can_edit_collection(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION can_view_collection(uuid) TO authenticated;
+
+-- Add documentation
+COMMENT ON VIEW merchant_collections IS 'Collections accessible to the current merchant user';
+COMMENT ON VIEW merchant_products IS 'Products in collections accessible to the current merchant user';
+COMMENT ON VIEW merchant_categories IS 'Categories in collections accessible to the current merchant user';
+COMMENT ON FUNCTION get_merchant_collections() IS 'Returns all collections accessible to the current merchant user';
+COMMENT ON FUNCTION get_merchant_products(uuid) IS 'Returns all products in a collection accessible to the current merchant user';
+COMMENT ON FUNCTION get_merchant_categories(uuid) IS 'Returns all categories in a collection accessible to the current merchant user';
+COMMENT ON FUNCTION can_edit_collection(uuid) IS 'Checks if the current user can edit the specified collection';
+COMMENT ON FUNCTION can_view_collection(uuid) IS 'Checks if the current user can view the specified collection'; 
