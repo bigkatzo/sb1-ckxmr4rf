@@ -1,4 +1,4 @@
-export type AccessType = 'view' | 'edit' | 'owner' | null;
+export type AccessType = 'view' | 'edit' | null;
 
 export interface Collection {
   id: string;
@@ -24,7 +24,7 @@ export interface CollectionAccess {
   id: string;
   collection_id: string;
   user_id: string;
-  access_type: Exclude<AccessType, 'owner' | null>;
+  access_type: Exclude<AccessType, null>;
   created_at?: string;
   updated_at?: string;
 }

@@ -12,6 +12,7 @@ import { RefreshButton } from '../ui/RefreshButton';
 import { Tooltip } from '../ui/Tooltip';
 import { toast } from 'react-toastify';
 import { Spinner } from '../ui/Spinner';
+import { useAuth } from '../../hooks/useAuth';
 
 export function CollectionsTab() {
   const [showForm, setShowForm] = useState(false);
@@ -19,6 +20,7 @@ export function CollectionsTab() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+  const { user } = useAuth();
 
   const { 
     collections, 
@@ -143,17 +145,17 @@ export function CollectionsTab() {
                       <div className="flex items-center gap-2">
                         <h3 className="font-medium text-xs sm:text-sm truncate">{collection.name}</h3>
                         <Tooltip content={
-                          !collection.accessType ? "You own this collection" :
+                          collection.user_id === user?.id ? "You own this collection" :
                           collection.accessType === 'edit' ? "You can edit this collection" :
                           "You can view this collection"
                         }>
                           <span className={`
                             text-[10px] px-1.5 py-0.5 rounded-full
-                            ${!collection.accessType ? 'bg-purple-500/20 text-purple-400' : 
+                            ${collection.user_id === user?.id ? 'bg-purple-500/20 text-purple-400' : 
                               collection.accessType === 'edit' ? 'bg-blue-500/20 text-blue-400' :
                               'bg-gray-500/20 text-gray-400'}
                           `}>
-                            {!collection.accessType ? 'Owner' :
+                            {collection.user_id === user?.id ? 'Owner' :
                              collection.accessType === 'edit' ? 'Editor' :
                              'Viewer'}
                           </span>
@@ -188,7 +190,7 @@ export function CollectionsTab() {
                           setShowForm(true);
                         }}
                         className="scale-75 sm:scale-90"
-                        disabled={collection.accessType === 'view'}
+                        disabled={collection.user_id !== user?.id && collection.accessType !== 'edit'}
                       />
                       <DeleteButton
                         onClick={() => {
@@ -196,7 +198,7 @@ export function CollectionsTab() {
                           setShowConfirmDialog(true);
                         }}
                         className="scale-75 sm:scale-90"
-                        disabled={collection.accessType === 'view'}
+                        disabled={collection.user_id !== user?.id}
                       />
                     </div>
                   </div>

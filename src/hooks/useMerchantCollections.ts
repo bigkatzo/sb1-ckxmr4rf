@@ -9,6 +9,20 @@ import { toast } from 'react-toastify';
 const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
 let adminStatusCache: { isAdmin: boolean; timestamp: number } | null = null;
 
+interface RawCollection {
+  id: string;
+  name: string;
+  description: string;
+  image_url: string | null;
+  launch_date: string;
+  featured: boolean;
+  visible: boolean;
+  sale_ended: boolean;
+  slug: string;
+  user_id: string;
+  collection_access: CollectionAccess[] | null;
+}
+
 export function useMerchantCollections() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +91,7 @@ export function useMerchantCollections() {
           user_id,
           collection_access!left (
             id,
+            collection_id,
             user_id,
             access_type
           )
@@ -90,15 +105,16 @@ export function useMerchantCollections() {
 
       if (collectionsError) throw collectionsError;
 
-      const transformedCollections = (allCollections || []).map(collection => {
+      const transformedCollections = (allCollections || []).map((collection: RawCollection) => {
         // Determine access type
-        let accessType: AccessType = 'view';
+        let accessType: AccessType = null;
         
         if (isAdmin || collection.user_id === user.id) {
-          accessType = 'owner';
+          // No need for access_type if user is admin or owner
+          accessType = null;
         } else {
           const userAccess = collection.collection_access?.find(
-            (access: CollectionAccess) => access.user_id === user.id
+            (access) => access.user_id === user.id
           );
           accessType = userAccess?.access_type || null;
         }
@@ -107,17 +123,20 @@ export function useMerchantCollections() {
           id: collection.id,
           name: collection.name,
           description: collection.description,
+          image_url: collection.image_url || '',
           imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
+          launch_date: collection.launch_date,
           launchDate: new Date(collection.launch_date),
           featured: collection.featured,
           visible: collection.visible,
+          sale_ended: collection.sale_ended,
           saleEnded: collection.sale_ended,
           slug: collection.slug,
           user_id: collection.user_id,
           categories: [],
           products: [],
           accessType,
-          collection_access: collection.collection_access
+          collection_access: collection.collection_access || []
         };
       });
 
@@ -136,7 +155,7 @@ export function useMerchantCollections() {
   const updateCollectionAccess = useCallback(async (
     collectionId: string,
     userId: string,
-    accessType: Exclude<AccessType, 'owner'> | null
+    accessType: AccessType
   ) => {
     try {
       setChangingAccessId(collectionId);
