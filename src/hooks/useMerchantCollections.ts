@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Collection, CollectionAccess, AccessType } from '../types/collections';
+import type { Collection, CollectionAccess, AccessType } from '../types/collections';
 import { normalizeStorageUrl } from '../utils/storage';
 import { handleError } from '../utils/error';
 import { toast } from 'react-toastify';
@@ -62,26 +62,31 @@ export function useMerchantCollections() {
       const isAdmin = await checkAdminStatus(user.id);
 
       // Fetch collections with all necessary data
-      let query = supabase
+      const baseQuery = supabase
         .from('collections')
         .select(`
-          *,
-          collection_access (
+          id,
+          name,
+          description,
+          image_url,
+          launch_date,
+          featured,
+          visible,
+          sale_ended,
+          slug,
+          user_id,
+          collection_access!left (
             id,
             user_id,
-            access_type,
-            created_at,
-            updated_at
+            access_type
           )
         `)
         .order('created_at', { ascending: false });
 
-      // If not admin, only fetch collections user owns or has access to
-      if (!isAdmin) {
-        query = query.or(`user_id.eq.${user.id},collection_access.user_id.eq.${user.id}`);
-      }
-
-      const { data: allCollections, error: collectionsError } = await query;
+      // If not admin, add filter for user's collections
+      const { data: allCollections, error: collectionsError } = await (isAdmin 
+        ? baseQuery 
+        : baseQuery.or(`user_id.eq.${user.id},collection_access.user_id.eq.${user.id}`));
 
       if (collectionsError) throw collectionsError;
 
@@ -93,7 +98,7 @@ export function useMerchantCollections() {
           accessType = 'owner';
         } else {
           const userAccess = collection.collection_access?.find(
-            access => access.user_id === user.id
+            (access: CollectionAccess) => access.user_id === user.id
           );
           accessType = userAccess?.access_type || null;
         }
