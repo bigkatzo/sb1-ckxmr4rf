@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Collection, CollectionAccess, AccessType } from '../types/collections';
 import { normalizeStorageUrl } from '../utils/storage';
@@ -7,7 +7,6 @@ import { toast } from 'react-toastify';
 
 // Cache admin status for 5 minutes
 const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
-let adminStatusCache: { isAdmin: boolean; timestamp: number } | null = null;
 
 // Types for raw database records
 type RawCollection = Pick<Collection, 'id' | 'name' | 'description' | 'launch_date' | 'featured' | 'visible' | 'sale_ended' | 'slug' | 'user_id'> & {
@@ -25,12 +24,15 @@ export function useMerchantCollections() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [changingAccessId, setChangingAccessId] = useState<string | null>(null);
+  
+  // Use useRef for per-user admin status caching
+  const adminCacheRef = useRef<{ [key: string]: { isAdmin: boolean; timestamp: number } }>({});
 
-  // Function to check admin status with caching
   const checkAdminStatus = useCallback(async (userId: string) => {
     // Return cached value if still valid
-    if (adminStatusCache && Date.now() - adminStatusCache.timestamp < ADMIN_CACHE_DURATION) {
-      return adminStatusCache.isAdmin;
+    if (adminCacheRef.current[userId] && 
+        Date.now() - adminCacheRef.current[userId].timestamp < ADMIN_CACHE_DURATION) {
+      return adminCacheRef.current[userId].isAdmin;
     }
 
     try {
@@ -44,8 +46,8 @@ export function useMerchantCollections() {
 
       const isAdmin = profile?.role === 'admin';
       
-      // Cache the result
-      adminStatusCache = {
+      // Cache the result per user
+      adminCacheRef.current[userId] = {
         isAdmin,
         timestamp: Date.now()
       };
@@ -64,49 +66,51 @@ export function useMerchantCollections() {
 
       // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      if (!user) {
-        setCollections([]);
-        return;
+      if (authError || !user) {
+        throw authError || new Error('Not authenticated');
       }
 
       const isAdmin = await checkAdminStatus(user.id);
 
-      // Fetch collections
-      const { data: rawCollections, error: collectionsError } = await supabase
-        .from('collections')
-        .select(`
-          id,
-          name,
-          description,
-          image_url,
-          launch_date,
-          featured,
-          visible,
-          sale_ended,
-          slug,
-          user_id
-        `)
-        .order('created_at', { ascending: false }) as { data: RawCollection[] | null, error: any };
+      // Fetch collections and access records in parallel
+      const [collectionsResponse, accessResponse] = await Promise.all([
+        supabase
+          .from('collections')
+          .select(`
+            id,
+            name,
+            description,
+            image_url,
+            launch_date,
+            featured,
+            visible,
+            sale_ended,
+            slug,
+            user_id
+          `)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('collection_access')
+          .select('id, collection_id, user_id, access_type')
+      ]) as [
+        { data: RawCollection[] | null, error: any },
+        { data: AccessRecord[] | null, error: any }
+      ];
 
-      if (collectionsError) throw collectionsError;
+      if (collectionsResponse.error) throw collectionsResponse.error;
+      if (accessResponse.error) throw accessResponse.error;
+
+      const rawCollections = collectionsResponse.data;
       if (!rawCollections?.length) {
         setCollections([]);
         return;
       }
 
-      // Fetch access records for all retrieved collections
-      const collectionIds = rawCollections.map(c => c.id);
-      const { data: accessRecords, error: accessError } = await supabase
-        .from('collection_access')
-        .select('id, collection_id, user_id, access_type')
-        .in('collection_id', collectionIds) as { data: AccessRecord[] | null, error: any };
-
-      if (accessError) throw accessError;
+      const accessRecords = accessResponse.data || [];
 
       // Transform data
-      const transformedCollections = rawCollections.map((collection: RawCollection) => {
-        const userAccess = accessRecords?.find(
+      const transformedCollections = rawCollections.map((collection) => {
+        const userAccess = accessRecords.find(
           a => a.collection_id === collection.id && a.user_id === user.id
         );
         const accessType = (isAdmin || collection.user_id === user.id) ? null : (userAccess?.access_type || null);
@@ -128,7 +132,7 @@ export function useMerchantCollections() {
           categories: [],
           products: [],
           accessType,
-          collection_access: (accessRecords?.filter(a => a.collection_id === collection.id) || []) as CollectionAccess[]
+          collection_access: accessRecords.filter(a => a.collection_id === collection.id) as CollectionAccess[]
         };
       });
 
@@ -164,26 +168,20 @@ export function useMerchantCollections() {
         throw new Error('You do not have permission to modify access for this collection');
       }
 
-      if (accessType === null) {
-        // Remove access
-        const { error } = await supabase
-          .from('collection_access')
-          .delete()
-          .match({ collection_id: collectionId, user_id: userId });
+      const { error } = accessType === null
+        ? await supabase
+            .from('collection_access')
+            .delete()
+            .match({ collection_id: collectionId, user_id: userId })
+        : await supabase
+            .from('collection_access')
+            .upsert({
+              collection_id: collectionId,
+              user_id: userId,
+              access_type: accessType
+            });
 
-        if (error) throw error;
-      } else {
-        // Upsert access
-        const { error } = await supabase
-          .from('collection_access')
-          .upsert({
-            collection_id: collectionId,
-            user_id: userId,
-            access_type: accessType
-          });
-
-        if (error) throw error;
-      }
+      if (error) throw error;
 
       await fetchCollections();
       toast.success('Collection access updated successfully');
@@ -226,8 +224,9 @@ export function useMerchantCollections() {
       .subscribe();
 
     return () => {
-      collectionsChannel.unsubscribe();
-      accessChannel.unsubscribe();
+      // Properly clean up realtime subscriptions
+      supabase.removeChannel(collectionsChannel);
+      supabase.removeChannel(accessChannel);
     };
   }, [fetchCollections]);
 
