@@ -76,37 +76,37 @@ DO $$
 DECLARE
     missing_policies text[];
     missing_indexes text[];
-    tablename text;
-    indexname text;
+    current_table text;
+    current_index text;
 BEGIN
     -- Check for missing policies
     SELECT array_agg(t.missing_policy)
     INTO missing_policies
     FROM (
-        SELECT tablename || '.' || expected_policy as missing_policy
+        SELECT e.table_name || '.' || e.policy_name as missing_policy
         FROM (
             VALUES 
                 ('collection_access', 'collection_access_view'),
                 ('collection_access', 'collection_access_modify')
-        ) as expected(tablename, expected_policy)
+        ) as e(table_name, policy_name)
         WHERE NOT EXISTS (
             SELECT 1 FROM pg_policies p
-            WHERE p.tablename = expected.tablename
-            AND p.policyname = expected.expected_policy
+            WHERE p.tablename = e.table_name
+            AND p.policyname = e.policy_name
         )
     ) t;
 
     -- Check for missing indexes
-    SELECT array_agg(e.indexname)
+    SELECT array_agg(e.index_name)
     INTO missing_indexes
     FROM (
         VALUES 
             ('idx_collection_access_collection_user'),
             ('idx_collection_access_type_user')
-    ) as e(indexname)
+    ) as e(index_name)
     WHERE NOT EXISTS (
-        SELECT 1 FROM pg_indexes
-        WHERE indexname = e.indexname
+        SELECT 1 FROM pg_indexes i
+        WHERE i.indexname = e.index_name
     );
 
     -- Raise detailed error if anything is missing
