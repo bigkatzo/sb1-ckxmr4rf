@@ -98,10 +98,8 @@ export function useMerchantCollections() {
         `)
         .order('created_at', { ascending: false });
 
-      // If not admin, add filter for user's collections
-      const { data: allCollections, error: collectionsError } = await (isAdmin 
-        ? baseQuery 
-        : baseQuery.or(`user_id.eq.${user.id},collection_access.user_id.eq.${user.id}`));
+      // Let RLS policies handle the filtering
+      const { data: allCollections, error: collectionsError } = await baseQuery;
 
       if (collectionsError) throw collectionsError;
 
