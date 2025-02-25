@@ -1,24 +1,31 @@
 import React from 'react';
 import { Star } from 'lucide-react';
+import { Spinner } from './Spinner';
 
 export interface StarButtonProps {
-  active: boolean;
+  featured: boolean;
   onClick: () => void;
+  loading?: boolean;
   className?: string;
 }
 
-export function StarButton({ active, onClick, className = '' }: StarButtonProps) {
+export function StarButton({ featured, onClick, loading, className = '' }: StarButtonProps) {
   return (
     <button
-      type="button"
       onClick={onClick}
-      className={`p-1.5 rounded-lg hover:bg-gray-800 transition-colors ${className}`}
+      disabled={loading}
+      className={`
+        p-1.5 rounded-lg transition-colors
+        ${featured ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' : 
+                    'bg-gray-800 text-gray-400 hover:bg-gray-700'}
+        ${className}
+      `}
     >
-      <Star
-        className={`h-4 w-4 ${
-          active ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'
-        }`}
-      />
+      {loading ? (
+        <Spinner className="h-4 w-4" />
+      ) : (
+        <Star className={`h-4 w-4 ${featured ? 'fill-current' : ''}`} />
+      )}
     </button>
   );
 }

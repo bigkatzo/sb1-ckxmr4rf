@@ -50,12 +50,19 @@ export function CollectionsTab() {
 
   const handleToggleFeatured = async (id: string, featured: boolean) => {
     try {
+      setTogglingIds(prev => new Set([...prev, id]));
       await toggleFeatured(id, !featured);
       await refreshCollections();
       toast.success(featured ? 'Collection unfeatured' : 'Collection featured');
     } catch (error) {
       console.error('Error toggling featured status:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update featured status');
+    } finally {
+      setTogglingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -77,17 +84,24 @@ export function CollectionsTab() {
     }
   };
 
-  const handleAccessChange = async (collectionId: string, userId: string, accessType: 'view' | 'edit' | null) => {
+  const handleDelete = async (id: string) => {
     try {
-      await updateCollectionAccess(collectionId, userId, accessType);
+      setDeletingId(id);
+      await deleteCollection(id);
+      setShowConfirmDialog(false);
+      refreshCollections();
+      toast.success('Collection deleted successfully');
     } catch (error) {
-      // Error is already handled in the hook
+      console.error('Error deleting collection:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete collection');
+    } finally {
+      setDeletingId(null);
     }
   };
 
   if (collectionsLoading) {
     return (
-      <div className="px-3 sm:px-6 lg:px-8 animate-pulse space-y-4">
+      <div className="px-4 sm:px-6 lg:px-8 animate-pulse space-y-4">
         <div className="h-10 bg-gray-800 rounded w-1/4" />
         <div className="h-40 bg-gray-800 rounded" />
       </div>
@@ -95,24 +109,21 @@ export function CollectionsTab() {
   }
 
   return (
-    <div className="px-3 sm:px-6 lg:px-8">
+    <div className="px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-base sm:text-lg font-semibold">Collections</h2>
-            <Tooltip content="Collections you own or have access to">
-              <Info className="h-4 w-4 text-gray-400 cursor-help" />
-            </Tooltip>
-            <RefreshButton onRefresh={refreshCollections} className="scale-90" />
+            <h2 className="text-lg font-semibold">Collections</h2>
+            <RefreshButton onRefresh={refreshCollections} />
           </div>
           <button
             onClick={() => {
               setEditingCollection(null);
               setShowForm(true);
             }}
-            className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors text-xs sm:text-sm"
+            className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm"
           >
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <Plus className="h-4 w-4" />
             <span>Add Collection</span>
           </button>
         </div>
@@ -120,89 +131,85 @@ export function CollectionsTab() {
 
       {collections.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-xs sm:text-sm">No collections created yet.</p>
+          <p className="text-gray-400 text-sm">No collections created yet.</p>
         </div>
       ) : (
-        <div className="space-y-2 sm:space-y-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {collections.map((collection) => (
-            <div key={collection.id} className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
-              <div className="flex items-start gap-2 sm:gap-3">
+            <div
+              key={collection.id}
+              className="bg-gray-900 rounded-lg overflow-hidden flex flex-col"
+            >
+              <div className="relative aspect-video bg-gray-800">
                 {collection.imageUrl ? (
                   <img
                     src={collection.imageUrl}
                     alt={collection.name}
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover flex-shrink-0"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-                    <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ImageIcon className="h-12 w-12 text-gray-700" />
                   </div>
                 )}
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-xs sm:text-sm truncate">{collection.name}</h3>
-                        <Tooltip content={
-                          collection.user_id === user?.id ? "You own this collection" :
-                          collection.accessType === 'edit' ? "You can edit this collection" :
-                          "You can view this collection"
-                        }>
-                          <span className={`
-                            text-[10px] px-1.5 py-0.5 rounded-full
-                            ${collection.user_id === user?.id ? 'bg-purple-500/20 text-purple-400' : 
-                              collection.accessType === 'edit' ? 'bg-blue-500/20 text-blue-400' :
-                              'bg-gray-500/20 text-gray-400'}
-                          `}>
-                            {collection.user_id === user?.id ? 'Owner' :
-                             collection.accessType === 'edit' ? 'Editor' :
-                             'Viewer'}
-                          </span>
-                        </Tooltip>
-                        {changingAccessId === collection.id && (
-                          <Spinner className="h-3 w-3" />
-                        )}
+                {collection.isOwner && (
+                  <div className="absolute top-2 right-2 flex items-center gap-2">
+                    <StarButton
+                      featured={collection.featured}
+                      onClick={() => handleToggleFeatured(collection.id, collection.featured)}
+                      loading={togglingIds.has(collection.id)}
+                    />
+                    <EditButton
+                      onClick={() => {
+                        setEditingCollection(collection);
+                        setShowForm(true);
+                      }}
+                    />
+                    <DeleteButton
+                      onClick={() => {
+                        setDeletingId(collection.id);
+                        setShowConfirmDialog(true);
+                      }}
+                      loading={deletingId === collection.id}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="p-4 flex-1 flex flex-col">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="font-semibold text-lg leading-tight">{collection.name}</h3>
+                  {collection.accessType && (
+                    <Tooltip content={`You have ${collection.accessType} access to this collection`}>
+                      <div className="flex-shrink-0">
+                        <Info className="h-4 w-4 text-gray-400" />
                       </div>
-                      <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
-                        {collection.description}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Toggle
-                          checked={collection.saleEnded}
-                          onChange={() => handleToggleSaleEnded(collection.id, collection.saleEnded)}
-                          loading={togglingIds.has(collection.id)}
-                          className="scale-75 sm:scale-90"
-                        >
-                          {collection.saleEnded ? 'Sale Ended' : 'Sale Active'}
-                        </Toggle>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <StarButton
-                        active={collection.featured}
-                        onClick={() => handleToggleFeatured(collection.id, collection.featured)}
-                        className="scale-75 sm:scale-90"
-                      />
-                      <EditButton
-                        onClick={() => {
-                          setEditingCollection(collection);
-                          setShowForm(true);
+                    </Tooltip>
+                  )}
+                </div>
+                <p className="text-gray-400 text-sm mb-4 flex-1">
+                  {collection.description || 'No description provided.'}
+                </p>
+                {collection.isOwner && (
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2">
+                      <Toggle
+                        checked={collection.visible}
+                        onCheckedChange={(checked) => {
+                          updateCollection(collection.id, { visible: checked });
                         }}
-                        className="scale-75 sm:scale-90"
-                        disabled={collection.user_id !== user?.id && collection.accessType !== 'edit'}
+                        size="sm"
+                        label="Visible"
                       />
-                      <DeleteButton
-                        onClick={() => {
-                          setDeletingId(collection.id);
-                          setShowConfirmDialog(true);
-                        }}
-                        className="scale-75 sm:scale-90"
-                        disabled={collection.user_id !== user?.id}
+                      <Toggle
+                        checked={collection.sale_ended}
+                        onCheckedChange={() => handleToggleSaleEnded(collection.id, collection.sale_ended)}
+                        size="sm"
+                        label="Sale Ended"
+                        loading={togglingIds.has(collection.id)}
                       />
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           ))}
@@ -211,38 +218,24 @@ export function CollectionsTab() {
 
       {showForm && (
         <CollectionForm
-          initialData={editingCollection}
+          collection={editingCollection}
+          onSubmit={handleSubmit}
           onClose={() => {
             setShowForm(false);
             setEditingCollection(null);
           }}
-          onSubmit={handleSubmit}
         />
       )}
 
-      {showConfirmDialog && deletingId && (
-        <ConfirmDialog
-          title="Delete Collection"
-          message="Are you sure you want to delete this collection? This action cannot be undone."
-          onConfirm={async () => {
-            try {
-              await deleteCollection(deletingId);
-              refreshCollections();
-              toast.success('Collection deleted successfully');
-            } catch (error) {
-              console.error('Error deleting collection:', error);
-              toast.error('Failed to delete collection');
-            } finally {
-              setShowConfirmDialog(false);
-              setDeletingId(null);
-            }
-          }}
-          onCancel={() => {
-            setShowConfirmDialog(false);
-            setDeletingId(null);
-          }}
-        />
-      )}
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        title="Delete Collection"
+        description="Are you sure you want to delete this collection? This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={() => deletingId && handleDelete(deletingId)}
+        loading={!!deletingId}
+      />
     </div>
   );
 }

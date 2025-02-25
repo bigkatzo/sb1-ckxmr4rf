@@ -4,9 +4,9 @@ export interface Collection {
   id: string;
   name: string;
   description: string;
-  image_url?: string;
-  imageUrl?: string;
-  launch_date: string | Date;
+  image_url: string;
+  imageUrl: string;
+  launch_date: string;
   launchDate: Date;
   featured: boolean;
   visible: boolean;
@@ -17,6 +17,7 @@ export interface Collection {
   categories: any[];
   products: any[];
   accessType: AccessType;
+  isOwner: boolean;
   collection_access?: CollectionAccess[];
 }
 
@@ -24,7 +25,7 @@ export interface CollectionAccess {
   id: string;
   collection_id: string;
   user_id: string;
-  access_type: Exclude<AccessType, null>;
+  access_type: AccessType;
   created_at?: string;
   updated_at?: string;
 }
