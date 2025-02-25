@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Image as ImageIcon } from 'lucide-react';
+import { Plus, Image as ImageIcon, Info } from 'lucide-react';
 import { CollectionForm } from './forms/CollectionForm';
 import { createCollection, updateCollection, toggleFeatured, toggleSaleEnded, deleteCollection } from '../../services/collections';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
@@ -9,7 +9,9 @@ import { DeleteButton } from '../ui/DeleteButton';
 import { Toggle } from '../ui/Toggle';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { RefreshButton } from '../ui/RefreshButton';
+import { Tooltip } from '../ui/Tooltip';
 import { toast } from 'react-toastify';
+import { Spinner } from '../ui/Spinner';
 
 export function CollectionsTab() {
   const [showForm, setShowForm] = useState(false);
@@ -18,7 +20,13 @@ export function CollectionsTab() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
 
-  const { collections, loading: collectionsLoading, refreshCollections } = useMerchantCollections();
+  const { 
+    collections, 
+    loading: collectionsLoading, 
+    refreshCollections,
+    updateCollectionAccess,
+    changingAccessId
+  } = useMerchantCollections();
 
   const handleSubmit = async (data: FormData) => {
     try {
@@ -67,6 +75,14 @@ export function CollectionsTab() {
     }
   };
 
+  const handleAccessChange = async (collectionId: string, userId: string, accessType: 'view' | 'edit' | null) => {
+    try {
+      await updateCollectionAccess(collectionId, userId, accessType);
+    } catch (error) {
+      // Error is already handled in the hook
+    }
+  };
+
   if (collectionsLoading) {
     return (
       <div className="px-3 sm:px-6 lg:px-8 animate-pulse space-y-4">
@@ -82,6 +98,9 @@ export function CollectionsTab() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-base sm:text-lg font-semibold">Collections</h2>
+            <Tooltip content="Collections you own or have access to">
+              <Info className="h-4 w-4 text-gray-400 cursor-help" />
+            </Tooltip>
             <RefreshButton onRefresh={refreshCollections} className="scale-90" />
           </div>
           <button
@@ -121,7 +140,28 @@ export function CollectionsTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="font-medium text-xs sm:text-sm truncate">{collection.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium text-xs sm:text-sm truncate">{collection.name}</h3>
+                        <Tooltip content={
+                          !collection.accessType ? "You own this collection" :
+                          collection.accessType === 'edit' ? "You can edit this collection" :
+                          "You can view this collection"
+                        }>
+                          <span className={`
+                            text-[10px] px-1.5 py-0.5 rounded-full
+                            ${!collection.accessType ? 'bg-purple-500/20 text-purple-400' : 
+                              collection.accessType === 'edit' ? 'bg-blue-500/20 text-blue-400' :
+                              'bg-gray-500/20 text-gray-400'}
+                          `}>
+                            {!collection.accessType ? 'Owner' :
+                             collection.accessType === 'edit' ? 'Editor' :
+                             'Viewer'}
+                          </span>
+                        </Tooltip>
+                        {changingAccessId === collection.id && (
+                          <Spinner className="h-3 w-3" />
+                        )}
+                      </div>
                       <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
                         {collection.description}
                       </p>
@@ -148,6 +188,7 @@ export function CollectionsTab() {
                           setShowForm(true);
                         }}
                         className="scale-75 sm:scale-90"
+                        disabled={collection.accessType === 'view'}
                       />
                       <DeleteButton
                         onClick={() => {
@@ -155,6 +196,7 @@ export function CollectionsTab() {
                           setShowConfirmDialog(true);
                         }}
                         className="scale-75 sm:scale-90"
+                        disabled={collection.accessType === 'view'}
                       />
                     </div>
                   </div>
