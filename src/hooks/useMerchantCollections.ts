@@ -9,27 +9,16 @@ import { toast } from 'react-toastify';
 const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
 let adminStatusCache: { isAdmin: boolean; timestamp: number } | null = null;
 
-interface RawCollection {
-  id: string;
-  name: string;
-  description: string;
+// Types for raw database records
+type RawCollection = Pick<Collection, 'id' | 'name' | 'description' | 'launch_date' | 'featured' | 'visible' | 'sale_ended' | 'slug' | 'user_id'> & {
   image_url: string | null;
-  launch_date: string;
-  featured: boolean;
-  visible: boolean;
-  sale_ended: boolean;
-  slug: string;
-  user_id: string;
-}
+};
 
-interface AccessRecord {
-  id: string;
-  collection_id: string;
-  user_id: string;
+type AccessRecord = Omit<CollectionAccess, 'access_type'> & {
   access_type: Exclude<AccessType, null>;
   created_at?: string;
   updated_at?: string;
-}
+};
 
 export function useMerchantCollections() {
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -83,8 +72,8 @@ export function useMerchantCollections() {
 
       const isAdmin = await checkAdminStatus(user.id);
 
-      // Fetch collections first
-      const { data: allCollections, error: collectionsError } = await supabase
+      // Fetch collections
+      const { data: rawCollections, error: collectionsError } = await supabase
         .from('collections')
         .select(`
           id,
@@ -98,31 +87,29 @@ export function useMerchantCollections() {
           slug,
           user_id
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as { data: RawCollection[] | null, error: any };
 
       if (collectionsError) throw collectionsError;
+      if (!rawCollections?.length) {
+        setCollections([]);
+        return;
+      }
 
-      // Then fetch access records separately
+      // Fetch access records for all retrieved collections
+      const collectionIds = rawCollections.map(c => c.id);
       const { data: accessRecords, error: accessError } = await supabase
         .from('collection_access')
-        .select('*')
-        .in('collection_id', (allCollections || []).map(c => c.id)) as { data: AccessRecord[] | null, error: any };
+        .select('id, collection_id, user_id, access_type')
+        .in('collection_id', collectionIds) as { data: AccessRecord[] | null, error: any };
 
       if (accessError) throw accessError;
 
-      const transformedCollections = (allCollections || []).map((collection: RawCollection) => {
-        // Determine access type
-        let accessType: AccessType = null;
-        
-        if (isAdmin || collection.user_id === user.id) {
-          // No need for access_type if user is admin or owner
-          accessType = null;
-        } else {
-          const userAccess = accessRecords?.find(
-            (access) => access.collection_id === collection.id && access.user_id === user.id
-          );
-          accessType = userAccess?.access_type || null;
-        }
+      // Transform data
+      const transformedCollections = rawCollections.map((collection: RawCollection) => {
+        const userAccess = accessRecords?.find(
+          a => a.collection_id === collection.id && a.user_id === user.id
+        );
+        const accessType = (isAdmin || collection.user_id === user.id) ? null : (userAccess?.access_type || null);
 
         return {
           id: collection.id,
@@ -141,7 +128,7 @@ export function useMerchantCollections() {
           categories: [],
           products: [],
           accessType,
-          collection_access: accessRecords?.filter(a => a.collection_id === collection.id) || []
+          collection_access: (accessRecords?.filter(a => a.collection_id === collection.id) || []) as CollectionAccess[]
         };
       });
 
