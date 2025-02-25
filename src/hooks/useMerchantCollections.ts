@@ -20,7 +20,15 @@ interface RawCollection {
   sale_ended: boolean;
   slug: string;
   user_id: string;
-  collection_access: CollectionAccess[] | null;
+}
+
+interface AccessRecord {
+  id: string;
+  collection_id: string;
+  user_id: string;
+  access_type: Exclude<AccessType, null>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export function useMerchantCollections() {
@@ -75,8 +83,8 @@ export function useMerchantCollections() {
 
       const isAdmin = await checkAdminStatus(user.id);
 
-      // Fetch collections with all necessary data
-      const baseQuery = supabase
+      // Fetch collections first
+      const { data: allCollections, error: collectionsError } = await supabase
         .from('collections')
         .select(`
           id,
@@ -88,20 +96,19 @@ export function useMerchantCollections() {
           visible,
           sale_ended,
           slug,
-          user_id,
-          collection_access!left (
-            id,
-            collection_id,
-            user_id,
-            access_type
-          )
+          user_id
         `)
         .order('created_at', { ascending: false });
 
-      // Let RLS policies handle the filtering
-      const { data: allCollections, error: collectionsError } = await baseQuery;
-
       if (collectionsError) throw collectionsError;
+
+      // Then fetch access records separately
+      const { data: accessRecords, error: accessError } = await supabase
+        .from('collection_access')
+        .select('*')
+        .in('collection_id', (allCollections || []).map(c => c.id)) as { data: AccessRecord[] | null, error: any };
+
+      if (accessError) throw accessError;
 
       const transformedCollections = (allCollections || []).map((collection: RawCollection) => {
         // Determine access type
@@ -111,8 +118,8 @@ export function useMerchantCollections() {
           // No need for access_type if user is admin or owner
           accessType = null;
         } else {
-          const userAccess = collection.collection_access?.find(
-            (access) => access.user_id === user.id
+          const userAccess = accessRecords?.find(
+            (access) => access.collection_id === collection.id && access.user_id === user.id
           );
           accessType = userAccess?.access_type || null;
         }
@@ -134,7 +141,7 @@ export function useMerchantCollections() {
           categories: [],
           products: [],
           accessType,
-          collection_access: collection.collection_access || []
+          collection_access: accessRecords?.filter(a => a.collection_id === collection.id) || []
         };
       });
 
