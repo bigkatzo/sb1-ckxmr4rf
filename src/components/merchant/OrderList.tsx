@@ -1,4 +1,4 @@
-import { ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock, Mail, Send, Twitter, ChevronDown } from 'lucide-react';
+import { ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock, Mail, Send, X, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
 
@@ -52,7 +52,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
           return {
             url: `https://x.com/${cleanValue}`,
             display: `@${cleanValue}`,
-            icon: <Twitter className="h-4 w-4 text-gray-400" />,
+            icon: <X className="h-4 w-4 text-gray-400" />,
             label: 'X (Twitter)'
           };
         case 'telegram':

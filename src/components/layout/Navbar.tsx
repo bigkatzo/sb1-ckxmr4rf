@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Menu, X, Package, Twitter, Mail, Send } from 'lucide-react';
+import { Search, Menu, X as XIcon, Package, X, Mail, Send } from 'lucide-react';
 import { SearchBar } from '../search/SearchBar';
 import { Logo } from '../ui/Logo';
 import { WalletButton } from '../wallet/WalletButton';
@@ -24,7 +24,7 @@ export default function Navbar() {
     { 
       href: 'https://x.com/storedotfun',
       label: 'X (Twitter)',
-      icon: <Twitter className="h-3.5 w-3.5" />
+      icon: <X className="h-3.5 w-3.5" />
     },
     { 
       href: 'https://t.me/storedotfun',
@@ -107,7 +107,7 @@ export default function Navbar() {
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800/50 transition-colors relative"
             >
-              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {isMenuOpen ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
 
@@ -124,7 +124,7 @@ export default function Navbar() {
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="p-2 text-gray-400 hover:text-white"
             >
-              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {isMenuOpen ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
