@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { toastService } from './toast';
 
 interface CreateOrderData {
   productId: string;
@@ -120,6 +121,7 @@ export async function createOrder(data: CreateOrderData): Promise<string> {
         });
 
         console.log('Order created successfully');
+        toastService.showOrderSuccess();
         return data.transactionId;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error('Unknown error creating order');
