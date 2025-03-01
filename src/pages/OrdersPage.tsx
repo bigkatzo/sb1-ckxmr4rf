@@ -55,14 +55,44 @@ export function OrdersPage() {
     if (!contactInfo) return null;
     const { method, value } = contactInfo;
     
+    const getContactInfo = () => {
+      switch (method) {
+        case 'x':
+          return {
+            icon: <Send className="h-3.5 w-3.5 text-gray-400" />,
+            label: 'X (Twitter)',
+            value
+          };
+        case 'telegram':
+          return {
+            icon: <Send className="h-3.5 w-3.5 text-gray-400" />,
+            label: 'Telegram',
+            value
+          };
+        case 'email':
+          return {
+            icon: <Mail className="h-3.5 w-3.5 text-gray-400" />,
+            label: 'Email',
+            value
+          };
+        default:
+          return {
+            icon: <Send className="h-3.5 w-3.5 text-gray-400" />,
+            label: method.charAt(0).toUpperCase() + method.slice(1),
+            value
+          };
+      }
+    };
+
+    const { icon, label, value: contactValue } = getContactInfo();
+    
     return (
       <div className="flex items-center gap-2 text-gray-300">
-        {method === 'email' ? (
-          <Mail className="h-3.5 w-3.5 text-gray-400" />
-        ) : (
-          <Send className="h-3.5 w-3.5 text-gray-400" />
-        )}
-        <span className="text-sm">{value}</span>
+        {icon}
+        <div className="flex flex-col">
+          <span className="text-xs text-gray-400">{label}</span>
+          <span className="text-sm">{contactValue}</span>
+        </div>
       </div>
     );
   };

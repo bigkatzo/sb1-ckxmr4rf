@@ -88,7 +88,7 @@ SELECT
     c.name as collection_name,
     c.user_id as collection_owner_id,
     CASE 
-        WHEN c.user_id = auth.uid() THEN NULL
+        WHEN c.user_id = auth.uid() THEN 'edit'
         WHEN ca.access_type IS NOT NULL THEN ca.access_type
         ELSE NULL
     END as access_type
