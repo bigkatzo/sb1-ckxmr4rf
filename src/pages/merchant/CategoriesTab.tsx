@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { CategoryForm } from '../../components/merchant/forms/CategoryForm';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
@@ -8,8 +8,9 @@ import { EditButton } from '../../components/ui/EditButton';
 import { DeleteButton } from '../../components/ui/DeleteButton';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
-import { CategoryDiamond } from '../../components/collections/CategoryDiamond';
 import { toast } from 'react-toastify';
+import { CategoryDiamond } from '../../components/collections/CategoryDiamond';
+import { getCategoryTypeInfo } from '../../components/collections/CategoryTypeInfo';
 
 export function CategoriesTab() {
   const [showForm, setShowForm] = useState(false);
@@ -132,12 +133,15 @@ export function CategoriesTab() {
                         {category.description}
                       </p>
                       <div className="mt-2">
-                        <CategoryDiamond 
-                          type={category.type}
-                          index={index}
-                          selected
-                          size="sm"
-                        />
+                        {(() => {
+                          const typeInfo = getCategoryTypeInfo(category.type, category.eligibilityRules?.rules || []);
+                          return (
+                            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
+                              {typeInfo.icon}
+                              <span className="font-medium">{typeInfo.label}</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
