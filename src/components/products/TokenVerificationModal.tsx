@@ -178,7 +178,6 @@ export function TokenVerificationModal({
       if (orderError) throw orderError;
 
       onSuccess();
-      toast.success('Order placed successfully!');
     } catch (error) {
       console.error('Order error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
