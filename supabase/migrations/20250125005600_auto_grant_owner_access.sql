@@ -5,19 +5,19 @@ BEGIN;
 CREATE OR REPLACE FUNCTION grant_owner_collection_access()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Insert access record for the owner
+    -- Insert access record with collection_owner_id for access checks
     INSERT INTO collection_access (
         collection_id,
         user_id,
+        collection_owner_id,
         access_type,
-        granted_by,
-        collection_owner_id
+        granted_by
     ) VALUES (
         NEW.id,        -- collection_id
-        NEW.user_id,   -- user_id
+        NEW.user_id,   -- user_id (collection creator)
+        NEW.user_id,   -- collection_owner_id (for access checks)
         'edit',        -- access_type
-        NEW.user_id,   -- granted_by (owner grants themselves access)
-        NEW.user_id    -- collection_owner_id
+        NEW.user_id    -- granted_by (same as user_id)
     );
     
     RETURN NEW;
@@ -35,15 +35,15 @@ CREATE TRIGGER auto_grant_owner_access
 INSERT INTO collection_access (
     collection_id,
     user_id,
+    collection_owner_id,
     access_type,
-    granted_by,
-    collection_owner_id
+    granted_by
 )
 SELECT 
     c.id,
     c.user_id,
-    'edit',
     c.user_id,
+    'edit',
     c.user_id
 FROM collections c
 WHERE NOT EXISTS (
