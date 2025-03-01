@@ -62,13 +62,15 @@ export async function createCollection(data: FormData) {
         visible: data.get('visible') === 'true',
         sale_ended: data.get('sale_ended') === 'true',
         tags,
-        user_id: user.id
+        user_id: user.id,
+        owner: user.id
       };
 
       // Log the exact data being sent to the database
       console.log('Attempting to create collection with data:', {
         ...collectionData,
         user_id: '[REDACTED]',
+        owner: '[REDACTED]',
         _debug: {
           formDataKeys: Array.from(data.keys()),
           visibleValue: data.get('visible'),
