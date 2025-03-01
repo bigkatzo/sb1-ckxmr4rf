@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Image as ImageIcon, Star, Pencil, Trash2, X, Wallet, Store, Unlink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Star, X, Wallet, Store, Unlink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { EditButton } from '../ui/EditButton';
-import { StarButton } from '../ui/StarButton';
 import { DeleteButton } from '../ui/DeleteButton';
 import { Toggle } from '../ui/Toggle';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
@@ -38,7 +37,6 @@ export function WalletManagement() {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [editingWallet, setEditingWallet] = useState<MerchantWallet | null>(null);
   const [deletingWallet, setDeletingWallet] = useState<MerchantWallet | null>(null);
-  const [newWallet, setNewWallet] = useState({ address: '', label: '' });
 
   async function fetchData() {
     try {
@@ -91,7 +89,7 @@ export function WalletManagement() {
 
   const handleToggleMain = async (id: string, isMain: boolean) => {
     try {
-      await setMainWallet(id, !isMain);
+      await setMainWallet(id);
       fetchData();
       toast.success(isMain ? 'Main wallet unset' : 'Main wallet set');
     } catch (error) {
@@ -179,7 +177,7 @@ export function WalletManagement() {
     if (error) throw error;
   };
 
-  const setMainWallet = async (id: string, isMain: boolean) => {
+  const setMainWallet = async (id: string) => {
     const { error } = await supabase
       .rpc('set_main_wallet', {
         p_wallet_id: id
@@ -277,7 +275,7 @@ export function WalletManagement() {
                   />
                   <Toggle
                     checked={wallet.is_active}
-                    onChange={() => handleToggleActive(wallet.id, wallet.is_active)}
+                    onCheckedChange={() => handleToggleActive(wallet.id, wallet.is_active)}
                     size="sm"
                   />
                 </div>
@@ -460,16 +458,21 @@ export function WalletManagement() {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && deletingWallet && (
         <ConfirmDialog
+          open={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setDeletingWallet(null);
+          }}
           title="Delete Wallet"
-          message={`Are you sure you want to delete this wallet? ${
+          description={`Are you sure you want to delete this wallet? ${
             deletingWallet.is_main ? 'Warning: This is currently set as the main wallet.' : ''
           }`}
+          confirmLabel="Delete"
           onConfirm={async () => {
             try {
-              const { error } = await supabase
-                .from('merchant_wallets')
-                .delete()
-                .eq('id', deletingWallet.id);
+              const { error } = await supabase.rpc('delete_wallet', {
+                p_wallet_id: deletingWallet.id
+              });
 
               if (error) throw error;
               fetchData();
@@ -481,10 +484,6 @@ export function WalletManagement() {
               setShowDeleteModal(false);
               setDeletingWallet(null);
             }
-          }}
-          onCancel={() => {
-            setShowDeleteModal(false);
-            setDeletingWallet(null);
           }}
         />
       )}
