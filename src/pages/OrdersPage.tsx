@@ -3,12 +3,13 @@ import { useWallet } from '../contexts/WalletContext';
 import { useOrders } from '../hooks/useOrders';
 import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import type { OrderStatus } from '../types/orders';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
-  const { orders, loading } = useOrders(walletAddress);
+  const { orders, loading } = useOrders();
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
         return <Clock className="h-4 w-4 text-yellow-400" />;
@@ -23,7 +24,7 @@ export function OrdersPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
         return 'bg-yellow-500/10 text-yellow-500';
@@ -104,7 +105,7 @@ export function OrdersPage() {
               {/* Order Header */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 pb-4 border-b border-gray-800">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm font-medium text-gray-300">#{order.orderNumber}</span>
+                  <span className="text-sm font-medium text-gray-300">Order ID: {order.id.slice(0, 8)}</span>
                   <span className="text-[10px] text-gray-500">•</span>
                   <span className="text-xs text-gray-400">
                     {formatDistanceToNow(order.createdAt, { addSuffix: true })}
@@ -120,38 +121,17 @@ export function OrdersPage() {
 
               {/* Product Info */}
               <div className="flex gap-4">
-                {order.product.imageUrl ? (
-                  <img
-                    src={order.product.imageUrl}
-                    alt={order.product.name}
-                    className="w-20 h-20 rounded object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-                    <Package className="h-6 w-6 text-gray-600" />
-                  </div>
-                )}
-                
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium text-sm">{order.product.name}</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">SKU: {order.product.sku}</p>
-                  
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {order.product.collection && (
-                      <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
-                        {order.product.collection.name}
-                      </span>
-                    )}
-                    {order.product.category && (
-                      <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
-                        {order.product.category.name}
-                      </span>
-                    )}
+                    <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
+                      {order.product.collection.name}
+                    </span>
                   </div>
 
                   <div className="mt-2">
                     <span className="text-sm font-medium">
-                      {order.product.price} SOL
+                      {order.amountSol} SOL
                     </span>
                   </div>
                 </div>
@@ -159,42 +139,37 @@ export function OrdersPage() {
 
               {/* Order Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
-                {/* Variant Info */}
-                {order.variants && order.variants.length > 0 && (
+                {/* Shipping Info */}
+                {order.shippingAddress && (
                   <div>
-                    <h4 className="text-xs font-medium text-gray-300 mb-1">Variants</h4>
-                    <div className="space-y-0.5">
-                      {order.variants.map((variant, index) => (
-                        <p key={index} className="text-xs text-gray-400">
-                          {variant.name}: <span className="text-gray-300">{variant.value}</span>
-                        </p>
-                      ))}
-                    </div>
+                    <h4 className="text-xs font-medium text-gray-300 mb-1">Shipping Details</h4>
+                    <pre className="text-xs text-gray-400 font-mono bg-gray-950 p-2 rounded whitespace-pre-wrap">
+                      {JSON.stringify(order.shippingAddress, null, 2)}
+                    </pre>
                   </div>
                 )}
 
-                {/* Shipping Info */}
-                <div>
-                  <h4 className="text-xs font-medium text-gray-300 mb-1">Shipping Details</h4>
-                  <p className="text-xs text-gray-400 whitespace-pre-line">
-                    {order.shippingInfo.address}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Contact ({order.shippingInfo.contactMethod}): {order.shippingInfo.contactValue}
-                  </p>
-                </div>
+                {/* Contact Info */}
+                {order.contactInfo && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-300 mb-1">Contact Info</h4>
+                    <pre className="text-xs text-gray-400 font-mono bg-gray-950 p-2 rounded whitespace-pre-wrap">
+                      {JSON.stringify(order.contactInfo, null, 2)}
+                    </pre>
+                  </div>
+                )}
 
                 {/* Transaction Info */}
                 <div className="sm:col-span-2 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-gray-400">Transaction:</span>
                     <a
-                      href={`https://solscan.io/tx/${order.transactionId}`}
+                      href={`https://solscan.io/tx/${order.transactionSignature}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
                     >
-                      {order.transactionId.slice(0, 8)}...{order.transactionId.slice(-8)}
+                      {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>

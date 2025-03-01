@@ -2,75 +2,39 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Order } from '../types/orders';
 
-export function useOrders(walletAddress?: string | null) {
+export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
-    if (!walletAddress) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
 
       const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          variants,
-          shipping_info,
-          transaction_id,
-          transaction_status,
-          wallet_address,
-          status,
-          created_at,
-          updated_at,
-          product:product_id (
-            id,
-            name,
-            sku,
-            price,
-            images,
-            collection:collection_id (
-              name
-            ),
-            category:category_id (
-              name
-            )
-          )
-        `)
-        .eq('wallet_address', walletAddress)
+        .from('user_orders')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       const transformedOrders: Order[] = (data || []).map(order => ({
         id: order.id,
-        orderNumber: order.order_number,
         product: {
-          name: order.product.name,
-          sku: order.product.sku,
-          price: order.product.price,
-          imageUrl: order.product.images?.[0],
-          collection: order.product.collection ? {
-            name: order.product.collection.name
-          } : undefined,
-          category: order.product.category ? {
-            name: order.product.category.name
-          } : undefined
+          id: order.product_id,
+          name: order.product_name,
+          collection: {
+            id: order.collection_id,
+            name: order.collection_name
+          }
         },
-        variants: order.variants,
-        shippingInfo: order.shipping_info,
-        transactionId: order.transaction_id,
-        transactionStatus: order.transaction_status,
         walletAddress: order.wallet_address,
+        transactionSignature: order.transaction_signature,
+        shippingAddress: order.shipping_address,
+        contactInfo: order.contact_info,
         status: order.status,
+        amountSol: order.amount_sol,
         createdAt: new Date(order.created_at),
         updatedAt: new Date(order.updated_at)
       }));
@@ -82,20 +46,19 @@ export function useOrders(walletAddress?: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [walletAddress]);
+  }, []);
 
   useEffect(() => {
     fetchOrders();
 
     // Set up realtime subscription
-    const channel = supabase.channel('orders')
+    const channel = supabase.channel('user_orders')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'orders',
-          filter: `wallet_address=eq.${walletAddress}`
+          table: 'orders'
         },
         () => {
           fetchOrders();
@@ -106,7 +69,7 @@ export function useOrders(walletAddress?: string | null) {
     return () => {
       channel.unsubscribe();
     };
-  }, [fetchOrders, walletAddress]);
+  }, [fetchOrders]);
 
   return { 
     orders, 

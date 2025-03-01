@@ -4,20 +4,20 @@ import type { Order } from '../types/orders';
 
 interface RawOrder {
   id: string;
-  order_number: string;
-  product_name: string;
-  product_sku: string;
-  product_price: number;
-  product_image: string | null;
+  product_id: string;
   collection_id: string;
-  collection_name: string;
-  category_name: string | null;
-  variants: any;
-  shipping_info: any;
-  transaction_id: string;
-  status: Order['status'];
   wallet_address: string;
+  transaction_signature: string;
+  shipping_address: any;
+  contact_info: any;
+  status: Order['status'];
+  amount_sol: number;
   created_at: string;
+  updated_at: string;
+  product_name: string;
+  collection_name: string;
+  collection_owner_id: string;
+  access_type: string | null;
 }
 
 export function useMerchantOrders() {
@@ -31,35 +31,32 @@ export function useMerchantOrders() {
       setError(null);
 
       const { data, error } = await supabase
-        .rpc('get_merchant_orders', {
-          p_limit: 100,
-          p_offset: 0
-        });
+        .from('merchant_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       const transformedOrders: Order[] = (data || []).map((order: RawOrder) => ({
         id: order.id,
-        orderNumber: order.order_number,
         product: {
+          id: order.product_id,
           name: order.product_name,
-          sku: order.product_sku,
-          price: order.product_price,
-          imageUrl: order.product_image,
-          collection: order.collection_name ? {
+          collection: {
             id: order.collection_id,
-            name: order.collection_name
-          } : undefined,
-          category: order.category_name ? {
-            name: order.category_name
-          } : undefined
+            name: order.collection_name,
+            ownerId: order.collection_owner_id
+          }
         },
-        variants: order.variants,
-        shippingInfo: order.shipping_info,
-        transactionId: order.transaction_id,
-        status: order.status,
         walletAddress: order.wallet_address,
-        createdAt: new Date(order.created_at)
+        transactionSignature: order.transaction_signature,
+        shippingAddress: order.shipping_address,
+        contactInfo: order.contact_info,
+        status: order.status,
+        amountSol: order.amount_sol,
+        createdAt: new Date(order.created_at),
+        updatedAt: new Date(order.updated_at),
+        accessType: order.access_type
       }));
 
       setOrders(transformedOrders);
@@ -97,10 +94,10 @@ export function useMerchantOrders() {
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     try {
-      const { error } = await supabase.rpc('update_order_status', {
-        p_order_id: orderId,
-        p_status: status
-      });
+      const { error } = await supabase
+        .from('orders')
+        .update({ status })
+        .eq('id', orderId);
 
       if (error) throw error;
       await fetchOrders();

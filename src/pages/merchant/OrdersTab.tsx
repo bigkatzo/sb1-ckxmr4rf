@@ -11,9 +11,9 @@ import type { Order, OrderStatus } from '../../types/orders';
 export function OrdersTab() {
   const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
   const { collections } = useMerchantCollections();
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Extract unique products from filtered orders
   const products = React.useMemo(() => {
@@ -21,10 +21,10 @@ export function OrdersTab() {
     
     orders.forEach(order => {
       // Only add products if no collection is selected or if they belong to the selected collection
-      if (!selectedCollection || order.product.collection?.id === selectedCollection) {
-        productsMap.set(order.product.sku, {
-          id: order.product.sku,
-          name: `${order.product.name} (${order.product.sku})`
+      if (!selectedCollection || order.product.collection.id === selectedCollection) {
+        productsMap.set(order.product.id, {
+          id: order.product.id,
+          name: order.product.name
         });
       }
     });
@@ -52,18 +52,28 @@ export function OrdersTab() {
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
       // Filter by collection if selected
-      if (selectedCollection && order.product.collection?.id !== selectedCollection) {
+      if (selectedCollection && order.product.collection.id !== selectedCollection) {
         return false;
       }
 
       // Filter by product if selected
-      if (selectedProduct && order.product.sku !== selectedProduct) {
+      if (selectedProduct && order.product.id !== selectedProduct) {
         return false;
+      }
+
+      // Filter by search query
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          order.walletAddress.toLowerCase().includes(searchLower) ||
+          order.transactionSignature.toLowerCase().includes(searchLower) ||
+          order.product.name.toLowerCase().includes(searchLower)
+        );
       }
 
       return true;
     });
-  }, [orders, selectedCollection, selectedProduct]);
+  }, [orders, selectedCollection, selectedProduct, searchQuery]);
 
   if (loading) {
     return (

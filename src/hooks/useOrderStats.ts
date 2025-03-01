@@ -35,22 +35,24 @@ export function useOrderStats(productId: string) {
         return;
       }
 
-      const { count, error } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
+      const { data, error } = await supabase
+        .from('public_order_counts')
+        .select('total_orders')
         .eq('product_id', productId)
-        .neq('status', 'cancelled');
+        .single();
 
       if (error) throw error;
 
+      const orderCount = data?.total_orders || 0;
+
       // Update cache
       statsCache.set(productId, {
-        value: count || 0,
+        value: orderCount,
         timestamp: now
       });
 
       setStats({
-        currentOrders: count || 0,
+        currentOrders: orderCount,
         loading: false,
         error: null
       });

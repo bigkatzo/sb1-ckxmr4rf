@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Image as ImageIcon, ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
 
@@ -45,35 +45,16 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
       {orders.map((order) => (
         <div key={order.id} className="bg-gray-900 rounded-lg p-3 group">
           <div className="flex items-start gap-3">
-            {order.product.imageUrl ? (
-              <img
-                src={order.product.imageUrl}
-                alt={order.product.name}
-                className="w-16 h-16 rounded object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-                <ImageIcon className="h-5 w-5 text-gray-600" />
-              </div>
-            )}
-            
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
                   <p className="text-gray-400 text-xs mt-1">
-                    SKU: {order.product.sku}
+                    Collection: {order.product.collection.name}
                   </p>
-                  {order.product.collection && (
-                    <p className="text-gray-400 text-xs mt-1">
-                      Collection: {order.product.collection.name}
-                    </p>
-                  )}
-                  {order.product.category && (
-                    <p className="text-gray-400 text-xs mt-1">
-                      Category: {order.product.category.name}
-                    </p>
-                  )}
+                  <p className="text-gray-400 text-xs mt-1">
+                    Amount: {order.amountSol} SOL
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
@@ -101,33 +82,53 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                   <div>
                     <span className="font-medium">Order ID:</span> {order.id}
                   </div>
-                  <div>
-                    <span className="font-medium">Wallet:</span> {order.walletAddress}
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">Wallet:</span>
+                    <a 
+                      href={`https://solscan.io/account/${order.walletAddress}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                    >
+                      {order.walletAddress.slice(0, 4)}...{order.walletAddress.slice(-4)}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">Transaction:</span>
+                    <a 
+                      href={`https://solscan.io/tx/${order.transactionSignature}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                    >
+                      {order.transactionSignature.slice(0, 4)}...{order.transactionSignature.slice(-4)}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
                   </div>
                   <div>
                     <span className="font-medium">Created:</span> {formatDistanceToNow(order.createdAt, { addSuffix: true })}
                   </div>
                 </div>
                 
-                {order.variants && order.variants.length > 0 && (
+                {order.shippingAddress && (
                   <div className="mt-2">
-                    <span className="font-medium">Variants:</span>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {order.variants.map((variant, index) => (
-                        <span key={index} className="bg-gray-800 px-2 py-1 rounded">
-                          {variant.name}: {variant.value}
-                        </span>
-                      ))}
+                    <span className="font-medium">Shipping Info:</span>
+                    <div className="mt-1">
+                      <pre className="whitespace-pre-wrap text-xs font-mono bg-gray-950 p-2 rounded">
+                        {JSON.stringify(order.shippingAddress, null, 2)}
+                      </pre>
                     </div>
                   </div>
                 )}
                 
-                {order.shippingInfo && (
+                {order.contactInfo && (
                   <div className="mt-2">
-                    <span className="font-medium">Shipping Info:</span>
+                    <span className="font-medium">Contact Info:</span>
                     <div className="mt-1">
-                      <div>Address: {order.shippingInfo.address}</div>
-                      <div>Contact: {order.shippingInfo.contactType} - {order.shippingInfo.contactValue}</div>
+                      <pre className="whitespace-pre-wrap text-xs font-mono bg-gray-950 p-2 rounded">
+                        {JSON.stringify(order.contactInfo, null, 2)}
+                      </pre>
                     </div>
                   </div>
                 )}

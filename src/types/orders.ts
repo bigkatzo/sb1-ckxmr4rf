@@ -26,32 +26,37 @@ export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'c
 
 export interface Order {
   id: string;
-  orderNumber: string;
-  status: OrderStatus;
-  walletAddress: string;
-  transactionId: string;
   product: {
     id: string;
     name: string;
-    sku: string;
-    imageUrl?: string;
-    collection?: {
+    collection: {
       id: string;
       name: string;
-    };
-    category?: {
-      id: string;
-      name: string;
+      ownerId?: string;
     };
   };
-  variants?: Array<{
-    name: string;
-    value: string;
-  }>;
-  shippingInfo: {
-    address: string;
-    contactType: string;
-    contactValue: string;
-  };
+  walletAddress: string;
+  transactionSignature: string;
+  shippingAddress: any; // JSONB in database
+  contactInfo: any; // JSONB in database
+  status: OrderStatus;
+  amountSol: number;
   createdAt: Date;
+  updatedAt: Date;
+  accessType?: string | null;
+}
+
+// Type for the public order counts view
+export interface PublicOrderCount {
+  product_id: string;
+  collection_id: string;
+  total_orders: number;
+}
+
+// Type for merchant orders view
+export interface MerchantOrder extends Order {
+  product_name: string;
+  collection_name: string;
+  collection_owner_id: string;
+  access_type: string | null;
 }
