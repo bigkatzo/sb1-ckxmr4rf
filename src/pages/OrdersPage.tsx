@@ -163,6 +163,20 @@ export function OrdersPage() {
         <div className="space-y-4">
           {orders.map((order) => (
             <div key={order.id} className="bg-gray-900 rounded-lg p-4 group">
+              {/* Order Number Header */}
+              <div className="mb-4 pb-4 border-b border-gray-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-400">Order #</span>
+                    <span className="text-lg font-mono font-medium text-white">{order.order_number}</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm ${getStatusColor(order.status)}`}>
+                    {getStatusIcon(order.status)}
+                    <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-start gap-4">
                 {/* Product Image */}
                 <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
@@ -198,12 +212,6 @@ export function OrdersPage() {
                         Amount: {order.amountSol} SOL
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
-                        {getStatusIcon(order.status)}
-                        <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
-                      </div>
-                    </div>
                   </div>
                   
                   {/* Order Details */}
@@ -228,10 +236,6 @@ export function OrdersPage() {
                   {/* Transaction Info */}
                   <div className="mt-4 pt-4 border-t border-gray-800">
                     <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">Order #:</span>
-                        <span className="text-xs font-mono">{order.order_number}</span>
-                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-400">Transaction:</span>
                         <a

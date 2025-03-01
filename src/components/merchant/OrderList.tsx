@@ -120,6 +120,45 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
     <div className="space-y-4">
       {orders.map((order) => (
         <div key={order.id} className="bg-gray-900 rounded-lg p-4 group">
+          {/* Order Number Header */}
+          <div className="mb-4 pb-4 border-b border-gray-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-400">Order #</span>
+                <span className="text-lg font-mono font-medium text-white">{order.order_number}</span>
+              </div>
+              {/* Status */}
+              <div className="w-auto">
+                {onStatusUpdate ? (
+                  <div className="relative">
+                    <select
+                      value={order.status}
+                      onChange={(e) => onStatusUpdate(order.id, e.target.value as OrderStatus)}
+                      className={`appearance-none cursor-pointer flex items-center gap-1.5 pl-9 pr-8 py-1.5 rounded text-sm transition-colors ${getStatusColor(order.status)}`}
+                    >
+                      <option value="pending" className="bg-gray-900 pl-6">Pending</option>
+                      <option value="confirmed" className="bg-gray-900 pl-6">Confirmed</option>
+                      <option value="shipped" className="bg-gray-900 pl-6">Shipped</option>
+                      <option value="delivered" className="bg-gray-900 pl-6">Delivered</option>
+                      <option value="cancelled" className="bg-gray-900 pl-6">Cancelled</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </div>
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      {getStatusIcon(order.status)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm ${getStatusColor(order.status)}`}>
+                    {getStatusIcon(order.status)}
+                    <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-start gap-4">
             {/* Product Image */}
             <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
@@ -166,10 +205,6 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                   {/* Transaction Info */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
                     <div className="flex items-center gap-1">
-                      <span className="text-gray-500">Order #:</span>
-                      <span className="font-mono">{order.order_number}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
                       <span className="text-gray-500">Wallet:</span>
                       <a 
                         href={`https://solscan.io/account/${order.walletAddress}`}
@@ -198,36 +233,6 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                       <span>{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
                     </div>
                   </div>
-                </div>
-
-                {/* Status */}
-                <div className="w-full sm:w-auto">
-                  {onStatusUpdate ? (
-                    <div className="relative w-full sm:w-auto">
-                      <select
-                        value={order.status}
-                        onChange={(e) => onStatusUpdate(order.id, e.target.value as OrderStatus)}
-                        className={`w-full sm:w-auto appearance-none cursor-pointer flex items-center gap-1.5 pl-9 pr-8 py-1.5 rounded text-sm transition-colors ${getStatusColor(order.status)}`}
-                      >
-                        <option value="pending" className="bg-gray-900 pl-6">Pending</option>
-                        <option value="confirmed" className="bg-gray-900 pl-6">Confirmed</option>
-                        <option value="shipped" className="bg-gray-900 pl-6">Shipped</option>
-                        <option value="delivered" className="bg-gray-900 pl-6">Delivered</option>
-                        <option value="cancelled" className="bg-gray-900 pl-6">Cancelled</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                        <ChevronDown className="h-4 w-4 opacity-50" />
-                      </div>
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                        {getStatusIcon(order.status)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm ${getStatusColor(order.status)}`}>
-                      {getStatusIcon(order.status)}
-                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
-                    </div>
-                  )}
                 </div>
               </div>
               
