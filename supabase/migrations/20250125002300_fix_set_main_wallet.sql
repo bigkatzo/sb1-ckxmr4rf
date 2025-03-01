@@ -20,7 +20,10 @@ BEGIN
 
   -- Update main wallet status in a single atomic operation
   UPDATE merchant_wallets
-  SET is_main = (id = p_wallet_id);
+  SET is_main = (id = p_wallet_id)
+  WHERE id IN (
+    SELECT id FROM merchant_wallets
+  );
 
   -- Verify we have a main wallet
   IF NOT EXISTS (SELECT 1 FROM merchant_wallets WHERE is_main = true) THEN
