@@ -197,6 +197,10 @@ export function OrdersPage() {
                   {/* Order Header */}
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-gray-400">Order #:</span>
+                        <span className="text-xs font-mono text-purple-400">{order.order_number}</span>
+                      </div>
                       <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
                       {order.product.sku && (
                         <p className="text-xs text-gray-400 mt-1">SKU: {order.product.sku}</p>
