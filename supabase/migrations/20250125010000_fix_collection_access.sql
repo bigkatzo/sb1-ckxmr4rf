@@ -18,16 +18,9 @@ DECLARE
   v_user_exists boolean;
   v_collection_exists boolean;
 BEGIN
-  -- Verify caller is admin or collection owner
-  IF NOT (
-    auth.is_admin() OR 
-    EXISTS (
-      SELECT 1 FROM collections 
-      WHERE id = p_collection_id 
-      AND user_id = auth.uid()
-    )
-  ) THEN
-    RAISE EXCEPTION 'Only admin or collection owner can grant access';
+  -- Verify caller is admin
+  IF NOT auth.is_admin() THEN
+    RAISE EXCEPTION 'Only admin can grant collection access';
   END IF;
 
   -- Validate access type
