@@ -39,11 +39,19 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   };
 
   const formatContactInfo = (contactInfo: any) => {
-    if (!contactInfo) return null;
+    if (!contactInfo || !contactInfo.contactMethod || !contactInfo.contactValue) return null;
     const { contactMethod, contactValue } = contactInfo;
     
     const getContactLink = () => {
-      const value = contactValue.startsWith('@') ? contactValue.slice(1) : contactValue;
+      if (!contactValue) return {
+        url: null,
+        display: 'N/A',
+        icon: <Send className="h-4 w-4 text-gray-400" />
+      };
+
+      const value = typeof contactValue === 'string' && contactValue.startsWith('@') 
+        ? contactValue.slice(1) 
+        : contactValue;
       
       switch (contactMethod) {
         case 'x':
