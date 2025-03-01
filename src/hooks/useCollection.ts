@@ -60,7 +60,7 @@ export function useCollection(slug: string) {
             .select('*')
             .eq('collection_id', collectionData.id),
           supabase
-            .from('public_products')
+            .from('public_products_with_categories')
             .select('*')
             .eq('collection_id', collectionData.id)
         ]);
@@ -96,6 +96,15 @@ export function useCollection(slug: string) {
             imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
             images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
             categoryId: product.category_id,
+            category: product.category_id ? {
+              id: product.category_id,
+              name: product.category_name,
+              description: product.category_description,
+              type: product.category_type,
+              eligibilityRules: {
+                rules: product.category_eligibility_rules?.rules || []
+              }
+            } : undefined,
             collectionId: collectionData.id,
             collectionName: collectionData.name,
             collectionSlug: collectionData.slug,
