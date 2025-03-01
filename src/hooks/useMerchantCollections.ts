@@ -92,26 +92,36 @@ export function useMerchantCollections() {
         return;
       }
 
-      // Transform data
-      const transformedCollections = rawCollections.map((collection: RawCollection) => ({
-        id: collection.id,
-        name: collection.name,
-        description: collection.description,
-        image_url: collection.image_url || '',
-        imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
-        launch_date: collection.launch_date,
-        launchDate: new Date(collection.launch_date),
-        featured: collection.featured,
-        visible: collection.visible,
-        sale_ended: collection.sale_ended,
-        saleEnded: collection.sale_ended,
-        slug: collection.slug,
-        user_id: collection.user_id,
-        categories: [],
-        products: [],
-        accessType: collection.access_type,
-        isOwner: collection.user_id === user.id || isAdmin
-      }));
+      // Transform and filter collections based on access
+      const transformedCollections = rawCollections
+        .filter((collection: RawCollection) => {
+          // Include collection if:
+          // 1. User is the owner
+          // 2. User has any access type (view/edit)
+          // 3. User is an admin
+          return collection.user_id === user.id || 
+                 collection.access_type !== null ||
+                 isAdmin;
+        })
+        .map((collection: RawCollection) => ({
+          id: collection.id,
+          name: collection.name,
+          description: collection.description,
+          image_url: collection.image_url || '',
+          imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
+          launch_date: collection.launch_date,
+          launchDate: new Date(collection.launch_date),
+          featured: collection.featured,
+          visible: collection.visible,
+          sale_ended: collection.sale_ended,
+          saleEnded: collection.sale_ended,
+          slug: collection.slug,
+          user_id: collection.user_id,
+          categories: [],
+          products: [],
+          accessType: collection.access_type,
+          isOwner: collection.user_id === user.id || isAdmin
+        }));
 
       setCollections(transformedCollections);
     } catch (err) {
