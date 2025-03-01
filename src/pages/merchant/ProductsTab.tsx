@@ -20,7 +20,7 @@ export function ProductsTab() {
 
   const { collections, loading: collectionsLoading } = useMerchantCollections();
   const { categories } = useCategories(selectedCollection);
-  const { products, loading: productsLoading, error: productsError, refreshProducts } = useProducts(selectedCollection);
+  const { products, loading: productsLoading, error: productsError, refreshProducts } = useProducts(selectedCollection, undefined, true);
 
   const handleSubmit = async (data: FormData) => {
     try {

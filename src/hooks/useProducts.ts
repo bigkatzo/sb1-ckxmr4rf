@@ -4,7 +4,7 @@ import { handleError, isValidId } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
 import type { Product } from '../types';
 
-export function useProducts(collectionId?: string, categoryId?: string) {
+export function useProducts(collectionId?: string, categoryId?: string, isMerchant: boolean = false) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +28,7 @@ export function useProducts(collectionId?: string, categoryId?: string) {
       setLoading(true);
 
       let query = supabase
-        .from('public_products')
+        .from(isMerchant ? 'merchant_products' : 'public_products_with_categories')
         .select('*')
         .eq('collection_id', collectionId)
         .order('id', { ascending: true });
@@ -50,6 +50,15 @@ export function useProducts(collectionId?: string, categoryId?: string) {
         imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
         images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
         categoryId: product.category_id,
+        category: product.category_id ? {
+          id: product.category_id,
+          name: product.category_name,
+          description: product.category_description,
+          type: product.category_type,
+          eligibilityRules: {
+            rules: product.category_eligibility_rules?.rules || []
+          }
+        } : undefined,
         collectionId: product.collection_id,
         collectionName: product.collection_name,
         collectionSlug: product.collection_slug,
@@ -69,7 +78,7 @@ export function useProducts(collectionId?: string, categoryId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [collectionId, categoryId]);
+  }, [collectionId, categoryId, isMerchant]);
 
   useEffect(() => {
     fetchProducts();

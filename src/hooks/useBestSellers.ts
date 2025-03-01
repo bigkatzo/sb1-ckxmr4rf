@@ -5,6 +5,31 @@ import { normalizeStorageUrl } from '../lib/storage';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
 import type { Product } from '../types';
 
+interface PublicProduct {
+  id: string;
+  sku: string;
+  name: string;
+  description: string;
+  price: number;
+  images: string[];
+  quantity: number;
+  minimum_order_quantity: number;
+  category_id: string;
+  category_name?: string;
+  category_description?: string;
+  category_type?: string;
+  category_eligibility_rules?: { rules: Array<{ type: string; value: string }> };
+  collection_id: string;
+  collection_name: string;
+  collection_slug: string;
+  collection_launch_date: string;
+  collection_sale_ended: boolean;
+  slug: string;
+  variants: any[];
+  variant_prices: Record<string, number>;
+  variant_stock?: Record<string, number>;
+}
+
 export function useBestSellers(limit = 6) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryIndices, setCategoryIndices] = useState<Record<string, number>>({});
@@ -22,7 +47,7 @@ export function useBestSellers(limit = 6) {
 
         if (error) throw error;
 
-        const transformedProducts = (data || []).map(product => ({
+        const transformedProducts = (data || []).map((product: PublicProduct) => ({
           id: product.id,
           sku: product.sku,
           name: product.name,
@@ -31,6 +56,15 @@ export function useBestSellers(limit = 6) {
           imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
           images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
           categoryId: product.category_id,
+          category: product.category_id ? {
+            id: product.category_id,
+            name: product.category_name,
+            description: product.category_description,
+            type: product.category_type,
+            eligibilityRules: {
+              rules: product.category_eligibility_rules?.rules || []
+            }
+          } : undefined,
           collectionId: product.collection_id,
           collectionName: product.collection_name,
           collectionSlug: product.collection_slug,
