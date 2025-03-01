@@ -1,6 +1,16 @@
--- Add deleted_at column to user_profiles
-ALTER TABLE user_profiles 
-ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+-- Add is_deleted column to auth.users if it doesn't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'auth' 
+    AND table_name = 'users' 
+    AND column_name = 'is_deleted'
+  ) THEN
+    ALTER TABLE auth.users ADD COLUMN is_deleted boolean DEFAULT false;
+    CREATE INDEX idx_users_is_deleted ON auth.users(is_deleted) WHERE is_deleted = true;
+  END IF;
+END $$;
 
 -- Drop existing delete_user function
 DROP FUNCTION IF EXISTS public.delete_user(uuid) CASCADE;
@@ -23,6 +33,14 @@ BEGIN
     RAISE EXCEPTION 'Cannot delete admin user';
   END IF;
 
+  -- Check if user exists and is not already deleted
+  IF NOT EXISTS (
+    SELECT 1 FROM auth.users
+    WHERE id = p_user_id AND NOT is_deleted
+  ) THEN
+    RAISE EXCEPTION 'User not found or already deleted';
+  END IF;
+
   -- First, delete any collection access entries
   DELETE FROM public.collection_access
   WHERE user_id = p_user_id;
@@ -31,32 +49,27 @@ BEGIN
   DELETE FROM public.collections
   WHERE user_id = p_user_id;
 
-  -- Soft delete the user profile
-  UPDATE public.user_profiles
-  SET 
-    deleted_at = now(),
-    role = 'deleted'  -- Optional: mark role as deleted
+  -- Delete user profile
+  DELETE FROM public.user_profiles
   WHERE id = p_user_id;
 
-  -- Deactivate the auth.users account
+  -- Soft delete the user by marking them as deleted
   UPDATE auth.users
   SET 
+    is_deleted = true,
     raw_app_meta_data = raw_app_meta_data || jsonb_build_object('deleted_at', extract(epoch from now())),
-    raw_user_meta_data = raw_user_meta_data || jsonb_build_object('deleted_at', extract(epoch from now())),
-    email = id || '@deleted.merchant.local',  -- Prevent email reuse
-    encrypted_password = NULL,  -- Prevent login
-    email_confirmed_at = NULL,
-    disabled = true
+    updated_at = now()
   WHERE id = p_user_id;
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'User not found';
-  END IF;
+  -- Also disable their account
+  UPDATE auth.users
+  SET raw_user_meta_data = raw_user_meta_data || jsonb_build_object('disabled', true)
+  WHERE id = p_user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, auth;
 
--- Update list_users to exclude deleted users by default
+-- Create function to list users that excludes deleted users
 CREATE OR REPLACE FUNCTION public.list_users()
 RETURNS TABLE (
   id uuid,
@@ -64,8 +77,7 @@ RETURNS TABLE (
   role text,
   created_at timestamptz,
   collections_count bigint,
-  access_count bigint,
-  deleted_at timestamptz
+  access_count bigint
 ) AS $$
 BEGIN
   -- Verify caller is admin using auth.is_admin()
@@ -80,17 +92,15 @@ BEGIN
     COALESCE(p.role, 'user')::text as role,
     u.created_at,
     COUNT(DISTINCT c.id) as collections_count,
-    COUNT(DISTINCT ca.collection_id) as access_count,
-    p.deleted_at
+    COUNT(DISTINCT ca.collection_id) as access_count
   FROM auth.users u
   LEFT JOIN user_profiles p ON p.id = u.id
   LEFT JOIN collections c ON c.user_id = u.id
   LEFT JOIN collection_access ca ON ca.user_id = u.id
   WHERE u.email != 'admin420@merchant.local'  -- Exclude admin420
-  GROUP BY u.id, u.email, p.role, u.created_at, p.deleted_at
-  ORDER BY 
-    COALESCE(p.deleted_at, 'infinity'::timestamptz), -- Show active users first
-    u.created_at DESC;
+    AND (NOT u.is_deleted)  -- Exclude deleted users
+  GROUP BY u.id, u.email, p.role, u.created_at
+  ORDER BY u.created_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -99,5 +109,5 @@ GRANT EXECUTE ON FUNCTION delete_user(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION list_users() TO authenticated;
 
 -- Add documentation
-COMMENT ON FUNCTION delete_user(uuid) IS 'Soft deletes a user by marking them as deleted and deactivating their account. Deletes their collections and access but preserves audit history. Only admins can delete users, and admin420 cannot be deleted.';
-COMMENT ON FUNCTION list_users() IS 'Lists all users including deleted ones (admin only). Results are ordered with active users first, then deleted users.'; 
+COMMENT ON FUNCTION delete_user(uuid) IS 'Soft deletes a user by marking them as deleted and cleaning up their collections and access. Only admins can delete users, and admin420 cannot be deleted.';
+COMMENT ON FUNCTION list_users() IS 'Lists all non-deleted users with their roles and related counts. Only admins can list users, and admin420 is excluded from results.'; 
