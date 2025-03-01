@@ -11,19 +11,26 @@ EXCEPTION
   WHEN undefined_object THEN null;
 END $$;
 
--- Alter orders table
+-- Add new columns
 ALTER TABLE orders
-  -- Add new columns
-  ADD COLUMN IF NOT EXISTS collection_id uuid REFERENCES collections(id) ON DELETE CASCADE,
-  ADD COLUMN IF NOT EXISTS amount_sol numeric(20,9),
-  -- Rename columns
-  RENAME COLUMN transaction_id TO transaction_signature,
-  -- Drop old columns
-  DROP COLUMN IF EXISTS transaction_status,
-  DROP COLUMN IF EXISTS variants,
-  -- Rename shipping_info to shipping_address
-  RENAME COLUMN shipping_info TO shipping_address,
-  -- Add contact_info column
+  ADD COLUMN IF NOT EXISTS collection_id uuid REFERENCES collections(id) ON DELETE CASCADE;
+
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS amount_sol numeric(20,9);
+
+-- Drop old columns
+ALTER TABLE orders
+  DROP COLUMN IF EXISTS transaction_status;
+
+ALTER TABLE orders
+  DROP COLUMN IF EXISTS variants;
+
+-- Rename shipping_info to shipping_address
+ALTER TABLE orders
+  RENAME COLUMN shipping_info TO shipping_address;
+
+-- Add contact_info column
+ALTER TABLE orders
   ADD COLUMN IF NOT EXISTS contact_info jsonb;
 
 -- Update collection_id based on product's collection
