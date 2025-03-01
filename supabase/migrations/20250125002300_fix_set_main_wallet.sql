@@ -4,8 +4,6 @@ DROP FUNCTION IF EXISTS set_main_wallet(uuid);
 -- Create improved set_main_wallet function
 CREATE OR REPLACE FUNCTION set_main_wallet(p_wallet_id uuid)
 RETURNS void AS $$
-DECLARE
-  v_constraint_exists boolean;
 BEGIN
   -- Verify caller is admin
   IF NOT auth.is_admin() THEN
@@ -20,17 +18,6 @@ BEGIN
     RAISE EXCEPTION 'Cannot set inactive wallet as main';
   END IF;
 
-  -- Check if constraint exists
-  SELECT EXISTS (
-    SELECT 1 FROM pg_constraint 
-    WHERE conname = 'idx_merchant_wallets_main'
-  ) INTO v_constraint_exists;
-
-  -- Drop the unique constraint if it exists
-  IF v_constraint_exists THEN
-    ALTER TABLE merchant_wallets DROP CONSTRAINT idx_merchant_wallets_main;
-  END IF;
-
   -- First, unset all main wallets
   UPDATE merchant_wallets
   SET is_main = false
@@ -40,12 +27,6 @@ BEGIN
   UPDATE merchant_wallets
   SET is_main = true
   WHERE id = p_wallet_id;
-
-  -- Recreate the unique constraint
-  ALTER TABLE merchant_wallets
-  ADD CONSTRAINT idx_merchant_wallets_main
-  UNIQUE (is_main)
-  WHERE is_main = true;
 
   -- Verify we have a main wallet
   IF NOT EXISTS (SELECT 1 FROM merchant_wallets WHERE is_main = true) THEN

@@ -87,7 +87,7 @@ export function WalletManagement() {
     }
   };
 
-  const handleToggleMain = async (id: string, isMain: boolean) => {
+  const handleToggleMain = async (id: string) => {
     try {
       await setMainWallet(id);
       fetchData();
@@ -249,7 +249,7 @@ export function WalletManagement() {
                 
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => handleToggleMain(wallet.id, wallet.is_main)}
+                    onClick={() => handleToggleMain(wallet.id)}
                     className={`p-2 rounded-lg transition-colors ${
                       wallet.is_main 
                         ? 'text-yellow-400 hover:text-yellow-500 bg-yellow-400/10 hover:bg-yellow-400/20' 
