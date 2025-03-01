@@ -25,10 +25,6 @@ ALTER TABLE orders
 ALTER TABLE orders
   DROP COLUMN IF EXISTS variants;
 
--- Rename shipping_info to shipping_address
-ALTER TABLE orders
-  RENAME COLUMN shipping_info TO shipping_address;
-
 -- Add contact_info column
 ALTER TABLE orders
   ADD COLUMN IF NOT EXISTS contact_info jsonb;
@@ -85,6 +81,9 @@ FROM orders o
 JOIN products p ON p.id = o.product_id
 JOIN collections c ON c.id = o.collection_id;
 
+-- Drop existing view if it exists
+DROP VIEW IF EXISTS merchant_orders CASCADE;
+
 -- Create merchant dashboard view for orders
 CREATE OR REPLACE VIEW merchant_orders AS
 SELECT 
@@ -102,7 +101,25 @@ SELECT
 FROM orders o
 JOIN products p ON p.id = o.product_id
 JOIN collections c ON c.id = o.collection_id
-LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid();
+LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
+WHERE 
+    -- Collection owners can view orders
+    c.user_id = auth.uid()
+    OR
+    -- Users with collection access can view orders
+    EXISTS (
+        SELECT 1 FROM collection_access
+        WHERE collection_id = c.id
+        AND user_id = auth.uid()
+        AND access_type IN ('view', 'edit')
+    )
+    OR
+    -- Admins can view all orders
+    EXISTS (
+        SELECT 1 FROM user_profiles up
+        WHERE up.id = auth.uid()
+        AND up.role = 'admin'
+    );
 
 -- Create RLS policies
 CREATE POLICY "orders_count_public_view"
