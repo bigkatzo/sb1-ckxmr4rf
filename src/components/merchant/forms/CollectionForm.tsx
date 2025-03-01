@@ -7,7 +7,7 @@ import type { Collection } from '../../../types';
 import { Dialog } from '@headlessui/react';
 
 export interface CollectionFormProps {
-  collection?: Partial<Collection>;
+  collection?: Partial<Collection & { tags?: string[] }>;
   onSubmit: (data: FormData) => Promise<void>;
   onClose: () => void;
 }
@@ -24,6 +24,12 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const [removeImage, setRemoveImage] = useState(false);
   const [tags, setTags] = useState<string[]>(collection?.tags || []);
   const [tagInput, setTagInput] = useState('');
+  const [description, setDescription] = useState(collection?.description || '');
+  const [launchDate, setLaunchDate] = useState(
+    collection?.launchDate 
+      ? formatDateForInput(collection.launchDate)
+      : formatDateForInput(new Date())
+  );
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: { 'image/*': [] },
@@ -72,21 +78,31 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
     setLoading(true);
 
     try {
-      const formData = new FormData(e.currentTarget);
+      const formData = new FormData();
+      
+      // Add required fields
+      formData.append('name', name);
+      formData.append('description', description);
+      formData.append('launchDate', launchDate);
+      formData.append('slug', slug);
+      formData.append('visible', visible.toString());
+      formData.append('sale_ended', saleEnded.toString());
+      formData.append('tags', JSON.stringify(tags));
+
+      // Handle image
       if (image) {
         formData.append('image', image);
       }
       if (collection?.imageUrl && !removeImage) {
         formData.append('currentImageUrl', collection.imageUrl);
       }
-      formData.set('slug', slug);
-      formData.set('visible', visible.toString());
-      formData.set('sale_ended', saleEnded.toString());
-      formData.set('removeImage', removeImage.toString());
-      formData.set('tags', JSON.stringify(tags));
+      formData.append('removeImage', removeImage.toString());
+
       await onSubmit(formData);
+      onClose();
     } catch (error) {
       console.error('Error submitting collection form:', error);
+      // You might want to show an error message to the user here
     } finally {
       setLoading(false);
     }
@@ -105,7 +121,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       onClose={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
-      <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+      <div className="fixed inset-0 bg-black/50" />
       
       <div className="relative w-full max-w-lg rounded-lg bg-gray-900 p-6">
         <button
@@ -122,7 +138,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium mb-1">
-              Name
+              Name *
             </label>
             <input
               type="text"
@@ -143,10 +159,26 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
             <textarea
               id="description"
               name="description"
-              value={collection?.description}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               rows={3}
               className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm"
               placeholder="Enter collection description"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="launchDate" className="block text-sm font-medium mb-1">
+              Launch Date *
+            </label>
+            <input
+              type="datetime-local"
+              id="launchDate"
+              name="launchDate"
+              value={launchDate}
+              onChange={(e) => setLaunchDate(e.target.value)}
+              required
+              className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm"
             />
           </div>
 
@@ -226,20 +258,6 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
           </div>
 
           <div>
-            <label htmlFor="launchDate" className="block text-sm font-medium mb-1">
-              Launch Date
-            </label>
-            <input
-              type="datetime-local"
-              id="launchDate"
-              name="launchDate"
-              value={formatDateForInput(collection?.launchDate)}
-              required
-              className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
             <label className="block text-sm font-medium mb-1">
               Tags
             </label>
@@ -279,24 +297,32 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
             <label className="block text-sm font-medium mb-1">
               Collection Visibility
             </label>
-            <Toggle
-              checked={visible}
-              onChange={setVisible}
-              label="Collection Visibility"
-              description="When disabled, this collection will be hidden from the homepage and search results"
-            />
+            <div className="flex flex-col gap-1">
+              <Toggle
+                checked={visible}
+                onCheckedChange={setVisible}
+                label="Collection Visibility"
+              />
+              <p className="text-xs text-gray-400 ml-11">
+                When disabled, this collection will be hidden from the homepage and search results
+              </p>
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">
               End Sale
             </label>
-            <Toggle
-              checked={saleEnded}
-              onChange={setSaleEnded}
-              label="End Sale"
-              description="When enabled, all sales will be disabled and products will show as 'Sale Ended'"
-            />
+            <div className="flex flex-col gap-1">
+              <Toggle
+                checked={saleEnded}
+                onCheckedChange={setSaleEnded}
+                label="End Sale"
+              />
+              <p className="text-xs text-gray-400 ml-11">
+                When enabled, all sales will be disabled and products will show as 'Sale Ended'
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-4 pt-4">
@@ -309,7 +335,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !name || !launchDate}
               className="flex-1 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Saving...' : collection ? 'Save Changes' : 'Create Collection'}

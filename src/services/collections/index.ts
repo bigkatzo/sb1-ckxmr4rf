@@ -9,6 +9,7 @@ export async function createCollection(data: FormData) {
   return withTransaction(async () => {
     // Get user if available, but don't require authentication
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be authenticated to create a collection');
 
     // Handle image upload first if present
     const imageFile = data.get('image') as File;
@@ -23,23 +24,41 @@ export async function createCollection(data: FormData) {
       }
     }
 
-    const launchDate = data.get('launchDate') as string;
-    const parsedDate = parseFormDate(launchDate);
-    const name = data.get('name') as string;
-    const slug = data.get('slug') as string || generateSlug(name);
-    const tags = JSON.parse(data.get('tags') as string || '[]');
+    // Get and validate required fields
+    const name = data.get('name');
+    if (!name) throw new Error('Collection name is required');
+
+    // Get launch date and ensure it's valid
+    const launchDate = data.get('launchDate');
+    if (!launchDate) throw new Error('Launch date is required');
+    const parsedDate = parseFormDate(launchDate as string);
+    if (!parsedDate) throw new Error('Invalid launch date format');
+
+    // Generate or get slug
+    const slug = data.get('slug') as string || generateSlug(name as string);
+    
+    // Parse tags with fallback
+    let tags = [];
+    try {
+      const tagsStr = data.get('tags');
+      if (tagsStr) {
+        tags = JSON.parse(tagsStr as string);
+      }
+    } catch (e) {
+      console.warn('Failed to parse tags, using empty array');
+    }
 
     const collectionData: CollectionData = {
       id: generateCollectionId(),
-      name,
-      description: data.get('description') as string,
-      image_url: imageUrl,
+      name: name as string,
+      description: data.get('description') as string || '',
+      image_url: imageUrl || null,
       launch_date: parsedDate.toISOString(),
       slug,
       visible: data.get('visible') === 'true',
       sale_ended: data.get('sale_ended') === 'true',
       tags,
-      user_id: user?.id || 'anonymous'  // Use user ID if available, otherwise use a default
+      user_id: user.id
     };
 
     const { data: collection, error } = await supabase
@@ -48,7 +67,12 @@ export async function createCollection(data: FormData) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505') { // Unique violation
+        throw new Error('A collection with this ID already exists. Please try a different one.');
+      }
+      throw error;
+    }
     if (!collection) throw new Error('Failed to create collection');
 
     return collection;
