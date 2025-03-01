@@ -7,6 +7,11 @@ DO $$ BEGIN
   DROP POLICY IF EXISTS "orders_select_merchant" ON orders;
   DROP POLICY IF EXISTS "orders_update_merchant" ON orders;
   DROP POLICY IF EXISTS "orders_insert_authenticated" ON orders;
+  DROP POLICY IF EXISTS "orders_count_public_view" ON orders;
+  DROP POLICY IF EXISTS "orders_user_view" ON orders;
+  DROP POLICY IF EXISTS "orders_merchant_view" ON orders;
+  DROP POLICY IF EXISTS "orders_merchant_update" ON orders;
+  DROP POLICY IF EXISTS "orders_insert" ON orders;
 EXCEPTION
   WHEN undefined_object THEN null;
 END $$;
@@ -139,13 +144,8 @@ ON orders
 FOR SELECT
 TO authenticated
 USING (
-    wallet_address = (
-        SELECT wallet_address 
-        FROM wallets w 
-        WHERE w.user_id = auth.uid() 
-        AND w.is_primary = true
-        LIMIT 1
-    )
+    -- Users can view their own orders by matching wallet address
+    wallet_address = auth.jwt()->>'wallet_address'
 );
 
 CREATE POLICY "orders_merchant_view"
