@@ -1,20 +1,41 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useWallet } from '../contexts/WalletContext';
 import type { Order } from '../types/orders';
 
 export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { walletAddress } = useWallet();
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
+      // Only fetch orders if wallet is connected
+      if (!walletAddress) {
+        setOrders([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('user_orders')
-        .select('*')
+        .select(`
+          *,
+          product:products (
+            id,
+            name,
+            sku,
+            images,
+            collection:collections (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('wallet_address', walletAddress)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -22,11 +43,13 @@ export function useOrders() {
       const transformedOrders: Order[] = (data || []).map(order => ({
         id: order.id,
         product: {
-          id: order.product_id,
-          name: order.product_name,
+          id: order.product.id,
+          name: order.product.name,
+          imageUrl: order.product.images?.[0] || null,
+          sku: order.product.sku,
           collection: {
-            id: order.collection_id,
-            name: order.collection_name
+            id: order.product.collection.id,
+            name: order.product.collection.name
           }
         },
         walletAddress: order.wallet_address,
@@ -46,19 +69,20 @@ export function useOrders() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [walletAddress]);
 
   useEffect(() => {
     fetchOrders();
 
-    // Set up realtime subscription
+    // Set up realtime subscription for the current wallet
     const channel = supabase.channel('user_orders')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'orders'
+          table: 'orders',
+          filter: `wallet_address=eq.${walletAddress}`
         },
         () => {
           fetchOrders();
@@ -69,7 +93,7 @@ export function useOrders() {
     return () => {
       channel.unsubscribe();
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, walletAddress]);
 
   return { 
     orders, 
