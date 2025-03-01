@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, Store, ChevronDown, ChevronUp, Pencil, Eye, EyeOff } from 'lucide-react';
+import { Users, Shield, Store, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
@@ -17,8 +17,10 @@ export function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -70,6 +72,27 @@ export function UserManagement() {
     } catch (err) {
       console.error('Error updating user:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to update user role';
+      toast.error(errorMessage);
+    }
+  }
+
+  async function deleteUser() {
+    if (!deletingUser) return;
+
+    try {
+      const { error: deleteError } = await supabase.rpc('delete_user', {
+        p_user_id: deletingUser.id
+      });
+
+      if (deleteError) throw deleteError;
+
+      setShowDeleteModal(false);
+      setDeletingUser(null);
+      await fetchUsers();
+      toast.success('User deleted successfully');
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
       toast.error(errorMessage);
     }
   }
@@ -132,6 +155,17 @@ export function UserManagement() {
                     title="Edit user"
                   >
                     <Pencil className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDeletingUser(user);
+                      setShowDeleteModal(true);
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
+                    title="Delete user"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </button>
 
                   <button
@@ -198,6 +232,38 @@ export function UserManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && deletingUser && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 rounded-xl max-w-md w-full p-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">Delete User</h3>
+              <p className="text-sm text-gray-400 mt-1">
+                Are you sure you want to delete {deletingUser.email}? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletingUser(null);
+                }}
+                className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteUser}
+                className="bg-red-600 hover:bg-red-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
+              >
+                Delete User
+              </button>
+            </div>
           </div>
         </div>
       )}
