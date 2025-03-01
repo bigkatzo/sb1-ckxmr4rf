@@ -4,6 +4,7 @@ import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { Transaction, PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
+import { supabase } from '../lib/supabase';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 interface WalletContextType {
@@ -87,6 +88,20 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       // Connection is handled by the wallet modal
+      
+      // Update Supabase session with wallet address
+      if (publicKey) {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        if (session) {
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: { wallet_address: publicKey.toBase58() }
+          });
+          if (updateError) throw updateError;
+        }
+      }
+
       addNotification('success', 'Wallet connected successfully');
     } catch (error) {
       console.error('Connect error:', error);
@@ -95,12 +110,24 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       addNotification('error', errorMessage);
       throw error;
     }
-  }, [addNotification]);
+  }, [publicKey, addNotification]);
 
   const disconnect = useCallback(async () => {
     try {
       setError(null);
       await nativeDisconnect();
+
+      // Remove wallet address from Supabase session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      if (session) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { wallet_address: null }
+        });
+        if (updateError) throw updateError;
+      }
+
       addNotification('success', 'Wallet disconnected');
     } catch (error) {
       console.error('Disconnect error:', error);
@@ -119,7 +146,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setError(null);
 
       // Get fresh blockhash
-      const { blockhash, lastValidBlockHeight } = await SOLANA_CONNECTION.getLatestBlockhash();
+      const { blockhash } = await SOLANA_CONNECTION.getLatestBlockhash();
       
       // Update transaction
       transaction.recentBlockhash = blockhash;
