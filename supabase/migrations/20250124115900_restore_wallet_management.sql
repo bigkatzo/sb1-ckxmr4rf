@@ -15,9 +15,9 @@ RETURNS TABLE (
   updated_at timestamptz
 ) AS $$
 BEGIN
-  -- Only allow admin420 to list wallets
-  IF NULLIF(current_setting('request.jwt.claims', true)::jsonb->>'email', '') != 'admin420@merchant.local' THEN
-    RAISE EXCEPTION 'Only admin420 can list wallets';
+  -- Only allow admin to list wallets
+  IF NOT auth.is_admin() THEN
+    RAISE EXCEPTION 'Only admin can list wallets';
   END IF;
 
   RETURN QUERY
@@ -43,9 +43,9 @@ RETURNS uuid AS $$
 DECLARE
   v_wallet_id uuid;
 BEGIN
-  -- Only allow admin420 to create wallets
-  IF NULLIF(current_setting('request.jwt.claims', true)::jsonb->>'email', '') != 'admin420@merchant.local' THEN
-    RAISE EXCEPTION 'Only admin420 can create wallets';
+  -- Only allow admin to create wallets
+  IF NOT auth.is_admin() THEN
+    RAISE EXCEPTION 'Only admin can create wallets';
   END IF;
 
   -- Validate address format
@@ -83,9 +83,9 @@ CREATE OR REPLACE FUNCTION update_wallet(
 )
 RETURNS void AS $$
 BEGIN
-  -- Only allow admin420 to update wallets
-  IF NULLIF(current_setting('request.jwt.claims', true)::jsonb->>'email', '') != 'admin420@merchant.local' THEN
-    RAISE EXCEPTION 'Only admin420 can update wallets';
+  -- Only allow admin to update wallets
+  IF NOT auth.is_admin() THEN
+    RAISE EXCEPTION 'Only admin can update wallets';
   END IF;
 
   -- Validate address format if provided

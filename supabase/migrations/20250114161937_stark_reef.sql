@@ -73,6 +73,11 @@ RETURNS uuid AS $$
 DECLARE
   v_wallet_id uuid;
 BEGIN
+  -- Only allow admin to get collection wallet
+  IF NOT auth.is_admin() THEN
+    RAISE EXCEPTION 'Only admin can get collection wallet';
+  END IF;
+
   -- First try to get specifically assigned wallet
   SELECT wallet_id INTO v_wallet_id
   FROM collection_wallets
