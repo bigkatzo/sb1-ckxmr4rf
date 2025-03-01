@@ -1,4 +1,4 @@
-import { ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock, Mail, Send } from 'lucide-react';
+import { ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock, Mail, Send, Twitter, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
 
@@ -52,7 +52,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
           return {
             url: `https://x.com/${cleanValue}`,
             display: `@${cleanValue}`,
-            icon: <Send className="h-4 w-4 text-gray-400" />,
+            icon: <Twitter className="h-4 w-4 text-gray-400" />,
             label: 'X (Twitter)'
           };
         case 'telegram':
@@ -162,17 +162,25 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                 </div>
                 <div className="w-full sm:w-auto">
                   {onStatusUpdate ? (
-                    <select
-                      value={order.status}
-                      onChange={(e) => onStatusUpdate(order.id, e.target.value as OrderStatus)}
-                      className={`w-full sm:w-auto appearance-none cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${getStatusColor(order.status)}`}
-                    >
-                      <option value="pending" className="bg-gray-900">Pending</option>
-                      <option value="confirmed" className="bg-gray-900">Confirmed</option>
-                      <option value="shipped" className="bg-gray-900">Shipped</option>
-                      <option value="delivered" className="bg-gray-900">Delivered</option>
-                      <option value="cancelled" className="bg-gray-900">Cancelled</option>
-                    </select>
+                    <div className="relative w-full sm:w-auto">
+                      <select
+                        value={order.status}
+                        onChange={(e) => onStatusUpdate(order.id, e.target.value as OrderStatus)}
+                        className={`w-full sm:w-auto appearance-none cursor-pointer flex items-center gap-1.5 pl-9 pr-8 py-1.5 rounded text-sm transition-colors ${getStatusColor(order.status)}`}
+                      >
+                        <option value="pending" className="bg-gray-900 pl-6">Pending</option>
+                        <option value="confirmed" className="bg-gray-900 pl-6">Confirmed</option>
+                        <option value="shipped" className="bg-gray-900 pl-6">Shipped</option>
+                        <option value="delivered" className="bg-gray-900 pl-6">Delivered</option>
+                        <option value="cancelled" className="bg-gray-900 pl-6">Cancelled</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </div>
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        {getStatusIcon(order.status)}
+                      </div>
+                    </div>
                   ) : (
                     <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm ${getStatusColor(order.status)}`}>
                       {getStatusIcon(order.status)}

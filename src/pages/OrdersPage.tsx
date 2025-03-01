@@ -1,6 +1,6 @@
 import { useWallet } from '../contexts/WalletContext';
 import { useOrders } from '../hooks/useOrders';
-import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail } from 'lucide-react';
+import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { OrderStatus } from '../types/orders';
 
@@ -59,7 +59,7 @@ export function OrdersPage() {
       switch (method) {
         case 'x':
           return {
-            icon: <Send className="h-3.5 w-3.5 text-gray-400" />,
+            icon: <Twitter className="h-3.5 w-3.5 text-gray-400" />,
             label: 'X (Twitter)',
             value
           };

@@ -65,9 +65,23 @@ export function OrdersTab() {
       if (searchQuery) {
         const searchLower = searchQuery.toLowerCase();
         return (
+          // Order details
+          order.id.toLowerCase().includes(searchLower) ||
+          // Product details
+          order.product.name.toLowerCase().includes(searchLower) ||
+          (order.product.sku && order.product.sku.toLowerCase().includes(searchLower)) ||
+          // Collection
+          order.product.collection.name.toLowerCase().includes(searchLower) ||
+          // Contact info
+          (order.contactInfo?.value && order.contactInfo.value.toLowerCase().includes(searchLower)) ||
+          // Wallet and transaction
           order.walletAddress.toLowerCase().includes(searchLower) ||
           order.transactionSignature.toLowerCase().includes(searchLower) ||
-          order.product.name.toLowerCase().includes(searchLower)
+          // Shipping address
+          (order.shippingAddress?.address && order.shippingAddress.address.toLowerCase().includes(searchLower)) ||
+          (order.shippingAddress?.city && order.shippingAddress.city.toLowerCase().includes(searchLower)) ||
+          (order.shippingAddress?.country && order.shippingAddress.country.toLowerCase().includes(searchLower)) ||
+          (order.shippingAddress?.zip && order.shippingAddress.zip.toLowerCase().includes(searchLower))
         );
       }
 
