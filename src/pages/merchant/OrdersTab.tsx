@@ -6,7 +6,7 @@ import { useMerchantOrders } from '../../hooks/useMerchantOrders';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
-import type { Order, OrderStatus } from '../../types/orders';
+import type { OrderStatus } from '../../types/orders';
 
 export function OrdersTab() {
   const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();

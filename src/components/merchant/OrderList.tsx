@@ -1,5 +1,3 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
 import { ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';

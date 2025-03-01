@@ -1,4 +1,3 @@
-import React from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useOrders } from '../hooks/useOrders';
 import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail } from 'lucide-react';
