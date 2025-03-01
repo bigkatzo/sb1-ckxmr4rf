@@ -23,7 +23,10 @@ BEGIN
   SET is_main = CASE 
     WHEN id = p_wallet_id THEN true
     ELSE false
-  END;
+  END
+  WHERE EXISTS (
+    SELECT 1 FROM merchant_wallets
+  );
 
   -- Verify we have a main wallet
   IF NOT EXISTS (SELECT 1 FROM merchant_wallets WHERE is_main = true) THEN
