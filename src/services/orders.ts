@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase';
-import type { Order } from '../types/orders';
 
 interface CreateOrderData {
   productId: string;
@@ -15,6 +14,24 @@ interface CreateOrderData {
   amountSol: number;
 }
 
+// Maximum number of retries for order creation
+const MAX_RETRIES = 5;
+// Base delay in milliseconds (1 second)
+const BASE_DELAY = 1000;
+// Maximum delay in milliseconds (30 seconds)
+const MAX_DELAY = 30000;
+
+// Calculate exponential backoff delay with jitter
+function getBackoffDelay(attempt: number): number {
+  const exponentialDelay = Math.min(
+    MAX_DELAY,
+    BASE_DELAY * Math.pow(2, attempt)
+  );
+  // Add random jitter (±20% of delay)
+  const jitter = exponentialDelay * 0.2 * (Math.random() * 2 - 1);
+  return exponentialDelay + jitter;
+}
+
 export async function createOrder(data: CreateOrderData): Promise<string> {
   try {
     // Validate required fields
@@ -22,10 +39,28 @@ export async function createOrder(data: CreateOrderData): Promise<string> {
       throw new Error('Missing required order data');
     }
 
-    // Create order with retry logic
-    for (let attempt = 0; attempt < 3; attempt++) {
+    let lastError: Error | null = null;
+
+    // First, log the transaction
+    const { error: logError } = await supabase.rpc('log_transaction', {
+      p_signature: data.transactionId,
+      p_amount: data.amountSol,
+      p_buyer_address: data.walletAddress,
+      p_product_id: data.productId,
+      p_status: 'pending'
+    });
+
+    if (logError) {
+      console.error('Failed to log transaction:', logError);
+      // Continue with order creation even if logging fails
+    }
+
+    // Create order with enhanced retry logic
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const { data: order, error } = await supabase
+        console.log(`Attempting to create order (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        
+        const { error } = await supabase
           .from('orders')
           .insert({
             product_id: data.productId,
@@ -46,23 +81,77 @@ export async function createOrder(data: CreateOrderData): Promise<string> {
           .single();
 
         if (error) {
+          // Check if order already exists (unique constraint violation)
+          if (error.code === '23505' && error.message.includes('transaction_signature')) {
+            console.log('Order already exists for this transaction');
+            // Update transaction log to reflect order exists
+            await supabase.rpc('update_transaction_status', {
+              p_signature: data.transactionId,
+              p_status: 'order_created'
+            });
+            return data.transactionId;
+          }
+
           console.error(`Database error creating order (attempt ${attempt + 1}):`, error);
-          if (attempt === 2) throw error; // Throw on final attempt
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
-          continue;
+          lastError = error;
+
+          // Update transaction log with error
+          await supabase.rpc('update_transaction_status', {
+            p_signature: data.transactionId,
+            p_status: 'order_failed',
+            p_error_message: error.message
+          });
+
+          // If not the final attempt, wait with exponential backoff
+          if (attempt < MAX_RETRIES - 1) {
+            const delay = getBackoffDelay(attempt);
+            console.log(`Retrying in ${Math.round(delay / 1000)} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+
+          throw error;
         }
 
+        // Update transaction log to reflect successful order creation
+        await supabase.rpc('update_transaction_status', {
+          p_signature: data.transactionId,
+          p_status: 'order_created'
+        });
+
+        console.log('Order created successfully');
         return data.transactionId;
       } catch (err) {
-        if (attempt === 2) throw err;
-        console.warn(`Order creation attempt ${attempt + 1} failed, retrying...`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+        lastError = err instanceof Error ? err : new Error('Unknown error creating order');
+        
+        // Update transaction log with error
+        await supabase.rpc('update_transaction_status', {
+          p_signature: data.transactionId,
+          p_status: 'order_failed',
+          p_error_message: lastError.message
+        });
+
+        if (attempt === MAX_RETRIES - 1) {
+          throw lastError;
+        }
+
+        console.warn(`Order creation attempt ${attempt + 1} failed:`, err);
+        const delay = getBackoffDelay(attempt);
+        console.log(`Retrying in ${Math.round(delay / 1000)} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
-    throw new Error('Failed to create order after retries');
+    // This should never happen due to the throw in the loop, but TypeScript doesn't know that
+    throw lastError || new Error('Failed to create order after retries');
   } catch (error) {
     console.error('Error creating order:', error);
+    // Ensure transaction log is updated with final error state
+    await supabase.rpc('update_transaction_status', {
+      p_signature: data.transactionId,
+      p_status: 'order_failed',
+      p_error_message: error instanceof Error ? error.message : 'Failed to create order'
+    });
     throw error instanceof Error ? error : new Error('Failed to create order');
   }
 }
@@ -71,34 +160,48 @@ export async function updateTransactionStatus(
   transactionId: string,
   status: 'confirmed' | 'failed'
 ): Promise<void> {
-  try {
-    // Add retry logic for transaction status updates
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const { error } = await supabase
-          .rpc('update_order_transaction_status', {
-            p_transaction_id: transactionId,
-            p_status: status
-          });
+  let lastError: Error | null = null;
 
-        if (error) {
-          console.error(`Database error updating transaction status (attempt ${attempt + 1}):`, error);
-          if (attempt === 2) throw error;
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+  // Add retry logic for transaction status updates
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      console.log(`Attempting to update transaction status (attempt ${attempt + 1}/${MAX_RETRIES})`);
+
+      const { error } = await supabase
+        .rpc('update_transaction_status', {
+          p_signature: transactionId,
+          p_status: status
+        });
+
+      if (error) {
+        console.error(`Database error updating transaction status (attempt ${attempt + 1}):`, error);
+        lastError = error;
+
+        if (attempt < MAX_RETRIES - 1) {
+          const delay = getBackoffDelay(attempt);
+          console.log(`Retrying in ${Math.round(delay / 1000)} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
 
-        return;
-      } catch (err) {
-        if (attempt === 2) throw err;
-        console.warn(`Transaction status update attempt ${attempt + 1} failed, retrying...`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+        throw error;
       }
-    }
 
-    throw new Error('Failed to update transaction status after retries');
-  } catch (error) {
-    console.error('Error updating transaction status:', error);
-    throw error instanceof Error ? error : new Error('Failed to update transaction status');
+      console.log('Transaction status updated successfully');
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error('Unknown error updating transaction status');
+      
+      if (attempt === MAX_RETRIES - 1) {
+        throw lastError;
+      }
+
+      console.warn(`Transaction status update attempt ${attempt + 1} failed:`, err);
+      const delay = getBackoffDelay(attempt);
+      console.log(`Retrying in ${Math.round(delay / 1000)} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
+
+  throw lastError || new Error('Failed to update transaction status after retries');
 }

@@ -1,5 +1,6 @@
 import { SOLANA_CONNECTION } from '../config/solana';
 import { toast } from 'react-toastify';
+import { supabase } from '../lib/supabase';
 
 interface TransactionStatus {
   processing: boolean;
@@ -17,7 +18,7 @@ export async function monitorTransaction(
   onStatusUpdate: (status: TransactionStatus) => void
 ): Promise<boolean> {
   let attempts = 0;
-  let toastId: string | number = '';
+  const toastId = toast.loading('Processing transaction...');
 
   try {
     // Initial processing status
@@ -28,14 +29,8 @@ export async function monitorTransaction(
       signature
     });
 
-    // Show initial toast
-    toastId = toast.loading('Processing transaction...', {
-      position: 'bottom-right',
-      autoClose: false
-    });
-
-    // Wait 5 seconds before first check
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Initial delay to allow transaction to propagate
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     while (attempts < MAX_RETRIES) {
       try {
@@ -62,6 +57,14 @@ export async function monitorTransaction(
         if (status?.confirmationStatus === 'finalized') {
           if (status.err) {
             const errorMessage = 'Transaction failed on chain';
+            
+            // Update transaction log with failure
+            await supabase.rpc('update_transaction_status', {
+              p_signature: signature,
+              p_status: 'failed',
+              p_error_message: errorMessage
+            });
+
             toast.update(toastId, {
               render: errorMessage,
               type: 'error',
@@ -83,8 +86,23 @@ export async function monitorTransaction(
           });
 
           if (!txInfo || txInfo.meta?.err) {
-            throw new Error('Transaction verification failed');
+            const errorMessage = 'Transaction verification failed';
+            
+            // Update transaction log with failure
+            await supabase.rpc('update_transaction_status', {
+              p_signature: signature,
+              p_status: 'failed',
+              p_error_message: errorMessage
+            });
+
+            throw new Error(errorMessage);
           }
+
+          // Update transaction log with success
+          await supabase.rpc('update_transaction_status', {
+            p_signature: signature,
+            p_status: 'confirmed'
+          });
 
           const solscanUrl = `https://solscan.io/tx/${signature}`;
           toast.update(toastId, {
@@ -125,57 +143,37 @@ export async function monitorTransaction(
       } catch (error) {
         console.error(`Error checking transaction status (attempt ${attempts + 1}):`, error);
         
+        // Update transaction log with error
+        await supabase.rpc('update_transaction_status', {
+          p_signature: signature,
+          p_status: 'failed',
+          p_error_message: error instanceof Error ? error.message : 'Unknown error'
+        });
+
         if (attempts === MAX_RETRIES - 1) {
-          const solscanUrl = `https://solscan.io/tx/${signature}`;
-          toast.update(toastId, {
-            render: () => (
-              <div>
-                Failed to confirm transaction.{' '}
-                <a 
-                  href={solscanUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-blue-400 hover:text-blue-300 underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Check on Solscan
-                </a>
-              </div>
-            ),
-            type: 'error',
-            isLoading: false,
-            autoClose: 5000
-          });
-          onStatusUpdate({
-            processing: false,
-            success: false,
-            error: 'Failed to confirm transaction. Please check Solscan for status.',
-            signature
-          });
-          return false;
+          throw error;
         }
-        
+
         attempts++;
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const delay = Math.min(
+          INITIAL_DELAY * Math.pow(1.5, attempts) + Math.random() * 1000,
+          10000
+        );
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
-    const solscanUrl = `https://solscan.io/tx/${signature}`;
+    const timeoutError = 'Transaction confirmation timed out';
+    
+    // Update transaction log with timeout
+    await supabase.rpc('update_transaction_status', {
+      p_signature: signature,
+      p_status: 'failed',
+      p_error_message: timeoutError
+    });
+
     toast.update(toastId, {
-      render: () => (
-        <div>
-          Transaction confirmation timeout.{' '}
-          <a 
-            href={solscanUrl} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="text-blue-400 hover:text-blue-300 underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Check on Solscan
-          </a>
-        </div>
-      ),
+      render: timeoutError,
       type: 'error',
       isLoading: false,
       autoClose: 5000
@@ -183,13 +181,21 @@ export async function monitorTransaction(
     onStatusUpdate({
       processing: false,
       success: false,
-      error: 'Transaction confirmation timeout. Please check Solscan for final status.',
+      error: timeoutError,
       signature
     });
     return false;
   } catch (error) {
-    console.error('Error monitoring transaction:', error);
+    console.error('Transaction monitoring error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to monitor transaction';
+    
+    // Update transaction log with error
+    await supabase.rpc('update_transaction_status', {
+      p_signature: signature,
+      p_status: 'failed',
+      p_error_message: errorMessage
+    });
+
     toast.update(toastId, {
       render: errorMessage,
       type: 'error',
