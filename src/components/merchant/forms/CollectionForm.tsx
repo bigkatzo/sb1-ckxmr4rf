@@ -359,7 +359,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                   form="collection-form"
                   type="submit"
                   disabled={loading || !name || !launchDate}
-                  className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+                  className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white"
                 >
                   {loading ? 'Saving...' : collection ? 'Save Changes' : 'Create Collection'}
                 </button>
