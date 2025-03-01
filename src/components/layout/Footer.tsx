@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { X, Send, Mail } from 'lucide-react';
+import { Twitter, Send, Mail } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 
 export function Footer() {
@@ -8,7 +8,7 @@ export function Footer() {
     { 
       href: 'https://x.com/storedotfun',
       label: 'X (Twitter)',
-      icon: <X className="h-3.5 w-3.5" />
+      icon: <Twitter className="h-3.5 w-3.5" />
     },
     { 
       href: 'https://t.me/storedotfun',
