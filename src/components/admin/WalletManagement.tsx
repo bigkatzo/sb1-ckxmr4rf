@@ -91,7 +91,7 @@ export function WalletManagement() {
     try {
       await setMainWallet(id);
       fetchData();
-      toast.success(isMain ? 'Main wallet unset' : 'Main wallet set');
+      toast.success('Main wallet updated');
     } catch (error) {
       console.error('Error toggling main status:', error);
       toast.error('Failed to update main status');
