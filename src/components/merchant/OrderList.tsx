@@ -39,43 +39,43 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   };
 
   const formatContactInfo = (contactInfo: any) => {
-    if (!contactInfo || !contactInfo.contactMethod || !contactInfo.contactValue) return null;
-    const { contactMethod, contactValue } = contactInfo;
+    if (!contactInfo || !contactInfo.method || !contactInfo.value) return null;
+    const { method, value } = contactInfo;
     
     const getContactLink = () => {
-      if (!contactValue) return {
+      if (!value) return {
         url: null,
         display: 'N/A',
         icon: <Send className="h-4 w-4 text-gray-400" />
       };
 
-      const value = typeof contactValue === 'string' && contactValue.startsWith('@') 
-        ? contactValue.slice(1) 
-        : contactValue;
+      const cleanValue = typeof value === 'string' && value.startsWith('@') 
+        ? value.slice(1) 
+        : value;
       
-      switch (contactMethod) {
+      switch (method) {
         case 'x':
           return {
-            url: `https://x.com/${value}`,
-            display: `@${value}`,
+            url: `https://x.com/${cleanValue}`,
+            display: `@${cleanValue}`,
             icon: <Send className="h-4 w-4 text-gray-400" />
           };
         case 'telegram':
           return {
-            url: `https://t.me/${value}`,
-            display: `@${value}`,
+            url: `https://t.me/${cleanValue}`,
+            display: `@${cleanValue}`,
             icon: <Send className="h-4 w-4 text-gray-400" />
           };
         case 'email':
           return {
-            url: `mailto:${value}`,
-            display: value,
+            url: `mailto:${cleanValue}`,
+            display: cleanValue,
             icon: <Mail className="h-4 w-4 text-gray-400" />
           };
         default:
           return {
             url: null,
-            display: value,
+            display: cleanValue,
             icon: <Send className="h-4 w-4 text-gray-400" />
           };
       }
