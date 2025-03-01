@@ -4,6 +4,7 @@ import type { Order } from '../types/orders';
 
 interface RawOrder {
   id: string;
+  order_number: string;
   product_id: string;
   collection_id: string;
   wallet_address: string;
@@ -41,6 +42,7 @@ export function useMerchantOrders() {
 
       const transformedOrders: Order[] = (data || []).map((order: RawOrder) => ({
         id: order.id,
+        order_number: order.order_number,
         product: {
           id: order.product_id,
           name: order.product_name,

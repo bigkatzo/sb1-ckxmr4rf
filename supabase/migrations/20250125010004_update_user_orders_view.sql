@@ -23,7 +23,8 @@ SELECT
     c.name as collection_name
 FROM orders o
 JOIN products p ON p.id = o.product_id
-JOIN collections c ON c.id = o.collection_id;
+JOIN collections c ON c.id = o.collection_id
+WHERE o.wallet_address = auth.jwt()->>'wallet_address';
 
 -- Grant permissions
 GRANT SELECT ON user_orders TO authenticated;

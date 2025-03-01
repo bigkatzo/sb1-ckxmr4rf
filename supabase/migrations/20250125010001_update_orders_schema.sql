@@ -145,7 +145,13 @@ FOR SELECT
 TO authenticated
 USING (
     -- Users can view their own orders by matching wallet address
-    wallet_address = auth.jwt()->>'wallet_address'
+    wallet_address = (
+        SELECT wallet_address 
+        FROM wallets w 
+        WHERE w.user_id = auth.uid() 
+        AND w.is_primary = true
+        LIMIT 1
+    )
 );
 
 CREATE POLICY "orders_merchant_view"
