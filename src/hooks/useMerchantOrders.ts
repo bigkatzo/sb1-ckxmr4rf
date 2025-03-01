@@ -20,7 +20,7 @@ interface RawOrder {
   product_images: string[];
   collection_name: string;
   collection_owner_id: string;
-  access_type: string | null;
+  access_type: 'view' | 'edit' | null;
 }
 
 export function useMerchantOrders() {
@@ -100,6 +100,20 @@ export function useMerchantOrders() {
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     try {
+      // Get the order first to check access
+      const { data: orderData, error: orderError } = await supabase
+        .from('merchant_orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Check if user has edit access
+      if (orderData.access_type !== 'edit' && orderData.collection_owner_id !== orderData.user_id) {
+        throw new Error('You do not have permission to update this order');
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({ status })
@@ -113,11 +127,17 @@ export function useMerchantOrders() {
     }
   };
 
+  const canUpdateOrder = useCallback(async (order: Order) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    return order.accessType === 'edit' || order.product.collection.ownerId === user?.id;
+  }, []);
+
   return {
     orders,
     loading,
     error,
     refreshOrders: fetchOrders,
-    updateOrderStatus
+    updateOrderStatus,
+    canUpdateOrder
   };
 }

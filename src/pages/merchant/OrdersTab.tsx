@@ -9,7 +9,7 @@ import { toast } from 'react-toastify';
 import type { OrderStatus } from '../../types/orders';
 
 export function OrdersTab() {
-  const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
+  const { orders, loading, error, refreshOrders, updateOrderStatus, canUpdateOrder } = useMerchantOrders();
   const { collections } = useMerchantCollections();
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
@@ -139,6 +139,7 @@ export function OrdersTab() {
         <OrderList
           orders={filteredOrders}
           onStatusUpdate={handleStatusUpdate}
+          canUpdateOrder={canUpdateOrder}
         />
       )}
     </div>

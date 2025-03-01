@@ -5,9 +5,10 @@ import type { Order, OrderStatus } from '../../types/orders';
 interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
+  canUpdateOrder?: (order: Order) => Promise<boolean>;
 }
 
-export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
+export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListProps) {
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
       case 'pending':
@@ -129,12 +130,13 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
               </div>
               {/* Status */}
               <div className="w-auto">
-                {onStatusUpdate ? (
+                {onStatusUpdate && canUpdateOrder ? (
                   <div className="relative">
                     <select
                       value={order.status}
                       onChange={(e) => onStatusUpdate(order.id, e.target.value as OrderStatus)}
                       className={`appearance-none cursor-pointer flex items-center gap-1.5 pl-9 pr-8 py-1.5 rounded text-sm transition-colors ${getStatusColor(order.status)}`}
+                      disabled={!order.accessType || order.accessType !== 'edit'}
                     >
                       <option value="pending" className="bg-gray-900 pl-6">Pending</option>
                       <option value="confirmed" className="bg-gray-900 pl-6">Confirmed</option>
