@@ -8,6 +8,7 @@ import { EditButton } from '../../components/ui/EditButton';
 import { DeleteButton } from '../../components/ui/DeleteButton';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
+import { CategoryDiamond } from '../../components/collections/CategoryDiamond';
 import { toast } from 'react-toastify';
 
 export function CategoriesTab() {
@@ -111,11 +112,16 @@ export function CategoriesTab() {
         </div>
       ) : (
         <div className="space-y-3">
-          {categories.map((category) => (
+          {categories.map((category, index) => (
             <div key={category.id} className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
               <div className="flex items-start gap-2 sm:gap-3">
                 <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-                  <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+                  <CategoryDiamond 
+                    type={category.type}
+                    index={index}
+                    selected
+                    size="lg"
+                  />
                 </div>
                 
                 <div className="flex-1 min-w-0">
@@ -126,9 +132,12 @@ export function CategoriesTab() {
                         {category.description}
                       </p>
                       <div className="mt-2">
-                        <span className="inline-block bg-gray-800 text-xs px-2 py-1 rounded">
-                          {category.type}
-                        </span>
+                        <CategoryDiamond 
+                          type={category.type}
+                          index={index}
+                          selected
+                          size="sm"
+                        />
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
