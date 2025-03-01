@@ -1,5 +1,6 @@
--- Drop existing function
+-- Drop existing function and constraint
 DROP FUNCTION IF EXISTS set_main_wallet(uuid);
+DROP INDEX IF EXISTS idx_merchant_wallets_main;
 
 -- Create improved set_main_wallet function
 CREATE OR REPLACE FUNCTION set_main_wallet(p_wallet_id uuid)
@@ -18,20 +19,30 @@ BEGIN
     RAISE EXCEPTION 'Cannot set inactive wallet as main';
   END IF;
 
-  -- First, unset all main wallets
-  UPDATE merchant_wallets
-  SET is_main = false
-  WHERE is_main = true;
+  -- Perform updates in a transaction
+  BEGIN
+    -- Lock the table to prevent concurrent modifications
+    LOCK TABLE merchant_wallets IN SHARE ROW EXCLUSIVE MODE;
 
-  -- Then set the new main wallet
-  UPDATE merchant_wallets
-  SET is_main = true
-  WHERE id = p_wallet_id;
+    -- First, unset all main wallets
+    UPDATE merchant_wallets
+    SET is_main = false
+    WHERE is_main = true;
 
-  -- Verify we have a main wallet
-  IF NOT EXISTS (SELECT 1 FROM merchant_wallets WHERE is_main = true) THEN
-    RAISE EXCEPTION 'System must have a main wallet';
-  END IF;
+    -- Then set the new main wallet
+    UPDATE merchant_wallets
+    SET is_main = true
+    WHERE id = p_wallet_id;
+
+    -- Verify we have a main wallet
+    IF NOT EXISTS (SELECT 1 FROM merchant_wallets WHERE is_main = true) THEN
+      RAISE EXCEPTION 'System must have a main wallet';
+    END IF;
+  EXCEPTION
+    WHEN others THEN
+      -- Rollback transaction on any error
+      RAISE EXCEPTION 'Failed to set main wallet: %', SQLERRM;
+  END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
