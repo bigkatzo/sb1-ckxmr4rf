@@ -29,6 +29,10 @@ export interface Order {
   product: {
     id: string;
     name: string;
+    imageUrl?: string;
+    category?: {
+      name: string;
+    };
     collection: {
       id: string;
       name: string;

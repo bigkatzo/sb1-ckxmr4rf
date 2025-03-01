@@ -1,4 +1,4 @@
-import { ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { ExternalLink, Package, Truck, CheckCircle2, XCircle, Clock, Mail, Send } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
 
@@ -38,19 +38,113 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
     }
   };
 
+  const formatContactInfo = (contactInfo: any) => {
+    if (!contactInfo) return null;
+    const { contactMethod, contactValue } = contactInfo;
+    
+    const getContactLink = () => {
+      const value = contactValue.startsWith('@') ? contactValue.slice(1) : contactValue;
+      
+      switch (contactMethod) {
+        case 'x':
+          return {
+            url: `https://x.com/${value}`,
+            display: `@${value}`,
+            icon: <Send className="h-4 w-4 text-gray-400" />
+          };
+        case 'telegram':
+          return {
+            url: `https://t.me/${value}`,
+            display: `@${value}`,
+            icon: <Send className="h-4 w-4 text-gray-400" />
+          };
+        case 'email':
+          return {
+            url: `mailto:${value}`,
+            display: value,
+            icon: <Mail className="h-4 w-4 text-gray-400" />
+          };
+        default:
+          return {
+            url: null,
+            display: value,
+            icon: <Send className="h-4 w-4 text-gray-400" />
+          };
+      }
+    };
+
+    const { url, display, icon } = getContactLink();
+    
+    return (
+      <div className="flex items-center gap-2">
+        {icon}
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-300 transition-colors"
+          >
+            {display}
+          </a>
+        ) : (
+          <span className="text-gray-300">{display}</span>
+        )}
+      </div>
+    );
+  };
+
+  const formatShippingAddress = (shippingAddress: any) => {
+    if (!shippingAddress) return null;
+    const { address, city, country, zip } = shippingAddress;
+    
+    return (
+      <div className="space-y-1 text-gray-300">
+        <div>{address}</div>
+        <div>{city}, {zip}</div>
+        <div>{country}</div>
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {orders.map((order) => (
-        <div key={order.id} className="bg-gray-900 rounded-lg p-3 group">
-          <div className="flex items-start gap-3">
+        <div key={order.id} className="bg-gray-900 rounded-lg p-4 group">
+          <div className="flex items-start gap-4">
+            {/* Product Image */}
+            <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+              {order.product.imageUrl ? (
+                <img 
+                  src={order.product.imageUrl} 
+                  alt={order.product.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package className="h-8 w-8 text-gray-600" />
+                </div>
+              )}
+            </div>
+
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
+              {/* Order Header */}
+              <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
-                  <p className="text-gray-400 text-xs mt-1">
-                    Collection: {order.product.collection.name}
-                  </p>
-                  <p className="text-gray-400 text-xs mt-1">
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {order.product.collection && (
+                      <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
+                        {order.product.collection.name}
+                      </span>
+                    )}
+                    {order.product.category && (
+                      <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
+                        {order.product.category.name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-400 text-xs mt-2">
                     Amount: {order.amountSol} SOL
                   </p>
                 </div>
@@ -75,7 +169,27 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                 </div>
               </div>
               
-              <div className="mt-3 text-xs text-gray-400">
+              {/* Order Details */}
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
+                {/* Shipping Info */}
+                {order.shippingAddress && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-400 mb-2">Shipping Address</h4>
+                    {formatShippingAddress(order.shippingAddress)}
+                  </div>
+                )}
+                
+                {/* Contact Info */}
+                {order.contactInfo && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-400 mb-2">Contact</h4>
+                    {formatContactInfo(order.contactInfo)}
+                  </div>
+                )}
+              </div>
+
+              {/* Transaction Info */}
+              <div className="mt-4 pt-4 border-t border-gray-800 text-xs text-gray-400 space-y-2">
                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                   <div>
                     <span className="font-medium">Order ID:</span> {order.id}
@@ -108,28 +222,6 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                     <span className="font-medium">Created:</span> {formatDistanceToNow(order.createdAt, { addSuffix: true })}
                   </div>
                 </div>
-                
-                {order.shippingAddress && (
-                  <div className="mt-2">
-                    <span className="font-medium">Shipping Info:</span>
-                    <div className="mt-1">
-                      <pre className="whitespace-pre-wrap text-xs font-mono bg-gray-950 p-2 rounded">
-                        {JSON.stringify(order.shippingAddress, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-                
-                {order.contactInfo && (
-                  <div className="mt-2">
-                    <span className="font-medium">Contact Info:</span>
-                    <div className="mt-1">
-                      <pre className="whitespace-pre-wrap text-xs font-mono bg-gray-950 p-2 rounded">
-                        {JSON.stringify(order.contactInfo, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
