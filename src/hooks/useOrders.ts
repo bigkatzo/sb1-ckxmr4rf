@@ -66,6 +66,7 @@ export function useOrders() {
     } catch (err) {
       console.error('Error fetching orders:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch orders');
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -74,15 +75,14 @@ export function useOrders() {
   useEffect(() => {
     fetchOrders();
 
-    // Set up realtime subscription for the current wallet
+    // Set up realtime subscription
     const channel = supabase.channel('user_orders')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'orders',
-          filter: `wallet_address=eq.${walletAddress}`
+          table: 'orders'
         },
         () => {
           fetchOrders();
@@ -93,7 +93,7 @@ export function useOrders() {
     return () => {
       channel.unsubscribe();
     };
-  }, [fetchOrders, walletAddress]);
+  }, [fetchOrders]);
 
   return { 
     orders, 
