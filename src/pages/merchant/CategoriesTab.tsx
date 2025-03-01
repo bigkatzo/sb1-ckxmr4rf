@@ -162,8 +162,14 @@ export function CategoriesTab() {
 
       {showConfirmDialog && deletingId && (
         <ConfirmDialog
+          open={showConfirmDialog}
+          onClose={() => {
+            setShowConfirmDialog(false);
+            setDeletingId(null);
+          }}
           title="Delete Category"
-          message="Are you sure you want to delete this category? All products in this category will also be deleted. This action cannot be undone."
+          description="Are you sure you want to delete this category? All products in this category will also be deleted. This action cannot be undone."
+          confirmLabel="Delete"
           onConfirm={async () => {
             try {
               await deleteCategory(deletingId);
@@ -176,10 +182,6 @@ export function CategoriesTab() {
               setShowConfirmDialog(false);
               setDeletingId(null);
             }
-          }}
-          onCancel={() => {
-            setShowConfirmDialog(false);
-            setDeletingId(null);
           }}
         />
       )}

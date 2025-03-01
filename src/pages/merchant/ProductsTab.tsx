@@ -161,12 +161,29 @@ export function ProductsTab() {
 
       {showConfirmDialog && deletingId && (
         <ConfirmDialog
-          title="Delete Product"
-          message="Are you sure you want to delete this product? This action cannot be undone."
-          onConfirm={handleDelete}
-          onCancel={() => {
+          open={showConfirmDialog}
+          onClose={() => {
             setShowConfirmDialog(false);
             setDeletingId(null);
+          }}
+          title="Delete Product"
+          description="Are you sure you want to delete this product? This action cannot be undone."
+          confirmLabel="Delete"
+          onConfirm={async () => {
+            try {
+              await deleteProduct(deletingId);
+              refreshProducts();
+              setToast({ message: 'Product deleted successfully', type: 'success' });
+            } catch (error) {
+              console.error('Error deleting product:', error);
+              setToast({ 
+                message: error instanceof Error ? error.message : 'Error deleting product', 
+                type: 'error' 
+              });
+            } finally {
+              setShowConfirmDialog(false);
+              setDeletingId(null);
+            }
           }}
         />
       )}

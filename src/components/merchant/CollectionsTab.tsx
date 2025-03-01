@@ -227,15 +227,31 @@ export function CollectionsTab() {
         />
       )}
 
-      <ConfirmDialog
-        open={showConfirmDialog}
-        onClose={() => setShowConfirmDialog(false)}
-        title="Delete Collection"
-        description="Are you sure you want to delete this collection? This action cannot be undone."
-        confirmLabel="Delete"
-        onConfirm={() => deletingId && handleDelete(deletingId)}
-        loading={!!deletingId}
-      />
+      {showConfirmDialog && deletingId && (
+        <ConfirmDialog
+          open={showConfirmDialog}
+          onClose={() => {
+            setShowConfirmDialog(false);
+            setDeletingId(null);
+          }}
+          title="Delete Collection"
+          description="Are you sure you want to delete this collection? All products and categories in this collection will also be deleted. This action cannot be undone."
+          confirmLabel="Delete"
+          onConfirm={async () => {
+            try {
+              await deleteCollection(deletingId);
+              refreshCollections();
+              toast.success('Collection deleted successfully');
+            } catch (error) {
+              console.error('Error deleting collection:', error);
+              toast.error('Failed to delete collection');
+            } finally {
+              setShowConfirmDialog(false);
+              setDeletingId(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
