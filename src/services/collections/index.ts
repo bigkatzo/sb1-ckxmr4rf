@@ -7,75 +7,114 @@ import type { CollectionData } from './types';
 
 export async function createCollection(data: FormData) {
   return withTransaction(async () => {
-    // Get user if available, but don't require authentication
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User must be authenticated to create a collection');
-
-    // Handle image upload first if present
-    const imageFile = data.get('image') as File;
-    let imageUrl = '';
-    
-    if (imageFile) {
-      try {
-        imageUrl = await uploadCollectionImage(imageFile);
-      } catch (uploadError) {
-        console.error('Image upload failed:', uploadError);
-        throw new Error('Failed to upload collection image. Please try again.');
-      }
-    }
-
-    // Get and validate required fields
-    const name = data.get('name');
-    if (!name) throw new Error('Collection name is required');
-
-    // Get launch date and ensure it's valid
-    const launchDate = data.get('launchDate');
-    if (!launchDate) throw new Error('Launch date is required');
-    const parsedDate = parseFormDate(launchDate as string);
-    if (!parsedDate) throw new Error('Invalid launch date format');
-
-    // Generate or get slug
-    const slug = data.get('slug') as string || generateSlug(name as string);
-    
-    // Parse tags with fallback
-    let tags = [];
     try {
-      const tagsStr = data.get('tags');
-      if (tagsStr) {
-        tags = JSON.parse(tagsStr as string);
+      // Get user if available, but don't require authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw new Error(`Authentication error: ${authError.message}`);
+      if (!user) throw new Error('You must be logged in to create a collection');
+
+      // Get and validate required fields
+      const name = data.get('name');
+      if (!name) throw new Error('Collection name is required');
+
+      // Get launch date and ensure it's valid
+      const launchDate = data.get('launchDate');
+      if (!launchDate) throw new Error('Launch date is required');
+      const parsedDate = parseFormDate(launchDate as string);
+      if (!parsedDate) throw new Error('Invalid launch date format');
+
+      // Generate or get slug
+      const slug = data.get('slug') as string || generateSlug(name as string);
+      if (!slug) throw new Error('Invalid collection ID');
+
+      // Handle image upload first if present
+      const imageFile = data.get('image') as File;
+      let imageUrl = '';
+      
+      if (imageFile && imageFile instanceof File) {
+        try {
+          imageUrl = await uploadCollectionImage(imageFile);
+        } catch (uploadError) {
+          console.error('Image upload failed:', uploadError);
+          throw new Error('Failed to upload collection image. Please try again.');
+        }
       }
-    } catch (e) {
-      console.warn('Failed to parse tags, using empty array');
-    }
 
-    const collectionData: CollectionData = {
-      id: generateCollectionId(),
-      name: name as string,
-      description: data.get('description') as string || '',
-      image_url: imageUrl || null,
-      launch_date: parsedDate.toISOString(),
-      slug,
-      visible: data.get('visible') === 'true',
-      sale_ended: data.get('sale_ended') === 'true',
-      tags,
-      user_id: user.id
-    };
-
-    const { data: collection, error } = await supabase
-      .from('collections')
-      .insert(collectionData)
-      .select()
-      .single();
-
-    if (error) {
-      if (error.code === '23505') { // Unique violation
-        throw new Error('A collection with this ID already exists. Please try a different one.');
+      // Parse tags with fallback
+      let tags = [];
+      try {
+        const tagsStr = data.get('tags');
+        if (tagsStr) {
+          tags = JSON.parse(tagsStr as string);
+        }
+      } catch (e) {
+        console.warn('Failed to parse tags:', e);
+        throw new Error('Invalid tags format');
       }
-      throw error;
-    }
-    if (!collection) throw new Error('Failed to create collection');
 
-    return collection;
+      const collectionData: CollectionData = {
+        id: generateCollectionId(),
+        name: name as string,
+        description: data.get('description') as string || '',
+        image_url: imageUrl || null,
+        launch_date: parsedDate.toISOString(),
+        slug,
+        visible: data.get('visible') === 'true',
+        sale_ended: data.get('sale_ended') === 'true',
+        tags,
+        user_id: user.id
+      };
+
+      // Log the exact data being sent to the database
+      console.log('Attempting to create collection with data:', {
+        ...collectionData,
+        user_id: '[REDACTED]',
+        _debug: {
+          formDataKeys: Array.from(data.keys()),
+          visibleValue: data.get('visible'),
+          saleEndedValue: data.get('sale_ended'),
+          tagsValue: data.get('tags'),
+        }
+      });
+
+      // First, verify the table structure
+      const { error: describeError } = await supabase
+        .from('collections')
+        .select('id')
+        .limit(1);
+
+      if (describeError) {
+        console.error('Database table verification failed:', describeError);
+        throw new Error(`Database schema error: ${describeError.message}`);
+      }
+
+      const { data: collection, error: insertError } = await supabase
+        .from('collections')
+        .insert(collectionData)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Database insertion error:', {
+          code: insertError.code,
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint
+        });
+        
+        if (insertError.code === '23505') { // Unique violation
+          throw new Error('A collection with this ID already exists. Please try a different one.');
+        }
+        throw new Error(`Failed to create collection: ${insertError.message}`);
+      }
+      
+      if (!collection) throw new Error('Failed to create collection: No data returned');
+
+      return collection;
+    } catch (error) {
+      console.error('Collection creation failed:', error);
+      throw error instanceof Error ? error : new Error('An unexpected error occurred while creating the collection');
+    }
   });
 }
 
