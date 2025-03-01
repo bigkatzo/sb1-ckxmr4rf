@@ -10,7 +10,6 @@ export interface CollectionData {
   sale_ended: boolean;
   tags?: string[];
   user_id: string;
-  owner: string;
 }
 
 export interface CollectionUpdateData extends Omit<CollectionData, 'id' | 'user_id'> {
