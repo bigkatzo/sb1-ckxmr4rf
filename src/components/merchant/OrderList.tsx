@@ -140,6 +140,9 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
+                  {order.product.sku && (
+                    <p className="text-xs text-gray-400 mt-1">SKU: {order.product.sku}</p>
+                  )}
                   <div className="flex flex-wrap gap-2 mt-2">
                     {order.product.collection && (
                       <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">

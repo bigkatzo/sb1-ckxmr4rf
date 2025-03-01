@@ -6,9 +6,16 @@ interface CreateOrderData {
   collectionId: string;
   variants?: Array<{ name: string; value: string }>;
   shippingInfo: {
-    address: string;
-    contactMethod: string;
-    contactValue: string;
+    shipping_address: {
+      address: string;
+      city: string;
+      country: string;
+      zip: string;
+    };
+    contact_info: {
+      method: string;
+      value: string;
+    };
   };
   transactionId: string;
   walletAddress: string;
@@ -66,13 +73,8 @@ export async function createOrder(data: CreateOrderData): Promise<string> {
           .insert({
             product_id: data.productId,
             collection_id: data.collectionId,
-            shipping_address: {
-              address: data.shippingInfo.address
-            },
-            contact_info: {
-              method: data.shippingInfo.contactMethod,
-              value: data.shippingInfo.contactValue
-            },
+            shipping_address: data.shippingInfo.shipping_address,
+            contact_info: data.shippingInfo.contact_info,
             transaction_signature: data.transactionId,
             wallet_address: data.walletAddress,
             status: 'pending',

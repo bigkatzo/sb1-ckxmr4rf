@@ -145,9 +145,16 @@ export function TokenVerificationModal({
 
       // Format shipping address
       const formattedShippingInfo = {
-        address: `${shippingInfo.address}\n${shippingInfo.city}\n${shippingInfo.country}\n${shippingInfo.zip}`,
-        contactMethod: shippingInfo.contactMethod,
-        contactValue: shippingInfo.contactValue
+        shipping_address: {
+          address: shippingInfo.address,
+          city: shippingInfo.city,
+          country: shippingInfo.country,
+          zip: shippingInfo.zip
+        },
+        contact_info: {
+          method: shippingInfo.contactMethod,
+          value: shippingInfo.contactValue
+        }
       };
 
       // Create order record with retries

@@ -30,6 +30,7 @@ export interface Order {
     id: string;
     name: string;
     imageUrl?: string;
+    sku?: string;
     category?: {
       name: string;
     };
