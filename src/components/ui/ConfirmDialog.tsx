@@ -30,11 +30,11 @@ export function ConfirmDialog({
       <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
       
       <div className="relative w-full max-w-sm rounded-lg bg-gray-900 p-6">
-        <Dialog.Title className="text-lg font-semibold mb-2">
+        <Dialog.Title className="text-lg font-semibold mb-2 text-white">
           {title}
         </Dialog.Title>
         
-        <Dialog.Description className="text-sm text-gray-400 mb-6">
+        <Dialog.Description className="text-sm text-white mb-6">
           {description}
         </Dialog.Description>
 

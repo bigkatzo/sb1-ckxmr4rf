@@ -23,14 +23,17 @@ export function CollectionsTab() {
     try {
       if (editingCollection) {
         await updateCollection(editingCollection.id, data);
+        toast.success('Collection updated successfully');
       } else {
         await createCollection(data);
+        toast.success('Collection created successfully');
       }
       setShowForm(false);
       setEditingCollection(null);
       refreshCollections();
     } catch (error) {
       console.error('Error with collection:', error);
+      toast.error('Failed to save collection');
     }
   };
 
