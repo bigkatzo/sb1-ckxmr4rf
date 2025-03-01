@@ -11,30 +11,30 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
       case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-400" />;
+        return <Clock className="h-4 w-4" />;
       case 'confirmed':
-        return <Package className="h-4 w-4 text-blue-400" />;
+        return <Package className="h-4 w-4" />;
       case 'shipped':
-        return <Truck className="h-4 w-4 text-purple-400" />;
+        return <Truck className="h-4 w-4" />;
       case 'delivered':
-        return <CheckCircle2 className="h-4 w-4 text-green-400" />;
+        return <CheckCircle2 className="h-4 w-4" />;
       case 'cancelled':
-        return <XCircle className="h-4 w-4 text-red-400" />;
+        return <XCircle className="h-4 w-4" />;
     }
   };
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-500/10 text-yellow-500';
+        return 'text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20';
       case 'confirmed':
-        return 'bg-blue-500/10 text-blue-400';
+        return 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20';
       case 'shipped':
-        return 'bg-purple-500/10 text-purple-400';
+        return 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20';
       case 'delivered':
-        return 'bg-green-500/10 text-green-400';
+        return 'text-green-400 bg-green-500/10 hover:bg-green-500/20';
       case 'cancelled':
-        return 'bg-red-500/10 text-red-400';
+        return 'text-red-400 bg-red-500/10 hover:bg-red-500/20';
     }
   };
 
@@ -42,13 +42,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
     if (!contactInfo || !contactInfo.method || !contactInfo.value) return null;
     const { method, value } = contactInfo;
     
-    const getContactLink = () => {
-      if (!value) return {
-        url: null,
-        display: 'N/A',
-        icon: <Send className="h-4 w-4 text-gray-400" />
-      };
-
+    const getContactInfo = () => {
       const cleanValue = typeof value === 'string' && value.startsWith('@') 
         ? value.slice(1) 
         : value;
@@ -58,46 +52,53 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
           return {
             url: `https://x.com/${cleanValue}`,
             display: `@${cleanValue}`,
-            icon: <Send className="h-4 w-4 text-gray-400" />
+            icon: <Send className="h-4 w-4 text-gray-400" />,
+            label: 'X (Twitter)'
           };
         case 'telegram':
           return {
             url: `https://t.me/${cleanValue}`,
             display: `@${cleanValue}`,
-            icon: <Send className="h-4 w-4 text-gray-400" />
+            icon: <Send className="h-4 w-4 text-gray-400" />,
+            label: 'Telegram'
           };
         case 'email':
           return {
             url: `mailto:${cleanValue}`,
             display: cleanValue,
-            icon: <Mail className="h-4 w-4 text-gray-400" />
+            icon: <Mail className="h-4 w-4 text-gray-400" />,
+            label: 'Email'
           };
         default:
           return {
             url: null,
             display: cleanValue,
-            icon: <Send className="h-4 w-4 text-gray-400" />
+            icon: <Send className="h-4 w-4 text-gray-400" />,
+            label: method.charAt(0).toUpperCase() + method.slice(1)
           };
       }
     };
 
-    const { url, display, icon } = getContactLink();
+    const { url, display, icon, label } = getContactInfo();
     
     return (
-      <div className="flex items-center gap-2">
-        {icon}
-        {url ? (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-purple-400 hover:text-purple-300 transition-colors"
-          >
-            {display}
-          </a>
-        ) : (
-          <span className="text-gray-300">{display}</span>
-        )}
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-gray-400">{label}</span>
+        <div className="flex items-center gap-2">
+          {icon}
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-400 hover:text-purple-300 transition-colors"
+            >
+              {display}
+            </a>
+          ) : (
+            <span className="text-gray-300">{display}</span>
+          )}
+        </div>
       </div>
     );
   };
@@ -137,8 +138,8 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
 
             <div className="flex-1 min-w-0">
               {/* Order Header */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
                   <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
                   {order.product.sku && (
                     <p className="text-xs text-gray-400 mt-1">SKU: {order.product.sku}</p>
@@ -159,23 +160,24 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                     Amount: {order.amountSol} SOL
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
-                    {getStatusIcon(order.status)}
-                    <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
-                  </div>
-                  {onStatusUpdate && (
+                <div className="w-full sm:w-auto">
+                  {onStatusUpdate ? (
                     <select
                       value={order.status}
                       onChange={(e) => onStatusUpdate(order.id, e.target.value as OrderStatus)}
-                      className="bg-gray-800 rounded px-2 py-1 text-xs"
+                      className={`w-full sm:w-auto appearance-none cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${getStatusColor(order.status)}`}
                     >
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="shipped">Shipped</option>
-                      <option value="delivered">Delivered</option>
-                      <option value="cancelled">Cancelled</option>
+                      <option value="pending" className="bg-gray-900">Pending</option>
+                      <option value="confirmed" className="bg-gray-900">Confirmed</option>
+                      <option value="shipped" className="bg-gray-900">Shipped</option>
+                      <option value="delivered" className="bg-gray-900">Delivered</option>
+                      <option value="cancelled" className="bg-gray-900">Cancelled</option>
                     </select>
+                  ) : (
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm ${getStatusColor(order.status)}`}>
+                      {getStatusIcon(order.status)}
+                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                    </div>
                   )}
                 </div>
               </div>
