@@ -61,6 +61,8 @@ export interface PublicOrderCount {
 // Type for merchant orders view
 export interface MerchantOrder extends Order {
   product_name: string;
+  product_sku: string;
+  product_images: string[];
   collection_name: string;
   collection_owner_id: string;
   access_type: string | null;

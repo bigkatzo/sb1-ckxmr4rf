@@ -15,6 +15,8 @@ interface RawOrder {
   created_at: string;
   updated_at: string;
   product_name: string;
+  product_sku: string;
+  product_images: string[];
   collection_name: string;
   collection_owner_id: string;
   access_type: string | null;
@@ -42,6 +44,8 @@ export function useMerchantOrders() {
         product: {
           id: order.product_id,
           name: order.product_name,
+          sku: order.product_sku,
+          imageUrl: order.product_images?.[0] || undefined,
           collection: {
             id: order.collection_id,
             name: order.collection_name,
