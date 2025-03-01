@@ -18,20 +18,26 @@ BEGIN
     RAISE EXCEPTION 'Cannot set inactive wallet as main';
   END IF;
 
-  -- Update all wallets in a single atomic operation using CASE
-  UPDATE merchant_wallets
-  SET is_main = CASE 
-    WHEN id = p_wallet_id THEN true
-    ELSE false
-  END
-  WHERE EXISTS (
-    SELECT 1 FROM merchant_wallets
-  );
+  -- Handle main wallet toggle in a transaction
+  BEGIN
+    -- First, unset the current main wallet
+    UPDATE merchant_wallets
+    SET is_main = false
+    WHERE is_main = true;
 
-  -- Verify we have a main wallet
-  IF NOT EXISTS (SELECT 1 FROM merchant_wallets WHERE is_main = true) THEN
-    RAISE EXCEPTION 'System must have a main wallet';
-  END IF;
+    -- Then set the new main wallet
+    UPDATE merchant_wallets
+    SET is_main = true
+    WHERE id = p_wallet_id;
+
+    -- Verify we have a main wallet
+    IF NOT EXISTS (SELECT 1 FROM merchant_wallets WHERE is_main = true) THEN
+      RAISE EXCEPTION 'System must have a main wallet';
+    END IF;
+  EXCEPTION
+    WHEN others THEN
+      RAISE EXCEPTION 'Failed to set main wallet: %', SQLERRM;
+  END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
