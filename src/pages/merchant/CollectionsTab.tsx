@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Plus, Image as ImageIcon } from 'lucide-react';
 import { CollectionForm } from '../../components/merchant/forms/CollectionForm';
-import { createCollection, updateCollection, toggleFeatured, deleteCollection } from '../../services/collections';
+import { createCollection, updateCollection, toggleFeatured, toggleSaleEnded, deleteCollection } from '../../services/collections';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { EditButton } from '../../components/ui/EditButton';
 import { StarButton } from '../../components/ui/StarButton';
 import { DeleteButton } from '../../components/ui/DeleteButton';
+import { Toggle } from '../../components/ui/Toggle';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
+import { toast } from 'react-toastify';
 
 export function CollectionsTab() {
   const [showForm, setShowForm] = useState(false);
@@ -144,22 +146,26 @@ export function CollectionsTab() {
 
       {showConfirmDialog && deletingId && (
         <ConfirmDialog
+          open={showConfirmDialog}
+          onClose={() => {
+            setShowConfirmDialog(false);
+            setDeletingId(null);
+          }}
           title="Delete Collection"
-          message="Are you sure you want to delete this collection? All products and categories in this collection will also be deleted. This action cannot be undone."
+          description="Are you sure you want to delete this collection? All products and categories in this collection will also be deleted. This action cannot be undone."
+          confirmLabel="Delete"
           onConfirm={async () => {
             try {
               await deleteCollection(deletingId);
               refreshCollections();
+              toast.success('Collection deleted successfully');
             } catch (error) {
               console.error('Error deleting collection:', error);
+              toast.error('Failed to delete collection');
             } finally {
               setShowConfirmDialog(false);
               setDeletingId(null);
             }
-          }}
-          onCancel={() => {
-            setShowConfirmDialog(false);
-            setDeletingId(null);
           }}
         />
       )}
