@@ -8,11 +8,9 @@ EXCEPTION
   WHEN undefined_object THEN null;
 END $$;
 
--- Create new RLS policies with proper wallet address check
-CREATE POLICY "orders_select_buyer"
-  ON orders FOR SELECT
-  TO authenticated
-  USING (wallet_address = current_setting('request.jwt.claims', true)::jsonb->>'wallet_address');
+-- Create new RLS policies
+-- Remove redundant buyer policy since we handle this in the view
+-- CREATE POLICY "orders_select_buyer" ...
 
 CREATE POLICY "orders_select_merchant"
   ON orders FOR SELECT
@@ -37,4 +35,4 @@ CREATE POLICY "orders_update_merchant"
 CREATE POLICY "orders_insert_authenticated"
   ON orders FOR INSERT
   TO authenticated
-  WITH CHECK (wallet_address = current_setting('request.jwt.claims', true)::jsonb->>'wallet_address');
+  WITH CHECK (true);

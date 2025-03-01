@@ -33,11 +33,6 @@ CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies with unique names
-CREATE POLICY "orders_select_buyer"
-  ON orders FOR SELECT
-  TO authenticated
-  USING (wallet_address = current_setting('request.jwt.claims')::json->>'wallet_address');
-
 CREATE POLICY "orders_select_merchant"
   ON orders FOR SELECT
   TO authenticated

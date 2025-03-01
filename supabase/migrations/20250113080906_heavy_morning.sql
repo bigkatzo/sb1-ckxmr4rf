@@ -27,11 +27,6 @@ CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
 -- Create simplified RLS policies
-CREATE POLICY "Buyers can view their own orders"
-  ON orders FOR SELECT
-  TO authenticated
-  USING (wallet_address = current_setting('request.jwt.claims')::json->>'wallet_address');
-
 CREATE POLICY "Merchants can view orders for their products"
   ON orders FOR SELECT
   TO authenticated

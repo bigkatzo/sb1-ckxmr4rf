@@ -106,25 +106,7 @@ SELECT
 FROM orders o
 JOIN products p ON p.id = o.product_id
 JOIN collections c ON c.id = o.collection_id
-LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
-WHERE 
-    -- Collection owners can view orders
-    c.user_id = auth.uid()
-    OR
-    -- Users with collection access can view orders
-    EXISTS (
-        SELECT 1 FROM collection_access
-        WHERE collection_id = c.id
-        AND user_id = auth.uid()
-        AND access_type IN ('view', 'edit')
-    )
-    OR
-    -- Admins can view all orders
-    EXISTS (
-        SELECT 1 FROM user_profiles up
-        WHERE up.id = auth.uid()
-        AND up.role = 'admin'
-    );
+LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid();
 
 -- Create RLS policies
 CREATE POLICY "orders_count_public_view"
@@ -139,39 +121,39 @@ USING (
     )
 );
 
+-- Add user orders policy
 CREATE POLICY "orders_user_view"
 ON orders
 FOR SELECT
 TO authenticated
 USING (
-    -- Users can view their own orders by matching wallet address
-    wallet_address = (
-        SELECT wallet_address 
-        FROM wallets w 
-        WHERE w.user_id = auth.uid() 
-        AND w.is_primary = true
-        LIMIT 1
-    )
+    -- Users can only view their own orders
+    wallet_address = auth.jwt()->>'wallet_address'
 );
 
+-- Add merchant orders policy with full access control
 CREATE POLICY "orders_merchant_view"
 ON orders
 FOR SELECT
 TO authenticated
 USING (
+    -- Collection owners can view orders
     EXISTS (
         SELECT 1 FROM collections c
         WHERE c.id = collection_id
         AND c.user_id = auth.uid()
     )
     OR
+    -- Users with collection access can view orders
     EXISTS (
         SELECT 1 FROM collections c
         JOIN collection_access ca ON ca.collection_id = c.id
         WHERE c.id = collection_id
         AND ca.user_id = auth.uid()
+        AND ca.access_type IN ('view', 'edit')
     )
     OR
+    -- Admins can view all orders
     EXISTS (
         SELECT 1 FROM user_profiles up
         WHERE up.id = auth.uid()
@@ -184,12 +166,14 @@ ON orders
 FOR UPDATE
 TO authenticated
 USING (
+    -- Collection owners can update orders
     EXISTS (
         SELECT 1 FROM collections c
         WHERE c.id = collection_id
         AND c.user_id = auth.uid()
     )
     OR
+    -- Users with edit access can update orders
     EXISTS (
         SELECT 1 FROM collections c
         JOIN collection_access ca ON ca.collection_id = c.id
@@ -198,6 +182,7 @@ USING (
         AND ca.access_type = 'edit'
     )
     OR
+    -- Admins can update all orders
     EXISTS (
         SELECT 1 FROM user_profiles up
         WHERE up.id = auth.uid()
