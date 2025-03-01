@@ -470,7 +470,7 @@ export function WalletManagement() {
           confirmLabel="Delete"
           onConfirm={async () => {
             try {
-              const { error } = await supabase.rpc('delete_wallet', {
+              const { error } = await supabase.rpc('delete_merchant_wallet', {
                 p_wallet_id: deletingWallet.id
               });
 

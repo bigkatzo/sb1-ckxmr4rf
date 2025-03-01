@@ -11,16 +11,34 @@ WHERE is_main = true;
 CREATE OR REPLACE FUNCTION set_main_wallet(p_wallet_id uuid)
 RETURNS void AS $$
 BEGIN
+  -- Verify caller is admin
+  IF NOT auth.is_admin() THEN
+    RAISE EXCEPTION 'Only admin can set main wallet';
+  END IF;
+
+  -- Check if wallet exists and is active
+  IF NOT EXISTS (
+    SELECT 1 FROM merchant_wallets
+    WHERE id = p_wallet_id AND is_active = true
+  ) THEN
+    RAISE EXCEPTION 'Wallet not found or inactive';
+  END IF;
+
   -- Start transaction
   BEGIN
     -- First, set all wallets to not main
     UPDATE merchant_wallets
-    SET is_main = false;
+    SET is_main = false
+    WHERE is_main = true;
 
     -- Then set the specified wallet as main
     UPDATE merchant_wallets
     SET is_main = true
     WHERE id = p_wallet_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Failed to set main wallet: Wallet not found';
+    END IF;
   EXCEPTION
     WHEN others THEN
       RAISE EXCEPTION 'Failed to set main wallet: %', SQLERRM;

@@ -105,18 +105,52 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create function to delete wallet
-CREATE OR REPLACE FUNCTION delete_wallet(
+CREATE OR REPLACE FUNCTION delete_merchant_wallet(
   p_wallet_id uuid
 )
 RETURNS void AS $$
 BEGIN
-  -- Only allow admin420 to delete wallets
-  IF NULLIF(current_setting('request.jwt.claims', true)::jsonb->>'email', '') != 'admin420@merchant.local' THEN
-    RAISE EXCEPTION 'Only admin420 can delete wallets';
+  -- Verify caller is admin
+  IF NOT auth.is_admin() THEN
+    RAISE EXCEPTION 'Only admin can delete wallets';
   END IF;
 
-  -- Delete wallet
-  DELETE FROM wallets WHERE id = p_wallet_id;
+  -- Check if wallet exists
+  IF NOT EXISTS (SELECT 1 FROM merchant_wallets WHERE id = p_wallet_id) THEN
+    RAISE EXCEPTION 'Wallet not found';
+  END IF;
+
+  -- Check if this is the last active wallet
+  IF (
+    SELECT COUNT(*) = 1 
+    FROM merchant_wallets 
+    WHERE is_active = true
+    AND id = p_wallet_id
+  ) THEN
+    RAISE EXCEPTION 'Cannot delete the last active wallet';
+  END IF;
+
+  -- If this is the main wallet, assign main to another active wallet
+  IF EXISTS (SELECT 1 FROM merchant_wallets WHERE id = p_wallet_id AND is_main = true) THEN
+    UPDATE merchant_wallets
+    SET is_main = true
+    WHERE id = (
+      SELECT id 
+      FROM merchant_wallets 
+      WHERE id != p_wallet_id 
+      AND is_active = true 
+      ORDER BY created_at ASC 
+      LIMIT 1
+    );
+  END IF;
+
+  -- Delete the wallet (will cascade to collection_wallets)
+  DELETE FROM merchant_wallets
+  WHERE id = p_wallet_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Failed to delete wallet';
+  END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -124,4 +158,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION list_wallets() TO authenticated;
 GRANT EXECUTE ON FUNCTION create_wallet(text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION update_wallet(uuid, text, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION delete_wallet(uuid) TO authenticated; 
+GRANT EXECUTE ON FUNCTION delete_merchant_wallet(uuid) TO authenticated; 
