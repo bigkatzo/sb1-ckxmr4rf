@@ -3,20 +3,8 @@ import { supabase } from '../lib/supabase';
 import { handleCollectionError } from '../utils/error-handlers';
 import { isValidCollectionSlug } from '../utils/validation';
 import { useCollectionCache } from '../contexts/CollectionContext';
-import type { Category, Collection, Product } from '../types';
+import type { Collection } from '../types';
 import { normalizeStorageUrl } from '../lib/storage';
-
-interface PublicCollection {
-  id: string;
-  name: string;
-  description: string;
-  image_url: string | null;
-  launch_date: string;
-  featured: boolean;
-  visible: boolean;
-  sale_ended: boolean;
-  slug: string;
-}
 
 export function useCollection(slug: string) {
   const [collection, setCollection] = useState<Collection | null>(null);

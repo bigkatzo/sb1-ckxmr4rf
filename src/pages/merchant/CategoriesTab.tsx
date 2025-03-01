@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Image as ImageIcon } from 'lucide-react';
+import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import { CategoryForm } from '../../components/merchant/forms/CategoryForm';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
