@@ -26,6 +26,7 @@ export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'c
 
 export interface Order {
   id: string;
+  order_number: string;
   product: {
     id: string;
     name: string;

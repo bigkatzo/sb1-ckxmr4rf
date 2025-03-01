@@ -229,8 +229,8 @@ export function OrdersPage() {
                   <div className="mt-4 pt-4 border-t border-gray-800">
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">Order ID:</span>
-                        <span className="text-xs font-mono">{order.id}</span>
+                        <span className="text-xs text-gray-400">Order #:</span>
+                        <span className="text-xs font-mono">{order.order_number}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-400">Transaction:</span>

@@ -66,6 +66,7 @@ export function OrdersTab() {
         const searchLower = searchQuery.toLowerCase();
         return (
           // Order details
+          order.order_number.toLowerCase().includes(searchLower) ||
           order.id.toLowerCase().includes(searchLower) ||
           // Product details
           order.product.name.toLowerCase().includes(searchLower) ||

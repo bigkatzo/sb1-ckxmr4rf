@@ -42,6 +42,7 @@ export function useOrders() {
 
       const transformedOrders: Order[] = (data || []).map(order => ({
         id: order.id,
+        order_number: order.order_number,
         product: {
           id: order.product.id,
           name: order.product.name,

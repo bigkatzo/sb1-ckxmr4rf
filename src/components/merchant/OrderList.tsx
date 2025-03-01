@@ -166,8 +166,8 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                   {/* Transaction Info */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
                     <div className="flex items-center gap-1">
-                      <span className="text-gray-500">ID:</span>
-                      <span className="font-mono">{order.id}</span>
+                      <span className="text-gray-500">Order #:</span>
+                      <span className="font-mono">{order.order_number}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-gray-500">Wallet:</span>
