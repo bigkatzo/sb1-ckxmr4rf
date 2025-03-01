@@ -4,7 +4,6 @@ import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { Transaction, PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
-import { supabase } from '../lib/supabase';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 interface WalletContextType {
