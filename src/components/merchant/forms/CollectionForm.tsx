@@ -14,6 +14,7 @@ export interface CollectionFormProps {
 
 export function CollectionForm({ collection, onSubmit, onClose }: CollectionFormProps) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(collection?.imageUrl || '');
   const [name, setName] = useState(collection?.name || '');
@@ -76,6 +77,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     try {
       const formData = new FormData();
@@ -102,7 +104,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       onClose();
     } catch (error) {
       console.error('Error submitting collection form:', error);
-      // You might want to show an error message to the user here
+      setError(error instanceof Error ? error.message : 'Failed to create collection. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -146,51 +148,11 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                 onSubmit={handleSubmit} 
                 className="space-y-6 p-4 sm:p-6"
               >
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-white mb-1">
-                    Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={name}
-                    onChange={handleNameChange}
-                    required
-                    className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
-                    placeholder="Enter collection name"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="description" className="block text-sm font-medium text-white mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
-                    placeholder="Enter collection description"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="launchDate" className="block text-sm font-medium text-white mb-1">
-                    Launch Date *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    id="launchDate"
-                    name="launchDate"
-                    value={launchDate}
-                    onChange={(e) => setLaunchDate(e.target.value)}
-                    required
-                    className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
-                  />
-                </div>
+                {error && (
+                  <div className="p-4 bg-red-900/50 border border-red-500 rounded-lg">
+                    <p className="text-red-400 text-sm">{error}</p>
+                  </div>
+                )}
 
                 <div>
                   <label htmlFor="image" className="block text-sm font-medium text-white mb-1">
@@ -245,6 +207,22 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                 </div>
 
                 <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-white mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={name}
+                    onChange={handleNameChange}
+                    required
+                    className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                    placeholder="Enter collection name"
+                  />
+                </div>
+
+                <div>
                   <label htmlFor="slug" className="block text-sm font-medium text-white mb-1">
                     Collection ID
                   </label>
@@ -265,6 +243,36 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                   <p className="mt-1 text-xs text-gray-400">
                     This ID will be used in the collection's URL
                   </p>
+                </div>
+
+                <div>
+                  <label htmlFor="description" className="block text-sm font-medium text-white mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                    placeholder="Enter collection description"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="launchDate" className="block text-sm font-medium text-white mb-1">
+                    Launch Date *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    id="launchDate"
+                    name="launchDate"
+                    value={launchDate}
+                    onChange={(e) => setLaunchDate(e.target.value)}
+                    required
+                    className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+                  />
                 </div>
 
                 <div>
