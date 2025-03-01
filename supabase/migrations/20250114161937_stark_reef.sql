@@ -21,7 +21,7 @@ BEGIN
     SELECT 1 FROM merchant_wallets
     WHERE id = p_wallet_id AND is_active = true
   ) THEN
-    RAISE EXCEPTION 'Wallet not found or inactive';
+    RAISE EXCEPTION 'Cannot set inactive wallet as main';
   END IF;
 
   -- Start transaction
@@ -36,8 +36,9 @@ BEGIN
     SET is_main = true
     WHERE id = p_wallet_id;
 
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Failed to set main wallet: Wallet not found';
+    -- Verify we have a main wallet
+    IF NOT EXISTS (SELECT 1 FROM merchant_wallets WHERE is_main = true) THEN
+      RAISE EXCEPTION 'System must have a main wallet';
     END IF;
   EXCEPTION
     WHEN others THEN
@@ -45,6 +46,26 @@ BEGIN
   END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create function to ensure first wallet is main
+CREATE OR REPLACE FUNCTION ensure_first_wallet_is_main()
+RETURNS trigger AS $$
+BEGIN
+  -- If this is the first wallet being inserted
+  IF (SELECT COUNT(*) FROM merchant_wallets) = 1 THEN
+    NEW.is_main = true;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to ensure first wallet is main
+DROP TRIGGER IF EXISTS ensure_first_wallet_is_main_trigger ON merchant_wallets;
+CREATE TRIGGER ensure_first_wallet_is_main_trigger
+  BEFORE INSERT ON merchant_wallets
+  FOR EACH ROW
+  EXECUTE FUNCTION ensure_first_wallet_is_main();
 
 -- Create function to get default wallet for collection
 CREATE OR REPLACE FUNCTION get_collection_wallet(p_collection_id uuid)

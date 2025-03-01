@@ -120,28 +120,9 @@ BEGIN
     RAISE EXCEPTION 'Wallet not found';
   END IF;
 
-  -- Check if this is the last active wallet
-  IF (
-    SELECT COUNT(*) = 1 
-    FROM merchant_wallets 
-    WHERE is_active = true
-    AND id = p_wallet_id
-  ) THEN
-    RAISE EXCEPTION 'Cannot delete the last active wallet';
-  END IF;
-
-  -- If this is the main wallet, assign main to another active wallet
+  -- Check if this is the main wallet
   IF EXISTS (SELECT 1 FROM merchant_wallets WHERE id = p_wallet_id AND is_main = true) THEN
-    UPDATE merchant_wallets
-    SET is_main = true
-    WHERE id = (
-      SELECT id 
-      FROM merchant_wallets 
-      WHERE id != p_wallet_id 
-      AND is_active = true 
-      ORDER BY created_at ASC 
-      LIMIT 1
-    );
+    RAISE EXCEPTION 'Cannot delete the main wallet. Please set another wallet as main first.';
   END IF;
 
   -- Delete the wallet (will cascade to collection_wallets)
