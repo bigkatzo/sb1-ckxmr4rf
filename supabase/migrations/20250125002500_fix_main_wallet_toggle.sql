@@ -2,14 +2,23 @@
 DROP FUNCTION IF EXISTS set_main_wallet(uuid);
 DROP INDEX IF EXISTS idx_merchant_wallets_main;
 ALTER TABLE merchant_wallets DROP CONSTRAINT IF EXISTS merchant_wallets_main_key;
+ALTER TABLE merchant_wallets DROP CONSTRAINT IF EXISTS merchant_wallets_main_unique;
 
--- Create partial unique constraint for main wallet
-ALTER TABLE merchant_wallets ADD CONSTRAINT merchant_wallets_main_unique 
+-- Create constraints for main wallet
+-- Ensure only active wallets can be main
+ALTER TABLE merchant_wallets ADD CONSTRAINT merchant_wallets_main_active_check 
 CHECK (NOT is_main OR (is_main AND is_active));
+
+-- Ensure only one wallet can be main
+CREATE UNIQUE INDEX merchant_wallets_main_unique 
+ON merchant_wallets ((true))
+WHERE is_main = true;
 
 -- Create improved set_main_wallet function
 CREATE OR REPLACE FUNCTION set_main_wallet(p_wallet_id uuid)
 RETURNS void AS $$
+DECLARE
+  v_current_main_id uuid;
 BEGIN
   -- Verify caller is admin
   IF NOT auth.is_admin() THEN
@@ -24,17 +33,38 @@ BEGIN
     RAISE EXCEPTION 'Cannot set inactive wallet as main';
   END IF;
 
-  -- Update all wallets in a single atomic operation
-  UPDATE merchant_wallets
-  SET is_main = CASE 
-    WHEN id = p_wallet_id THEN true
-    ELSE false
-  END;
+  -- Get current main wallet ID
+  SELECT id INTO v_current_main_id
+  FROM merchant_wallets
+  WHERE is_main = true;
 
-  -- Verify we have exactly one main wallet
-  IF (SELECT COUNT(*) FROM merchant_wallets WHERE is_main = true) != 1 THEN
-    RAISE EXCEPTION 'System must have exactly one main wallet';
+  -- If we're trying to set the same wallet as main, do nothing
+  IF v_current_main_id = p_wallet_id THEN
+    RETURN;
   END IF;
+
+  -- Perform updates in a transaction
+  BEGIN
+    -- First unset the current main wallet
+    IF v_current_main_id IS NOT NULL THEN
+      UPDATE merchant_wallets
+      SET is_main = false
+      WHERE id = v_current_main_id;
+    END IF;
+
+    -- Then set the new main wallet
+    UPDATE merchant_wallets
+    SET is_main = true
+    WHERE id = p_wallet_id;
+
+    -- Verify we have exactly one main wallet
+    IF (SELECT COUNT(*) FROM merchant_wallets WHERE is_main = true) != 1 THEN
+      RAISE EXCEPTION 'System must have exactly one main wallet';
+    END IF;
+  EXCEPTION
+    WHEN others THEN
+      RAISE EXCEPTION 'Failed to set main wallet: %', SQLERRM;
+  END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
