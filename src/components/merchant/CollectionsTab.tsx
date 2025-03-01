@@ -13,6 +13,7 @@ import { Tooltip } from '../ui/Tooltip';
 import { toast } from 'react-toastify';
 import { Spinner } from '../ui/Spinner';
 import { useAuth } from '../../hooks/useAuth';
+import { CollectionUpdateData } from '../../services/collections/types';
 
 export function CollectionsTab() {
   const [showForm, setShowForm] = useState(false);
@@ -30,13 +31,13 @@ export function CollectionsTab() {
     changingAccessId
   } = useMerchantCollections();
 
-  const handleSubmit = async (data: FormData) => {
+  const handleSubmit = async (formData: FormData) => {
     try {
       if (editingCollection) {
-        await updateCollection(editingCollection.id, data);
+        await updateCollection(editingCollection.id, formData);
         toast.success('Collection updated successfully');
       } else {
-        await createCollection(data);
+        await createCollection(formData);
         toast.success('Collection created successfully');
       }
       setShowForm(false);
@@ -45,6 +46,18 @@ export function CollectionsTab() {
     } catch (error) {
       console.error('Error with collection:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save collection');
+    }
+  };
+
+  const handleVisibilityChange = async (id: string, checked: boolean) => {
+    try {
+      const formData = new FormData();
+      formData.append('visible', checked.toString());
+      await updateCollection(id, formData);
+      refreshCollections();
+    } catch (error) {
+      console.error('Error updating visibility:', error);
+      toast.error('Failed to update visibility');
     }
   };
 
@@ -195,7 +208,7 @@ export function CollectionsTab() {
                       <Toggle
                         checked={collection.visible}
                         onCheckedChange={(checked) => {
-                          updateCollection(collection.id, { visible: checked });
+                          handleVisibilityChange(collection.id, checked);
                         }}
                         size="sm"
                         label="Visible"
