@@ -156,13 +156,15 @@ export function TokenVerificationModal({
         try {
           await createOrder({
             productId: product.id,
+            collectionId: product.collectionId,
             variants: Object.entries(selectedOptions).map(([id, value]) => ({
               name: product.variants?.find(v => v.id === id)?.name || '',
               value
             })),
             shippingInfo: formattedShippingInfo,
             transactionId: signature,
-            walletAddress
+            walletAddress,
+            amountSol: product.price
           });
           orderError = null;
           break;

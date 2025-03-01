@@ -3,6 +3,7 @@ import type { Order } from '../types/orders';
 
 interface CreateOrderData {
   productId: string;
+  collectionId: string;
   variants?: Array<{ name: string; value: string }>;
   shippingInfo: {
     address: string;
@@ -11,12 +12,13 @@ interface CreateOrderData {
   };
   transactionId: string;
   walletAddress: string;
+  amountSol: number;
 }
 
 export async function createOrder(data: CreateOrderData): Promise<string> {
   try {
     // Validate required fields
-    if (!data.productId || !data.shippingInfo || !data.transactionId || !data.walletAddress) {
+    if (!data.productId || !data.collectionId || !data.shippingInfo || !data.transactionId || !data.walletAddress || !data.amountSol) {
       throw new Error('Missing required order data');
     }
 
@@ -27,12 +29,18 @@ export async function createOrder(data: CreateOrderData): Promise<string> {
           .from('orders')
           .insert({
             product_id: data.productId,
-            variants: data.variants || [],
-            shipping_info: data.shippingInfo,
-            transaction_id: data.transactionId,
+            collection_id: data.collectionId,
+            shipping_address: {
+              address: data.shippingInfo.address
+            },
+            contact_info: {
+              method: data.shippingInfo.contactMethod,
+              value: data.shippingInfo.contactValue
+            },
+            transaction_signature: data.transactionId,
             wallet_address: data.walletAddress,
             status: 'pending',
-            transaction_status: 'pending'
+            amount_sol: data.amountSol
           })
           .select()
           .single();
