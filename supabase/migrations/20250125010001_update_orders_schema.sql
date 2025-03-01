@@ -83,6 +83,8 @@ CREATE OR REPLACE VIEW merchant_orders AS
 SELECT 
     o.*,
     p.name as product_name,
+    p.sku as product_sku,
+    p.images as product_images,
     c.name as collection_name,
     c.user_id as collection_owner_id,
     CASE 
@@ -171,26 +173,20 @@ USING (
         WHERE up.id = auth.uid()
         AND up.role = 'admin'
     )
-)
+);
+
+-- Add INSERT policy for orders
+CREATE POLICY "orders_insert"
+ON orders
+FOR INSERT
+TO authenticated
 WITH CHECK (
+    -- Only verify the product exists and is in a visible collection
     EXISTS (
-        SELECT 1 FROM collections c
-        WHERE c.id = collection_id
-        AND c.user_id = auth.uid()
-    )
-    OR
-    EXISTS (
-        SELECT 1 FROM collections c
-        JOIN collection_access ca ON ca.collection_id = c.id
-        WHERE c.id = collection_id
-        AND ca.user_id = auth.uid()
-        AND ca.access_type = 'edit'
-    )
-    OR
-    EXISTS (
-        SELECT 1 FROM user_profiles up
-        WHERE up.id = auth.uid()
-        AND up.role = 'admin'
+        SELECT 1 FROM products p
+        JOIN collections c ON c.id = p.collection_id
+        WHERE p.id = product_id
+        AND c.visible = true
     )
 );
 
@@ -198,6 +194,7 @@ WITH CHECK (
 GRANT SELECT ON public_order_counts TO public;
 GRANT SELECT ON user_orders TO authenticated;
 GRANT SELECT ON merchant_orders TO authenticated;
+GRANT INSERT ON orders TO authenticated;
 
 -- Add documentation
 COMMENT ON TABLE orders IS 'Stores order information for products';
