@@ -35,7 +35,6 @@ export function useOrders() {
             )
           )
         `)
-        .eq('wallet_address', walletAddress)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
