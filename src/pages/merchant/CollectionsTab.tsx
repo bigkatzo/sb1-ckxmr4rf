@@ -109,7 +109,7 @@ export function CollectionsTab() {
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <StarButton
-                        active={collection.featured}
+                        featured={collection.featured}
                         onClick={() => handleToggleFeatured(collection.id, collection.featured)}
                         className="scale-90"
                       />
@@ -138,7 +138,7 @@ export function CollectionsTab() {
 
       {showForm && (
         <CollectionForm
-          initialData={editingCollection}
+          collection={editingCollection}
           onClose={() => {
             setShowForm(false);
             setEditingCollection(null);
