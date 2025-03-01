@@ -198,24 +198,24 @@ export function WalletManagement() {
   return (
     <div className="px-3 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-base sm:text-lg font-semibold">Merchant Wallets</h2>
             <RefreshButton onRefresh={fetchData} className="scale-90" />
           </div>
-          <div className="flex gap-1.5 sm:gap-2">
+          <div className="flex w-full sm:w-auto gap-2">
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
             >
-              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Plus className="h-4 w-4" />
               <span>Add Wallet</span>
             </button>
             <button
               onClick={() => setShowAssignModal(true)}
-              className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
             >
-              <Store className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Store className="h-4 w-4" />
               <span>Assign</span>
             </button>
           </div>
