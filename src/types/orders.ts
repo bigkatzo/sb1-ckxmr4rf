@@ -32,6 +32,8 @@ export interface Order {
     name: string;
     imageUrl?: string;
     sku?: string;
+    variants?: { name: string; value: string }[];
+    variantPrices?: Record<string, number>;
     category?: {
       name: string;
     };

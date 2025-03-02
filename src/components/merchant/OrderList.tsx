@@ -199,6 +199,11 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                         {order.product.category.name}
                       </span>
                     )}
+                    {order.product.variants && order.product.variants.length > 0 && (
+                      <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
+                        {order.product.variants.map((v: { name: string; value: string }) => `${v.name}: ${v.value}`).join(', ')}
+                      </span>
+                    )}
                     <span className="text-gray-400">
                       {order.amountSol} SOL
                     </span>

@@ -19,6 +19,8 @@ interface RawOrder {
   product_name: string;
   product_sku: string;
   product_image_url: string;
+  product_variants: { name: string; value: string }[];
+  product_variant_prices: Record<string, number>;
   collection_name: string;
   collection_owner_id: string;
   access_type: 'view' | 'edit' | null;
@@ -49,6 +51,8 @@ export function useMerchantOrders() {
           name: order.product_name,
           sku: order.product_sku,
           imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
+          variants: order.product_variants,
+          variantPrices: order.product_variant_prices,
           collection: {
             id: order.collection_id,
             name: order.collection_name,

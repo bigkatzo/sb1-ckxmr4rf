@@ -207,6 +207,11 @@ export function OrdersPage() {
                             {order.product.collection.name}
                           </span>
                         )}
+                        {order.product.variants && order.product.variants.length > 0 && (
+                          <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
+                            {order.product.variants.map((v: { name: string; value: string }) => `${v.name}: ${v.value}`).join(', ')}
+                          </span>
+                        )}
                       </div>
                       <p className="text-gray-400 text-xs mt-2">
                         Amount: {order.amountSol} SOL
