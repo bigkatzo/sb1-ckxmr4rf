@@ -9,7 +9,7 @@ CREATE VIEW merchant_orders AS
 SELECT 
     o.*,
     p.name as product_name,
-    p.image_url as product_image_url,
+    p.images[1] as product_image_url,
     c.name as collection_name,
     c.user_id as collection_owner_id,
     CASE 
