@@ -29,6 +29,8 @@ export function useOrders() {
             name,
             sku,
             images,
+            variants,
+            variant_prices,
             collection:collections (
               id,
               name
@@ -47,6 +49,8 @@ export function useOrders() {
           name: order.product.name,
           imageUrl: order.product.images?.[0] || null,
           sku: order.product.sku,
+          variants: order.product.variants || [],
+          variantPrices: order.product.variant_prices || {},
           collection: {
             id: order.product.collection.id,
             name: order.product.collection.name
