@@ -135,9 +135,9 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
     const { address, city, country, zip } = shippingAddress;
     
     return (
-      <div className="space-y-1 text-gray-300">
+      <div className="space-y-0.5 text-gray-300 text-sm">
         <div>{address}</div>
-        <div>{city}, {zip}</div>
+        <div>{city} {zip}</div>
         <div>{country}</div>
       </div>
     );
@@ -199,9 +199,9 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
           <div className="divide-y divide-gray-800">
             {/* Product Section */}
             <div className="p-4">
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex gap-4">
                 {/* Product Image */}
-                <div className="w-full sm:w-24 h-32 sm:h-24 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                <div className="w-16 sm:w-24 h-16 sm:h-24 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
                   {order.product.imageUrl ? (
                     <img 
                       src={order.product.imageUrl} 
@@ -210,16 +210,16 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Package className="h-8 w-8 text-gray-600" />
+                      <Package className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
                     </div>
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0">
                   {/* Product Info */}
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     <div className="space-y-1">
-                      <h3 className="font-medium text-base sm:text-sm text-white">{order.product.name}</h3>
+                      <h3 className="font-medium text-sm sm:text-base text-white">{order.product.name}</h3>
                       <div className="flex items-center gap-3 text-xs">
                         {order.product.sku && (
                           <span className="text-gray-500 font-mono">#{order.product.sku}</span>
@@ -249,34 +249,6 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                 </div>
               </div>
             </div>
-
-            {/* Transaction Info */}
-            <div className="px-4 py-3 flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-x-4 text-xs bg-gray-900/50">
-              <div className="flex items-center gap-1">
-                <span className="text-gray-500">Wallet:</span>
-                <a 
-                  href={`https://solscan.io/account/${order.walletAddress}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
-                >
-                  {order.walletAddress.slice(0, 4)}...{order.walletAddress.slice(-4)}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-gray-500">Tx:</span>
-                <a 
-                  href={`https://solscan.io/tx/${order.transactionSignature}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
-                >
-                  {order.transactionSignature.slice(0, 4)}...{order.transactionSignature.slice(-4)}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            </div>
             
             {/* Order Details */}
             {(order.shippingAddress || order.contactInfo) && (
@@ -289,13 +261,46 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                   </div>
                 )}
                 
-                {/* Contact Info */}
-                {order.contactInfo && (
+                {/* Contact & Transaction Info */}
+                <div className="space-y-3">
+                  {order.contactInfo && (
+                    <div className="space-y-1.5">
+                      <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Contact</h4>
+                      {formatContactInfo(order.contactInfo)}
+                    </div>
+                  )}
+                  
+                  {/* Transaction Links */}
                   <div className="space-y-1.5">
-                    <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Contact</h4>
-                    {formatContactInfo(order.contactInfo)}
+                    <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Transaction</h4>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-500">Wallet:</span>
+                        <a 
+                          href={`https://solscan.io/account/${order.walletAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                        >
+                          {order.walletAddress.slice(0, 4)}...{order.walletAddress.slice(-4)}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-500">Tx:</span>
+                        <a 
+                          href={`https://solscan.io/tx/${order.transactionSignature}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                        >
+                          {order.transactionSignature.slice(0, 4)}...{order.transactionSignature.slice(-4)}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
