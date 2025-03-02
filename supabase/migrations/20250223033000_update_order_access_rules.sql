@@ -5,6 +5,9 @@ BEGIN;
 DROP POLICY IF EXISTS "orders_merchant_view" ON orders;
 DROP POLICY IF EXISTS "orders_merchant_update" ON orders;
 
+-- Drop and recreate the view
+DROP VIEW IF EXISTS merchant_orders;
+
 -- Create new dashboard policies that match collection access pattern
 CREATE POLICY "orders_dashboard_view"
 ON orders
@@ -86,8 +89,8 @@ WITH CHECK (
     )
 );
 
--- Update merchant_orders view to reflect new access pattern
-CREATE OR REPLACE VIEW merchant_orders AS
+-- Create the updated view
+CREATE VIEW merchant_orders AS
 SELECT 
     o.*,
     p.name as product_name,
@@ -111,5 +114,8 @@ LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.
 -- Add indexes to optimize policy performance
 CREATE INDEX IF NOT EXISTS idx_user_profiles_admin ON user_profiles(id) WHERE role = 'admin';
 CREATE INDEX IF NOT EXISTS idx_collection_access_user_type ON collection_access(user_id, access_type);
+
+-- Grant permissions on the new view
+GRANT SELECT ON merchant_orders TO authenticated;
 
 COMMIT; 
