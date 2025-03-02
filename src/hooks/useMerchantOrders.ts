@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { normalizeStorageUrl } from '../lib/storage';
 import type { Order } from '../types/orders';
 
 interface RawOrder {
@@ -17,7 +18,7 @@ interface RawOrder {
   updated_at: string;
   product_name: string;
   product_sku: string;
-  product_images: string[];
+  product_image_url: string;
   collection_name: string;
   collection_owner_id: string;
   access_type: 'view' | 'edit' | null;
@@ -47,7 +48,7 @@ export function useMerchantOrders() {
           id: order.product_id,
           name: order.product_name,
           sku: order.product_sku,
-          imageUrl: order.product_images?.[0] || undefined,
+          imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
           collection: {
             id: order.collection_id,
             name: order.collection_name,
