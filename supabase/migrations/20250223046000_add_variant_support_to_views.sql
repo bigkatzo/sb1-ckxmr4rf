@@ -45,6 +45,7 @@ WHERE
 CREATE VIEW merchant_orders AS
 SELECT 
     o.*,
+    o.variants as order_variants,
     p.name as product_name,
     p.sku as product_sku,
     p.images[1] as product_image_url,

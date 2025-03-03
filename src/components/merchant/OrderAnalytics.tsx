@@ -56,7 +56,7 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
       name: string; 
       quantity: number; 
       solAmount: number;
-      category?: string;
+      collection?: string;
     }>();
 
     // Process orders
@@ -76,7 +76,7 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
         name: order.product.name,
         quantity: 0,
         solAmount: 0,
-        category: order.product.category?.name
+        collection: order.product.collection?.name
       };
       existingProduct.quantity += 1;
       existingProduct.solAmount += order.amountSol;
@@ -306,7 +306,7 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
                 <th className="py-2 px-3 text-xs font-medium text-gray-400">Product</th>
                 <th className="py-2 px-3 text-xs font-medium text-gray-400 text-right">Quantity</th>
                 <th className="py-2 px-3 text-xs font-medium text-gray-400 text-right">Sales (SOL)</th>
-                <th className="py-2 px-3 text-xs font-medium text-gray-400">Category</th>
+                <th className="py-2 px-3 text-xs font-medium text-gray-400">Collection</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
@@ -316,7 +316,7 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
                   <td className="py-2 px-3">{product.name}</td>
                   <td className="py-2 px-3 text-right">{product.quantity}</td>
                   <td className="py-2 px-3 text-right">{product.solAmount.toFixed(2)}</td>
-                  <td className="py-2 px-3 text-gray-400">{product.category || '-'}</td>
+                  <td className="py-2 px-3 text-gray-400">{product.collection || '-'}</td>
                 </tr>
               ))}
             </tbody>

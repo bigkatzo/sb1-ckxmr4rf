@@ -34,6 +34,10 @@ export function useOrders() {
             collection:collections (
               id,
               name
+            ),
+            category:categories (
+              id,
+              name
             )
           )
         `)
@@ -49,8 +53,12 @@ export function useOrders() {
           name: order.product.name,
           imageUrl: order.product.images?.[0] || null,
           sku: order.product.sku,
-          variants: order.product.variants || [],
+          variants: order.order_variants || [],
           variantPrices: order.product.variant_prices || {},
+          category: order.product.category ? {
+            id: order.product.category.id,
+            name: order.product.category.name
+          } : undefined,
           collection: {
             id: order.product.collection.id,
             name: order.product.collection.name

@@ -16,6 +16,7 @@ interface RawOrder {
   amount_sol: number;
   created_at: string;
   updated_at: string;
+  order_variants: { name: string; value: string }[];
   product_name: string;
   product_sku: string;
   product_image_url: string;
@@ -51,7 +52,7 @@ export function useMerchantOrders() {
           name: order.product_name,
           sku: order.product_sku,
           imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
-          variants: order.product_variants,
+          variants: order.order_variants || [],
           variantPrices: order.product_variant_prices,
           collection: {
             id: order.collection_id,

@@ -382,50 +382,97 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
             className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-purple-500/20 transition-all"
           >
             {/* Order Header - Status Bar */}
-            <div className="bg-gray-800/50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between sm:gap-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
-                  <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
+            <div className="bg-gray-800/50 px-4 py-3">
+              <div className="flex flex-col gap-2">
+                {/* Mobile Layout */}
+                <div className="flex items-center justify-between sm:hidden">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
+                    <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
+                  </div>
+                  <div className="shrink-0">
+                    {onStatusUpdate && canUpdateOrder ? (
+                      <div className="relative">
+                        <select
+                          value={order.status}
+                          onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
+                          className={`appearance-none cursor-pointer flex items-center gap-1.5 pl-9 pr-8 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide transition-colors focus:ring-2 focus:ring-purple-500/40 focus:outline-none ${getStatusColor(order.status)} ${updatingOrderId === order.id ? 'opacity-50 cursor-wait' : ''}`}
+                          disabled={updatingOrderId === order.id}
+                        >
+                          <option value="pending" className="bg-gray-900 pl-6">Pending</option>
+                          <option value="confirmed" className="bg-gray-900 pl-6">Confirmed</option>
+                          <option value="shipped" className="bg-gray-900 pl-6">Shipped</option>
+                          <option value="delivered" className="bg-gray-900 pl-6">Delivered</option>
+                          <option value="cancelled" className="bg-gray-900 pl-6">Cancelled</option>
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                          {updatingOrderId === order.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                          )}
+                        </div>
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                          {getStatusIcon(order.status)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
+                        {getStatusIcon(order.status)}
+                        <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 mt-1 sm:mt-0">
-                  <span className="text-gray-600 hidden sm:inline">•</span>
+                {/* Mobile Date */}
+                <div className="sm:hidden">
                   <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
                 </div>
-              </div>
-              {/* Status */}
-              <div className="shrink-0 mt-3 sm:mt-0">
-                {onStatusUpdate && canUpdateOrder ? (
-                  <div className="relative">
-                    <select
-                      value={order.status}
-                      onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
-                      className={`appearance-none cursor-pointer flex items-center gap-1.5 pl-9 pr-8 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide transition-colors focus:ring-2 focus:ring-purple-500/40 focus:outline-none ${getStatusColor(order.status)} ${updatingOrderId === order.id ? 'opacity-50 cursor-wait' : ''}`}
-                      disabled={updatingOrderId === order.id}
-                    >
-                      <option value="pending" className="bg-gray-900 pl-6">Pending</option>
-                      <option value="confirmed" className="bg-gray-900 pl-6">Confirmed</option>
-                      <option value="shipped" className="bg-gray-900 pl-6">Shipped</option>
-                      <option value="delivered" className="bg-gray-900 pl-6">Delivered</option>
-                      <option value="cancelled" className="bg-gray-900 pl-6">Cancelled</option>
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                      {updatingOrderId === order.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5 opacity-50" />
-                      )}
+
+                {/* Desktop Layout - All inline */}
+                <div className="hidden sm:flex sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
+                      <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
                     </div>
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                      {getStatusIcon(order.status)}
-                    </div>
+                    <span className="text-gray-600">•</span>
+                    <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
                   </div>
-                ) : (
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
-                    {getStatusIcon(order.status)}
-                    <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                  <div className="shrink-0">
+                    {onStatusUpdate && canUpdateOrder ? (
+                      <div className="relative">
+                        <select
+                          value={order.status}
+                          onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
+                          className={`appearance-none cursor-pointer flex items-center gap-1.5 pl-9 pr-8 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide transition-colors focus:ring-2 focus:ring-purple-500/40 focus:outline-none ${getStatusColor(order.status)} ${updatingOrderId === order.id ? 'opacity-50 cursor-wait' : ''}`}
+                          disabled={updatingOrderId === order.id}
+                        >
+                          <option value="pending" className="bg-gray-900 pl-6">Pending</option>
+                          <option value="confirmed" className="bg-gray-900 pl-6">Confirmed</option>
+                          <option value="shipped" className="bg-gray-900 pl-6">Shipped</option>
+                          <option value="delivered" className="bg-gray-900 pl-6">Delivered</option>
+                          <option value="cancelled" className="bg-gray-900 pl-6">Cancelled</option>
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                          {updatingOrderId === order.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                          )}
+                        </div>
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                          {getStatusIcon(order.status)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
+                        {getStatusIcon(order.status)}
+                        <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
 
