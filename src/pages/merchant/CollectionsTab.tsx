@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Image as ImageIcon } from 'lucide-react';
 import { CollectionForm } from '../../components/merchant/forms/CollectionForm';
 import { createCollection, updateCollection, toggleFeatured, deleteCollection } from '../../services/collections';
@@ -9,14 +9,32 @@ import { DeleteButton } from '../../components/ui/DeleteButton';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
+import { supabase } from '../../lib/supabase';
 
 export function CollectionsTab() {
   const [showForm, setShowForm] = useState(false);
   const [editingCollection, setEditingCollection] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const { collections, loading: collectionsLoading, refreshCollections } = useMerchantCollections();
+
+  useEffect(() => {
+    async function checkAdmin() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      setIsAdmin(profile?.role === 'admin');
+    }
+    checkAdmin();
+  }, []);
 
   const handleSubmit = async (data: FormData) => {
     try {
@@ -106,21 +124,41 @@ export function CollectionsTab() {
                         Launches {new Date(collection.launchDate).toLocaleDateString()}
                       </p>
                       <div className="mt-1 flex items-center gap-2">
-                        {collection.isOwner ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-purple-500/20 text-purple-400">
-                            Owner
-                          </span>
-                        ) : collection.accessType === 'admin' ? (
+                        {isAdmin ? (
                           <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
                             Owner: {collection.owner_username}
                           </span>
-                        ) : collection.accessType === 'edit' ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-blue-500/20 text-blue-400">
-                            Editor
-                          </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-gray-500/20 text-gray-400">
-                            Viewer
+                          <>
+                            {collection.isOwner ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-purple-500/20 text-purple-400">
+                                Owner
+                              </span>
+                            ) : (
+                              <>
+                                {collection.owner_username && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
+                                    Owner: {collection.owner_username}
+                                  </span>
+                                )}
+                                <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium ${
+                                  collection.accessType === 'edit' 
+                                    ? 'bg-blue-500/20 text-blue-400'
+                                    : 'bg-gray-500/20 text-gray-400'
+                                }`}>
+                                  {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
+                                </span>
+                              </>
+                            )}
+                          </>
+                        )}
+                        {!isAdmin && !collection.isOwner && collection.accessType && (
+                          <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium ${
+                            collection.accessType === 'edit' 
+                              ? 'bg-blue-500/20 text-blue-400'
+                              : 'bg-gray-500/20 text-gray-400'
+                          }`}>
+                            {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
                           </span>
                         )}
                       </div>
