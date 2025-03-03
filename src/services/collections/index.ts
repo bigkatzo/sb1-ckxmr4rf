@@ -217,16 +217,38 @@ export async function deleteCollection(id: string) {
     if (authError) throw authError;
     if (!user) throw new Error('User not authenticated');
 
-    // Verify collection exists and user owns it
+    // First check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+
+    // Verify collection exists and user has proper access
     const { data: collection, error: verifyError } = await supabase
       .from('collections')
       .select('id, image_url')
       .eq('id', id)
-      .eq('user_id', user.id)
       .single();
 
     if (verifyError || !collection) {
       throw new Error('Collection not found or access denied');
+    }
+
+    // If not admin, verify ownership
+    if (!isAdmin) {
+      const { data: ownerCheck, error: ownerError } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (ownerError || !ownerCheck) {
+        throw new Error('Collection not found or access denied');
+      }
     }
 
     // Delete collection image if exists
@@ -253,4 +275,5 @@ export async function deleteCollection(id: string) {
 }
 
 export * from './types';
+export * from './upload';
 export * from './upload';
