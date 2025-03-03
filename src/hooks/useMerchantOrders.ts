@@ -1,6 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { normalizeStorageUrl } from '../lib/storage';
 import type { Order } from '../types/orders';
+
+interface RawOrder {
+  id: string;
+  order_number: string;
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  product_image_url: string;
+  collection_id: string;
+  collection_name: string;
+  wallet_address: string;
+  transaction_signature: string;
+  shipping_address: any;
+  contact_info: any;
+  status: Order['status'];
+  amount_sol: number;
+  created_at: string;
+  updated_at: string;
+  order_variants: { name: string; value: string }[];
+  access_type: 'view' | 'edit' | null;
+}
 
 export function useMerchantOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -10,13 +32,40 @@ export function useMerchantOrders() {
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data: rawOrders, error } = await supabase
         .from('merchant_orders')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+
+      // Transform raw orders into the expected format
+      const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => ({
+        id: order.id,
+        order_number: order.order_number,
+        product: {
+          id: order.product_id,
+          name: order.product_name,
+          sku: order.product_sku,
+          imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
+          collection: {
+            id: order.collection_id,
+            name: order.collection_name
+          }
+        },
+        walletAddress: order.wallet_address,
+        transactionSignature: order.transaction_signature,
+        shippingAddress: order.shipping_address,
+        contactInfo: order.contact_info,
+        status: order.status,
+        amountSol: order.amount_sol,
+        createdAt: new Date(order.created_at),
+        updatedAt: new Date(order.updated_at),
+        order_variants: order.order_variants || [],
+        accessType: order.access_type
+      }));
+
+      setOrders(transformedOrders);
     } catch (err) {
       console.error('Error fetching orders:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch orders'));
