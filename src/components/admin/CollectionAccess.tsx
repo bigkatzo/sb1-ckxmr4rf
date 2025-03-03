@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Store, Unlink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import type { Collection } from '../../types';
+import { Collection as BaseCollection } from '../../types';
 
 interface CollectionAccessProps {
   userId: string;
@@ -16,6 +16,11 @@ interface CollectionAccessData {
     slug: string;
     user_id: string;
   };
+}
+
+interface Collection extends BaseCollection {
+  owner_username?: string;
+  isOwner?: boolean;
 }
 
 export function CollectionAccess({ userId }: CollectionAccessProps) {
@@ -213,13 +218,20 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                       Owner
                     </span>
                   ) : (
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      collection.accessType === 'edit' 
-                        ? 'bg-purple-500/10 text-purple-400'
-                        : 'bg-blue-500/10 text-blue-400'
-                    }`}>
-                      {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
-                    </span>
+                    <>
+                      {collection.owner_username && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
+                          Owner: {collection.owner_username}
+                        </span>
+                      )}
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        collection.accessType === 'edit' 
+                          ? 'bg-purple-500/10 text-purple-400'
+                          : 'bg-blue-500/10 text-blue-400'
+                      }`}>
+                        {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
+                      </span>
+                    </>
                   )}
                 </div>
               </div>
