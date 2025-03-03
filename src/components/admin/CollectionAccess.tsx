@@ -13,18 +13,25 @@ interface CollectionAccessData {
   collections: {
     id: string;
     name: string;
+    description: string | null;
+    image_url: string | null;
+    launch_date: string;
+    featured: boolean;
+    visible: boolean;
+    sale_ended: boolean;
     slug: string;
     user_id: string;
+    owner_username: string | null;
   };
 }
 
 interface Collection extends BaseCollection {
-  owner_username?: string;
+  owner_username?: string | null;
   isOwner?: boolean;
 }
 
 export function CollectionAccess({ userId }: CollectionAccessProps) {
-  const [collections, setCollections] = useState<(Collection & { isOwner?: boolean })[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,15 +48,55 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
       setLoading(true);
       setError(null);
 
-      // Fetch collections using the merchant_collections view
+      // Get collections this user has access to (either owned or granted access)
       const { data: collections, error: collectionsError } = await supabase
+        .from('collection_access')
+        .select(`
+          collection_id,
+          access_type,
+          collections:collection_id (
+            id,
+            name,
+            description,
+            image_url,
+            launch_date,
+            featured,
+            visible,
+            sale_ended,
+            slug,
+            user_id,
+            owner_username
+          )
+        `)
+        .eq('user_id', userId) as { data: CollectionAccessData[] | null, error: any };
+      if (collectionsError) throw collectionsError;
+
+      // Also get collections owned by this user
+      const { data: ownedCollections, error: ownedError } = await supabase
         .from('merchant_collections')
         .select('*')
         .eq('user_id', userId);
-      if (collectionsError) throw collectionsError;
+      if (ownedError) throw ownedError;
 
       // Transform collections data
-      const transformedCollections = collections.map(collection => ({
+      const accessCollections = (collections || []).map((collection: CollectionAccessData) => ({
+        id: collection.collections.id,
+        name: collection.collections.name,
+        description: collection.collections.description || '',
+        imageUrl: collection.collections.image_url || '',
+        launchDate: new Date(collection.collections.launch_date),
+        featured: collection.collections.featured,
+        visible: collection.collections.visible,
+        saleEnded: collection.collections.sale_ended,
+        slug: collection.collections.slug,
+        categories: [],
+        products: [],
+        accessType: collection.access_type,
+        owner_username: collection.collections.owner_username,
+        isOwner: collection.collections.user_id === userId
+      }));
+
+      const transformedOwnedCollections = (ownedCollections || []).map(collection => ({
         id: collection.id,
         name: collection.name,
         description: collection.description || '',
@@ -61,17 +108,23 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
         slug: collection.slug,
         categories: [],
         products: [],
-        accessType: collection.access_type,
+        accessType: null,
         owner_username: collection.owner_username,
-        isOwner: collection.user_id === userId
+        isOwner: true
       }));
 
-      setCollections(transformedCollections);
+      // Combine and deduplicate collections
+      const allCollections = [...transformedOwnedCollections, ...accessCollections]
+        .filter((collection, index, self) => 
+          index === self.findIndex(c => c.id === collection.id)
+        );
+
+      setCollections(allCollections);
 
       // Fetch all collections for the assign modal
       const { data: allCollectionsData, error: allCollectionsError } = await supabase
         .from('merchant_collections')
-        .select('id, name')
+        .select('id, name, owner_username')
         .order('name');
       if (allCollectionsError) throw allCollectionsError;
 
@@ -87,7 +140,8 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
         slug: '',
         categories: [],
         products: [],
-        accessType: null as null
+        accessType: null as null,
+        owner_username: c.owner_username
       })));
     } catch (err) {
       console.error('Error fetching collections:', err);
