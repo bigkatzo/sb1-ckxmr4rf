@@ -10,8 +10,11 @@ interface RawOrder {
   product_name: string;
   product_sku: string;
   product_image_url: string;
+  product_variants: { name: string; value: string }[];
+  product_variant_prices: Record<string, number>;
   collection_id: string;
   collection_name: string;
+  collection_owner_id: string;
   wallet_address: string;
   transaction_signature: string;
   shipping_address: any;
@@ -20,7 +23,7 @@ interface RawOrder {
   amount_sol: number;
   created_at: string;
   updated_at: string;
-  order_variants: { name: string; value: string }[];
+  variant_selections: { name: string; value: string }[];
   access_type: 'view' | 'edit' | null;
 }
 
@@ -48,9 +51,12 @@ export function useMerchantOrders() {
           name: order.product_name,
           sku: order.product_sku,
           imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
+          variants: order.product_variants || [],
+          variantPrices: order.product_variant_prices || {},
           collection: {
             id: order.collection_id,
-            name: order.collection_name
+            name: order.collection_name,
+            ownerId: order.collection_owner_id
           }
         },
         walletAddress: order.wallet_address,
@@ -61,7 +67,7 @@ export function useMerchantOrders() {
         amountSol: order.amount_sol,
         createdAt: new Date(order.created_at),
         updatedAt: new Date(order.updated_at),
-        order_variants: order.order_variants || [],
+        order_variants: order.variant_selections || [],
         accessType: order.access_type
       }));
 
