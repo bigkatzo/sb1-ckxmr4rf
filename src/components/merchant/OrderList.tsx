@@ -382,13 +382,13 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
             className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-purple-500/20 transition-all"
           >
             {/* Order Header - Status Bar */}
-            <div className="bg-gray-800/50 px-4 py-3">
-              <div className="flex flex-col gap-2">
+            <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
+              <div className="flex flex-col gap-1.5 sm:gap-2">
                 {/* Mobile Layout */}
                 <div className="flex items-center justify-between sm:hidden">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
-                    <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Order</span>
+                    <span className="font-mono text-sm font-medium text-white truncate">{order.order_number}</span>
                   </div>
                   <div className="shrink-0">
                     {onStatusUpdate && canUpdateOrder ? (
@@ -396,7 +396,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                         <select
                           value={order.status}
                           onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
-                          className={`appearance-none cursor-pointer flex items-center gap-1.5 pl-9 pr-8 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide transition-colors focus:ring-2 focus:ring-purple-500/40 focus:outline-none ${getStatusColor(order.status)} ${updatingOrderId === order.id ? 'opacity-50 cursor-wait' : ''}`}
+                          className={`appearance-none cursor-pointer flex items-center gap-1 pl-7 pr-6 py-1 rounded text-[10px] font-medium uppercase tracking-wide transition-colors focus:ring-2 focus:ring-purple-500/40 focus:outline-none ${getStatusColor(order.status)} ${updatingOrderId === order.id ? 'opacity-50 cursor-wait' : ''}`}
                           disabled={updatingOrderId === order.id}
                         >
                           <option value="pending" className="bg-gray-900 pl-6">Pending</option>
@@ -405,19 +405,19 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                           <option value="delivered" className="bg-gray-900 pl-6">Delivered</option>
                           <option value="cancelled" className="bg-gray-900 pl-6">Cancelled</option>
                         </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-1.5 pointer-events-none">
                           {updatingOrderId === order.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                            <ChevronDown className="h-3 w-3 opacity-50" />
                           )}
                         </div>
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
                           {getStatusIcon(order.status)}
                         </div>
                       </div>
                     ) : (
-                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
+                      <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
                         {getStatusIcon(order.status)}
                         <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
                       </div>
@@ -426,7 +426,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                 </div>
                 {/* Mobile Date */}
                 <div className="sm:hidden">
-                  <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                  <span className="text-[10px] text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
                 </div>
 
                 {/* Desktop Layout - All inline */}
@@ -521,9 +521,9 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                             {order.product.category.name}
                           </span>
                         )}
-                        {order.product.variants && order.product.variants.length > 0 && (
+                        {order.order_variants && order.order_variants.length > 0 && (
                           <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
-                            {order.product.variants.map((v: { name: string; value: string }) => `${v.name}: ${v.value}`).join(', ')}
+                            {order.order_variants.map((v: { name: string; value: string }) => `${v.name}: ${v.value}`).join(', ')}
                           </span>
                         )}
                       </div>
