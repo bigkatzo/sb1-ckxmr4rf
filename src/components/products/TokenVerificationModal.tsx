@@ -5,6 +5,7 @@ import { verifyTokenHolding } from '../../utils/token-verification';
 import { usePayment } from '../../hooks/usePayment';
 import { createOrder } from '../../services/orders';
 import { toast } from 'react-toastify';
+import { toastService } from '../../services/toast';
 import type { Product } from '../../types';
 
 interface TokenVerificationModalProps {
@@ -184,6 +185,7 @@ export function TokenVerificationModal({
 
       if (orderError) throw orderError;
 
+      toastService.showOrderSuccess();
       onSuccess();
     } catch (error) {
       console.error('Order error:', error);
