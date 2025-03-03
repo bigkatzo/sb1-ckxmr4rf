@@ -43,7 +43,7 @@ export function OrdersPage() {
     const { address, city, country, zip } = shippingAddress;
     
     return (
-      <div className="space-y-1 text-gray-300">
+      <div className="space-y-0.5 text-gray-300 text-xs">
         <div>{address}</div>
         <div>{city}, {zip}</div>
         <div>{country}</div>
