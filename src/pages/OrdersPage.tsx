@@ -221,16 +221,18 @@ export function OrdersPage() {
                     {/* Order Header */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
-                        {order.product.sku && (
-                          <p className="text-xs text-gray-400 mt-1">SKU: {order.product.sku}</p>
-                        )}
-                        <div className="flex flex-wrap gap-2 mt-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
                           {order.product.collection && (
-                            <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
+                            <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full shrink-0">
                               {order.product.collection.name}
                             </span>
                           )}
+                        </div>
+                        {order.product.sku && (
+                          <p className="text-xs text-gray-400">SKU: {order.product.sku}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
                           {order.order_variants && order.order_variants.length > 0 && (
                             <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
                               {order.order_variants.map((v: { name: string; value: string }) => `${v.name}: ${v.value}`).join(', ')}
