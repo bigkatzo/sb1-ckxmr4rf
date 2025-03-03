@@ -11,11 +11,13 @@ import {
   ChevronDown, 
   Loader2,
   Calendar,
-  Download
+  Download,
+  BarChart3
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
 import { useState } from 'react';
+import { OrderAnalytics } from './OrderAnalytics';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -31,6 +33,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(true);
   
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     if (!onStatusUpdate) return;
@@ -248,6 +251,15 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
 
         {/* Filters and Actions */}
         <div className="flex flex-wrap items-center gap-3">
+          {/* Analytics Toggle */}
+          <button
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded-md border border-gray-700 focus:ring-2 focus:ring-purple-500/40 focus:outline-none transition-colors"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>{showAnalytics ? 'Hide Analytics' : 'Show Analytics'}</span>
+          </button>
+
           {/* Date Filter */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -304,6 +316,19 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
         </div>
       </div>
 
+      {/* Analytics Section */}
+      {showAnalytics && (
+        <div className="mb-8">
+          <OrderAnalytics
+            orders={orders}
+            timeRange={{
+              start: startDate ? new Date(startDate) : subDays(new Date(), 30),
+              end: endDate ? new Date(endDate) : new Date()
+            }}
+          />
+        </div>
+      )}
+
       {filteredOrders.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-400">No orders found for the selected time period</p>
@@ -316,17 +341,14 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
           >
             {/* Order Header - Status Bar */}
             <div className="bg-gray-800/50 px-4 py-3 flex sm:items-center justify-between gap-3">
-              <div className="min-w-0">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
                   <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
                 </div>
-                <div className="mt-1 sm:hidden">
-                  <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
-                </div>
-                <div className="hidden sm:flex sm:items-center sm:gap-3 sm:mt-0">
-                  <span className="text-gray-600">•</span>
-                  <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                <div className="mt-1 sm:mt-0 sm:flex sm:items-center sm:gap-3">
+                  <span className="text-gray-600 hidden sm:inline">•</span>
+                  <span className="text-xs text-gray-400 block sm:inline">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
                 </div>
               </div>
               {/* Status */}
@@ -388,7 +410,14 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                     {/* Product Info */}
                     <div className="space-y-2">
                       <div className="space-y-1">
-                        <h3 className="font-medium text-sm sm:text-base text-white">{order.product.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-sm sm:text-base text-white">{order.product.name}</h3>
+                          {order.product.collection && (
+                            <span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full text-xs">
+                              {order.product.collection.name}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-3 text-xs">
                           {order.product.sku && (
                             <span className="text-gray-500 font-mono">#{order.product.sku}</span>
@@ -398,11 +427,6 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                       </div>
                       
                       <div className="flex flex-wrap items-center gap-2 text-xs">
-                        {order.product.collection && (
-                          <span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
-                            {order.product.collection.name}
-                          </span>
-                        )}
                         {order.product.category && (
                           <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
                             {order.product.category.name}
