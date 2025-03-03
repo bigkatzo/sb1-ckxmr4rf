@@ -341,7 +341,9 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
 
   const renderStatusSelect = (order: Order) => {
     // Only show status update controls if user has edit access
-    const canEdit = order.accessType === 'edit' || order.product?.collection?.ownerId === order.collection_snapshot?.owner_id;
+    const canEdit = order.accessType === 'admin' || // Admin access
+                   order.accessType === 'owner' || // Collection owner
+                   order.accessType === 'edit'; // Edit access through collection_access
     
     if (!canEdit) {
       return (
