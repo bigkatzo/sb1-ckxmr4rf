@@ -15,6 +15,9 @@ interface RawOrder {
   collection_id: string;
   collection_name: string;
   collection_owner_id: string;
+  category_name: string | null;
+  category_description: string | null;
+  category_type: string | null;
   wallet_address: string;
   transaction_signature: string;
   shipping_address: any;
@@ -50,14 +53,19 @@ export function useMerchantOrders() {
           id: order.product_id,
           name: order.product_name,
           sku: order.product_sku,
-          imageUrl: order.product_images?.[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
+          imageUrl: order.product_images[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
           variants: order.product_variants || [],
           variantPrices: order.product_variant_prices || {},
           collection: {
             id: order.collection_id,
             name: order.collection_name,
             ownerId: order.collection_owner_id
-          }
+          },
+          category: order.category_name ? {
+            name: order.category_name,
+            description: order.category_description || undefined,
+            type: order.category_type || undefined
+          } : undefined
         },
         walletAddress: order.wallet_address,
         transactionSignature: order.transaction_signature,
