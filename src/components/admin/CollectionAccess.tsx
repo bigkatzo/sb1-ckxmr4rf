@@ -21,12 +21,10 @@ interface CollectionAccessData {
     sale_ended: boolean;
     slug: string;
     user_id: string;
-    owner_username: string | null;
   };
 }
 
 interface Collection extends BaseCollection {
-  owner_username?: string | null;
   isOwner?: boolean;
 }
 
@@ -64,8 +62,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
             visible,
             sale_ended,
             slug,
-            user_id,
-            owner_username
+            user_id
           )
         `)
         .eq('user_id', userId) as { data: CollectionAccessData[] | null, error: any };
@@ -92,7 +89,6 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
         categories: [],
         products: [],
         accessType: collection.access_type,
-        owner_username: collection.collections.owner_username,
         isOwner: collection.collections.user_id === userId
       }));
 
@@ -109,7 +105,6 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
         categories: [],
         products: [],
         accessType: null,
-        owner_username: collection.owner_username,
         isOwner: true
       }));
 
@@ -124,7 +119,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
       // Fetch all collections for the assign modal
       const { data: allCollectionsData, error: allCollectionsError } = await supabase
         .from('merchant_collections')
-        .select('id, name, owner_username')
+        .select('id, name')
         .order('name');
       if (allCollectionsError) throw allCollectionsError;
 
@@ -140,8 +135,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
         slug: '',
         categories: [],
         products: [],
-        accessType: null as null,
-        owner_username: c.owner_username
+        accessType: null as null
       })));
     } catch (err) {
       console.error('Error fetching collections:', err);
@@ -238,20 +232,13 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                       Owner
                     </span>
                   ) : (
-                    <>
-                      {collection.owner_username && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
-                          Owner: {collection.owner_username}
-                        </span>
-                      )}
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        collection.accessType === 'edit' 
-                          ? 'bg-purple-500/10 text-purple-400'
-                          : 'bg-blue-500/10 text-blue-400'
-                      }`}>
-                        {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
-                      </span>
-                    </>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      collection.accessType === 'edit' 
+                        ? 'bg-purple-500/10 text-purple-400'
+                        : 'bg-blue-500/10 text-blue-400'
+                    }`}>
+                      {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
+                    </span>
                   )}
                 </div>
               </div>
