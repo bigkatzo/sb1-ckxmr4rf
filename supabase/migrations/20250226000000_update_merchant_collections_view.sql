@@ -8,15 +8,15 @@ DROP VIEW IF EXISTS merchant_collections CASCADE;
 CREATE VIEW merchant_collections AS
 SELECT 
   c.*,
-  u.raw_user_meta_data->>'username' as owner_username,
+  u.email as owner_username,  -- Get full email from auth.users
   CASE 
     WHEN EXISTS (
       SELECT 1 FROM user_profiles up
       WHERE up.id = auth.uid()
       AND up.role = 'admin'
-    ) AND c.user_id != auth.uid() THEN 'admin'  -- Admin viewing others' collections
+    ) THEN 'admin'
     WHEN c.user_id = auth.uid() THEN NULL  -- User owns the collection
-    WHEN ca.access_type IS NOT NULL THEN ca.access_type  -- User has explicit access
+    WHEN ca.access_type IS NOT NULL THEN ca.access_type  -- User has explicit access (view/edit)
     ELSE NULL
   END as access_type
 FROM collections c
