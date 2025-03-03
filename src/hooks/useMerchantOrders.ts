@@ -1,20 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { normalizeStorageUrl } from '../lib/storage';
-import type { Order } from '../types/orders';
+import type { Order, ProductSnapshot, CollectionSnapshot } from '../types/orders';
 
 interface RawOrder {
   id: string;
   order_number: string;
-  product_id: string;
-  product_name: string;
+  product_id: string | null;
+  product_name: string | null;
   product_sku: string | null;
   product_image_url: string | null;
   product_variants: { name: string; value: string }[];
   product_variant_prices: Record<string, number>;
-  collection_id: string;
-  collection_name: string;
-  collection_owner_id: string;
+  collection_id: string | null;
+  collection_name: string | null;
+  collection_owner_id: string | null;
   category_name: string | null;
   category_description: string | null;
   category_type: string | null;
@@ -28,72 +28,51 @@ interface RawOrder {
   updated_at: string;
   variant_selections: { name: string; value: string }[];
   access_type: 'view' | 'edit' | null;
+  product_snapshot: ProductSnapshot;
+  collection_snapshot: CollectionSnapshot;
 }
 
 export function useMerchantOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // Check if user is admin
-  useEffect(() => {
-    async function checkAdminStatus() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      setIsAdmin(profile?.role === 'admin');
-    }
-    checkAdminStatus();
-  }, []);
+  const [isAdmin] = useState(false); // TODO: Implement admin check
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Build query based on user role
-      let query = supabase
+
+      const { data: rawOrders, error: fetchError } = await supabase
         .from('merchant_orders')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Only filter by access_type if not admin
-      if (!isAdmin) {
-        query = query.not('access_type', 'is', null);
-      }
-
-      const { data: rawOrders, error } = await query;
-
-      if (error) throw error;
+      if (fetchError) throw fetchError;
 
       // Transform raw orders into the expected format
       const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => ({
         id: order.id,
         order_number: order.order_number,
-        product: {
+        product: order.product_id && order.collection_id ? {
           id: order.product_id,
-          name: order.product_name,
+          name: order.product_name || '',
           sku: order.product_sku || undefined,
           imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
           variants: order.product_variants || [],
           variantPrices: order.product_variant_prices || {},
           collection: {
             id: order.collection_id,
-            name: order.collection_name,
-            ownerId: order.collection_owner_id
+            name: order.collection_name || '',
+            ownerId: order.collection_owner_id || undefined
           },
           category: order.category_name ? {
             name: order.category_name,
             description: order.category_description || undefined,
             type: order.category_type || undefined
           } : undefined
-        },
+        } : undefined,
+        product_snapshot: order.product_snapshot,
+        collection_snapshot: order.collection_snapshot,
         walletAddress: order.wallet_address,
         transactionSignature: order.transaction_signature,
         shippingAddress: order.shipping_address,
@@ -125,7 +104,7 @@ export function useMerchantOrders() {
         {
           event: '*',
           schema: 'public',
-          table: 'merchant_orders'
+          table: 'orders'
         },
         () => {
           fetchOrders();
@@ -138,28 +117,25 @@ export function useMerchantOrders() {
     };
   }, [fetchOrders]);
 
-  const updateOrderStatus = async (orderId: string, status: Order['status']) => {
+  const updateOrderStatus = useCallback(async (orderId: string, status: Order['status']) => {
     try {
       const { error } = await supabase
-        .rpc('update_order_status', {
-          p_order_id: orderId,
-          p_status: status
-        });
+        .from('orders')
+        .update({ status })
+        .eq('id', orderId);
 
       if (error) throw error;
-      await fetchOrders();
     } catch (err) {
       console.error('Error updating order status:', err);
       throw err;
     }
-  };
+  }, []);
 
   return {
     orders,
     loading,
     error,
     refreshOrders: fetchOrders,
-    updateOrderStatus,
-    isAdmin
+    updateOrderStatus
   };
 }

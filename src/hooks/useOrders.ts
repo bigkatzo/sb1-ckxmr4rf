@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
-import type { Order } from '../types/orders';
+import type { Order, ProductSnapshot, CollectionSnapshot } from '../types/orders';
 
 export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -30,7 +30,7 @@ export function useOrders() {
       const transformedOrders: Order[] = (data || []).map(order => ({
         id: order.id,
         order_number: order.order_number,
-        product: {
+        product: order.product_id ? {
           id: order.product_id,
           name: order.product_name,
           imageUrl: order.product_images?.[0] || null,
@@ -44,7 +44,9 @@ export function useOrders() {
             id: order.collection_id,
             name: order.collection_name
           }
-        },
+        } : undefined,
+        product_snapshot: order.product_snapshot as ProductSnapshot,
+        collection_snapshot: order.collection_snapshot as CollectionSnapshot,
         walletAddress: order.wallet_address,
         transactionSignature: order.transaction_signature,
         shippingAddress: order.shipping_address,

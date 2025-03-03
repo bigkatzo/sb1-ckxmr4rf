@@ -24,10 +24,31 @@ export interface OrderProduct {
 
 export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
+export interface ProductSnapshot {
+  id: string;
+  name: string;
+  sku?: string;
+  description?: string;
+  images?: string[];
+  variants?: { name: string; value: string }[];
+  variant_prices?: Record<string, number>;
+  category?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CollectionSnapshot {
+  id: string;
+  name: string;
+  description?: string;
+  owner_id: string;
+}
+
 export interface Order {
   id: string;
   order_number: string;
-  product: {
+  product?: {
     id: string;
     name: string;
     imageUrl?: string;
@@ -43,6 +64,8 @@ export interface Order {
       ownerId?: string;
     };
   };
+  product_snapshot?: ProductSnapshot;
+  collection_snapshot?: CollectionSnapshot;
   walletAddress: string;
   transactionSignature: string;
   shippingAddress: any; // JSONB in database
