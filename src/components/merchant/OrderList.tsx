@@ -18,6 +18,7 @@ import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, is
 import type { Order, OrderStatus } from '../../types/orders';
 import { useState } from 'react';
 import { OrderAnalytics } from './OrderAnalytics';
+import { toast } from 'react-toastify';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -44,10 +45,9 @@ const safeParseDate = (date: any): Date => {
 interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
-  canUpdateOrder?: (order: Order) => Promise<boolean>;
 }
 
-export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListProps) {
+export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [startDate, setStartDate] = useState<string>('');
@@ -61,6 +61,9 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
     try {
       setUpdatingOrderId(orderId);
       await onStatusUpdate(orderId, status);
+    } catch (error) {
+      console.error('Failed to update order status:', error);
+      toast.error('You do not have permission to update this order');
     } finally {
       setUpdatingOrderId(null);
     }
@@ -446,7 +449,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                     <span className="font-mono text-sm font-medium text-white truncate">{order.order_number}</span>
                   </div>
                   <div className="shrink-0">
-                    {onStatusUpdate && canUpdateOrder ? (
+                    {onStatusUpdate ? (
                       <div className="relative">
                         <select
                           value={order.status}
@@ -499,7 +502,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                     </span>
                   </div>
                   <div className="shrink-0">
-                    {onStatusUpdate && canUpdateOrder ? (
+                    {onStatusUpdate ? (
                       <div className="relative">
                         <select
                           value={order.status}
