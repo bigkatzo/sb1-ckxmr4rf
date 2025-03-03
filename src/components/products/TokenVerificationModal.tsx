@@ -164,7 +164,7 @@ export function TokenVerificationModal({
           await createOrder({
             productId: product.id,
             collectionId: product.collectionId,
-            variants: Object.entries(selectedOptions).map(([id, value]) => ({
+            variant_selections: Object.entries(selectedOptions).map(([id, value]) => ({
               name: product.variants?.find(v => v.id === id)?.name || '',
               value
             })),
