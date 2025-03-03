@@ -73,6 +73,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
   const exportToCSV = async () => {
     try {
       setIsExporting(true);
+      console.log('Starting CSV export...', filteredOrders.length, 'orders');
       
       const headers = [
         'Order Number',
@@ -124,21 +125,32 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
         escapeCSV(order.transactionSignature)
       ]);
 
+      console.log('Generated rows:', rows.length);
+
       const csvContent = [
         headers.join(','),
         ...rows.map(row => row.join(','))
       ].join('\n');
 
+      console.log('CSV content length:', csvContent.length);
+
       // Add BOM for Excel UTF-8 compatibility
       const BOM = '\uFEFF';
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `orders_${format(new Date(), 'yyyy-MM-dd_HHmm')}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href); // Clean up
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = url;
+      downloadLink.download = `orders_${format(new Date(), 'yyyy-MM-dd_HHmm')}.csv`;
+      
+      // Append, click, and cleanup
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('CSV export completed');
     } catch (error) {
       console.error('Error exporting CSV:', error);
     } finally {
@@ -329,11 +341,18 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
 
           {/* Export Button */}
           <button
-            onClick={exportToCSV}
+            onClick={() => {
+              console.log('Export button clicked');
+              void exportToCSV();
+            }}
             disabled={isExporting || filteredOrders.length === 0}
             className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded-md border border-gray-700 focus:ring-2 focus:ring-purple-500/40 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="h-4 w-4" />
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
           </button>
         </div>
