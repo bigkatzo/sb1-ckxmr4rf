@@ -119,6 +119,21 @@ export function useMerchantOrders() {
 
   const updateOrderStatus = useCallback(async (orderId: string, status: Order['status']) => {
     try {
+      // First, check if user has edit access to the order's collection
+      const { data: orderData, error: orderError } = await supabase
+        .from('merchant_orders')
+        .select('collection_id, access_type')
+        .eq('id', orderId)
+        .single();
+
+      if (orderError) throw orderError;
+      if (!orderData) throw new Error('Order not found');
+
+      // Only allow status update if user has edit access or is owner
+      if (orderData.access_type !== 'edit' && !isAdmin) {
+        throw new Error('You do not have permission to update this order');
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({ status })
@@ -129,7 +144,7 @@ export function useMerchantOrders() {
       console.error('Error updating order status:', err);
       throw err;
     }
-  }, []);
+  }, [isAdmin]);
 
   return {
     orders,

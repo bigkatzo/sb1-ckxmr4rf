@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { ProductForm } from '../../components/merchant/forms/ProductForm/index';
 import { ProductListItem } from '../../components/merchant/ProductListItem';
@@ -49,8 +49,8 @@ export function ProductsTab() {
     
     try {
       await deleteProduct(deletingId);
-      refreshProducts();
       setToast({ message: 'Product deleted successfully', type: 'success' });
+      refreshProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
       setToast({ 
@@ -63,7 +63,7 @@ export function ProductsTab() {
     }
   };
 
-  if (collectionsLoading) {
+  if (collectionsLoading || productsLoading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 animate-pulse space-y-4">
         <div className="h-10 bg-gray-800 rounded w-1/4" />
@@ -97,17 +97,21 @@ export function ProductsTab() {
               </option>
             ))}
           </select>
-          <button
-            onClick={() => {
-              setEditingProduct(null);
-              setShowForm(true);
-            }}
-            disabled={!selectedCollection}
-            className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Product</span>
-          </button>
+          {selectedCollection && collections.find(c => 
+            c.id === selectedCollection && 
+            (c.isOwner || c.accessType === 'edit')
+          ) && (
+            <button
+              onClick={() => {
+                setEditingProduct(null);
+                setShowForm(true);
+              }}
+              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Product</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -130,20 +134,25 @@ export function ProductsTab() {
         </div>
       ) : (
         <div className="space-y-3">
-          {products.map((product) => (
-            <ProductListItem
-              key={product.id}
-              product={product}
-              onEdit={() => {
-                setEditingProduct(product);
-                setShowForm(true);
-              }}
-              onDelete={() => {
-                setDeletingId(product.id);
-                setShowConfirmDialog(true);
-              }}
-            />
-          ))}
+          {products.map((product) => {
+            const collection = collections.find(c => c.id === selectedCollection);
+            const canEdit = collection && (collection.isOwner || collection.accessType === 'edit');
+            
+            return (
+              <ProductListItem
+                key={product.id}
+                product={product}
+                onEdit={canEdit ? () => {
+                  setEditingProduct(product);
+                  setShowForm(true);
+                } : undefined}
+                onDelete={canEdit ? () => {
+                  setDeletingId(product.id);
+                  setShowConfirmDialog(true);
+                } : undefined}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -169,22 +178,7 @@ export function ProductsTab() {
           title="Delete Product"
           description="Are you sure you want to delete this product? This action cannot be undone."
           confirmLabel="Delete"
-          onConfirm={async () => {
-            try {
-              await deleteProduct(deletingId);
-              refreshProducts();
-              setToast({ message: 'Product deleted successfully', type: 'success' });
-            } catch (error) {
-              console.error('Error deleting product:', error);
-              setToast({ 
-                message: error instanceof Error ? error.message : 'Error deleting product', 
-                type: 'error' 
-              });
-            } finally {
-              setShowConfirmDialog(false);
-              setDeletingId(null);
-            }
-          }}
+          onConfirm={handleDelete}
         />
       )}
 

@@ -14,9 +14,9 @@ export async function createRecord<T extends Record<string, any>>(
 
     // For products and categories, verify collection access
     if (table === 'products' || table === 'categories') {
-      const hasAccess = await verifyCollectionAccess(data.collection_id, userId);
+      const hasAccess = await verifyCollectionAccess(data.collection_id, userId, 'edit');
       if (!hasAccess) {
-        throw new DatabaseError('Access denied to collection');
+        throw new DatabaseError('Access denied: Edit permission required');
       }
     }
 
@@ -45,12 +45,18 @@ export async function updateRecord<T extends Record<string, any>>(
     if (table === 'collections') {
       const hasAccess = await verifyOwnership(table, id, userId);
       if (!hasAccess) {
-        throw new DatabaseError('Access denied to collection');
+        throw new DatabaseError('Access denied: Collection ownership required');
       }
     } else {
-      const hasAccess = await verifyCollectionAccess(data.collection_id, userId);
+      // Check if collection_id exists and is a string
+      const collectionId = data.collection_id;
+      if (typeof collectionId !== 'string') {
+        throw new DatabaseError('Invalid collection_id');
+      }
+
+      const hasAccess = await verifyCollectionAccess(collectionId, userId, 'edit');
       if (!hasAccess) {
-        throw new DatabaseError('Access denied to collection');
+        throw new DatabaseError('Access denied: Edit permission required');
       }
     }
 
@@ -79,7 +85,7 @@ export async function deleteRecord(
     if (table === 'collections') {
       const hasAccess = await verifyOwnership(table, id, userId);
       if (!hasAccess) {
-        throw new DatabaseError('Access denied to collection');
+        throw new DatabaseError('Access denied: Collection ownership required');
       }
     } else {
       const { data, error } = await supabase
@@ -92,9 +98,9 @@ export async function deleteRecord(
       if (error) throw error;
       if (!data) throw new DatabaseError('Record not found');
 
-      const hasAccess = await verifyCollectionAccess(data.collection_id, userId);
+      const hasAccess = await verifyCollectionAccess(data.collection_id, userId, 'edit');
       if (!hasAccess) {
-        throw new DatabaseError('Access denied to collection');
+        throw new DatabaseError('Access denied: Edit permission required');
       }
     }
 

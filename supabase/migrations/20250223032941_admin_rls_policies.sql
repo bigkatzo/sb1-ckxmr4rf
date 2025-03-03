@@ -47,6 +47,89 @@ EXCEPTION
   WHEN undefined_object THEN null;
 END $$;
 
+-- Create the hierarchical access control function
+CREATE OR REPLACE FUNCTION has_content_access(
+    p_user_id uuid,
+    p_collection_id uuid DEFAULT NULL,
+    p_category_id uuid DEFAULT NULL,
+    p_product_id uuid DEFAULT NULL,
+    p_required_level text DEFAULT 'view'
+) RETURNS boolean AS $$
+DECLARE
+    v_is_admin boolean;
+    v_has_access boolean;
+    v_parent_collection_id uuid;
+BEGIN
+    -- Check if user is admin
+    SELECT EXISTS (
+        SELECT 1 FROM public.user_profiles 
+        WHERE id = p_user_id AND role = 'admin'
+    ) INTO v_is_admin;
+
+    -- Admins always have access
+    IF v_is_admin THEN
+        RETURN true;
+    END IF;
+
+    -- If checking category or product access, first get their parent collection
+    IF p_category_id IS NOT NULL THEN
+        SELECT collection_id INTO v_parent_collection_id
+        FROM public.categories
+        WHERE id = p_category_id;
+    ELSIF p_product_id IS NOT NULL THEN
+        SELECT c.collection_id INTO v_parent_collection_id
+        FROM public.products p
+        JOIN public.categories c ON c.id = p.category_id
+        WHERE p.id = p_product_id;
+    END IF;
+
+    -- Check if user owns the content or its parent collection
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.collections c
+        WHERE c.user_id = p_user_id
+        AND (
+            c.id = COALESCE(p_collection_id, v_parent_collection_id)
+            OR EXISTS (
+                SELECT 1
+                FROM public.categories cat
+                WHERE cat.collection_id = c.id
+                AND (
+                    cat.id = p_category_id
+                    OR EXISTS (
+                        SELECT 1
+                        FROM public.products p
+                        WHERE p.category_id = cat.id
+                        AND p.id = p_product_id
+                    )
+                )
+            )
+        )
+    ) INTO v_has_access;
+
+    -- If user doesn't own it, check for explicit access
+    IF NOT v_has_access THEN
+        SELECT EXISTS (
+            SELECT 1
+            FROM public.collection_access ca
+            WHERE ca.user_id = p_user_id
+            AND (
+                -- Direct access to requested content
+                (p_collection_id IS NOT NULL AND ca.collection_id = p_collection_id)
+                OR (p_category_id IS NOT NULL AND ca.collection_id = v_parent_collection_id)
+                OR (p_product_id IS NOT NULL AND ca.collection_id = v_parent_collection_id)
+            )
+            AND (
+                p_required_level = 'view' 
+                OR (p_required_level = 'edit' AND ca.access_type = 'edit')
+            )
+        ) INTO v_has_access;
+    END IF;
+
+    RETURN v_has_access;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Enable RLS on all tables
 ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
@@ -54,359 +137,133 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for collections
-CREATE POLICY "collections_select"
-  ON public.collections
-  FOR SELECT
-  TO authenticated
-  USING (
-    -- Admin can view all collections
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR
-    -- User owns the collection or has explicit access
-    (public.collections.user_id = auth.uid()
-     OR EXISTS (
-       SELECT 1 FROM public.collection_access
-       WHERE public.collection_access.collection_id = public.collections.id
-       AND public.collection_access.user_id = auth.uid()
-       AND public.collection_access.access_type IN ('view', 'edit')
-     ))
-  );
+CREATE POLICY "collections_view_policy"
+ON public.collections
+FOR SELECT
+TO authenticated
+USING (
+    has_content_access(auth.uid(), id, NULL, NULL, 'view')
+);
 
-CREATE POLICY "collections_insert"
-  ON public.collections
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    -- Admin or owner can insert
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR public.collections.user_id = auth.uid()
-  );
+CREATE POLICY "collections_edit_policy"
+ON public.collections
+FOR INSERT
+TO authenticated
+USING (
+    has_content_access(auth.uid(), id, NULL, NULL, 'edit')
+);
 
-CREATE POLICY "collections_update"
-  ON public.collections
-  FOR UPDATE
-  TO authenticated
-  USING (
-    -- Admin can update all, owner or edit access can update their own
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR
-    (public.collections.user_id = auth.uid()
-     OR EXISTS (
-       SELECT 1 FROM public.collection_access
-       WHERE public.collection_access.collection_id = public.collections.id
-       AND public.collection_access.user_id = auth.uid()
-       AND public.collection_access.access_type = 'edit'
-     ))
-  );
+CREATE POLICY "collections_update_policy"
+ON public.collections
+FOR UPDATE
+TO authenticated
+USING (
+    has_content_access(auth.uid(), id, NULL, NULL, 'edit')
+);
 
-CREATE POLICY "collections_delete"
-  ON public.collections
-  FOR DELETE
-  TO authenticated
-  USING (
-    -- Admin or owner can delete
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR public.collections.user_id = auth.uid()
-  );
+CREATE POLICY "collections_delete_policy"
+ON public.collections
+FOR DELETE
+TO authenticated
+USING (
+    has_content_access(auth.uid(), id, NULL, NULL, 'edit')
+);
 
 -- Create RLS policies for categories
-CREATE POLICY "categories_select"
-  ON public.categories
-  FOR SELECT
-  TO authenticated
-  USING (
-    -- Admin can view all categories
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR
-    -- User has access to the parent collection
-    EXISTS (
-      SELECT 1 FROM public.collections
-      WHERE public.collections.id = public.categories.collection_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type IN ('view', 'edit')
-           ))
-    )
-  );
+CREATE POLICY "categories_view_policy"
+ON public.categories
+FOR SELECT
+TO authenticated
+USING (
+    has_content_access(auth.uid(), collection_id, id, NULL, 'view')
+);
 
-CREATE POLICY "categories_insert"
-  ON public.categories
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.collections
-      WHERE public.collections.id = public.categories.collection_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type = 'edit'
-           ))
-    )
-  );
+CREATE POLICY "categories_edit_policy"
+ON public.categories
+FOR INSERT
+TO authenticated
+USING (
+    has_content_access(auth.uid(), collection_id, id, NULL, 'edit')
+);
 
-CREATE POLICY "categories_update"
-  ON public.categories
-  FOR UPDATE
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.collections
-      WHERE public.collections.id = public.categories.collection_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type = 'edit'
-           ))
-    )
-  );
+CREATE POLICY "categories_update_policy"
+ON public.categories
+FOR UPDATE
+TO authenticated
+USING (
+    has_content_access(auth.uid(), collection_id, id, NULL, 'edit')
+);
 
-CREATE POLICY "categories_delete"
-  ON public.categories
-  FOR DELETE
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.collections
-      WHERE public.collections.id = public.categories.collection_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type = 'edit'
-           ))
-    )
-  );
+CREATE POLICY "categories_delete_policy"
+ON public.categories
+FOR DELETE
+TO authenticated
+USING (
+    has_content_access(auth.uid(), collection_id, id, NULL, 'edit')
+);
 
 -- Create RLS policies for products
-CREATE POLICY "products_select"
-  ON public.products
-  FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.collections
-      WHERE public.collections.id = public.products.collection_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type IN ('view', 'edit')
-           ))
-    )
-  );
+CREATE POLICY "products_view_policy"
+ON public.products
+FOR SELECT
+TO authenticated
+USING (
+    has_content_access(auth.uid(), NULL, category_id, id, 'view')
+);
 
-CREATE POLICY "products_insert"
-  ON public.products
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.collections
-      WHERE public.collections.id = public.products.collection_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type = 'edit'
-           ))
-    )
-  );
+CREATE POLICY "products_edit_policy"
+ON public.products
+FOR INSERT
+TO authenticated
+USING (
+    has_content_access(auth.uid(), NULL, category_id, id, 'edit')
+);
 
-CREATE POLICY "products_update"
-  ON public.products
-  FOR UPDATE
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.collections
-      WHERE public.collections.id = public.products.collection_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type = 'edit'
-           ))
-    )
-  );
+CREATE POLICY "products_update_policy"
+ON public.products
+FOR UPDATE
+TO authenticated
+USING (
+    has_content_access(auth.uid(), NULL, category_id, id, 'edit')
+);
 
-CREATE POLICY "products_delete"
-  ON public.products
-  FOR DELETE
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.collections
-      WHERE public.collections.id = public.products.collection_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type = 'edit'
-           ))
-    )
-  );
+CREATE POLICY "products_delete_policy"
+ON public.products
+FOR DELETE
+TO authenticated
+USING (
+    has_content_access(auth.uid(), NULL, category_id, id, 'edit')
+);
 
 -- Create RLS policies for orders
-CREATE POLICY "orders_select"
-  ON public.orders
-  FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.products
-      JOIN public.collections ON public.collections.id = public.products.collection_id
-      WHERE public.products.id = public.orders.product_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type IN ('view', 'edit')
-           ))
-    )
-  );
+CREATE POLICY "orders_view_policy"
+ON public.orders
+FOR SELECT
+TO authenticated
+USING (
+    has_content_access(auth.uid(), NULL, NULL, product_id, 'view')
+);
 
-CREATE POLICY "orders_insert"
-  ON public.orders
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.products
-      JOIN public.collections ON public.collections.id = public.products.collection_id
-      WHERE public.products.id = public.orders.product_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type = 'edit'
-           ))
-    )
-  );
+CREATE POLICY "orders_edit_policy"
+ON public.orders
+FOR INSERT
+TO authenticated
+USING (
+    has_content_access(auth.uid(), NULL, NULL, product_id, 'edit')
+);
 
-CREATE POLICY "orders_update"
-  ON public.orders
-  FOR UPDATE
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.products
-      JOIN public.collections ON public.collections.id = public.products.collection_id
-      WHERE public.products.id = public.orders.product_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type = 'edit'
-           ))
-    )
-  );
+CREATE POLICY "orders_update_policy"
+ON public.orders
+FOR UPDATE
+TO authenticated
+USING (
+    has_content_access(auth.uid(), NULL, NULL, product_id, 'edit')
+);
 
-CREATE POLICY "orders_delete"
-  ON public.orders
-  FOR DELETE
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.user_profiles
-      WHERE public.user_profiles.id = auth.uid()
-      AND public.user_profiles.role = 'admin'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.products
-      JOIN public.collections ON public.collections.id = public.products.collection_id
-      WHERE public.products.id = public.orders.product_id
-      AND (public.collections.user_id = auth.uid()
-           OR EXISTS (
-             SELECT 1 FROM public.collection_access
-             WHERE public.collection_access.collection_id = public.collections.id
-             AND public.collection_access.user_id = auth.uid()
-             AND public.collection_access.access_type = 'edit'
-           ))
-    )
-  ); 
+CREATE POLICY "orders_delete_policy"
+ON public.orders
+FOR DELETE
+TO authenticated
+USING (
+    has_content_access(auth.uid(), NULL, NULL, product_id, 'edit')
+); 

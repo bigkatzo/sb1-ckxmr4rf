@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { CategoryForm } from '../../components/merchant/forms/CategoryForm';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
@@ -84,17 +84,21 @@ export function CategoriesTab() {
               </option>
             ))}
           </select>
-          <button
-            onClick={() => {
-              setEditingCategory(null);
-              setShowForm(true);
-            }}
-            disabled={!selectedCollection}
-            className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Category</span>
-          </button>
+          {selectedCollection && collections.find(c => 
+            c.id === selectedCollection && 
+            (c.isOwner || c.accessType === 'edit')
+          ) && (
+            <button
+              onClick={() => {
+                setEditingCategory(null);
+                setShowForm(true);
+              }}
+              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Category</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -113,52 +117,59 @@ export function CategoriesTab() {
         </div>
       ) : (
         <div className="space-y-3">
-          {categories.map((category, index) => (
-            <div key={category.id} className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-                  <CategoryDiamond 
-                    type={category.type}
-                    index={index}
-                    selected
-                    size="lg"
-                  />
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-xs sm:text-sm truncate">{category.name}</h3>
-                      <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
-                        {category.description}
-                      </p>
-                      <div className="mt-2">
-                        {(() => {
-                          const typeInfo = getCategoryTypeInfo(category.type, category.eligibilityRules?.rules || []);
-                          return (
-                            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
-                              {typeInfo.icon}
-                              <span className="font-medium">{typeInfo.label}</span>
-                            </div>
-                          );
-                        })()}
+          {categories.map((category, index) => {
+            const collection = collections.find(c => c.id === selectedCollection);
+            const canEdit = collection && (collection.isOwner || collection.accessType === 'edit');
+            
+            return (
+              <div key={category.id} className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
+                    <CategoryDiamond 
+                      type={category.type}
+                      index={index}
+                      selected
+                      size="lg"
+                    />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-xs sm:text-sm truncate">{category.name}</h3>
+                        <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
+                          {category.description}
+                        </p>
+                        <div className="mt-2">
+                          {(() => {
+                            const typeInfo = getCategoryTypeInfo(category.type, category.eligibilityRules?.rules || []);
+                            return (
+                              <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
+                                {typeInfo.icon}
+                                <span className="font-medium">{typeInfo.label}</span>
+                              </div>
+                            );
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <EditButton onClick={() => {
-                        setEditingCategory(category);
-                        setShowForm(true);
-                      }} className="scale-75 sm:scale-90" />
-                      <DeleteButton onClick={() => {
-                        setDeletingId(category.id);
-                        setShowConfirmDialog(true);
-                      }} className="scale-75 sm:scale-90" />
+                      {canEdit && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <EditButton onClick={() => {
+                            setEditingCategory(category);
+                            setShowForm(true);
+                          }} className="scale-75 sm:scale-90" />
+                          <DeleteButton onClick={() => {
+                            setDeletingId(category.id);
+                            setShowConfirmDialog(true);
+                          }} className="scale-75 sm:scale-90" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

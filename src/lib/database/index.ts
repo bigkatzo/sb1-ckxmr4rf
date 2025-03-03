@@ -54,6 +54,8 @@ function getErrorMessage(error: PostgrestError): string {
   }
 }
 
+export type AccessType = 'view' | 'edit';
+
 export async function verifyOwnership(
   table: string,
   id: string,
@@ -77,18 +79,40 @@ export async function verifyOwnership(
 
 export async function verifyCollectionAccess(
   collectionId: string,
-  userId: string
+  userId: string,
+  accessType: AccessType = 'view'
 ): Promise<boolean> {
   try {
-    const { data, error } = await supabase
+    // First check if user is owner
+    const { data: ownerData, error: ownerError } = await supabase
       .from('collections')
       .select('id')
       .eq('id', collectionId)
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error) throw error;
-    return !!data;
+    if (ownerError) throw ownerError;
+    if (ownerData) return true; // Owners have full access
+
+    // Then check collection_access table
+    const { data: accessData, error: accessError } = await supabase
+      .from('collection_access')
+      .select('access_type')
+      .eq('collection_id', collectionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (accessError) throw accessError;
+    
+    if (!accessData) return false;
+    
+    // For view access, either view or edit permission is sufficient
+    if (accessType === 'view') {
+      return ['view', 'edit'].includes(accessData.access_type);
+    }
+    
+    // For edit access, only edit permission is sufficient
+    return accessData.access_type === 'edit';
   } catch (error) {
     console.error('Collection access verification failed:', error);
     return false;

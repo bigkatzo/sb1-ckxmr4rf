@@ -8,7 +8,6 @@ import {
   Mail, 
   Send, 
   Twitter, 
-  ChevronDown, 
   Loader2,
   Calendar,
   Download,
@@ -340,6 +339,36 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
     };
   };
 
+  const renderStatusSelect = (order: Order) => {
+    // Only show status update controls if user has edit access
+    const canEdit = order.accessType === 'edit' || order.product?.collection?.ownerId === order.collection_snapshot?.owner_id;
+    
+    if (!canEdit) {
+      return (
+        <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
+          {getStatusIcon(order.status)}
+          <span className="capitalize">{order.status}</span>
+        </div>
+      );
+    }
+
+    return (
+      <select
+        value={order.status}
+        onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
+        disabled={updatingOrderId === order.id}
+        className={`appearance-none cursor-pointer rounded px-2 py-1 pr-8 text-xs font-medium transition-colors relative ${getStatusColor(order.status)}`}
+        style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em' }}
+      >
+        <option value="pending">Pending</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="shipped">Shipped</option>
+        <option value="delivered">Delivered</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Header with Filters and Actions */}
@@ -466,37 +495,16 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                       <span className="font-mono text-sm font-medium text-white truncate">{order.order_number}</span>
                     </div>
                     <div className="shrink-0">
-                      {onStatusUpdate ? (
-                        <div className="relative">
-                          <select
-                            value={order.status}
-                            onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
-                            className={`appearance-none cursor-pointer flex items-center gap-1 pl-7 pr-6 py-1 rounded text-[10px] font-medium uppercase tracking-wide transition-colors focus:ring-2 focus:ring-purple-500/40 focus:outline-none ${getStatusColor(order.status)} ${updatingOrderId === order.id ? 'opacity-50 cursor-wait' : ''}`}
-                            disabled={updatingOrderId === order.id}
-                          >
-                            <option value="pending" className="bg-gray-900 pl-6">Pending</option>
-                            <option value="confirmed" className="bg-gray-900 pl-6">Confirmed</option>
-                            <option value="shipped" className="bg-gray-900 pl-6">Shipped</option>
-                            <option value="delivered" className="bg-gray-900 pl-6">Delivered</option>
-                            <option value="cancelled" className="bg-gray-900 pl-6">Cancelled</option>
-                          </select>
-                          <div className="absolute inset-y-0 right-0 flex items-center pr-1.5 pointer-events-none">
-                            {updatingOrderId === order.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3 opacity-50" />
-                            )}
+                      <div className="flex items-center gap-2">
+                        {updatingOrderId === order.id ? (
+                          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs text-blue-400 bg-blue-500/10">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>Updating...</span>
                           </div>
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
-                            {getStatusIcon(order.status)}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
-                          {getStatusIcon(order.status)}
-                          <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
-                        </div>
-                      )}
+                        ) : (
+                          renderStatusSelect(order)
+                        )}
+                      </div>
                     </div>
                   </div>
                   {/* Mobile Date */}
@@ -519,37 +527,16 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                       </span>
                     </div>
                     <div className="shrink-0">
-                      {onStatusUpdate ? (
-                        <div className="relative">
-                          <select
-                            value={order.status}
-                            onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
-                            className={`appearance-none cursor-pointer flex items-center gap-1.5 pl-9 pr-8 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide transition-colors focus:ring-2 focus:ring-purple-500/40 focus:outline-none ${getStatusColor(order.status)} ${updatingOrderId === order.id ? 'opacity-50 cursor-wait' : ''}`}
-                            disabled={updatingOrderId === order.id}
-                          >
-                            <option value="pending" className="bg-gray-900 pl-6">Pending</option>
-                            <option value="confirmed" className="bg-gray-900 pl-6">Confirmed</option>
-                            <option value="shipped" className="bg-gray-900 pl-6">Shipped</option>
-                            <option value="delivered" className="bg-gray-900 pl-6">Delivered</option>
-                            <option value="cancelled" className="bg-gray-900 pl-6">Cancelled</option>
-                          </select>
-                          <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                            {updatingOrderId === order.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <ChevronDown className="h-3.5 w-3.5 opacity-50" />
-                            )}
+                      <div className="flex items-center gap-2">
+                        {updatingOrderId === order.id ? (
+                          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs text-blue-400 bg-blue-500/10">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>Updating...</span>
                           </div>
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                            {getStatusIcon(order.status)}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
-                          {getStatusIcon(order.status)}
-                          <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
-                        </div>
-                      )}
+                        ) : (
+                          renderStatusSelect(order)
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
