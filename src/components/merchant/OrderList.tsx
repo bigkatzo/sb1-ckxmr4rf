@@ -151,17 +151,17 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
           className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-purple-500/20 transition-all"
         >
           {/* Order Header - Status Bar */}
-          <div className="bg-gray-800/50 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wider text-gray-400">Order</span>
-                <span className="font-mono font-medium text-white">{order.order_number}</span>
+          <div className="bg-gray-800/50 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
+                <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
               </div>
-              <span className="text-gray-600">•</span>
-              <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+              <span className="text-gray-600 shrink-0">•</span>
+              <span className="text-xs text-gray-400 truncate shrink-0">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
             </div>
             {/* Status */}
-            <div className="w-auto">
+            <div className="shrink-0">
               {onStatusUpdate && canUpdateOrder ? (
                 <div className="relative">
                   <select
@@ -251,8 +251,8 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
             </div>
             
             {/* Order Details */}
-            {(order.shippingAddress || order.contactInfo) && (
-              <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {(order.shippingAddress || order.contactInfo || order.walletAddress) && (
+              <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Shipping Info */}
                 {order.shippingAddress && (
                   <div className="space-y-1.5">
@@ -261,16 +261,16 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                   </div>
                 )}
                 
-                {/* Contact & Transaction Info */}
-                <div className="space-y-3">
-                  {order.contactInfo && (
-                    <div className="space-y-1.5">
-                      <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Contact</h4>
-                      {formatContactInfo(order.contactInfo)}
-                    </div>
-                  )}
-                  
-                  {/* Transaction Links */}
+                {/* Contact Info */}
+                {order.contactInfo && (
+                  <div className="space-y-1.5">
+                    <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Contact</h4>
+                    {formatContactInfo(order.contactInfo)}
+                  </div>
+                )}
+                
+                {/* Transaction Links */}
+                {order.walletAddress && (
                   <div className="space-y-1.5">
                     <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Transaction</h4>
                     <div className="space-y-1 text-xs">
@@ -300,7 +300,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
