@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { OrderAnalytics } from './OrderAnalytics';
 import { toast } from 'react-toastify';
 
@@ -54,6 +54,19 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const [endDate, setEndDate] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(true);
+  
+  // Add debug logging
+  useEffect(() => {
+    console.log('Orders received:', orders);
+    orders.forEach(order => {
+      console.log('Order product data:', {
+        id: order.id,
+        productName: order.product?.name,
+        productSku: order.product?.sku,
+        productImage: order.product?.imageUrl
+      });
+    });
+  }, [orders]);
   
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     if (!onStatusUpdate) return;
