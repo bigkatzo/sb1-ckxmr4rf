@@ -1,7 +1,16 @@
 import { supabase } from './supabase';
 import { toast } from 'react-toastify';
+import path from 'path';
+import { format } from 'date-fns';
+import crypto from 'crypto';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export type StorageBucket = 'collection-images' | 'product-images';
+
+export interface UploadResult {
+  path: string;
+  url: string;
+}
 
 interface UploadOptions {
   maxSizeMB?: number;
@@ -31,28 +40,12 @@ export function normalizeStorageUrl(url: string): string {
     }
     
     // Clean up the path
-    // 1. Remove any double slashes
     path = path.replace(/\/+/g, '/');
-    // 2. Ensure proper structure: /storage/v1/render/image/public/{bucket}/{filename}
     if (!path.includes('/public/')) {
       path = path.replace(/\/([^/]+)\/([^/]+)$/, '/public/$1/$2');
     }
     
-    // Reconstruct the URL without query parameters
-    const normalizedUrl = `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
-    
-    // Log the transformation
-    console.log('URL normalization:', JSON.stringify({
-      originalUrl: url,
-      normalizedUrl,
-      steps: {
-        parsed: parsedUrl.toString(),
-        pathNormalized: path,
-        final: normalizedUrl
-      }
-    }, null, 2));
-    
-    return normalizedUrl;
+    return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
   } catch (error) {
     console.error('Error normalizing URL:', error);
     // If URL parsing fails, fall back to regex-based normalization
@@ -68,7 +61,7 @@ export function normalizeStorageUrl(url: string): string {
 }
 
 // Sanitize filename to remove problematic characters
-function sanitizeFileName(fileName: string): string {
+export function sanitizeFileName(fileName: string): string {
   // Remove any path traversal characters and get the base name
   const name = fileName.replace(/^.*[/\\]/, '');
   
@@ -87,23 +80,11 @@ function sanitizeFileName(fileName: string): string {
     .replace(/^-+|-+$/g, '')      // Remove leading/trailing hyphens
     .replace(/^\.+|\.+$/g, '');   // Remove leading/trailing dots
   
-  // Log the sanitization
-  console.log('Filename sanitization:', JSON.stringify({
-    input: fileName,
-    cleaned,
-    sanitized,
-    steps: {
-      removedPath: name,
-      cleanedPatterns: cleaned,
-      final: sanitized
-    }
-  }, null, 2));
-  
   return sanitized;
 }
 
 // Generate a unique filename with timestamp and random string
-function generateUniqueFileName(originalName: string): string {
+export function generateUniqueFileName(originalName: string): string {
   // Extract extension safely
   const extension = (originalName.match(/\.[^/.]+$/)?.[0] || '').toLowerCase();
   const baseName = originalName.replace(/\.[^/.]+$/, '');
@@ -122,19 +103,6 @@ function generateUniqueFileName(originalName: string): string {
   
   // Construct final filename
   const finalName = `${timestamp}-${randomString}-${sanitizedName}${extension}`;
-  
-  // Log the generation
-  console.log('Filename generation:', JSON.stringify({
-    originalName,
-    steps: {
-      extension,
-      baseName,
-      sanitizedName,
-      timestamp,
-      randomString,
-      finalName
-    }
-  }, null, 2));
   
   return finalName;
 }
@@ -189,23 +157,10 @@ export async function uploadImage(
   } = options;
 
   try {
-    // Validate file
     validateFile(file, maxSizeMB);
-
-    // Generate safe filename
     const safeFileName = generateUniqueFileName(file.name);
-    
-    // Ensure clean path construction - no leading/trailing slashes
     const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
-    
-    console.log('Upload details:', JSON.stringify({
-      originalFileName: file.name,
-      safeFileName,
-      cleanPath,
-      bucket
-    }, null, 2));
 
-    // Upload file with clean path
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(cleanPath, file, {
@@ -215,7 +170,6 @@ export async function uploadImage(
       });
 
     if (uploadError) {
-      // If bucket doesn't exist or isn't accessible
       if (uploadError.message.includes('bucket') || (uploadError as any).statusCode === 400) {
         console.error(`Storage bucket '${bucket}' error:`, uploadError);
         toast.error(`Storage bucket '${bucket}' is not properly configured. Please contact support.`);
@@ -232,31 +186,82 @@ export async function uploadImage(
       throw error;
     }
 
-    // Construct the URL directly using the render/image endpoint
     const { data: { publicUrl } } = supabase.storage
       .from(bucket)
       .getPublicUrl(uploadData.path);
     
-    // Get the base URL from the public URL
     const baseUrl = new URL(publicUrl).origin;
     const renderUrl = `${baseUrl}/storage/v1/render/image/public/${bucket}/${uploadData.path}`;
-    
-    // Normalize the URL to ensure consistency
     const finalUrl = normalizeStorageUrl(renderUrl);
     
-    // Verify the URL is accessible
     await verifyUrlAccessibility(finalUrl);
     
-    console.log('Final URL:', JSON.stringify({
-      uploadPath: uploadData.path,
-      renderUrl,
-      finalUrl,
-      bucket
-    }, null, 2));
-
     return finalUrl;
   } catch (error) {
     console.error('Upload error:', error);
     throw error;
   }
+}
+
+export function normalizeUrl(url: string): string {
+  const parsed = new URL(url);
+  const normalized = parsed.pathname;
+  const final = `${parsed.origin}${normalized}`;
+
+  return final;
+}
+
+export function sanitizeFilename(filename: string): string {
+  // Remove path components
+  const withoutPath = filename.split(/[\\/]/).pop() || filename;
+  
+  // Clean up problematic patterns
+  const cleaned = withoutPath
+    .replace(/[^\w\s.-]/g, '') // Remove special chars except dots, dashes, underscores
+    .replace(/\s+/g, '-')      // Replace spaces with dashes
+    .toLowerCase();            // Convert to lowercase
+
+  return cleaned;
+}
+
+export function generateSafeFilename(originalName: string): string {
+  const ext = path.extname(originalName);
+  const baseName = path.basename(originalName, ext);
+  const sanitizedName = sanitizeFilename(baseName);
+  
+  // Add timestamp and random string
+  const timestamp = format(new Date(), "yyyyMMddHHmmss");
+  const randomString = crypto.randomBytes(4).toString('hex');
+  
+  return `${timestamp}-${randomString}-${sanitizedName}${ext}`;
+}
+
+export async function uploadFile(
+  supabase: SupabaseClient,
+  file: File,
+  bucket: string
+): Promise<UploadResult> {
+  const safeFileName = generateSafeFilename(file.name);
+  const cleanPath = safeFileName;
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(cleanPath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (error) throw error;
+
+  const { data: urlData } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(cleanPath);
+
+  const renderUrl = urlData.publicUrl.replace('/object/public', '/render/image/public');
+  const finalUrl = normalizeUrl(renderUrl);
+
+  return {
+    path: cleanPath,
+    url: finalUrl
+  };
 } 

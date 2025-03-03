@@ -3,7 +3,6 @@ import { parseFormDate } from '../../utils/date-helpers';
 import { generateCollectionId, generateSlug } from '../../utils/id-helpers';
 import { uploadCollectionImage } from './upload';
 import { withTransaction } from '../../lib/database';
-import type { CollectionData } from './types';
 
 export async function createCollection(data: FormData) {
   return withTransaction(async () => {
@@ -35,7 +34,6 @@ export async function createCollection(data: FormData) {
         try {
           imageUrl = await uploadCollectionImage(imageFile);
         } catch (uploadError) {
-          console.error('Image upload failed:', uploadError);
           throw new Error('Failed to upload collection image. Please try again.');
         }
       }
@@ -48,7 +46,6 @@ export async function createCollection(data: FormData) {
           tags = JSON.parse(tagsStr as string);
         }
       } catch (e) {
-        console.warn('Failed to parse tags:', e);
         throw new Error('Invalid tags format');
       }
 
@@ -65,18 +62,6 @@ export async function createCollection(data: FormData) {
         user_id: user.id
       };
 
-      // Log the exact data being sent to the database
-      console.log('Attempting to create collection with data:', {
-        ...collectionData,
-        user_id: '[REDACTED]',
-        _debug: {
-          formDataKeys: Array.from(data.keys()),
-          visibleValue: data.get('visible'),
-          saleEndedValue: data.get('sale_ended'),
-          tagsValue: data.get('tags'),
-        }
-      });
-
       // First, verify the table structure
       const { error: describeError } = await supabase
         .from('collections')
@@ -84,7 +69,6 @@ export async function createCollection(data: FormData) {
         .limit(1);
 
       if (describeError) {
-        console.error('Database table verification failed:', describeError);
         throw new Error(`Database schema error: ${describeError.message}`);
       }
 
@@ -95,13 +79,6 @@ export async function createCollection(data: FormData) {
         .single();
 
       if (insertError) {
-        console.error('Database insertion error:', {
-          code: insertError.code,
-          message: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint
-        });
-        
         if (insertError.code === '23505') { // Unique violation
           throw new Error('A collection with this ID already exists. Please try a different one.');
         }
@@ -112,7 +89,6 @@ export async function createCollection(data: FormData) {
 
       return collection;
     } catch (error) {
-      console.error('Collection creation failed:', error);
       throw error instanceof Error ? error : new Error('An unexpected error occurred while creating the collection');
     }
   });
@@ -167,7 +143,6 @@ export async function updateCollection(id: string, data: FormData) {
       try {
         imageUrl = await uploadCollectionImage(imageFile);
       } catch (uploadError) {
-        console.error('Image upload failed:', uploadError);
         throw new Error('Failed to upload collection image. Please try again.');
       }
     } else if (data.get('removeImage') === 'true') {
@@ -330,6 +305,7 @@ export async function deleteCollection(id: string) {
             .remove([path]);
         }
       } catch (cleanupError) {
+        // Keep this error log as it's important for debugging file cleanup issues
         console.error('Failed to delete collection image:', cleanupError);
       }
     }

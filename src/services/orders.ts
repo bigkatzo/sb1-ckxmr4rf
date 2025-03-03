@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { toastService } from './toast';
+import { Order } from '../types/orders';
 
 interface CreateOrderData {
   productId: string;
@@ -40,124 +40,48 @@ function getBackoffDelay(attempt: number): number {
   return exponentialDelay + jitter;
 }
 
-export async function createOrder(data: CreateOrderData): Promise<string> {
+export async function createOrder(data: CreateOrderData, attempt = 0): Promise<Order> {
   try {
-    // Validate required fields
-    if (!data.productId || !data.collectionId || !data.shippingInfo || !data.transactionId || !data.walletAddress || !data.amountSol) {
-      throw new Error('Missing required order data');
+    // Check if order already exists for this transaction
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('transaction_signature', data.transactionId)
+      .single();
+
+    if (existingOrder) {
+      return existingOrder;
     }
 
-    let lastError: Error | null = null;
+    const { data: order, error } = await supabase
+      .from('orders')
+      .insert([{
+        product_id: data.productId,
+        collection_id: data.collectionId,
+        variant_selections: data.variant_selections || [],
+        shipping_address: data.shippingInfo.shipping_address,
+        contact_info: data.shippingInfo.contact_info,
+        transaction_signature: data.transactionId,
+        wallet_address: data.walletAddress,
+        status: 'pending',
+        amount_sol: data.amountSol
+      }])
+      .select()
+      .single();
 
-    // First, log the transaction
-    const { error: logError } = await supabase.rpc('log_transaction', {
-      p_signature: data.transactionId,
-      p_amount: data.amountSol,
-      p_buyer_address: data.walletAddress,
-      p_product_id: data.productId,
-      p_status: 'pending'
-    });
+    if (error) throw error;
+    if (!order) throw new Error('No order data returned');
 
-    if (logError) {
-      console.error('Failed to log transaction:', logError);
-      // Continue with order creation even if logging fails
-    }
-
-    // Create order with enhanced retry logic
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        console.log(`Attempting to create order (attempt ${attempt + 1}/${MAX_RETRIES})`);
-        
-        const { error } = await supabase
-          .from('orders')
-          .insert([{
-            product_id: data.productId,
-            collection_id: data.collectionId,
-            variant_selections: data.variant_selections || [],
-            shipping_address: data.shippingInfo.shipping_address,
-            contact_info: data.shippingInfo.contact_info,
-            transaction_signature: data.transactionId,
-            wallet_address: data.walletAddress,
-            status: 'pending',
-            amount_sol: data.amountSol
-          }])
-          .select()
-          .single();
-
-        if (error) {
-          // Check if order already exists (unique constraint violation)
-          if (error.code === '23505' && error.message.includes('transaction_signature')) {
-            console.log('Order already exists for this transaction');
-            // Update transaction log to reflect order exists
-            await supabase.rpc('update_transaction_status', {
-              p_signature: data.transactionId,
-              p_status: 'order_created'
-            });
-            return data.transactionId;
-          }
-
-          console.error(`Database error creating order (attempt ${attempt + 1}):`, error);
-          lastError = error;
-
-          // Update transaction log with error
-          await supabase.rpc('update_transaction_status', {
-            p_signature: data.transactionId,
-            p_status: 'order_failed',
-            p_error_message: error.message
-          });
-
-          // If not the final attempt, wait with exponential backoff
-          if (attempt < MAX_RETRIES - 1) {
-            const delay = getBackoffDelay(attempt);
-            console.log(`Retrying in ${Math.round(delay / 1000)} seconds...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
-          }
-
-          throw error;
-        }
-
-        // Update transaction log to reflect successful order creation
-        await supabase.rpc('update_transaction_status', {
-          p_signature: data.transactionId,
-          p_status: 'order_created'
-        });
-
-        console.log('Order created successfully');
-        toastService.showOrderSuccess();
-        return data.transactionId;
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error('Unknown error creating order');
-        
-        // Update transaction log with error
-        await supabase.rpc('update_transaction_status', {
-          p_signature: data.transactionId,
-          p_status: 'order_failed',
-          p_error_message: lastError.message
-        });
-
-        if (attempt === MAX_RETRIES - 1) {
-          throw lastError;
-        }
-
-        console.warn(`Order creation attempt ${attempt + 1} failed:`, err);
-        const delay = getBackoffDelay(attempt);
-        console.log(`Retrying in ${Math.round(delay / 1000)} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-
-    // This should never happen due to the throw in the loop, but TypeScript doesn't know that
-    throw lastError || new Error('Failed to create order after retries');
+    return order;
   } catch (error) {
-    console.error('Error creating order:', error);
-    // Ensure transaction log is updated with final error state
-    await supabase.rpc('update_transaction_status', {
-      p_signature: data.transactionId,
-      p_status: 'order_failed',
-      p_error_message: error instanceof Error ? error.message : 'Failed to create order'
-    });
-    throw error instanceof Error ? error : new Error('Failed to create order');
+    if (attempt >= MAX_RETRIES) {
+      console.error('Max retries reached for order creation:', error);
+      throw error;
+    }
+
+    const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return createOrder(data, attempt + 1);
   }
 }
 
