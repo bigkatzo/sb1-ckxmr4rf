@@ -23,6 +23,7 @@ export function useOrders() {
       const { data, error } = await supabase
         .from('user_orders')
         .select('*')
+        .eq('wallet_address', walletAddress)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -71,14 +72,15 @@ export function useOrders() {
   useEffect(() => {
     fetchOrders();
 
-    // Set up realtime subscription
+    // Set up realtime subscription for the specific wallet
     const channel = supabase.channel('user_orders')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'orders'
+          table: 'orders',
+          filter: `wallet_address=eq.${walletAddress}`
         },
         () => {
           fetchOrders();
@@ -89,7 +91,7 @@ export function useOrders() {
     return () => {
       channel.unsubscribe();
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, walletAddress]);
 
   return { 
     orders, 

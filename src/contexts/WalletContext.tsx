@@ -6,6 +6,13 @@ import { Transaction, PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
+interface WalletNotification {
+  id: string;
+  type: 'success' | 'error';
+  message: string;
+  timestamp: number;
+}
+
 interface WalletContextType {
   isConnected: boolean;
   walletAddress: string | null;
@@ -18,47 +25,7 @@ interface WalletContextType {
   dismissNotification: (id: string) => void;
 }
 
-interface WalletNotification {
-  id: string;
-  type: 'success' | 'error';
-  message: string;
-  timestamp: number;
-}
-
-const WalletContext = createContext<WalletContextType>({
-  isConnected: false,
-  walletAddress: null,
-  publicKey: null,
-  connect: async () => {},
-  disconnect: async () => {},
-  signAndSendTransaction: async () => '',
-  error: null,
-  notifications: [],
-  dismissNotification: () => {}
-});
-
-export function WalletProvider({ children }: { children: React.ReactNode }) {
-  // Initialize wallet adapters
-  const wallets = React.useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter()
-    ],
-    []
-  );
-
-  return (
-    <ConnectionProvider endpoint={SOLANA_CONNECTION.rpcEndpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          <WalletContextProvider>
-            {children}
-          </WalletContextProvider>
-        </WalletModalProvider>
-      </SolanaWalletProvider>
-    </ConnectionProvider>
-  );
-}
+const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const { publicKey, connected, disconnect: nativeDisconnect, signTransaction, sendTransaction } = useSolanaWallet();
@@ -159,10 +126,33 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const useWallet = () => {
+export function WalletProvider({ children }: { children: React.ReactNode }) {
+  // Initialize wallet adapters
+  const wallets = React.useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter()
+    ],
+    []
+  );
+
+  return (
+    <ConnectionProvider endpoint={SOLANA_CONNECTION.rpcEndpoint}>
+      <SolanaWalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          <WalletContextProvider>
+            {children}
+          </WalletContextProvider>
+        </WalletModalProvider>
+      </SolanaWalletProvider>
+    </ConnectionProvider>
+  );
+}
+
+export function useWallet() {
   const context = useContext(WalletContext);
-  if (!context) {
-    throw new Error('useWallet must be used within WalletProvider');
+  if (context === undefined) {
+    throw new Error('useWallet must be used within a WalletProvider');
   }
   return context;
-};
+}
