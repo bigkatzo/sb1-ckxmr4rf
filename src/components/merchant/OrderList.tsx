@@ -89,35 +89,58 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
         'Transaction'
       ];
 
+      const escapeCSV = (value: any): string => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const formatShippingAddressCSV = (address: any): string => {
+        if (!address) return '';
+        const { address: addr, city, country, zip } = address;
+        return [addr, city, zip, country].filter(Boolean).join(', ');
+      };
+
+      const formatContactInfoCSV = (contact: any): string => {
+        if (!contact || !contact.method || !contact.value) return '';
+        return `${contact.method}: ${contact.value}`;
+      };
+
       const rows = filteredOrders.map(order => [
-        order.order_number,
-        format(order.createdAt, 'yyyy-MM-dd HH:mm:ss'),
-        order.status,
-        order.product.name,
-        order.product.sku || '',
-        order.amountSol.toString(),
-        order.product.collection?.name || '',
-        order.product.category?.name || '',
-        order.shippingAddress ? 
-          `${order.shippingAddress.address}, ${order.shippingAddress.city} ${order.shippingAddress.zip}, ${order.shippingAddress.country}` : '',
-        order.contactInfo ? 
-          `${order.contactInfo.method}: ${order.contactInfo.value}` : '',
-        order.walletAddress,
-        order.transactionSignature
+        escapeCSV(order.order_number),
+        escapeCSV(format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')),
+        escapeCSV(order.status),
+        escapeCSV(order.product.name),
+        escapeCSV(order.product.sku),
+        escapeCSV(order.amountSol.toFixed(2)),
+        escapeCSV(order.product.collection?.name),
+        escapeCSV(order.product.category?.name),
+        escapeCSV(formatShippingAddressCSV(order.shippingAddress)),
+        escapeCSV(formatContactInfoCSV(order.contactInfo)),
+        escapeCSV(order.walletAddress),
+        escapeCSV(order.transactionSignature)
       ]);
 
       const csvContent = [
         headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ...rows.map(row => row.join(','))
       ].join('\n');
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      // Add BOM for Excel UTF-8 compatibility
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `orders_${format(new Date(), 'yyyy-MM-dd_HHmm')}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(link.href); // Clean up
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
     } finally {
       setIsExporting(false);
     }
@@ -340,19 +363,19 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
             className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-purple-500/20 transition-all"
           >
             {/* Order Header - Status Bar */}
-            <div className="bg-gray-800/50 px-4 py-3 flex sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-gray-800/50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between sm:gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
                   <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
                 </div>
-                <div className="mt-1 sm:mt-0 sm:flex sm:items-center sm:gap-3">
+                <div className="flex items-center gap-2 mt-1 sm:mt-0">
                   <span className="text-gray-600 hidden sm:inline">•</span>
-                  <span className="text-xs text-gray-400 block sm:inline">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                  <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
                 </div>
               </div>
               {/* Status */}
-              <div className="shrink-0">
+              <div className="shrink-0 mt-3 sm:mt-0">
                 {onStatusUpdate && canUpdateOrder ? (
                   <div className="relative">
                     <select

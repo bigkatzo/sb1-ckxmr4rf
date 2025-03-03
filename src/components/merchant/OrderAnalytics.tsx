@@ -6,17 +6,14 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   AreaChart,
   Area
 } from 'recharts';
-import { format, startOfDay, startOfMonth, eachDayOfInterval, isWithinInterval } from 'date-fns';
+import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import type { Order } from '../../types/orders';
 
 interface OrderAnalyticsProps {
@@ -28,14 +25,17 @@ interface OrderAnalyticsProps {
 }
 
 const COLORS = ['#9333ea', '#2563eb', '#16a34a', '#eab308', '#ef4444', '#ec4899'];
+const CHART_PRODUCTS_LIMIT = 8;
+const TABLE_PRODUCTS_LIMIT = 20;
 
 export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
   // Prepare data for charts
   const {
     dailySales,
-    categoryDistribution,
+    productDistribution,
     productsByQuantity,
-    productsBySol
+    productsBySol,
+    allProducts
   } = useMemo(() => {
     const filteredOrders = orders.filter(order => 
       isWithinInterval(order.createdAt, timeRange)
@@ -51,8 +51,7 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
       });
     });
 
-    // Category and product maps
-    const categoryMap = new Map<string, { name: string; value: number; solAmount: number }>();
+    // Product distribution map
     const productMap = new Map<string, { 
       name: string; 
       quantity: number; 
@@ -71,17 +70,6 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
         dailyMap.set(dateKey, existing);
       }
 
-      // Category distribution
-      const categoryName = order.product.category?.name || 'Uncategorized';
-      const existingCategory = categoryMap.get(categoryName) || { 
-        name: categoryName, 
-        value: 0,
-        solAmount: 0
-      };
-      existingCategory.value += 1;
-      existingCategory.solAmount += order.amountSol;
-      categoryMap.set(categoryName, existingCategory);
-
       // Product distribution
       const productKey = order.product.id;
       const existingProduct = productMap.get(productKey) || {
@@ -95,15 +83,31 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
       productMap.set(productKey, existingProduct);
     });
 
+    const allProductsArray = Array.from(productMap.values())
+      .sort((a, b) => b.quantity - a.quantity)
+      .map((p, index) => ({
+        ...p,
+        rank: index + 1
+      }));
+
+    const topProducts = allProductsArray.slice(0, CHART_PRODUCTS_LIMIT);
+
     return {
       dailySales: Array.from(dailyMap.values()),
-      categoryDistribution: Array.from(categoryMap.values()),
-      productsByQuantity: Array.from(productMap.values())
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 5),
-      productsBySol: Array.from(productMap.values())
-        .sort((a, b) => b.solAmount - a.solAmount)
-        .slice(0, 5)
+      productDistribution: topProducts.map(p => ({
+        name: p.name,
+        value: p.quantity,
+        solAmount: p.solAmount
+      })),
+      productsByQuantity: topProducts.map(p => ({
+        name: p.name.length > 20 ? p.name.slice(0, 20) + '...' : p.name,
+        quantity: p.quantity
+      })),
+      productsBySol: topProducts.map(p => ({
+        name: p.name.length > 20 ? p.name.slice(0, 20) + '...' : p.name,
+        solAmount: p.solAmount
+      })),
+      allProducts: allProductsArray.slice(0, TABLE_PRODUCTS_LIMIT)
     };
   }, [orders, timeRange]);
 
@@ -118,27 +122,27 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
   , [orders, timeRange]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-400">Total Sales</h3>
-          <p className="mt-2 text-2xl font-semibold text-white">{totalSales.toFixed(2)} SOL</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-gray-800 rounded-lg p-3">
+          <h3 className="text-xs font-medium text-gray-400">Total Sales</h3>
+          <p className="mt-1 text-xl font-semibold text-white">{totalSales.toFixed(2)} SOL</p>
         </div>
-        <div className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-400">Total Orders</h3>
-          <p className="mt-2 text-2xl font-semibold text-white">{totalOrders}</p>
+        <div className="bg-gray-800 rounded-lg p-3">
+          <h3 className="text-xs font-medium text-gray-400">Total Orders</h3>
+          <p className="mt-1 text-xl font-semibold text-white">{totalOrders}</p>
         </div>
       </div>
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Daily Sales Chart */}
-        <div className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">Daily Sales</h3>
-          <div className="h-[300px]">
+        <div className="bg-gray-800 rounded-lg p-3">
+          <h3 className="text-xs font-medium text-gray-400 mb-3">Daily Sales</h3>
+          <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailySales}>
+              <AreaChart data={dailySales} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#9333ea" stopOpacity={0.1}/>
@@ -149,18 +153,22 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
                 <XAxis 
                   dataKey="date" 
                   stroke="#9CA3AF"
-                  tick={{ fill: '#9CA3AF' }}
+                  tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                  tickLine={false}
                 />
                 <YAxis 
                   stroke="#9CA3AF"
-                  tick={{ fill: '#9CA3AF' }}
+                  tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
                 />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#1F2937',
                     border: 'none',
                     borderRadius: '0.375rem',
-                    color: '#F3F4F6'
+                    color: '#F3F4F6',
+                    fontSize: '12px'
                   }}
                 />
                 <Area
@@ -175,23 +183,23 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
           </div>
         </div>
 
-        {/* Category Distribution */}
-        <div className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">Category Distribution</h3>
-          <div className="h-[300px]">
+        {/* Product Distribution */}
+        <div className="bg-gray-800 rounded-lg p-3">
+          <h3 className="text-xs font-medium text-gray-400 mb-3">Product Distribution (Top {CHART_PRODUCTS_LIMIT})</h3>
+          <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <Pie
-                  data={categoryDistribution}
+                  data={productDistribution}
                   dataKey="value"
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={100}
-                  label={({ name, value }) => `${name} (${value})`}
+                  outerRadius={80}
+                  label={({ name, value }) => `${name.slice(0, 15)}${name.length > 15 ? '...' : ''} (${value})`}
                   labelLine={true}
                 >
-                  {categoryDistribution.map((entry, index) => (
+                  {productDistribution.map((_, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={COLORS[index % COLORS.length]} 
@@ -203,40 +211,44 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
                     backgroundColor: '#1F2937',
                     border: 'none',
                     borderRadius: '0.375rem',
-                    color: '#F3F4F6'
+                    color: '#F3F4F6',
+                    fontSize: '12px'
                   }}
                 />
-                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Top Products by Quantity */}
-        <div className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">Top Products by Quantity</h3>
-          <div className="h-[300px]">
+        <div className="bg-gray-800 rounded-lg p-3">
+          <h3 className="text-xs font-medium text-gray-400 mb-3">Top {CHART_PRODUCTS_LIMIT} Products by Quantity</h3>
+          <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={productsByQuantity} layout="vertical">
+              <BarChart data={productsByQuantity} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 
-                  type="number"
+                  dataKey="name"
                   stroke="#9CA3AF"
-                  tick={{ fill: '#9CA3AF' }}
+                  tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                  tickLine={false}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
                 />
                 <YAxis 
-                  type="category"
-                  dataKey="name"
-                  width={150}
                   stroke="#9CA3AF"
-                  tick={{ fill: '#9CA3AF' }}
+                  tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
                 />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#1F2937',
                     border: 'none',
                     borderRadius: '0.375rem',
-                    color: '#F3F4F6'
+                    color: '#F3F4F6',
+                    fontSize: '12px'
                   }}
                 />
                 <Bar dataKey="quantity" fill="#9333ea" />
@@ -246,36 +258,69 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
         </div>
 
         {/* Top Products by SOL */}
-        <div className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">Top Products by SOL</h3>
-          <div className="h-[300px]">
+        <div className="bg-gray-800 rounded-lg p-3">
+          <h3 className="text-xs font-medium text-gray-400 mb-3">Top {CHART_PRODUCTS_LIMIT} Products by SOL</h3>
+          <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={productsBySol} layout="vertical">
+              <BarChart data={productsBySol} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 
-                  type="number"
+                  dataKey="name"
                   stroke="#9CA3AF"
-                  tick={{ fill: '#9CA3AF' }}
+                  tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                  tickLine={false}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
                 />
                 <YAxis 
-                  type="category"
-                  dataKey="name"
-                  width={150}
                   stroke="#9CA3AF"
-                  tick={{ fill: '#9CA3AF' }}
+                  tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
                 />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#1F2937',
                     border: 'none',
                     borderRadius: '0.375rem',
-                    color: '#F3F4F6'
+                    color: '#F3F4F6',
+                    fontSize: '12px'
                   }}
                 />
                 <Bar dataKey="solAmount" fill="#2563eb" />
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      </div>
+
+      {/* Products Table */}
+      <div className="bg-gray-800 rounded-lg p-3">
+        <h3 className="text-xs font-medium text-gray-400 mb-3">All Products (Top {TABLE_PRODUCTS_LIMIT})</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="py-2 px-3 text-xs font-medium text-gray-400">#</th>
+                <th className="py-2 px-3 text-xs font-medium text-gray-400">Product</th>
+                <th className="py-2 px-3 text-xs font-medium text-gray-400 text-right">Quantity</th>
+                <th className="py-2 px-3 text-xs font-medium text-gray-400 text-right">Sales (SOL)</th>
+                <th className="py-2 px-3 text-xs font-medium text-gray-400">Category</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {allProducts.map((product) => (
+                <tr key={product.name} className="text-gray-300">
+                  <td className="py-2 px-3 text-gray-500">{product.rank}</td>
+                  <td className="py-2 px-3">{product.name}</td>
+                  <td className="py-2 px-3 text-right">{product.quantity}</td>
+                  <td className="py-2 px-3 text-right">{product.solAmount.toFixed(2)}</td>
+                  <td className="py-2 px-3 text-gray-400">{product.category || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
