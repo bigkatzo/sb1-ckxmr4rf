@@ -9,18 +9,12 @@ import { OrdersTab } from './OrdersTab';
 import { TransactionsTab } from '../../components/merchant/TransactionsTab';
 import { supabase } from '../../lib/supabase';
 
-// Define tabs in correct order
-const tabs = [
+// Define merchant tabs that are always visible
+const merchantTabs = [
   { id: 'collections', label: 'Collections' },
   { id: 'categories', label: 'Categories' },
   { id: 'products', label: 'Products' },
   { id: 'orders', label: 'Orders' }
-];
-
-// Add transactions tab only for admin
-const adminTabs = [
-  ...tabs,
-  { id: 'transactions', label: 'Transactions' }
 ];
 
 export function DashboardPage() {
@@ -55,25 +49,40 @@ export function DashboardPage() {
     checkPermissions();
   }, []);
 
-  // Filter available tabs based on permissions
+  // Get available tabs based on user role
   const availableTabs = React.useMemo(() => {
-    if (isAdmin) return adminTabs;
-
-    // For regular users, only show tabs if they have collections
-    if (!hasCollections) {
-      return [{ id: 'collections', label: 'Collections' }];
+    if (isAdmin) {
+      return [...merchantTabs, { id: 'transactions', label: 'Transactions' }];
     }
+    return merchantTabs;
+  }, [isAdmin]);
 
-    return tabs;
-  }, [isAdmin, hasCollections]);
+  // Show empty state message when no collections exist
+  const renderTabContent = (tabId: string) => {
+    const NoCollectionsMessage = () => (
+      <div className="flex flex-col items-center justify-center h-[400px] text-center">
+        <h3 className="text-lg font-medium text-gray-300 mb-2">Create a Collection First</h3>
+        <p className="text-gray-500 max-w-md">
+          You need to create at least one collection before you can manage {tabId}.
+        </p>
+      </div>
+    );
 
-  // Update active tab if current tab becomes unavailable
-  React.useEffect(() => {
-    const isTabAvailable = availableTabs.some(tab => tab.id === activeTab);
-    if (!isTabAvailable) {
-      setActiveTab(availableTabs[0].id);
+    switch (tabId) {
+      case 'collections':
+        return <CollectionsTab />;
+      case 'categories':
+        return hasCollections ? <CategoriesTab /> : <NoCollectionsMessage />;
+      case 'products':
+        return hasCollections ? <ProductsTab /> : <NoCollectionsMessage />;
+      case 'orders':
+        return hasCollections ? <OrdersTab /> : <NoCollectionsMessage />;
+      case 'transactions':
+        return isAdmin ? <TransactionsTab /> : null;
+      default:
+        return null;
     }
-  }, [availableTabs, activeTab]);
+  };
 
   return (
     <div className="space-y-4">
@@ -97,11 +106,7 @@ export function DashboardPage() {
       </div>
 
       <div className="min-h-[500px]">
-        {activeTab === 'collections' && <CollectionsTab />}
-        {activeTab === 'categories' && hasCollections && <CategoriesTab />}
-        {activeTab === 'products' && hasCollections && <ProductsTab />}
-        {activeTab === 'orders' && hasCollections && <OrdersTab />}
-        {activeTab === 'transactions' && isAdmin && <TransactionsTab />}
+        {renderTabContent(activeTab)}
       </div>
     </div>
   );
