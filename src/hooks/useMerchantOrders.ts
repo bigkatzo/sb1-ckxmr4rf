@@ -34,53 +34,77 @@ export function useMerchantOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    async function checkAdminStatus() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      setIsAdmin(profile?.role === 'admin');
+    }
+    checkAdminStatus();
+  }, []);
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: rawOrders, error } = await supabase
+      
+      // Build query based on user role
+      let query = supabase
         .from('merchant_orders')
         .select('*')
-        .not('access_type', 'is', null)
         .order('created_at', { ascending: false });
+
+      // Only filter by access_type if not admin
+      if (!isAdmin) {
+        query = query.not('access_type', 'is', null);
+      }
+
+      const { data: rawOrders, error } = await query;
 
       if (error) throw error;
 
       // Transform raw orders into the expected format
-      const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => {
-        return {
-          id: order.id,
-          order_number: order.order_number,
-          product: {
-            id: order.product_id,
-            name: order.product_name,
-            sku: order.product_sku || undefined,
-            imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
-            variants: order.product_variants || [],
-            variantPrices: order.product_variant_prices || {},
-            collection: {
-              id: order.collection_id,
-              name: order.collection_name,
-              ownerId: order.collection_owner_id
-            },
-            category: order.category_name ? {
-              name: order.category_name,
-              description: order.category_description || undefined,
-              type: order.category_type || undefined
-            } : undefined
+      const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => ({
+        id: order.id,
+        order_number: order.order_number,
+        product: {
+          id: order.product_id,
+          name: order.product_name,
+          sku: order.product_sku || undefined,
+          imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
+          variants: order.product_variants || [],
+          variantPrices: order.product_variant_prices || {},
+          collection: {
+            id: order.collection_id,
+            name: order.collection_name,
+            ownerId: order.collection_owner_id
           },
-          walletAddress: order.wallet_address,
-          transactionSignature: order.transaction_signature,
-          shippingAddress: order.shipping_address,
-          contactInfo: order.contact_info,
-          status: order.status,
-          amountSol: order.amount_sol,
-          createdAt: new Date(order.created_at),
-          updatedAt: new Date(order.updated_at),
-          order_variants: order.variant_selections || [],
-          accessType: order.access_type
-        };
-      });
+          category: order.category_name ? {
+            name: order.category_name,
+            description: order.category_description || undefined,
+            type: order.category_type || undefined
+          } : undefined
+        },
+        walletAddress: order.wallet_address,
+        transactionSignature: order.transaction_signature,
+        shippingAddress: order.shipping_address,
+        contactInfo: order.contact_info,
+        status: order.status,
+        amountSol: order.amount_sol,
+        createdAt: new Date(order.created_at),
+        updatedAt: new Date(order.updated_at),
+        order_variants: order.variant_selections || [],
+        accessType: order.access_type
+      }));
 
       setOrders(transformedOrders);
     } catch (err) {
@@ -89,7 +113,7 @@ export function useMerchantOrders() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     fetchOrders();
@@ -135,6 +159,7 @@ export function useMerchantOrders() {
     loading,
     error,
     refreshOrders: fetchOrders,
-    updateOrderStatus
+    updateOrderStatus,
+    isAdmin
   };
 }
