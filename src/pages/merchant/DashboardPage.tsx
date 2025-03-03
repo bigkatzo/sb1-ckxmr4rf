@@ -20,7 +20,7 @@ const merchantTabs = [
 export function DashboardPage() {
   const [activeTab, setActiveTab] = React.useState('collections');
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
-  const [hasCollections, setHasCollections] = React.useState(false);
+  const [hasCollectionAccess, setHasCollectionAccess] = React.useState(false);
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -38,13 +38,25 @@ export function DashboardPage() {
 
       setIsAdmin(profile?.role === 'admin');
 
-      // Check if user has collections
-      const { data: collections } = await supabase
+      // Check for collections user owns
+      const { data: ownedCollections } = await supabase
         .from('collections')
         .select('id')
         .eq('user_id', user.id);
 
-      setHasCollections(!!collections && collections.length > 0);
+      // Check for collections user has access to
+      const { data: accessibleCollections } = await supabase
+        .from('collection_access')
+        .select('collection_id')
+        .eq('user_id', user.id);
+
+      // User has access if they own collections or have been granted access
+      const hasAccess = Boolean(
+        (ownedCollections && ownedCollections.length > 0) || 
+        (accessibleCollections && accessibleCollections.length > 0)
+      );
+
+      setHasCollectionAccess(hasAccess);
     }
     checkPermissions();
   }, []);
@@ -59,11 +71,11 @@ export function DashboardPage() {
 
   // Show empty state message when no collections exist
   const renderTabContent = (tabId: string) => {
-    const NoCollectionsMessage = () => (
+    const NoAccessMessage = () => (
       <div className="flex flex-col items-center justify-center h-[400px] text-center">
-        <h3 className="text-lg font-medium text-gray-300 mb-2">Create a Collection First</h3>
+        <h3 className="text-lg font-medium text-gray-300 mb-2">No Collection Access</h3>
         <p className="text-gray-500 max-w-md">
-          You need to create at least one collection before you can manage {tabId}.
+          You need to either create a collection or be granted access to one before you can manage {tabId}.
         </p>
       </div>
     );
@@ -72,11 +84,11 @@ export function DashboardPage() {
       case 'collections':
         return <CollectionsTab />;
       case 'categories':
-        return hasCollections ? <CategoriesTab /> : <NoCollectionsMessage />;
+        return hasCollectionAccess ? <CategoriesTab /> : <NoAccessMessage />;
       case 'products':
-        return hasCollections ? <ProductsTab /> : <NoCollectionsMessage />;
+        return hasCollectionAccess ? <ProductsTab /> : <NoAccessMessage />;
       case 'orders':
-        return hasCollections ? <OrdersTab /> : <NoCollectionsMessage />;
+        return hasCollectionAccess ? <OrdersTab /> : <NoAccessMessage />;
       case 'transactions':
         return isAdmin ? <TransactionsTab /> : null;
       default:
