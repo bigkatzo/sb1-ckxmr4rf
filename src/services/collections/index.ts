@@ -125,16 +125,38 @@ export async function updateCollection(id: string, data: FormData) {
     if (authError) throw authError;
     if (!user) throw new Error('User not authenticated');
 
-    // Verify collection exists and user owns it
+    // First check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+
+    // Verify collection exists and user has proper access
     const { data: existingCollection, error: verifyError } = await supabase
       .from('collections')
       .select('image_url')
       .eq('id', id)
-      .eq('user_id', user.id)
       .single();
 
     if (verifyError || !existingCollection) {
       throw new Error('Collection not found or access denied');
+    }
+
+    // If not admin, verify ownership
+    if (!isAdmin) {
+      const { data: ownerCheck, error: ownerError } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (ownerError || !ownerCheck) {
+        throw new Error('Collection not found or access denied');
+      }
     }
 
     // Handle image upload if present
@@ -179,7 +201,35 @@ export async function updateCollection(id: string, data: FormData) {
 }
 
 export async function toggleSaleEnded(id: string, saleEnded: boolean) {
-  try {
+  return withTransaction(async () => {
+    // Verify user authentication and ownership
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('User not authenticated');
+
+    // First check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+
+    // If not admin, verify ownership
+    if (!isAdmin) {
+      const { data: ownerCheck, error: ownerError } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (ownerError || !ownerCheck) {
+        throw new Error('Collection not found or access denied');
+      }
+    }
+
     const { error } = await supabase
       .rpc('toggle_collection_sale_ended', {
         p_collection_id: id,
@@ -187,10 +237,7 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
       });
 
     if (error) throw error;
-  } catch (error) {
-    console.error('Error toggling sale ended status:', error);
-    throw error instanceof Error ? error : new Error('Failed to toggle sale ended status');
-  }
+  });
 }
 
 export async function toggleFeatured(id: string, featured: boolean) {
@@ -200,11 +247,33 @@ export async function toggleFeatured(id: string, featured: boolean) {
     if (authError) throw authError;
     if (!user) throw new Error('User not authenticated');
 
+    // First check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+
+    // If not admin, verify ownership
+    if (!isAdmin) {
+      const { data: ownerCheck, error: ownerError } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (ownerError || !ownerCheck) {
+        throw new Error('Collection not found or access denied');
+      }
+    }
+
     const { error } = await supabase
       .from('collections')
       .update({ featured })
-      .eq('id', id)
-      .eq('user_id', user.id);
+      .eq('id', id);
 
     if (error) throw error;
   });
@@ -275,5 +344,6 @@ export async function deleteCollection(id: string) {
 }
 
 export * from './types';
+export * from './upload';
 export * from './upload';
 export * from './upload';
