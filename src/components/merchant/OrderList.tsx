@@ -48,26 +48,38 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
 
   const filterOrdersByDate = (orders: Order[], filter: DateFilter) => {
     const today = startOfDay(new Date());
-    
-    switch (filter) {
-      case 'today':
-        return orders.filter(order => isAfter(order.createdAt, today));
-      case 'week':
-        return orders.filter(order => isAfter(order.createdAt, subDays(today, 7)));
-      case 'month':
-        return orders.filter(order => isAfter(order.createdAt, subDays(today, 30)));
-      case 'custom':
-        if (!startDate || !endDate) return orders;
-        const start = startOfDay(parseISO(startDate));
-        const end = startOfDay(parseISO(endDate));
-        return orders.filter(order => {
-          const orderDate = startOfDay(order.createdAt);
-          return (isAfter(orderDate, start) || isEqual(orderDate, start)) && 
-                 (isBefore(orderDate, end) || isEqual(orderDate, end));
-        });
-      default:
-        return orders;
+
+    if (filter === 'today') {
+      return orders.filter(order => {
+        const date = typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt;
+        return isAfter(date, today);
+      });
     }
+    if (filter === 'week') {
+      return orders.filter(order => {
+        const date = typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt;
+        return isAfter(date, subDays(today, 7));
+      });
+    }
+    if (filter === 'month') {
+      return orders.filter(order => {
+        const date = typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt;
+        return isAfter(date, subDays(today, 30));
+      });
+    }
+    if (filter === 'custom' && startDate && endDate) {
+      const start = startOfDay(parseISO(startDate));
+      const end = startOfDay(parseISO(endDate));
+      return orders.filter(order => {
+        const date = typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt;
+        const orderDate = startOfDay(date);
+        return (
+          (isAfter(orderDate, start) || isEqual(orderDate, start)) &&
+          (isBefore(orderDate, end) || isEqual(orderDate, end))
+        );
+      });
+    }
+    return orders;
   };
 
   const exportToCSV = async () => {
@@ -128,7 +140,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
         try {
           return [
             escapeCSV(order.order_number),
-            escapeCSV(format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')),
+            escapeCSV(format(typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt, 'yyyy-MM-dd HH:mm:ss')),
             escapeCSV(order.status),
             escapeCSV(order.product?.name || ''),
             escapeCSV(order.product?.sku || ''),
@@ -449,7 +461,9 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                 </div>
                 {/* Mobile Date */}
                 <div className="sm:hidden">
-                  <span className="text-[10px] text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                  <span className="text-[10px] text-gray-400">
+                    {formatDistanceToNow(typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt, { addSuffix: true })}
+                  </span>
                 </div>
 
                 {/* Desktop Layout - All inline */}
@@ -460,7 +474,9 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                       <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
                     </div>
                     <span className="text-gray-600">•</span>
-                    <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                    <span className="text-xs text-gray-400">
+                      {formatDistanceToNow(typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt, { addSuffix: true })}
+                    </span>
                   </div>
                   <div className="shrink-0">
                     {onStatusUpdate && canUpdateOrder ? (
