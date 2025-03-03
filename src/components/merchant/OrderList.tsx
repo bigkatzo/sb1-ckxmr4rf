@@ -75,6 +75,10 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
       setIsExporting(true);
       console.log('Starting CSV export...', filteredOrders.length, 'orders');
       
+      if (!filteredOrders.length) {
+        throw new Error('No orders to export');
+      }
+
       const headers = [
         'Order Number',
         'Date',
@@ -101,29 +105,47 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
 
       const formatShippingAddressCSV = (address: any): string => {
         if (!address) return '';
-        const { address: addr, city, country, zip } = address;
-        return [addr, city, zip, country].filter(Boolean).join(', ');
+        try {
+          const { address: addr, city, country, zip } = address;
+          return [addr, city, zip, country].filter(Boolean).join(', ');
+        } catch (err) {
+          console.warn('Error formatting shipping address:', err);
+          return '';
+        }
       };
 
       const formatContactInfoCSV = (contact: any): string => {
         if (!contact || !contact.method || !contact.value) return '';
-        return `${contact.method}: ${contact.value}`;
+        try {
+          return `${contact.method}: ${contact.value}`;
+        } catch (err) {
+          console.warn('Error formatting contact info:', err);
+          return '';
+        }
       };
 
-      const rows = filteredOrders.map(order => [
-        escapeCSV(order.order_number),
-        escapeCSV(format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')),
-        escapeCSV(order.status),
-        escapeCSV(order.product.name),
-        escapeCSV(order.product.sku),
-        escapeCSV(order.amountSol.toFixed(2)),
-        escapeCSV(order.product.collection?.name),
-        escapeCSV(order.product.category?.name),
-        escapeCSV(formatShippingAddressCSV(order.shippingAddress)),
-        escapeCSV(formatContactInfoCSV(order.contactInfo)),
-        escapeCSV(order.walletAddress),
-        escapeCSV(order.transactionSignature)
-      ]);
+      const rows = filteredOrders.map((order, index) => {
+        try {
+          return [
+            escapeCSV(order.order_number),
+            escapeCSV(format(order.createdAt, 'yyyy-MM-dd HH:mm:ss')),
+            escapeCSV(order.status),
+            escapeCSV(order.product?.name || ''),
+            escapeCSV(order.product?.sku || ''),
+            escapeCSV(typeof order.amountSol === 'number' ? order.amountSol.toFixed(2) : ''),
+            escapeCSV(order.product?.collection?.name || ''),
+            escapeCSV(order.product?.category?.name || ''),
+            escapeCSV(formatShippingAddressCSV(order.shippingAddress)),
+            escapeCSV(formatContactInfoCSV(order.contactInfo)),
+            escapeCSV(order.walletAddress || ''),
+            escapeCSV(order.transactionSignature || '')
+          ];
+        } catch (err) {
+          console.error(`Error processing order at index ${index}:`, err, order);
+          // Return a row of empty values if there's an error
+          return headers.map(() => '');
+        }
+      });
 
       console.log('Generated rows:', rows.length);
 
@@ -153,6 +175,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
       console.log('CSV export completed');
     } catch (error) {
       console.error('Error exporting CSV:', error);
+      // You might want to show a user-friendly error message here
     } finally {
       setIsExporting(false);
     }
