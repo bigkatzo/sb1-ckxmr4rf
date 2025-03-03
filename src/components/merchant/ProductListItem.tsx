@@ -61,7 +61,7 @@ export function ProductListItem({ product, onEdit, onDelete }: ProductListItemPr
             {product.category && (
               <CategoryTag
                 name={product.category.name}
-                type={product.category.type}
+                type={product.category.type || 'default'}
                 className="text-[10px] sm:text-xs scale-90"
               />
             )}
