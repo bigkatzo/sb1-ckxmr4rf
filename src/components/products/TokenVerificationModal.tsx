@@ -160,6 +160,7 @@ export function TokenVerificationModal({
 
       // Create order record with retries
       let orderError;
+      toast.info('Creating order...', { autoClose: 3000 });
       for (let i = 0; i < 3; i++) {
         try {
           await createOrder({
