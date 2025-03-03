@@ -20,8 +20,11 @@ export function OrdersTab() {
     const productsMap = new Map();
     
     orders.forEach(order => {
+      // Skip if order or product is undefined
+      if (!order?.product) return;
+      
       // Only add products if no collection is selected or if they belong to the selected collection
-      if (!selectedCollection || order.product.collection.id === selectedCollection) {
+      if (!selectedCollection || (order.product.collection && order.product.collection.id === selectedCollection)) {
         productsMap.set(order.product.id, {
           id: order.product.id,
           name: order.product.name
@@ -102,7 +105,7 @@ export function OrdersTab() {
     return (
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="bg-red-500/10 text-red-500 rounded-lg p-4">
-          <p className="text-sm">{error}</p>
+          <p className="text-sm">{error.message || String(error)}</p>
         </div>
       </div>
     );
@@ -139,7 +142,7 @@ export function OrdersTab() {
         <OrderList
           orders={filteredOrders}
           onStatusUpdate={handleStatusUpdate}
-          canUpdateOrder={canUpdateOrder}
+          canUpdateOrder={async (order) => Boolean(await canUpdateOrder(order))}
         />
       )}
     </div>
