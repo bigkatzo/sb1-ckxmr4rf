@@ -41,74 +41,40 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
       setLoading(true);
       setError(null);
 
-      // First fetch collections owned by the user
-      const { data: ownedCollections, error: ownedError } = await supabase
-        .from('collections')
-        .select('id, name, slug')
+      // Fetch collections using the merchant_collections view
+      const { data: collections, error: collectionsError } = await supabase
+        .from('merchant_collections')
+        .select('*')
         .eq('user_id', userId);
-      if (ownedError) throw ownedError;
+      if (collectionsError) throw collectionsError;
 
-      // Then fetch user's collection access - only need minimal collection data
-      const { data: accessData, error: accessError } = await supabase
-        .from('collection_access')
-        .select(`
-          collection_id,
-          access_type,
-          collections (
-            id,
-            name,
-            slug,
-            user_id
-          )
-        `)
-        .eq('user_id', userId);
-      if (accessError) throw accessError;
-
-      // Transform owned collections data
-      const ownedCollectionsData = ownedCollections.map(collection => ({
+      // Transform collections data
+      const transformedCollections = collections.map(collection => ({
         id: collection.id,
         name: collection.name,
-        description: '',
-        imageUrl: '',
-        launchDate: new Date(),
-        featured: false,
-        visible: true,
-        saleEnded: false,
+        description: collection.description || '',
+        imageUrl: collection.image_url || '',
+        launchDate: new Date(collection.launch_date),
+        featured: collection.featured,
+        visible: collection.visible,
+        saleEnded: collection.sale_ended,
         slug: collection.slug,
         categories: [],
         products: [],
-        accessType: null as null,
-        isOwner: true
+        accessType: collection.access_type,
+        owner_username: collection.owner_username,
+        isOwner: collection.user_id === userId
       }));
 
-      // Transform access data with minimal fields
-      const collectionsWithAccess = ((accessData as unknown) as CollectionAccessData[])
-        .filter(access => !ownedCollectionsData.some(owned => owned.id === access.collection_id))
-        .map(access => ({
-          id: access.collections.id,
-          name: access.collections.name,
-          description: '',
-          imageUrl: '',
-          launchDate: new Date(),
-          featured: false,
-          visible: true,
-          saleEnded: false,
-          slug: access.collections.slug,
-          categories: [],
-          products: [],
-          accessType: access.access_type,
-          isOwner: false
-        }));
+      setCollections(transformedCollections);
 
-      // Combine owned and access collections
-      setCollections([...ownedCollectionsData, ...collectionsWithAccess]);
-
-      // Fetch all collections for the assign modal - only need id and name
+      // Fetch all collections for the assign modal
       const { data: allCollectionsData, error: allCollectionsError } = await supabase
-        .from('collections')
+        .from('merchant_collections')
         .select('id, name')
         .order('name');
       if (allCollectionsError) throw allCollectionsError;
+
       setAllCollections(allCollectionsData.map(c => ({
         id: c.id,
         name: c.name,
