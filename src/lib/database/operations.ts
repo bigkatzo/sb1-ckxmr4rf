@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { withTransaction, verifyOwnership, verifyCollectionAccess, DatabaseError } from './index';
+import type { Collection } from '../../types';
 
 export async function createRecord<T extends Record<string, any>>(
   table: string,
