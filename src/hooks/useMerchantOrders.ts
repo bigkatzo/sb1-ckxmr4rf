@@ -9,7 +9,7 @@ interface RawOrder {
   product_id: string;
   product_name: string;
   product_sku: string | null;
-  product_images: string[] | null;
+  product_image_url: string | null;
   product_variants: { name: string; value: string }[];
   product_variant_prices: Record<string, number>;
   collection_id: string;
@@ -45,8 +45,6 @@ export function useMerchantOrders() {
 
       if (error) throw error;
 
-      console.log('Raw orders from database:', rawOrders);
-
       // Transform raw orders into the expected format
       const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => ({
         id: order.id,
@@ -55,7 +53,7 @@ export function useMerchantOrders() {
           id: order.product_id,
           name: order.product_name,
           sku: order.product_sku || undefined,
-          imageUrl: order.product_images && order.product_images[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
+          imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
           variants: order.product_variants || [],
           variantPrices: order.product_variant_prices || {},
           collection: {
