@@ -53,7 +53,7 @@ export function useOrders() {
           name: order.product.name,
           imageUrl: order.product.images?.[0] || null,
           sku: order.product.sku,
-          variants: order.order_variants || [],
+          variants: order.product.variants || [],
           variantPrices: order.product.variant_prices || {},
           category: order.product.category ? {
             id: order.product.category.id,
@@ -71,7 +71,8 @@ export function useOrders() {
         status: order.status,
         amountSol: order.amount_sol,
         createdAt: new Date(order.created_at),
-        updatedAt: new Date(order.updated_at)
+        updatedAt: new Date(order.updated_at),
+        order_variants: order.variant_selections || []
       }));
 
       setOrders(transformedOrders);

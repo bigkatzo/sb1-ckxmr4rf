@@ -52,6 +52,7 @@ export interface Order {
   createdAt: Date;
   updatedAt: Date;
   accessType?: string | null;
+  order_variants?: OrderVariant[]; // Selected variants for this order
 }
 
 // Type for the public order counts view

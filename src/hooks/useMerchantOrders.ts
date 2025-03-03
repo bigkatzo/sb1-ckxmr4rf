@@ -52,7 +52,7 @@ export function useMerchantOrders() {
           name: order.product_name,
           sku: order.product_sku,
           imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
-          variants: order.order_variants || [],
+          variants: order.product_variants || [],
           variantPrices: order.product_variant_prices,
           collection: {
             id: order.collection_id,
@@ -68,7 +68,8 @@ export function useMerchantOrders() {
         amountSol: order.amount_sol,
         createdAt: new Date(order.created_at),
         updatedAt: new Date(order.updated_at),
-        accessType: order.access_type
+        accessType: order.access_type,
+        order_variants: order.order_variants || []
       }));
 
       setOrders(transformedOrders);
