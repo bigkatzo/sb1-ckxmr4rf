@@ -9,16 +9,17 @@ interface CollectionAccessProps {
 
 interface CollectionAccessData {
   collection_id: string;
-  access_type: 'view' | 'edit';
+  access_type: 'view' | 'edit' | null;
   collections: {
     id: string;
     name: string;
     slug: string;
+    user_id: string;
   };
 }
 
 export function CollectionAccess({ userId }: CollectionAccessProps) {
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const [collections, setCollections] = useState<(Collection & { isOwner?: boolean })[]>([]);
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +35,68 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
     try {
       setLoading(true);
       setError(null);
+
+      // First fetch collections owned by the user
+      const { data: ownedCollections, error: ownedError } = await supabase
+        .from('collections')
+        .select('id, name, slug')
+        .eq('user_id', userId);
+      if (ownedError) throw ownedError;
+
+      // Then fetch user's collection access - only need minimal collection data
+      const { data: accessData, error: accessError } = await supabase
+        .from('collection_access')
+        .select(`
+          collection_id,
+          access_type,
+          collections (
+            id,
+            name,
+            slug,
+            user_id
+          )
+        `)
+        .eq('user_id', userId);
+      if (accessError) throw accessError;
+
+      // Transform owned collections data
+      const ownedCollectionsData = ownedCollections.map(collection => ({
+        id: collection.id,
+        name: collection.name,
+        description: '',
+        imageUrl: '',
+        launchDate: new Date(),
+        featured: false,
+        visible: true,
+        saleEnded: false,
+        slug: collection.slug,
+        categories: [],
+        products: [],
+        accessType: null as null,
+        isOwner: true
+      }));
+
+      // Transform access data with minimal fields
+      const collectionsWithAccess = ((accessData as unknown) as CollectionAccessData[])
+        .filter(access => !ownedCollectionsData.some(owned => owned.id === access.collection_id))
+        .map(access => ({
+          id: access.collections.id,
+          name: access.collections.name,
+          description: '',
+          imageUrl: '',
+          launchDate: new Date(),
+          featured: false,
+          visible: true,
+          saleEnded: false,
+          slug: access.collections.slug,
+          categories: [],
+          products: [],
+          accessType: access.access_type,
+          isOwner: false
+        }));
+
+      // Combine owned and access collections
+      setCollections([...ownedCollectionsData, ...collectionsWithAccess]);
 
       // Fetch all collections for the assign modal - only need id and name
       const { data: allCollectionsData, error: allCollectionsError } = await supabase
@@ -52,41 +115,9 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
         saleEnded: false,
         slug: '',
         categories: [],
-        products: []
-      })));
-
-      // Fetch user's collection access - only need minimal collection data
-      const { data: accessData, error: accessError } = await supabase
-        .from('collection_access')
-        .select(`
-          collection_id,
-          access_type,
-          collections (
-            id,
-            name,
-            slug
-          )
-        `)
-        .eq('user_id', userId);
-      if (accessError) throw accessError;
-
-      // Transform data with minimal fields
-      const collectionsWithAccess: Collection[] = ((accessData as unknown) as CollectionAccessData[]).map(access => ({
-        id: access.collections.id,
-        name: access.collections.name,
-        description: '',
-        imageUrl: '',
-        launchDate: new Date(),
-        featured: false,
-        visible: true,
-        saleEnded: false,
-        slug: access.collections.slug,
-        categories: [],
         products: [],
-        accessType: access.access_type
-      }));
-
-      setCollections(collectionsWithAccess);
+        accessType: null as null
+      })));
     } catch (err) {
       console.error('Error fetching collections:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch collections');
@@ -177,23 +208,31 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                   <h4 className="font-medium">{collection.name}</h4>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    collection.accessType === 'edit' 
-                      ? 'bg-purple-500/10 text-purple-400'
-                      : 'bg-blue-500/10 text-blue-400'
-                  }`}>
-                    {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
-                  </span>
+                  {collection.isOwner ? (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
+                      Owner
+                    </span>
+                  ) : (
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      collection.accessType === 'edit' 
+                        ? 'bg-purple-500/10 text-purple-400'
+                        : 'bg-blue-500/10 text-blue-400'
+                    }`}>
+                      {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
+                    </span>
+                  )}
                 </div>
               </div>
               
-              <button
-                onClick={() => handleRevokeAccess(collection.id)}
-                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                title="Revoke access"
-              >
-                <Unlink className="h-4 w-4" />
-              </button>
+              {!collection.isOwner && (
+                <button
+                  onClick={() => handleRevokeAccess(collection.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  title="Revoke access"
+                >
+                  <Unlink className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ))}
         </div>
