@@ -45,6 +45,8 @@ export function useMerchantOrders() {
 
       if (error) throw error;
 
+      console.log('Raw orders from database:', rawOrders);
+
       // Transform raw orders into the expected format
       const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => ({
         id: order.id,
@@ -52,14 +54,14 @@ export function useMerchantOrders() {
         product: {
           id: order.product_id,
           name: order.product_name,
-          sku: order.product_sku || undefined,
-          imageUrl: order.product_images?.[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
+          sku: order.product_sku,
+          imageUrl: order.product_images && order.product_images[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
           variants: order.product_variants || [],
           variantPrices: order.product_variant_prices || {},
           collection: {
             id: order.collection_id,
             name: order.collection_name,
-            ownerId: order.collection_owner_id || undefined
+            ownerId: order.collection_owner_id
           },
           category: order.category_name ? {
             name: order.category_name,
