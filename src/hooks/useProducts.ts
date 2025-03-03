@@ -50,7 +50,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
         imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
         images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
         categoryId: product.category_id,
-        category: product.category_id ? {
+        category: product.category_id && product.category_name ? {
           id: product.category_id,
           name: product.category_name,
           description: product.category_description,
