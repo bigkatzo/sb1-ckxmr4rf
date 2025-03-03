@@ -55,19 +55,6 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(true);
   
-  // Add debug logging
-  useEffect(() => {
-    console.log('Orders received:', orders);
-    orders.forEach(order => {
-      console.log('Order product data:', {
-        id: order.id,
-        productName: order.product?.name,
-        productSku: order.product?.sku,
-        productImage: order.product?.imageUrl
-      });
-    });
-  }, [orders]);
-  
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     if (!onStatusUpdate) return;
     
@@ -121,7 +108,6 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const exportToCSV = async () => {
     try {
       setIsExporting(true);
-      console.log('Starting CSV export...', filteredOrders.length, 'orders');
       
       if (!filteredOrders.length) {
         throw new Error('No orders to export');
@@ -189,20 +175,16 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
             escapeCSV(order.transactionSignature || '')
           ];
         } catch (err) {
-          console.error(`Error processing order at index ${index}:`, err, order);
+          console.error(`Error processing order at index ${index}:`, err);
           // Return a row of empty values if there's an error
           return headers.map(() => '');
         }
       });
 
-      console.log('Generated rows:', rows.length);
-
       const csvContent = [
         headers.join(','),
         ...rows.map(row => row.join(','))
       ].join('\n');
-
-      console.log('CSV content length:', csvContent.length);
 
       // Add BOM for Excel UTF-8 compatibility
       const BOM = '\uFEFF';
@@ -219,11 +201,9 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
       downloadLink.click();
       document.body.removeChild(downloadLink);
       window.URL.revokeObjectURL(url);
-      
-      console.log('CSV export completed');
     } catch (error) {
       console.error('Error exporting CSV:', error);
-      // You might want to show a user-friendly error message here
+      toast.error('Failed to export orders');
     } finally {
       setIsExporting(false);
     }

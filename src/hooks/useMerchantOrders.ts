@@ -45,39 +45,71 @@ export function useMerchantOrders() {
 
       if (error) throw error;
 
+      // Debug log to see raw data
+      console.log('Raw orders from DB:', rawOrders);
+      if (rawOrders && rawOrders.length > 0) {
+        console.log('First raw order details:', {
+          id: rawOrders[0].id,
+          product_name: rawOrders[0].product_name,
+          product_sku: rawOrders[0].product_sku,
+          product_image_url: rawOrders[0].product_image_url
+        });
+      }
+
       // Transform raw orders into the expected format
-      const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => ({
-        id: order.id,
-        order_number: order.order_number,
-        product: {
-          id: order.product_id,
-          name: order.product_name,
-          sku: order.product_sku || undefined,
-          imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
-          variants: order.product_variants || [],
-          variantPrices: order.product_variant_prices || {},
-          collection: {
-            id: order.collection_id,
-            name: order.collection_name,
-            ownerId: order.collection_owner_id
+      const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => {
+        // Debug log for each transformation
+        console.log('Transforming order:', {
+          id: order.id,
+          product_name: order.product_name,
+          product_sku: order.product_sku,
+          product_image_url: order.product_image_url
+        });
+
+        return {
+          id: order.id,
+          order_number: order.order_number,
+          product: {
+            id: order.product_id,
+            name: order.product_name,
+            sku: order.product_sku || undefined,
+            imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
+            variants: order.product_variants || [],
+            variantPrices: order.product_variant_prices || {},
+            collection: {
+              id: order.collection_id,
+              name: order.collection_name,
+              ownerId: order.collection_owner_id
+            },
+            category: order.category_name ? {
+              name: order.category_name,
+              description: order.category_description || undefined,
+              type: order.category_type || undefined
+            } : undefined
           },
-          category: order.category_name ? {
-            name: order.category_name,
-            description: order.category_description || undefined,
-            type: order.category_type || undefined
-          } : undefined
-        },
-        walletAddress: order.wallet_address,
-        transactionSignature: order.transaction_signature,
-        shippingAddress: order.shipping_address,
-        contactInfo: order.contact_info,
-        status: order.status,
-        amountSol: order.amount_sol,
-        createdAt: new Date(order.created_at),
-        updatedAt: new Date(order.updated_at),
-        order_variants: order.variant_selections || [],
-        accessType: order.access_type
-      }));
+          walletAddress: order.wallet_address,
+          transactionSignature: order.transaction_signature,
+          shippingAddress: order.shipping_address,
+          contactInfo: order.contact_info,
+          status: order.status,
+          amountSol: order.amount_sol,
+          createdAt: new Date(order.created_at),
+          updatedAt: new Date(order.updated_at),
+          order_variants: order.variant_selections || [],
+          accessType: order.access_type
+        };
+      });
+
+      // Debug log to see transformed data
+      console.log('Transformed orders:', transformedOrders);
+      if (transformedOrders.length > 0) {
+        console.log('First transformed order details:', {
+          id: transformedOrders[0].id,
+          productName: transformedOrders[0].product.name,
+          productSku: transformedOrders[0].product.sku,
+          productImage: transformedOrders[0].product.imageUrl
+        });
+      }
 
       setOrders(transformedOrders);
     } catch (err) {
