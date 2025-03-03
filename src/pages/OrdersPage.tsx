@@ -162,102 +162,121 @@ export function OrdersPage() {
       ) : (
         <div className="space-y-4">
           {orders.map((order) => (
-            <div key={order.id} className="bg-gray-900 rounded-lg p-4 group">
+            <div key={order.id} className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-purple-500/20 transition-all">
               {/* Order Number Header */}
-              <div className="mb-4 pb-4 border-b border-gray-800">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-400">Order #</span>
-                    <span className="text-lg font-mono font-medium text-white">{order.order_number}</span>
+              <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
+                <div className="flex flex-col gap-0.5 sm:gap-2">
+                  {/* Mobile Layout */}
+                  <div className="flex items-center justify-between sm:hidden">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Order</span>
+                      <span className="font-mono text-sm font-medium text-white truncate">{order.order_number}</span>
+                    </div>
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
+                      {getStatusIcon(order.status)}
+                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                    </div>
                   </div>
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm ${getStatusColor(order.status)}`}>
-                    {getStatusIcon(order.status)}
-                    <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                  {/* Mobile Date */}
+                  <div className="sm:hidden">
+                    <span className="text-[10px] text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                  </div>
+
+                  {/* Desktop Layout - All inline */}
+                  <div className="hidden sm:flex sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
+                        <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
+                      </div>
+                      <span className="text-gray-600">•</span>
+                      <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
+                      {getStatusIcon(order.status)}
+                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
-                {/* Product Image */}
-                <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                  {order.product.imageUrl ? (
-                    <img 
-                      src={order.product.imageUrl} 
-                      alt={order.product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Package className="h-8 w-8 text-gray-600" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  {/* Order Header */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
-                      {order.product.sku && (
-                        <p className="text-xs text-gray-400 mt-1">SKU: {order.product.sku}</p>
-                      )}
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {order.product.collection && (
-                          <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
-                            {order.product.collection.name}
-                          </span>
-                        )}
-                        {order.order_variants && order.order_variants.length > 0 && (
-                          <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
-                            {order.order_variants.map((v: { name: string; value: string }) => `${v.name}: ${v.value}`).join(', ')}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-gray-400 text-xs mt-2">
-                        Amount: {order.amountSol} SOL
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Order Details */}
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
-                    {/* Shipping Info */}
-                    {order.shippingAddress && (
-                      <div>
-                        <h4 className="text-xs font-medium text-gray-400 mb-2">Shipping Address</h4>
-                        {formatShippingAddress(order.shippingAddress)}
+              <div className="p-4">
+                <div className="flex items-start gap-4">
+                  {/* Product Image */}
+                  <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                    {order.product.imageUrl ? (
+                      <img 
+                        src={order.product.imageUrl} 
+                        alt={order.product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="h-8 w-8 text-gray-600" />
                       </div>
                     )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    {/* Order Header */}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
+                        {order.product.sku && (
+                          <p className="text-xs text-gray-400 mt-1">SKU: {order.product.sku}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {order.product.collection && (
+                            <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
+                              {order.product.collection.name}
+                            </span>
+                          )}
+                          {order.order_variants && order.order_variants.length > 0 && (
+                            <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
+                              {order.order_variants.map((v: { name: string; value: string }) => `${v.name}: ${v.value}`).join(', ')}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-400 text-xs mt-2">
+                          Amount: {order.amountSol} SOL
+                        </p>
+                      </div>
+                    </div>
                     
-                    {/* Contact Info */}
-                    {order.contactInfo && (
-                      <div>
-                        <h4 className="text-xs font-medium text-gray-400 mb-2">Contact</h4>
-                        {formatContactInfo(order.contactInfo)}
-                      </div>
-                    )}
-                  </div>
+                    {/* Order Details */}
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
+                      {/* Shipping Info */}
+                      {order.shippingAddress && (
+                        <div>
+                          <h4 className="text-xs font-medium text-gray-400 mb-2">Shipping Address</h4>
+                          {formatShippingAddress(order.shippingAddress)}
+                        </div>
+                      )}
+                      
+                      {/* Contact Info */}
+                      {order.contactInfo && (
+                        <div>
+                          <h4 className="text-xs font-medium text-gray-400 mb-2">Contact</h4>
+                          {formatContactInfo(order.contactInfo)}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Transaction Info */}
-                  <div className="mt-4 pt-4 border-t border-gray-800">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">Transaction:</span>
-                        <a
-                          href={`https://solscan.io/tx/${order.transactionSignature}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
-                        >
-                          {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">Created:</span>
-                        <span className="text-xs text-gray-300">
-                          {formatDistanceToNow(order.createdAt, { addSuffix: true })}
-                        </span>
+                    {/* Transaction Info */}
+                    <div className="mt-4 pt-4 border-t border-gray-800">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400">Transaction:</span>
+                          <a
+                            href={`https://solscan.io/tx/${order.transactionSignature}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                          >
+                            {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
