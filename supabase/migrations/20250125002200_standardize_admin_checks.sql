@@ -91,9 +91,9 @@ BEGIN
     RAISE EXCEPTION 'Cannot modify admin user role';
   END IF;
 
-  -- Update or insert profile
+  -- Update or insert profile with proper type casting
   INSERT INTO user_profiles (id, role, updated_at)
-  VALUES (p_user_id, p_new_role, now())
+  VALUES (p_user_id, p_new_role::user_role, now())
   ON CONFLICT (id) DO UPDATE
   SET 
     role = EXCLUDED.role,
