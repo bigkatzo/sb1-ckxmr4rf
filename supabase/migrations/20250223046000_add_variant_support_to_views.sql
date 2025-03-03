@@ -1,6 +1,10 @@
 -- Start transaction
 BEGIN;
 
+-- Add variant_selections column to orders if it doesn't exist
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS variant_selections jsonb DEFAULT '[]'::jsonb;
+
 -- Drop and recreate both views
 DROP VIEW IF EXISTS merchant_orders CASCADE;
 DROP VIEW IF EXISTS merchant_products CASCADE;
@@ -45,7 +49,7 @@ WHERE
 CREATE VIEW merchant_orders AS
 SELECT 
     o.*,
-    o.variants as order_variants,
+    o.variant_selections as order_variants,
     p.name as product_name,
     p.sku as product_sku,
     p.images[1] as product_image_url,

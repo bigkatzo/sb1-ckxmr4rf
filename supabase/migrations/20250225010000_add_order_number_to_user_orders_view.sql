@@ -19,7 +19,7 @@ SELECT
     o.amount_sol,
     o.created_at,
     o.updated_at,
-    o.variants as order_variants,
+    o.variant_selections as order_variants,
     p.name as product_name,
     p.variants as product_variants,
     p.variant_prices as product_variant_prices,
