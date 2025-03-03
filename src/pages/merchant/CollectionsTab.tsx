@@ -105,16 +105,10 @@ export function CollectionsTab() {
                       <p className="text-purple-400 text-xs mt-2">
                         Launches {new Date(collection.launchDate).toLocaleDateString()}
                       </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        {collection.isOwner ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-purple-500/20 text-purple-400">
-                            Owner
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
-                            Owner: {collection.owner_username}
-                          </span>
-                        )}
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
+                          Owner: {collection.owner_username}
+                        </span>
                         {!collection.isOwner && collection.accessType === 'edit' && (
                           <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-blue-500/20 text-blue-400">
                             Editor
