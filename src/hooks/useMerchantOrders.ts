@@ -41,6 +41,7 @@ export function useMerchantOrders() {
       const { data: rawOrders, error } = await supabase
         .from('merchant_orders')
         .select('*')
+        .not('access_type', 'is', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
