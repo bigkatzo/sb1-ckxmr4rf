@@ -30,53 +30,20 @@ interface RawOrder {
 export function useMerchantOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
-
       const { data, error } = await supabase
         .from('merchant_orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
       if (error) throw error;
-
-      const transformedOrders: Order[] = (data || []).map((order: RawOrder) => ({
-        id: order.id,
-        order_number: order.order_number,
-        product: {
-          id: order.product_id,
-          name: order.product_name,
-          sku: order.product_sku,
-          imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
-          variants: order.product_variants || [],
-          variantPrices: order.product_variant_prices,
-          collection: {
-            id: order.collection_id,
-            name: order.collection_name,
-            ownerId: order.collection_owner_id
-          }
-        },
-        walletAddress: order.wallet_address,
-        transactionSignature: order.transaction_signature,
-        shippingAddress: order.shipping_address,
-        contactInfo: order.contact_info,
-        status: order.status,
-        amountSol: order.amount_sol,
-        createdAt: new Date(order.created_at),
-        updatedAt: new Date(order.updated_at),
-        accessType: order.access_type,
-        order_variants: order.order_variants || []
-      }));
-
-      setOrders(transformedOrders);
+      setOrders(data || []);
     } catch (err) {
-      console.error('Error fetching merchant orders:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch orders');
-      setOrders([]);
+      console.error('Error fetching orders:', err);
+      setError(err instanceof Error ? err : new Error('Failed to fetch orders'));
     } finally {
       setLoading(false);
     }
@@ -116,15 +83,17 @@ export function useMerchantOrders() {
 
       if (orderError) throw orderError;
 
-      // Check if user has edit access
-      if (orderData.access_type !== 'edit' && orderData.collection_owner_id !== orderData.user_id) {
+      // Check if user has proper access (admin, owner, or edit access)
+      if (!orderData.access_type || !['admin', 'owner', 'edit'].includes(orderData.access_type)) {
         throw new Error('You do not have permission to update this order');
       }
 
+      // Call the RPC function to update the order status
       const { error } = await supabase
-        .from('orders')
-        .update({ status })
-        .eq('id', orderId);
+        .rpc('update_order_status', {
+          p_order_id: orderId,
+          p_status: status
+        });
 
       if (error) throw error;
       await fetchOrders();
@@ -135,8 +104,8 @@ export function useMerchantOrders() {
   };
 
   const canUpdateOrder = useCallback(async (order: Order) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    return order.accessType === 'edit' || order.product.collection.ownerId === user?.id;
+    // Check if user has admin, owner, or edit access
+    return order.accessType && ['admin', 'owner', 'edit'].includes(order.accessType);
   }, []);
 
   return {

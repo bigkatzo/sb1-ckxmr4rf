@@ -4,6 +4,8 @@ BEGIN;
 -- Drop existing merchant dashboard policies
 DROP POLICY IF EXISTS "orders_merchant_view" ON orders;
 DROP POLICY IF EXISTS "orders_merchant_update" ON orders;
+DROP POLICY IF EXISTS "orders_dashboard_view" ON orders;
+DROP POLICY IF EXISTS "orders_dashboard_modify" ON orders;
 
 -- Drop and recreate the view
 DROP VIEW IF EXISTS merchant_orders;
@@ -88,6 +90,44 @@ WITH CHECK (
         AND ca.access_type = 'edit'
     )
 );
+
+-- Create function to update order status with proper access control
+CREATE OR REPLACE FUNCTION update_order_status(
+  p_order_id uuid,
+  p_status text
+)
+RETURNS void AS $$
+BEGIN
+  -- Verify proper access to this order
+  IF NOT EXISTS (
+    SELECT 1 FROM orders o
+    JOIN products p ON p.id = o.product_id
+    JOIN collections c ON c.id = p.collection_id
+    LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
+    LEFT JOIN user_profiles up ON up.id = auth.uid()
+    WHERE o.id = p_order_id
+    AND (
+      up.role = 'admin'
+      OR c.user_id = auth.uid()
+      OR ca.access_type = 'edit'
+    )
+  ) THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
+  -- Verify status is valid
+  IF p_status NOT IN ('pending', 'confirmed', 'shipped', 'delivered', 'cancelled') THEN
+    RAISE EXCEPTION 'Invalid order status';
+  END IF;
+
+  -- Update order status
+  UPDATE orders
+  SET 
+    status = p_status,
+    updated_at = now()
+  WHERE id = p_order_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create the updated view
 CREATE VIEW merchant_orders AS
