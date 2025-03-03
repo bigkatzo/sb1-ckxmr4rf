@@ -5,6 +5,10 @@ BEGIN;
 ALTER TABLE orders
 ADD COLUMN IF NOT EXISTS variant_selections jsonb DEFAULT '[]'::jsonb;
 
+-- Drop old variants column if it exists
+ALTER TABLE orders
+DROP COLUMN IF EXISTS variants;
+
 -- Drop and recreate both views
 DROP VIEW IF EXISTS merchant_orders CASCADE;
 DROP VIEW IF EXISTS merchant_products CASCADE;

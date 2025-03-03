@@ -4,7 +4,7 @@ import { toastService } from './toast';
 interface CreateOrderData {
   productId: string;
   collectionId: string;
-  variants?: Array<{ name: string; value: string }>;
+  variant_selections?: Array<{ name: string; value: string }>;
   shippingInfo: {
     shipping_address: {
       address: string;
@@ -70,16 +70,17 @@ export async function createOrder(data: CreateOrderData): Promise<string> {
         
         const { error } = await supabase
           .from('orders')
-          .insert({
+          .insert([{
             product_id: data.productId,
             collection_id: data.collectionId,
+            variant_selections: data.variant_selections || [],
             shipping_address: data.shippingInfo.shipping_address,
             contact_info: data.shippingInfo.contact_info,
             transaction_signature: data.transactionId,
             wallet_address: data.walletAddress,
             status: 'pending',
             amount_sol: data.amountSol
-          })
+          }])
           .select()
           .single();
 
