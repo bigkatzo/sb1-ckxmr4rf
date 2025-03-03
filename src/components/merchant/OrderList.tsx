@@ -541,10 +541,10 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                 <div className="flex gap-4">
                   {/* Product Image */}
                   <div className="w-16 sm:w-24 h-16 sm:h-24 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                    {order.product.imageUrl ? (
+                    {order.product?.imageUrl ? (
                       <img 
-                        src={order.product.imageUrl} 
-                        alt={order.product.name}
+                        src={order.product?.imageUrl} 
+                        alt={order.product?.name || 'Product'}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -559,25 +559,27 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                     <div className="space-y-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-sm sm:text-base text-white">{order.product.name}</h3>
-                          {order.product.collection && (
+                          <h3 className="font-medium text-sm sm:text-base text-white">{order.product?.name || 'Unnamed Product'}</h3>
+                          {order.product?.collection?.name && (
                             <span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full text-xs">
-                              {order.product.collection.name}
+                              {order.product?.collection?.name}
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-xs">
-                          {order.product.sku && (
-                            <span className="text-gray-500 font-mono">#{order.product.sku}</span>
+                          {order.product?.sku && (
+                            <span className="text-gray-500 font-mono">#{order.product?.sku}</span>
                           )}
-                          <span className="font-medium text-purple-400">{order.amountSol} SOL</span>
+                          {typeof order.amountSol === 'number' && (
+                            <span className="font-medium text-purple-400">{order.amountSol} SOL</span>
+                          )}
                         </div>
                       </div>
                       
                       <div className="flex flex-wrap items-center gap-2 text-xs">
-                        {order.product.category && (
+                        {order.product?.category?.name && (
                           <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
-                            {order.product.category.name}
+                            {order.product?.category?.name}
                           </span>
                         )}
                         {order.order_variants && order.order_variants.length > 0 && (
