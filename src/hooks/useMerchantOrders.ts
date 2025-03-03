@@ -52,9 +52,8 @@ export function useMerchantOrders() {
         product: {
           id: order.product_id,
           name: order.product_name,
-          sku: order.product_sku,
+          sku: order.product_sku || undefined,
           imageUrl: order.product_images?.[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
-          images: order.product_images?.map(img => normalizeStorageUrl(img)) || [],
           variants: order.product_variants || [],
           variantPrices: order.product_variant_prices || {},
           collection: {
@@ -99,7 +98,7 @@ export function useMerchantOrders() {
         {
           event: '*',
           schema: 'public',
-          table: 'orders'
+          table: 'merchant_orders'
         },
         () => {
           fetchOrders();
