@@ -21,6 +21,26 @@ import { OrderAnalytics } from './OrderAnalytics';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
+// Helper function to safely parse dates
+const safeParseDate = (date: any): Date => {
+  if (!date) return new Date(); // Default to current date if no date provided
+  if (date instanceof Date) return date;
+  try {
+    if (typeof date === 'string') {
+      const parsed = parseISO(date);
+      // Check if the parsed date is valid
+      if (isNaN(parsed.getTime())) {
+        console.warn('Invalid date string:', date);
+        return new Date();
+      }
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('Error parsing date:', error);
+  }
+  return new Date();
+};
+
 interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
@@ -51,19 +71,19 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
 
     if (filter === 'today') {
       return orders.filter(order => {
-        const date = typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt;
+        const date = safeParseDate(order.createdAt);
         return isAfter(date, today);
       });
     }
     if (filter === 'week') {
       return orders.filter(order => {
-        const date = typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt;
+        const date = safeParseDate(order.createdAt);
         return isAfter(date, subDays(today, 7));
       });
     }
     if (filter === 'month') {
       return orders.filter(order => {
-        const date = typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt;
+        const date = safeParseDate(order.createdAt);
         return isAfter(date, subDays(today, 30));
       });
     }
@@ -71,7 +91,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
       const start = startOfDay(parseISO(startDate));
       const end = startOfDay(parseISO(endDate));
       return orders.filter(order => {
-        const date = typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt;
+        const date = safeParseDate(order.createdAt);
         const orderDate = startOfDay(date);
         return (
           (isAfter(orderDate, start) || isEqual(orderDate, start)) &&
@@ -140,7 +160,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
         try {
           return [
             escapeCSV(order.order_number),
-            escapeCSV(format(typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt, 'yyyy-MM-dd HH:mm:ss')),
+            escapeCSV(format(safeParseDate(order.createdAt), 'yyyy-MM-dd HH:mm:ss')),
             escapeCSV(order.status),
             escapeCSV(order.product?.name || ''),
             escapeCSV(order.product?.sku || ''),
@@ -462,7 +482,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                 {/* Mobile Date */}
                 <div className="sm:hidden">
                   <span className="text-[10px] text-gray-400">
-                    {formatDistanceToNow(typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt, { addSuffix: true })}
+                    {formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}
                   </span>
                 </div>
 
@@ -475,7 +495,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
                     </div>
                     <span className="text-gray-600">•</span>
                     <span className="text-xs text-gray-400">
-                      {formatDistanceToNow(typeof order.createdAt === 'string' ? parseISO(order.createdAt) : order.createdAt, { addSuffix: true })}
+                      {formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}
                     </span>
                   </div>
                   <div className="shrink-0">
