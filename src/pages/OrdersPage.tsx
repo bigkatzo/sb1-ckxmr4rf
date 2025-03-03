@@ -204,10 +204,10 @@ export function OrdersPage() {
                 <div className="flex items-start gap-4">
                   {/* Product Image */}
                   <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                    {order.product.imageUrl ? (
+                    {order.product?.imageUrl ? (
                       <img 
                         src={order.product.imageUrl} 
-                        alt={order.product.name}
+                        alt={order.product?.name ?? 'Product'}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -222,14 +222,14 @@ export function OrdersPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium text-sm truncate">{order.product.name}</h3>
-                          {order.product.collection && (
+                          <h3 className="font-medium text-sm truncate">{order.product?.name ?? 'Unknown Product'}</h3>
+                          {order.product?.collection?.name && (
                             <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full shrink-0">
-                              {order.product.collection.name}
+                              {order.product?.collection?.name}
                             </span>
                           )}
                         </div>
-                        {order.product.sku && (
+                        {order.product?.sku && (
                           <p className="text-xs text-gray-400">SKU: {order.product.sku}</p>
                         )}
                         <div className="flex flex-wrap gap-2 mt-2">
