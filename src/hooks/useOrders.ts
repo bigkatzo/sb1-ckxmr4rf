@@ -22,25 +22,7 @@ export function useOrders() {
 
       const { data, error } = await supabase
         .from('user_orders')
-        .select(`
-          *,
-          product:products (
-            id,
-            name,
-            sku,
-            images,
-            variants,
-            variant_prices,
-            collection:collections (
-              id,
-              name
-            ),
-            category:categories (
-              id,
-              name
-            )
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -49,19 +31,18 @@ export function useOrders() {
         id: order.id,
         order_number: order.order_number,
         product: {
-          id: order.product.id,
-          name: order.product.name,
-          imageUrl: order.product.images?.[0] || null,
-          sku: order.product.sku,
-          variants: order.product.variants || [],
-          variantPrices: order.product.variant_prices || {},
-          category: order.product.category ? {
-            id: order.product.category.id,
-            name: order.product.category.name
+          id: order.product_id,
+          name: order.product_name,
+          imageUrl: order.product_images?.[0] || null,
+          sku: order.product_sku,
+          variants: order.product_variants || [],
+          variantPrices: order.product_variant_prices || {},
+          category: order.category_name ? {
+            name: order.category_name
           } : undefined,
           collection: {
-            id: order.product.collection.id,
-            name: order.product.collection.name
+            id: order.collection_id,
+            name: order.collection_name
           }
         },
         walletAddress: order.wallet_address,
@@ -72,7 +53,7 @@ export function useOrders() {
         amountSol: order.amount_sol,
         createdAt: new Date(order.created_at),
         updatedAt: new Date(order.updated_at),
-        order_variants: order.variant_selections || []
+        order_variants: order.order_variants || []
       }));
 
       setOrders(transformedOrders);

@@ -406,7 +406,7 @@ export function OrderList({ orders, onStatusUpdate, canUpdateOrder }: OrderListP
           >
             {/* Order Header - Status Bar */}
             <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
-              <div className="flex flex-col gap-1.5 sm:gap-2">
+              <div className="flex flex-col gap-0.5 sm:gap-2">
                 {/* Mobile Layout */}
                 <div className="flex items-center justify-between sm:hidden">
                   <div className="flex items-center gap-1.5 min-w-0">
