@@ -53,13 +53,14 @@ export function useMerchantOrders() {
           id: order.product_id,
           name: order.product_name,
           sku: order.product_sku,
-          imageUrl: order.product_images && order.product_images[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
+          imageUrl: order.product_images?.[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
+          images: order.product_images?.map(img => normalizeStorageUrl(img)) || [],
           variants: order.product_variants || [],
           variantPrices: order.product_variant_prices || {},
           collection: {
             id: order.collection_id,
             name: order.collection_name,
-            ownerId: order.collection_owner_id
+            ownerId: order.collection_owner_id || undefined
           },
           category: order.category_name ? {
             name: order.category_name,
