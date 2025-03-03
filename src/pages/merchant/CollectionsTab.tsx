@@ -136,11 +136,6 @@ export function CollectionsTab() {
                               </span>
                             ) : (
                               <>
-                                {collection.owner_username && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
-                                    Owner: {collection.owner_username}
-                                  </span>
-                                )}
                                 <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium ${
                                   collection.accessType === 'edit' 
                                     ? 'bg-blue-500/20 text-blue-400'
@@ -151,15 +146,6 @@ export function CollectionsTab() {
                               </>
                             )}
                           </>
-                        )}
-                        {!isAdmin && !collection.isOwner && collection.accessType && (
-                          <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium ${
-                            collection.accessType === 'edit' 
-                              ? 'bg-blue-500/20 text-blue-400'
-                              : 'bg-gray-500/20 text-gray-400'
-                          }`}>
-                            {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
-                          </span>
                         )}
                       </div>
                     </div>
