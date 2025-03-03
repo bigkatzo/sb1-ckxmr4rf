@@ -12,6 +12,7 @@ const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
 type RawCollection = Pick<Collection, 'id' | 'name' | 'description' | 'launch_date' | 'featured' | 'visible' | 'sale_ended' | 'slug' | 'user_id'> & {
   image_url: string | null;
   access_type: AccessType | null;
+  owner_username: string | null;
 };
 
 export function useMerchantCollections() {
@@ -81,7 +82,8 @@ export function useMerchantCollections() {
           sale_ended,
           slug,
           user_id,
-          access_type
+          access_type,
+          owner_username
         `)
         .order('created_at', { ascending: false });
 
@@ -120,7 +122,8 @@ export function useMerchantCollections() {
           categories: [],
           products: [],
           accessType: collection.access_type,
-          isOwner: collection.user_id === user.id || isAdmin
+          isOwner: collection.user_id === user.id || isAdmin,
+          owner_username: collection.owner_username
         }));
 
       setCollections(transformedCollections);

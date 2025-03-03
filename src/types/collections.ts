@@ -1,4 +1,4 @@
-export type AccessType = 'view' | 'edit' | null;
+export type AccessType = 'view' | 'edit' | 'admin' | null;
 
 export interface Collection {
   id: string;
@@ -18,6 +18,7 @@ export interface Collection {
   products: any[];
   accessType: AccessType;
   isOwner: boolean;
+  owner_username: string | null;
   collection_access?: CollectionAccess[];
 }
 
