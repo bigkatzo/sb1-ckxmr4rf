@@ -14,9 +14,9 @@ SELECT
       SELECT 1 FROM user_profiles up
       WHERE up.id = auth.uid()
       AND up.role = 'admin'
-    ) THEN 'admin'
-    WHEN c.user_id = auth.uid() THEN NULL
-    WHEN ca.access_type IS NOT NULL THEN ca.access_type
+    ) AND c.user_id != auth.uid() THEN 'admin'  -- Admin viewing others' collections
+    WHEN c.user_id = auth.uid() THEN NULL  -- User owns the collection
+    WHEN ca.access_type IS NOT NULL THEN ca.access_type  -- User has explicit access
     ELSE NULL
   END as access_type
 FROM collections c
