@@ -172,8 +172,10 @@ export function useMerchantOrders() {
       if (orderError) throw orderError;
       if (!orderData) throw new Error('Order not found');
 
-      // Only allow status update if user has edit access or is admin
-      if (orderData.access_type !== 'edit' && !isAdmin) {
+      // Only allow status update if user has proper access
+      if (orderData.access_type !== 'edit' && 
+          orderData.access_type !== 'owner' && 
+          !isAdmin) {
         throw new Error('You do not have permission to update this order');
       }
 
