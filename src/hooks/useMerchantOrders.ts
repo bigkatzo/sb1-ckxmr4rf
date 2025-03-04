@@ -36,11 +36,34 @@ export function useMerchantOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [isAdmin] = useState(false); // TODO: Implement admin check
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const checkAdminStatus = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw profileError;
+      return profile?.role === 'admin';
+    } catch (err) {
+      console.error('Error checking admin status:', err);
+      return false;
+    }
+  }, []);
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
+
+      // Check admin status
+      const adminStatus = await checkAdminStatus();
+      setIsAdmin(adminStatus);
 
       const { data: rawOrders, error: fetchError } = await supabase
         .from('merchant_orders')
@@ -92,7 +115,41 @@ export function useMerchantOrders() {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin]);
+  }, [checkAdminStatus]);
+
+  const updateOrderStatus = useCallback(async (orderId: string, status: Order['status']) => {
+    try {
+      // If user is admin, allow updating any order
+      if (isAdmin) {
+        const { error } = await supabase
+          .from('orders')
+          .update({ status })
+          .eq('id', orderId);
+
+        if (error) throw error;
+        return;
+      }
+
+      // For non-admin users, check collection access
+      const order = orders.find(o => o.id === orderId);
+      if (!order) throw new Error('Order not found');
+
+      // Check if user has edit access to the collection
+      if (order.accessType !== 'edit') {
+        throw new Error('You do not have permission to update this order');
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ status })
+        .eq('id', orderId);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      throw err;
+    }
+  }, [isAdmin, orders]);
 
   useEffect(() => {
     fetchOrders();
@@ -117,40 +174,12 @@ export function useMerchantOrders() {
     };
   }, [fetchOrders]);
 
-  const updateOrderStatus = useCallback(async (orderId: string, status: Order['status']) => {
-    try {
-      // First, check if user has edit access to the order's collection
-      const { data: orderData, error: orderError } = await supabase
-        .from('merchant_orders')
-        .select('collection_id, access_type')
-        .eq('id', orderId)
-        .single();
-
-      if (orderError) throw orderError;
-      if (!orderData) throw new Error('Order not found');
-
-      // Only allow status update if user has edit access or is owner
-      if (orderData.access_type !== 'edit' && !isAdmin) {
-        throw new Error('You do not have permission to update this order');
-      }
-
-      const { error } = await supabase
-        .from('orders')
-        .update({ status })
-        .eq('id', orderId);
-
-      if (error) throw error;
-    } catch (err) {
-      console.error('Error updating order status:', err);
-      throw err;
-    }
-  }, [isAdmin]);
-
   return {
     orders,
     loading,
     error,
     refreshOrders: fetchOrders,
-    updateOrderStatus
+    updateOrderStatus,
+    isAdmin
   };
 }

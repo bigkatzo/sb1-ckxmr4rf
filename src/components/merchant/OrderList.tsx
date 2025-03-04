@@ -44,9 +44,10 @@ const safeParseDate = (date: any): Date => {
 interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
+  isAdmin?: boolean;
 }
 
-export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
+export function OrderList({ orders, onStatusUpdate, isAdmin }: OrderListProps) {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [startDate, setStartDate] = useState<string>('');
@@ -62,10 +63,14 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
       await onStatusUpdate(orderId, status);
     } catch (error) {
       console.error('Failed to update order status:', error);
-      toast.error('You do not have permission to update this order');
+      toast.error(error instanceof Error ? error.message : 'Failed to update order status');
     } finally {
       setUpdatingOrderId(null);
     }
+  };
+
+  const canUpdateOrderStatus = (order: Order) => {
+    return isAdmin || order.accessType === 'edit';
   };
 
   const filterOrdersByDate = (orders: Order[], filter: DateFilter) => {
@@ -339,38 +344,6 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
     };
   };
 
-  const renderStatusSelect = (order: Order) => {
-    // Only show status update controls if user has edit access
-    const canEdit = order.accessType === 'admin' || // Admin access
-                   order.accessType === 'owner' || // Collection owner
-                   order.accessType === 'edit'; // Edit access through collection_access
-    
-    if (!canEdit) {
-      return (
-        <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
-          {getStatusIcon(order.status)}
-          <span className="capitalize">{order.status}</span>
-        </div>
-      );
-    }
-
-    return (
-      <select
-        value={order.status}
-        onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
-        disabled={updatingOrderId === order.id}
-        className={`appearance-none cursor-pointer rounded px-2 py-1 pr-8 text-xs font-medium transition-colors relative ${getStatusColor(order.status)}`}
-        style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em' }}
-      >
-        <option value="pending">Pending</option>
-        <option value="confirmed">Confirmed</option>
-        <option value="shipped">Shipped</option>
-        <option value="delivered">Delivered</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
-    );
-  };
-
   return (
     <div className="space-y-4">
       {/* Header with Filters and Actions */}
@@ -479,189 +452,163 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
           <p className="text-gray-400">No orders found for the selected time period</p>
         </div>
       ) : (
-        filteredOrders.map((order) => {
-          const productInfo = getProductInfo(order);
-          
-          return (
-            <div 
-              key={order.id}
-              className="bg-gray-900 rounded-lg overflow-hidden"
-            >
-              {/* Order Header - Status Bar */}
-              <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
-                <div className="flex flex-col gap-0.5 sm:gap-2">
-                  {/* Mobile Layout */}
-                  <div className="flex items-center justify-between sm:hidden">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Order</span>
+        <table className="min-w-full divide-y divide-gray-800">
+          <thead>
+            <tr>
+              <th className="px-3 py-4 text-sm text-gray-400">Order</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Date</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Status</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Product</th>
+              <th className="px-3 py-4 text-sm text-gray-400">SKU</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Amount (SOL)</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Collection</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Category</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Shipping Address</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Contact</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Wallet</th>
+              <th className="px-3 py-4 text-sm text-gray-400">Transaction</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-800">
+            {filteredOrders.map(order => {
+              const productInfo = getProductInfo(order);
+              return (
+                <tr key={order.id}>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    <div className="flex items-center gap-2">
                       <span className="font-mono text-sm font-medium text-white truncate">{order.order_number}</span>
                     </div>
-                    <div className="shrink-0">
-                      <div className="flex items-center gap-2">
-                        {updatingOrderId === order.id ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs text-blue-400 bg-blue-500/10">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span>Updating...</span>
-                          </div>
-                        ) : (
-                          renderStatusSelect(order)
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Mobile Date */}
-                  <div className="sm:hidden">
-                    <span className="text-[10px] text-gray-400">
-                      {formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}
-                    </span>
-                  </div>
-
-                  {/* Desktop Layout - All inline */}
-                  <div className="hidden sm:flex sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
-                        <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
-                      </div>
-                      <span className="text-gray-600">•</span>
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400">
                         {formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}
                       </span>
                     </div>
-                    <div className="shrink-0">
-                      <div className="flex items-center gap-2">
-                        {updatingOrderId === order.id ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs text-blue-400 bg-blue-500/10">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span>Updating...</span>
-                          </div>
-                        ) : (
-                          renderStatusSelect(order)
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="divide-y divide-gray-800">
-                {/* Product Section */}
-                <div className="p-4">
-                  <div className="flex gap-4">
-                    {/* Product Image */}
-                    <div className="w-16 sm:w-24 h-16 sm:h-24 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                      {productInfo.imageUrl ? (
-                        <img 
-                          src={productInfo.imageUrl} 
-                          alt={productInfo.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      {/* Product Info */}
-                      <div className="space-y-2">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium text-sm sm:text-base text-white">{productInfo.name}</h3>
-                            {productInfo.collectionName && (
-                              <span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full text-xs">
-                                {productInfo.collectionName}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs">
-                            {productInfo.sku && (
-                              <span className="text-gray-500 font-mono">#{productInfo.sku}</span>
-                            )}
-                            {typeof order.amountSol === 'number' && (
-                              <span className="font-medium text-purple-400">{order.amountSol} SOL</span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          {productInfo.categoryName && (
-                            <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
-                              {productInfo.categoryName}
-                            </span>
-                          )}
-                          {order.order_variants && order.order_variants.length > 0 && (
-                            <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
-                              {order.order_variants.map((v: { name: string; value: string }) => `${v.name}: ${v.value}`).join(', ')}
-                            </span>
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    {canUpdateOrderStatus(order) ? (
+                      <div className="relative">
+                        <select
+                          value={order.status}
+                          onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
+                          disabled={updatingOrderId === order.id}
+                          className={`appearance-none w-full cursor-pointer rounded px-2 py-1 pr-8 text-xs font-medium transition-colors ${getStatusColor(order.status)}`}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
+                          {updatingOrderId === order.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                          ) : (
+                            getStatusIcon(order.status)
                           )}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Order Details */}
-                {(order.shippingAddress || order.contactInfo || order.walletAddress) && (
-                  <div className="px-4 py-3">
-                    {/* Shipping & Contact Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {/* Shipping Info */}
-                      {order.shippingAddress && (
-                        <div className="space-y-1.5 col-span-1">
-                          <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Shipping Address</h4>
-                          {formatShippingAddress(order.shippingAddress)}
-                        </div>
-                      )}
-                      
-                      {/* Contact Info */}
-                      {order.contactInfo && (
-                        <div className="space-y-1.5 col-span-1">
-                          <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Contact</h4>
-                          {formatContactInfo(order.contactInfo)}
-                        </div>
-                      )}
-                      
-                      {/* Transaction Links */}
-                      {order.walletAddress && (
-                        <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                          <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Transaction</h4>
-                          <div className="space-y-1 text-xs">
-                            <div className="flex items-center gap-1">
-                              <span className="text-gray-500">Wallet:</span>
-                              <a 
-                                href={`https://solscan.io/account/${order.walletAddress}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
-                              >
-                                {order.walletAddress.slice(0, 4)}...{order.walletAddress.slice(-4)}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-gray-500">Tx:</span>
-                              <a 
-                                href={`https://solscan.io/tx/${order.transactionSignature}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
-                              >
-                                {order.transactionSignature.slice(0, 4)}...{order.transactionSignature.slice(-4)}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </div>
-                          </div>
-                        </div>
+                    ) : (
+                      <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
+                        {getStatusIcon(order.status)}
+                        <span className="capitalize">{order.status}</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-sm sm:text-base text-white">{productInfo.name}</h3>
+                      {productInfo.collectionName && (
+                        <span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full text-xs">
+                          {productInfo.collectionName}
+                        </span>
                       )}
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    <div className="flex items-center gap-2">
+                      {productInfo.sku && (
+                        <span className="text-gray-500 font-mono">#{productInfo.sku}</span>
+                      )}
+                      {typeof order.amountSol === 'number' && (
+                        <span className="font-medium text-purple-400">{order.amountSol} SOL</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    <div className="flex items-center gap-2">
+                      {productInfo.collectionName && (
+                        <span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
+                          {productInfo.collectionName}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    <div className="flex items-center gap-2">
+                      {productInfo.categoryName && (
+                        <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
+                          {productInfo.categoryName}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    {order.shippingAddress && (
+                      <div className="space-y-1.5">
+                        {formatShippingAddress(order.shippingAddress)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    {order.contactInfo && (
+                      <div className="space-y-1.5">
+                        {formatContactInfo(order.contactInfo)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    {order.walletAddress && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-500">Wallet:</span>
+                          <a 
+                            href={`https://solscan.io/account/${order.walletAddress}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                          >
+                            {order.walletAddress.slice(0, 4)}...{order.walletAddress.slice(-4)}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-300">
+                    {order.transactionSignature && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-500">Tx:</span>
+                          <a 
+                            href={`https://solscan.io/tx/${order.transactionSignature}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                          >
+                            {order.transactionSignature.slice(0, 4)}...{order.transactionSignature.slice(-4)}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
     </div>
   );

@@ -9,7 +9,7 @@ import { toast } from 'react-toastify';
 import type { OrderStatus } from '../../types/orders';
 
 export function OrdersTab() {
-  const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
+  const { orders, loading, error, refreshOrders, updateOrderStatus, isAdmin } = useMerchantOrders();
   const { collections } = useMerchantCollections();
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
@@ -47,7 +47,11 @@ export function OrdersTab() {
       toast.success('Order status updated successfully');
     } catch (error) {
       console.error('Error updating order status:', error);
-      toast.error('Failed to update order status');
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to update order status');
+      }
     }
   };
 
@@ -55,12 +59,12 @@ export function OrdersTab() {
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
       // Filter by collection if selected
-      if (selectedCollection && order.product.collection.id !== selectedCollection) {
+      if (selectedCollection && order.product?.collection.id !== selectedCollection) {
         return false;
       }
 
       // Filter by product if selected
-      if (selectedProduct && order.product.id !== selectedProduct) {
+      if (selectedProduct && order.product?.id !== selectedProduct) {
         return false;
       }
 
@@ -72,10 +76,10 @@ export function OrdersTab() {
           order.order_number.toLowerCase().includes(searchLower) ||
           order.id.toLowerCase().includes(searchLower) ||
           // Product details
-          order.product.name.toLowerCase().includes(searchLower) ||
-          (order.product.sku && order.product.sku.toLowerCase().includes(searchLower)) ||
+          order.product?.name.toLowerCase().includes(searchLower) ||
+          (order.product?.sku && order.product.sku.toLowerCase().includes(searchLower)) ||
           // Collection
-          order.product.collection.name.toLowerCase().includes(searchLower) ||
+          order.product?.collection.name.toLowerCase().includes(searchLower) ||
           // Contact info
           (order.contactInfo?.value && order.contactInfo.value.toLowerCase().includes(searchLower)) ||
           // Wallet and transaction
@@ -142,6 +146,7 @@ export function OrdersTab() {
         <OrderList
           orders={filteredOrders}
           onStatusUpdate={handleStatusUpdate}
+          isAdmin={isAdmin}
         />
       )}
     </div>
