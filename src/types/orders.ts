@@ -48,19 +48,21 @@ export interface CollectionSnapshot {
 export interface Order {
   id: string;
   order_number: string;
+  product_name: string;
+  product_sku: string | null;
+  collection_name: string;
   product?: {
     id: string;
-    name: string;
     imageUrl?: string;
-    sku?: string;
     variants?: { name: string; value: string }[];
     variantPrices?: Record<string, number>;
     category?: {
       name: string;
+      description?: string;
+      type?: string;
     };
     collection: {
       id: string;
-      name: string;
       ownerId?: string;
     };
   };
@@ -74,7 +76,7 @@ export interface Order {
   amountSol: number;
   createdAt: Date;
   updatedAt: Date;
-  accessType?: string | null;
+  access_type?: string | null;
   order_variants?: OrderVariant[]; // Selected variants for this order
 }
 
@@ -87,10 +89,15 @@ export interface PublicOrderCount {
 
 // Type for merchant orders view
 export interface MerchantOrder extends Order {
-  product_name: string;
-  product_sku: string;
-  product_image_url: string;
-  collection_name: string;
+  product_id: string | null;
+  product_image_url: string | null;
+  product_variants: { name: string; value: string }[];
+  product_variant_prices: Record<string, number>;
+  collection_id: string;
   collection_owner_id: string;
+  category_name: string | null;
+  category_description: string | null;
+  category_type: string | null;
+  variant_selections: { name: string; value: string }[];
   access_type: string | null;
 }

@@ -9,7 +9,7 @@ import { toast } from 'react-toastify';
 import type { OrderStatus } from '../../types/orders';
 
 export function OrdersTab() {
-  const { orders, loading, error, refreshOrders, updateOrderStatus, isAdmin } = useMerchantOrders();
+  const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
   const { collections } = useMerchantCollections();
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
@@ -27,7 +27,7 @@ export function OrdersTab() {
       if (!selectedCollection || (order.product.collection && order.product.collection.id === selectedCollection)) {
         productsMap.set(order.product.id, {
           id: order.product.id,
-          name: order.product.name
+          name: order.product_name
         });
       }
     });
@@ -47,11 +47,7 @@ export function OrdersTab() {
       toast.success('Order status updated successfully');
     } catch (error) {
       console.error('Error updating order status:', error);
-      if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error('Failed to update order status');
-      }
+      toast.error('Failed to update order status');
     }
   };
 
@@ -76,10 +72,10 @@ export function OrdersTab() {
           order.order_number.toLowerCase().includes(searchLower) ||
           order.id.toLowerCase().includes(searchLower) ||
           // Product details
-          order.product?.name.toLowerCase().includes(searchLower) ||
-          (order.product?.sku && order.product.sku.toLowerCase().includes(searchLower)) ||
+          order.product_name.toLowerCase().includes(searchLower) ||
+          (order.product_sku && order.product_sku.toLowerCase().includes(searchLower)) ||
           // Collection
-          order.product?.collection.name.toLowerCase().includes(searchLower) ||
+          order.collection_name.toLowerCase().includes(searchLower) ||
           // Contact info
           (order.contactInfo?.value && order.contactInfo.value.toLowerCase().includes(searchLower)) ||
           // Wallet and transaction
@@ -146,7 +142,6 @@ export function OrdersTab() {
         <OrderList
           orders={filteredOrders}
           onStatusUpdate={handleStatusUpdate}
-          isAdmin={isAdmin}
         />
       )}
     </div>
