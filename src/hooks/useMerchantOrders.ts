@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { normalizeStorageUrl } from '../lib/storage';
-import type { Order, ProductSnapshot, CollectionSnapshot } from '../types/orders';
+import type { Order } from '../types/orders';
 
 // Cache admin status for 5 minutes
 const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
@@ -13,7 +13,6 @@ interface RawOrder {
   product_name: string;
   product_sku: string | null;
   product_image_url: string | null;
-  product_images: string[] | null;
   product_variants: { name: string; value: string }[];
   product_variant_prices: Record<string, number>;
   collection_id: string;
@@ -32,8 +31,6 @@ interface RawOrder {
   updated_at: string;
   variant_selections: { name: string; value: string }[];
   access_type: 'view' | 'edit' | 'owner' | 'admin' | null;
-  product_snapshot: ProductSnapshot;
-  collection_snapshot: CollectionSnapshot;
 }
 
 export function useMerchantOrders() {
@@ -101,40 +98,23 @@ export function useMerchantOrders() {
       const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => ({
         id: order.id,
         order_number: order.order_number,
-        // Direct fields from orders table
+        status: order.status,
+        createdAt: order.created_at,
+        updatedAt: order.updated_at,
         product_id: order.product_id || '',
-        product_name: order.product_name,
-        product_sku: order.product_sku || undefined,
         collection_id: order.collection_id,
+        product_name: order.product_name,
+        product_sku: order.product_sku || '',
+        product_image_url: order.product_image_url || '',
         collection_name: order.collection_name,
+        amountSol: order.amount_sol,
         category_name: order.category_name || undefined,
-        // Product and collection references
-        product: order.product_id ? {
-          id: order.product_id,
-          imageUrl: order.product_images?.[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
-          variants: order.product_variants || [],
-          variantPrices: order.product_variant_prices || {},
-          category: order.category_name ? {
-            name: order.category_name,
-            description: order.category_description || undefined,
-            type: order.category_type || undefined
-          } : undefined,
-          collection: {
-            id: order.collection_id,
-            ownerId: order.collection_owner_id || undefined
-          }
-        } : undefined,
-        product_snapshot: order.product_snapshot,
-        collection_snapshot: order.collection_snapshot,
-        walletAddress: order.wallet_address,
-        transactionSignature: order.transaction_signature,
         shippingAddress: order.shipping_address,
         contactInfo: order.contact_info,
-        status: order.status,
-        amountSol: order.amount_sol,
-        createdAt: new Date(order.created_at),
-        order_variants: order.variant_selections || [],
-        access_type: order.access_type || 'view'
+        walletAddress: order.wallet_address,
+        transactionSignature: order.transaction_signature,
+        access_type: order.access_type || 'view',
+        order_variants: order.variant_selections || []
       }));
 
       setOrders(transformedOrders);
