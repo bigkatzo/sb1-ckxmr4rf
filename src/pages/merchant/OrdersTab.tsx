@@ -20,13 +20,13 @@ export function OrdersTab() {
     const productsMap = new Map();
     
     orders.forEach(order => {
-      // Skip if order or product is undefined
-      if (!order?.product) return;
+      // Skip if no product id
+      if (!order?.product_id) return;
       
       // Only add products if no collection is selected or if they belong to the selected collection
-      if (!selectedCollection || (order.product.collection && order.product.collection.id === selectedCollection)) {
-        productsMap.set(order.product.id, {
-          id: order.product.id,
+      if (!selectedCollection || order.collection_id === selectedCollection) {
+        productsMap.set(order.product_id, {
+          id: order.product_id,
           name: order.product_name
         });
       }
@@ -55,12 +55,12 @@ export function OrdersTab() {
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
       // Filter by collection if selected
-      if (selectedCollection && order.product?.collection.id !== selectedCollection) {
+      if (selectedCollection && order.collection_id !== selectedCollection) {
         return false;
       }
 
       // Filter by product if selected
-      if (selectedProduct && order.product?.id !== selectedProduct) {
+      if (selectedProduct && order.product_id !== selectedProduct) {
         return false;
       }
 

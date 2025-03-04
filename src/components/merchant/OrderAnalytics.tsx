@@ -71,12 +71,12 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
       }
 
       // Product distribution
-      const productKey = order.product.id;
+      const productKey = order.product_id;
       const existingProduct = productMap.get(productKey) || {
-        name: order.product.name,
+        name: order.product_name,
         quantity: 0,
         solAmount: 0,
-        collection: order.product.collection?.name
+        collection: order.collection_name
       };
       existingProduct.quantity += 1;
       existingProduct.solAmount += order.amountSol;

@@ -167,7 +167,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
             escapeCSV(order.product_sku || ''),
             escapeCSV(typeof order.amountSol === 'number' ? order.amountSol.toFixed(2) : ''),
             escapeCSV(order.collection_name),
-            escapeCSV(order.product?.category?.name || ''),
+            escapeCSV(order.category_name || ''),
             escapeCSV(formatShippingAddressCSV(order.shippingAddress)),
             escapeCSV(formatContactInfoCSV(order.contactInfo)),
             escapeCSV(order.walletAddress || ''),
@@ -320,13 +320,13 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
 
   const getProductInfo = (order: Order) => {
     // Use direct fields first, then fall back to snapshots
-    const name = order.product_name || order.product_snapshot?.name || 'Unnamed Product';
-    const imageUrl = order.product?.imageUrl || order.product_snapshot?.images?.[0];
-    const sku = order.product_sku || order.product_snapshot?.sku;
-    const collectionName = order.collection_name || order.collection_snapshot?.name;
-    const categoryName = order.product?.category?.name || order.product_snapshot?.category?.name;
-    const variants = order.product?.variants || order.product_snapshot?.variants || [];
-    const variantPrices = order.product?.variantPrices || order.product_snapshot?.variant_prices || {};
+    const name = order.product_name;
+    const imageUrl = order.product?.imageUrl;
+    const sku = order.product_sku;
+    const collectionName = order.collection_name;
+    const categoryName = order.category_name;
+    const variants = order.product?.variants || [];
+    const variantPrices = order.product?.variantPrices || {};
 
     return {
       name,

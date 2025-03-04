@@ -101,9 +101,12 @@ export function useMerchantOrders() {
         id: order.id,
         order_number: order.order_number,
         // Direct fields from orders table
+        product_id: order.product_id || '',
         product_name: order.product_name,
-        product_sku: order.product_sku,
+        product_sku: order.product_sku || undefined,
+        collection_id: order.collection_id,
         collection_name: order.collection_name,
+        category_name: order.category_name || undefined,
         // Product and collection references
         product: order.product_id ? {
           id: order.product_id,
@@ -129,9 +132,8 @@ export function useMerchantOrders() {
         status: order.status,
         amountSol: order.amount_sol,
         createdAt: new Date(order.created_at),
-        updatedAt: new Date(order.updated_at),
         order_variants: order.variant_selections || [],
-        accessType: order.access_type
+        access_type: order.access_type || 'view'
       }));
 
       setOrders(transformedOrders);

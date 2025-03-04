@@ -48,13 +48,39 @@ export interface CollectionSnapshot {
 export interface Order {
   id: string;
   order_number: string;
+  status: OrderStatus;
+  createdAt: Date;
+  amountSol: number;
+  walletAddress: string;
+  transactionSignature: string;
+  shippingAddress?: {
+    address: string;
+    city: string;
+    country: string;
+    zip: string;
+  };
+  contactInfo?: {
+    method: string;
+    value: string;
+  };
+  order_variants?: {
+    name: string;
+    value: string;
+  }[];
+  
+  // New denormalized fields
+  product_id: string;
   product_name: string;
-  product_sku: string | null;
+  product_sku?: string;
+  collection_id: string;
   collection_name: string;
+  category_name?: string;
+  
+  // Keep these for backward compatibility and additional data
   product?: {
     id: string;
     imageUrl?: string;
-    variants?: { name: string; value: string }[];
+    variants?: { name: string; value: string; }[];
     variantPrices?: Record<string, number>;
     category?: {
       name: string;
@@ -66,18 +92,23 @@ export interface Order {
       ownerId?: string;
     };
   };
-  product_snapshot?: ProductSnapshot;
-  collection_snapshot?: CollectionSnapshot;
-  walletAddress: string;
-  transactionSignature: string;
-  shippingAddress: any; // JSONB in database
-  contactInfo: any; // JSONB in database
-  status: OrderStatus;
-  amountSol: number;
-  createdAt: Date;
-  updatedAt: Date;
-  access_type?: string | null;
-  order_variants?: OrderVariant[]; // Selected variants for this order
+  product_snapshot?: {
+    name: string;
+    sku?: string;
+    images?: string[];
+    variants?: { name: string; value: string; }[];
+    variant_prices?: Record<string, number>;
+    category?: {
+      name: string;
+      description?: string;
+      type?: string;
+    };
+  };
+  collection_snapshot?: {
+    name: string;
+    ownerId?: string;
+  };
+  access_type: 'admin' | 'owner' | 'edit' | 'view';
 }
 
 // Type for the public order counts view
@@ -87,17 +118,8 @@ export interface PublicOrderCount {
   total_orders: number;
 }
 
-// Type for merchant orders view
-export interface MerchantOrder extends Order {
+// This interface is used for the merchant_orders view
+export interface MerchantOrder extends Omit<Order, 'product_id' | 'collection_id'> {
   product_id: string | null;
-  product_image_url: string | null;
-  product_variants: { name: string; value: string }[];
-  product_variant_prices: Record<string, number>;
-  collection_id: string;
-  collection_owner_id: string;
-  category_name: string | null;
-  category_description: string | null;
-  category_type: string | null;
-  variant_selections: { name: string; value: string }[];
-  access_type: string | null;
+  collection_id: string | null;
 }
