@@ -204,9 +204,9 @@ export function OrdersPage() {
                 <div className="flex items-start gap-4">
                   {/* Product Image */}
                   <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                    {order.product?.imageUrl ? (
+                    {order.product_image_url ? (
                       <img 
-                        src={order.product.imageUrl} 
+                        src={order.product_image_url} 
                         alt={order.product_name}
                         className="w-full h-full object-cover"
                       />

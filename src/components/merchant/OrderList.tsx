@@ -321,7 +321,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const getProductInfo = (order: Order) => {
     // Use direct fields first, then fall back to snapshots
     const name = order.product_name;
-    const imageUrl = order.product?.imageUrl;
+    const imageUrl = order.product_image_url || '';
     const sku = order.product_sku;
     const collectionName = order.collection_name;
     const categoryName = order.category_name;
