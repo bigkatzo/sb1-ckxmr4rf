@@ -13,6 +13,7 @@ interface RawOrder {
   product_name: string;
   product_sku: string | null;
   product_image_url: string | null;
+  product_images: string[] | null;
   product_variants: { name: string; value: string }[];
   product_variant_prices: Record<string, number>;
   collection_id: string;
@@ -31,6 +32,9 @@ interface RawOrder {
   updated_at: string;
   variant_selections: { name: string; value: string }[];
   access_type: 'view' | 'edit' | 'owner' | 'admin' | null;
+  product_snapshot?: {
+    images?: string[];
+  };
 }
 
 export function useMerchantOrders() {
@@ -95,27 +99,34 @@ export function useMerchantOrders() {
       if (fetchError) throw fetchError;
 
       // Transform raw orders into the expected format
-      const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => ({
-        id: order.id,
-        order_number: order.order_number,
-        status: order.status,
-        createdAt: order.created_at,
-        updatedAt: order.updated_at,
-        product_id: order.product_id || '',
-        collection_id: order.collection_id,
-        product_name: order.product_name,
-        product_sku: order.product_sku || '',
-        product_image_url: order.product_image_url || '',
-        collection_name: order.collection_name,
-        amountSol: order.amount_sol,
-        category_name: order.category_name || undefined,
-        shippingAddress: order.shipping_address,
-        contactInfo: order.contact_info,
-        walletAddress: order.wallet_address,
-        transactionSignature: order.transaction_signature,
-        access_type: order.access_type || 'view',
-        order_variants: order.variant_selections || []
-      }));
+      const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => {
+        // Get the image URL from either direct field, product images, or snapshot
+        const imageUrl = order.product_image_url || 
+          (order.product_images?.[0] ? normalizeStorageUrl(order.product_images[0]) : null) ||
+          (order.product_snapshot?.images?.[0] ? normalizeStorageUrl(order.product_snapshot.images[0]) : '');
+
+        return {
+          id: order.id,
+          order_number: order.order_number,
+          status: order.status,
+          createdAt: order.created_at,
+          updatedAt: order.updated_at,
+          product_id: order.product_id || '',
+          collection_id: order.collection_id,
+          product_name: order.product_name,
+          product_sku: order.product_sku || '',
+          product_image_url: imageUrl,
+          collection_name: order.collection_name,
+          amountSol: order.amount_sol,
+          category_name: order.category_name || undefined,
+          shippingAddress: order.shipping_address,
+          contactInfo: order.contact_info,
+          walletAddress: order.wallet_address,
+          transactionSignature: order.transaction_signature,
+          access_type: order.access_type || 'view',
+          order_variants: order.variant_selections || []
+        };
+      });
 
       setOrders(transformedOrders);
     } catch (err) {

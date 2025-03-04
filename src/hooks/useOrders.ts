@@ -34,19 +34,18 @@ export function useOrders() {
         status: order.status,
         createdAt: order.created_at,
         updatedAt: order.updated_at,
-        product_id: order.product_id,
+        product_id: order.product_id || '',
         collection_id: order.collection_id,
         product_name: order.product_name,
-        product_sku: order.product_sku,
-        product_image_url: order.product_image_url,
+        product_sku: order.product_sku || '',
+        product_image_url: order.product_images?.[0] || '',
         collection_name: order.collection_name,
         amountSol: order.amount_sol,
-        category_name: order.category_name,
+        category_name: order.category_name || undefined,
         shippingAddress: order.shipping_address,
         contactInfo: order.contact_info,
         walletAddress: order.wallet_address,
         transactionSignature: order.transaction_signature,
-        access_type: order.access_type,
         order_variants: order.order_variants || []
       }));
 
