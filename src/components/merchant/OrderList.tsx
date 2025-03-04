@@ -44,10 +44,9 @@ const safeParseDate = (date: any): Date => {
 interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
-  isAdmin?: boolean;
 }
 
-export function OrderList({ orders, onStatusUpdate, isAdmin }: OrderListProps) {
+export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [startDate, setStartDate] = useState<string>('');
@@ -63,14 +62,10 @@ export function OrderList({ orders, onStatusUpdate, isAdmin }: OrderListProps) {
       await onStatusUpdate(orderId, status);
     } catch (error) {
       console.error('Failed to update order status:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update order status');
+      toast.error('You do not have permission to update this order');
     } finally {
       setUpdatingOrderId(null);
     }
-  };
-
-  const canUpdateOrderStatus = (order: Order) => {
-    return isAdmin || order.accessType === 'edit';
   };
 
   const filterOrdersByDate = (orders: Order[], filter: DateFilter) => {
@@ -168,10 +163,10 @@ export function OrderList({ orders, onStatusUpdate, isAdmin }: OrderListProps) {
             escapeCSV(order.order_number),
             escapeCSV(format(safeParseDate(order.createdAt), 'yyyy-MM-dd HH:mm:ss')),
             escapeCSV(order.status),
-            escapeCSV(order.product?.name || ''),
-            escapeCSV(order.product?.sku || ''),
+            escapeCSV(order.product_name),
+            escapeCSV(order.product_sku || ''),
             escapeCSV(typeof order.amountSol === 'number' ? order.amountSol.toFixed(2) : ''),
-            escapeCSV(order.product?.collection?.name || ''),
+            escapeCSV(order.collection_name),
             escapeCSV(order.product?.category?.name || ''),
             escapeCSV(formatShippingAddressCSV(order.shippingAddress)),
             escapeCSV(formatContactInfoCSV(order.contactInfo)),
@@ -324,11 +319,11 @@ export function OrderList({ orders, onStatusUpdate, isAdmin }: OrderListProps) {
   };
 
   const getProductInfo = (order: Order) => {
-    // Try to get info from live product first, then fall back to snapshot
-    const name = order.product?.name || order.product_snapshot?.name || 'Unnamed Product';
+    // Use direct fields first, then fall back to snapshots
+    const name = order.product_name || order.product_snapshot?.name || 'Unnamed Product';
     const imageUrl = order.product?.imageUrl || order.product_snapshot?.images?.[0];
-    const sku = order.product?.sku || order.product_snapshot?.sku;
-    const collectionName = order.product?.collection?.name || order.collection_snapshot?.name;
+    const sku = order.product_sku || order.product_snapshot?.sku;
+    const collectionName = order.collection_name || order.collection_snapshot?.name;
     const categoryName = order.product?.category?.name || order.product_snapshot?.category?.name;
     const variants = order.product?.variants || order.product_snapshot?.variants || [];
     const variantPrices = order.product?.variantPrices || order.product_snapshot?.variant_prices || {};
@@ -345,7 +340,12 @@ export function OrderList({ orders, onStatusUpdate, isAdmin }: OrderListProps) {
   };
 
   const renderStatusSelect = (order: Order) => {
-    if (!canUpdateOrderStatus(order)) {
+    // Only show status update controls if user has edit access
+    const canEdit = order.access_type === 'admin' || // Admin access
+                   order.access_type === 'owner' || // Collection owner
+                   order.access_type === 'edit'; // Edit access through collection_access
+    
+    if (!canEdit) {
       return (
         <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
           {getStatusIcon(order.status)}
@@ -355,28 +355,19 @@ export function OrderList({ orders, onStatusUpdate, isAdmin }: OrderListProps) {
     }
 
     return (
-      <div className="relative">
-        <select
-          value={order.status}
-          onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
-          disabled={updatingOrderId === order.id}
-          className={`appearance-none cursor-pointer rounded px-2 py-1 pr-8 text-xs font-medium transition-colors ${getStatusColor(order.status)}`}
-          style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em' }}
-        >
-          <option value="pending">Pending</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
-          {updatingOrderId === order.id ? (
-            <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-          ) : (
-            getStatusIcon(order.status)
-          )}
-        </div>
-      </div>
+      <select
+        value={order.status}
+        onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
+        disabled={updatingOrderId === order.id}
+        className={`appearance-none cursor-pointer rounded px-2 py-1 pr-8 text-xs font-medium transition-colors relative ${getStatusColor(order.status)}`}
+        style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em' }}
+      >
+        <option value="pending">Pending</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="shipped">Shipped</option>
+        <option value="delivered">Delivered</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
     );
   };
 
