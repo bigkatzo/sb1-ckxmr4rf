@@ -1,4 +1,3 @@
-import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';

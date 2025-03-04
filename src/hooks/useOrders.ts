@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
-import type { Order, ProductSnapshot, CollectionSnapshot } from '../types/orders';
+import type { Order } from '../types/orders';
 
 export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -31,31 +31,22 @@ export function useOrders() {
       const transformedOrders: Order[] = (data || []).map(order => ({
         id: order.id,
         order_number: order.order_number,
-        product: order.product_id ? {
-          id: order.product_id,
-          name: order.product_name,
-          imageUrl: order.product_images?.[0] || null,
-          sku: order.product_sku,
-          variants: order.product_variants || [],
-          variantPrices: order.product_variant_prices || {},
-          category: order.category_name ? {
-            name: order.category_name
-          } : undefined,
-          collection: {
-            id: order.collection_id,
-            name: order.collection_name
-          }
-        } : undefined,
-        product_snapshot: order.product_snapshot as ProductSnapshot,
-        collection_snapshot: order.collection_snapshot as CollectionSnapshot,
-        walletAddress: order.wallet_address,
-        transactionSignature: order.transaction_signature,
+        status: order.status,
+        createdAt: order.created_at,
+        updatedAt: order.updated_at,
+        product_id: order.product_id,
+        collection_id: order.collection_id,
+        product_name: order.product_name,
+        product_sku: order.product_sku,
+        product_image_url: order.product_image_url,
+        collection_name: order.collection_name,
+        amountSol: order.amount_sol,
+        category_name: order.category_name,
         shippingAddress: order.shipping_address,
         contactInfo: order.contact_info,
-        status: order.status,
-        amountSol: order.amount_sol,
-        createdAt: new Date(order.created_at),
-        updatedAt: new Date(order.updated_at),
+        walletAddress: order.wallet_address,
+        transactionSignature: order.transaction_signature,
+        access_type: order.access_type,
         order_variants: order.order_variants || []
       }));
 
