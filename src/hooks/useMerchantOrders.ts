@@ -13,6 +13,7 @@ interface RawOrder {
   product_name: string;
   product_sku: string | null;
   product_image_url: string | null;
+  product_images: string[] | null;
   product_variants: { name: string; value: string }[];
   product_variant_prices: Record<string, number>;
   collection_id: string;
@@ -110,7 +111,7 @@ export function useMerchantOrders() {
         // Product and collection references
         product: order.product_id ? {
           id: order.product_id,
-          imageUrl: order.product_image_url ? normalizeStorageUrl(order.product_image_url) : undefined,
+          imageUrl: order.product_images?.[0] ? normalizeStorageUrl(order.product_images[0]) : undefined,
           variants: order.product_variants || [],
           variantPrices: order.product_variant_prices || {},
           category: order.category_name ? {

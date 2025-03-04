@@ -207,7 +207,7 @@ export function OrdersPage() {
                     {order.product?.imageUrl ? (
                       <img 
                         src={order.product.imageUrl} 
-                        alt={order.product?.name ?? 'Product'}
+                        alt={order.product_name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -222,15 +222,15 @@ export function OrdersPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium text-sm truncate">{order.product?.name ?? 'Unknown Product'}</h3>
-                          {order.product?.collection?.name && (
+                          <h3 className="font-medium text-sm truncate">{order.product_name}</h3>
+                          {order.collection_name && (
                             <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full shrink-0">
-                              {order.product?.collection?.name}
+                              {order.collection_name}
                             </span>
                           )}
                         </div>
-                        {order.product?.sku && (
-                          <p className="text-xs text-gray-400">SKU: {order.product.sku}</p>
+                        {order.product_sku && (
+                          <p className="text-xs text-gray-400">SKU: {order.product_sku}</p>
                         )}
                         <div className="flex flex-wrap gap-2 mt-2">
                           {order.order_variants && order.order_variants.length > 0 && (
