@@ -205,20 +205,20 @@ export function OrdersPage() {
               <div className="p-4">
                 <div className="flex items-start gap-4">
                   {/* Product Image */}
-                  <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                  <div className="relative h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
                     {order.product_image_url ? (
                       <OptimizedImage
                         src={order.product_image_url}
                         alt={order.product_name}
-                        width={256}
-                        height={256}
+                        width={160}
+                        height={160}
                         quality={75}
                         className="object-cover w-full h-full"
-                        sizes="128px"
+                        sizes="80px"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="h-8 w-8 text-gray-600" />
+                      <div className="h-full w-full flex items-center justify-center">
+                        <ImageIcon className="h-6 w-6 text-gray-600" />
                       </div>
                     )}
                   </div>

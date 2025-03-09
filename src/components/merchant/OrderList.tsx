@@ -551,20 +551,20 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                 <div className="p-4">
                   <div className="flex gap-4">
                     {/* Product Image */}
-                    <div className="relative h-10 w-10 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                    <div className="relative h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
                       {productInfo.imageUrl ? (
                         <OptimizedImage
                           src={productInfo.imageUrl}
                           alt={productInfo.name}
-                          width={80}
-                          height={80}
+                          width={160}
+                          height={160}
                           quality={75}
-                          className="h-full w-full"
-                          sizes="40px"
+                          className="object-cover w-full h-full"
+                          sizes="80px"
                         />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center">
-                          <ImageIcon className="h-4 w-4 text-gray-600" />
+                          <ImageIcon className="h-6 w-6 text-gray-600" />
                         </div>
                       )}
                     </div>

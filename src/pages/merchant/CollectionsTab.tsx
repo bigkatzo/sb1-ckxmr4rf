@@ -110,20 +110,20 @@ export function CollectionsTab() {
             return (
               <div key={collection.id} className="bg-gray-900 rounded-lg p-3 group">
                 <div className="flex items-start gap-3">
-                  <div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-gray-800">
+                  <div className="relative h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
                     {collection.imageUrl ? (
                       <OptimizedImage
                         src={collection.imageUrl}
                         alt={collection.name}
-                        width={640}
-                        height={360}
+                        width={160}
+                        height={160}
                         quality={75}
                         className="object-cover w-full h-full"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        sizes="80px"
                       />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center">
-                        <ImageIcon className="h-8 w-8 text-gray-600" />
+                        <ImageIcon className="h-6 w-6 text-gray-600" />
                       </div>
                     )}
                   </div>
