@@ -4,7 +4,7 @@ import { ProductBasicInfo } from './ProductBasicInfo';
 import { ProductImages } from './ProductImages';
 import { ProductVariants } from './ProductVariants';
 import type { Product, Category } from '../../../../types';
-import type { ProductVariant, VariantPricing, VariantStock } from '../../../../types/variants';
+import type { ProductVariant, VariantPricing } from '../../../../types/variants';
 
 export interface ProductFormProps {
   categories: Category[];
@@ -15,10 +15,11 @@ export interface ProductFormProps {
 
 export function ProductForm({ categories, initialData, onClose, onSubmit }: ProductFormProps) {
   const [images, setImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>(initialData?.images || []);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>(initialData?.images || []);
+  const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
   const [variantPrices, setVariantPrices] = useState<VariantPricing>(initialData?.variantPrices || {});
-  const [variantStock, setVariantStock] = useState<VariantStock>(initialData?.variantStock || {});
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -31,15 +32,21 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
 
     // Add current images if editing
     if (initialData?.images) {
-      formData.append('currentImages', JSON.stringify(previews));
+      formData.append('currentImages', JSON.stringify(existingImages));
+      formData.append('removedImages', JSON.stringify(removedImages));
     }
 
     // Add variant data
     formData.append('variants', JSON.stringify(variants));
     formData.append('variantPrices', JSON.stringify(variantPrices));
-    formData.append('variantStock', JSON.stringify(variantStock));
 
     onSubmit(formData);
+  };
+
+  const handleRemoveExistingImage = (index: number) => {
+    const imageUrl = existingImages[index];
+    setRemovedImages([...removedImages, imageUrl]);
+    setExistingImages(existingImages.filter((_, i) => i !== index));
   };
 
   return (
@@ -56,6 +63,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
         previews={previews}
         setImages={setImages}
         setPreviews={setPreviews}
+        existingImages={existingImages}
+        onRemoveExisting={handleRemoveExistingImage}
       />
 
       <ProductBasicInfo 
@@ -66,11 +75,10 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
       <ProductVariants
         variants={variants}
         variantPrices={variantPrices}
-        variantStock={variantStock}
-        onChange={(newVariants, newPrices, newStock) => {
+        basePrice={initialData?.price || 0}
+        onChange={(newVariants: ProductVariant[], newPrices: VariantPricing) => {
           setVariants(newVariants);
           setVariantPrices(newPrices);
-          setVariantStock(newStock);
         }}
       />
     </ModalForm>

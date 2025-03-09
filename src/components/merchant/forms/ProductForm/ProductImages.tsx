@@ -9,12 +9,21 @@ interface ProductImagesProps {
   previews: string[];
   setImages: (images: File[]) => void;
   setPreviews: (previews: string[]) => void;
+  existingImages?: string[];
+  onRemoveExisting?: (index: number) => void;
 }
 
-export function ProductImages({ images, previews, setImages, setPreviews }: ProductImagesProps) {
+export function ProductImages({ 
+  images, 
+  previews, 
+  setImages, 
+  setPreviews,
+  existingImages = [],
+  onRemoveExisting
+}: ProductImagesProps) {
   const { getRootProps, getInputProps } = useDropzone({
     accept: { 'image/*': [] },
-    maxFiles: 10,
+    maxFiles: 10 - existingImages.length, // Reduce max files by number of existing images
     maxSize: 5 * 1024 * 1024, // 5MB
     onDrop: (acceptedFiles, rejectedFiles) => {
       // Handle rejected files
@@ -26,6 +35,12 @@ export function ProductImages({ images, previews, setImages, setPreviews }: Prod
           toast.error(`File ${rejection.file.name} is not a valid image.`);
         }
       });
+
+      // Check total number of images
+      if (acceptedFiles.length + images.length + existingImages.length > 10) {
+        toast.error('Maximum 10 images allowed');
+        return;
+      }
 
       // Handle accepted files
       if (acceptedFiles.length > 0) {
@@ -57,8 +72,15 @@ export function ProductImages({ images, previews, setImages, setPreviews }: Prod
         className="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-purple-500 transition-colors"
       >
         <input {...getInputProps()} />
-        {previews.length > 0 ? (
+        {(previews.length > 0 || existingImages.length > 0) ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {existingImages.map((imageUrl, index) => (
+              <ImagePreview
+                key={`existing-${imageUrl}`}
+                src={imageUrl}
+                onRemove={onRemoveExisting ? () => onRemoveExisting(index) : undefined}
+              />
+            ))}
             {previews.map((preview, index) => (
               <ImagePreview
                 key={preview}
@@ -71,7 +93,7 @@ export function ProductImages({ images, previews, setImages, setPreviews }: Prod
           <div className="space-y-2">
             <ImageIcon className="h-12 w-12 mx-auto text-gray-400" />
             <p className="text-sm text-gray-400">
-              Drag and drop up to 10 images, or click to select
+              Drag and drop up to {10 - existingImages.length} images, or click to select
             </p>
             <p className="text-xs text-gray-500">
               Maximum file size: 5MB
