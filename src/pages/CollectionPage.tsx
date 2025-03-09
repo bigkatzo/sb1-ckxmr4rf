@@ -50,7 +50,7 @@ export function CollectionPage() {
             width={1920}
             height={820}
             quality={85}
-            className="absolute inset-0 h-full w-full"
+            className="absolute inset-0 h-full w-full object-cover"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1920px"
             priority
           />

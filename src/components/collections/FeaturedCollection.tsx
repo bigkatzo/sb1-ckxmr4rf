@@ -311,9 +311,9 @@ export function FeaturedCollection() {
                       width={1920}
                       height={1080}
                       quality={85}
-                      priority={index === currentIndex}
-                      className="h-full w-full"
+                      className="absolute inset-0 h-full w-full object-cover"
                       sizes="100vw"
+                      priority
                     />
                   ) : (
                     <ImageIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-600" />

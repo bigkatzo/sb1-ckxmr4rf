@@ -47,11 +47,11 @@ export function SearchResults({ results, loading, onSelect }: SearchResultsProps
             <OptimizedImage
               src={result.imageUrl}
               alt={result.name}
-              width={80}
-              height={80}
+              width={160}
+              height={160}
               quality={75}
-              className="h-10 w-10 rounded"
-              sizes="40px"
+              className="w-full h-full object-cover"
+              sizes="160px"
             />
           ) : (
             <div className="h-10 w-10 rounded bg-gray-800 flex items-center justify-center">

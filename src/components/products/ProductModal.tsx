@@ -109,14 +109,14 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
               }}
             >
               <OptimizedImage
-                src={images[selectedImageIndex]}
+                src={product.imageUrl}
                 alt={product.name}
-                width={1200}
-                height={1200}
-                quality={85}
-                priority={true}
-                draggable={false}
-                sizes="(max-width: 768px) 100vw, 50vw"
+                width={800}
+                height={800}
+                quality={90}
+                className="w-full h-full object-contain"
+                sizes="(max-width: 640px) 100vw, 800px"
+                priority
               />
               
               {/* Preload next and previous images with lower quality */}
