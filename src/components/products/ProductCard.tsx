@@ -8,10 +8,10 @@ interface ProductCardProps {
   product: Product;
   onClick: (product: Product) => void;
   categoryIndex?: number;
-  index?: number;
+  isInInitialViewport?: boolean;
 }
 
-export function ProductCard({ product, onClick, categoryIndex = 0, index }: ProductCardProps) {
+export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport }: ProductCardProps) {
   const handleClick = () => {
     if (onClick) {
       onClick(product);
@@ -33,7 +33,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, index }: Prod
             quality={80}
             className="transition-transform duration-300 will-change-transform group-hover:scale-105"
             sizes="(max-width: 640px) 50vw, 33vw"
-            priority={index !== undefined && index < 8}
+            priority={isInInitialViewport}
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">
