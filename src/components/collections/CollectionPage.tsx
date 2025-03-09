@@ -8,6 +8,7 @@ import { CountdownTimer } from '../components/ui/CountdownTimer';
 import { CollectionSkeleton } from '../components/collections/CollectionSkeleton';
 import { CollectionNotFound } from '../components/collections/CollectionNotFound';
 import { createCategoryIndices } from '../utils/category-mapping';
+import { OptimizedImage } from '../ui/OptimizedImage';
 
 export function CollectionPage() {
   const { slug } = useParams();
@@ -49,10 +50,14 @@ export function CollectionPage() {
       {/* Hero Section */}
       <div className="relative aspect-[21/9] overflow-hidden rounded-xl sm:rounded-2xl">
         {collection.imageUrl ? (
-          <img
+          <OptimizedImage
             src={collection.imageUrl}
             alt={collection.name}
-            className="absolute inset-0 h-full w-full object-cover"
+            width={1920}
+            height={820}
+            quality={85}
+            priority={true}
+            sizes="100vw"
           />
         ) : (
           <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">

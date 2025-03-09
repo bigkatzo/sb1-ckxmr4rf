@@ -1,31 +1,23 @@
 import React from 'react';
-import { Trash2 } from 'lucide-react';
+import { OptimizedImage } from './OptimizedImage';
 
 interface ImagePreviewProps {
   src: string;
-  onRemove: () => void;
+  alt?: string;
+  className?: string;
 }
 
-export function ImagePreview({ src, onRemove }: ImagePreviewProps) {
+export function ImagePreview({ src, alt = 'Preview', className = '' }: ImagePreviewProps) {
   return (
-    <div className="relative group">
-      <img
+    <div className={`relative aspect-square rounded-lg overflow-hidden bg-gray-800 ${className}`}>
+      <OptimizedImage
         src={src}
-        alt="Preview"
-        className="h-32 w-full object-cover rounded-lg"
+        alt={alt}
+        width={400}
+        height={400}
+        quality={75}
+        className="w-full h-full"
       />
-      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="p-2 bg-red-500/90 rounded-full text-white hover:bg-red-600 transition-colors"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
     </div>
   );
 }

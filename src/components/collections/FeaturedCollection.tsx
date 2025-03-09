@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Clock, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFeaturedCollections } from '../../hooks/useFeaturedCollections';
 import { CountdownTimer } from '../ui/CountdownTimer';
+import { OptimizedImage } from '../ui/OptimizedImage';
 
 export function FeaturedCollection() {
   const { collections, loading } = useFeaturedCollections();
@@ -293,7 +294,7 @@ export function FeaturedCollection() {
             transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`
           }}
         >
-          {collections.map((collection) => {
+          {collections.map((collection, index) => {
             const isUpcoming = new Date(collection.launchDate) > new Date();
             const isNew = !isUpcoming && (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000);
             
@@ -304,11 +305,15 @@ export function FeaturedCollection() {
               >
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
                   {collection.imageUrl ? (
-                    <img
+                    <OptimizedImage
                       src={collection.imageUrl}
                       alt={collection.name}
-                      className="h-full w-full object-cover"
-                      draggable={false}
+                      width={1920}
+                      height={1080}
+                      quality={85}
+                      priority={index === currentIndex}
+                      className="h-full w-full"
+                      sizes="100vw"
                     />
                   ) : (
                     <ImageIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-600" />

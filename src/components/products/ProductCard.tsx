@@ -2,6 +2,7 @@ import React from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
+import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Product } from '../../types';
 
 interface ProductCardProps {
@@ -18,10 +19,14 @@ export function ProductCard({ product, onClick, categoryIndex = 0 }: ProductCard
     >
       <div className="relative aspect-square overflow-hidden">
         {product.imageUrl ? (
-          <img
+          <OptimizedImage
             src={product.imageUrl}
             alt={product.name}
-            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+            width={600}
+            height={600}
+            quality={75}
+            className="transition-transform group-hover:scale-105"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">

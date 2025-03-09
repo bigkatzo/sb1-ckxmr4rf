@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Image as ImageIcon } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
+import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Product } from '../../types';
 
 interface ProductCardCompactProps {
@@ -34,10 +35,14 @@ export function ProductCardCompact({
     >
       <div className="relative aspect-[4/3] overflow-hidden">
         {product.imageUrl ? (
-          <img
+          <OptimizedImage
             src={product.imageUrl}
             alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-300 will-change-transform group-hover:scale-105"
+            width={400}
+            height={300}
+            quality={75}
+            className="transition-transform duration-300 will-change-transform group-hover:scale-105"
+            sizes="(max-width: 640px) 140px, 200px"
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">

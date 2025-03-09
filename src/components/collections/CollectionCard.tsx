@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, ArrowRight, Image as ImageIcon, Ban } from 'lucide-react';
+import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Collection } from '../../types';
 
 interface CollectionCardProps {
@@ -25,10 +26,17 @@ export function CollectionCard({ collection, variant = 'default', categoryIndice
     `}>
       <div className={`relative ${aspectRatio} w-full overflow-hidden`}>
         {collection.imageUrl ? (
-          <img
+          <OptimizedImage
             src={collection.imageUrl}
             alt={collection.name}
-            className="h-full w-full object-cover transition-transform duration-300 will-change-transform group-hover:scale-105"
+            width={isLarge ? 800 : 400}
+            height={isLarge ? 500 : 300}
+            quality={80}
+            className="transition-transform duration-300 will-change-transform group-hover:scale-105"
+            sizes={isLarge 
+              ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              : "(max-width: 640px) 50vw, 33vw"
+            }
           />
         ) : (
           <div className="h-full w-full bg-gray-800 flex items-center justify-center">
