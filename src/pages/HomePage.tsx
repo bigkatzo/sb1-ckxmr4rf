@@ -25,7 +25,7 @@ export function HomePage() {
 
       <section>
         <SectionHeader
-          title="Latest Collections"
+          title="Latest Drops"
         />
         <CollectionGrid filter="latest" />
       </section>
