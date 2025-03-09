@@ -9,35 +9,39 @@ interface ProductBasicInfoProps {
 
 export function ProductBasicInfo({ categories, initialData, onChange }: ProductBasicInfoProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {initialData?.sku && (
         <div>
-          <label className="block text-sm font-medium mb-2">SKU</label>
+          <label className="block text-sm font-medium text-white mb-1">
+            SKU
+          </label>
           <input
             type="text"
             value={initialData.sku}
             disabled
-            className="w-full bg-gray-800 rounded-lg px-4 py-2 text-gray-400 cursor-not-allowed"
+            className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-gray-400 cursor-not-allowed"
           />
         </div>
       )}
 
       <div>
-        <label htmlFor="name" className="block text-sm font-medium mb-2">
-          Product Name
+        <label htmlFor="name" className="block text-sm font-medium text-white mb-1">
+          Product Name *
         </label>
         <input
           type="text"
           id="name"
           name="name"
           defaultValue={initialData?.name}
+          onChange={onChange}
           required
-          className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+          placeholder="Enter product name"
         />
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium mb-2">
+        <label htmlFor="description" className="block text-sm font-medium text-white mb-1">
           Description
         </label>
         <textarea
@@ -45,21 +49,40 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           name="description"
           defaultValue={initialData?.description}
           required
-          rows={4}
-          className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          rows={3}
+          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+          placeholder="Enter product description"
         />
       </div>
 
       <div>
-        <label htmlFor="category" className="block text-sm font-medium mb-2">
-          Category
+        <label htmlFor="price" className="block text-sm font-medium text-white mb-1">
+          Base Price (SOL) *
+        </label>
+        <input
+          type="number"
+          id="price"
+          name="price"
+          defaultValue={initialData?.price}
+          onChange={onChange}
+          required
+          min="0"
+          step="0.01"
+          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+          placeholder="0.00"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="category" className="block text-sm font-medium text-white mb-1">
+          Category *
         </label>
         <select
           id="category"
           name="category"
           defaultValue={initialData?.categoryId}
           required
-          className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
         >
           <option value="">Select a category</option>
           {categories.map((category) => (
@@ -70,55 +93,19 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="price" className="block text-sm font-medium mb-2">
-            Base Price (SOL)
-          </label>
-          <input
-            type="number"
-            id="price"
-            name="price"
-            min="0"
-            step="0.000000001"
-            defaultValue={initialData?.price || 0}
-            required
-            onChange={onChange}
-            className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="quantity" className="block text-sm font-medium mb-2">
-            Base Stock
-          </label>
-          <input
-            type="number"
-            id="quantity"
-            name="quantity"
-            min="0"
-            defaultValue={initialData?.stock || 0}
-            required
-            className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
-      </div>
-
       <div>
-        <label htmlFor="minOrderQty" className="block text-sm font-medium mb-2">
-          Minimum Order Quantity
+        <label htmlFor="minimumOrderQuantity" className="block text-sm font-medium text-white mb-1">
+          Minimum Order Quantity *
         </label>
         <input
           type="number"
-          id="minOrderQty"
-          name="minOrderQty"
-          min="1"
+          id="minimumOrderQuantity"
+          name="minimumOrderQuantity"
           defaultValue={initialData?.minimumOrderQuantity || 50}
           required
-          className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          min="1"
+          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
         />
-        <p className="mt-1 text-xs text-gray-400">
-          Minimum number of items required per order
-        </p>
       </div>
     </div>
   );
