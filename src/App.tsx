@@ -1,4 +1,4 @@
-import { Outlet, ScrollRestoration } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
 import { WalletProvider } from './contexts/WalletContext';
@@ -12,6 +12,7 @@ import { useWallet } from './contexts/WalletContext';
 import { usePayment } from './hooks/usePayment';
 import { ToastContainer } from 'react-toastify';
 import { validateEnvironmentVariables } from './utils/env-validation';
+import { ScrollBehavior } from './components/ui/ScrollBehavior';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Validate environment variables at startup
@@ -48,7 +49,7 @@ function NotificationsWrapper() {
 function AppContent() {
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
-      <ScrollRestoration />
+      <ScrollBehavior />
       <Navbar />
       <main className="flex-1 pt-16">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 w-full">
