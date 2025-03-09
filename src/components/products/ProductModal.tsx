@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, Clock, Ban } from 'lucide-react';
 import { CategoryDescription } from '../collections/CategoryDescription';
@@ -7,6 +7,8 @@ import { ProductVariantPrice } from './ProductVariantPrice';
 import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { useSwipe } from '../../hooks/useSwipe';
+import { OptimizedImage } from '../ui/OptimizedImage';
+import { SmoothScroll } from '../ui/SmoothScroll';
 import type { Product } from '../../types';
 
 interface ProductModalProps {
@@ -18,7 +20,11 @@ interface ProductModalProps {
 export function ProductModal({ product, onClose, categoryIndex }: ProductModalProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const modalRef = useRef<HTMLDivElement>(null);
   const images = product.images?.length ? product.images : [product.imageUrl];
+  
+  // Safe check for variants
+  const hasVariants = !!product.variants && product.variants.length > 0;
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -56,16 +62,9 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     threshold: 50
   });
 
-  const allOptionsSelected = product.variants?.every(
-    variant => selectedOptions[variant.id]
-  );
-
-  const variantKey = product.variants?.length > 0
-    ? product.variants
-        .map(v => `${v.id}:${selectedOptions[v.id]}`)
-        .sort()
-        .join('|')
-    : null;
+  const allOptionsSelected = hasVariants
+    ? product.variants!.every(variant => selectedOptions[variant.id])
+    : true;
 
   // Check if collection is not live yet or sale has ended
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
@@ -81,7 +80,10 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative min-h-screen flex items-center justify-center p-0 sm:p-4">
-        <div className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-auto sm:min-w-[600px] sm:max-w-4xl sm:rounded-xl overflow-hidden">
+        <div 
+          ref={modalRef}
+          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-auto sm:min-w-[600px] sm:max-w-4xl sm:rounded-xl overflow-hidden"
+        >
           <div className="absolute top-4 right-4 z-10">
             <button
               onClick={onClose}
@@ -97,12 +99,29 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
               className="relative aspect-square sm:aspect-auto"
               {...swipeHandlers}
             >
-              <img
+              <OptimizedImage
                 src={images[selectedImageIndex]}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                width={800}
+                quality={85}
+                priority={true}
                 draggable={false}
               />
+              
+              {/* Preload next and previous images */}
+              <div className="hidden">
+                {images.length > 1 && [
+                  (selectedImageIndex + 1) % images.length,
+                  (selectedImageIndex - 1 + images.length) % images.length
+                ].map(index => (
+                  <img 
+                    key={index}
+                    src={images[index]} 
+                    alt="Preload" 
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
               
               {images.length > 1 && (
                 <>
@@ -125,7 +144,9 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     {images.map((_, index) => (
                       <button
                         key={index}
-                        onClick={() => setSelectedImageIndex(index)}
+                        onClick={() => {
+                          setSelectedImageIndex(index);
+                        }}
                         className={`w-2 h-2 rounded-full transition-colors ${
                           index === selectedImageIndex
                             ? 'bg-white'
@@ -141,7 +162,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
             </div>
 
             <div className="flex flex-col h-full max-h-[60vh] md:max-h-[90vh] overflow-hidden">
-              <div className="p-4 space-y-4 flex-1 overflow-y-auto md:overflow-y-scroll scrollbar-hide scroll-smooth">
+              <SmoothScroll className="p-4 space-y-4 flex-1">
                 {product.collectionSlug && product.collectionName && (
                   <Link
                     to={`/${product.collectionSlug}`}
@@ -157,9 +178,9 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                   <p className="mt-2 text-sm text-gray-400">{product.description}</p>
                 </div>
 
-                {product.variants && product.variants.length > 0 && (
+                {hasVariants && (
                   <VariantDisplay
-                    variants={product.variants}
+                    variants={product.variants!}
                     selectedOptions={selectedOptions}
                     onChange={handleOptionChange}
                   />
@@ -197,7 +218,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     product={product}
                     price={product.price}
                     selectedOptions={selectedOptions}
-                    disabled={product.stock === 0 || (product.variants?.length > 0 && !allOptionsSelected)}
+                    disabled={product.stock === 0 || (hasVariants && !allOptionsSelected)}
                     className="w-full flex items-center justify-center gap-2 py-3 text-sm sm:text-base"
                     showModal={true}
                   />
@@ -214,7 +235,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     </div>
                   </div>
                 )}
-              </div>
+              </SmoothScroll>
             </div>
           </div>
         </div>
