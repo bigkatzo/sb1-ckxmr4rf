@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useInView } from '../../hooks/useInView';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
@@ -31,11 +31,8 @@ export function OptimizedImage({
   const [imageSrc, setImageSrc] = useState<string>('');
   const [srcSet, setSrcSet] = useState<string>('');
   const [blurredLoaded, setBlurredLoaded] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const { ref, isInView, hasBeenInView } = useInView({
-    threshold: 0,
-    rootMargin: '50px'
-  });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { isInView } = useInView({ ref: containerRef });
 
   useEffect(() => {
     // Reset loading state when src changes
@@ -104,8 +101,7 @@ export function OptimizedImage({
       const tinyUrl = optimizeImageUrl(src, 20, 20);
       try {
         const response = await fetch(tinyUrl);
-        const blob = await response.blob();
-        const objectUrl = URL.createObjectURL(blob);
+        await response.blob();
         setBlurredLoaded(true);
       } catch (error) {
         console.error('Error loading blurred placeholder:', error);
@@ -123,13 +119,6 @@ export function OptimizedImage({
     }
   }, [src, width, height, quality, priority, isInView]);
 
-  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    if (e.currentTarget) {
-      e.currentTarget.style.opacity = '1';
-      setIsLoaded(true);
-    }
-  };
-
   const handleImageLoad = () => {
     setIsLoading(false);
     if (onLoad) onLoad();
@@ -144,7 +133,7 @@ export function OptimizedImage({
   }[objectFit];
 
   return (
-    <div ref={ref} className="relative w-full h-full">
+    <div ref={containerRef} className="relative w-full h-full">
       {isLoading && (
         <div className={`
           absolute inset-0 bg-gray-800
@@ -154,7 +143,7 @@ export function OptimizedImage({
             <img
               src={imageSrc}
               alt=""
-              className="w-full h-full object-cover opacity-50 blur-xl scale-110"
+              className="w-full h-full object-cover opacity-50 blur-[1px] scale-105"
               aria-hidden="true"
             />
           )}
@@ -177,8 +166,8 @@ export function OptimizedImage({
             height={height}
             className={`
               w-full h-full ${objectFitClass} 
-              transition-all duration-500 ease-in-out
-              ${isLoading ? 'scale-110 blur-sm' : 'scale-100 blur-0'}
+              transition-all duration-300 ease-out
+              ${isLoading ? 'scale-105 blur-[1px]' : 'scale-100 blur-0'}
               ${className}
             `}
             loading={priority ? 'eager' : 'lazy'}

@@ -1,42 +1,37 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, RefObject } from 'react';
 
-interface UseInViewOptions {
-  rootMargin?: string;
+export interface UseInViewOptions {
   threshold?: number;
+  rootMargin?: string;
   root?: Element | null;
+  ref?: RefObject<Element>;
 }
 
-export function useInView<T extends Element>({
-  rootMargin = '50px',
-  threshold = 0,
-  root = null
-}: UseInViewOptions = {}) {
+export function useInView({ threshold = 0, rootMargin = '0px', root = null, ref }: UseInViewOptions = {}) {
   const [isInView, setIsInView] = useState(false);
   const [hasBeenInView, setHasBeenInView] = useState(false);
-  const elementRef = useRef<T>(null);
 
   useEffect(() => {
-    const element = elementRef.current;
-    if (!element) return;
+    if (!ref?.current) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        const isVisible = entry.isIntersecting;
-        setIsInView(isVisible);
-        if (isVisible && !hasBeenInView) {
+        setIsInView(entry.isIntersecting);
+        if (entry.isIntersecting) {
           setHasBeenInView(true);
         }
       },
-      { rootMargin, threshold, root }
+      { threshold, rootMargin, root }
     );
 
-    observer.observe(element);
+    observer.observe(ref.current);
 
     return () => {
-      observer.unobserve(element);
-      observer.disconnect();
+      if (ref.current) {
+        observer.unobserve(ref.current);
+      }
     };
-  }, [rootMargin, threshold, root, hasBeenInView]);
+  }, [threshold, rootMargin, root, ref]);
 
-  return { ref: elementRef, isInView, hasBeenInView };
+  return { isInView, hasBeenInView };
 } 
