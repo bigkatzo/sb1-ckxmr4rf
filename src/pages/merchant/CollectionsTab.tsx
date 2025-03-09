@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import { supabase } from '../../lib/supabase';
+import { OptimizedImage } from '../../components/ui/OptimizedImage';
 
 export function CollectionsTab() {
   const [showForm, setShowForm] = useState(false);
@@ -109,17 +110,23 @@ export function CollectionsTab() {
             return (
               <div key={collection.id} className="bg-gray-900 rounded-lg p-3 group">
                 <div className="flex items-start gap-3">
-                  {collection.imageUrl ? (
-                    <img
-                      src={collection.imageUrl}
-                      alt={collection.name}
-                      className="w-16 h-16 rounded object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-                      <ImageIcon className="h-5 w-5 text-gray-600" />
-                    </div>
-                  )}
+                  <div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-gray-800">
+                    {collection.imageUrl ? (
+                      <OptimizedImage
+                        src={collection.imageUrl}
+                        alt={collection.name}
+                        width={640}
+                        height={360}
+                        quality={75}
+                        className="h-full w-full"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <ImageIcon className="h-8 w-8 text-gray-600" />
+                      </div>
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">

@@ -87,9 +87,7 @@ export function ProductCardCompact({
             price={product.price}
             disabled={product.stock === 0}
             className="z-10 scale-90 origin-right"
-            onClick={(e) => {
-              onClick(product);
-            }}
+            onClick={handleClick}
           />
         </div>
       </div>

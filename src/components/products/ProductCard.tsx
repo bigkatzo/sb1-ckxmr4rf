@@ -64,9 +64,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0 }: ProductCard
             price={product.price}
             disabled={product.stock === 0}
             className="z-10"
-            onClick={(e) => {
-              handleClick();
-            }}
+            onClick={handleClick}
           />
         </div>
       </div>

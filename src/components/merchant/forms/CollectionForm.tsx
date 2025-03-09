@@ -5,6 +5,7 @@ import { Toggle } from '../../ui/Toggle';
 import { formatDateForInput } from '../../../utils/date-helpers';
 import type { Collection } from '../../../types';
 import { Dialog } from '@headlessui/react';
+import { OptimizedImage } from '../../ui/OptimizedImage';
 
 export interface CollectionFormProps {
   collection?: Partial<Collection & { tags?: string[] }>;
@@ -167,10 +168,14 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                     <input {...getInputProps()} />
                     {imagePreview ? (
                       <div className="relative group">
-                        <img 
-                          src={imagePreview} 
-                          alt="Preview" 
+                        <OptimizedImage
+                          src={imagePreview}
+                          alt={name || 'Collection preview'}
+                          width={800}
+                          height={450}
+                          quality={80}
                           className="mx-auto h-48 object-cover rounded-lg"
+                          sizes="(max-width: 640px) 100vw, 800px"
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                           <div className="flex gap-2">
@@ -342,6 +347,21 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                     </p>
                   </div>
                 </div>
+
+                {/* Image Preview */}
+                {imagePreview && (
+                  <div className="mt-2">
+                    <OptimizedImage
+                      src={imagePreview}
+                      alt={name || 'Collection preview'}
+                      width={800}
+                      height={450}
+                      quality={80}
+                      className="w-full aspect-[16/9] rounded-lg"
+                      sizes="(max-width: 640px) 100vw, 800px"
+                    />
+                  </div>
+                )}
               </form>
             </div>
 

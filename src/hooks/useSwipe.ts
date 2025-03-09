@@ -7,37 +7,81 @@ interface SwipeHandlers {
 }
 
 export function useSwipe({ onSwipeLeft, onSwipeRight, threshold = 50 }: SwipeHandlers) {
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartTime, setDragStartTime] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  // Velocity threshold for momentum scrolling (pixels per millisecond)
+  const velocityThreshold = 0.5;
 
   const onTouchStart = useCallback((e: TouchEvent | React.TouchEvent) => {
     setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    });
+    setDragStartTime(Date.now());
+    setIsDragging(true);
+    setDragOffset(0);
   }, []);
 
   const onTouchMove = useCallback((e: TouchEvent | React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  }, []);
+    if (!touchStart || !isDragging) return;
+
+    // Prevent default to avoid page scrolling during swipe
+    e.preventDefault();
+
+    const currentTouch = {
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    };
+
+    // Calculate horizontal and vertical movement
+    const deltaX = currentTouch.x - touchStart.x;
+    const deltaY = Math.abs(currentTouch.y - touchStart.y);
+
+    // Only update touchEnd if horizontal movement is greater than vertical
+    if (Math.abs(deltaX) > deltaY) {
+      setTouchEnd(currentTouch);
+      setDragOffset(deltaX);
+    }
+  }, [touchStart, isDragging]);
 
   const onTouchEnd = useCallback(() => {
-    if (!touchStart || !touchEnd) return;
+    if (!touchStart || !touchEnd || !isDragging) return;
 
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > threshold;
-    const isRightSwipe = distance < -threshold;
+    const distanceX = touchStart.x - touchEnd.x;
+    const distanceY = Math.abs(touchStart.y - touchEnd.y);
 
-    if (isLeftSwipe && onSwipeLeft) {
-      onSwipeLeft();
+    // Calculate velocity for momentum scrolling
+    const endTime = Date.now();
+    const duration = endTime - dragStartTime;
+    const velocity = Math.abs(distanceX) / duration;
+
+    // Only trigger swipe if horizontal movement is greater than vertical
+    // and greater than threshold, or if velocity is high enough
+    if (Math.abs(distanceX) > distanceY && 
+        (Math.abs(distanceX) > threshold || velocity > velocityThreshold)) {
+      if (distanceX > 0 && onSwipeLeft) {
+        onSwipeLeft();
+      } else if (distanceX < 0 && onSwipeRight) {
+        onSwipeRight();
+      }
     }
-    
-    if (isRightSwipe && onSwipeRight) {
-      onSwipeRight();
-    }
-  }, [touchStart, touchEnd, threshold, onSwipeLeft, onSwipeRight]);
+
+    setTouchStart(null);
+    setTouchEnd(null);
+    setIsDragging(false);
+    setDragOffset(0);
+  }, [touchStart, touchEnd, threshold, onSwipeLeft, onSwipeRight, dragStartTime, isDragging]);
 
   return {
     onTouchStart,
     onTouchMove,
-    onTouchEnd
+    onTouchEnd,
+    isDragging,
+    dragOffset
   };
 }

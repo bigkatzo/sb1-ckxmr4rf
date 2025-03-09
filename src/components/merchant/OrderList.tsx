@@ -18,6 +18,8 @@ import type { Order, OrderStatus } from '../../types/orders';
 import { useState } from 'react';
 import { OrderAnalytics } from './OrderAnalytics';
 import { toast } from 'react-toastify';
+import { OptimizedImage } from '../ui/OptimizedImage';
+import { ImageIcon } from 'lucide-react';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -549,16 +551,20 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                 <div className="p-4">
                   <div className="flex gap-4">
                     {/* Product Image */}
-                    <div className="w-16 sm:w-24 h-16 sm:h-24 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                    <div className="relative h-10 w-10 flex-shrink-0 rounded overflow-hidden bg-gray-800">
                       {productInfo.imageUrl ? (
-                        <img 
-                          src={productInfo.imageUrl} 
+                        <OptimizedImage
+                          src={productInfo.imageUrl}
                           alt={productInfo.name}
-                          className="w-full h-full object-cover"
+                          width={80}
+                          height={80}
+                          quality={75}
+                          className="h-full w-full"
+                          sizes="40px"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
+                        <div className="h-full w-full flex items-center justify-center">
+                          <ImageIcon className="h-4 w-4 text-gray-600" />
                         </div>
                       )}
                     </div>

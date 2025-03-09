@@ -1,4 +1,3 @@
-import React from 'react';
 import { OptimizedImage } from './OptimizedImage';
 
 interface ImagePreviewProps {

@@ -7,10 +7,9 @@ import type { Collection } from '../../types';
 
 interface CollectionCardProps {
   collection: Collection;
-  onClick?: (collection: Collection) => void;
 }
 
-export function CollectionCard({ collection, onClick }: CollectionCardProps) {
+export function CollectionCard({ collection }: CollectionCardProps) {
   const now = new Date();
   const isUpcoming = collection.launchDate > now;
   const isNew = !isUpcoming && (now.getTime() - collection.launchDate.getTime()) < 7 * 24 * 60 * 60 * 1000;

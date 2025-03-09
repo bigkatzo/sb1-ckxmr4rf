@@ -70,6 +70,11 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
   const isSaleEnded = product.collectionSaleEnded;
 
+  // Calculate transform with smooth transition
+  const translateX = swipeHandlers.isDragging
+    ? `${swipeHandlers.dragOffset * 0.8}px` // Add resistance factor
+    : '0px';
+
   return (
     <div 
       className="fixed inset-0 z-50 overflow-y-auto" 
@@ -96,28 +101,38 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
           <div className="grid grid-cols-1 md:grid-cols-2 h-full">
             <div 
-              className="relative aspect-square sm:aspect-auto"
+              className="relative aspect-square md:aspect-auto md:h-full w-full touch-pan-y"
               {...swipeHandlers}
+              style={{
+                transform: `translateX(${translateX})`,
+                transition: swipeHandlers.isDragging ? 'none' : 'transform 0.3s ease-out'
+              }}
             >
               <OptimizedImage
                 src={images[selectedImageIndex]}
                 alt={product.name}
-                width={800}
+                width={1200}
+                height={1200}
                 quality={85}
                 priority={true}
                 draggable={false}
+                sizes="(max-width: 768px) 100vw, 50vw"
               />
               
-              {/* Preload next and previous images */}
+              {/* Preload next and previous images with lower quality */}
               <div className="hidden">
                 {images.length > 1 && [
                   (selectedImageIndex + 1) % images.length,
                   (selectedImageIndex - 1 + images.length) % images.length
                 ].map(index => (
-                  <img 
+                  <OptimizedImage
                     key={index}
-                    src={images[index]} 
-                    alt="Preload" 
+                    src={images[index]}
+                    alt="Preload"
+                    width={800}
+                    height={800}
+                    quality={60}
+                    priority={false}
                     aria-hidden="true"
                   />
                 ))}

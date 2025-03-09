@@ -3,6 +3,8 @@ import { useOrders } from '../hooks/useOrders';
 import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { OrderStatus } from '../types/orders';
+import { OptimizedImage } from '../components/ui/OptimizedImage';
+import { ImageIcon } from 'lucide-react';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
@@ -205,14 +207,18 @@ export function OrdersPage() {
                   {/* Product Image */}
                   <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
                     {order.product_image_url ? (
-                      <img 
-                        src={order.product_image_url} 
+                      <OptimizedImage
+                        src={order.product_image_url}
                         alt={order.product_name}
-                        className="w-full h-full object-cover"
+                        width={160}
+                        height={160}
+                        quality={75}
+                        className="w-full h-full"
+                        sizes="80px"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Package className="h-8 w-8 text-gray-600" />
+                        <ImageIcon className="h-8 w-8 text-gray-600" />
                       </div>
                     )}
                   </div>
