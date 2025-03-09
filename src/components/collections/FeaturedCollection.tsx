@@ -57,11 +57,12 @@ export function FeaturedCollection() {
     e.preventDefault();
     
     const currentTouch = e.targetTouches[0].clientX;
-    const diff = touchStart - currentTouch;
+    // Invert the diff calculation to match the natural swipe direction
+    const diff = currentTouch - touchStart;
     
-    // Add resistance at the edges
-    if ((currentIndex === 0 && diff < 0) || 
-        (currentIndex === collections.length - 1 && diff > 0)) {
+    // Add resistance at the edges (with inverted logic)
+    if ((currentIndex === 0 && diff > 0) || 
+        (currentIndex === collections.length - 1 && diff < 0)) {
       setDragOffset(diff * 0.3); // Apply resistance
     } else {
       setDragOffset(diff);
@@ -73,9 +74,10 @@ export function FeaturedCollection() {
   const handleTouchEnd = useCallback(() => {
     if (!touchStart || !touchEnd || !isDragging) return;
 
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    // Invert the distance calculation to match the natural swipe direction
+    const distance = touchEnd - touchStart;
+    const isLeftSwipe = distance < -minSwipeDistance;
+    const isRightSwipe = distance > minSwipeDistance;
     
     // Calculate velocity for momentum scrolling
     const endTime = Date.now();
@@ -85,9 +87,9 @@ export function FeaturedCollection() {
     
     isAnimating.current = true;
     
-    if (isLeftSwipe || (velocity > velocityThreshold && distance > 0)) {
+    if (isLeftSwipe || (velocity > velocityThreshold && distance < 0)) {
       nextSlide();
-    } else if (isRightSwipe || (velocity > velocityThreshold && distance < 0)) {
+    } else if (isRightSwipe || (velocity > velocityThreshold && distance > 0)) {
       prevSlide();
     } else {
       // Snap back to current slide if swipe wasn't strong enough
@@ -126,11 +128,12 @@ export function FeaturedCollection() {
     // Prevent default to ensure smooth dragging
     e.preventDefault();
     
-    const diff = mouseDownPos.current - e.clientX;
+    // Invert the diff calculation to match the natural swipe direction
+    const diff = e.clientX - mouseDownPos.current;
     
-    // Add resistance at the edges
-    if ((currentIndex === 0 && diff < 0) || 
-        (currentIndex === collections.length - 1 && diff > 0)) {
+    // Add resistance at the edges (with inverted logic)
+    if ((currentIndex === 0 && diff > 0) || 
+        (currentIndex === collections.length - 1 && diff < 0)) {
       setDragOffset(diff * 0.3); // Apply resistance
     } else {
       setDragOffset(diff);
@@ -140,9 +143,10 @@ export function FeaturedCollection() {
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (mouseDownPos.current === null || !isDragging) return;
     
-    const distance = mouseDownPos.current - e.clientX;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    // Invert the distance calculation to match the natural swipe direction
+    const distance = e.clientX - mouseDownPos.current;
+    const isLeftSwipe = distance < -minSwipeDistance;
+    const isRightSwipe = distance > minSwipeDistance;
     
     // Calculate velocity for momentum scrolling
     const endTime = Date.now();
@@ -152,9 +156,9 @@ export function FeaturedCollection() {
     
     isAnimating.current = true;
     
-    if (isLeftSwipe || (velocity > velocityThreshold && distance > 0)) {
+    if (isLeftSwipe || (velocity > velocityThreshold && distance < 0)) {
       nextSlide();
-    } else if (isRightSwipe || (velocity > velocityThreshold && distance < 0)) {
+    } else if (isRightSwipe || (velocity > velocityThreshold && distance > 0)) {
       prevSlide();
     } else {
       // Snap back to current slide if swipe wasn't strong enough
