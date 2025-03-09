@@ -118,7 +118,7 @@ export function CollectionsTab() {
                         width={640}
                         height={360}
                         quality={75}
-                        className="h-full w-full"
+                        className="object-cover w-full h-full"
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
                     ) : (
