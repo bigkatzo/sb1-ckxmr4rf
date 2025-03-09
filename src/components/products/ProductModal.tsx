@@ -53,20 +53,20 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
-    setTimeout(() => setIsTransitioning(false), 300); // Match transition duration
+    setTimeout(() => setIsTransitioning(false), 250); // Match new transition duration
   };
 
   const prevImage = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
-    setTimeout(() => setIsTransitioning(false), 300); // Match transition duration
+    setTimeout(() => setIsTransitioning(false), 250); // Match new transition duration
   };
 
   const swipeHandlers = useSwipe({
     onSwipeLeft: nextImage,
     onSwipeRight: prevImage,
-    threshold: 30 // Reduced threshold for more responsive swipes
+    threshold: 25 // Slightly reduced threshold for even more responsive swipes
   });
 
   const allOptionsSelected = hasVariants
@@ -79,7 +79,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
   // Calculate transform with smooth transition
   const translateX = swipeHandlers.isDragging
-    ? `${swipeHandlers.dragOffset * 0.5}px` // Reduced resistance factor for smoother feel
+    ? `${swipeHandlers.dragOffset * 0.4}px` // Further reduced resistance for smoother feel
     : '0px';
 
   return (
@@ -133,9 +133,9 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                         onClick={() => {
                           setSelectedImageIndex(index);
                         }}
-                        className={`w-2 h-2 rounded-full transition-colors ${
+                        className={`w-2.5 h-2.5 rounded-full transition-colors ${
                           index === selectedImageIndex
-                            ? 'bg-white'
+                            ? 'bg-white scale-110'
                             : 'bg-white/50 hover:bg-white/75'
                         }`}
                         aria-label={`Go to image ${index + 1}`}
@@ -148,14 +148,14 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
               {/* Swipeable image container */}
               <div 
-                className="relative h-full w-full touch-pan-y overflow-hidden"
+                className="relative h-full w-full touch-pan-y overflow-hidden bg-gray-950/50"
                 {...swipeHandlers}
               >
                 <div
-                  className="relative h-full w-full"
+                  className="relative h-full w-full will-change-transform"
                   style={{
                     transform: `translateX(${translateX})`,
-                    transition: swipeHandlers.isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    transition: swipeHandlers.isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1.0)'
                   }}
                 >
                   <OptimizedImage
@@ -164,11 +164,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     width={800}
                     height={800}
                     quality={90}
-                    className={`
-                      w-full h-full object-contain
-                      transition-opacity duration-300
-                      ${isTransitioning ? 'opacity-50' : 'opacity-100'}
-                    `}
+                    className="w-full h-full object-contain"
                     sizes="(max-width: 640px) 100vw, 800px"
                     priority
                   />
@@ -176,7 +172,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
               </div>
               
               {/* Preload next and previous images */}
-              <div className="hidden">
+              <div className="hidden" aria-hidden="true">
                 {images.length > 1 && [
                   (selectedImageIndex + 1) % images.length,
                   (selectedImageIndex - 1 + images.length) % images.length
@@ -187,16 +183,15 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     alt="Preload"
                     width={800}
                     height={800}
-                    quality={60}
+                    quality={75}
                     priority={false}
-                    aria-hidden="true"
                   />
                 ))}
               </div>
             </div>
 
             <div className="flex flex-col h-full max-h-[60vh] md:max-h-[90vh] overflow-hidden">
-              <SmoothScroll className="p-4 space-y-4 flex-1">
+              <SmoothScroll className="p-4 space-y-4 flex-1 overflow-y-auto scrollbar-thin scrollbar-track-gray-900 scrollbar-thumb-gray-700">
                 {product.collectionSlug && product.collectionName && (
                   <Link
                     to={`/${product.collectionSlug}`}
