@@ -1,6 +1,7 @@
-import { Image as ImageIcon, Ban, ArrowRight } from 'lucide-react';
+import { Image as ImageIcon, Ban, ArrowRight, Calendar } from 'lucide-react';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Collection } from '../../types';
+import { format } from 'date-fns';
 
 interface CollectionCardProps {
   collection: Collection;
@@ -86,7 +87,17 @@ export function CollectionCard({ collection }: CollectionCardProps) {
           flex items-center justify-between
           ${isLarge ? 'mt-3 sm:mt-4' : 'mt-2 sm:mt-3'}
         `}>
-          {!isUpcoming && (
+          {isUpcoming ? (
+            <div className="flex items-center text-purple-400/90 group-hover:text-purple-400 transition-colors">
+              <Calendar className={`
+                mr-1.5
+                ${isLarge ? 'h-3.5 w-3.5 sm:h-4 sm:w-4' : 'h-3 w-3 sm:h-3.5 sm:w-3.5'}
+              `} />
+              <span className={isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}>
+                {format(collection.launchDate, 'MMM d, yyyy')}
+              </span>
+            </div>
+          ) : (
             <div className="flex items-center text-purple-400/90 group-hover:text-purple-400 transition-colors">
               <span className={isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}>
                 Browse Collection
