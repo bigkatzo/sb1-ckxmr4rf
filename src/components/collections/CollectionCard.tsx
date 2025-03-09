@@ -5,14 +5,15 @@ import { format } from 'date-fns';
 
 interface CollectionCardProps {
   collection: Collection;
+  variant?: 'small' | 'large';
 }
 
-export function CollectionCard({ collection }: CollectionCardProps) {
+export function CollectionCard({ collection, variant = 'large' }: CollectionCardProps) {
   const now = new Date();
   const isUpcoming = collection.launchDate > now;
   const isNew = !isUpcoming && (now.getTime() - collection.launchDate.getTime()) < 7 * 24 * 60 * 60 * 1000;
 
-  const isLarge = false;
+  const isLarge = variant === 'large';
   const aspectRatio = isLarge ? 'aspect-[16/10]' : 'aspect-[4/3]';
 
   return (

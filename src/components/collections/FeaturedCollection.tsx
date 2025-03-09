@@ -294,7 +294,7 @@ export function FeaturedCollection() {
             transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`
           }}
         >
-          {collections.map((collection, index) => {
+          {collections.map((collection) => {
             const isUpcoming = new Date(collection.launchDate) > new Date();
             const isNew = !isUpcoming && (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000);
             
