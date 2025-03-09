@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useInView } from '../../hooks/useInView';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -32,14 +31,8 @@ export function OptimizedImage({
   const [srcSet, setSrcSet] = useState<string>('');
   const [blurredLoaded, setBlurredLoaded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { isInView } = useInView({ ref: containerRef });
 
   useEffect(() => {
-    // Reset loading state when src changes
-    if (!priority && !isInView) {
-      setIsLoading(true);
-    }
-    
     // Optimize the image URL
     const optimizeImageUrl = (url: string, targetWidth?: number, targetQuality?: number) => {
       if (!url) return '';
@@ -108,16 +101,15 @@ export function OptimizedImage({
       }
     };
 
-    // Only load the image if it's in view or priority
-    if (isInView || priority) {
-      setImageSrc(optimizeImageUrl(src));
-      setSrcSet(generateSrcSet());
-      
-      if (!priority) {
-        loadBlurredPlaceholder();
-      }
+    // Set image sources immediately
+    setImageSrc(optimizeImageUrl(src));
+    setSrcSet(generateSrcSet());
+    
+    // Load blur placeholder if not priority
+    if (!priority) {
+      loadBlurredPlaceholder();
     }
-  }, [src, width, height, quality, priority, isInView]);
+  }, [src, width, height, quality, priority]);
 
   const handleImageLoad = () => {
     setIsLoading(false);
@@ -150,38 +142,36 @@ export function OptimizedImage({
         </div>
       )}
       
-      {(isInView || priority) && (
-        <picture>
-          {/* WebP format for modern browsers */}
-          <source
-            type="image/webp"
-            srcSet={srcSet}
-            sizes={sizes}
-          />
-          {/* Fallback for browsers that don't support WebP */}
-          <img
-            src={imageSrc}
-            alt={alt}
-            width={width}
-            height={height}
-            className={`
-              w-full h-full ${objectFitClass} 
-              transition-all duration-300 ease-out
-              ${isLoading ? 'scale-105 blur-[1px]' : 'scale-100 blur-0'}
-              ${className}
-            `}
-            loading={priority ? 'eager' : 'lazy'}
-            onLoad={handleImageLoad}
-            onError={() => {
-              console.error('Image failed to load:', src);
-              setIsLoading(false);
-            }}
-            sizes={sizes}
-            srcSet={srcSet}
-            {...props}
-          />
-        </picture>
-      )}
+      <picture>
+        {/* WebP format for modern browsers */}
+        <source
+          type="image/webp"
+          srcSet={srcSet}
+          sizes={sizes}
+        />
+        {/* Fallback for browsers that don't support WebP */}
+        <img
+          src={imageSrc}
+          alt={alt}
+          width={width}
+          height={height}
+          className={`
+            w-full h-full ${objectFitClass} 
+            transition-all duration-300 ease-out
+            ${isLoading ? 'scale-105 blur-[1px]' : 'scale-100 blur-0'}
+            ${className}
+          `}
+          loading={priority ? 'eager' : 'lazy'}
+          onLoad={handleImageLoad}
+          onError={() => {
+            console.error('Image failed to load:', src);
+            setIsLoading(false);
+          }}
+          sizes={sizes}
+          srcSet={srcSet}
+          {...props}
+        />
+      </picture>
     </div>
   );
 } 
