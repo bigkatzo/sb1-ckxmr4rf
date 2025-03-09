@@ -28,9 +28,15 @@ export function ProductCardCompact({
     }
   };
 
+  const handleClick = () => {
+    if (onClick) {
+      onClick(product);
+    }
+  };
+
   return (
     <div 
-      onClick={() => onClick(product)}
+      onClick={handleClick}
       className="group relative bg-gray-900 rounded-lg overflow-hidden h-full hover:ring-1 hover:ring-purple-500/50 hover:-translate-y-0.5 transition-all cursor-pointer"
     >
       <div className="relative aspect-[4/3] overflow-hidden">

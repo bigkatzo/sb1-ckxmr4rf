@@ -12,9 +12,15 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onClick, categoryIndex = 0 }: ProductCardProps) {
+  const handleClick = () => {
+    if (onClick) {
+      onClick(product);
+    }
+  };
+
   return (
     <div 
-      onClick={() => onClick(product)}
+      onClick={handleClick}
       className="group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-purple-500/50 hover:-translate-y-0.5 transition-all"
     >
       <div className="relative aspect-square overflow-hidden">
@@ -59,7 +65,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0 }: ProductCard
             disabled={product.stock === 0}
             className="z-10"
             onClick={(e) => {
-              onClick(product);
+              handleClick();
             }}
           />
         </div>

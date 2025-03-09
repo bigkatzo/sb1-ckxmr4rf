@@ -1,6 +1,6 @@
-import React from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import type { SearchResult } from '../../types';
+import { OptimizedImage } from '../ui/OptimizedImage';
 
 interface SearchResultsProps {
   results: SearchResult[];
@@ -44,10 +44,14 @@ export function SearchResults({ results, loading, onSelect }: SearchResultsProps
           className="w-full px-3 py-2 flex items-center space-x-3 hover:bg-gray-800 transition-colors"
         >
           {result.imageUrl ? (
-            <img
+            <OptimizedImage
               src={result.imageUrl}
               alt={result.name}
-              className="h-10 w-10 rounded object-cover"
+              width={80}
+              height={80}
+              quality={75}
+              className="h-10 w-10 rounded"
+              sizes="40px"
             />
           ) : (
             <div className="h-10 w-10 rounded bg-gray-800 flex items-center justify-center">

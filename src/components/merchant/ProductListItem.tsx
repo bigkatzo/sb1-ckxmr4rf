@@ -4,69 +4,60 @@ import { Image as ImageIcon } from 'lucide-react';
 import { CategoryTag } from '../ui/CategoryTag';
 import { EditButton } from '../ui/EditButton';
 import { DeleteButton } from '../ui/DeleteButton';
+import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Product } from '../../types';
 
 interface ProductListItemProps {
   product: Product;
   onEdit?: () => void;
   onDelete?: () => void;
+  onClick?: () => void;
 }
 
-export function ProductListItem({ product, onEdit, onDelete }: ProductListItemProps) {
+export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductListItemProps) {
   return (
-    <div className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
-      <div className="flex items-start gap-2 sm:gap-3">
+    <div 
+      onClick={onClick}
+      className={`
+        flex items-center gap-3 p-3 rounded-lg bg-gray-900 
+        ${onClick ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}
+      `}
+    >
+      <div className="relative h-12 w-12 flex-shrink-0 rounded-md overflow-hidden bg-gray-800">
         {product.imageUrl ? (
-          <img
+          <OptimizedImage
             src={product.imageUrl}
             alt={product.name}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover flex-shrink-0"
+            width={96}
+            height={96}
+            quality={75}
+            className="h-full w-full"
+            sizes="48px"
           />
         ) : (
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-            <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+          <div className="h-full w-full flex items-center justify-center">
+            <ImageIcon className="h-5 w-5 text-gray-600" />
           </div>
         )}
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="font-medium text-xs sm:text-sm truncate">{product.name}</h3>
-              <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
-                {product.description}
-              </p>
-              <div className="mt-2">
-                <span className="inline-block bg-gray-800 text-xs px-2 py-1 rounded">
-                  {product.sku}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {onEdit && (
-                <EditButton onClick={onEdit} className="scale-75 sm:scale-90" />
-              )}
-              {onDelete && (
-                <DeleteButton onClick={onDelete} className="scale-75 sm:scale-90" />
-              )}
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2">
-            <span className="text-[10px] sm:text-xs font-medium">
-              {product.price} SOL
-            </span>
-            <span className="text-[10px] sm:text-xs text-gray-400">
-              {product.stock} in stock
-            </span>
-            {product.category && (
-              <CategoryTag
-                name={product.category.name}
-                type={product.category.type || 'default'}
-                className="text-[10px] sm:text-xs scale-90"
-              />
-            )}
-          </div>
-        </div>
+      </div>
+      
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-medium text-white truncate">{product.name}</h3>
+        <p className="text-xs text-gray-400 truncate">{product.description}</p>
+      </div>
+      
+      <div className="text-right">
+        <p className="text-sm font-medium text-white">{product.price} SOL</p>
+        <p className="text-xs text-gray-400">{product.stock} left</p>
+      </div>
+      
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {onEdit && (
+          <EditButton onClick={onEdit} className="scale-75 sm:scale-90" />
+        )}
+        {onDelete && (
+          <DeleteButton onClick={onDelete} className="scale-75 sm:scale-90" />
+        )}
       </div>
     </div>
   );

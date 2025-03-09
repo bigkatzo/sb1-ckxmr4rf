@@ -1,21 +1,21 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, ArrowRight, Image as ImageIcon, Ban } from 'lucide-react';
+import { Clock, Image as ImageIcon, Ban, ArrowRight } from 'lucide-react';
+import { CountdownTimer } from '../ui/CountdownTimer';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Collection } from '../../types';
 
 interface CollectionCardProps {
   collection: Collection;
-  variant?: 'default' | 'large';
-  categoryIndices?: Record<string, number>;
+  onClick?: (collection: Collection) => void;
 }
 
-export function CollectionCard({ collection, variant = 'default', categoryIndices = {} }: CollectionCardProps) {
+export function CollectionCard({ collection, onClick }: CollectionCardProps) {
   const now = new Date();
   const isUpcoming = collection.launchDate > now;
   const isNew = !isUpcoming && (now.getTime() - collection.launchDate.getTime()) < 7 * 24 * 60 * 60 * 1000;
 
-  const isLarge = variant === 'large';
+  const isLarge = false;
   const aspectRatio = isLarge ? 'aspect-[16/10]' : 'aspect-[4/3]';
 
   return (
