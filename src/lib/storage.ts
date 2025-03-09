@@ -35,12 +35,15 @@ export function normalizeStorageUrl(url: string): string {
     // If the path doesn't already use render/image, convert it
     if (!path.includes('/render/image/')) {
       path = path
+        .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
         .replace('/storage/v1/object/', '/storage/v1/render/image/')
         .replace('/storage/v1/', '/storage/v1/render/image/');
     }
     
     // Clean up the path
     path = path.replace(/\/+/g, '/');
+    
+    // Ensure public bucket is in the path
     if (!path.includes('/public/')) {
       path = path.replace(/\/([^/]+)\/([^/]+)$/, '/public/$1/$2');
     }
@@ -51,6 +54,7 @@ export function normalizeStorageUrl(url: string): string {
     // If URL parsing fails, fall back to regex-based normalization
     let normalizedUrl = url.replace(/^http:/, 'https:');
     normalizedUrl = normalizedUrl.replace(/[?#].*$/, '');
+    normalizedUrl = normalizedUrl.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
     normalizedUrl = normalizedUrl.replace('/storage/v1/object/', '/storage/v1/render/image/');
     normalizedUrl = normalizedUrl.replace(/\/+/g, '/');
     if (!normalizedUrl.includes('/public/')) {
