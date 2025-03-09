@@ -31,8 +31,10 @@ export function OptimizedImage({
   const [imageSrc, setImageSrc] = useState<string>('');
   const [srcSet, setSrcSet] = useState<string>('');
   const [blurredLoaded, setBlurredLoaded] = useState(false);
-  const [containerRef, isInView] = useInView<HTMLDivElement>({
-    rootMargin: '50%', // Start loading when image is within 50% of viewport
+  const [isLoaded, setIsLoaded] = useState(false);
+  const { ref, isInView, hasBeenInView } = useInView({
+    threshold: 0,
+    rootMargin: '50px'
   });
 
   useEffect(() => {
@@ -121,6 +123,13 @@ export function OptimizedImage({
     }
   }, [src, width, height, quality, priority, isInView]);
 
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (e.currentTarget) {
+      e.currentTarget.style.opacity = '1';
+      setIsLoaded(true);
+    }
+  };
+
   const handleImageLoad = () => {
     setIsLoading(false);
     if (onLoad) onLoad();
@@ -135,7 +144,7 @@ export function OptimizedImage({
   }[objectFit];
 
   return (
-    <div ref={containerRef} className="relative w-full h-full">
+    <div ref={ref} className="relative w-full h-full">
       {isLoading && (
         <div className={`
           absolute inset-0 bg-gray-800

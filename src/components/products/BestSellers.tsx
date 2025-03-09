@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductCardCompact } from './ProductCardCompact';
 import { ProductModal } from './ProductModal';
 import { useBestSellers } from '../../hooks/useBestSellers';
+import { BestSellersSkeleton } from '../ui/Skeletons';
 import type { Product } from '../../types';
 
 export function BestSellers() {
@@ -18,18 +19,7 @@ export function BestSellers() {
   };
 
   if (loading) {
-    return (
-      <div className="relative">
-        <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="flex-shrink-0 w-[140px] sm:w-[200px] aspect-[4/3] animate-pulse rounded-lg bg-gray-800"
-            />
-          ))}
-        </div>
-      </div>
-    );
+    return <BestSellersSkeleton />;
   }
 
   return (

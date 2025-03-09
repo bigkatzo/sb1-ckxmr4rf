@@ -1,8 +1,8 @@
-import React from 'react';
 import { useParams, Navigate, useLocation } from 'react-router-dom';
 import { useProduct } from '../hooks/useProduct';
 import { ProductModal } from '../components/products/ProductModal';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
+import { ProductModalSkeleton } from '../components/ui/Skeletons';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
@@ -14,7 +14,7 @@ export function ProductPage() {
     (product ? createCategoryIndicesFromProducts([product])[product.categoryId] || 0 : 0);
 
   if (loading) {
-    return null; // Modal will handle loading state
+    return <ProductModalSkeleton />;
   }
 
   if (error || !product) {

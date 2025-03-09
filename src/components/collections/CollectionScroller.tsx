@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CollectionCard } from './CollectionCard';
 import { useCollections } from '../../hooks/useCollections';
 import { createCategoryIndicesFromProducts } from '../../utils/category-mapping';
+import { CollectionScrollerSkeleton } from '../ui/Skeletons';
 
 interface CollectionScrollerProps {
   filter: 'upcoming' | 'latest' | 'popular';
@@ -32,18 +33,7 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
   };
 
   if (loading) {
-    return (
-      <div className="relative">
-        <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
-          {[...Array(4)].map((_, i) => (
-            <div
-              key={i}
-              className="flex-shrink-0 w-[280px] sm:w-[320px] aspect-[16/10] animate-pulse rounded-xl bg-gray-800"
-            />
-          ))}
-        </div>
-      </div>
-    );
+    return <CollectionScrollerSkeleton />;
   }
 
   if (!collections?.length) {
@@ -59,13 +49,13 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
         {collections.map((collection) => (
           <div
             key={collection.id}
+            className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start"
             onClick={() => navigate(`/${collection.slug}`)}
-            className="flex-shrink-0 w-[280px] sm:w-[320px] cursor-pointer snap-start"
           >
             <CollectionCard 
               collection={collection} 
               categoryIndices={categoryIndices}
-              variant="large"
+              variant="small"
             />
           </div>
         ))}

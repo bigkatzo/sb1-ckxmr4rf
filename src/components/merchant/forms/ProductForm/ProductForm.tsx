@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { ProductBasicInfo } from './ProductBasicInfo';
 import { ProductImages } from './ProductImages';
 import { ProductVariants } from './ProductVariants';
+import { FormSkeleton } from '../../../ui/Skeleton';
 import type { Product, Category } from '../../../../types';
 import type { ProductVariant, VariantPricing } from '../../../../types/variants';
 
@@ -12,9 +13,10 @@ export interface ProductFormProps {
   initialData?: Product;
   onClose: () => void;
   onSubmit: (data: FormData) => void;
+  isLoading?: boolean;
 }
 
-export function ProductForm({ categories, initialData, onClose, onSubmit }: ProductFormProps) {
+export function ProductForm({ categories, initialData, onClose, onSubmit, isLoading }: ProductFormProps) {
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>(initialData?.images || []);
@@ -89,41 +91,46 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto">
-              <form 
-                id="product-form"
-                onSubmit={handleSubmit} 
-                className="space-y-6 p-4 sm:p-6"
-              >
-                {error && (
-                  <div className="p-4 bg-red-900/50 border border-red-500 rounded-lg">
-                    <p className="text-red-400 text-sm">{error}</p>
-                  </div>
-                )}
+              {isLoading ? (
+                <FormSkeleton />
+              ) : (
+                <form 
+                  id="product-form"
+                  onSubmit={handleSubmit} 
+                  className="space-y-6 p-4 sm:p-6"
+                >
+                  {error && (
+                    <div className="p-4 bg-red-900/50 border border-red-500 rounded-lg">
+                      <p className="text-red-400 text-sm">{error}</p>
+                    </div>
+                  )}
 
-                <ProductImages
-                  images={images}
-                  previews={previews}
-                  setImages={setImages}
-                  setPreviews={setPreviews}
-                  existingImages={existingImages}
-                  onRemoveExisting={handleRemoveExistingImage}
-                />
+                  <ProductImages
+                    images={images}
+                    previews={previews}
+                    setImages={setImages}
+                    setPreviews={setPreviews}
+                    existingImages={existingImages}
+                    setExistingImages={setExistingImages}
+                    onRemoveExisting={handleRemoveExistingImage}
+                  />
 
-                <ProductBasicInfo 
-                  categories={categories}
-                  initialData={initialData}
-                />
+                  <ProductBasicInfo 
+                    categories={categories}
+                    initialData={initialData}
+                  />
 
-                <ProductVariants
-                  variants={variants}
-                  variantPrices={variantPrices}
-                  basePrice={initialData?.price || 0}
-                  onChange={(newVariants: ProductVariant[], newPrices: VariantPricing) => {
-                    setVariants(newVariants);
-                    setVariantPrices(newPrices);
-                  }}
-                />
-              </form>
+                  <ProductVariants
+                    variants={variants}
+                    variantPrices={variantPrices}
+                    basePrice={initialData?.price || 0}
+                    onChange={(newVariants: ProductVariant[], newPrices: VariantPricing) => {
+                      setVariants(newVariants);
+                      setVariantPrices(newPrices);
+                    }}
+                  />
+                </form>
+              )}
             </div>
 
             {/* Footer */}
@@ -139,7 +146,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
                 <button
                   form="product-form"
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || isLoading}
                   className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white"
                 >
                   {loading ? 'Saving...' : initialData ? 'Save Changes' : 'Create Product'}

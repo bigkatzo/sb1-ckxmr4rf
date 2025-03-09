@@ -1,7 +1,7 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
-import { OptimizedImage } from '../ui/OptimizedImage';
+import { LazyImage } from '../ui/LazyImage';
 import type { Product } from '../../types';
 
 interface ProductCardProps {
@@ -25,7 +25,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, index }: Prod
     >
       <div className="relative aspect-square overflow-hidden">
         {product.imageUrl ? (
-          <OptimizedImage
+          <LazyImage
             src={product.imageUrl}
             alt={product.name}
             width={400}
@@ -33,6 +33,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, index }: Prod
             quality={80}
             className="transition-transform duration-300 will-change-transform group-hover:scale-105"
             sizes="(max-width: 640px) 50vw, 33vw"
+            priority={index !== undefined && index < 8}
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">

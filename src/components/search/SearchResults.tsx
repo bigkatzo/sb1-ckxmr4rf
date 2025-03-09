@@ -1,6 +1,7 @@
 import { Image as ImageIcon } from 'lucide-react';
 import type { SearchResult } from '../../types';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { SearchResultsSkeleton } from '../ui/Skeletons';
 
 interface SearchResultsProps {
   results: SearchResult[];
@@ -10,19 +11,7 @@ interface SearchResultsProps {
 
 export function SearchResults({ results, loading, onSelect }: SearchResultsProps) {
   if (loading) {
-    return (
-      <div className="absolute top-full mt-2 w-full bg-gray-900 rounded-lg shadow-lg border border-gray-800 py-2">
-        <div className="px-3 py-2">
-          <div className="animate-pulse flex items-center space-x-4">
-            <div className="h-10 w-10 bg-gray-800 rounded" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 bg-gray-800 rounded w-1/4" />
-              <div className="h-3 bg-gray-800 rounded w-1/2" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <SearchResultsSkeleton />;
   }
 
   if (results.length === 0) {

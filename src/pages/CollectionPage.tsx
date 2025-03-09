@@ -130,6 +130,7 @@ export function CollectionPage() {
             products={collection.products} 
             categoryId={selectedCategory}
             categoryIndices={categoryIndices}
+            loading={loading && !isInitialLoad}
           />
         </div>
       </div>

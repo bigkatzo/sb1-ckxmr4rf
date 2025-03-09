@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProductCard } from './ProductCard';
+import { ProductGridSkeleton } from '../ui/Skeletons';
 import { isValidProductNavigation } from '../../utils/validation';
 import type { Product } from '../../types';
 
@@ -8,9 +9,10 @@ interface ProductGridProps {
   products: Product[];
   categoryId?: string;
   categoryIndices: Record<string, number>;
+  loading?: boolean;
 }
 
-export function ProductGrid({ products, categoryId, categoryIndices }: ProductGridProps) {
+export function ProductGrid({ products, categoryId, categoryIndices, loading }: ProductGridProps) {
   const navigate = useNavigate();
   
   const filteredProducts = React.useMemo(() => 
@@ -39,6 +41,10 @@ export function ProductGrid({ products, categoryId, categoryIndices }: ProductGr
       }
     });
   };
+
+  if (loading) {
+    return <ProductGridSkeleton />;
+  }
 
   if (!Array.isArray(filteredProducts) || filteredProducts.length === 0) {
     return (

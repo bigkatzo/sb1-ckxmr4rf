@@ -171,10 +171,10 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                         <OptimizedImage
                           src={imagePreview}
                           alt={name || 'Collection preview'}
-                          width={400}
-                          height={300}
+                          width={800}
+                          height={450}
                           quality={80}
-                          className="mx-auto aspect-[4/3] w-full max-w-lg object-cover rounded-lg"
+                          className="mx-auto w-full object-contain rounded-lg"
                           sizes="(max-width: 640px) 100vw, 800px"
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">

@@ -3,28 +3,31 @@ import { useEffect, useRef, useState } from 'react';
 interface UseInViewOptions {
   rootMargin?: string;
   threshold?: number;
+  root?: Element | null;
 }
 
-export function useInView<T extends HTMLElement = HTMLDivElement>(
-  options: UseInViewOptions = {}
-): [React.RefObject<T>, boolean] {
-  const ref = useRef<T>(null);
+export function useInView<T extends Element>({
+  rootMargin = '50px',
+  threshold = 0,
+  root = null
+}: UseInViewOptions = {}) {
   const [isInView, setIsInView] = useState(false);
+  const [hasBeenInView, setHasBeenInView] = useState(false);
+  const elementRef = useRef<T>(null);
 
   useEffect(() => {
-    const element = ref.current;
+    const element = elementRef.current;
     if (!element) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // Update state when intersection changes
-        setIsInView(entry.isIntersecting);
+        const isVisible = entry.isIntersecting;
+        setIsInView(isVisible);
+        if (isVisible && !hasBeenInView) {
+          setHasBeenInView(true);
+        }
       },
-      {
-        // Load images that are within 50% of the viewport distance
-        rootMargin: options.rootMargin || '50%',
-        threshold: options.threshold || 0
-      }
+      { rootMargin, threshold, root }
     );
 
     observer.observe(element);
@@ -33,7 +36,7 @@ export function useInView<T extends HTMLElement = HTMLDivElement>(
       observer.unobserve(element);
       observer.disconnect();
     };
-  }, [options.rootMargin, options.threshold]);
+  }, [rootMargin, threshold, root, hasBeenInView]);
 
-  return [ref, isInView];
+  return { ref: elementRef, isInView, hasBeenInView };
 } 

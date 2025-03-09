@@ -1,5 +1,6 @@
 import React from 'react';
 import { useOrderStats } from '../../hooks/useOrderStats';
+import { OrderProgressBarSkeleton } from './Skeletons';
 
 interface OrderProgressBarProps {
   productId: string;
@@ -23,15 +24,7 @@ export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock }: 
   }, [currentOrders, minimumOrderQuantity, maxStock]);
   
   if (loading) {
-    return (
-      <div className="space-y-4 bg-gray-950/50 rounded-lg p-4 animate-pulse">
-        <div className="h-4 bg-gray-800 rounded-full" />
-        <div className="space-y-2">
-          <div className="h-3 bg-gray-800 rounded w-1/4" />
-          <div className="h-3 bg-gray-800 rounded w-1/2" />
-        </div>
-      </div>
-    );
+    return <OrderProgressBarSkeleton />;
   }
 
   return (
