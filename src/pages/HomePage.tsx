@@ -1,4 +1,3 @@
-import React from 'react';
 import { CollectionScroller } from '../components/collections/CollectionScroller';
 import { CollectionGrid } from '../components/collections/CollectionGrid';
 import { FeaturedCollection } from '../components/collections/FeaturedCollection';
@@ -13,7 +12,6 @@ export function HomePage() {
       <section>
         <SectionHeader
           title="Best Sellers"
-          description="Most popular items from our collections"
         />
         <BestSellers />
       </section>
@@ -21,7 +19,6 @@ export function HomePage() {
       <section>
         <SectionHeader
           title="Coming Soon"
-          description="Exclusive drops launching soon"
         />
         <CollectionScroller filter="upcoming" />
       </section>
@@ -29,7 +26,6 @@ export function HomePage() {
       <section>
         <SectionHeader
           title="Latest Collections"
-          description="Fresh drops ready to explore"
         />
         <CollectionGrid filter="latest" />
       </section>
