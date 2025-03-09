@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductCardCompact } from './ProductCardCompact';
 import { ProductModal } from './ProductModal';
@@ -7,7 +7,7 @@ import type { Product } from '../../types';
 
 export function BestSellers() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { products, categoryIndices, loading } = useBestSellers(12);
+  const { products, categoryIndices, loading } = useBestSellers(12, 'sales');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const scroll = (direction: 'left' | 'right') => {

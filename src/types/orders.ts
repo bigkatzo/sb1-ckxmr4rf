@@ -35,7 +35,7 @@ export interface Order {
   category_name?: string;
   shippingAddress?: ShippingAddress;
   contactInfo?: ContactInfo;
-  walletAddress?: string;
+  walletAddress: string;
   transactionSignature: string;
   access_type?: 'admin' | 'owner' | 'edit' | 'view';
   product?: Product;

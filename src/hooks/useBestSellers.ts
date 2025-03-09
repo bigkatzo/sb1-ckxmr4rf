@@ -28,9 +28,10 @@ interface PublicProduct {
   variants: any[];
   variant_prices: Record<string, number>;
   variant_stock?: Record<string, number>;
+  sales_count?: number;
 }
 
-export function useBestSellers(limit = 6) {
+export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sales') {
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryIndices, setCategoryIndices] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -43,7 +44,10 @@ export function useBestSellers(limit = 6) {
       try {
         setLoading(true);
         const { data, error } = await supabase
-          .rpc('get_best_sellers', { p_limit: limit });
+          .rpc('get_best_sellers', { 
+            p_limit: limit,
+            p_sort_by: sortBy
+          });
 
         if (error) throw error;
 
@@ -75,8 +79,13 @@ export function useBestSellers(limit = 6) {
           minimumOrderQuantity: product.minimum_order_quantity || 50,
           variants: product.variants || [],
           variantPrices: product.variant_prices || {},
-          variantStock: product.variant_stock || {}
+          variantStock: product.variant_stock || {},
+          salesCount: product.sales_count || 0
         }));
+
+        if (sortBy === 'sales' && !transformedProducts.some((p: { salesCount?: number }) => p.salesCount && p.salesCount > 0)) {
+          console.warn('Sales count not provided by backend, sorting may not be accurate');
+        }
 
         if (isMounted) {
           setProducts(transformedProducts);
@@ -103,7 +112,7 @@ export function useBestSellers(limit = 6) {
     return () => {
       isMounted = false;
     };
-  }, [limit]);
+  }, [limit, sortBy]);
 
   return { products, categoryIndices, loading, error };
 }

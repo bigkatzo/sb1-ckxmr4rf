@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Clock, Image as ImageIcon, Ban, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, Clock, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFeaturedCollections } from '../../hooks/useFeaturedCollections';
 import { CountdownTimer } from '../ui/CountdownTimer';
 
@@ -11,10 +11,17 @@ export function FeaturedCollection() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
+  const [dragStartTime, setDragStartTime] = useState(0);
+  const [dragVelocity, setDragVelocity] = useState(0);
   const autoScrollTimer = useRef<NodeJS.Timeout>();
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const mouseDownPos = useRef<number | null>(null);
+  const isAnimating = useRef(false);
 
   // Required minimum swipe distance in pixels
   const minSwipeDistance = 50;
+  // Velocity threshold for momentum scrolling (pixels per millisecond)
+  const velocityThreshold = 0.5;
 
   // Reset auto-scroll timer
   const resetAutoScroll = useCallback(() => {
@@ -25,15 +32,22 @@ export function FeaturedCollection() {
     if (collections.length <= 1) return;
 
     autoScrollTimer.current = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % collections.length);
+      if (!isDragging && !isAnimating.current) {
+        setCurrentIndex((prev) => (prev + 1) % collections.length);
+      }
     }, 10000);
-  }, [collections.length]);
+  }, [collections.length, isDragging]);
 
+  // Touch handlers
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (isAnimating.current) return;
+    
     setTouchStart(e.targetTouches[0].clientX);
     setTouchEnd(null);
     setIsDragging(true);
     setDragOffset(0);
+    setDragStartTime(Date.now());
+    isAnimating.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -41,28 +55,122 @@ export function FeaturedCollection() {
     
     const currentTouch = e.targetTouches[0].clientX;
     const diff = touchStart - currentTouch;
-    setDragOffset(diff);
+    
+    // Add resistance at the edges
+    if ((currentIndex === 0 && diff < 0) || 
+        (currentIndex === collections.length - 1 && diff > 0)) {
+      setDragOffset(diff * 0.3); // Apply resistance
+    } else {
+      setDragOffset(diff);
+    }
+    
     setTouchEnd(currentTouch);
   };
 
   const handleTouchEnd = useCallback(() => {
-    if (!touchStart || !touchEnd) return;
+    if (!touchStart || !touchEnd || !isDragging) return;
 
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe) {
+    
+    // Calculate velocity for momentum scrolling
+    const endTime = Date.now();
+    const duration = endTime - dragStartTime;
+    const velocity = Math.abs(distance) / duration;
+    setDragVelocity(velocity);
+    
+    isAnimating.current = true;
+    
+    if (isLeftSwipe || (velocity > velocityThreshold && distance > 0)) {
       nextSlide();
-    } else if (isRightSwipe) {
+    } else if (isRightSwipe || (velocity > velocityThreshold && distance < 0)) {
       prevSlide();
+    } else {
+      // Snap back to current slide if swipe wasn't strong enough
+      setDragOffset(0);
+      setTimeout(() => {
+        isAnimating.current = false;
+      }, 500);
     }
 
     setTouchStart(null);
     setTouchEnd(null);
     setIsDragging(false);
+  }, [touchStart, touchEnd, dragStartTime, isDragging, collections.length]);
+
+  // Mouse drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isAnimating.current) return;
+    
+    mouseDownPos.current = e.clientX;
+    setIsDragging(true);
     setDragOffset(0);
-  }, [touchStart, touchEnd]);
+    setDragStartTime(Date.now());
+    isAnimating.current = false;
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Prevent default to avoid text selection during drag
+    e.preventDefault();
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (mouseDownPos.current === null || !isDragging) return;
+    
+    const diff = mouseDownPos.current - e.clientX;
+    
+    // Add resistance at the edges
+    if ((currentIndex === 0 && diff < 0) || 
+        (currentIndex === collections.length - 1 && diff > 0)) {
+      setDragOffset(diff * 0.3); // Apply resistance
+    } else {
+      setDragOffset(diff);
+    }
+  }, [isDragging, currentIndex, collections.length]);
+
+  const handleMouseUp = useCallback((e: MouseEvent) => {
+    if (mouseDownPos.current === null || !isDragging) return;
+    
+    const distance = mouseDownPos.current - e.clientX;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    // Calculate velocity for momentum scrolling
+    const endTime = Date.now();
+    const duration = endTime - dragStartTime;
+    const velocity = Math.abs(distance) / duration;
+    setDragVelocity(velocity);
+    
+    isAnimating.current = true;
+    
+    if (isLeftSwipe || (velocity > velocityThreshold && distance > 0)) {
+      nextSlide();
+    } else if (isRightSwipe || (velocity > velocityThreshold && distance < 0)) {
+      prevSlide();
+    } else {
+      // Snap back to current slide if swipe wasn't strong enough
+      setDragOffset(0);
+      setTimeout(() => {
+        isAnimating.current = false;
+      }, 500);
+    }
+    
+    mouseDownPos.current = null;
+    setIsDragging(false);
+    
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  }, [isDragging, dragStartTime, collections.length]);
+
+  // Cleanup mouse events on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
 
   // Initialize auto-scroll
   useEffect(() => {
@@ -74,19 +182,51 @@ export function FeaturedCollection() {
     };
   }, [resetAutoScroll]);
 
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isAnimating.current) return;
+      
+      if (e.key === 'ArrowLeft') {
+        prevSlide();
+      } else if (e.key === 'ArrowRight') {
+        nextSlide();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [collections.length]);
+
   const goToSlide = (index: number) => {
+    isAnimating.current = true;
     setCurrentIndex(index);
     resetAutoScroll();
+    setTimeout(() => {
+      isAnimating.current = false;
+    }, 500);
   };
 
   const nextSlide = () => {
+    isAnimating.current = true;
     setCurrentIndex((prev) => (prev + 1) % collections.length);
     resetAutoScroll();
+    setDragOffset(0);
+    setTimeout(() => {
+      isAnimating.current = false;
+    }, 500);
   };
 
   const prevSlide = () => {
+    isAnimating.current = true;
     setCurrentIndex((prev) => (prev - 1 + collections.length) % collections.length);
     resetAutoScroll();
+    setDragOffset(0);
+    setTimeout(() => {
+      isAnimating.current = false;
+    }, 500);
   };
 
   if (loading) {
@@ -99,25 +239,32 @@ export function FeaturedCollection() {
     return null;
   }
 
+  // Calculate transition speed based on velocity for momentum effect
+  const transitionDuration = isDragging ? 0 : (dragVelocity > velocityThreshold ? 300 : 500);
+  
   const translateX = isDragging 
-    ? -(currentIndex * 100) + (dragOffset / window.innerWidth * 100)
+    ? -(currentIndex * 100) + (dragOffset / (sliderRef.current?.clientWidth || window.innerWidth) * 100)
     : -(currentIndex * 100);
 
   return (
     <div className="space-y-2">
-      <div className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group touch-pan-y">
+      <div 
+        ref={sliderRef}
+        className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing"
+        onMouseDown={handleMouseDown}
+      >
         <div 
-          className="flex h-full transition-transform duration-500 ease-out touch-pan-y will-change-transform"
+          className="flex h-full will-change-transform"
           style={{ 
             transform: `translateX(${translateX}%)`,
-            transition: isDragging ? 'none' : 'transform 500ms cubic-bezier(0.4, 0, 0.2, 1)'
+            transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.25, 1, 0.5, 1)`
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
         >
-          {collections.map((collection, index) => {
+          {collections.map((collection) => {
             const isUpcoming = new Date(collection.launchDate) > new Date();
             const isNew = !isUpcoming && (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000);
             
@@ -203,12 +350,14 @@ export function FeaturedCollection() {
             <button
               onClick={prevSlide}
               className="hidden sm:flex absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+              aria-label="Previous slide"
             >
               <ChevronLeft className="h-6 w-6" />
             </button>
             <button
               onClick={nextSlide}
               className="hidden sm:flex absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+              aria-label="Next slide"
             >
               <ChevronRight className="h-6 w-6" />
             </button>
@@ -219,14 +368,14 @@ export function FeaturedCollection() {
       {/* Slide Indicators - Now below the slider */}
       {collections.length > 1 && (
         <div className="flex justify-center gap-2">
-          {collections.map((_, index) => (
+          {collections.map((_, i) => (
             <button
-              key={index}
-              onClick={() => goToSlide(index)}
+              key={i}
+              onClick={() => goToSlide(i)}
               className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                index === currentIndex ? 'bg-gray-800 w-4' : 'bg-gray-400 hover:bg-gray-600'
+                i === currentIndex ? 'bg-gray-800 w-4' : 'bg-gray-400 hover:bg-gray-600'
               }`}
-              aria-label={`Go to slide ${index + 1}`}
+              aria-label={`Go to slide ${i + 1}`}
             />
           ))}
         </div>

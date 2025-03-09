@@ -61,18 +61,24 @@ WHERE c.visible = true;
 -- Grant access to anonymous users (public storefront)
 GRANT SELECT ON public_products_with_categories TO anon;
 
--- Update the best sellers function to use the new view
-CREATE OR REPLACE FUNCTION public.get_best_sellers(p_limit integer DEFAULT 6)
+-- Update the best sellers function to use the new view and sort by sales
+CREATE OR REPLACE FUNCTION public.get_best_sellers(p_limit integer DEFAULT 6, p_sort_by text DEFAULT 'sales')
 RETURNS SETOF public_products_with_categories
 LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT * FROM public_products_with_categories
-  WHERE collection_sale_ended = false
-  ORDER BY quantity DESC
+  SELECT p.* 
+  FROM public_products_with_categories p
+  LEFT JOIN public_order_counts oc ON p.id = oc.product_id
+  WHERE p.collection_sale_ended = false
+  ORDER BY 
+    CASE 
+      WHEN p_sort_by = 'sales' THEN COALESCE(oc.total_orders, 0)
+      ELSE p.quantity 
+    END DESC
   LIMIT p_limit;
 $$;
 
 -- Grant execute permission
-GRANT EXECUTE ON FUNCTION public.get_best_sellers(integer) TO anon; 
+GRANT EXECUTE ON FUNCTION public.get_best_sellers(integer, text) TO anon; 
