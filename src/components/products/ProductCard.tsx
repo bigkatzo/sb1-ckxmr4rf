@@ -1,7 +1,7 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
-import { LazyImage } from '../ui/LazyImage';
+import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Product } from '../../types';
 
 interface ProductCardProps {
@@ -25,7 +25,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, index }: Prod
     >
       <div className="relative aspect-square overflow-hidden">
         {product.imageUrl ? (
-          <LazyImage
+          <OptimizedImage
             src={product.imageUrl}
             alt={product.name}
             width={400}
