@@ -1,7 +1,4 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
 import { Clock, Image as ImageIcon, Ban, ArrowRight } from 'lucide-react';
-import { CountdownTimer } from '../ui/CountdownTimer';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Collection } from '../../types';
 

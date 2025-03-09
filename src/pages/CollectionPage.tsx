@@ -9,7 +9,6 @@ import { CollectionSkeleton } from '../components/collections/CollectionSkeleton
 import { CollectionNotFound } from '../components/collections/CollectionNotFound';
 import { createCategoryIndices } from '../utils/category-mapping';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
-import type { Product } from '../types';
 
 export function CollectionPage() {
   const { slug } = useParams();

@@ -1,5 +1,3 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
 import { Image as ImageIcon } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { DeleteButton } from '../ui/DeleteButton';
