@@ -3,7 +3,6 @@ import { EditButton } from '../ui/EditButton';
 import { DeleteButton } from '../ui/DeleteButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Product } from '../../types';
-import { MouseEvent } from 'react';
 
 interface ProductListItemProps {
   product: Product;
