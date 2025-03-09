@@ -29,38 +29,25 @@ export function normalizeStorageUrl(url: string): string {
     // Ensure HTTPS
     parsedUrl.protocol = 'https:';
     
-    // Always use render/image endpoint
+    // Get the path
     let path = parsedUrl.pathname;
     
-    // If the path doesn't already use render/image, convert it
-    if (!path.includes('/render/image/')) {
-      path = path
-        .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-        .replace('/storage/v1/object/', '/storage/v1/render/image/')
-        .replace('/storage/v1/', '/storage/v1/render/image/');
+    // If it's already a render/image URL, don't modify it
+    if (path.includes('/storage/v1/render/image/')) {
+      return url;
     }
     
-    // Clean up the path
-    path = path.replace(/\/+/g, '/');
-    
-    // Ensure public bucket is in the path
-    if (!path.includes('/public/')) {
-      path = path.replace(/\/([^/]+)\/([^/]+)$/, '/public/$1/$2');
+    // If it's an object URL, keep it as is - OptimizedImage will handle conversion
+    if (path.includes('/storage/v1/object/public/')) {
+      return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
     }
     
-    return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
+    // For other URLs, return as is
+    return url;
   } catch (error) {
     console.error('Error normalizing URL:', error);
-    // If URL parsing fails, fall back to regex-based normalization
-    let normalizedUrl = url.replace(/^http:/, 'https:');
-    normalizedUrl = normalizedUrl.replace(/[?#].*$/, '');
-    normalizedUrl = normalizedUrl.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-    normalizedUrl = normalizedUrl.replace('/storage/v1/object/', '/storage/v1/render/image/');
-    normalizedUrl = normalizedUrl.replace(/\/+/g, '/');
-    if (!normalizedUrl.includes('/public/')) {
-      normalizedUrl = normalizedUrl.replace(/\/([^/]+)\/([^/]+)$/, '/public/$1/$2');
-    }
-    return normalizedUrl;
+    // If URL parsing fails, return the original URL
+    return url;
   }
 }
 

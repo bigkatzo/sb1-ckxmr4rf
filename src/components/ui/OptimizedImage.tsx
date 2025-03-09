@@ -42,7 +42,10 @@ export function OptimizedImage({
       
       try {
         // Check if this is a Supabase URL that can be optimized
-        if (url.includes('/storage/v1/render/image/')) {
+        if (url.includes('/storage/v1/object/public/')) {
+          // Convert object URL to render URL
+          const renderUrl = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+          
           // Add width, height, and quality parameters for resizing
           const params = new URLSearchParams();
           
@@ -70,7 +73,7 @@ export function OptimizedImage({
             params.append('t', Date.now().toString());
           }
           
-          return `${url}?${params.toString()}`;
+          return `${renderUrl}?${params.toString()}`;
         }
         return url;
       } catch (error) {
