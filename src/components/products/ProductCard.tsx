@@ -3,6 +3,7 @@ import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Product } from '../../types';
+import { useState } from 'react';
 
 interface ProductCardProps {
   product: Product;
@@ -12,6 +13,8 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport }: ProductCardProps) {
+  const [imageLoading, setImageLoading] = useState(true);
+
   const handleClick = () => {
     if (onClick) {
       onClick(product);
@@ -25,16 +28,30 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
     >
       <div className="relative aspect-square overflow-hidden">
         {product.imageUrl ? (
-          <OptimizedImage
-            src={product.imageUrl}
-            alt={product.name}
-            width={400}
-            height={400}
-            quality={80}
-            className="transition-transform duration-300 will-change-transform group-hover:scale-105"
-            sizes="(max-width: 640px) 50vw, 33vw"
-            priority={isInInitialViewport}
-          />
+          <>
+            <div 
+              className={`
+                absolute inset-0 bg-gray-800
+                ${imageLoading ? 'animate-pulse' : 'animate-none'}
+              `}
+            />
+            <OptimizedImage
+              src={product.imageUrl}
+              alt={product.name}
+              width={400}
+              height={400}
+              quality={80}
+              className={`
+                w-full h-full object-cover
+                transition-all duration-300 will-change-transform
+                group-hover:scale-105
+                ${imageLoading ? 'opacity-0' : 'opacity-100'}
+              `}
+              sizes="(max-width: 640px) 50vw, 33vw"
+              priority={isInInitialViewport}
+              onLoad={() => setImageLoading(false)}
+            />
+          </>
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">
             <ImageIcon className="h-8 w-8 text-gray-600" />
