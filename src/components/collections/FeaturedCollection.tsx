@@ -53,6 +53,9 @@ export function FeaturedCollection() {
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStart || !isDragging) return;
     
+    // Prevent default to avoid page scrolling during swipe
+    e.preventDefault();
+    
     const currentTouch = e.targetTouches[0].clientX;
     const diff = touchStart - currentTouch;
     
@@ -109,6 +112,7 @@ export function FeaturedCollection() {
     setDragStartTime(Date.now());
     isAnimating.current = false;
     
+    // Add event listeners to document to track mouse movement even outside the slider
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     
@@ -118,6 +122,9 @@ export function FeaturedCollection() {
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (mouseDownPos.current === null || !isDragging) return;
+    
+    // Prevent default to ensure smooth dragging
+    e.preventDefault();
     
     const diff = mouseDownPos.current - e.clientX;
     
@@ -250,7 +257,7 @@ export function FeaturedCollection() {
     <div className="space-y-2">
       <div 
         ref={sliderRef}
-        className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing"
+        className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing touch-none"
         onMouseDown={handleMouseDown}
       >
         <div 
