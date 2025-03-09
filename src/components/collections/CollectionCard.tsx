@@ -1,6 +1,5 @@
-import { Clock, Image as ImageIcon, Ban, ArrowRight } from 'lucide-react';
+import { Image as ImageIcon, Ban, ArrowRight } from 'lucide-react';
 import { OptimizedImage } from '../ui/OptimizedImage';
-import { CountdownTimer } from '../ui/CountdownTimer';
 import type { Collection } from '../../types';
 
 interface CollectionCardProps {
@@ -46,29 +45,9 @@ export function CollectionCard({ collection }: CollectionCardProps) {
             <div className="absolute inset-x-0 bottom-2 sm:bottom-3 flex justify-center">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 {isUpcoming && (
-                  <>
-                    {/* Desktop/Tablet: Combined tag */}
-                    <span className="hidden sm:inline-flex items-center rounded-full bg-purple-500/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
-                      <Clock className="mr-1 h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                      Coming Soon
-                      <span className="mx-2 w-px h-3 bg-white/30" />
-                      <CountdownTimer
-                        targetDate={collection.launchDate}
-                        className="text-[10px] sm:text-xs text-purple-200"
-                      />
-                    </span>
-                    {/* Mobile: Side by side tags */}
-                    <div className="sm:hidden flex items-center gap-1.5">
-                      <span className="inline-flex items-center rounded-full bg-purple-500/90 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium shadow-lg">
-                        <Clock className="mr-1 h-2.5 w-2.5" />
-                        Coming Soon
-                      </span>
-                      <CountdownTimer
-                        targetDate={collection.launchDate}
-                        className="text-[10px] text-purple-400 bg-black/50 px-2 py-0.5 rounded-lg backdrop-blur-sm"
-                      />
-                    </div>
-                  </>
+                  <span className="inline-flex items-center rounded-full bg-purple-500/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
+                    Coming Soon
+                  </span>
                 )}
                 {isNew && (
                   <span className="inline-flex items-center rounded-full bg-green-500/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
@@ -107,14 +86,7 @@ export function CollectionCard({ collection }: CollectionCardProps) {
           flex items-center justify-between
           ${isLarge ? 'mt-3 sm:mt-4' : 'mt-2 sm:mt-3'}
         `}>
-          {isUpcoming ? (
-            <div className="flex items-center text-purple-400/90">
-              <Clock className="mr-1.5 h-3 w-3 sm:h-4 sm:w-4" />
-              <span className={isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}>
-                {collection.launchDate.toLocaleDateString()}
-              </span>
-            </div>
-          ) : (
+          {!isUpcoming && (
             <div className="flex items-center text-purple-400/90 group-hover:text-purple-400 transition-colors">
               <span className={isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}>
                 Browse Collection
