@@ -94,7 +94,7 @@ export function FeaturedCollection() {
       setDragOffset(0);
       setTimeout(() => {
         isAnimating.current = false;
-      }, 500);
+      }, 300); // Reduced for faster response
     }
 
     setTouchStart(null);
@@ -161,7 +161,7 @@ export function FeaturedCollection() {
       setDragOffset(0);
       setTimeout(() => {
         isAnimating.current = false;
-      }, 500);
+      }, 300); // Reduced for faster response
     }
     
     mouseDownPos.current = null;
@@ -182,12 +182,31 @@ export function FeaturedCollection() {
   // Initialize auto-scroll
   useEffect(() => {
     resetAutoScroll();
+    
+    // Add passive touch event listeners to the slider element for better performance
+    const sliderElement = sliderRef.current;
+    if (sliderElement) {
+      const passiveListener = { passive: false };
+      sliderElement.addEventListener('touchstart', handleTouchStart as unknown as EventListener, passiveListener);
+      sliderElement.addEventListener('touchmove', handleTouchMove as unknown as EventListener, passiveListener);
+      sliderElement.addEventListener('touchend', handleTouchEnd as unknown as EventListener);
+      sliderElement.addEventListener('touchcancel', handleTouchEnd as unknown as EventListener);
+    }
+    
     return () => {
       if (autoScrollTimer.current) {
         clearInterval(autoScrollTimer.current);
       }
+      
+      // Clean up event listeners
+      if (sliderElement) {
+        sliderElement.removeEventListener('touchstart', handleTouchStart as unknown as EventListener);
+        sliderElement.removeEventListener('touchmove', handleTouchMove as unknown as EventListener);
+        sliderElement.removeEventListener('touchend', handleTouchEnd as unknown as EventListener);
+        sliderElement.removeEventListener('touchcancel', handleTouchEnd as unknown as EventListener);
+      }
     };
-  }, [resetAutoScroll]);
+  }, [resetAutoScroll, handleTouchEnd]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -247,10 +266,13 @@ export function FeaturedCollection() {
   }
 
   // Calculate transition speed based on velocity for momentum effect
-  const transitionDuration = isDragging ? 0 : (dragVelocity > velocityThreshold ? 300 : 500);
+  const transitionDuration = isDragging ? 0 : (dragVelocity > velocityThreshold ? 250 : 400);
+  
+  // Apply a slight damping effect to make the drag feel more natural
+  const dampingFactor = 0.92;
   
   const translateX = isDragging 
-    ? -(currentIndex * 100) + (dragOffset / (sliderRef.current?.clientWidth || window.innerWidth) * 100)
+    ? -(currentIndex * 100) + (dragOffset * dampingFactor / (sliderRef.current?.clientWidth || window.innerWidth) * 100)
     : -(currentIndex * 100);
 
   return (
@@ -261,15 +283,11 @@ export function FeaturedCollection() {
         onMouseDown={handleMouseDown}
       >
         <div 
-          className="flex h-full will-change-transform"
+          className="flex h-full will-change-transform scroll-smooth"
           style={{ 
             transform: `translateX(${translateX}%)`,
-            transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.25, 1, 0.5, 1)`
+            transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`
           }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onTouchCancel={handleTouchEnd}
         >
           {collections.map((collection) => {
             const isUpcoming = new Date(collection.launchDate) > new Date();
