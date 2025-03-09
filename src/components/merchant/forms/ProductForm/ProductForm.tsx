@@ -77,7 +77,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         <div className="min-h-full flex items-center justify-center p-0 sm:p-4">
           <div className="relative w-full h-full sm:h-auto sm:max-h-[90vh] bg-gray-900 sm:rounded-xl shadow-xl sm:max-w-2xl flex flex-col">
             {/* Header */}
-            <div className="flex-none bg-gray-900 z-10 flex justify-between items-center p-4 sm:p-6 border-b border-gray-800">
+            <div className="sticky top-0 flex-none bg-gray-900 z-10 flex justify-between items-center p-4 sm:p-6 border-b border-gray-800">
               <Dialog.Title className="text-lg sm:text-xl font-semibold text-white">
                 {initialData ? 'Edit Product' : 'New Product'}
               </Dialog.Title>
@@ -90,7 +90,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-0">
               {isLoading ? (
                 <FormSkeleton />
               ) : (
@@ -134,7 +134,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             </div>
 
             {/* Footer */}
-            <div className="flex-none bg-gray-900 border-t border-gray-800 p-4 sm:p-6">
+            <div className="sticky bottom-0 flex-none bg-gray-900 border-t border-gray-800 p-4 sm:p-6">
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
