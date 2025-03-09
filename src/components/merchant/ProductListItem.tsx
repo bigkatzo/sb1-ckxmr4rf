@@ -39,6 +39,7 @@ export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductL
               quality={75}
               className="object-cover w-full h-full"
               sizes="80px"
+              priority
             />
           ) : (
             <div className="h-full w-full flex items-center justify-center">

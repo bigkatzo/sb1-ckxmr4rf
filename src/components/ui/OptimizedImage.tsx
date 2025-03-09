@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useInView } from '../../hooks/useInView';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -29,10 +30,14 @@ export function OptimizedImage({
   const [isLoading, setIsLoading] = useState(!priority);
   const [imageSrc, setImageSrc] = useState<string>('');
   const [srcSet, setSrcSet] = useState<string>('');
+  const [blurredLoaded, setBlurredLoaded] = useState(false);
+  const [containerRef, isInView] = useInView<HTMLDivElement>({
+    rootMargin: '50%', // Start loading when image is within 50% of viewport
+  });
 
   useEffect(() => {
     // Reset loading state when src changes
-    if (!priority) {
+    if (!priority && !isInView) {
       setIsLoading(true);
     }
     
@@ -68,10 +73,8 @@ export function OptimizedImage({
           // Add format parameter for WebP if supported
           params.append('format', 'webp');
           
-          // Add a timestamp to bust cache during development
-          if (process.env.NODE_ENV === 'development') {
-            params.append('t', Date.now().toString());
-          }
+          // Add cache-control headers
+          params.append('cache-control', 'public, max-age=31536000, immutable');
           
           return `${renderUrl}?${params.toString()}`;
         }
@@ -94,9 +97,29 @@ export function OptimizedImage({
       return srcSetEntries.join(', ');
     };
 
-    setImageSrc(optimizeImageUrl(src));
-    setSrcSet(generateSrcSet());
-  }, [src, width, height, quality, priority]);
+    // Load a tiny blurred version first
+    const loadBlurredPlaceholder = async () => {
+      const tinyUrl = optimizeImageUrl(src, 20, 20);
+      try {
+        const response = await fetch(tinyUrl);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        setBlurredLoaded(true);
+      } catch (error) {
+        console.error('Error loading blurred placeholder:', error);
+      }
+    };
+
+    // Only load the image if it's in view or priority
+    if (isInView || priority) {
+      setImageSrc(optimizeImageUrl(src));
+      setSrcSet(generateSrcSet());
+      
+      if (!priority) {
+        loadBlurredPlaceholder();
+      }
+    }
+  }, [src, width, height, quality, priority, isInView]);
 
   const handleImageLoad = () => {
     setIsLoading(false);
@@ -112,40 +135,55 @@ export function OptimizedImage({
   }[objectFit];
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={containerRef} className="relative w-full h-full">
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm">
-          <div className="w-10 h-10 border-4 border-gray-600 border-t-purple-500 rounded-full animate-spin"></div>
+        <div className={`
+          absolute inset-0 bg-gray-800
+          ${blurredLoaded ? 'animate-none' : 'animate-pulse'}
+        `}>
+          {blurredLoaded && (
+            <img
+              src={imageSrc}
+              alt=""
+              className="w-full h-full object-cover opacity-50 blur-xl scale-110"
+              aria-hidden="true"
+            />
+          )}
         </div>
       )}
       
-      <picture>
-        {/* WebP format for modern browsers */}
-        <source
-          type="image/webp"
-          srcSet={srcSet}
-          sizes={sizes}
-        />
-        {/* Fallback for browsers that don't support WebP */}
-        <img
-          src={imageSrc}
-          alt={alt}
-          width={width}
-          height={height}
-          className={`w-full h-full ${objectFitClass} transition-opacity duration-300 ${
-            isLoading ? 'opacity-0' : 'opacity-100'
-          } ${className}`}
-          loading={priority ? 'eager' : 'lazy'}
-          onLoad={handleImageLoad}
-          onError={() => {
-            console.error('Image failed to load:', src);
-            setIsLoading(false);
-          }}
-          sizes={sizes}
-          srcSet={srcSet}
-          {...props}
-        />
-      </picture>
+      {(isInView || priority) && (
+        <picture>
+          {/* WebP format for modern browsers */}
+          <source
+            type="image/webp"
+            srcSet={srcSet}
+            sizes={sizes}
+          />
+          {/* Fallback for browsers that don't support WebP */}
+          <img
+            src={imageSrc}
+            alt={alt}
+            width={width}
+            height={height}
+            className={`
+              w-full h-full ${objectFitClass} 
+              transition-all duration-500 ease-in-out
+              ${isLoading ? 'scale-110 blur-sm' : 'scale-100 blur-0'}
+              ${className}
+            `}
+            loading={priority ? 'eager' : 'lazy'}
+            onLoad={handleImageLoad}
+            onError={() => {
+              console.error('Image failed to load:', src);
+              setIsLoading(false);
+            }}
+            sizes={sizes}
+            srcSet={srcSet}
+            {...props}
+          />
+        </picture>
+      )}
     </div>
   );
 } 

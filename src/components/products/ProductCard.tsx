@@ -8,9 +8,10 @@ interface ProductCardProps {
   product: Product;
   onClick: (product: Product) => void;
   categoryIndex?: number;
+  index?: number;
 }
 
-export function ProductCard({ product, onClick, categoryIndex = 0 }: ProductCardProps) {
+export function ProductCard({ product, onClick, categoryIndex = 0, index }: ProductCardProps) {
   const handleClick = () => {
     if (onClick) {
       onClick(product);
@@ -27,11 +28,11 @@ export function ProductCard({ product, onClick, categoryIndex = 0 }: ProductCard
           <OptimizedImage
             src={product.imageUrl}
             alt={product.name}
-            width={600}
-            height={600}
-            quality={75}
-            className="transition-transform group-hover:scale-105"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            width={400}
+            height={400}
+            quality={80}
+            className="transition-transform duration-300 will-change-transform group-hover:scale-105"
+            sizes="(max-width: 640px) 50vw, 33vw"
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">
