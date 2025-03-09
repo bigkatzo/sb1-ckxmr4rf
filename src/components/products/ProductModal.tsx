@@ -20,6 +20,7 @@ interface ProductModalProps {
 export function ProductModal({ product, onClose, categoryIndex }: ProductModalProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const images = product.images?.length ? product.images : [product.imageUrl];
   
@@ -49,17 +50,23 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   };
 
   const nextImage = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
+    setTimeout(() => setIsTransitioning(false), 300); // Match transition duration
   };
 
   const prevImage = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
+    setTimeout(() => setIsTransitioning(false), 300); // Match transition duration
   };
 
   const swipeHandlers = useSwipe({
     onSwipeLeft: nextImage,
     onSwipeRight: prevImage,
-    threshold: 50
+    threshold: 30 // Reduced threshold for more responsive swipes
   });
 
   const allOptionsSelected = hasVariants
@@ -72,7 +79,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
   // Calculate transform with smooth transition
   const translateX = swipeHandlers.isDragging
-    ? `${swipeHandlers.dragOffset * 0.8}px` // Add resistance factor
+    ? `${swipeHandlers.dragOffset * 0.5}px` // Reduced resistance factor for smoother feel
     : '0px';
 
   return (
@@ -100,62 +107,26 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 h-full">
-            <div 
-              className="relative aspect-square md:aspect-auto md:h-full w-full touch-pan-y"
-              {...swipeHandlers}
-              style={{
-                transform: `translateX(${translateX})`,
-                transition: swipeHandlers.isDragging ? 'none' : 'transform 0.3s ease-out'
-              }}
-            >
-              <OptimizedImage
-                src={product.imageUrl}
-                alt={product.name}
-                width={800}
-                height={800}
-                quality={90}
-                className="w-full h-full object-contain"
-                sizes="(max-width: 640px) 100vw, 800px"
-                priority
-              />
-              
-              {/* Preload next and previous images with lower quality */}
-              <div className="hidden">
-                {images.length > 1 && [
-                  (selectedImageIndex + 1) % images.length,
-                  (selectedImageIndex - 1 + images.length) % images.length
-                ].map(index => (
-                  <OptimizedImage
-                    key={index}
-                    src={images[index]}
-                    alt="Preload"
-                    width={800}
-                    height={800}
-                    quality={60}
-                    priority={false}
-                    aria-hidden="true"
-                  />
-                ))}
-              </div>
-              
+            <div className="relative aspect-square md:aspect-auto md:h-full w-full">
+              {/* Fixed navigation arrows */}
               {images.length > 1 && (
                 <>
                   <button
                     onClick={prevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={nextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
 
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
                     {images.map((_, index) => (
                       <button
                         key={index}
@@ -174,6 +145,54 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                   </div>
                 </>
               )}
+
+              {/* Swipeable image container */}
+              <div 
+                className="relative h-full w-full touch-pan-y overflow-hidden"
+                {...swipeHandlers}
+              >
+                <div
+                  className="relative h-full w-full"
+                  style={{
+                    transform: `translateX(${translateX})`,
+                    transition: swipeHandlers.isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                  }}
+                >
+                  <OptimizedImage
+                    src={images[selectedImageIndex]}
+                    alt={product.name}
+                    width={800}
+                    height={800}
+                    quality={90}
+                    className={`
+                      w-full h-full object-contain
+                      transition-opacity duration-300
+                      ${isTransitioning ? 'opacity-50' : 'opacity-100'}
+                    `}
+                    sizes="(max-width: 640px) 100vw, 800px"
+                    priority
+                  />
+                </div>
+              </div>
+              
+              {/* Preload next and previous images */}
+              <div className="hidden">
+                {images.length > 1 && [
+                  (selectedImageIndex + 1) % images.length,
+                  (selectedImageIndex - 1 + images.length) % images.length
+                ].map(index => (
+                  <OptimizedImage
+                    key={index}
+                    src={images[index]}
+                    alt="Preload"
+                    width={800}
+                    height={800}
+                    quality={60}
+                    priority={false}
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
             </div>
 
             <div className="flex flex-col h-full max-h-[60vh] md:max-h-[90vh] overflow-hidden">

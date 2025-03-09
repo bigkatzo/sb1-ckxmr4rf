@@ -12,9 +12,12 @@ export function useSwipe({ onSwipeLeft, onSwipeRight, threshold = 50 }: SwipeHan
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartTime, setDragStartTime] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
+  const [isVerticalScroll, setIsVerticalScroll] = useState(false);
 
   // Velocity threshold for momentum scrolling (pixels per millisecond)
   const velocityThreshold = 0.5;
+  // Minimum distance to determine scroll direction
+  const directionThreshold = 10;
 
   const onTouchStart = useCallback((e: TouchEvent | React.TouchEvent) => {
     setTouchEnd(null);
@@ -25,13 +28,11 @@ export function useSwipe({ onSwipeLeft, onSwipeRight, threshold = 50 }: SwipeHan
     setDragStartTime(Date.now());
     setIsDragging(true);
     setDragOffset(0);
+    setIsVerticalScroll(false);
   }, []);
 
   const onTouchMove = useCallback((e: TouchEvent | React.TouchEvent) => {
     if (!touchStart || !isDragging) return;
-
-    // Prevent default to avoid page scrolling during swipe
-    e.preventDefault();
 
     const currentTouch = {
       x: e.targetTouches[0].clientX,
@@ -42,15 +43,26 @@ export function useSwipe({ onSwipeLeft, onSwipeRight, threshold = 50 }: SwipeHan
     const deltaX = currentTouch.x - touchStart.x;
     const deltaY = Math.abs(currentTouch.y - touchStart.y);
 
-    // Only update touchEnd if horizontal movement is greater than vertical
-    if (Math.abs(deltaX) > deltaY) {
+    // Determine scroll direction if not yet determined
+    if (!isVerticalScroll && (Math.abs(deltaX) > directionThreshold || deltaY > directionThreshold)) {
+      setIsVerticalScroll(deltaY > Math.abs(deltaX));
+    }
+
+    // If vertical scrolling is detected, don't prevent default and don't update swipe state
+    if (isVerticalScroll) return;
+
+    // Prevent default to avoid page scrolling during horizontal swipe
+    e.preventDefault();
+
+    // Only update touchEnd if horizontal movement is significant
+    if (Math.abs(deltaX) > directionThreshold) {
       setTouchEnd(currentTouch);
       setDragOffset(deltaX);
     }
-  }, [touchStart, isDragging]);
+  }, [touchStart, isDragging, isVerticalScroll]);
 
   const onTouchEnd = useCallback(() => {
-    if (!touchStart || !touchEnd || !isDragging) return;
+    if (!touchStart || !touchEnd || !isDragging || isVerticalScroll) return;
 
     const distanceX = touchStart.x - touchEnd.x;
     const distanceY = Math.abs(touchStart.y - touchEnd.y);
@@ -75,7 +87,8 @@ export function useSwipe({ onSwipeLeft, onSwipeRight, threshold = 50 }: SwipeHan
     setTouchEnd(null);
     setIsDragging(false);
     setDragOffset(0);
-  }, [touchStart, touchEnd, threshold, onSwipeLeft, onSwipeRight, dragStartTime, isDragging]);
+    setIsVerticalScroll(false);
+  }, [touchStart, touchEnd, threshold, onSwipeLeft, onSwipeRight, dragStartTime, isDragging, isVerticalScroll]);
 
   return {
     onTouchStart,
