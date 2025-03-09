@@ -44,17 +44,19 @@ export function SearchResults({ results, loading, onSelect }: SearchResultsProps
           className="w-full px-3 py-2 flex items-center space-x-3 hover:bg-gray-800 transition-colors"
         >
           {result.imageUrl ? (
-            <OptimizedImage
-              src={result.imageUrl}
-              alt={result.name}
-              width={160}
-              height={160}
-              quality={75}
-              className="w-full h-full object-cover"
-              sizes="160px"
-            />
+            <div className="h-10 w-10 flex-shrink-0 rounded bg-gray-800 overflow-hidden">
+              <OptimizedImage
+                src={result.imageUrl}
+                alt={result.name}
+                width={80}
+                height={80}
+                quality={75}
+                className="w-full h-full object-cover"
+                sizes="40px"
+              />
+            </div>
           ) : (
-            <div className="h-10 w-10 rounded bg-gray-800 flex items-center justify-center">
+            <div className="h-10 w-10 flex-shrink-0 rounded bg-gray-800 flex items-center justify-center">
               <ImageIcon className="h-5 w-5 text-gray-600" />
             </div>
           )}
