@@ -1,7 +1,6 @@
 import { Wallet } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { toast } from 'react-toastify';
 
 export function WalletButton() {
   const { isConnected, walletAddress, disconnect } = useWallet();
@@ -15,8 +14,7 @@ export function WalletButton() {
         setVisible(true);
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-      toast.error(errorMessage);
+      console.error('Wallet action error:', err);
     }
   };
 

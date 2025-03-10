@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { ConnectionProvider, WalletProvider as SolanaWalletProvider, useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
@@ -50,11 +50,17 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
+  // Listen for connection state changes
+  useEffect(() => {
+    if (connected && publicKey) {
+      addNotification('success', 'Wallet connected!');
+    }
+  }, [connected, publicKey, addNotification]);
+
   const connect = useCallback(async () => {
     try {
       setError(null);
       // Connection is handled by the wallet modal
-      addNotification('success', 'Wallet connected!');
     } catch (error) {
       console.error('Connect error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
