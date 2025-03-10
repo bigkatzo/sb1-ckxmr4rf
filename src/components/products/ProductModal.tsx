@@ -106,8 +106,8 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
           </div>
 
           {/* Mobile: Single scroll container, Desktop: Grid layout */}
-          <div className="h-full overflow-y-auto md:overflow-hidden md:grid md:grid-cols-[1fr,1fr]">
-            <div className="w-full aspect-square md:w-[600px] md:h-[600px] relative bg-gray-950/50">
+          <div className="h-full overflow-y-auto md:overflow-hidden md:grid md:grid-cols-2">
+            <div className="w-full aspect-square md:h-full relative bg-gray-950/50">
               {/* Fixed navigation arrows */}
               {images.length > 1 ? (
                 <>
@@ -193,7 +193,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
             </div>
 
             {/* Product info section - now part of the main scroll on mobile */}
-            <div className="flex-1 md:w-[600px] md:flex md:flex-col md:h-[600px]">
+            <div className="flex-1 md:h-full">
               <div className="p-4 space-y-4 h-full overflow-y-auto">
                 {product.collectionSlug && product.collectionName && (
                   <Link
