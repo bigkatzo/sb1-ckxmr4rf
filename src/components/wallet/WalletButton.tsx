@@ -2,24 +2,22 @@ import React, { useState } from 'react';
 import { Wallet } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { Toast } from '../ui/Toast';
+import { toast } from 'react-toastify';
 
 export function WalletButton() {
   const { isConnected, walletAddress, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
-  const [error, setError] = useState<string | null>(null);
 
   const handleClick = async () => {
     try {
-      setError(null);
       if (isConnected) {
         await disconnect();
       } else {
         setVisible(true);
       }
     } catch (err) {
-      console.error('Wallet action error:', err);
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      toast.error(errorMessage);
     }
   };
 
@@ -37,14 +35,6 @@ export function WalletButton() {
           }
         </span>
       </button>
-
-      {error && (
-        <Toast
-          message={error}
-          type="error"
-          onClose={() => setError(null)}
-        />
-      )}
     </>
   );
 }
