@@ -106,21 +106,22 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 h-full">
-            <div className="relative aspect-square md:aspect-auto md:h-full w-full">
+          {/* Mobile: Single scroll container, Desktop: Grid layout */}
+          <div className="h-full overflow-y-auto md:overflow-hidden md:grid md:grid-cols-2">
+            <div className="w-full aspect-square md:aspect-auto md:h-full flex-none">
               {/* Fixed navigation arrows */}
               {images.length > 1 && (
                 <>
                   <button
                     onClick={prevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute left-4 top-[25vh] md:top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={nextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute right-4 top-[25vh] md:top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-5 w-5" />
@@ -190,8 +191,9 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
               </div>
             </div>
 
-            <div className="flex flex-col h-full max-h-[60vh] md:max-h-[90vh] overflow-hidden">
-              <SmoothScroll className="p-4 space-y-4 flex-1">
+            {/* Product info section - now part of the main scroll on mobile */}
+            <div className="flex-1 md:flex md:flex-col md:h-full md:max-h-[90vh] md:overflow-hidden">
+              <div className="p-4 space-y-4 md:flex-1 md:overflow-y-auto">
                 {product.collectionSlug && product.collectionName && (
                   <Link
                     to={`/${product.collectionSlug}`}
@@ -264,7 +266,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     </div>
                   </div>
                 )}
-              </SmoothScroll>
+              </div>
             </div>
           </div>
         </div>
