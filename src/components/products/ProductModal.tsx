@@ -8,7 +8,6 @@ import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { useSwipe } from '../../hooks/useSwipe';
 import { OptimizedImage } from '../ui/OptimizedImage';
-import { SmoothScroll } from '../ui/SmoothScroll';
 import type { Product } from '../../types';
 
 interface ProductModalProps {
@@ -94,7 +93,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
       <div className="relative min-h-screen flex items-center justify-center p-0 sm:p-4">
         <div 
           ref={modalRef}
-          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-auto sm:min-w-[600px] sm:max-w-4xl sm:rounded-xl overflow-hidden"
+          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-auto sm:min-w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden"
         >
           <div className="absolute top-4 right-4 z-10">
             <button
@@ -108,9 +107,9 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
           {/* Mobile: Single scroll container, Desktop: Grid layout */}
           <div className="h-full overflow-y-auto md:overflow-hidden md:grid md:grid-cols-2">
-            <div className="w-full aspect-square md:aspect-auto md:h-full relative">
+            <div className="w-full aspect-square md:aspect-auto md:h-full relative bg-gray-950/50">
               {/* Fixed navigation arrows */}
-              {images.length > 1 && (
+              {images.length > 1 ? (
                 <>
                   <button
                     onClick={prevImage}
@@ -145,11 +144,11 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     ))}
                   </div>
                 </>
-              )}
+              ) : null}
 
               {/* Swipeable image container */}
               <div 
-                className="absolute inset-0 touch-pan-y select-none overflow-hidden bg-gray-950/50"
+                className="absolute inset-0 touch-pan-y select-none overflow-hidden"
                 {...swipeHandlers}
               >
                 <div
@@ -158,15 +157,15 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     transform: `translate3d(${translateX}, 0, 0)`,
                     transition: swipeHandlers.isDragging 
                       ? 'none' 
-                      : 'transform 500ms cubic-bezier(0.4, 0.0, 0.2, 1)'
+                      : 'transform 400ms cubic-bezier(0.25, 1, 0.5, 1)'
                   }}
                 >
                   <OptimizedImage
                     src={images[selectedImageIndex]}
                     alt={product.name}
-                    width={800}
-                    height={800}
-                    quality={90}
+                    width={1000}
+                    height={1000}
+                    quality={95}
                     className="absolute inset-0 w-full h-full object-contain"
                     sizes="(max-width: 640px) 100vw, 800px"
                     priority
