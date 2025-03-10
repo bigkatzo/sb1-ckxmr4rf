@@ -6,12 +6,12 @@ import { Infinity } from 'lucide-react';
 interface OrderProgressBarProps {
   productId: string;
   minimumOrderQuantity: number;
-  maxStock: number;
+  maxStock: number | null;
 }
 
 export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock }: OrderProgressBarProps) {
   const { currentOrders, loading } = useOrderStats(productId);
-  const isUnlimited = maxStock === -1;
+  const isUnlimited = maxStock === null;
 
   // Memoize calculations
   const { minOrderPercentage, stockPercentage, isSoldOut, hasReachedMinimum } = React.useMemo(() => {
@@ -19,12 +19,12 @@ export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock }: 
     // For unlimited stock, show percentage based on minimum order quantity
     const stockPct = isUnlimited 
       ? minOrderPct 
-      : Math.min((currentOrders / maxStock) * 100, 100);
+      : Math.min((currentOrders / (maxStock || 0)) * 100, 100);
     
     return {
       minOrderPercentage: minOrderPct,
       stockPercentage: stockPct,
-      isSoldOut: !isUnlimited && currentOrders >= maxStock,
+      isSoldOut: !isUnlimited && maxStock !== null && currentOrders >= maxStock,
       hasReachedMinimum: currentOrders >= minimumOrderQuantity
     };
   }, [currentOrders, minimumOrderQuantity, maxStock, isUnlimited]);
@@ -74,7 +74,7 @@ export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock }: 
         />
         
         {/* Minimum order threshold marker */}
-        {!isUnlimited && (
+        {!isUnlimited && maxStock !== null && (
           <div 
             className="absolute inset-y-0 w-0.5 bg-yellow-500"
             style={{ left: `${(minimumOrderQuantity / maxStock) * 100}%` }}
@@ -103,7 +103,7 @@ export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock }: 
           <span className="text-gray-400">Total progress:</span>
           <span className={`font-medium ${isSoldOut ? 'text-red-400' : ''} flex items-center gap-1`}>
             {currentOrders}
-            {!isUnlimited && (
+            {!isUnlimited && maxStock !== null && (
               <>
                 <span>/</span>
                 <span>{maxStock}</span>

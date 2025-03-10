@@ -39,7 +39,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           collectionLaunchDate: data.collection_launch_date ? new Date(data.collection_launch_date) : undefined,
           collectionSaleEnded: data.collection_sale_ended,
           slug: data.slug,
-          stock: typeof data.quantity === 'number' ? data.quantity : 0,
+          stock: data.quantity,
           minimumOrderQuantity: data.minimum_order_quantity || 50,
           variants: data.variants || [],
           variantPrices: data.variant_prices || {}

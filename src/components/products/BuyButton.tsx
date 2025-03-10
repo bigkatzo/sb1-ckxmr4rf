@@ -31,10 +31,10 @@ export function BuyButton({
   // Check if collection is not live yet or sale has ended
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
   const isSaleEnded = product.collectionSaleEnded;
-  const isUnlimited = product.stock === -1;
+  const isUnlimited = product.stock === null;
   const isSoldOut = !isUnlimited && (
     product.stock === 0 || // No stock available
-    (typeof currentOrders === 'number' && currentOrders >= product.stock) // Current orders reached or exceeded stock limit
+    (typeof currentOrders === 'number' && currentOrders >= (product.stock || 0)) // Current orders reached or exceeded stock limit
   );
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {

@@ -51,7 +51,7 @@ export interface Product {
   collectionLaunchDate?: Date;
   collectionSaleEnded?: boolean;
   slug: string;
-  stock: number;
+  stock: number | null;
   minimumOrderQuantity: number;
   variants?: ProductVariant[];
   variantPrices?: VariantPricing;

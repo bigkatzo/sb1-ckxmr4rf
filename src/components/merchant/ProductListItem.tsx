@@ -68,7 +68,7 @@ export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductL
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-white">{product.price} SOL</span>
               <span className="text-xs text-gray-400">
-                {product.stock === -1 ? 'Unlimited' : `${product.stock} left`}
+                {product.stock === null ? 'Unlimited' : `${product.stock} left`}
               </span>
             </div>
           </div>
