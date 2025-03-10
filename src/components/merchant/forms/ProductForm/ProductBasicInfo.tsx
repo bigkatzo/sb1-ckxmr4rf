@@ -10,10 +10,11 @@ interface ProductBasicInfoProps {
 export function ProductBasicInfo({ categories, initialData, onChange }: ProductBasicInfoProps) {
   const [isUnlimitedStock, setIsUnlimitedStock] = useState(initialData?.stock === -1);
 
-  const handleStockChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStockChange = (e: React.ChangeEvent<HTMLInputElement>, isUnlimited?: boolean) => {
     if (onChange) {
-      // If unlimited is checked, set stock to -1, otherwise use the input value
-      const value = isUnlimitedStock ? -1 : parseInt(e.target.value) || 0;
+      // Use isUnlimited parameter if provided, otherwise use state
+      const useUnlimited = isUnlimited !== undefined ? isUnlimited : isUnlimitedStock;
+      const value = useUnlimited ? -1 : parseInt(e.target.value) || 0;
       const syntheticEvent = {
         ...e,
         target: {
@@ -102,7 +103,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             id="stock"
             name="stock"
             defaultValue={initialData?.stock === -1 ? '' : initialData?.stock}
-            onChange={handleStockChange}
+            onChange={(e) => handleStockChange(e)}
             required
             min="0"
             disabled={isUnlimitedStock}
@@ -116,7 +117,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
               checked={isUnlimitedStock}
               onChange={(e) => {
                 setIsUnlimitedStock(e.target.checked);
-                handleStockChange(e as any);
+                handleStockChange(e, e.target.checked);
               }}
               className="rounded bg-gray-800 border-gray-700 text-purple-600 focus:ring-purple-600"
             />

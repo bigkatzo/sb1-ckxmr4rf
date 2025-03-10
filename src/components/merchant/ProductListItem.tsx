@@ -67,7 +67,9 @@ export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductL
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-white">{product.price} SOL</span>
-              <span className="text-xs text-gray-400">{product.stock} left</span>
+              <span className="text-xs text-gray-400">
+                {product.stock === -1 ? 'Unlimited' : `${product.stock} left`}
+              </span>
             </div>
           </div>
         </div>
