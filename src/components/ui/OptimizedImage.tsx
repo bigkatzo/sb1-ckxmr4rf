@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -10,7 +10,6 @@ interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
   objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   priority?: boolean;
   onLoad?: () => void;
-  sizes?: string;
 }
 
 export function OptimizedImage({
@@ -23,116 +22,24 @@ export function OptimizedImage({
   objectFit = 'cover',
   priority = false,
   onLoad,
-  sizes = '100vw',
   ...props
 }: OptimizedImageProps) {
   const [isLoading, setIsLoading] = useState(!priority);
-  const [imageSrc, setImageSrc] = useState<string>('');
-  const [srcSet, setSrcSet] = useState<string>('');
-  const [blurredLoaded, setBlurredLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    // Optimize the image URL
-    const optimizeImageUrl = (url: string, targetWidth?: number, targetQuality?: number) => {
-      if (!url) return '';
-      
-      try {
-        // Check if this is a Supabase URL that can be optimized
-        if (url.includes('/storage/v1/object/public/')) {
-          // Convert object URL to render URL
-          const renderUrl = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-          
-          // Add width and quality parameters for resizing
-          const params = new URLSearchParams();
-          
-          if (targetWidth) {
-            params.append('width', targetWidth.toString());
-          } else if (width) {
-            params.append('width', width.toString());
-          }
-          
-          // Add quality parameter only if specified
-          if (targetQuality || quality) {
-            params.append('quality', (targetQuality || quality).toString());
-          }
-          
-          // Only add format parameter if we're requesting a specific width
-          if (targetWidth || width) {
-            params.append('format', 'webp');
-          }
-          
-          const finalUrl = params.toString() ? `${renderUrl}?${params.toString()}` : renderUrl;
-          return finalUrl;
-        }
-        return url;
-      } catch (error) {
-        console.error('Error optimizing image URL:', error);
-        // If optimization fails, return the original URL
-        return url;
-      }
-    };
-    
-    // Generate srcSet for responsive images
-    const generateSrcSet = () => {
-      const widths = [320, 640, 768, 1024, 1280, 1536, 1920];
-      const srcSetEntries = widths
-        .filter(w => !width || w <= width * 2) // Don't generate sizes larger than 2x the target width
-        .map(w => {
-          const optimizedUrl = optimizeImageUrl(src, w, w < 640 ? quality - 10 : quality); // Lower quality for small screens
-          return `${optimizedUrl} ${w}w`;
-        });
-      return srcSetEntries.join(', ');
-    };
-
-    // Load a tiny blurred version first
-    const loadBlurredPlaceholder = async () => {
-      const tinyUrl = optimizeImageUrl(src, 20, 20);
-      try {
-        const response = await fetch(tinyUrl);
-        if (!response.ok) {
-          console.warn('Blurred placeholder failed to load, falling back to original URL');
-          setBlurredLoaded(true);
-          return;
-        }
-        await response.blob();
-        setBlurredLoaded(true);
-      } catch (error) {
-        console.warn('Error loading blurred placeholder, falling back to original URL:', error);
-        setBlurredLoaded(true);
-      }
-    };
-
-    // Set image sources immediately
-    setImageSrc(optimizeImageUrl(src));
-    setSrcSet(generateSrcSet());
-    setHasError(false);
-    
-    // Load blur placeholder if not priority
-    if (!priority) {
-      loadBlurredPlaceholder();
-    }
-  }, [src, width, height, quality, priority]);
-
-  const handleImageLoad = () => {
-    setIsLoading(false);
-    setHasError(false);
-    if (onLoad) onLoad();
-  };
+  // Simple URL optimization
+  const optimizedSrc = src.includes('/storage/v1/object/public/')
+    ? src.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') +
+      `?width=${width}&quality=${quality}`
+    : src;
 
   const handleImageError = () => {
-    console.error('Image failed to load:', src);
-    setHasError(true);
-    
-    // If we're using the render endpoint and it failed, try the original URL
+    // If render endpoint fails, fall back to original URL
     if (src.includes('/storage/v1/render/image/public/')) {
-      const originalUrl = src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
-      console.log('Falling back to original URL:', originalUrl);
-      setImageSrc(originalUrl);
-      setSrcSet(originalUrl);
+      const img = document.querySelector(`img[src="${optimizedSrc}"]`) as HTMLImageElement;
+      if (img) {
+        img.src = src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+      }
     }
-    
     setIsLoading(false);
   };
 
@@ -145,51 +52,30 @@ export function OptimizedImage({
   }[objectFit];
 
   return (
-    <div ref={containerRef} className="relative w-full h-full">
+    <div className="relative w-full h-full">
       {isLoading && (
-        <div className={`
-          absolute inset-0 bg-gray-800
-          ${blurredLoaded ? 'animate-none' : 'animate-pulse'}
-        `}>
-          {blurredLoaded && (
-            <img
-              src={imageSrc}
-              alt=""
-              className="w-full h-full object-cover opacity-50 blur-[1px] scale-105"
-              aria-hidden="true"
-            />
-          )}
-        </div>
+        <div className="absolute inset-0 bg-gray-800 animate-pulse" />
       )}
       
-      <picture>
-        {/* WebP format for modern browsers */}
-        <source
-          type="image/webp"
-          srcSet={srcSet}
-          sizes={sizes}
-        />
-        {/* Fallback for browsers that don't support WebP */}
-        <img
-          src={imageSrc}
-          alt={alt}
-          width={width}
-          height={height}
-          className={`
-            w-full h-full ${objectFitClass} 
-            transition-all duration-300 ease-out
-            ${isLoading ? 'scale-105 blur-[1px]' : 'scale-100 blur-0'}
-            ${hasError ? 'opacity-75' : ''}
-            ${className}
-          `}
-          loading={priority ? 'eager' : 'lazy'}
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-          sizes={sizes}
-          srcSet={srcSet}
-          {...props}
-        />
-      </picture>
+      <img
+        src={optimizedSrc}
+        alt={alt}
+        width={width}
+        height={height}
+        className={`
+          w-full h-full ${objectFitClass} 
+          transition-all duration-300 ease-out
+          ${isLoading ? 'scale-105 blur-[1px]' : 'scale-100 blur-0'}
+          ${className}
+        `}
+        loading={priority ? 'eager' : 'lazy'}
+        onLoad={() => {
+          setIsLoading(false);
+          if (onLoad) onLoad();
+        }}
+        onError={handleImageError}
+        {...props}
+      />
     </div>
   );
 } 
