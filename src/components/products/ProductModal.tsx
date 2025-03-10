@@ -93,7 +93,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
       <div className="relative min-h-screen flex items-center justify-center p-0 sm:p-4">
         <div 
           ref={modalRef}
-          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-auto sm:min-w-[600px] sm:max-w-4xl sm:rounded-xl overflow-hidden"
+          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-[600px] sm:max-w-4xl sm:rounded-xl overflow-hidden"
         >
           <div className="absolute top-4 right-4 z-10">
             <button
@@ -106,8 +106,8 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
           </div>
 
           {/* Mobile: Single scroll container, Desktop: Grid layout */}
-          <div className="h-full overflow-y-auto md:overflow-hidden md:grid md:grid-cols-2">
-            <div className="w-full aspect-square md:aspect-auto md:h-full relative bg-gray-950/50">
+          <div className="h-full overflow-y-auto md:overflow-hidden md:grid md:grid-cols-[1fr,1fr]">
+            <div className="w-full aspect-square md:w-[600px] md:h-[600px] relative bg-gray-950/50">
               {/* Fixed navigation arrows */}
               {images.length > 1 ? (
                 <>
@@ -167,7 +167,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     height={1000}
                     quality={95}
                     className="absolute inset-0 w-full h-full object-contain"
-                    sizes="(max-width: 640px) 100vw, 800px"
+                    sizes="(max-width: 640px) 100vw, 600px"
                     priority
                   />
                 </div>
@@ -183,8 +183,8 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     key={index}
                     src={images[index]}
                     alt="Preload"
-                    width={800}
-                    height={800}
+                    width={1000}
+                    height={1000}
                     quality={75}
                     priority={false}
                   />
@@ -193,8 +193,8 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
             </div>
 
             {/* Product info section - now part of the main scroll on mobile */}
-            <div className="flex-1 md:flex md:flex-col md:h-full md:max-h-[90vh] md:overflow-hidden">
-              <div className="p-4 space-y-4 md:flex-1 md:overflow-y-auto">
+            <div className="flex-1 md:w-[600px] md:flex md:flex-col md:h-[600px]">
+              <div className="p-4 space-y-4 h-full overflow-y-auto">
                 {product.collectionSlug && product.collectionName && (
                   <Link
                     to={`/${product.collectionSlug}`}
