@@ -27,7 +27,6 @@ interface PublicProduct {
   slug: string;
   variants: any[];
   variant_prices: Record<string, number>;
-  variant_stock?: Record<string, number>;
   sales_count?: number;
 }
 
@@ -79,7 +78,6 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
           minimumOrderQuantity: product.minimum_order_quantity || 50,
           variants: product.variants || [],
           variantPrices: product.variant_prices || {},
-          variantStock: product.variant_stock || {},
           salesCount: product.sales_count || 0
         }));
 

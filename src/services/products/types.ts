@@ -12,7 +12,6 @@ export interface ProductData {
   images: string[];
   variants: ProductVariant[];
   variant_prices: Record<string, number>;
-  variant_stock: Record<string, number | null>;
   slug: string;
 }
 

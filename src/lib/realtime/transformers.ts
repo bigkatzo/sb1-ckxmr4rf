@@ -49,6 +49,5 @@ export function transformProduct(dbProduct: any): Product {
     minimumOrderQuantity: dbProduct.minimum_order_quantity || 50,
     variants,
     variantPrices: dbProduct.variant_prices || {},
-    variantStock: dbProduct.variant_stock || {}
   };
 }

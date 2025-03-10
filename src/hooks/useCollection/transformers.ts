@@ -36,9 +36,8 @@ export function transformProduct(product: any, collectionData: any): Product | n
     slug: product.slug,
     stock: product.quantity,
     minimumOrderQuantity: product.minimum_order_quantity || 50,
-    variants: Array.isArray(product.variants) ? product.variants : [],
+    variants: product.variants || [],
     variantPrices: product.variant_prices || {},
-    variantStock: product.variant_stock || {}
   };
 }
 

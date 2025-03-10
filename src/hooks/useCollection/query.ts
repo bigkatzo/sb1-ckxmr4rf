@@ -30,7 +30,6 @@ export function getCollectionQuery(slug: string) {
         category_id,
         variants,
         variant_prices,
-        variant_stock,
         slug,
         categories:category_id (
           id,
