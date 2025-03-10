@@ -20,9 +20,9 @@ export function FeaturedCollection() {
   const isAnimating = useRef(false);
 
   // Required minimum swipe distance in pixels
-  const minSwipeDistance = 20;
+  const minSwipeDistance = 50;
   // Velocity threshold for momentum scrolling (pixels per millisecond)
-  const velocityThreshold = 0.2;
+  const velocityThreshold = 0.5;
 
   // Reset auto-scroll timer
   const resetAutoScroll = useCallback(() => {
@@ -97,7 +97,7 @@ export function FeaturedCollection() {
       setDragOffset(0);
       setTimeout(() => {
         isAnimating.current = false;
-      }, 300); // Reduced for faster response
+      }, 50); // Reduced to 50ms for very fast response
     }
 
     setTouchStart(null);
@@ -166,7 +166,7 @@ export function FeaturedCollection() {
       setDragOffset(0);
       setTimeout(() => {
         isAnimating.current = false;
-      }, 300); // Reduced for faster response
+      }, 50); // Reduced to 50ms for very fast response
     }
     
     mouseDownPos.current = null;
@@ -237,7 +237,7 @@ export function FeaturedCollection() {
     resetAutoScroll();
     setTimeout(() => {
       isAnimating.current = false;
-    }, 500);
+    }, 50); // Reduced to 50ms for very fast response
   };
 
   const nextSlide = () => {
@@ -247,7 +247,7 @@ export function FeaturedCollection() {
     setDragOffset(0);
     setTimeout(() => {
       isAnimating.current = false;
-    }, 500);
+    }, 50); // Reduced to 50ms for very fast response
   };
 
   const prevSlide = () => {
@@ -257,7 +257,7 @@ export function FeaturedCollection() {
     setDragOffset(0);
     setTimeout(() => {
       isAnimating.current = false;
-    }, 500);
+    }, 50); // Reduced to 50ms for very fast response
   };
 
   if (loading) {
@@ -271,10 +271,10 @@ export function FeaturedCollection() {
   }
 
   // Calculate transition speed based on velocity for momentum effect
-  const transitionDuration = isDragging ? 0 : (dragVelocity > velocityThreshold ? 150 : 200);
+  const transitionDuration = isDragging ? 0 : (dragVelocity > velocityThreshold ? 250 : 400);
   
   // Apply a slight damping effect to make the drag feel more natural
-  const dampingFactor = 0.98;
+  const dampingFactor = 0.92;
   
   const translateX = isDragging 
     ? -(currentIndex * 100) + (dragOffset * dampingFactor / (sliderRef.current?.clientWidth || window.innerWidth) * 100)
