@@ -52,20 +52,20 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
-    setTimeout(() => setIsTransitioning(false), 500); // Longer duration for smoother feel
+    setTimeout(() => setIsTransitioning(false), 300); // Shorter duration for faster transitions
   };
 
   const prevImage = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
-    setTimeout(() => setIsTransitioning(false), 500); // Longer duration for smoother feel
+    setTimeout(() => setIsTransitioning(false), 300); // Shorter duration for faster transitions
   };
 
   const swipeHandlers = useSwipe({
     onSwipeLeft: nextImage,
     onSwipeRight: prevImage,
-    threshold: 20 // Lower threshold for more responsive swipes
+    threshold: 10 // Lower threshold for more responsive swipes
   });
 
   const allOptionsSelected = hasVariants
@@ -78,7 +78,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
   // Calculate transform with smooth transition
   const translateX = swipeHandlers.isDragging
-    ? `${swipeHandlers.dragOffset * 1.2}px` // Slightly amplified movement for more engaging feel
+    ? `${swipeHandlers.dragOffset}px` // Remove the 1.2x amplification
     : '0px';
 
   return (
@@ -155,9 +155,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                   className="absolute inset-0 will-change-transform transform-gpu"
                   style={{
                     transform: `translate3d(${translateX}, 0, 0)`,
-                    transition: swipeHandlers.isDragging 
-                      ? 'none' 
-                      : 'transform 400ms cubic-bezier(0.25, 1, 0.5, 1)'
+                    transition: 'transform 200ms ease-out' // Simpler, smoother transition
                   }}
                 >
                   <OptimizedImage
