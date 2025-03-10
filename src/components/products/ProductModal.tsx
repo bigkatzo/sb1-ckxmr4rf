@@ -114,20 +114,20 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                 <>
                   <button
                     onClick={prevImage}
-                    className="absolute left-4 top-[25vh] md:top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute left-4 top-[calc(50%_-_24px)] -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={nextImage}
-                    className="absolute right-4 top-[25vh] md:top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute right-4 top-[calc(50%_-_24px)] -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
 
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
                     {images.map((_, index) => (
                       <button
                         key={index}
