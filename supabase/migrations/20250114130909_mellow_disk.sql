@@ -32,6 +32,22 @@ CREATE POLICY "public_read"
     )
   );
 
+-- Create policy for render endpoint access
+CREATE POLICY "public_render_read"
+  ON storage.objects FOR SELECT
+  TO public
+  USING (
+    bucket_id IN ('collection-images', 'product-images')
+    AND (
+      -- Allow access to render endpoint for image files
+      name LIKE '%.jpg' OR
+      name LIKE '%.jpeg' OR
+      name LIKE '%.png' OR
+      name LIKE '%.webp' OR
+      name LIKE '%.gif'
+    )
+  );
+
 CREATE POLICY "authenticated_write"
   ON storage.objects
   FOR INSERT

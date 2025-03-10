@@ -30,6 +30,7 @@ export function OptimizedImage({
   const [imageSrc, setImageSrc] = useState<string>('');
   const [srcSet, setSrcSet] = useState<string>('');
   const [blurredLoaded, setBlurredLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,6 +107,7 @@ export function OptimizedImage({
     // Set image sources immediately
     setImageSrc(optimizeImageUrl(src));
     setSrcSet(generateSrcSet());
+    setHasError(false);
     
     // Load blur placeholder if not priority
     if (!priority) {
@@ -115,17 +117,22 @@ export function OptimizedImage({
 
   const handleImageLoad = () => {
     setIsLoading(false);
+    setHasError(false);
     if (onLoad) onLoad();
   };
 
   const handleImageError = () => {
     console.error('Image failed to load:', src);
-    // Fall back to the original URL if optimization fails
+    setHasError(true);
+    
+    // If we're using the render endpoint and it failed, try the original URL
     if (src.includes('/storage/v1/render/image/public/')) {
       const originalUrl = src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+      console.log('Falling back to original URL:', originalUrl);
       setImageSrc(originalUrl);
       setSrcSet(originalUrl);
     }
+    
     setIsLoading(false);
   };
 
@@ -172,6 +179,7 @@ export function OptimizedImage({
             w-full h-full ${objectFitClass} 
             transition-all duration-300 ease-out
             ${isLoading ? 'scale-105 blur-[1px]' : 'scale-100 blur-0'}
+            ${hasError ? 'opacity-75' : ''}
             ${className}
           `}
           loading={priority ? 'eager' : 'lazy'}
