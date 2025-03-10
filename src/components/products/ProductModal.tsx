@@ -175,7 +175,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
             </div>
 
             {/* Product info section - now part of the main scroll on mobile */}
-            <div className="flex-1 md:h-[600px] flex flex-col relative">
+            <div className="flex-1 md:h-[600px] flex flex-col">
               <div className="flex-1 overflow-y-auto pb-[100px] md:pb-4">
                 <div className="p-4 space-y-4">
                   {product.collectionSlug && product.collectionName && (
@@ -226,8 +226,8 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                 </div>
               </div>
 
-              {/* Fixed buy button container on mobile, normal on desktop */}
-              <div className="fixed md:relative bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 md:border-0 md:bg-transparent md:backdrop-blur-none md:p-4">
+              {/* Fixed buy button container on mobile, normal position on desktop */}
+              <div className="fixed md:relative bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 md:border-0 md:bg-transparent md:backdrop-blur-none">
                 {isUpcoming ? (
                   <button 
                     disabled
