@@ -191,42 +191,59 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
             </div>
 
             {/* Product info section - now part of the main scroll on mobile */}
-            <div className="flex-1 md:h-[600px] overflow-y-auto">
-              <div className="p-4 space-y-4">
-                {product.collectionSlug && product.collectionName && (
-                  <Link
-                    to={`/${product.collectionSlug}`}
-                    onClick={onClose}
-                    className="text-sm text-gray-400 hover:text-purple-400 transition-colors"
-                  >
-                    {product.collectionName}
-                  </Link>
-                )}
+            <div className="flex-1 md:h-[600px] flex flex-col">
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-4">
+                  {product.collectionSlug && product.collectionName && (
+                    <Link
+                      to={`/${product.collectionSlug}`}
+                      onClick={onClose}
+                      className="text-sm text-gray-400 hover:text-purple-400 transition-colors"
+                    >
+                      {product.collectionName}
+                    </Link>
+                  )}
 
-                <div>
-                  <h2 id="modal-title" className="text-xl font-bold text-white">{product.name}</h2>
-                  <p className="mt-2 text-sm text-gray-400">{product.description}</p>
-                </div>
+                  <div>
+                    <h2 id="modal-title" className="text-xl font-bold text-white">{product.name}</h2>
+                    <p className="mt-2 text-sm text-gray-400">{product.description}</p>
+                  </div>
 
-                {hasVariants && (
-                  <VariantDisplay
-                    variants={product.variants!}
+                  {hasVariants && (
+                    <VariantDisplay
+                      variants={product.variants!}
+                      selectedOptions={selectedOptions}
+                      onChange={handleOptionChange}
+                    />
+                  )}
+
+                  <ProductVariantPrice
+                    product={product}
                     selectedOptions={selectedOptions}
-                    onChange={handleOptionChange}
                   />
-                )}
 
-                <ProductVariantPrice
-                  product={product}
-                  selectedOptions={selectedOptions}
-                />
+                  <OrderProgressBar
+                    productId={product.id}
+                    minimumOrderQuantity={product.minimumOrderQuantity || 50}
+                    maxStock={product.stock}
+                  />
 
-                <OrderProgressBar
-                  productId={product.id}
-                  minimumOrderQuantity={product.minimumOrderQuantity || 50}
-                  maxStock={product.stock}
-                />
+                  {product.category && (
+                    <div className="border-t border-gray-800 pt-4">
+                      <h3 className="text-sm font-medium mb-2">Category & Eligibility</h3>
+                      <div className="bg-gray-950/50 rounded-lg p-3">
+                        <CategoryDescription 
+                          category={product.category} 
+                          categoryIndex={categoryIndex}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
+              {/* Sticky buy button container */}
+              <div className="sticky bottom-0 left-0 right-0 p-4 bg-gray-900/80 backdrop-blur-sm border-t border-gray-800 md:border-0 md:bg-transparent md:backdrop-blur-none">
                 {isUpcoming ? (
                   <button 
                     disabled
@@ -252,18 +269,6 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     className="w-full flex items-center justify-center gap-2 py-3 text-sm sm:text-base"
                     showModal={true}
                   />
-                )}
-
-                {product.category && (
-                  <div className="border-t border-gray-800 pt-4">
-                    <h3 className="text-sm font-medium mb-2">Category & Eligibility</h3>
-                    <div className="bg-gray-950/50 rounded-lg p-3">
-                      <CategoryDescription 
-                        category={product.category} 
-                        categoryIndex={categoryIndex}
-                      />
-                    </div>
-                  </div>
                 )}
               </div>
             </div>
