@@ -19,7 +19,6 @@ interface ProductModalProps {
 export function ProductModal({ product, onClose, categoryIndex }: ProductModalProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const images = product.images?.length ? product.images : [product.imageUrl];
   
