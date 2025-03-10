@@ -6,7 +6,6 @@ import { VariantDisplay } from './variants/VariantDisplay';
 import { ProductVariantPrice } from './ProductVariantPrice';
 import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
-import { useSwipe } from '../../hooks/useSwipe';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import type { Product } from '../../types';
 
