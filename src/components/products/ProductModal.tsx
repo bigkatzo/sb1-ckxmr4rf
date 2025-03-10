@@ -53,20 +53,20 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
-    setTimeout(() => setIsTransitioning(false), 400); // Match transition duration
+    setTimeout(() => setIsTransitioning(false), 300); // Slightly faster transition for better responsiveness
   };
 
   const prevImage = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
-    setTimeout(() => setIsTransitioning(false), 400); // Match transition duration
+    setTimeout(() => setIsTransitioning(false), 300); // Slightly faster transition for better responsiveness
   };
 
   const swipeHandlers = useSwipe({
     onSwipeLeft: nextImage,
     onSwipeRight: prevImage,
-    threshold: 40 // Slightly lower threshold for better responsiveness
+    threshold: 30 // Lower threshold for more responsive swipes
   });
 
   const allOptionsSelected = hasVariants
@@ -79,7 +79,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
   // Calculate transform with smooth transition
   const translateX = swipeHandlers.isDragging
-    ? `${swipeHandlers.dragOffset * 0.95}px` // More responsive drag
+    ? `${swipeHandlers.dragOffset}px` // 1:1 movement for natural feel
     : '0px';
 
   return (
@@ -108,20 +108,20 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
           {/* Mobile: Single scroll container, Desktop: Grid layout */}
           <div className="h-full overflow-y-auto md:overflow-hidden md:grid md:grid-cols-2">
-            <div className="w-full aspect-square md:aspect-auto md:h-full flex-none">
+            <div className="w-full aspect-square md:aspect-auto md:h-full flex-none relative">
               {/* Fixed navigation arrows */}
               {images.length > 1 && (
                 <>
                   <button
                     onClick={prevImage}
-                    className="absolute left-4 top-[calc(50%_-_24px)] -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={nextImage}
-                    className="absolute right-4 top-[calc(50%_-_24px)] -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-5 w-5" />
@@ -149,14 +149,16 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
               {/* Swipeable image container */}
               <div 
-                className="relative h-full w-full touch-pan-y overflow-hidden bg-gray-950/50"
+                className="absolute inset-0 touch-pan-y select-none overflow-hidden bg-gray-950/50"
                 {...swipeHandlers}
               >
                 <div
-                  className="relative h-full w-full will-change-transform"
+                  className="relative h-full w-full will-change-transform transform-gpu"
                   style={{
-                    transform: `translateX(${translateX})`,
-                    transition: swipeHandlers.isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                    transform: `translate3d(${translateX}, 0, 0)`,
+                    transition: swipeHandlers.isDragging 
+                      ? 'none' 
+                      : 'transform 300ms cubic-bezier(0.2, 0.0, 0.0, 1.0)'
                   }}
                 >
                   <OptimizedImage
