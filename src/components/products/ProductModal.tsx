@@ -8,6 +8,7 @@ import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { useSwipe } from '../../hooks/useSwipe';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { SmoothScroll } from '../ui/SmoothScroll';
 import type { Product } from '../../types';
 
 interface ProductModalProps {
@@ -58,7 +59,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const swipeHandlers = useSwipe({
     onSwipeLeft: nextImage,
     onSwipeRight: prevImage,
-    threshold: 40 // Slightly lower threshold for better responsiveness
+    threshold: 50
   });
 
   const allOptionsSelected = hasVariants
@@ -71,7 +72,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
   // Calculate transform with smooth transition
   const translateX = swipeHandlers.isDragging
-    ? `${swipeHandlers.dragOffset}px`
+    ? `${swipeHandlers.dragOffset * 0.8}px` // Add resistance factor
     : '0px';
 
   return (
@@ -86,7 +87,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
       <div className="relative min-h-screen flex items-center justify-center p-0 sm:p-4">
         <div 
           ref={modalRef}
-          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden"
+          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-auto sm:min-w-[600px] sm:max-w-4xl sm:rounded-xl overflow-hidden"
         >
           <div className="absolute top-4 right-4 z-10">
             <button
@@ -98,28 +99,69 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
             </button>
           </div>
 
-          {/* Mobile: Single scroll container, Desktop: Grid layout */}
-          <div className="h-full md:grid md:grid-cols-2">
-            <div className="w-full aspect-square md:aspect-auto md:h-[600px] relative bg-gray-950/50">
-              {/* Fixed navigation arrows */}
-              {images.length > 1 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 h-full">
+            <div 
+              className="relative aspect-square md:aspect-auto md:h-full w-full overflow-auto"
+              {...swipeHandlers}
+              onTouchMove={(e) => {
+                // Only prevent default if we're in a horizontal swipe
+                if (Math.abs(swipeHandlers.dragOffset) > 10) {
+                  e.preventDefault();
+                }
+              }}
+              style={{
+                transform: `translateX(${translateX})`,
+                transition: swipeHandlers.isDragging ? 'none' : 'transform 0.3s ease-out'
+              }}
+            >
+              <OptimizedImage
+                src={product.imageUrl}
+                alt={product.name}
+                width={800}
+                height={800}
+                quality={90}
+                className="w-full h-full object-contain"
+                sizes="(max-width: 640px) 100vw, 800px"
+                priority
+              />
+              
+              {/* Preload next and previous images with lower quality */}
+              <div className="hidden">
+                {images.length > 1 && [
+                  (selectedImageIndex + 1) % images.length,
+                  (selectedImageIndex - 1 + images.length) % images.length
+                ].map(index => (
+                  <OptimizedImage
+                    key={index}
+                    src={images[index]}
+                    alt="Preload"
+                    width={800}
+                    height={800}
+                    quality={60}
+                    priority={false}
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
+              
+              {images.length > 1 && (
                 <>
                   <button
                     onClick={prevImage}
-                    className="hidden md:block absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={nextImage}
-                    className="hidden md:block absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
 
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                     {images.map((_, index) => (
                       <button
                         key={index}
@@ -137,97 +179,63 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     ))}
                   </div>
                 </>
-              ) : null}
-
-              {/* Swipeable image container */}
-              <div 
-                className="absolute inset-0 touch-pan-x select-none overflow-hidden"
-                {...swipeHandlers}
-              >
-                <div
-                  className="absolute inset-0 will-change-transform transform-gpu flex"
-                  style={{
-                    transform: `translateX(calc(${translateX} - 100% * ${selectedImageIndex}))`,
-                    transition: swipeHandlers.isDragging 
-                      ? 'none'
-                      : 'transform 300ms ease-out'
-                  }}
-                >
-                  {images.map((image, index) => (
-                    <div
-                      key={index}
-                      className="w-full h-full flex-shrink-0 flex items-center justify-center"
-                    >
-                      <OptimizedImage
-                        src={image}
-                        alt={`${product.name} - Image ${index + 1}`}
-                        width={1000}
-                        height={1000}
-                        quality={95}
-                        className="w-full h-full object-contain pointer-events-none"
-                        sizes="(max-width: 640px) 100vw, 600px"
-                        priority={Math.abs(index - selectedImageIndex) <= 1}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Product info section - now part of the main scroll on mobile */}
-            <div className="flex-1 md:h-[600px] flex flex-col">
-              <div className="flex-1 overflow-y-auto pb-[100px] md:pb-4">
-                <div className="p-4 space-y-4">
-                  {product.collectionSlug && product.collectionName && (
-                    <Link
-                      to={`/${product.collectionSlug}`}
-                      onClick={onClose}
-                      className="text-sm text-gray-400 hover:text-purple-400 transition-colors"
-                    >
-                      {product.collectionName}
-                    </Link>
-                  )}
+            <div className="flex flex-col h-full max-h-[60vh] md:max-h-[90vh] overflow-hidden">
+              <SmoothScroll className="p-4 space-y-4 flex-1">
+                {product.collectionSlug && product.collectionName && (
+                  <Link
+                    to={`/${product.collectionSlug}`}
+                    onClick={onClose}
+                    className="text-sm text-gray-400 hover:text-purple-400 transition-colors"
+                  >
+                    {product.collectionName}
+                  </Link>
+                )}
 
-                  <div>
-                    <h2 id="modal-title" className="text-xl font-bold text-white">{product.name}</h2>
-                    <p className="mt-2 text-sm text-gray-400">{product.description}</p>
-                  </div>
-
-                  {hasVariants && (
-                    <VariantDisplay
-                      variants={product.variants!}
-                      selectedOptions={selectedOptions}
-                      onChange={handleOptionChange}
-                    />
-                  )}
-
-                  <ProductVariantPrice
-                    product={product}
-                    selectedOptions={selectedOptions}
-                  />
-
-                  <OrderProgressBar
-                    productId={product.id}
-                    minimumOrderQuantity={product.minimumOrderQuantity || 50}
-                    maxStock={product.stock}
-                  />
-
-                  {product.category && (
-                    <div className="border-t border-gray-800 pt-4">
-                      <h3 className="text-sm font-medium mb-2">Category & Eligibility</h3>
-                      <div className="bg-gray-950/50 rounded-lg p-3">
-                        <CategoryDescription 
-                          category={product.category} 
-                          categoryIndex={categoryIndex}
-                        />
-                      </div>
-                    </div>
-                  )}
+                <div>
+                  <h2 id="modal-title" className="text-xl font-bold text-white">{product.name}</h2>
+                  <p className="mt-2 text-sm text-gray-400">{product.description}</p>
                 </div>
-              </div>
 
-              {/* Fixed buy button container on mobile, normal position on desktop */}
-              <div className="fixed md:relative bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 md:border-0 md:bg-transparent md:backdrop-blur-none">
+                {hasVariants && (
+                  <VariantDisplay
+                    variants={product.variants!}
+                    selectedOptions={selectedOptions}
+                    onChange={handleOptionChange}
+                  />
+                )}
+
+                <ProductVariantPrice
+                  product={product}
+                  selectedOptions={selectedOptions}
+                />
+
+                <OrderProgressBar
+                  productId={product.id}
+                  minimumOrderQuantity={product.minimumOrderQuantity || 50}
+                  maxStock={product.stock}
+                />
+
+                {product.category && (
+                  <div className="border-t border-gray-800 pt-4">
+                    <h3 className="text-sm font-medium mb-2">Category & Eligibility</h3>
+                    <div className="bg-gray-950/50 rounded-lg p-3">
+                      <CategoryDescription 
+                        category={product.category} 
+                        categoryIndex={categoryIndex}
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Add padding at the bottom on mobile to account for fixed button */}
+                <div className="h-4 md:hidden" aria-hidden="true" />
+              </SmoothScroll>
+
+              {/* Buy button - fixed on mobile, normal on desktop */}
+              <div className="fixed md:static bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 md:border-0 md:bg-transparent md:backdrop-blur-none">
                 {isUpcoming ? (
                   <button 
                     disabled
