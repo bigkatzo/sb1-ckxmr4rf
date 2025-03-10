@@ -31,6 +31,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const { publicKey, connected, disconnect: nativeDisconnect, signTransaction, sendTransaction } = useSolanaWallet();
   const [error, setError] = useState<Error | null>(null);
   const [notifications, setNotifications] = useState<WalletNotification[]>([]);
+  const [visible, setVisible] = useState(false);
 
   const addNotification = useCallback((type: 'success' | 'error', message: string) => {
     const notification: WalletNotification = {
@@ -60,7 +61,19 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const connect = useCallback(async () => {
     try {
       setError(null);
-      // Connection is handled by the wallet modal
+      
+      // Try to auto-connect to the previously used wallet
+      if (window.solana?.isPhantom) {
+        try {
+          await window.solana.connect();
+          return;
+        } catch (error) {
+          console.log('Auto-connect failed, falling back to modal:', error);
+        }
+      }
+      
+      // If auto-connect fails or no wallet is available, show the modal
+      setVisible(true);
     } catch (error) {
       console.error('Connect error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
@@ -68,7 +81,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       addNotification('error', 'Failed to connect wallet');
       throw error;
     }
-  }, [addNotification]);
+  }, [addNotification, setVisible]);
 
   const disconnect = useCallback(async () => {
     try {
