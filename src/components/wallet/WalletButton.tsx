@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { Wallet } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
