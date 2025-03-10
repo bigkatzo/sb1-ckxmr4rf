@@ -93,7 +93,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
       <div className="relative min-h-screen flex items-center justify-center p-0 sm:p-4">
         <div 
           ref={modalRef}
-          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-[600px] sm:max-w-4xl sm:rounded-xl overflow-hidden"
+          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden"
         >
           <div className="absolute top-4 right-4 z-10">
             <button
