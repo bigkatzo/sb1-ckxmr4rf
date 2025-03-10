@@ -54,12 +54,12 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       // Connection is handled by the wallet modal
-      addNotification('success', 'Wallet connected successfully');
+      addNotification('success', 'Wallet connected!');
     } catch (error) {
       console.error('Connect error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
       setError(error instanceof Error ? error : new Error(errorMessage));
-      addNotification('error', errorMessage);
+      addNotification('error', 'Failed to connect wallet');
       throw error;
     }
   }, [addNotification]);
@@ -73,7 +73,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       console.error('Disconnect error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to disconnect wallet';
       setError(error instanceof Error ? error : new Error(errorMessage));
-      addNotification('error', errorMessage);
+      addNotification('error', 'Failed to disconnect');
     }
   }, [nativeDisconnect, addNotification]);
 
