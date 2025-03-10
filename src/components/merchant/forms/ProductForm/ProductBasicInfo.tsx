@@ -1,13 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Product, Category } from '../../../../types';
 
 interface ProductBasicInfoProps {
   categories: Category[];
   initialData?: Product;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
 }
 
 export function ProductBasicInfo({ categories, initialData, onChange }: ProductBasicInfoProps) {
+  const [isUnlimitedStock, setIsUnlimitedStock] = useState(initialData?.stock === -1);
+
+  const handleStockChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (onChange) {
+      // If unlimited is checked, set stock to -1, otherwise use the input value
+      const value = isUnlimitedStock ? -1 : parseInt(e.target.value) || 0;
+      const syntheticEvent = {
+        ...e,
+        target: {
+          ...e.target,
+          value: value.toString(),
+          name: 'stock'
+        }
+      };
+      onChange(syntheticEvent);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {initialData?.sku && (
@@ -48,6 +66,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           id="description"
           name="description"
           defaultValue={initialData?.description}
+          onChange={onChange}
           required
           rows={3}
           className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
@@ -71,6 +90,41 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
           placeholder="0.00"
         />
+      </div>
+
+      <div>
+        <label htmlFor="stock" className="block text-sm font-medium text-white mb-1">
+          Stock *
+        </label>
+        <div className="space-y-2">
+          <input
+            type="number"
+            id="stock"
+            name="stock"
+            defaultValue={initialData?.stock === -1 ? '' : initialData?.stock}
+            onChange={handleStockChange}
+            required
+            min="0"
+            disabled={isUnlimitedStock}
+            className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400 disabled:opacity-50"
+            placeholder="Enter stock quantity"
+          />
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="unlimited-stock"
+              checked={isUnlimitedStock}
+              onChange={(e) => {
+                setIsUnlimitedStock(e.target.checked);
+                handleStockChange(e as any);
+              }}
+              className="rounded bg-gray-800 border-gray-700 text-purple-600 focus:ring-purple-600"
+            />
+            <label htmlFor="unlimited-stock" className="text-sm text-gray-300">
+              Unlimited stock
+            </label>
+          </div>
+        </div>
       </div>
 
       <div>
@@ -102,6 +156,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           id="minimumOrderQuantity"
           name="minimumOrderQuantity"
           defaultValue={initialData?.minimumOrderQuantity || 50}
+          onChange={onChange}
           required
           min="1"
           className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"

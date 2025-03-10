@@ -3,6 +3,7 @@ import { uploadProductImages } from './products/upload';
 import { generateProductId, generateSlug } from '../utils/id-helpers';
 import { withRetry } from '../lib/supabase';
 import type { ProductData } from './products/types';
+import type { PostgrestResponse } from '@supabase/supabase-js';
 
 export async function createProduct(data: FormData) {
   try {
@@ -27,13 +28,16 @@ export async function createProduct(data: FormData) {
     }
 
     const name = data.get('name') as string;
+    const stockValue = data.get('stock') as string;
+    const quantity = stockValue === '-1' ? -1 : parseInt(stockValue, 10) || 0;
+
     const productData: ProductData = {
       id: generateProductId(),
       name,
       description: data.get('description') as string,
       price: parseFloat(data.get('price') as string) || 0,
-      quantity: parseInt(data.get('quantity') as string, 10) || 0,
-      minimum_order_quantity: parseInt(data.get('minOrderQty') as string, 10) || 50,
+      quantity,
+      minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
       category_id: categoryId as string,
       collection_id: collectionId as string,
       images,
@@ -42,7 +46,7 @@ export async function createProduct(data: FormData) {
       slug: generateSlug(name, true)
     };
 
-    const { data: product, error } = await withRetry(() => 
+    const { data: product, error } = (await withRetry(() => 
       supabase
         .from('products')
         .insert(productData)
@@ -62,7 +66,7 @@ export async function createProduct(data: FormData) {
           )
         `)
         .single()
-    );
+    )) as PostgrestResponse<any>;
 
     if (error) throw error;
     if (!product) throw new Error('Failed to create product');
@@ -99,17 +103,20 @@ export async function updateProduct(id: string, data: FormData) {
       throw new Error('Category is required');
     }
 
+    const stockValue = data.get('stock') as string;
+    const quantity = stockValue === '-1' ? -1 : parseInt(stockValue, 10) || 0;
+
     updateData.name = data.get('name') as string;
     updateData.description = data.get('description') as string;
     updateData.price = parseFloat(data.get('price') as string) || 0;
-    updateData.quantity = parseInt(data.get('quantity') as string, 10) || 0;
-    updateData.minimum_order_quantity = parseInt(data.get('minOrderQty') as string, 10) || 50;
+    updateData.quantity = quantity;
+    updateData.minimum_order_quantity = parseInt(data.get('minimumOrderQuantity') as string, 10) || 50;
     updateData.category_id = categoryId as string;
     updateData.images = images;
     updateData.variants = variants;
     updateData.variant_prices = variantPrices;
 
-    const { data: product, error } = await withRetry(() => 
+    const { data: product, error } = (await withRetry(() => 
       supabase
         .from('products')
         .update(updateData)
@@ -130,7 +137,7 @@ export async function updateProduct(id: string, data: FormData) {
           )
         `)
         .single()
-    );
+    )) as PostgrestResponse<any>;
 
     if (error) throw error;
     if (!product) throw new Error('Failed to update product');
@@ -145,25 +152,25 @@ export async function updateProduct(id: string, data: FormData) {
 export async function deleteProduct(id: string) {
   try {
     // First verify the product exists and user has access
-    const { data: product, error: verifyError } = await withRetry(() =>
+    const { data: product, error: verifyError } = (await withRetry(() =>
       supabase
         .from('products')
         .select('id, collection_id')
         .eq('id', id)
         .single()
-    );
+    )) as PostgrestResponse<any>;
 
     if (verifyError || !product) {
       throw new Error('Product not found or access denied');
     }
 
     // Delete the product
-    const { error: deleteError } = await withRetry(() =>
+    const { error: deleteError } = (await withRetry(() =>
       supabase
         .from('products')
         .delete()
         .eq('id', id)
-    );
+    )) as PostgrestResponse<any>;
 
     if (deleteError) throw deleteError;
   } catch (error) {

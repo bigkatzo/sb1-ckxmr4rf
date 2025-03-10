@@ -161,20 +161,20 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
           {/* Mobile: Single scroll container, Desktop: Grid layout */}
           <div className="h-full md:grid md:grid-cols-2">
-            <div className="w-full aspect-square md:aspect-auto md:h-[600px] relative bg-gray-950/50">
+            <div className="w-full aspect-square md:aspect-auto md:h-[600px] relative bg-gray-950/50 overflow-hidden">
               {/* Fixed navigation arrows */}
-              {images.length > 1 ? (
+              {images.length > 1 && (
                 <>
                   <button
                     onClick={prevImage}
-                    className="hidden md:block absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={nextImage}
-                    className="hidden md:block absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-5 w-5" />
@@ -198,36 +198,37 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     ))}
                   </div>
                 </>
-              ) : null}
+              )}
 
-              {/* Swipeable image container */}
+              {/* Image container - consistent for both single and multiple images */}
               <div 
-                className="absolute inset-0 touch-pan-x select-none overflow-hidden"
-                {...swipeHandlers}
+                className="absolute inset-0 touch-pan-x select-none"
+                {...(images.length > 1 ? swipeHandlers : {})}
               >
                 <div
-                  className="absolute inset-0 will-change-transform transform-gpu flex"
-                  style={{
+                  className={`h-full flex ${images.length > 1 ? 'will-change-transform transform-gpu' : 'justify-center items-center'}`}
+                  style={images.length > 1 ? {
                     transform: `translateX(calc(${translateX} - 100% * ${selectedImageIndex}))`,
                     transition: swipeHandlers.isDragging 
                       ? 'none'
                       : 'transform 300ms ease-out'
-                  }}
+                  } : {}}
                 >
                   {images.map((image, index) => (
                     <div
                       key={index}
-                      className="w-full h-full flex-shrink-0 flex items-center justify-center"
+                      className={`${images.length > 1 ? 'w-full flex-shrink-0' : ''} h-full flex items-center justify-center p-4`}
+                      style={images.length > 1 ? {} : { width: '100%' }}
                     >
                       <OptimizedImage
                         src={image}
-                        alt={`${product.name} - Image ${index + 1}`}
+                        alt={`${product.name}${images.length > 1 ? ` - Image ${index + 1}` : ''}`}
                         width={1000}
                         height={1000}
                         quality={95}
-                        className="w-full h-full object-contain pointer-events-none"
+                        className="max-w-full max-h-full w-auto h-auto object-contain pointer-events-none"
                         sizes="(max-width: 640px) 100vw, 600px"
-                        priority={Math.abs(index - selectedImageIndex) <= 1}
+                        priority={images.length === 1 || Math.abs(index - selectedImageIndex) <= 1}
                       />
                     </div>
                   ))}

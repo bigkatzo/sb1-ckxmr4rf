@@ -31,6 +31,7 @@ export function BuyButton({
   // Check if collection is not live yet or sale has ended
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
   const isSaleEnded = product.collectionSaleEnded;
+  const isSoldOut = typeof product.stock === 'number' && product.stock === 0; // Only check if stock is 0, -1 means unlimited
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // Prevent event bubbling
@@ -86,6 +87,24 @@ export function BuyButton({
       >
         <Clock className="h-3 w-3" />
         <span>Soon</span>
+      </button>
+    );
+  }
+
+  // If product is sold out, show sold out button
+  if (isSoldOut) {
+    return (
+      <button 
+        disabled
+        className={`
+          flex items-center gap-1 bg-red-900/20 backdrop-blur-sm
+          text-red-400 px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-[10px] sm:text-xs 
+          cursor-not-allowed transition-colors
+          ${className}
+        `}
+      >
+        <Ban className="h-3 w-3" />
+        <span>Sold Out</span>
       </button>
     );
   }

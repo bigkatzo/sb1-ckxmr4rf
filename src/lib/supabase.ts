@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { PostgrestResponse, PostgrestBuilder } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
 // Required environment variables - keep VITE_ prefix for these
@@ -8,38 +9,25 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // Regular client for normal operations
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
-// Add retry logic for failed requests
+// Retry function for Supabase operations
 export async function withRetry<T>(
-  operation: () => Promise<T>,
+  operation: () => PostgrestBuilder<T>,
   maxRetries = 3,
-  delayMs = 1000
-): Promise<T> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  delay = 1000
+): Promise<PostgrestResponse<T>> {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
     try {
-      const jitter = Math.random() * 1000;
-      const delay = delayMs * Math.pow(2, attempt) + jitter;
-      
-      if (attempt > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-
-      return await operation();
+      const result = await operation();
+      return result as PostgrestResponse<T>;
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error('Unknown error');
-      
-      if (error instanceof Error) {
-        if (error.message.includes('auth/') || error.message.includes('validation')) {
-          throw error;
-        }
+      lastError = error;
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
       }
-      
-      console.warn(`Operation failed (attempt ${attempt + 1}/${maxRetries}):`, error);
     }
   }
-  
-  throw lastError || new Error('Operation failed after retries');
+  throw lastError;
 }
 
 // Add connection status check
