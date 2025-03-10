@@ -74,7 +74,7 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
           collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
           collectionSaleEnded: product.collection_sale_ended,
           slug: product.slug,
-          stock: product.quantity || 0,
+          stock: product.quantity,
           minimumOrderQuantity: product.minimum_order_quantity || 50,
           variants: product.variants || [],
           variantPrices: product.variant_prices || {},
