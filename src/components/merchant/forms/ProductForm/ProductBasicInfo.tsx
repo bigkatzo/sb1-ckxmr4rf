@@ -42,9 +42,9 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         stock: isUnlimited ? null : 0
       });
     } else {
-      const value = parseInt(e.target.value);
+      const value = e.target.value.trim();
       onChange({
-        stock: isNaN(value) ? 0 : value
+        stock: value === '' ? null : parseInt(value, 10)
       });
     }
   };

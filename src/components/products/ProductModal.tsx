@@ -56,12 +56,14 @@ function ProductBuyButton({
     );
   }
   
+  // Update the disabled condition to handle null stock as unlimited
+  const isDisabled = (product.stock !== null && product.stock === 0) || (hasVariants && !allOptionsSelected);
+
   return (
     <BuyButton
       product={product}
-      price={product.price}
       selectedOptions={selectedOptions}
-      disabled={product.stock === 0 || (hasVariants && !allOptionsSelected)}
+      disabled={isDisabled}
       className="w-full flex items-center justify-center gap-2 py-3 text-sm sm:text-base"
       showModal={true}
     />
