@@ -20,9 +20,9 @@ export function FeaturedCollection() {
   const isAnimating = useRef(false);
 
   // Required minimum swipe distance in pixels
-  const minSwipeDistance = 50;
+  const minSwipeDistance = 20;
   // Velocity threshold for momentum scrolling (pixels per millisecond)
-  const velocityThreshold = 0.5;
+  const velocityThreshold = 0.2;
 
   // Reset auto-scroll timer
   const resetAutoScroll = useCallback(() => {
@@ -271,10 +271,10 @@ export function FeaturedCollection() {
   }
 
   // Calculate transition speed based on velocity for momentum effect
-  const transitionDuration = isDragging ? 0 : (dragVelocity > velocityThreshold ? 250 : 400);
+  const transitionDuration = isDragging ? 0 : (dragVelocity > velocityThreshold ? 150 : 200);
   
   // Apply a slight damping effect to make the drag feel more natural
-  const dampingFactor = 0.92;
+  const dampingFactor = 0.98;
   
   const translateX = isDragging 
     ? -(currentIndex * 100) + (dragOffset * dampingFactor / (sliderRef.current?.clientWidth || window.innerWidth) * 100)
