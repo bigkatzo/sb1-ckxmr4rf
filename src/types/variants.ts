@@ -13,6 +13,20 @@ export interface VariantPricing {
   [key: string]: number; // combination key -> price
 }
 
+export interface VariantStock {
+  [key: string]: number | null;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  eligibilityRules?: {
+    rules: Array<any>;
+  };
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -24,10 +38,14 @@ export interface Product {
   category?: Category;
   collectionId: string;
   collectionName?: string;
-  stock: number; // Base stock
+  collectionSlug?: string;
+  slug: string;
+  stock: number | null; // Base stock, null means unlimited
   minimumOrderQuantity: number;
   variants?: ProductVariant[];
   variantPrices?: VariantPricing;
+  variantStock?: VariantStock;
+  sku: string;
 }
 
 export interface ProductVariantFormData {

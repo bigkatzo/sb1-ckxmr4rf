@@ -18,6 +18,7 @@ export async function createProduct(data: FormData) {
     // Parse variant data
     const variants = JSON.parse(data.get('variants') as string || '[]');
     const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
+    const variantStock = JSON.parse(data.get('variantStock') as string || '{}');
 
     // Get collection and category IDs
     const collectionId = data.get('collection');
@@ -29,7 +30,7 @@ export async function createProduct(data: FormData) {
 
     const name = data.get('name') as string;
     const stockValue = data.get('stock') as string;
-    const quantity = stockValue === '-1' ? -1 : parseInt(stockValue, 10) || 0;
+    const quantity = stockValue === '' ? null : parseInt(stockValue, 10);
 
     const productData: ProductData = {
       id: generateProductId(),
@@ -43,6 +44,7 @@ export async function createProduct(data: FormData) {
       images,
       variants,
       variant_prices: variantPrices,
+      variant_stock: variantStock,
       slug: generateSlug(name, true)
     };
 
@@ -96,6 +98,7 @@ export async function updateProduct(id: string, data: FormData) {
     // Parse variant data
     const variants = JSON.parse(data.get('variants') as string || '[]');
     const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
+    const variantStock = JSON.parse(data.get('variantStock') as string || '{}');
 
     // Get category ID
     const categoryId = data.get('category');
@@ -104,7 +107,7 @@ export async function updateProduct(id: string, data: FormData) {
     }
 
     const stockValue = data.get('stock') as string;
-    const quantity = stockValue === '-1' ? -1 : parseInt(stockValue, 10) || 0;
+    const quantity = stockValue === '' ? null : parseInt(stockValue, 10);
 
     updateData.name = data.get('name') as string;
     updateData.description = data.get('description') as string;
@@ -115,6 +118,7 @@ export async function updateProduct(id: string, data: FormData) {
     updateData.images = images;
     updateData.variants = variants;
     updateData.variant_prices = variantPrices;
+    updateData.variant_stock = variantStock;
 
     const { data: product, error } = (await withRetry(() => 
       supabase

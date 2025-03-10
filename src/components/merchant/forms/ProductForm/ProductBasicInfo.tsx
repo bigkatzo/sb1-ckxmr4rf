@@ -2,59 +2,68 @@ import React, { useState } from 'react';
 import type { Product, Category } from '../../../../types';
 
 interface ProductBasicInfoProps {
-  categories: Category[];
-  initialData?: Product;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  categories: Array<{
+    id: string;
+    name: string;
+  }>;
+  initialData?: {
+    name?: string;
+    description?: string;
+    price?: number;
+    stock?: number | null;
+    categoryId?: string;
+    sku?: string;
+    minimumOrderQuantity?: number;
+  };
+  onChange: (data: Partial<{
+    name: string;
+    description: string;
+    price: number;
+    stock: number | null;
+    categoryId: string;
+    sku: string;
+    minimumOrderQuantity: number;
+  }>) => void;
 }
 
 export function ProductBasicInfo({ categories, initialData, onChange }: ProductBasicInfoProps) {
-  const [isUnlimitedStock, setIsUnlimitedStock] = useState(initialData?.stock === -1);
+  const [isUnlimitedStock, setIsUnlimitedStock] = useState(initialData?.stock === null);
 
-  const handleStockChange = (e: React.ChangeEvent<HTMLInputElement>, isUnlimited?: boolean) => {
-    if (onChange) {
-      // Use isUnlimited parameter if provided, otherwise use state
-      const useUnlimited = isUnlimited !== undefined ? isUnlimited : isUnlimitedStock;
-      const value = useUnlimited ? -1 : parseInt(e.target.value) || 0;
-      const syntheticEvent = {
-        ...e,
-        target: {
-          ...e.target,
-          value: value.toString(),
-          name: 'stock'
-        }
-      };
-      onChange(syntheticEvent);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    onChange({
+      [name]: value
+    } as any); // Using type assertion since we know the field names match
+  };
+
+  const handleStockChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLSelectElement>, isUnlimited?: boolean) => {
+    if (isUnlimited !== undefined) {
+      setIsUnlimitedStock(isUnlimited);
+      onChange({
+        stock: isUnlimited ? null : 0
+      });
+    } else {
+      const value = parseInt(e.target.value);
+      onChange({
+        stock: isNaN(value) ? 0 : value
+      });
     }
   };
 
   return (
-    <div className="space-y-6">
-      {initialData?.sku && (
-        <div>
-          <label className="block text-sm font-medium text-white mb-1">
-            SKU
-          </label>
-          <input
-            type="text"
-            value={initialData.sku}
-            disabled
-            className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-gray-400 cursor-not-allowed"
-          />
-        </div>
-      )}
-
+    <div className="space-y-4">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-white mb-1">
-          Product Name *
+          Name *
         </label>
         <input
           type="text"
           id="name"
           name="name"
           defaultValue={initialData?.name}
-          onChange={onChange}
+          onChange={handleInputChange}
           required
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
           placeholder="Enter product name"
         />
       </div>
@@ -67,29 +76,28 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           id="description"
           name="description"
           defaultValue={initialData?.description}
-          onChange={onChange}
-          required
+          onChange={handleInputChange}
           rows={3}
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
           placeholder="Enter product description"
         />
       </div>
 
       <div>
         <label htmlFor="price" className="block text-sm font-medium text-white mb-1">
-          Base Price (SOL) *
+          Price *
         </label>
         <input
           type="number"
           id="price"
           name="price"
           defaultValue={initialData?.price}
-          onChange={onChange}
+          onChange={handleInputChange}
           required
           min="0"
           step="0.01"
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
-          placeholder="0.00"
+          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+          placeholder="Enter price"
         />
       </div>
 
@@ -102,7 +110,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             type="number"
             id="stock"
             name="stock"
-            defaultValue={initialData?.stock === -1 ? '' : initialData?.stock}
+            defaultValue={initialData?.stock === null ? '' : initialData?.stock}
             onChange={(e) => handleStockChange(e)}
             required
             min="0"
@@ -129,13 +137,31 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
       </div>
 
       <div>
+        <label htmlFor="minimumOrderQuantity" className="block text-sm font-medium text-white mb-1">
+          Minimum Order Quantity *
+        </label>
+        <input
+          type="number"
+          id="minimumOrderQuantity"
+          name="minimumOrderQuantity"
+          defaultValue={initialData?.minimumOrderQuantity}
+          onChange={handleInputChange}
+          required
+          min="1"
+          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+          placeholder="Enter minimum order quantity"
+        />
+      </div>
+
+      <div>
         <label htmlFor="category" className="block text-sm font-medium text-white mb-1">
           Category *
         </label>
         <select
           id="category"
-          name="category"
+          name="categoryId"
           defaultValue={initialData?.categoryId}
+          onChange={handleInputChange}
           required
           className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
         >
@@ -146,22 +172,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             </option>
           ))}
         </select>
-      </div>
-
-      <div>
-        <label htmlFor="minimumOrderQuantity" className="block text-sm font-medium text-white mb-1">
-          Minimum Order Quantity *
-        </label>
-        <input
-          type="number"
-          id="minimumOrderQuantity"
-          name="minimumOrderQuantity"
-          defaultValue={initialData?.minimumOrderQuantity || 50}
-          onChange={onChange}
-          required
-          min="1"
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
-        />
       </div>
     </div>
   );

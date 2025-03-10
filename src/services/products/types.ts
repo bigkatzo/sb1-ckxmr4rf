@@ -5,13 +5,14 @@ export interface ProductData {
   name: string;
   description: string;
   price: number;
-  quantity: number;
+  quantity: number | null;
   minimum_order_quantity: number;
   category_id: string;
   collection_id: string;
   images: string[];
   variants: ProductVariant[];
   variant_prices: Record<string, number>;
+  variant_stock: Record<string, number | null>;
   slug: string;
 }
 

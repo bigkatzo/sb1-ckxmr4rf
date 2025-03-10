@@ -45,9 +45,10 @@ export function transformProduct(dbProduct: any): Product {
     collectionName: dbProduct.collections?.name,
     collectionSlug: dbProduct.collections?.slug,
     slug: dbProduct.slug || '',
-    stock: typeof dbProduct.quantity === 'number' ? dbProduct.quantity : 0,
+    stock: dbProduct.quantity,
     minimumOrderQuantity: dbProduct.minimum_order_quantity || 50,
     variants,
-    variantPrices: dbProduct.variant_prices || {}
+    variantPrices: dbProduct.variant_prices || {},
+    variantStock: dbProduct.variant_stock || {}
   };
 }

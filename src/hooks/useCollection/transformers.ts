@@ -34,7 +34,7 @@ export function transformProduct(product: any, collectionData: any): Product | n
     collectionName: collectionData.name || '',
     collectionSlug: collectionData.slug,
     slug: product.slug,
-    stock: typeof product.quantity === 'number' ? product.quantity : 0,
+    stock: product.quantity,
     minimumOrderQuantity: product.minimum_order_quantity || 50,
     variants: Array.isArray(product.variants) ? product.variants : [],
     variantPrices: product.variant_prices || {},

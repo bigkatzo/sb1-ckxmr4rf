@@ -22,12 +22,13 @@ export function getVariantPrice(
 }
 
 export function getVariantStock(
-  baseStock: number,
+  baseStock: number | null,
   variantStock: VariantStock | undefined,
   variantKey: string | null
-): number {
+): number | null {
   if (!variantKey || !variantStock) return baseStock;
-  return variantStock[variantKey] ?? baseStock;
+  const variantValue = variantStock[variantKey];
+  return variantValue === undefined ? baseStock : variantValue;
 }
 
 export function generateVariantCombinations(variants: ProductVariant[]): string[] {
