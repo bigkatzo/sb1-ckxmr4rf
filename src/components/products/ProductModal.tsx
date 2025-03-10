@@ -53,20 +53,20 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
-    setTimeout(() => setIsTransitioning(false), 250); // Match new transition duration
+    setTimeout(() => setIsTransitioning(false), 400); // Match transition duration
   };
 
   const prevImage = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
-    setTimeout(() => setIsTransitioning(false), 250); // Match new transition duration
+    setTimeout(() => setIsTransitioning(false), 400); // Match transition duration
   };
 
   const swipeHandlers = useSwipe({
     onSwipeLeft: nextImage,
     onSwipeRight: prevImage,
-    threshold: 50 // Increased threshold for more intentional swipes
+    threshold: 40 // Slightly lower threshold for better responsiveness
   });
 
   const allOptionsSelected = hasVariants
@@ -79,7 +79,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
   // Calculate transform with smooth transition
   const translateX = swipeHandlers.isDragging
-    ? `${swipeHandlers.dragOffset * 0.8}px` // Increased responsiveness for more natural feel
+    ? `${swipeHandlers.dragOffset * 0.95}px` // More responsive drag
     : '0px';
 
   return (
@@ -155,7 +155,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                   className="relative h-full w-full will-change-transform"
                   style={{
                     transform: `translateX(${translateX})`,
-                    transition: swipeHandlers.isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                    transition: swipeHandlers.isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
                   }}
                 >
                   <OptimizedImage
