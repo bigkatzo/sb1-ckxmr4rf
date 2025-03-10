@@ -47,9 +47,29 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
     onSubmit(formData);
   };
 
-  const handleBasicInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.name === 'price') {
-      setBasePrice(parseFloat(e.target.value) || 0);
+  const handleBasicInfoChange = (data: Partial<{
+    name: string;
+    description: string;
+    price: number;
+    stock: number | null;
+    categoryId: string;
+    sku: string;
+    minimumOrderQuantity: number;
+  }>) => {
+    // Update base price if changed
+    if (data.price !== undefined) {
+      setBasePrice(data.price);
+    }
+
+    // Update form fields
+    const form = document.getElementById('product-form') as HTMLFormElement;
+    if (form) {
+      Object.entries(data).forEach(([key, value]) => {
+        const input = form.elements.namedItem(key) as HTMLInputElement;
+        if (input) {
+          input.value = value?.toString() ?? '';
+        }
+      });
     }
   };
 

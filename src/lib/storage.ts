@@ -37,8 +37,9 @@ export function normalizeStorageUrl(url: string): string {
       return url;
     }
     
-    // If it's an object URL, keep it as is - OptimizedImage will handle conversion
+    // If it's an object URL, convert to render URL
     if (path.includes('/storage/v1/object/public/')) {
+      path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
       return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
     }
     

@@ -22,7 +22,7 @@ export async function createProduct(data: FormData) {
 
     // Get collection and category IDs
     const collectionId = data.get('collection');
-    const categoryId = data.get('category');
+    const categoryId = data.get('categoryId');
 
     if (!collectionId || !categoryId) {
       throw new Error('Collection and category are required');
@@ -101,7 +101,7 @@ export async function updateProduct(id: string, data: FormData) {
     const variantStock = JSON.parse(data.get('variantStock') as string || '{}');
 
     // Get category ID
-    const categoryId = data.get('category');
+    const categoryId = data.get('categoryId');
     if (!categoryId) {
       throw new Error('Category is required');
     }
