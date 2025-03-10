@@ -79,8 +79,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
           </span>
           <BuyButton 
             product={product}
-            price={product.price}
-            disabled={product.stock === 0}
+            disabled={product.stock === 0 && product.stock !== null}
             className="z-10"
             onClick={handleClick}
           />

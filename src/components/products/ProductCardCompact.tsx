@@ -84,8 +84,7 @@ export function ProductCardCompact({
           </span>
           <BuyButton 
             product={product}
-            price={product.price}
-            disabled={product.stock === 0}
+            disabled={product.stock === 0 && product.stock !== null}
             className="z-10 scale-90 origin-right"
             onClick={handleClick}
           />

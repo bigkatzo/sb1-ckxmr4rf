@@ -99,7 +99,7 @@ export function useCollection(slug: string) {
             collectionLaunchDate: new Date(collectionData.launch_date),
             collectionSaleEnded: collectionData.sale_ended,
             slug: product.slug || '',
-            stock: product.quantity || 0,
+            stock: product.quantity,
             minimumOrderQuantity: product.minimum_order_quantity || 50,
             variants: product.variants || [],
             variantPrices: product.variant_prices || {}

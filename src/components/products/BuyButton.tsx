@@ -34,7 +34,7 @@ export function BuyButton({
   const isUnlimited = product.stock === null;
   const isSoldOut = !isUnlimited && (
     product.stock === 0 || // No stock available
-    (typeof currentOrders === 'number' && currentOrders >= (product.stock || 0)) // Current orders reached or exceeded stock limit
+    (typeof currentOrders === 'number' && currentOrders >= (product.stock as number)) // Current orders reached or exceeded stock limit
   );
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {

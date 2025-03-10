@@ -65,7 +65,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
         collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
         collectionSaleEnded: product.collection_sale_ended,
         slug: product.slug || '',
-        stock: typeof product.quantity === 'number' ? product.quantity : 0,
+        stock: product.quantity,
         minimumOrderQuantity: product.minimum_order_quantity || 50,
         variants: product.variants || [],
         variantPrices: product.variant_prices || {}
