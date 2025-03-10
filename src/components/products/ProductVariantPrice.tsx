@@ -1,4 +1,3 @@
-import React from 'react';
 import { getVariantKey, getVariantPrice } from '../../utils/variant-helpers';
 import type { Product } from '../../types/variants';
 

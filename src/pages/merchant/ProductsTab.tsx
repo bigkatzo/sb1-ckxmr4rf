@@ -24,6 +24,8 @@ export function ProductsTab() {
   const handleSubmit = async (data: FormData) => {
     try {
       if (editingProduct) {
+        console.log('Updating product:', editingProduct.id);
+        console.log('Form data entries:', Array.from(data.entries()));
         await updateProduct(editingProduct.id, data);
         toast.success('Product updated successfully');
       } else {
@@ -36,7 +38,19 @@ export function ProductsTab() {
       refreshProducts();
     } catch (error) {
       console.error('Error with product:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error saving product';
+      let errorMessage = 'Error saving product';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        console.error('Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+      } else if (typeof error === 'object' && error !== null) {
+        console.error('Detailed error object:', error);
+      }
+      
       toast.error(errorMessage);
     }
   };
