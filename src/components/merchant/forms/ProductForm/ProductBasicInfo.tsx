@@ -44,7 +44,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
     } else {
       const value = e.target.value.trim();
       onChange({
-        stock: value === '' ? null : parseInt(value, 10)
+        stock: value === '' ? 0 : parseInt(value, 10)
       });
     }
   };
@@ -109,7 +109,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             type="number"
             id="stock"
             name="stock"
-            defaultValue={initialData?.stock === null ? '' : initialData?.stock}
+            defaultValue={initialData?.stock === null ? 0 : initialData?.stock}
             onChange={(e) => handleStockChange(e)}
             required
             min="0"
