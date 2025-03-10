@@ -37,10 +37,19 @@ export function normalizeStorageUrl(url: string): string {
       return url;
     }
     
-    // If it's an object URL, convert to render URL
+    // If it's an object URL, check if it's an image before converting
     if (path.includes('/storage/v1/object/public/')) {
-      path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-      return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
+      // Check if the file is an image by extension
+      const isImage = /\.(jpg|jpeg|png|gif|webp|avif)$/i.test(path);
+      
+      if (isImage) {
+        // Convert to render URL for images
+        path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+        return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
+      }
+      
+      // For non-images, return the original object URL
+      return url;
     }
     
     // For other URLs, return as is

@@ -20,7 +20,17 @@ WHERE id IN ('collection-images', 'product-images');
 CREATE POLICY "public_read"
   ON storage.objects FOR SELECT
   TO public
-  USING (bucket_id IN ('collection-images', 'product-images'));
+  USING (
+    bucket_id IN ('collection-images', 'product-images')
+    AND (
+      -- Allow access to both object and render endpoints
+      name LIKE '%.jpg' OR
+      name LIKE '%.jpeg' OR
+      name LIKE '%.png' OR
+      name LIKE '%.webp' OR
+      name LIKE '%.gif'
+    )
+  );
 
 CREATE POLICY "authenticated_write"
   ON storage.objects

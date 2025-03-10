@@ -43,36 +43,32 @@ export function OptimizedImage({
           // Convert object URL to render URL
           const renderUrl = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
           
-          // Add width, height, and quality parameters for resizing
+          // Add width and quality parameters for resizing
           const params = new URLSearchParams();
           
           if (targetWidth) {
             params.append('width', targetWidth.toString());
-            // Calculate height proportionally if original height is provided
-            if (height && width) {
-              const aspectRatio = height / width;
-              const targetHeight = Math.round(targetWidth * aspectRatio);
-              params.append('height', targetHeight.toString());
-            }
           } else if (width) {
             params.append('width', width.toString());
-            if (height) params.append('height', height.toString());
           }
           
-          // Add quality parameter
-          params.append('quality', (targetQuality || quality).toString());
+          // Add quality parameter only if specified
+          if (targetQuality || quality) {
+            params.append('quality', (targetQuality || quality).toString());
+          }
           
-          // Add format parameter for WebP if supported
-          params.append('format', 'webp');
+          // Only add format parameter if we're requesting a specific width
+          if (targetWidth || width) {
+            params.append('format', 'webp');
+          }
           
-          // Add cache-control headers
-          params.append('cache-control', 'public, max-age=31536000, immutable');
-          
-          return `${renderUrl}?${params.toString()}`;
+          const finalUrl = params.toString() ? `${renderUrl}?${params.toString()}` : renderUrl;
+          return finalUrl;
         }
         return url;
       } catch (error) {
         console.error('Error optimizing image URL:', error);
+        // If optimization fails, return the original URL
         return url;
       }
     };
@@ -94,10 +90,16 @@ export function OptimizedImage({
       const tinyUrl = optimizeImageUrl(src, 20, 20);
       try {
         const response = await fetch(tinyUrl);
+        if (!response.ok) {
+          console.warn('Blurred placeholder failed to load, falling back to original URL');
+          setBlurredLoaded(true);
+          return;
+        }
         await response.blob();
         setBlurredLoaded(true);
       } catch (error) {
-        console.error('Error loading blurred placeholder:', error);
+        console.warn('Error loading blurred placeholder, falling back to original URL:', error);
+        setBlurredLoaded(true);
       }
     };
 
@@ -114,6 +116,17 @@ export function OptimizedImage({
   const handleImageLoad = () => {
     setIsLoading(false);
     if (onLoad) onLoad();
+  };
+
+  const handleImageError = () => {
+    console.error('Image failed to load:', src);
+    // Fall back to the original URL if optimization fails
+    if (src.includes('/storage/v1/render/image/public/')) {
+      const originalUrl = src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+      setImageSrc(originalUrl);
+      setSrcSet(originalUrl);
+    }
+    setIsLoading(false);
   };
 
   const objectFitClass = {
@@ -163,10 +176,7 @@ export function OptimizedImage({
           `}
           loading={priority ? 'eager' : 'lazy'}
           onLoad={handleImageLoad}
-          onError={() => {
-            console.error('Image failed to load:', src);
-            setIsLoading(false);
-          }}
+          onError={handleImageError}
           sizes={sizes}
           srcSet={srcSet}
           {...props}
