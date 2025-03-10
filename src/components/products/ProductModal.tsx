@@ -106,7 +106,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
           </div>
 
           {/* Mobile: Single scroll container, Desktop: Grid layout */}
-          <div className="h-full overflow-y-auto md:grid md:grid-cols-2">
+          <div className="h-full md:grid md:grid-cols-2">
             <div className="w-full aspect-square md:aspect-auto md:h-[600px] relative bg-gray-950/50">
               {/* Fixed navigation arrows */}
               {images.length > 1 ? (
@@ -191,8 +191,8 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
             </div>
 
             {/* Product info section - now part of the main scroll on mobile */}
-            <div className="flex-1 md:h-[600px] flex flex-col">
-              <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 md:h-[600px] flex flex-col relative">
+              <div className="flex-1 overflow-y-auto pb-[100px] md:pb-4">
                 <div className="p-4 space-y-4">
                   {product.collectionSlug && product.collectionName && (
                     <Link
@@ -242,8 +242,8 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                 </div>
               </div>
 
-              {/* Sticky buy button container */}
-              <div className="sticky bottom-0 left-0 right-0 p-4 bg-gray-900/80 backdrop-blur-sm border-t border-gray-800 md:border-0 md:bg-transparent md:backdrop-blur-none">
+              {/* Fixed buy button container on mobile, normal on desktop */}
+              <div className="fixed md:relative bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 md:border-0 md:bg-transparent md:backdrop-blur-none md:p-4">
                 {isUpcoming ? (
                   <button 
                     disabled
