@@ -92,6 +92,15 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     return () => window.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
+  // Add handler for browser back button
+  useEffect(() => {
+    const handlePopState = () => {
+      onClose();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [onClose]);
+
   const handleOptionChange = (variantId: string, value: string) => {
     setSelectedOptions(prev => ({
       ...prev,

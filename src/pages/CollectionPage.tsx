@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, Navigate, useLocation } from 'react-router-dom';
 import { CategoryTabs } from '../components/collections/CategoryTabs';
 import { ProductGrid } from '../components/products/ProductGrid';
 import { useCollection } from '../hooks/useCollection';
@@ -12,16 +12,55 @@ import { OptimizedImage } from '../components/ui/OptimizedImage';
 
 export function CollectionPage() {
   const { slug } = useParams();
-  const [selectedCategory, setSelectedCategory] = useState<string>();
+  const location = useLocation();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const pageRef = useRef<HTMLDivElement>(null);
+  
+  // Get selectedCategory from location state or use local state
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(
+    location.state?.selectedCategoryId
+  );
   
   const { collection, loading, error } = useCollection(slug || '');
 
+  // Handle initial load and scroll restoration
   useEffect(() => {
     if (!loading && isInitialLoad) {
       setIsInitialLoad(false);
+      
+      // Restore scroll position if available in location state
+      if (location.state?.scrollPosition && pageRef.current) {
+        setTimeout(() => {
+          window.scrollTo({
+            top: location.state.scrollPosition,
+            behavior: 'auto'
+          });
+        }, 100); // Small delay to ensure content is rendered
+      }
     }
-  }, [loading]);
+  }, [loading, isInitialLoad, location.state]);
+  
+  // Save scroll position when navigating away
+  useEffect(() => {
+    // This will run when the component mounts
+    const saveScrollPosition = () => {
+      // Store current scroll position in sessionStorage as a fallback
+      sessionStorage.setItem('collectionScrollPosition', window.scrollY.toString());
+    };
+
+    // Add event listener for when user navigates away
+    window.addEventListener('beforeunload', saveScrollPosition);
+    
+    return () => {
+      // Remove event listener when component unmounts
+      window.removeEventListener('beforeunload', saveScrollPosition);
+    };
+  }, []);
+  
+  // Handle category change by updating state
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId || undefined);
+  };
   
   if (!slug) {
     return <Navigate to="/" replace />;
@@ -40,7 +79,10 @@ export function CollectionPage() {
   const isNew = !isUpcoming && (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000);
 
   return (
-    <div className={`space-y-6 sm:space-y-8 ${loading && !isInitialLoad ? 'opacity-60' : ''}`}>
+    <div 
+      ref={pageRef}
+      className={`space-y-6 sm:space-y-8 ${loading && !isInitialLoad ? 'opacity-60' : ''}`}
+    >
       {/* Hero Section */}
       <div className="relative aspect-[21/9] overflow-hidden rounded-xl sm:rounded-2xl">
         {collection.imageUrl ? (
@@ -120,7 +162,7 @@ export function CollectionPage() {
           <CategoryTabs
             categories={collection.categories}
             selectedId={selectedCategory}
-            onChange={setSelectedCategory}
+            onChange={handleCategoryChange}
             categoryIndices={categoryIndices}
           />
         )}

@@ -58,10 +58,16 @@ export function ProductGrid({ products, categoryId, categoryIndices, loading }: 
       return;
     }
 
+    // Get current scroll position
+    const scrollPosition = window.scrollY;
+
+    // Navigate to product page with product data, category index, and selected category ID
     navigate(`/${product.collectionSlug}/${product.slug}`, {
       state: { 
         product,
-        categoryIndex: categoryIndices[product.categoryId] || 0
+        categoryIndex: categoryIndices[product.categoryId] || 0,
+        selectedCategoryId: categoryId,
+        scrollPosition
       }
     });
   };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CategoryDiamond } from './CategoryDiamond';
 import { CategoryDescription } from './CategoryDescription';
 import type { Category } from '../../types';
@@ -12,6 +12,7 @@ interface CategoryTabsProps {
 
 export function CategoryTabs({ categories, selectedId, onChange, categoryIndices }: CategoryTabsProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const handleTabClick = (categoryId: string) => {
     if (selectedId === categoryId) {
@@ -20,6 +21,28 @@ export function CategoryTabs({ categories, selectedId, onChange, categoryIndices
       onChange(categoryId);
     }
   };
+
+  // Scroll to selected tab when component mounts or selected tab changes
+  useEffect(() => {
+    if (selectedId && scrollRef.current && tabRefs.current[selectedId]) {
+      const tabElement = tabRefs.current[selectedId];
+      const scrollContainer = scrollRef.current;
+      
+      if (tabElement) {
+        // Calculate scroll position to center the tab
+        const tabRect = tabElement.getBoundingClientRect();
+        const containerRect = scrollContainer.getBoundingClientRect();
+        
+        const centerPosition = tabElement.offsetLeft - (containerRect.width / 2) + (tabRect.width / 2);
+        
+        // Scroll to the tab with smooth behavior
+        scrollContainer.scrollTo({
+          left: centerPosition,
+          behavior: 'smooth'
+        });
+      }
+    }
+  }, [selectedId]);
 
   return (
     <div className="space-y-4">
@@ -31,6 +54,7 @@ export function CategoryTabs({ categories, selectedId, onChange, categoryIndices
           {categories.map((category) => (
             <button
               key={category.id}
+              ref={el => tabRefs.current[category.id] = el}
               onClick={() => handleTabClick(category.id)}
               className={`
                 flex items-center gap-2 border-b-2 px-2.5 py-3 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors snap-start
