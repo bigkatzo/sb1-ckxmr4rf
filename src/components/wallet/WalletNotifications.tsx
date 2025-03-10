@@ -1,5 +1,4 @@
-import React from 'react';
-import { Check, AlertCircle, Wallet } from 'lucide-react';
+import { Check, AlertCircle } from 'lucide-react';
 
 interface WalletNotification {
   id: string;
@@ -17,7 +16,7 @@ export function WalletNotifications({ notifications, onDismiss }: WalletNotifica
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 max-w-[90vw] sm:max-w-md w-full sm:w-auto z-[9999] space-y-2">
+    <div className="fixed bottom-4 right-4 max-w-[280px] sm:max-w-md w-auto z-[9999] space-y-2">
       {notifications.map((notification) => (
         <div
           key={notification.id}
