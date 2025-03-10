@@ -219,7 +219,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                   {images.map((image, index) => (
                     <div
                       key={index}
-                      className={`${images.length > 1 ? 'w-full flex-shrink-0' : ''} h-full flex items-center justify-center p-4`}
+                      className={`${images.length > 1 ? 'w-full flex-shrink-0' : ''} h-full flex items-center justify-center`}
                       style={images.length > 1 ? {} : { width: '100%' }}
                     >
                       <OptimizedImage
