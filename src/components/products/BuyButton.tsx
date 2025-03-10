@@ -3,6 +3,7 @@ import { ShoppingBag, Clock, Ban } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useModal } from '../../contexts/ModalContext';
+import { useOrderStats } from '../../hooks/useOrderStats';
 import type { Product } from '../../types';
 
 interface BuyButtonProps {
@@ -27,11 +28,16 @@ export function BuyButton({
   const { isConnected, connect } = useWallet();
   const { setVisible } = useWalletModal();
   const { showVerificationModal } = useModal();
+  const { currentOrders } = useOrderStats(product.id);
 
   // Check if collection is not live yet or sale has ended
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
   const isSaleEnded = product.collectionSaleEnded;
-  const isSoldOut = typeof product.stock === 'number' && product.stock === 0; // Only check if stock is 0, -1 means unlimited
+  const isUnlimited = product.stock === -1;
+  const isSoldOut = !isUnlimited && (
+    product.stock === 0 || // No stock available
+    (typeof currentOrders === 'number' && currentOrders >= product.stock) // Current orders reached or exceeded stock limit
+  );
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // Prevent event bubbling
