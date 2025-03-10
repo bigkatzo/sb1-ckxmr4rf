@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import type { Product, Category } from '../../../../types';
 
 interface ProductBasicInfoProps {
   categories: Array<{

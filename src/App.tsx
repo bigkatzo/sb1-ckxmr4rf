@@ -71,7 +71,8 @@ function AppContent() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        className="z-[9999] max-w-[90vw] sm:max-w-md"
+        className="z-[99999] max-w-[90vw] sm:max-w-md"
+        style={{ zIndex: 99999 }}
       />
     </div>
   );
