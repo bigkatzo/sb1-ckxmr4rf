@@ -53,20 +53,20 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
-    setTimeout(() => setIsTransitioning(false), 300); // Slightly faster transition for better responsiveness
+    setTimeout(() => setIsTransitioning(false), 500); // Longer duration for smoother feel
   };
 
   const prevImage = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
-    setTimeout(() => setIsTransitioning(false), 300); // Slightly faster transition for better responsiveness
+    setTimeout(() => setIsTransitioning(false), 500); // Longer duration for smoother feel
   };
 
   const swipeHandlers = useSwipe({
     onSwipeLeft: nextImage,
     onSwipeRight: prevImage,
-    threshold: 30 // Lower threshold for more responsive swipes
+    threshold: 20 // Lower threshold for more responsive swipes
   });
 
   const allOptionsSelected = hasVariants
@@ -79,7 +79,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
   // Calculate transform with smooth transition
   const translateX = swipeHandlers.isDragging
-    ? `${swipeHandlers.dragOffset}px` // 1:1 movement for natural feel
+    ? `${swipeHandlers.dragOffset * 1.2}px` // Slightly amplified movement for more engaging feel
     : '0px';
 
   return (
@@ -108,20 +108,20 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
           {/* Mobile: Single scroll container, Desktop: Grid layout */}
           <div className="h-full overflow-y-auto md:overflow-hidden md:grid md:grid-cols-2">
-            <div className="w-full aspect-square md:aspect-auto md:h-full flex-none relative">
+            <div className="w-full aspect-square md:aspect-auto md:h-full relative">
               {/* Fixed navigation arrows */}
               {images.length > 1 && (
                 <>
                   <button
                     onClick={prevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="hidden md:block absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={nextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+                    className="hidden md:block absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-5 w-5" />
@@ -153,12 +153,12 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                 {...swipeHandlers}
               >
                 <div
-                  className="relative h-full w-full will-change-transform transform-gpu"
+                  className="absolute inset-0 will-change-transform transform-gpu"
                   style={{
                     transform: `translate3d(${translateX}, 0, 0)`,
                     transition: swipeHandlers.isDragging 
                       ? 'none' 
-                      : 'transform 300ms cubic-bezier(0.2, 0.0, 0.0, 1.0)'
+                      : 'transform 500ms cubic-bezier(0.4, 0.0, 0.2, 1)'
                   }}
                 >
                   <OptimizedImage
@@ -167,7 +167,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     width={800}
                     height={800}
                     quality={90}
-                    className="w-full h-full object-contain"
+                    className="absolute inset-0 w-full h-full object-contain"
                     sizes="(max-width: 640px) 100vw, 800px"
                     priority
                   />
