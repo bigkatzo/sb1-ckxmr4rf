@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, Clock, Ban } from 'lucide-react';
 import { CategoryDescription } from '../collections/CategoryDescription';
@@ -75,6 +75,18 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const modalRef = useRef<HTMLDivElement>(null);
   const images = product.images?.length ? product.images : [product.imageUrl];
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [dragStartTime, setDragStartTime] = useState(0);
+  const [dragVelocity, setDragVelocity] = useState(0);
+  const isAnimating = useRef(false);
+  
+  // Required minimum swipe distance in pixels
+  const minSwipeDistance = 50;
+  // Velocity threshold for momentum scrolling (pixels per millisecond)
+  const velocityThreshold = 0.5;
   
   // Safe check for variants
   const hasVariants = !!product.variants && product.variants.length > 0;
@@ -110,19 +122,197 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     }));
   };
 
+  // Touch handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isAnimating.current) return;
+    
+    setTouchStart(e.targetTouches[0].clientX);
+    setTouchEnd(null);
+    setIsDragging(true);
+    setDragOffset(0);
+    setDragStartTime(Date.now());
+    isAnimating.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart || !isDragging) return;
+    
+    // Prevent default to avoid page scrolling during swipe
+    e.preventDefault();
+    
+    const currentTouch = e.targetTouches[0].clientX;
+    const diff = currentTouch - touchStart;
+    
+    // Add resistance at the edges
+    if ((selectedImageIndex === 0 && diff > 0) || 
+        (selectedImageIndex === images.length - 1 && diff < 0)) {
+      setDragOffset(diff * 0.3); // Apply resistance
+    } else {
+      setDragOffset(diff);
+    }
+    
+    setTouchEnd(currentTouch);
+  };
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStart || !touchEnd || !isDragging) return;
+
+    const distance = touchEnd - touchStart;
+    const isLeftSwipe = distance < -minSwipeDistance;
+    const isRightSwipe = distance > minSwipeDistance;
+    
+    // Calculate velocity for momentum scrolling
+    const endTime = Date.now();
+    const duration = endTime - dragStartTime;
+    const velocity = Math.abs(distance) / duration;
+    setDragVelocity(velocity);
+    
+    isAnimating.current = true;
+    
+    if (isLeftSwipe || (velocity > velocityThreshold && distance < 0)) {
+      nextImage();
+    } else if (isRightSwipe || (velocity > velocityThreshold && distance > 0)) {
+      prevImage();
+    } else {
+      // Snap back to current slide if swipe wasn't strong enough
+      setDragOffset(0);
+      setTimeout(() => {
+        isAnimating.current = false;
+      }, 50);
+    }
+
+    setTouchStart(null);
+    setTouchEnd(null);
+    setIsDragging(false);
+  }, [touchStart, touchEnd, dragStartTime, isDragging, images.length]);
+
+  // Mouse drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isAnimating.current) return;
+    
+    setTouchStart(e.clientX);
+    setTouchEnd(null);
+    setIsDragging(true);
+    setDragOffset(0);
+    setDragStartTime(Date.now());
+    isAnimating.current = false;
+    
+    // Add event listeners to document to track mouse movement even outside the slider
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Prevent default to avoid text selection during drag
+    e.preventDefault();
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!touchStart || !isDragging) return;
+    
+    // Prevent default to ensure smooth dragging
+    e.preventDefault();
+    
+    const diff = e.clientX - touchStart;
+    
+    // Add resistance at the edges
+    if ((selectedImageIndex === 0 && diff > 0) || 
+        (selectedImageIndex === images.length - 1 && diff < 0)) {
+      setDragOffset(diff * 0.3); // Apply resistance
+    } else {
+      setDragOffset(diff);
+    }
+  }, [isDragging, selectedImageIndex, images.length, touchStart]);
+
+  const handleMouseUp = useCallback((e: MouseEvent) => {
+    if (!touchStart || !isDragging) return;
+    
+    const distance = e.clientX - touchStart;
+    const isLeftSwipe = distance < -minSwipeDistance;
+    const isRightSwipe = distance > minSwipeDistance;
+    
+    // Calculate velocity for momentum scrolling
+    const endTime = Date.now();
+    const duration = endTime - dragStartTime;
+    const velocity = Math.abs(distance) / duration;
+    setDragVelocity(velocity);
+    
+    isAnimating.current = true;
+    
+    if (isLeftSwipe || (velocity > velocityThreshold && distance < 0)) {
+      nextImage();
+    } else if (isRightSwipe || (velocity > velocityThreshold && distance > 0)) {
+      prevImage();
+    } else {
+      // Snap back to current slide if swipe wasn't strong enough
+      setDragOffset(0);
+      setTimeout(() => {
+        isAnimating.current = false;
+      }, 50);
+    }
+    
+    setTouchStart(null);
+    setTouchEnd(null);
+    setIsDragging(false);
+    
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  }, [isDragging, dragStartTime, images.length, touchStart]);
+
+  // Cleanup mouse events on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
+  // Initialize touch event listeners
+  useEffect(() => {
+    const imageContainer = modalRef.current?.querySelector('.image-container');
+    if (imageContainer) {
+      const passiveListener = { passive: false };
+      imageContainer.addEventListener('touchstart', handleTouchStart as unknown as EventListener, passiveListener);
+      imageContainer.addEventListener('touchmove', handleTouchMove as unknown as EventListener, passiveListener);
+      imageContainer.addEventListener('touchend', handleTouchEnd as unknown as EventListener);
+      imageContainer.addEventListener('touchcancel', handleTouchEnd as unknown as EventListener);
+    }
+    
+    return () => {
+      if (imageContainer) {
+        imageContainer.removeEventListener('touchstart', handleTouchStart as unknown as EventListener);
+        imageContainer.removeEventListener('touchmove', handleTouchMove as unknown as EventListener);
+        imageContainer.removeEventListener('touchend', handleTouchEnd as unknown as EventListener);
+        imageContainer.removeEventListener('touchcancel', handleTouchEnd as unknown as EventListener);
+      }
+    };
+  }, [handleTouchEnd]);
+
   const nextImage = () => {
+    isAnimating.current = true;
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
+    setDragOffset(0);
+    setTimeout(() => {
+      isAnimating.current = false;
+    }, 50);
   };
 
   const prevImage = () => {
+    isAnimating.current = true;
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
+    setDragOffset(0);
+    setTimeout(() => {
+      isAnimating.current = false;
+    }, 50);
   };
 
-  const swipeHandlers = useSwipe({
-    onSwipeLeft: nextImage,
-    onSwipeRight: prevImage,
-    threshold: 40 // Slightly lower threshold for better responsiveness
-  });
+  // Calculate transition speed based on velocity for momentum effect
+  const transitionDuration = isDragging ? 0 : (dragVelocity > velocityThreshold ? 250 : 400);
+  
+  // Apply a slight damping effect to make the drag feel more natural
+  const dampingFactor = 0.92;
+  
+  const translateX = isDragging 
+    ? -(selectedImageIndex * 100) + (dragOffset * dampingFactor / (modalRef.current?.clientWidth || window.innerWidth) * 100)
+    : -(selectedImageIndex * 100);
 
   const allOptionsSelected = hasVariants
     ? product.variants!.every(variant => selectedOptions[variant.id])
@@ -131,11 +321,6 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   // Check if collection is not live yet or sale has ended
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
   const isSaleEnded = product.collectionSaleEnded;
-
-  // Calculate transform with smooth transition
-  const translateX = swipeHandlers.isDragging
-    ? `${swipeHandlers.dragOffset}px`
-    : '0px';
 
   return (
     <div 
@@ -204,16 +389,14 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
               {/* Image container - consistent for both single and multiple images */}
               <div 
-                className="absolute inset-0 touch-pan-x select-none"
-                {...(images.length > 1 ? swipeHandlers : {})}
+                className="absolute inset-0 touch-pan-x select-none image-container"
+                onMouseDown={handleMouseDown}
               >
                 <div
                   className={`h-full flex ${images.length > 1 ? 'will-change-transform transform-gpu' : 'justify-center items-center'}`}
                   style={images.length > 1 ? {
-                    transform: `translateX(calc(${translateX} - 100% * ${selectedImageIndex}))`,
-                    transition: swipeHandlers.isDragging 
-                      ? 'none'
-                      : 'transform 300ms ease-out'
+                    transform: `translateX(${translateX}%)`,
+                    transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`
                   } : {}}
                 >
                   {images.map((image, index) => (
