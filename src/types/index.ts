@@ -55,7 +55,6 @@ export interface Product {
   minimumOrderQuantity: number;
   variants?: ProductVariant[];
   variantPrices?: VariantPricing;
-  variantStock?: Record<string, number>;
   salesCount?: number;
 }
 

@@ -1,4 +1,4 @@
-import type { ProductVariant, VariantPricing, VariantStock } from '../types/variants';
+import type { ProductVariant, VariantPricing } from '../types/variants';
 
 export function getVariantKey(variants: ProductVariant[], selectedOptions: Record<string, string>): string | null {
   // Check if all variants are selected
@@ -19,16 +19,6 @@ export function getVariantPrice(
 ): number {
   if (!variantKey || !variantPrices) return basePrice;
   return variantPrices[variantKey] ?? basePrice;
-}
-
-export function getVariantStock(
-  baseStock: number | null,
-  variantStock: VariantStock | undefined,
-  variantKey: string | null
-): number | null {
-  if (!variantKey || !variantStock) return baseStock;
-  const variantValue = variantStock[variantKey];
-  return variantValue === undefined ? baseStock : variantValue;
 }
 
 export function generateVariantCombinations(variants: ProductVariant[]): string[] {

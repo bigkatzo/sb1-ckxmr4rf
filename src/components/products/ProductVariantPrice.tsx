@@ -1,5 +1,5 @@
 import React from 'react';
-import { getVariantKey, getVariantPrice, getVariantStock } from '../../utils/variant-helpers';
+import { getVariantKey, getVariantPrice } from '../../utils/variant-helpers';
 import type { Product } from '../../types/variants';
 
 interface ProductVariantPriceProps {
@@ -13,7 +13,6 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
     : null;
 
   const price = getVariantPrice(product.price, product.variantPrices, variantKey);
-  const stock = getVariantStock(product.stock, product.variantStock, variantKey);
 
   return (
     <div className="flex items-center justify-between">
@@ -23,7 +22,7 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
       <span className="text-sm text-gray-400">
         {variantKey === null && product.variants?.length
           ? 'Select options to check availability'
-          : `${stock} available`
+          : `${product.stock === null ? 'Unlimited' : product.stock} available`
         }
       </span>
     </div>

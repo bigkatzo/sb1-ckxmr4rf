@@ -18,7 +18,6 @@ export async function createProduct(data: FormData) {
     // Parse variant data
     const variants = JSON.parse(data.get('variants') as string || '[]');
     const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
-    const variantStock = JSON.parse(data.get('variantStock') as string || '{}');
 
     // Get collection and category IDs
     const collectionId = data.get('collection');
@@ -44,7 +43,6 @@ export async function createProduct(data: FormData) {
       images,
       variants,
       variant_prices: variantPrices,
-      variant_stock: variantStock,
       slug: generateSlug(name, true)
     };
 
@@ -82,23 +80,42 @@ export async function createProduct(data: FormData) {
 
 export async function updateProduct(id: string, data: FormData) {
   try {
+    if (!id) {
+      throw new Error('Product ID is required for update');
+    }
+
     const updateData: any = {};
 
     // Handle current images
-    const currentImages = JSON.parse(data.get('currentImages') as string || '[]');
-    const images = [...currentImages];
+    try {
+      const currentImages = JSON.parse(data.get('currentImages') as string || '[]');
+      const removedImages = JSON.parse(data.get('removedImages') as string || '[]');
+      const images = [...currentImages.filter((img: string) => !removedImages.includes(img))];
 
-    // Handle new images
-    for (let i = 0; data.get(`image${i}`); i++) {
-      const imageFile = data.get(`image${i}`) as File;
-      const imageUrls = await uploadProductImages([imageFile]);
-      images.push(...imageUrls);
+      // Handle new images
+      for (let i = 0; data.get(`image${i}`); i++) {
+        const imageFile = data.get(`image${i}`) as File;
+        if (imageFile instanceof File) {
+          const imageUrls = await uploadProductImages([imageFile]);
+          images.push(...imageUrls);
+        }
+      }
+      updateData.images = images;
+    } catch (error) {
+      console.error('Error processing images:', error);
+      throw new Error('Failed to process product images');
     }
 
     // Parse variant data
-    const variants = JSON.parse(data.get('variants') as string || '[]');
-    const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
-    const variantStock = JSON.parse(data.get('variantStock') as string || '{}');
+    try {
+      const variants = JSON.parse(data.get('variants') as string || '[]');
+      const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
+      updateData.variants = variants;
+      updateData.variant_prices = variantPrices;
+    } catch (error) {
+      console.error('Error processing variant data:', error);
+      throw new Error('Failed to process variant data');
+    }
 
     // Get category ID
     const categoryId = data.get('categoryId');
@@ -106,19 +123,27 @@ export async function updateProduct(id: string, data: FormData) {
       throw new Error('Category is required');
     }
 
+    // Process other fields
+    const name = data.get('name');
+    if (!name) {
+      throw new Error('Product name is required');
+    }
+
     const stockValue = data.get('stock') as string;
     const quantity = stockValue === '' ? null : parseInt(stockValue, 10);
+    const price = parseFloat(data.get('price') as string);
+    if (isNaN(price)) {
+      throw new Error('Invalid price value');
+    }
 
-    updateData.name = data.get('name') as string;
+    updateData.name = name;
     updateData.description = data.get('description') as string;
-    updateData.price = parseFloat(data.get('price') as string) || 0;
+    updateData.price = price;
     updateData.quantity = quantity;
     updateData.minimum_order_quantity = parseInt(data.get('minimumOrderQuantity') as string, 10) || 50;
     updateData.category_id = categoryId as string;
-    updateData.images = images;
-    updateData.variants = variants;
-    updateData.variant_prices = variantPrices;
-    updateData.variant_stock = variantStock;
+
+    console.log('Updating product with data:', updateData);
 
     const { data: product, error } = (await withRetry(() => 
       supabase
@@ -143,13 +168,25 @@ export async function updateProduct(id: string, data: FormData) {
         .single()
     )) as PostgrestResponse<any>;
 
-    if (error) throw error;
-    if (!product) throw new Error('Failed to update product');
+    if (error) {
+      console.error('Database error:', error);
+      throw error;
+    }
+    if (!product) {
+      throw new Error('Failed to update product - no product returned');
+    }
 
     return product;
   } catch (error) {
     console.error('Error updating product:', error);
-    throw error instanceof Error ? error : new Error('Failed to update product');
+    if (error instanceof Error) {
+      throw error;
+    } else if (typeof error === 'object' && error !== null) {
+      console.error('Detailed error:', JSON.stringify(error, null, 2));
+      throw new Error('Failed to update product - database error');
+    } else {
+      throw new Error('Failed to update product - unknown error');
+    }
   }
 }
 

@@ -13,10 +13,6 @@ export interface VariantPricing {
   [key: string]: number; // combination key -> price
 }
 
-export interface VariantStock {
-  [key: string]: number | null;
-}
-
 export interface Category {
   id: string;
   name: string;
@@ -44,7 +40,6 @@ export interface Product {
   minimumOrderQuantity: number;
   variants?: ProductVariant[];
   variantPrices?: VariantPricing;
-  variantStock?: VariantStock;
   sku: string;
 }
 
