@@ -49,23 +49,17 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   };
 
   const nextImage = () => {
-    if (isTransitioning) return;
-    setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
-    setTimeout(() => setIsTransitioning(false), 300); // Shorter duration for faster transitions
   };
 
   const prevImage = () => {
-    if (isTransitioning) return;
-    setIsTransitioning(true);
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
-    setTimeout(() => setIsTransitioning(false), 300); // Shorter duration for faster transitions
   };
 
   const swipeHandlers = useSwipe({
     onSwipeLeft: nextImage,
     onSwipeRight: prevImage,
-    threshold: 10 // Lower threshold for more responsive swipes
+    threshold: 40 // Slightly lower threshold for better responsiveness
   });
 
   const allOptionsSelected = hasVariants
@@ -78,7 +72,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
   // Calculate transform with smooth transition
   const translateX = swipeHandlers.isDragging
-    ? `${swipeHandlers.dragOffset}px` // Remove the 1.2x amplification
+    ? `${swipeHandlers.dragOffset}px`
     : '0px';
 
   return (
@@ -155,7 +149,9 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                   className="absolute inset-0 will-change-transform transform-gpu flex items-center justify-center"
                   style={{
                     transform: `translateX(${translateX})`,
-                    transition: 'transform 200ms ease'
+                    transition: swipeHandlers.isDragging 
+                      ? 'none'
+                      : 'transform 300ms ease-out' // Simpler, faster transition
                   }}
                 >
                   <OptimizedImage
