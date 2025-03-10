@@ -7,7 +7,6 @@ import { useOrderStats } from '../../hooks/useOrderStats';
 import type { Product } from '../../types';
 
 interface BuyButtonProps {
-  price: number;
   product: Product;
   selectedOptions?: Record<string, string>;
   disabled?: boolean;
@@ -17,7 +16,6 @@ interface BuyButtonProps {
 }
 
 export function BuyButton({ 
-  price, 
   product, 
   selectedOptions = {}, 
   disabled, 
@@ -25,7 +23,7 @@ export function BuyButton({
   onClick,
   showModal = false
 }: BuyButtonProps) {
-  const { isConnected, connect } = useWallet();
+  const { isConnected } = useWallet();
   const { setVisible } = useWalletModal();
   const { showVerificationModal } = useModal();
   const { currentOrders } = useOrderStats(product.id);

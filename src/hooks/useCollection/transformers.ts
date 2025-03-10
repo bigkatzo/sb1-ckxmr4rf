@@ -1,7 +1,7 @@
 import type { Category, Collection, Product } from '../../types';
 
-export function transformCategory(category: any): Category | null {
-  if (!category?.id) return null;
+export function transformCategory(category: any): Category | undefined {
+  if (!category?.id) return undefined;
   
   return {
     id: category.id,
@@ -35,6 +35,7 @@ export function transformProduct(product: any, collectionData: any): Product | n
     collectionSlug: collectionData.slug,
     slug: product.slug,
     stock: typeof product.quantity === 'number' ? product.quantity : 0,
+    minimumOrderQuantity: product.minimum_order_quantity || 50,
     variants: Array.isArray(product.variants) ? product.variants : [],
     variantPrices: product.variant_prices || {},
     variantStock: product.variant_stock || {}
@@ -49,11 +50,11 @@ export function transformCollection(data: any): Collection | null {
 
   const categories = (Array.isArray(data.categories) ? data.categories : [])
     .map(transformCategory)
-    .filter(Boolean);
+    .filter((cat: Category | undefined): cat is Category => cat !== undefined);
 
   const products = (Array.isArray(data.products) ? data.products : [])
-    .map(product => transformProduct(product, data))
-    .filter(Boolean);
+    .map((product: any) => transformProduct(product, data))
+    .filter((product: Product | null): product is Product => product !== null);
 
   return {
     id: data.id,
@@ -63,6 +64,8 @@ export function transformCollection(data: any): Collection | null {
     launchDate: new Date(data.launch_date || Date.now()),
     featured: Boolean(data.featured),
     visible: data.visible ?? true,
+    saleEnded: data.sale_ended ?? false,
+    accessType: data.access_type ?? null,
     slug: data.slug,
     categories,
     products

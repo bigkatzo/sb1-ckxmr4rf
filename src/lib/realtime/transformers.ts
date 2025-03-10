@@ -12,6 +12,7 @@ export function transformCollection(dbCollection: any): Collection {
     featured: dbCollection.featured || false,
     visible: dbCollection.visible ?? true,
     saleEnded: dbCollection.sale_ended || false,
+    accessType: dbCollection.access_type ?? null,
     slug: dbCollection.slug || '',
     categories: [],
     products: []
