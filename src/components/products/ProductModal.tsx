@@ -148,14 +148,14 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
               {/* Swipeable image container */}
               <div 
-                className="absolute inset-0 touch-pan-x touch-pan-y select-none overflow-hidden"
+                className="absolute inset-0 touch-pan-x select-none overflow-hidden"
                 {...swipeHandlers}
               >
                 <div
-                  className="absolute inset-0 will-change-transform transform-gpu"
+                  className="absolute inset-0 will-change-transform transform-gpu flex items-center justify-center"
                   style={{
                     transform: `translateX(${translateX})`,
-                    transition: 'transform 200ms ease-out'
+                    transition: 'transform 200ms ease'
                   }}
                 >
                   <OptimizedImage
@@ -164,7 +164,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     width={1000}
                     height={1000}
                     quality={95}
-                    className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                    className="w-full h-full object-contain pointer-events-none"
                     sizes="(max-width: 640px) 100vw, 600px"
                     priority
                   />
