@@ -145,43 +145,32 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                 {...swipeHandlers}
               >
                 <div
-                  className="absolute inset-0 will-change-transform transform-gpu flex items-center justify-center"
+                  className="absolute inset-0 will-change-transform transform-gpu flex"
                   style={{
-                    transform: `translateX(${translateX})`,
+                    transform: `translateX(calc(${translateX} - 100% * ${selectedImageIndex}))`,
                     transition: swipeHandlers.isDragging 
                       ? 'none'
-                      : 'transform 300ms ease-out' // Simpler, faster transition
+                      : 'transform 300ms ease-out'
                   }}
                 >
-                  <OptimizedImage
-                    src={images[selectedImageIndex]}
-                    alt={product.name}
-                    width={1000}
-                    height={1000}
-                    quality={95}
-                    className="w-full h-full object-contain pointer-events-none"
-                    sizes="(max-width: 640px) 100vw, 600px"
-                    priority
-                  />
+                  {images.map((image, index) => (
+                    <div
+                      key={index}
+                      className="w-full h-full flex-shrink-0 flex items-center justify-center"
+                    >
+                      <OptimizedImage
+                        src={image}
+                        alt={`${product.name} - Image ${index + 1}`}
+                        width={1000}
+                        height={1000}
+                        quality={95}
+                        className="w-full h-full object-contain pointer-events-none"
+                        sizes="(max-width: 640px) 100vw, 600px"
+                        priority={Math.abs(index - selectedImageIndex) <= 1}
+                      />
+                    </div>
+                  ))}
                 </div>
-              </div>
-              
-              {/* Preload next and previous images */}
-              <div className="hidden" aria-hidden="true">
-                {images.length > 1 && [
-                  (selectedImageIndex + 1) % images.length,
-                  (selectedImageIndex - 1 + images.length) % images.length
-                ].map(index => (
-                  <OptimizedImage
-                    key={index}
-                    src={images[index]}
-                    alt="Preload"
-                    width={1000}
-                    height={1000}
-                    quality={75}
-                    priority={false}
-                  />
-                ))}
               </div>
             </div>
 
