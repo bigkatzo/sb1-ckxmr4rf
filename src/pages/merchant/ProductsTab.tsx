@@ -7,8 +7,8 @@ import { useCategories } from '../../hooks/useCategories';
 import { useProducts } from '../../hooks/useProducts';
 import { createProduct, updateProduct, deleteProduct } from '../../services/products';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { Toast } from '../../components/ui/Toast';
 import { RefreshButton } from '../../components/ui/RefreshButton';
+import { toast } from 'react-toastify';
 
 export function ProductsTab() {
   const [showForm, setShowForm] = useState(false);
@@ -16,7 +16,6 @@ export function ProductsTab() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const { collections, loading: collectionsLoading } = useMerchantCollections();
   const { categories } = useCategories(selectedCollection);
@@ -26,21 +25,19 @@ export function ProductsTab() {
     try {
       if (editingProduct) {
         await updateProduct(editingProduct.id, data);
-        setToast({ message: 'Product updated successfully', type: 'success' });
+        toast.success('Product updated successfully');
       } else {
         data.append('collection', selectedCollection);
         await createProduct(data);
-        setToast({ message: 'Product created successfully', type: 'success' });
+        toast.success('Product created successfully');
       }
       setShowForm(false);
       setEditingProduct(null);
       refreshProducts();
     } catch (error) {
       console.error('Error with product:', error);
-      setToast({ 
-        message: error instanceof Error ? error.message : 'Error saving product', 
-        type: 'error' 
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Error saving product';
+      toast.error(errorMessage);
     }
   };
 
@@ -49,14 +46,12 @@ export function ProductsTab() {
     
     try {
       await deleteProduct(deletingId);
-      setToast({ message: 'Product deleted successfully', type: 'success' });
+      toast.success('Product deleted successfully');
       refreshProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
-      setToast({ 
-        message: error instanceof Error ? error.message : 'Error deleting product', 
-        type: 'error' 
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Error deleting product';
+      toast.error(errorMessage);
     } finally {
       setShowConfirmDialog(false);
       setDeletingId(null);
@@ -179,14 +174,6 @@ export function ProductsTab() {
           description="Are you sure you want to delete this product? This action cannot be undone."
           confirmLabel="Delete"
           onConfirm={handleDelete}
-        />
-      )}
-
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
         />
       )}
     </div>
