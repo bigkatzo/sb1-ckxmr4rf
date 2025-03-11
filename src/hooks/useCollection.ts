@@ -102,7 +102,9 @@ export function useCollection(slug: string) {
             stock: product.quantity,
             minimumOrderQuantity: product.minimum_order_quantity || 50,
             variants: product.variants || [],
-            variantPrices: product.variant_prices || {}
+            variantPrices: product.variant_prices || {},
+            priceModifierBeforeMin: product.price_modifier_before_min ?? null,
+            priceModifierAfterMin: product.price_modifier_after_min ?? null
           })),
           accessType: null // Public collections don't have access type
         };

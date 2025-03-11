@@ -49,5 +49,7 @@ export function transformProduct(dbProduct: any): Product {
     minimumOrderQuantity: dbProduct.minimum_order_quantity || 50,
     variants,
     variantPrices: dbProduct.variant_prices || {},
+    priceModifierBeforeMin: dbProduct.price_modifier_before_min ?? null,
+    priceModifierAfterMin: dbProduct.price_modifier_after_min ?? null
   };
 }

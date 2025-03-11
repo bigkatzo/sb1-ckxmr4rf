@@ -38,11 +38,13 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           collectionSlug: data.collection_slug,
           collectionLaunchDate: data.collection_launch_date ? new Date(data.collection_launch_date) : undefined,
           collectionSaleEnded: data.collection_sale_ended,
-          slug: data.slug,
+          slug: data.slug || '',
           stock: data.quantity,
           minimumOrderQuantity: data.minimum_order_quantity || 50,
           variants: data.variants || [],
-          variantPrices: data.variant_prices || {}
+          variantPrices: data.variant_prices || {},
+          priceModifierBeforeMin: data.price_modifier_before_min ?? null,
+          priceModifierAfterMin: data.price_modifier_after_min ?? null
         };
 
         setProduct(transformedProduct);

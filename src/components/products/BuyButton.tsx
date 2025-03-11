@@ -70,7 +70,7 @@ export function BuyButton({
       <button 
         disabled
         className={`
-          flex items-center gap-1 bg-gray-700 cursor-not-allowed
+          flex items-center gap-1 bg-gray-700 cursor-not-allowed rounded-lg px-3 py-1.5 text-sm
           ${className}
         `}
       >
@@ -85,7 +85,7 @@ export function BuyButton({
       <button 
         disabled
         className={`
-          flex items-center gap-1 bg-red-900/20 text-red-400 cursor-not-allowed
+          flex items-center gap-1 bg-red-900/20 text-red-400 cursor-not-allowed rounded-lg px-3 py-1.5 text-sm
           ${className}
         `}
       >
@@ -102,6 +102,7 @@ export function BuyButton({
       className={`
         flex items-center gap-1 bg-purple-600 hover:bg-purple-700 
         disabled:bg-gray-700 disabled:cursor-not-allowed text-white
+        rounded-lg px-3 py-1.5 text-sm
         ${className}
       `}
     >

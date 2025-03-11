@@ -85,7 +85,7 @@ export function ProductCardCompact({
           <BuyButton 
             product={product}
             disabled={product.stock === 0 && product.stock !== null}
-            className="z-10 scale-90 origin-right"
+            className="z-10 text-[10px] sm:text-xs"
             onClick={handleClick}
           />
         </div>
