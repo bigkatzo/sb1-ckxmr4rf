@@ -56,6 +56,8 @@ export interface Product {
   variants?: ProductVariant[];
   variantPrices?: VariantPricing;
   salesCount?: number;
+  priceModifierBeforeMin?: number | null;
+  priceModifierAfterMin?: number | null;
 }
 
 export interface SearchResult {

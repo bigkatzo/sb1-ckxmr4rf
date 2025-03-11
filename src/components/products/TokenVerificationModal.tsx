@@ -7,6 +7,7 @@ import { createOrder } from '../../services/orders';
 import { toast } from 'react-toastify';
 import { toastService } from '../../services/toast';
 import type { Product } from '../../types';
+import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -36,11 +37,16 @@ export function TokenVerificationModal({
   const { processPayment } = usePayment();
   const [verifying, setVerifying] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const { modifiedPrice } = useModifiedPrice(product);
   const [verificationResult, setVerificationResult] = useState<{
     isValid: boolean;
     error?: string;
     balance?: number;
   } | null>(null);
+
+  // Calculate final price including variants and modifications
+  const variantPrice = product.variantPrices?.[Object.values(selectedOptions).join(':')] || 0;
+  const finalPrice = variantPrice > 0 ? variantPrice : modifiedPrice;
 
   // Initialize shipping info from localStorage if available
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo>(() => {
@@ -137,8 +143,8 @@ export function TokenVerificationModal({
       // Save shipping info to localStorage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfo));
       
-      // Process payment first
-      const { success, signature } = await processPayment(product.price, product.collectionId);
+      // Process payment with modified price
+      const { success, signature } = await processPayment(finalPrice, product.collectionId);
       
       if (!success || !signature) {
         throw new Error('Payment failed');
@@ -173,7 +179,7 @@ export function TokenVerificationModal({
             shippingInfo: formattedShippingInfo,
             transactionId: signature,
             walletAddress,
-            amountSol: product.price
+            amountSol: finalPrice
           });
           orderError = null;
           break;
@@ -372,7 +378,7 @@ export function TokenVerificationModal({
                     </>
                   ) : (
                     <>
-                      <span>Proceed to Payment ({product.price} SOL)</span>
+                      <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>
                     </>
                   )}
                 </button>

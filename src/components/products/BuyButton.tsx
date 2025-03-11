@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ShoppingBag, Clock, Ban } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useModal } from '../../contexts/ModalContext';
 import { useOrderStats } from '../../hooks/useOrderStats';
+import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import type { Product } from '../../types';
 
 interface BuyButtonProps {
@@ -11,8 +12,8 @@ interface BuyButtonProps {
   selectedOptions?: Record<string, string>;
   disabled?: boolean;
   className?: string;
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   showModal?: boolean;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 export function BuyButton({ 
@@ -20,26 +21,40 @@ export function BuyButton({
   selectedOptions = {}, 
   disabled, 
   className = '', 
-  onClick,
-  showModal = false
+  showModal = false,
+  onClick 
 }: BuyButtonProps) {
   const { isConnected } = useWallet();
   const { setVisible } = useWalletModal();
   const { showVerificationModal } = useModal();
   const { currentOrders } = useOrderStats(product.id);
+  const [isLoading, setIsLoading] = useState(false);
+  const { modifiedPrice } = useModifiedPrice(product);
 
   // Check if collection is not live yet or sale has ended
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
   const isSaleEnded = product.collectionSaleEnded;
-  const isUnlimited = product.stock === null;
-  const isSoldOut = !isUnlimited && (
-    product.stock === 0 || // No stock available
-    (typeof currentOrders === 'number' && currentOrders >= (product.stock as number)) // Current orders reached or exceeded stock limit
+
+  // Calculate final price including variants and modifications
+  const variantPrice = product.variantPrices?.[Object.values(selectedOptions).join(':')] || 0;
+  const finalPrice = variantPrice > 0 ? variantPrice : modifiedPrice;
+
+  // Determine if button should be disabled
+  const isDisabled = disabled || isLoading || (
+    product.stock !== null && // Only check stock if it's not unlimited
+    typeof currentOrders === 'number' && // Make sure we have valid order count
+    currentOrders >= product.stock // Check if orders reached or exceeded stock
   );
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // Prevent event bubbling
+    
+    if (onClick) {
+      onClick(e);
+      return;
+    }
 
+    setIsLoading(true);
     try {
       // If wallet not connected, show wallet modal
       if (!isConnected) {
@@ -47,68 +62,41 @@ export function BuyButton({
         return;
       }
 
-      // If in modal view, handle verification and payment
-      if (showModal) {
-        showVerificationModal(product, selectedOptions);
-      } else if (onClick) {
-        // If not in modal, trigger the onClick handler (to open modal)
-        onClick(e);
-      }
+      // Show verification modal for purchase
+      showVerificationModal(product, selectedOptions);
     } catch (error) {
       console.error('Buy error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // If sale has ended, show ended button
-  if (isSaleEnded) {
-    return (
-      <button 
-        disabled
-        className={`
-          flex items-center gap-1 bg-red-900/20 backdrop-blur-sm
-          text-red-400 px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-[10px] sm:text-xs 
-          cursor-not-allowed transition-colors
-          ${className}
-        `}
-      >
-        <Ban className="h-3 w-3" />
-        <span>Ended</span>
-      </button>
-    );
-  }
-
-  // If collection is not live yet, show coming soon button
   if (isUpcoming) {
     return (
       <button 
         disabled
         className={`
-          flex items-center gap-1 bg-gray-800/80 backdrop-blur-sm
-          text-gray-400 px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-[10px] sm:text-xs 
-          cursor-not-allowed transition-colors
+          flex items-center gap-1 bg-gray-700 cursor-not-allowed
           ${className}
         `}
       >
         <Clock className="h-3 w-3" />
-        <span>Soon</span>
+        <span>Coming Soon</span>
       </button>
     );
   }
 
-  // If product is sold out, show sold out button
-  if (isSoldOut) {
+  if (isSaleEnded) {
     return (
       <button 
         disabled
         className={`
-          flex items-center gap-1 bg-red-900/20 backdrop-blur-sm
-          text-red-400 px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-[10px] sm:text-xs 
-          cursor-not-allowed transition-colors
+          flex items-center gap-1 bg-red-900/20 text-red-400 cursor-not-allowed
           ${className}
         `}
       >
         <Ban className="h-3 w-3" />
-        <span>Sold Out</span>
+        <span>Sale Ended</span>
       </button>
     );
   }
@@ -116,18 +104,21 @@ export function BuyButton({
   return (
     <button 
       onClick={handleClick}
-      disabled={disabled}
+      disabled={isDisabled}
       className={`
         flex items-center gap-1 bg-purple-600 hover:bg-purple-700 
-        text-white px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-[10px] sm:text-xs transition-colors 
-        disabled:opacity-50 disabled:cursor-not-allowed
+        disabled:bg-gray-700 disabled:cursor-not-allowed text-white
         ${className}
       `}
     >
       <ShoppingBag className="h-3 w-3" />
-      <span>
-        {!isConnected ? 'Connect' : showModal ? 'Buy' : 'Buy'}
-      </span>
+      {isLoading ? (
+        <span>Processing...</span>
+      ) : (
+        <span>
+          {!isConnected ? 'Connect' : showModal ? `Buy - $${finalPrice.toFixed(2)}` : 'Buy'}
+        </span>
+      )}
     </button>
   );
 }

@@ -16,6 +16,8 @@ interface ProductFormData {
   categoryId: string;
   sku: string;
   minimumOrderQuantity: number;
+  priceModifierBeforeMin: number | null;
+  priceModifierAfterMin: number | null;
 }
 
 export interface ProductFormProps {
@@ -42,7 +44,9 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     stock: initialData?.stock ?? 0,
     categoryId: initialData?.categoryId || '',
     sku: initialData?.sku || '',
-    minimumOrderQuantity: initialData?.minimumOrderQuantity || 50
+    minimumOrderQuantity: initialData?.minimumOrderQuantity || 50,
+    priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
+    priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null
   });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

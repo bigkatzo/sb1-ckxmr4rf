@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 interface ProductBasicInfoProps {
   categories: Array<{
@@ -13,6 +13,8 @@ interface ProductBasicInfoProps {
     categoryId?: string;
     sku?: string;
     minimumOrderQuantity?: number;
+    priceModifierBeforeMin?: number | null;
+    priceModifierAfterMin?: number | null;
   };
   onChange: (data: Partial<{
     name: string;
@@ -22,161 +24,176 @@ interface ProductBasicInfoProps {
     categoryId: string;
     sku: string;
     minimumOrderQuantity: number;
+    priceModifierBeforeMin: number | null;
+    priceModifierAfterMin: number | null;
   }>) => void;
 }
 
 export function ProductBasicInfo({ categories, initialData, onChange }: ProductBasicInfoProps) {
-  const [isUnlimitedStock, setIsUnlimitedStock] = useState(initialData?.stock === null);
+  const [name, setName] = useState(initialData?.name || '');
+  const [description, setDescription] = useState(initialData?.description || '');
+  const [price, setPrice] = useState(initialData?.price || 0);
+  const [stock, setStock] = useState<string>(initialData?.stock?.toString() || '');
+  const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
+  const [sku, setSku] = useState(initialData?.sku || '');
+  const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
+  const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<string>(
+    initialData?.priceModifierBeforeMin?.toString() || ''
+  );
+  const [priceModifierAfterMin, setPriceModifierAfterMin] = useState<string>(
+    initialData?.priceModifierAfterMin?.toString() || ''
+  );
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    onChange({
-      [name]: value
-    } as any); // Using type assertion since we know the field names match
+  const handleStockChange = (value: string) => {
+    setStock(value);
+    onChange({ stock: value === '' ? null : parseInt(value, 10) });
   };
 
-  const handleStockChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLSelectElement>, isUnlimited?: boolean) => {
-    if (isUnlimited !== undefined) {
-      setIsUnlimitedStock(isUnlimited);
-      onChange({
-        stock: isUnlimited ? null : 0
-      });
-    } else {
-      const value = e.target.value.trim();
-      onChange({
-        stock: value === '' ? 0 : parseInt(value, 10)
-      });
-    }
+  const handlePriceModifierBeforeMinChange = (value: string) => {
+    setPriceModifierBeforeMin(value);
+    onChange({ priceModifierBeforeMin: value === '' ? null : parseFloat(value) });
+  };
+
+  const handlePriceModifierAfterMinChange = (value: string) => {
+    setPriceModifierAfterMin(value);
+    onChange({ priceModifierAfterMin: value === '' ? null : parseFloat(value) });
   };
 
   return (
     <div className="space-y-4">
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-white mb-1">
-          Name *
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+          Name
         </label>
         <input
           type="text"
           id="name"
-          name="name"
-          defaultValue={initialData?.name}
-          onChange={handleInputChange}
-          required
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
-          placeholder="Enter product name"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            onChange({ name: e.target.value });
+          }}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
       </div>
 
-      {initialData?.sku && (
-        <div>
-          <label className="block text-sm font-medium text-white mb-1">
-            SKU
-          </label>
-          <input
-            type="text"
-            value={initialData.sku}
-            disabled
-            className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-gray-400 cursor-not-allowed"
-          />
-        </div>
-      )}
-
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-white mb-1">
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
           Description
         </label>
         <textarea
           id="description"
-          name="description"
-          defaultValue={initialData?.description}
-          onChange={handleInputChange}
           rows={3}
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
-          placeholder="Enter product description"
+          value={description}
+          onChange={(e) => {
+            setDescription(e.target.value);
+            onChange({ description: e.target.value });
+          }}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
       </div>
 
       <div>
-        <label htmlFor="price" className="block text-sm font-medium text-white mb-1">
-          Price *
+        <label htmlFor="price" className="block text-sm font-medium text-gray-700">
+          Base Price
         </label>
         <input
           type="number"
           id="price"
-          name="price"
-          defaultValue={initialData?.price}
-          onChange={handleInputChange}
-          required
           min="0"
           step="0.01"
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
-          placeholder="Enter price"
+          value={price}
+          onChange={(e) => {
+            setPrice(parseFloat(e.target.value));
+            onChange({ price: parseFloat(e.target.value) });
+          }}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
       </div>
 
       <div>
-        <label htmlFor="stock" className="block text-sm font-medium text-white mb-1">
-          Stock *
+        <label htmlFor="priceModifierBeforeMin" className="block text-sm font-medium text-gray-700">
+          Price Modifier Before Minimum (-1 to 1)
         </label>
-        <div className="space-y-2">
-          <input
-            type="number"
-            id="stock"
-            name="stock"
-            defaultValue={initialData?.stock === null ? 0 : initialData?.stock}
-            onChange={(e) => handleStockChange(e)}
-            required
-            min="0"
-            disabled={isUnlimitedStock}
-            className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400 disabled:opacity-50"
-            placeholder="Enter stock quantity"
-          />
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="unlimited-stock"
-              checked={isUnlimitedStock}
-              onChange={(e) => {
-                setIsUnlimitedStock(e.target.checked);
-                handleStockChange(e, e.target.checked);
-              }}
-              className="rounded bg-gray-800 border-gray-700 text-purple-600 focus:ring-purple-600"
-            />
-            <label htmlFor="unlimited-stock" className="text-sm text-gray-300">
-              Unlimited stock
-            </label>
-          </div>
-        </div>
+        <input
+          type="number"
+          id="priceModifierBeforeMin"
+          min="-1"
+          max="1"
+          step="0.01"
+          value={priceModifierBeforeMin}
+          onChange={(e) => handlePriceModifierBeforeMinChange(e.target.value)}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          placeholder="e.g. -0.2 for 20% discount"
+        />
+        <p className="mt-1 text-sm text-gray-500">
+          Leave empty for no modification. Use negative values for discounts (e.g. -0.2 for 20% off)
+        </p>
       </div>
 
       <div>
-        <label htmlFor="minimumOrderQuantity" className="block text-sm font-medium text-white mb-1">
-          Minimum Order Quantity *
+        <label htmlFor="priceModifierAfterMin" className="block text-sm font-medium text-gray-700">
+          Price Modifier After Minimum (0 or greater)
+        </label>
+        <input
+          type="number"
+          id="priceModifierAfterMin"
+          min="0"
+          step="0.01"
+          value={priceModifierAfterMin}
+          onChange={(e) => handlePriceModifierAfterMinChange(e.target.value)}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          placeholder="e.g. 2 for up to 200% increase"
+        />
+        <p className="mt-1 text-sm text-gray-500">
+          Leave empty for no modification. Use positive values (e.g. 2 for up to 200% increase)
+        </p>
+      </div>
+
+      <div>
+        <label htmlFor="stock" className="block text-sm font-medium text-gray-700">
+          Stock
+        </label>
+        <input
+          type="number"
+          id="stock"
+          min="0"
+          value={stock}
+          onChange={(e) => handleStockChange(e.target.value)}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          placeholder="Leave empty for unlimited stock"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="minimumOrderQuantity" className="block text-sm font-medium text-gray-700">
+          Minimum Order Quantity
         </label>
         <input
           type="number"
           id="minimumOrderQuantity"
-          name="minimumOrderQuantity"
-          defaultValue={initialData?.minimumOrderQuantity}
-          onChange={handleInputChange}
-          required
           min="1"
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
-          placeholder="Enter minimum order quantity"
+          value={minimumOrderQuantity}
+          onChange={(e) => {
+            setMinimumOrderQuantity(parseInt(e.target.value, 10));
+            onChange({ minimumOrderQuantity: parseInt(e.target.value, 10) });
+          }}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
       </div>
 
       <div>
-        <label htmlFor="category" className="block text-sm font-medium text-white mb-1">
-          Category *
+        <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+          Category
         </label>
         <select
           id="category"
-          name="categoryId"
-          defaultValue={initialData?.categoryId}
-          onChange={handleInputChange}
-          required
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+          value={categoryId}
+          onChange={(e) => {
+            setCategoryId(e.target.value);
+            onChange({ categoryId: e.target.value });
+          }}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         >
           <option value="">Select a category</option>
           {categories.map((category) => (
@@ -185,6 +202,23 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label htmlFor="sku" className="block text-sm font-medium text-gray-700">
+          SKU
+        </label>
+        <input
+          type="text"
+          id="sku"
+          value={sku}
+          onChange={(e) => {
+            setSku(e.target.value);
+            onChange({ sku: e.target.value });
+          }}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          placeholder="PRD123456"
+        />
       </div>
     </div>
   );
