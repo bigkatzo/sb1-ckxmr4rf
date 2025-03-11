@@ -202,7 +202,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             onChange({ categoryId: e.target.value });
           }}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-          disabled={!!initialData?.categoryId}
         >
           <option value="">Select a category</option>
           {categories.map((category) => (
@@ -211,11 +210,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             </option>
           ))}
         </select>
-        {initialData?.categoryId && (
-          <p className="mt-1 text-sm text-gray-400">
-            Category cannot be changed after product creation
-          </p>
-        )}
       </div>
 
       <div>
@@ -227,13 +221,14 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           id="sku"
           name="sku"
           value={sku}
-          onChange={(e) => {
-            setSku(e.target.value);
-            onChange({ sku: e.target.value });
-          }}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-          placeholder="PRD123456"
+          readOnly
+          disabled
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-gray-400 cursor-not-allowed focus:outline-none"
+          placeholder="Auto-generated"
         />
+        <p className="mt-1 text-sm text-gray-400">
+          SKU is auto-generated and cannot be changed
+        </p>
       </div>
     </div>
   );
