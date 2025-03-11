@@ -20,6 +20,14 @@ export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductL
     onDelete?.();
   };
 
+  const getStockDisplay = () => {
+    if (product.stock === null) return 'Unlimited';
+    const sold = product.salesCount || 0;
+    const remaining = product.stock - sold;
+    if (remaining <= 0) return `0/${product.stock} (Sold out)`;
+    return `${remaining}/${product.stock}`;
+  };
+
   return (
     <div 
       onClick={onClick}
@@ -52,9 +60,17 @@ export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductL
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h3 className="text-sm font-medium text-white truncate">{product.name}</h3>
-              <p className="text-xs text-gray-400 truncate mt-1">{product.description}</p>
+              
+              <div className="flex items-center gap-2 mt-1">
+                {product.category && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-200">
+                    {product.category.name}
+                  </span>
+                )}
+              </div>
+
               {product.sku && (
-                <p className="text-xs text-gray-500 mt-1">SKU: {product.sku}</p>
+                <p className="text-xs text-gray-500 mt-2">SKU: {product.sku}</p>
               )}
             </div>
             
@@ -68,7 +84,7 @@ export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductL
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-white">{product.price} SOL</span>
               <span className="text-xs text-gray-400">
-                {product.stock === null ? 'Unlimited' : `${product.stock} left`}
+                Stock available: {getStockDisplay()}
               </span>
             </div>
           </div>
