@@ -2,6 +2,7 @@ import { Image as ImageIcon } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { DeleteButton } from '../ui/DeleteButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { useOrderStats } from '../../hooks/useOrderStats';
 import type { Product } from '../../types';
 
 interface ProductListItemProps {
@@ -12,6 +13,8 @@ interface ProductListItemProps {
 }
 
 export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductListItemProps) {
+  const { currentOrders, loading } = useOrderStats(product.id);
+
   const handleEditClick = () => {
     onEdit?.();
   };
@@ -21,9 +24,9 @@ export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductL
   };
 
   const getStockDisplay = () => {
+    if (loading) return "Loading...";
     if (product.stock === null) return 'Unlimited';
-    const sold = product.salesCount || 0;
-    const remaining = product.stock - sold;
+    const remaining = product.stock - currentOrders;
     if (remaining <= 0) return `0/${product.stock} (Sold out)`;
     return `${remaining}/${product.stock}`;
   };
@@ -83,7 +86,7 @@ export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductL
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-white">{product.price} SOL</span>
-              <span className="text-xs text-gray-400">
+              <span className={`text-xs ${loading ? 'text-gray-500' : 'text-gray-400'}`}>
                 Stock available: {getStockDisplay()}
               </span>
             </div>
