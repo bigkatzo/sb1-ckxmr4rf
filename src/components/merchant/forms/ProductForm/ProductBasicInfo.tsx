@@ -62,44 +62,47 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   return (
     <div className="space-y-4">
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="name" className="block text-sm font-medium text-white">
           Name
         </label>
         <input
           type="text"
           id="name"
+          name="name"
           value={name}
           onChange={(e) => {
             setName(e.target.value);
             onChange({ name: e.target.value });
           }}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="description" className="block text-sm font-medium text-white">
           Description
         </label>
         <textarea
           id="description"
+          name="description"
           rows={3}
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);
             onChange({ description: e.target.value });
           }}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
 
       <div>
-        <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-          Base Price
+        <label htmlFor="price" className="block text-sm font-medium text-white">
+          Base Price (SOL)
         </label>
         <input
           type="number"
           id="price"
+          name="price"
           min="0"
           step="0.01"
           value={price}
@@ -107,85 +110,90 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             setPrice(parseFloat(e.target.value));
             onChange({ price: parseFloat(e.target.value) });
           }}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
 
       <div>
-        <label htmlFor="priceModifierBeforeMin" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="priceModifierBeforeMin" className="block text-sm font-medium text-white">
           Price Modifier Before Minimum (-1 to 1)
         </label>
         <input
           type="number"
           id="priceModifierBeforeMin"
+          name="priceModifierBeforeMin"
           min="-1"
           max="1"
           step="0.01"
           value={priceModifierBeforeMin}
           onChange={(e) => handlePriceModifierBeforeMinChange(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="e.g. -0.2 for 20% discount"
         />
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-400">
           Leave empty for no modification. Use negative values for discounts (e.g. -0.2 for 20% off)
         </p>
       </div>
 
       <div>
-        <label htmlFor="priceModifierAfterMin" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="priceModifierAfterMin" className="block text-sm font-medium text-white">
           Price Modifier After Minimum (0 or greater)
         </label>
         <input
           type="number"
           id="priceModifierAfterMin"
+          name="priceModifierAfterMin"
           min="0"
           step="0.01"
           value={priceModifierAfterMin}
           onChange={(e) => handlePriceModifierAfterMinChange(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="e.g. 2 for up to 200% increase"
         />
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-400">
           Leave empty for no modification. Use positive values (e.g. 2 for up to 200% increase)
         </p>
       </div>
 
       <div>
-        <label htmlFor="stock" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="stock" className="block text-sm font-medium text-white">
           Stock
         </label>
         <input
           type="number"
           id="stock"
+          name="stock"
           min="0"
           value={stock}
           onChange={(e) => handleStockChange(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="Leave empty for unlimited stock"
         />
       </div>
 
       <div>
-        <label htmlFor="minimumOrderQuantity" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="minimumOrderQuantity" className="block text-sm font-medium text-white">
           Minimum Order Quantity
         </label>
         <input
           type="number"
           id="minimumOrderQuantity"
+          name="minimumOrderQuantity"
           min="1"
           value={minimumOrderQuantity}
           onChange={(e) => {
             setMinimumOrderQuantity(parseInt(e.target.value, 10));
             onChange({ minimumOrderQuantity: parseInt(e.target.value, 10) });
           }}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
 
       <div>
-        <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="category" className="block text-sm font-medium text-white">
           Category
         </label>
+        <input type="hidden" name="categoryId" value={categoryId} />
         <select
           id="category"
           value={categoryId}
@@ -193,7 +201,8 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             setCategoryId(e.target.value);
             onChange({ categoryId: e.target.value });
           }}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          disabled={!!initialData?.categoryId}
         >
           <option value="">Select a category</option>
           {categories.map((category) => (
@@ -202,21 +211,27 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             </option>
           ))}
         </select>
+        {initialData?.categoryId && (
+          <p className="mt-1 text-sm text-gray-400">
+            Category cannot be changed after product creation
+          </p>
+        )}
       </div>
 
       <div>
-        <label htmlFor="sku" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="sku" className="block text-sm font-medium text-white">
           SKU
         </label>
         <input
           type="text"
           id="sku"
+          name="sku"
           value={sku}
           onChange={(e) => {
             setSku(e.target.value);
             onChange({ sku: e.target.value });
           }}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="PRD123456"
         />
       </div>
