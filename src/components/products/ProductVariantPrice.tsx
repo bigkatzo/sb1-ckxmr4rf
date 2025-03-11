@@ -8,18 +8,18 @@ interface ProductVariantPriceProps {
 }
 
 export function ProductVariantPrice({ product, selectedOptions }: ProductVariantPriceProps) {
+  const { currentOrders, loading } = useOrderStats(product.id);
   const variantKey = product.variants?.length 
     ? getVariantKey(product.variants, selectedOptions)
     : null;
 
   const price = getVariantPrice(product.price, product.variantPrices, variantKey);
-  const { currentOrders, loading } = useOrderStats(product.id);
 
   const getStockDisplay = () => {
     if (loading) return "Loading...";
-    if (product.stock === null) return 'Unlimited';
+    if (product.stock === null) return "Unlimited";
     const remaining = product.stock - currentOrders;
-    if (remaining <= 0) return `Sold out`;
+    if (remaining <= 0) return "Sold out";
     return `${remaining} available`;
   };
 
