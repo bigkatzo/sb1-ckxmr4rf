@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Image as ImageIcon } from 'lucide-react';
 import { ImagePreview } from '../../../ui/ImagePreview';
 import { toast } from 'react-toastify';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -58,7 +57,11 @@ export function ProductImages({
   onRemoveExisting
 }: ProductImagesProps) {
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px of movement required before drag starts
+      },
+    }),
     useSensor(KeyboardSensor)
   );
 
@@ -92,41 +95,44 @@ export function ProductImages({
   });
 
   const removeImage = (index: number) => {
-    const newImages = [...images];
-    const newPreviews = [...previews];
-    
-    // Revoke the object URL to prevent memory leaks
-    URL.revokeObjectURL(previews[index]);
-    
-    newImages.splice(index, 1);
-    newPreviews.splice(index, 1);
-    
-    setImages(newImages);
-    setPreviews(newPreviews);
-  };
-
-  const handleDragEnd = (event: any) => {
-    const { active, over } = event;
-    
-    if (active.id !== over.id) {
-      const oldIndex = [...existingImages, ...previews].findIndex(id => id === active.id);
-      const newIndex = [...existingImages, ...previews].findIndex(id => id === over.id);
-      
-      if (oldIndex < existingImages.length && newIndex < existingImages.length) {
-        // Both are existing images
-        const newExistingImages = arrayMove(existingImages, oldIndex, newIndex);
-        setExistingImages?.(newExistingImages);
-      } else if (oldIndex >= existingImages.length && newIndex >= existingImages.length) {
-        // Both are new images
-        const adjustedOldIndex = oldIndex - existingImages.length;
-        const adjustedNewIndex = newIndex - existingImages.length;
-        setImages(arrayMove(images, adjustedOldIndex, adjustedNewIndex));
-        setPreviews(arrayMove(previews, adjustedOldIndex, adjustedNewIndex));
-      }
+    try {
+      // Revoke the object URL to prevent memory leaks
+      URL.revokeObjectURL(previews[index]);
+    } catch (error) {
+      console.error('Error revoking URL:', error);
+    } finally {
+      setImages(images.filter((_, i) => i !== index));
+      setPreviews(previews.filter((_, i) => i !== index));
     }
   };
 
-  const allImageIds = [...existingImages, ...previews];
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!active?.id || !over?.id || active.id === over.id) return;
+
+    const activeId = active.id.toString();
+    const overId = over.id.toString();
+    
+    // Check if both images are existing images
+    const isActiveExisting = existingImages.includes(activeId);
+    const isOverExisting = existingImages.includes(overId);
+
+    if (isActiveExisting && isOverExisting && setExistingImages) {
+      // Both are existing images
+      const oldIndex = existingImages.indexOf(activeId);
+      const newIndex = existingImages.indexOf(overId);
+      setExistingImages(arrayMove(existingImages, oldIndex, newIndex));
+    } else if (!isActiveExisting && !isOverExisting) {
+      // Both are new images
+      const oldIndex = previews.indexOf(activeId);
+      const newIndex = previews.indexOf(overId);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        setImages(arrayMove(images, oldIndex, newIndex));
+        setPreviews(arrayMove(previews, oldIndex, newIndex));
+      }
+    }
+  };
 
   return (
     <div>
@@ -142,7 +148,7 @@ export function ProductImages({
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext items={allImageIds} strategy={rectSortingStrategy}>
+            <SortableContext items={[...existingImages, ...previews]} strategy={rectSortingStrategy}>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {existingImages.map((imageUrl, index) => (
                   <SortableImage
