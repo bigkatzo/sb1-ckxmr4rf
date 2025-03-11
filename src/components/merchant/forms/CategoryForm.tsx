@@ -10,6 +10,7 @@ interface CategoryFormProps {
     name: string;
     description: string;
     type: string;
+    visible: boolean;
     eligibilityRules: { rules: Array<{ type: string; value: string; quantity?: number }> };
   };
 }
@@ -18,6 +19,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
   const [rules, setRules] = React.useState<Array<{ type: string; value: string; quantity?: number }>>(
     initialData?.eligibilityRules?.rules || []
   );
+  const [visible, setVisible] = React.useState(initialData?.visible ?? true);
 
   React.useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -38,6 +40,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     formData.append('rules', JSON.stringify(rules));
+    formData.append('visible', visible.toString());
     onSubmit(formData);
   };
 
@@ -98,6 +101,20 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                     rows={3}
                     className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
                   />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="visible"
+                    name="visible"
+                    checked={visible}
+                    onChange={(e) => setVisible(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-purple-500 focus:ring-2 focus:ring-purple-500"
+                  />
+                  <label htmlFor="visible" className="text-sm font-medium text-white">
+                    Visible
+                  </label>
                 </div>
 
                 <div>

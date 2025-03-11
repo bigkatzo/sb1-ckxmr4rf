@@ -26,6 +26,7 @@ export interface Category {
   name: string;
   description: string;
   type: string;
+  visible: boolean;
   eligibilityRules: {
     rules: Array<{
       type: string;

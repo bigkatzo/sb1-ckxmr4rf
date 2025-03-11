@@ -39,6 +39,7 @@ export function useCategories(collectionId: string) {
         name: category.name,
         description: category.description,
         type: category.type,
+        visible: category.visible,
         eligibilityRules: {
           rules: category.eligibility_rules?.rules || []
         }
