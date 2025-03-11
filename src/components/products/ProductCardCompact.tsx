@@ -82,7 +82,7 @@ export function ProductCardCompact({
         )}
         <div className="mt-1.5 sm:mt-2 flex items-center justify-between">
           <span className="text-[10px] sm:text-xs font-semibold text-white">
-            {modifiedPrice.toFixed(2)} SOL
+            {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
           </span>
           <BuyButton 
             product={product}

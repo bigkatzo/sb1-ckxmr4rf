@@ -77,7 +77,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
         
         <div className="mt-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-white">
-            {modifiedPrice.toFixed(2)} SOL
+            {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
           </span>
           <BuyButton 
             product={product}
