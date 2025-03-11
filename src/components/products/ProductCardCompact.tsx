@@ -4,6 +4,7 @@ import { Image as ImageIcon } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import type { Product } from '../../types';
 
 interface ProductCardCompactProps {
@@ -20,6 +21,7 @@ export function ProductCardCompact({
   showCategory = false
 }: ProductCardCompactProps) {
   const navigate = useNavigate();
+  const { modifiedPrice } = useModifiedPrice(product);
 
   const handleCollectionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -80,7 +82,7 @@ export function ProductCardCompact({
         )}
         <div className="mt-1.5 sm:mt-2 flex items-center justify-between">
           <span className="text-[10px] sm:text-xs font-semibold text-white">
-            {product.price} SOL
+            {modifiedPrice.toFixed(2)} SOL
           </span>
           <BuyButton 
             product={product}

@@ -2,6 +2,7 @@ import { Image as ImageIcon } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import type { Product } from '../../types';
 import { useState } from 'react';
 
@@ -14,6 +15,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport }: ProductCardProps) {
   const [imageLoading, setImageLoading] = useState(true);
+  const { modifiedPrice } = useModifiedPrice(product);
 
   const handleClick = () => {
     if (onClick) {
@@ -75,7 +77,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
         
         <div className="mt-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-white">
-            {product.price} SOL
+            {modifiedPrice.toFixed(2)} SOL
           </span>
           <BuyButton 
             product={product}
