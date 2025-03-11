@@ -9,7 +9,6 @@ export interface CategoryFormData {
   name: string;
   description: string;
   type: string;
-  visible: boolean;
   eligibilityRules: {
     rules: CategoryRule[];
   };

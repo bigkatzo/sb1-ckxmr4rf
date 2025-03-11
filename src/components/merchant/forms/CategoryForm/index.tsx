@@ -14,7 +14,6 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
   const [rules, setRules] = useState<CategoryRule[]>(
     initialData?.eligibilityRules?.rules || []
   );
-  const [visible, setVisible] = useState(initialData?.visible ?? true);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,13 +43,11 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
 
       // Ensure rules are properly formatted
       formData.set('rules', JSON.stringify(rules));
-      formData.set('visible', visible.toString());
       
       // Log the data being submitted
       console.log('Submitting form data:', {
         name: formData.get('name'),
         description: formData.get('description'),
-        visible: formData.get('visible'),
         rules: JSON.parse(formData.get('rules') as string)
       });
 
@@ -96,20 +93,6 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
           rows={4}
           className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          id="visible"
-          name="visible"
-          checked={visible}
-          onChange={(e) => setVisible(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-purple-500 focus:ring-2 focus:ring-purple-500"
-        />
-        <label htmlFor="visible" className="text-sm font-medium">
-          Visible
-        </label>
       </div>
 
       <CategoryRules rules={rules} onChange={setRules} />
