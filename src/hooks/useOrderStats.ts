@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
+import { debounce } from 'lodash';
 
 interface OrderStats {
   currentOrders: number;
@@ -9,7 +10,8 @@ interface OrderStats {
 }
 
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff delays
-const CACHE_DURATION = 30000; // 30 seconds cache
+const CACHE_DURATION = 5000; // 5 seconds cache
+const DEBOUNCE_WAIT = 500; // 500ms debounce for real-time updates
 
 // In-memory cache
 const statsCache = new Map<string, { value: number; timestamp: number }>();
@@ -81,6 +83,14 @@ export function useOrderStats(productId: string) {
     }
   }, [productId]);
 
+  // Debounced version of fetchOrderStats for real-time updates
+  const debouncedFetch = useCallback(
+    debounce(() => {
+      fetchOrderStats();
+    }, DEBOUNCE_WAIT),
+    [fetchOrderStats]
+  );
+
   useEffect(() => {
     let mounted = true;
     let subscription: ReturnType<typeof supabase.channel> | null = null;
@@ -103,7 +113,8 @@ export function useOrderStats(productId: string) {
           },
           () => {
             if (mounted) {
-              fetchOrderStats();
+              // Use debounced fetch for real-time updates
+              debouncedFetch();
             }
           }
         )
@@ -123,8 +134,10 @@ export function useOrderStats(productId: string) {
       if (subscription) {
         subscription.unsubscribe();
       }
+      // Cancel any pending debounced fetches
+      debouncedFetch.cancel();
     };
-  }, [productId, fetchOrderStats]);
+  }, [productId, fetchOrderStats, debouncedFetch]);
 
   return stats;
 }
