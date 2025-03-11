@@ -15,7 +15,9 @@ export interface ProductFormProps {
 
 export function ProductForm({ categories, initialData, onClose, onSubmit }: ProductFormProps) {
   const [images, setImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>(initialData?.images || []);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>(initialData?.images || []);
+  const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
   const [variantPrices, setVariantPrices] = useState<VariantPricing>(initialData?.variantPrices || {});
   const [basePrice, setBasePrice] = useState<number>(initialData?.price || 0);
@@ -31,7 +33,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
 
     // Add current images if editing
     if (initialData?.images) {
-      formData.append('currentImages', JSON.stringify(previews));
+      formData.append('currentImages', JSON.stringify(existingImages));
+      formData.append('removedImages', JSON.stringify(removedImages));
     }
 
     // Add variant data
@@ -73,6 +76,12 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
     }
   };
 
+  const handleRemoveExistingImage = (index: number) => {
+    const imageUrl = existingImages[index];
+    setRemovedImages([...removedImages, imageUrl]);
+    setExistingImages(existingImages.filter((_, i) => i !== index));
+  };
+
   return (
     <ModalForm
       isOpen={true}
@@ -87,6 +96,9 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
         previews={previews}
         setImages={setImages}
         setPreviews={setPreviews}
+        existingImages={existingImages}
+        setExistingImages={setExistingImages}
+        onRemoveExisting={handleRemoveExistingImage}
       />
 
       <ProductBasicInfo 
