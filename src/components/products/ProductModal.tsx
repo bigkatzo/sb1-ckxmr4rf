@@ -7,7 +7,6 @@ import { ProductVariantPrice } from './ProductVariantPrice';
 import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
-import { useOrderStats } from '../../hooks/useOrderStats';
 import type { Product } from '../../types';
 
 interface ProductModalProps {
@@ -82,7 +81,6 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const [dragStartTime, setDragStartTime] = useState(0);
   const [dragVelocity, setDragVelocity] = useState(0);
   const isAnimating = useRef(false);
-  const { currentOrders, loading } = useOrderStats(product.id);
   
   // Required minimum swipe distance in pixels
   const minSwipeDistance = 50;
@@ -323,14 +321,6 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
   const isSaleEnded = product.collectionSaleEnded;
 
-  const getStockDisplay = () => {
-    if (loading) return "Loading...";
-    if (product.stock === null) return 'Unlimited';
-    const remaining = product.stock - currentOrders;
-    if (remaining <= 0) return `Sold out`;
-    return `${remaining} available`;
-  };
-
   return (
     <div 
       className="fixed inset-0 z-50 overflow-y-auto" 
@@ -461,12 +451,6 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     product={product}
                     selectedOptions={selectedOptions}
                   />
-
-                  <div className="flex items-center gap-2 -mt-2 mb-2">
-                    <span className={`text-sm ${loading ? 'text-gray-500' : 'text-gray-400'}`}>
-                      {getStockDisplay()}
-                    </span>
-                  </div>
 
                   {/* Buy button for desktop - static position */}
                   <div className="hidden md:block">
