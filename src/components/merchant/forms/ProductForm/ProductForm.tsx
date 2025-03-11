@@ -8,6 +8,16 @@ import { FormSkeleton } from '../../../ui/Skeleton';
 import type { Product, Category } from '../../../../types';
 import type { ProductVariant, VariantPricing } from '../../../../types/variants';
 
+interface ProductFormData {
+  name: string;
+  description: string;
+  price: number;
+  stock: number | null;
+  categoryId: string;
+  sku: string;
+  minimumOrderQuantity: number;
+}
+
 export interface ProductFormProps {
   categories: Category[];
   initialData?: Product;
@@ -25,6 +35,15 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   const [variantPrices, setVariantPrices] = useState<VariantPricing>(initialData?.variantPrices || {});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState<ProductFormData>({
+    name: initialData?.name || '',
+    description: initialData?.description || '',
+    price: initialData?.price || 0,
+    stock: initialData?.stock ?? 0,
+    categoryId: initialData?.categoryId || '',
+    sku: initialData?.sku || '',
+    minimumOrderQuantity: initialData?.minimumOrderQuantity || 50
+  });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -32,24 +51,31 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     setError(null);
 
     try {
-      const formData = new FormData(e.currentTarget);
+      const data = new FormData(e.currentTarget);
+
+      // Add basic product info
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== null) {
+          data.append(key, value.toString());
+        }
+      });
 
       // Add images to form data
       images.forEach((file, index) => {
-        formData.append(`image${index}`, file);
+        data.append(`image${index}`, file);
       });
 
       // Add current images if editing
       if (initialData?.images) {
-        formData.append('currentImages', JSON.stringify(existingImages));
-        formData.append('removedImages', JSON.stringify(removedImages));
+        data.append('currentImages', JSON.stringify(existingImages));
+        data.append('removedImages', JSON.stringify(removedImages));
       }
 
       // Add variant data
-      formData.append('variants', JSON.stringify(variants));
-      formData.append('variantPrices', JSON.stringify(variantPrices));
+      data.append('variants', JSON.stringify(variants));
+      data.append('variantPrices', JSON.stringify(variantPrices));
 
-      await onSubmit(formData);
+      await onSubmit(data);
       onClose();
     } catch (error) {
       console.error('Error submitting product form:', error);
@@ -118,12 +144,18 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
                   <ProductBasicInfo 
                     categories={categories}
                     initialData={initialData}
+                    onChange={(data) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        ...data
+                      }));
+                    }}
                   />
 
                   <ProductVariants
                     variants={variants}
                     variantPrices={variantPrices}
-                    basePrice={initialData?.price || 0}
+                    basePrice={formData.price}
                     onChange={(newVariants: ProductVariant[], newPrices: VariantPricing) => {
                       setVariants(newVariants);
                       setVariantPrices(newPrices);
