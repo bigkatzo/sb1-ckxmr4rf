@@ -95,12 +95,12 @@ export function ProductImages({
     const newImages = [...images];
     const newPreviews = [...previews];
     
-    if (index < images.length) {
-      newImages.splice(index, 1);
-      URL.revokeObjectURL(previews[index]);
-    }
+    // Revoke the object URL to prevent memory leaks
+    URL.revokeObjectURL(previews[index]);
     
+    newImages.splice(index, 1);
     newPreviews.splice(index, 1);
+    
     setImages(newImages);
     setPreviews(newPreviews);
   };
@@ -115,8 +115,7 @@ export function ProductImages({
       if (oldIndex < existingImages.length && newIndex < existingImages.length) {
         // Both are existing images
         const newExistingImages = arrayMove(existingImages, oldIndex, newIndex);
-        onRemoveExisting && onRemoveExisting(oldIndex);
-        setExistingImages && setExistingImages(newExistingImages);
+        setExistingImages?.(newExistingImages);
       } else if (oldIndex >= existingImages.length && newIndex >= existingImages.length) {
         // Both are new images
         const adjustedOldIndex = oldIndex - existingImages.length;
@@ -124,7 +123,6 @@ export function ProductImages({
         setImages(arrayMove(images, adjustedOldIndex, adjustedNewIndex));
         setPreviews(arrayMove(previews, adjustedOldIndex, adjustedNewIndex));
       }
-      // Note: We don't allow mixing existing and new images in drag and drop
     }
   };
 
@@ -151,7 +149,7 @@ export function ProductImages({
                     key={imageUrl}
                     id={imageUrl}
                     src={imageUrl}
-                    onRemove={onRemoveExisting ? () => onRemoveExisting(index) : undefined}
+                    onRemove={() => onRemoveExisting?.(index)}
                   />
                 ))}
                 {previews.map((preview, index) => (
