@@ -13,6 +13,7 @@ interface ProductBasicInfoProps {
     categoryId?: string;
     sku?: string;
     minimumOrderQuantity?: number;
+    visible?: boolean;
   };
   onChange: (data: Partial<{
     name: string;
@@ -22,17 +23,27 @@ interface ProductBasicInfoProps {
     categoryId: string;
     sku: string;
     minimumOrderQuantity: number;
+    visible: boolean;
   }>) => void;
 }
 
 export function ProductBasicInfo({ categories, initialData, onChange }: ProductBasicInfoProps) {
   const [isUnlimitedStock, setIsUnlimitedStock] = useState(initialData?.stock === null);
+  const [isVisible, setIsVisible] = useState(initialData?.visible ?? true);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     onChange({
       [name]: value
     } as any); // Using type assertion since we know the field names match
+  };
+
+  const handleVisibilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.checked;
+    setIsVisible(newValue);
+    onChange({
+      visible: newValue
+    });
   };
 
   const handleStockChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLSelectElement>, isUnlimited?: boolean) => {
@@ -51,21 +62,56 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
 
   return (
     <div className="space-y-4">
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-white mb-1">
-          Name *
-        </label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          defaultValue={initialData?.name}
-          onChange={handleInputChange}
-          required
-          className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
-          placeholder="Enter product name"
-        />
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <label htmlFor="name" className="block text-sm font-medium text-white mb-1">
+            Name *
+          </label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            defaultValue={initialData?.name}
+            onChange={handleInputChange}
+            required
+            className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+            placeholder="Enter product name"
+          />
+        </div>
+        
+        <div className="ml-4 flex items-center">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="visible"
+              name="visible"
+              checked={isVisible}
+              onChange={handleVisibilityChange}
+              className="rounded bg-gray-800 border-gray-700 text-purple-600 focus:ring-purple-600"
+            />
+            <label htmlFor="visible" className="text-sm text-gray-300">
+              Visible
+            </label>
+          </div>
+        </div>
       </div>
+
+      {initialData?.sku && (
+        <div>
+          <label htmlFor="sku" className="block text-sm font-medium text-white mb-1">
+            SKU
+          </label>
+          <input
+            type="text"
+            id="sku"
+            name="sku"
+            value={initialData.sku}
+            readOnly
+            className="w-full rounded-lg bg-gray-800/50 border-gray-700 px-3 py-2 text-sm text-gray-400 cursor-not-allowed"
+          />
+          <p className="mt-1 text-xs text-gray-500">SKU is automatically generated and cannot be modified</p>
+        </div>
+      )}
 
       <div>
         <label htmlFor="description" className="block text-sm font-medium text-white mb-1">
