@@ -18,13 +18,15 @@ export async function createCategory(data: FormData, collectionId: string) {
     const name = data.get('name');
     const description = data.get('description');
     const rules = JSON.parse(data.get('rules') as string || '[]');
+    const visible = data.get('visible') === 'true';
     
     const categoryData = {
       collection_id: collectionId,
       name,
       description,
       type: rules.length > 0 ? 'rules-based' : 'blank',
-      eligibility_rules: { rules }
+      eligibility_rules: { rules },
+      visible
     };
 
     const { data: category, error } = await supabase
@@ -44,12 +46,14 @@ export async function createCategory(data: FormData, collectionId: string) {
 export async function updateCategory(id: string, data: FormData) {
   try {
     const rules = JSON.parse(data.get('rules') as string || '[]');
+    const visible = data.get('visible') === 'true';
     
     const categoryData = {
       name: data.get('name'),
       description: data.get('description'),
       type: rules.length > 0 ? 'rules-based' : 'blank',
-      eligibility_rules: { rules }
+      eligibility_rules: { rules },
+      visible
     };
 
     const { data: category, error } = await supabase
