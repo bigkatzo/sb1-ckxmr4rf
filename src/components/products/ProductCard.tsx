@@ -73,16 +73,16 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
       </div>
       
       <div className="p-3">
-        <h3 className="font-medium text-sm text-white line-clamp-1">{product.name}</h3>
+        <h3 className="font-medium text-[11px] sm:text-sm text-white line-clamp-1">{product.name}</h3>
         
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-sm font-semibold text-white">
+          <span className="text-[10px] sm:text-sm font-semibold text-white">
             {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
           </span>
           <BuyButton 
             product={product}
             disabled={product.stock === 0 && product.stock !== null}
-            className="z-10"
+            className="z-10 scale-90 origin-right sm:scale-100"
             onClick={handleClick}
           />
         </div>
