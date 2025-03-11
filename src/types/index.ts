@@ -56,7 +56,6 @@ export interface Product {
   variants?: ProductVariant[];
   variantPrices?: VariantPricing;
   salesCount?: number;
-  visible: boolean;
 }
 
 export interface SearchResult {
