@@ -9,6 +9,7 @@ import { createProduct, updateProduct, deleteProduct } from '../../services/prod
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
+import { createCategoryIndices } from '../../utils/category-mapping';
 
 export function ProductsTab() {
   const [showForm, setShowForm] = useState(false);
@@ -20,6 +21,9 @@ export function ProductsTab() {
   const { collections, loading: collectionsLoading } = useMerchantCollections();
   const { categories } = useCategories(selectedCollection);
   const { products, loading: productsLoading, error: productsError, refreshProducts } = useProducts(selectedCollection, undefined, true);
+
+  // Create category indices mapping
+  const categoryIndices = createCategoryIndices(categories);
 
   const handleSubmit = async (data: FormData) => {
     try {
@@ -151,6 +155,7 @@ export function ProductsTab() {
               <ProductListItem
                 key={product.id}
                 product={product}
+                categoryIndex={product.categoryId ? categoryIndices[product.categoryId] : 0}
                 onEdit={canEdit ? () => {
                   setEditingProduct(product);
                   setShowForm(true);

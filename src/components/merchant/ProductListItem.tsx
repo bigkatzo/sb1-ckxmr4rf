@@ -3,6 +3,7 @@ import { EditButton } from '../ui/EditButton';
 import { DeleteButton } from '../ui/DeleteButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useOrderStats } from '../../hooks/useOrderStats';
+import { getCategoryColorSet } from '../../utils/category-colors';
 import type { Product } from '../../types';
 
 interface ProductListItemProps {
@@ -10,9 +11,16 @@ interface ProductListItemProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onClick?: () => void;
+  categoryIndex?: number;
 }
 
-export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductListItemProps) {
+export function ProductListItem({ 
+  product, 
+  onEdit, 
+  onDelete, 
+  onClick,
+  categoryIndex = 0 
+}: ProductListItemProps) {
   const { currentOrders, loading } = useOrderStats(product.id);
 
   const handleEditClick = () => {
@@ -66,7 +74,11 @@ export function ProductListItem({ product, onEdit, onDelete, onClick }: ProductL
               
               <div className="flex items-center gap-2 mt-1">
                 {product.category && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-200">
+                  <span className={`
+                    inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                    ${getCategoryColorSet(categoryIndex).bg}
+                    ${getCategoryColorSet(categoryIndex).base}
+                  `}>
                     {product.category.name}
                   </span>
                 )}

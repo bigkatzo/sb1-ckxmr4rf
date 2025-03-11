@@ -30,7 +30,7 @@ export function useCategories(collectionId: string) {
         .from('categories')
         .select('*, eligibility_rules')
         .eq('collection_id', collectionId)
-        .order('id', { ascending: true }); // Add explicit ordering by primary key
+        .order('created_at', { ascending: true }); // Order by creation time instead of id
 
       if (error) throw error;
       
