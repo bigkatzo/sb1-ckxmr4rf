@@ -9,7 +9,7 @@ import { CollectionSkeleton } from '../components/collections/CollectionSkeleton
 import { CollectionNotFound } from '../components/collections/CollectionNotFound';
 import { createCategoryIndices } from '../utils/category-mapping';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
-import type { Category } from '../types/index';
+import type { Category, Product } from '../types/index';
 
 export function CollectionPage() {
   const { slug } = useParams();
@@ -23,6 +23,26 @@ export function CollectionPage() {
   );
   
   const { collection, loading, error } = useCollection(slug || '');
+
+  // Create indices from all categories to maintain color consistency
+  const allCategoryIndices = collection ? createCategoryIndices(collection.categories) : {};
+  
+  // Filter visible categories
+  const visibleCategories = collection?.categories.filter((cat: Category) => cat.visible) || [];
+  
+  // Create a filtered version of indices that only includes visible categories
+  const visibleCategoryIndices = Object.fromEntries(
+    Object.entries(allCategoryIndices).filter(([id]) => 
+      visibleCategories.some((cat: Category) => cat.id === id)
+    )
+  );
+  
+  // Reset selected category if it becomes hidden
+  useEffect(() => {
+    if (selectedCategory && !visibleCategories.some((cat: Category) => cat.id === selectedCategory)) {
+      setSelectedCategory(undefined);
+    }
+  }, [visibleCategories, selectedCategory]);
 
   // Handle initial load and scroll restoration
   useEffect(() => {
@@ -60,7 +80,10 @@ export function CollectionPage() {
   
   // Handle category change by updating state
   const handleCategoryChange = (categoryId: string) => {
-    setSelectedCategory(categoryId || undefined);
+    // Only allow selecting visible categories
+    if (!categoryId || visibleCategories.some((cat: Category) => cat.id === categoryId)) {
+      setSelectedCategory(categoryId || undefined);
+    }
   };
   
   if (!slug) {
@@ -75,10 +98,14 @@ export function CollectionPage() {
     return <CollectionNotFound error={error || undefined} />;
   }
 
-  const visibleCategories = collection.categories.filter((cat: Category) => cat.visible);
-  const categoryIndices = createCategoryIndices(visibleCategories);
   const isUpcoming = collection.launchDate > new Date();
   const isNew = !isUpcoming && (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000);
+
+  // Filter products to only show those in visible categories
+  const visibleProducts = collection.products.filter((product: Product) => 
+    !product.categoryId || // Include products without a category
+    visibleCategories.some((cat: Category) => cat.id === product.categoryId) // Include products in visible categories
+  );
 
   return (
     <div 
@@ -165,15 +192,15 @@ export function CollectionPage() {
             categories={visibleCategories}
             selectedId={selectedCategory}
             onChange={handleCategoryChange}
-            categoryIndices={categoryIndices}
+            categoryIndices={allCategoryIndices}
           />
         )}
 
         <div className="p-4 sm:p-6">
           <ProductGrid 
-            products={collection.products} 
+            products={visibleProducts}
             categoryId={selectedCategory}
-            categoryIndices={categoryIndices}
+            categoryIndices={allCategoryIndices}
             loading={loading && !isInitialLoad}
           />
         </div>
