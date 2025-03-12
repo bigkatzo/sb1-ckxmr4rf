@@ -1,4 +1,3 @@
-import React from 'react';
 import { CategoryDiamond } from './CategoryDiamond';
 import { CategoryEligibility } from './CategoryEligibility';
 import type { Category } from '../../types';

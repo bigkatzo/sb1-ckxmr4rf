@@ -62,42 +62,4 @@ export async function verifyNFTHolding(
       balance: 0
     };
   }
-}
-
-// Helper function to parse metadata collection from buffer
-function parseMetadataCollection(buffer: Buffer): PublicKey | null {
-  try {
-    // Skip the first 1 + 32 + 32 + 4 bytes (version + update auth + mint + name length)
-    let offset = 69;
-    
-    // Skip name
-    const nameLen = buffer.readUInt32LE(65);
-    offset += nameLen;
-    
-    // Skip symbol
-    const symbolLen = buffer.readUInt32LE(offset);
-    offset += 4 + symbolLen;
-    
-    // Skip uri
-    const uriLen = buffer.readUInt32LE(offset);
-    offset += 4 + uriLen;
-    
-    // Skip creators if present
-    const hasCreators = buffer[offset];
-    offset += 1;
-    if (hasCreators) {
-      const creatorsLen = buffer.readUInt32LE(offset);
-      offset += 4 + (creatorsLen * 34); // Each creator is 34 bytes
-    }
-    
-    // Skip collection parent bool
-    offset += 1;
-    
-    // Get collection address
-    const collection = new PublicKey(buffer.slice(offset, offset + 32));
-    return collection;
-  } catch (error) {
-    console.error('Error parsing metadata:', error);
-    return null;
-  }
 } 

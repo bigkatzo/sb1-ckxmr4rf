@@ -8,7 +8,7 @@ interface CategoryTypeInfo {
   style: string;
 }
 
-export function getCategoryTypeInfo(type: string, groups: RuleGroup[] = []): CategoryTypeInfo {
+export function getCategoryTypeInfo(_type: string, groups: RuleGroup[] = []): CategoryTypeInfo {
   if (!groups?.length) {
     return {
       icon: <Sparkles className="h-5 w-5 text-green-400 flex-shrink-0" />,
