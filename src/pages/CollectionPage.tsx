@@ -17,11 +17,6 @@ export function CollectionPage() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const pageRef = useRef<HTMLDivElement>(null);
   
-  // Get selectedCategory from location state or use local state
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(
-    location.state?.selectedCategoryId
-  );
-  
   const { collection, loading, error } = useCollection(slug || '');
 
   // Create indices from all categories to maintain color consistency
@@ -30,12 +25,17 @@ export function CollectionPage() {
   // Filter visible categories
   const visibleCategories = collection?.categories.filter((cat: Category) => cat.visible) || [];
   
-  // Create a filtered version of indices that only includes visible categories
-  const visibleCategoryIndices = Object.fromEntries(
-    Object.entries(allCategoryIndices).filter(([id]) => 
-      visibleCategories.some((cat: Category) => cat.id === id)
-    )
-  );
+  // Get selectedCategory from location state or use local state, ensuring it's visible
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(() => {
+    const initialCategory = location.state?.selectedCategoryId;
+    // Only use the initial category if it exists and is visible
+    if (initialCategory && collection?.categories.some((cat: Category) => 
+      cat.id === initialCategory && cat.visible
+    )) {
+      return initialCategory;
+    }
+    return undefined;
+  });
   
   // Reset selected category if it becomes hidden
   useEffect(() => {
