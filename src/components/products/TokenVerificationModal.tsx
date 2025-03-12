@@ -34,10 +34,23 @@ interface VerificationResult {
   balance?: number;
 }
 
+// Helper function to handle NFT verification
+async function handleVerification(walletAddress: string, value: string, quantity: number): Promise<VerificationResult> {
+  try {
+    const { verifyNFTHolding } = await import('../../utils/nft-verification');
+    return verifyNFTHolding(walletAddress, value, quantity);
+  } catch (error) {
+    console.error('Error loading verification module:', error);
+    return { isValid: false, error: 'Failed to load verification module' };
+  }
+}
+
 async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ isValid: boolean; error?: string }> {
   switch (rule.type) {
     case 'token':
       return verifyTokenHolding(walletAddress, rule.value, rule.quantity || 1);
+    case 'nft':
+      return handleVerification(walletAddress, rule.value, rule.quantity || 1);
     case 'whitelist':
       return verifyWhitelistAccess(walletAddress, rule.value);
     default:
@@ -57,7 +70,6 @@ export function TokenVerificationModal({
   const [submitting, setSubmitting] = useState(false);
   const { modifiedPrice } = useModifiedPrice(product);
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
-  const [isLoadingModule, setIsLoadingModule] = useState(false);
 
   // Calculate final price including variants and modifications
   const variantPrice = product.variantPrices?.[Object.values(selectedOptions).join(':')] || 0;
@@ -219,38 +231,6 @@ export function TokenVerificationModal({
       setSubmitting(false);
     }
   };
-
-  const verifyAccess = async (group: string, rule: CategoryRule): Promise<VerificationResult | null> => {
-    if (!walletAddress) return null;
-
-    switch (rule.type) {
-      case 'token':
-        return verifyTokenHolding(walletAddress, rule.value, rule.quantity || 1);
-      case 'nft':
-        return handleVerification(walletAddress, rule.value, rule.quantity || 1);
-      case 'whitelist':
-        return verifyWhitelistAccess(walletAddress, rule.value);
-      default:
-        return null;
-    }
-  };
-
-  const handleVerification = async (walletAddress: string, value: string, quantity: number): Promise<VerificationResult> => {
-    setIsLoadingModule(true);
-    try {
-      const { verifyNFTHolding } = await import('../../utils/nft-verification');
-      return verifyNFTHolding(walletAddress, value, quantity);
-    } catch (error) {
-      console.error('Error loading verification module:', error);
-      return { isValid: false, error: 'Failed to load verification module' };
-    } finally {
-      setIsLoadingModule(false);
-    }
-  };
-
-  if (isLoadingModule) {
-    return <div>Loading verification module...</div>;
-  }
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
