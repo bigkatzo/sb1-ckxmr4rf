@@ -63,10 +63,6 @@ export function CategoryEligibility({ groups, type }: CategoryEligibilityProps) 
 
   return (
     <div className="space-y-4">
-      <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
-        {typeInfo.icon}
-        <span className="font-medium">{typeInfo.label}</span>
-      </div>
       {groups.map((group, groupIndex) => (
         <div key={groupIndex} className="space-y-2">
           {group.rules.length > 0 && (
