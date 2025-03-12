@@ -1,13 +1,17 @@
 import { Connection, Commitment } from '@solana/web3.js';
 
 const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY;
+const HELIUS_API_KEY = import.meta.env.VITE_HELIUS_API_KEY;
 
 // Primary RPC endpoint with fallbacks
 const RPC_ENDPOINTS = {
-  primary: ALCHEMY_API_KEY 
-    ? `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+  primary: HELIUS_API_KEY 
+    ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
     : 'https://api.mainnet-beta.solana.com',
   fallbacks: [
+    ALCHEMY_API_KEY 
+      ? `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+      : 'https://api.mainnet-beta.solana.com',
     'https://solana-api.projectserum.com',
     'https://rpc.ankr.com/solana',
     'https://solana.public-rpc.com'
@@ -18,9 +22,11 @@ const CONNECTION_CONFIG = {
   commitment: 'finalized' as Commitment,
   confirmTransactionInitialTimeout: 60000,
   disableRetryOnRateLimit: false,
-  wsEndpoint: ALCHEMY_API_KEY 
-    ? `wss://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
-    : undefined
+  wsEndpoint: HELIUS_API_KEY 
+    ? `wss://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+    : ALCHEMY_API_KEY 
+      ? `wss://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+      : undefined
 };
 
 // Create connection with improved retry logic

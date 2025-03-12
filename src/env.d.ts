@@ -19,6 +19,11 @@ interface ImportMetaEnv {
   readonly VITE_ALCHEMY_API_KEY: string;
 
   /**
+   * The Helius API key for Solana RPC access
+   */
+  readonly VITE_HELIUS_API_KEY: string;
+
+  /**
    * Whether we're running in development mode
    */
   readonly DEV: boolean;
