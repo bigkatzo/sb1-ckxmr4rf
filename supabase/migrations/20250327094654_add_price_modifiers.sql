@@ -1,3 +1,8 @@
+-- Drop existing constraints if they exist
+ALTER TABLE products
+DROP CONSTRAINT IF EXISTS valid_price_modifier_before,
+DROP CONSTRAINT IF EXISTS valid_price_modifier_after;
+
 -- Add price modifier columns to products table
 ALTER TABLE products
 ADD COLUMN IF NOT EXISTS price_modifier_before_min numeric DEFAULT NULL,
