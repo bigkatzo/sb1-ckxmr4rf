@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { ConnectionProvider, WalletProvider as SolanaWalletProvider, useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { Transaction, PublicKey } from '@solana/web3.js';
+import type { Adapter } from '@solana/wallet-adapter-base';
 import { SOLANA_CONNECTION } from '../config/solana';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -134,13 +134,22 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   // Initialize wallet adapters
-  const wallets = React.useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter()
-    ],
-    []
-  );
+  const [wallets, setWallets] = useState<Adapter[]>([]);
+  
+  useEffect(() => {
+    async function loadWallets() {
+      // Only load Solflare adapter since Phantom is auto-registered
+      const { SolflareWalletAdapter } = await import('@solana/wallet-adapter-wallets');
+      setWallets([
+        new SolflareWalletAdapter()
+      ]);
+    }
+    loadWallets();
+  }, []);
+
+  if (wallets.length === 0) {
+    return <div>Loading wallets...</div>;
+  }
 
   return (
     <ConnectionProvider endpoint={SOLANA_CONNECTION.rpcEndpoint}>

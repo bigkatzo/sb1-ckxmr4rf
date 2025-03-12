@@ -1,5 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
-import { Metaplex, Nft, Metadata, Sft } from '@metaplex-foundation/js';
+import type { Metadata, Nft, Sft } from '@metaplex-foundation/js';
 import { SOLANA_CONNECTION } from '../config/solana';
 
 export interface NFTVerificationResult {
@@ -16,6 +16,9 @@ export async function verifyNFTHolding(
   try {
     const walletPubKey = new PublicKey(walletAddress);
     const collectionPubKey = new PublicKey(collectionAddress);
+    
+    // Dynamically import only the required Metaplex functionality
+    const { Metaplex } = await import('@metaplex-foundation/js');
     const metaplex = Metaplex.make(SOLANA_CONNECTION);
 
     // Get all NFTs owned by the user
