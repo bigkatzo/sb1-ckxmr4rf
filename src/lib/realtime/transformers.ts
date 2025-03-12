@@ -26,8 +26,9 @@ export function transformProduct(dbProduct: any): Product {
     name: dbProduct.categories.name,
     description: dbProduct.categories.description,
     type: dbProduct.categories.type,
+    visible: dbProduct.categories.visible ?? true,
     eligibilityRules: {
-      rules: dbProduct.categories.eligibility_rules?.rules || []
+      groups: dbProduct.categories.eligibility_rules?.groups || []
     }
   } : undefined;
 

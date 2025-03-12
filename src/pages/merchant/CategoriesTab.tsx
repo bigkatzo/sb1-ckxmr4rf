@@ -142,7 +142,7 @@ export function CategoriesTab() {
                         </p>
                         <div className="mt-2">
                           {(() => {
-                            const typeInfo = getCategoryTypeInfo(category.type, category.eligibilityRules?.rules || []);
+                            const typeInfo = getCategoryTypeInfo(category.type, category.eligibilityRules?.groups || []);
                             return (
                               <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
                                 {typeInfo.icon}

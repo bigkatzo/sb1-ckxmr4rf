@@ -8,8 +8,9 @@ export function transformCategory(category: any): Category | undefined {
     name: category.name || '',
     description: category.description || '',
     type: category.type || 'blank',
+    visible: category.visible ?? true,
     eligibilityRules: {
-      rules: category.eligibility_rules?.rules || []
+      groups: category.eligibility_rules?.groups || []
     }
   };
 }

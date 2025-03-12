@@ -18,7 +18,7 @@ interface PublicProduct {
   category_name?: string;
   category_description?: string;
   category_type?: string;
-  category_eligibility_rules?: { rules: Array<{ type: string; value: string }> };
+  category_eligibility_rules?: { groups: Array<{ operator: 'AND' | 'OR'; rules: Array<{ type: string; value: string }> }> };
   collection_id: string;
   collection_name: string;
   collection_slug: string;
@@ -66,8 +66,9 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             name: product.category_name,
             description: product.category_description,
             type: product.category_type,
+            visible: true,
             eligibilityRules: {
-              rules: product.category_eligibility_rules?.rules || []
+              groups: product.category_eligibility_rules?.groups || []
             }
           } : undefined,
           collectionId: product.collection_id,

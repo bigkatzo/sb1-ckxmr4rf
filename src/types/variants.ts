@@ -1,3 +1,5 @@
+import type { RuleGroup } from './index';
+
 export interface ProductVariantOption {
   id: string;
   value: string;
@@ -19,7 +21,7 @@ export interface Category {
   description?: string;
   type: string;
   eligibilityRules?: {
-    rules: Array<any>;
+    groups: RuleGroup[];
   };
 }
 

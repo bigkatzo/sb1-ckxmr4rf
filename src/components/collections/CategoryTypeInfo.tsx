@@ -1,5 +1,6 @@
 import React from 'react';
 import { Users, Lock, Sparkles } from 'lucide-react';
+import type { RuleGroup } from '../../types';
 
 interface CategoryTypeInfo {
   icon: React.ReactNode;
@@ -7,8 +8,8 @@ interface CategoryTypeInfo {
   style: string;
 }
 
-export function getCategoryTypeInfo(type: string, rules: any[] = []): CategoryTypeInfo {
-  if (!rules?.length) {
+export function getCategoryTypeInfo(type: string, groups: RuleGroup[] = []): CategoryTypeInfo {
+  if (!groups?.length) {
     return {
       icon: <Sparkles className="h-5 w-5 text-green-400 flex-shrink-0" />,
       label: 'Open Access',
@@ -16,8 +17,10 @@ export function getCategoryTypeInfo(type: string, rules: any[] = []): CategoryTy
     };
   }
 
-  const hasWhitelist = rules.some(rule => rule.type === 'whitelist');
-  const hasTokens = rules.some(rule => rule.type === 'token');
+  // Check all rules across all groups
+  const allRules = groups.flatMap(group => group.rules);
+  const hasWhitelist = allRules.some(rule => rule.type === 'whitelist');
+  const hasTokens = allRules.some(rule => rule.type === 'token' || rule.type === 'nft');
 
   if (hasWhitelist) {
     return {

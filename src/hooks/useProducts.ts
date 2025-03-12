@@ -55,8 +55,9 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           name: product.category_name,
           description: product.category_description,
           type: product.category_type,
+          visible: true,
           eligibilityRules: {
-            rules: product.category_eligibility_rules?.rules || []
+            groups: product.category_eligibility_rules?.groups || []
           }
         } : undefined,
         collectionId: product.collection_id,

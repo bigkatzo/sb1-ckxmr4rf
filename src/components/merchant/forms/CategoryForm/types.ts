@@ -1,3 +1,5 @@
+import type { RuleGroup } from '../../../../types';
+
 export interface CategoryRule {
   type: 'token' | 'whitelist' | 'nft';
   value: string;
@@ -10,6 +12,6 @@ export interface CategoryFormData {
   description: string;
   type: string;
   eligibilityRules: {
-    rules: CategoryRule[];
+    groups: RuleGroup[];
   };
 }

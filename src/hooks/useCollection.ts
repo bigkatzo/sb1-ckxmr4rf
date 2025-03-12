@@ -71,8 +71,9 @@ export function useCollection(slug: string) {
             name: category.name,
             description: category.description,
             type: category.type,
+            visible: category.visible ?? true,
             eligibilityRules: {
-              rules: category.eligibility_rules?.rules || []
+              groups: category.eligibility_rules?.groups || []
             }
           })),
           products: (productsResponse.data || []).map(product => ({
@@ -89,8 +90,9 @@ export function useCollection(slug: string) {
               name: product.category_name,
               description: product.category_description,
               type: product.category_type,
+              visible: true,
               eligibilityRules: {
-                rules: product.category_eligibility_rules?.rules || []
+                groups: product.category_eligibility_rules?.groups || []
               }
             } : undefined,
             collectionId: collectionData.id,
