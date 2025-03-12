@@ -105,10 +105,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
 
       <ProductBasicInfo 
         categories={categories}
-        initialData={{
-          ...initialData,
-          ...formState
-        }}
+        initialData={formState}
         onChange={handleBasicInfoChange}
       />
 
