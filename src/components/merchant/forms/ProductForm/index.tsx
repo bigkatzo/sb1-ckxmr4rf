@@ -3,8 +3,8 @@ import { ModalForm } from '../../../ui/Modal/ModalForm';
 import { ProductBasicInfo } from './ProductBasicInfo';
 import { ProductImages } from './ProductImages';
 import { ProductVariants } from './ProductVariants';
-import type { Product, Category } from '../../../../types';
-import type { ProductVariant, VariantPricing } from '../../../../types/variants';
+import type { Category } from '../../../../types/index';
+import type { Product, ProductVariant, VariantPricing } from '../../../../types/variants';
 
 export interface ProductFormProps {
   categories: Category[];
@@ -58,6 +58,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
     categoryId: string;
     sku: string;
     minimumOrderQuantity: number;
+    visible: boolean;
   }>) => {
     // Update base price if changed
     if (data.price !== undefined) {
@@ -70,7 +71,11 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
       Object.entries(data).forEach(([key, value]) => {
         const input = form.elements.namedItem(key) as HTMLInputElement;
         if (input) {
-          input.value = value?.toString() ?? '';
+          if (key === 'visible') {
+            input.value = value ? 'true' : 'false';
+          } else {
+            input.value = value?.toString() ?? '';
+          }
         }
       });
     }
@@ -91,6 +96,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
       submitLabel={initialData ? 'Update Product' : 'Create Product'}
       className="sm:min-w-[600px] sm:max-w-2xl"
     >
+      <input type="hidden" name="visible" value={initialData?.visible?.toString() ?? 'true'} />
       <ProductImages
         images={images}
         previews={previews}
