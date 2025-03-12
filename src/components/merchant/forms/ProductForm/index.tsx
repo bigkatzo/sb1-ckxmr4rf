@@ -14,18 +14,35 @@ export interface ProductFormProps {
 }
 
 export function ProductForm({ categories, initialData, onClose, onSubmit }: ProductFormProps) {
+  const [formState, setFormState] = useState({
+    name: initialData?.name || '',
+    description: initialData?.description || '',
+    price: initialData?.price || 0,
+    stock: initialData?.stock ?? null,
+    categoryId: initialData?.categoryId || '',
+    sku: initialData?.sku || '',
+    minimumOrderQuantity: initialData?.minimumOrderQuantity || 50,
+    visible: initialData?.visible ?? true,
+    priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
+    priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
+  });
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>(initialData?.images || []);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
   const [variantPrices, setVariantPrices] = useState<VariantPricing>(initialData?.variantPrices || {});
-  const [basePrice, setBasePrice] = useState<number>(initialData?.price || 0);
-  const [visible, setVisible] = useState<boolean>(initialData?.visible ?? true);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData();
+
+    // Add all form state data
+    Object.entries(formState).forEach(([key, value]) => {
+      if (value !== null) {
+        formData.append(key, value.toString());
+      }
+    });
 
     // Add images to form data
     images.forEach((file, index) => {
@@ -42,15 +59,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
     formData.append('variants', JSON.stringify(variants));
     formData.append('variantPrices', JSON.stringify(variantPrices));
 
-    // Add visibility state
-    formData.append('visible', visible.toString());
-
-    // Update base price from form data
-    const newBasePrice = parseFloat(formData.get('price') as string) || 0;
-    if (newBasePrice !== basePrice) {
-      setBasePrice(newBasePrice);
-    }
-
     onSubmit(formData);
   };
 
@@ -64,26 +72,10 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
     minimumOrderQuantity: number;
     visible: boolean;
   }>) => {
-    // Update base price if changed
-    if (data.price !== undefined) {
-      setBasePrice(data.price);
-    }
-
-    // Update visibility if changed
-    if (data.visible !== undefined) {
-      setVisible(data.visible);
-    }
-
-    // Update form fields
-    const form = document.getElementById('product-form') as HTMLFormElement;
-    if (form) {
-      Object.entries(data).forEach(([key, value]) => {
-        const input = form.elements.namedItem(key) as HTMLInputElement;
-        if (input && key !== 'visible') { // Skip visible as it's handled by state
-          input.value = value?.toString() ?? '';
-        }
-      });
-    }
+    setFormState(prev => ({
+      ...prev,
+      ...data
+    }));
   };
 
   const handleRemoveExistingImage = (index: number) => {
@@ -115,7 +107,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
         categories={categories}
         initialData={{
           ...initialData,
-          visible: visible // Pass current visibility state
+          ...formState
         }}
         onChange={handleBasicInfoChange}
       />
@@ -123,7 +115,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
       <ProductVariants
         variants={variants}
         variantPrices={variantPrices}
-        basePrice={basePrice}
+        basePrice={formState.price}
         onChange={(newVariants, newPrices) => {
           setVariants(newVariants);
           setVariantPrices(newPrices);
