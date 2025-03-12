@@ -1,5 +1,5 @@
 export interface CategoryRule {
-  type: 'token' | 'whitelist';
+  type: 'token' | 'whitelist' | 'nft';
   value: string;
   quantity?: number;
 }

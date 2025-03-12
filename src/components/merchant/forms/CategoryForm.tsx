@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { Dialog } from '@headlessui/react';
+import { toast } from 'react-toastify';
 
 interface CategoryFormProps {
   onClose: () => void;
@@ -38,10 +39,63 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    formData.append('rules', JSON.stringify(rules));
-    formData.append('visible', visible.toString());
-    onSubmit(formData);
+    try {
+      const formData = new FormData(e.currentTarget);
+      
+      // Validate required fields
+      const name = formData.get('name');
+      const description = formData.get('description');
+      
+      if (!name || !description) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      // Validate rules format
+      const validRules = rules.every(rule => {
+        if (!rule.type || !rule.value) return false;
+        
+        if (rule.type === 'token' || rule.type === 'nft') {
+          return typeof rule.quantity === 'number' && rule.quantity > 0;
+        }
+        
+        return true;
+      });
+
+      if (rules.length > 0 && !validRules) {
+        toast.error('Please ensure all rules are properly filled out');
+        return;
+      }
+
+      formData.append('rules', JSON.stringify(rules));
+      formData.append('visible', visible.toString());
+      
+      // Log the data being submitted
+      console.log('Submitting form data:', {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        visible: formData.get('visible'),
+        rules: JSON.parse(formData.get('rules') as string)
+      });
+
+      onSubmit(formData);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to submit form');
+    }
+  };
+
+  const getPlaceholder = (type: string) => {
+    switch (type) {
+      case 'token':
+        return 'Token Address';
+      case 'nft':
+        return 'NFT Collection Address';
+      case 'whitelist':
+        return 'Wallet Address';
+      default:
+        return '';
+    }
   };
 
   return (
@@ -148,6 +202,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                             className="w-full sm:w-auto rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
                           >
                             <option value="token">Token Holding</option>
+                            <option value="nft">NFT Holding</option>
                             <option value="whitelist">Whitelist</option>
                           </select>
                           <div className="flex-1 w-full sm:w-auto flex items-center gap-2">
@@ -159,7 +214,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                                 newRules[index] = { ...rule, value: e.target.value };
                                 setRules(newRules);
                               }}
-                              placeholder={rule.type === 'token' ? 'Token Address' : 'Wallet Address'}
+                              placeholder={getPlaceholder(rule.type)}
                               className="flex-1 rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
                             />
                             <button
@@ -171,9 +226,11 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                             </button>
                           </div>
                         </div>
-                        {rule.type === 'token' && (
+                        {(rule.type === 'token' || rule.type === 'nft') && (
                           <div className="flex items-center gap-2 pl-0 sm:pl-[calc(25%+1rem)]">
-                            <label className="text-sm text-gray-400 whitespace-nowrap">Required Amount:</label>
+                            <label className="text-sm text-gray-400 whitespace-nowrap">
+                              Required {rule.type === 'nft' ? 'NFTs' : 'Amount'}:
+                            </label>
                             <input
                               type="number"
                               min="1"

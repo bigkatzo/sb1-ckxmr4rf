@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
+import { verifyNFTHolding } from '../../utils/nft-verification';
+import { verifyWhitelistAccess } from '../../utils/whitelist-verification';
 import { usePayment } from '../../hooks/usePayment';
 import { createOrder } from '../../services/orders';
 import { toast } from 'react-toastify';
 import { toastService } from '../../services/toast';
-import type { Product } from '../../types';
+import type { Product, CategoryRule } from '../../types';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 
 interface TokenVerificationModalProps {
@@ -26,6 +28,19 @@ interface ShippingInfo {
 }
 
 const STORAGE_KEY = 'lastShippingInfo';
+
+async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ isValid: boolean; error?: string }> {
+  switch (rule.type) {
+    case 'token':
+      return verifyTokenHolding(walletAddress, rule.value, rule.quantity || 1);
+    case 'nft':
+      return verifyNFTHolding(walletAddress, rule.value, rule.quantity || 1);
+    case 'whitelist':
+      return verifyWhitelistAccess(walletAddress, rule.value);
+    default:
+      return { isValid: false, error: `Unknown rule type: ${rule.type}` };
+  }
+}
 
 export function TokenVerificationModal({ 
   product, 
@@ -76,38 +91,39 @@ export function TokenVerificationModal({
         return;
       }
 
-      // If no category or no rules, user is eligible
-      if (!product.category?.eligibilityRules?.rules?.length) {
+      // If no category or no rule groups, user is eligible
+      if (!product.category?.eligibilityRules?.groups?.length) {
         setVerificationResult({ isValid: true });
         setVerifying(false);
         return;
       }
 
       try {
-        const tokenRules = product.category.eligibilityRules.rules.filter(
-          rule => rule.type === 'token'
+        // Verify each group of rules
+        const groupResults = await Promise.all(
+          product.category.eligibilityRules.groups.map(async group => {
+            // Verify all rules in the group
+            const ruleResults = await Promise.all(
+              group.rules.map(rule => verifyRule(rule, walletAddress))
+            );
+
+            if (group.operator === 'AND') {
+              // All rules must pass for AND
+              const isValid = ruleResults.every(result => result.isValid);
+              const error = ruleResults.find(result => result.error)?.error;
+              return { isValid, error };
+            } else {
+              // At least one rule must pass for OR
+              const isValid = ruleResults.some(result => result.isValid);
+              const error = isValid ? undefined : 'None of the requirements were met';
+              return { isValid, error };
+            }
+          })
         );
 
-        if (tokenRules.length === 0) {
-          setVerificationResult({ isValid: true });
-          setVerifying(false);
-          return;
-        }
-
-        // Verify all token rules
-        const results = await Promise.all(
-          tokenRules.map(rule =>
-            verifyTokenHolding(
-              walletAddress,
-              rule.value,
-              rule.quantity || 1
-            )
-          )
-        );
-
-        // All rules must pass
-        const isValid = results.every(result => result.isValid);
-        const error = results.find(result => result.error)?.error;
+        // All groups must pass (groups are always AND'ed together)
+        const isValid = groupResults.every(result => result.isValid);
+        const error = groupResults.find(result => !result.isValid)?.error;
 
         setVerificationResult({ isValid, error });
       } catch (error) {
@@ -219,7 +235,7 @@ export function TokenVerificationModal({
 
         <div className="p-4 sm:p-6 space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto">
           {/* Verification Status */}
-          {product.category?.eligibilityRules?.rules?.length ? (
+          {product.category?.eligibilityRules?.groups?.length ? (
             <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
               {verifying ? (
                 <>
@@ -251,7 +267,7 @@ export function TokenVerificationModal({
           )}
 
           {/* Shipping Form */}
-          {(!product.category?.eligibilityRules?.rules?.length || verificationResult?.isValid) && (
+          {(!product.category?.eligibilityRules?.groups?.length || verificationResult?.isValid) && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-4">
                 <div>

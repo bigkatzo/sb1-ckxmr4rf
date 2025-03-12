@@ -21,6 +21,17 @@ export interface Collection {
   accessType: 'view' | 'edit' | 'owner' | null;
 }
 
+export interface CategoryRule {
+  type: 'token' | 'nft' | 'whitelist';
+  value: string;
+  quantity?: number;
+}
+
+export interface RuleGroup {
+  operator: 'AND' | 'OR';
+  rules: CategoryRule[];
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -28,11 +39,7 @@ export interface Category {
   type: string;
   visible: boolean;
   eligibilityRules: {
-    rules: Array<{
-      type: string;
-      value: string;
-      quantity?: number;
-    }>;
+    groups: RuleGroup[];
   };
 }
 
@@ -67,4 +74,9 @@ export interface SearchResult {
   description: string;
   imageUrl: string;
   slug: string;
+}
+
+export interface WhitelistVerificationResult {
+  isValid: boolean;
+  error?: string;
 }

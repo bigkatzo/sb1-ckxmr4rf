@@ -16,6 +16,19 @@ export function CategoryRules({ rules, onChange }: CategoryRulesProps) {
     onChange(rules.filter((_, i) => i !== index));
   };
 
+  const getPlaceholder = (type: CategoryRule['type']) => {
+    switch (type) {
+      case 'token':
+        return 'Token Address';
+      case 'nft':
+        return 'NFT Collection Address';
+      case 'whitelist':
+        return 'Wallet Address';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -38,16 +51,18 @@ export function CategoryRules({ rules, onChange }: CategoryRulesProps) {
                 value={rule.type}
                 onChange={(e) => {
                   const newRules = [...rules];
+                  const newType = e.target.value as CategoryRule['type'];
                   newRules[index] = {
                     ...rule,
-                    type: e.target.value as 'token' | 'whitelist',
-                    quantity: e.target.value === 'token' ? 1 : undefined
+                    type: newType,
+                    quantity: (newType === 'token' || newType === 'nft') ? 1 : undefined
                   };
                   onChange(newRules);
                 }}
                 className="w-full sm:w-auto bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <option value="token">Token Holding</option>
+                <option value="nft">NFT Holding</option>
                 <option value="whitelist">Whitelist</option>
               </select>
               <div className="flex-1 w-full sm:w-auto flex items-center gap-2">
@@ -59,7 +74,7 @@ export function CategoryRules({ rules, onChange }: CategoryRulesProps) {
                     newRules[index] = { ...rule, value: e.target.value };
                     onChange(newRules);
                   }}
-                  placeholder={rule.type === 'token' ? 'Token Address' : 'Wallet Address'}
+                  placeholder={getPlaceholder(rule.type)}
                   className="flex-1 bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 <button
@@ -72,9 +87,11 @@ export function CategoryRules({ rules, onChange }: CategoryRulesProps) {
                 </button>
               </div>
             </div>
-            {rule.type === 'token' && (
+            {(rule.type === 'token' || rule.type === 'nft') && (
               <div className="flex items-center gap-2 pl-0 sm:pl-[calc(25%+1rem)]">
-                <label className="text-sm text-gray-400 whitespace-nowrap">Required Amount:</label>
+                <label className="text-sm text-gray-400 whitespace-nowrap">
+                  Required {rule.type === 'nft' ? 'NFTs' : 'Amount'}:
+                </label>
                 <input
                   type="number"
                   min="1"
