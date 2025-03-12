@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo, lazy, Suspense } from 'react';
 import {
   BarChart,
   Bar,
@@ -15,6 +15,20 @@ import {
 } from 'recharts';
 import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import type { Order } from '../../types/orders';
+
+// Lazy load chart components
+const SalesChart = lazy(() => import('./charts/SalesChart'));
+const ProductDistributionChart = lazy(() => import('./charts/ProductDistributionChart'));
+const ProductQuantityChart = lazy(() => import('./charts/ProductQuantityChart'));
+const ProductSolChart = lazy(() => import('./charts/ProductSolChart'));
+const ProductTable = lazy(() => import('./charts/ProductTable'));
+
+// Loading component for charts
+const ChartLoader = () => (
+  <div className="flex items-center justify-center h-[200px]">
+    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+  </div>
+);
 
 interface OrderAnalyticsProps {
   orders: Order[];

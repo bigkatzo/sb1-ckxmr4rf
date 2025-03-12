@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs } from '../../components/ui/Tabs';
 import { Settings } from 'lucide-react';
-import { ProductsTab } from './ProductsTab';
-import { CategoriesTab } from './CategoriesTab';
-import { CollectionsTab } from './CollectionsTab';
-import { OrdersTab } from './OrdersTab';
-import { TransactionsTab } from '../../components/merchant/TransactionsTab';
 import { supabase } from '../../lib/supabase';
+
+// Lazy load tab components
+const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
+const CategoriesTab = lazy(() => import('./CategoriesTab').then(module => ({ default: module.CategoriesTab })));
+const CollectionsTab = lazy(() => import('./CollectionsTab').then(module => ({ default: module.CollectionsTab })));
+const OrdersTab = lazy(() => import('./OrdersTab').then(module => ({ default: module.OrdersTab })));
+const TransactionsTab = lazy(() => import('../../components/merchant/TransactionsTab').then(module => ({ default: module.TransactionsTab })));
+
+// Loading component for lazy-loaded tabs
+const TabLoader = () => (
+  <div className="flex items-center justify-center h-[400px]">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+  </div>
+);
 
 // Define merchant tabs that are always visible
 const merchantTabs = [
@@ -80,20 +89,24 @@ export function DashboardPage() {
       </div>
     );
 
-    switch (tabId) {
-      case 'collections':
-        return <CollectionsTab />;
-      case 'categories':
-        return hasCollectionAccess ? <CategoriesTab /> : <NoAccessMessage />;
-      case 'products':
-        return hasCollectionAccess ? <ProductsTab /> : <NoAccessMessage />;
-      case 'orders':
-        return hasCollectionAccess ? <OrdersTab /> : <NoAccessMessage />;
-      case 'transactions':
-        return isAdmin ? <TransactionsTab /> : null;
-      default:
-        return null;
-    }
+    const TabContent = () => {
+      switch (tabId) {
+        case 'collections':
+          return <Suspense fallback={<TabLoader />}><CollectionsTab /></Suspense>;
+        case 'categories':
+          return hasCollectionAccess ? <Suspense fallback={<TabLoader />}><CategoriesTab /></Suspense> : <NoAccessMessage />;
+        case 'products':
+          return hasCollectionAccess ? <Suspense fallback={<TabLoader />}><ProductsTab /></Suspense> : <NoAccessMessage />;
+        case 'orders':
+          return hasCollectionAccess ? <Suspense fallback={<TabLoader />}><OrdersTab /></Suspense> : <NoAccessMessage />;
+        case 'transactions':
+          return isAdmin ? <Suspense fallback={<TabLoader />}><TransactionsTab /></Suspense> : null;
+        default:
+          return null;
+      }
+    };
+
+    return <TabContent />;
   };
 
   return (
