@@ -17,9 +17,9 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
 
   // Calculate stock availability and status
   const isUnlimited = product.quantity === null;
-  const isSoldOut = !isUnlimited && typeof currentOrders === 'number' && currentOrders >= (product.quantity ?? 0);
+  const isSoldOut = !isUnlimited && typeof currentOrders === 'number' && typeof product.quantity === 'number' && currentOrders >= product.quantity;
   const remainingStock = isUnlimited ? null : 
-    typeof currentOrders === 'number' ? Math.max(0, (product.quantity ?? 0) - currentOrders) : 
+    typeof currentOrders === 'number' && typeof product.quantity === 'number' ? Math.max(0, product.quantity - currentOrders) : 
     product.quantity;
 
   return (
