@@ -122,8 +122,36 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Recreate the get_best_sellers function
-CREATE OR REPLACE FUNCTION get_best_sellers(limit_count integer DEFAULT 10, collection_slug text DEFAULT NULL)
+-- Drop old best sellers functions
+DROP FUNCTION IF EXISTS get_best_sellers(integer);
+DROP FUNCTION IF EXISTS get_best_sellers(integer, text);
+DROP FUNCTION IF EXISTS get_best_sellers(integer, text, text);
+
+-- Create best sellers function with original signature
+CREATE OR REPLACE FUNCTION get_best_sellers(p_limit integer DEFAULT 6, p_sort_by text DEFAULT 'sales')
+RETURNS SETOF public_products_with_categories AS $$
+BEGIN
+  RETURN QUERY
+  SELECT p.*
+  FROM public_products_with_categories p
+  LEFT JOIN (
+    SELECT product_id, COUNT(*) as order_count
+    FROM orders
+    GROUP BY product_id
+  ) o ON o.product_id = p.id
+  WHERE p.collection_launch_date <= NOW()
+    AND NOT p.collection_sale_ended
+  ORDER BY 
+    CASE 
+      WHEN p_sort_by = 'sales' THEN COALESCE(o.order_count, 0)
+      ELSE p.quantity 
+    END DESC
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create best sellers function with new signature (for future use)
+CREATE OR REPLACE FUNCTION get_best_sellers_v2(limit_count integer DEFAULT 10, collection_slug text DEFAULT NULL)
 RETURNS SETOF public_products_with_categories AS $$
 BEGIN
   RETURN QUERY
@@ -146,4 +174,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT SELECT ON merchant_products TO authenticated;
 GRANT SELECT ON public_products TO anon;
 GRANT SELECT ON public_products_with_categories TO anon;
-GRANT EXECUTE ON FUNCTION get_merchant_products(uuid) TO authenticated; 
+GRANT EXECUTE ON FUNCTION get_merchant_products(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_best_sellers(integer, text) TO anon;
+GRANT EXECUTE ON FUNCTION get_best_sellers_v2(integer, text) TO anon; 
