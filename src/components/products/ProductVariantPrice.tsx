@@ -34,7 +34,7 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
           </span>
         )}
       </div>
-      <div className="text-sm text-gray-400">
+      <div className="text-sm text-gray-400 text-right ml-auto">
         {ordersLoading ? (
           <span className="animate-pulse">Loading stock...</span>
         ) : (
@@ -44,7 +44,7 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
             ) : isUnlimited ? (
               <span>Unlimited stock</span>
             ) : (
-              `Stock available: ${remainingStock}`
+              `${remainingStock} available`
             )}
           </span>
         )}
