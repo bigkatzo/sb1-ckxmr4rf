@@ -1,6 +1,6 @@
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { useOrderStats } from '../../hooks/useOrderStats';
-import type { Product } from '../../types';
+import type { ProductData as Product } from '../../services/products/types';
 
 interface ProductVariantPriceProps {
   product: Product;
@@ -12,15 +12,15 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
   const { currentOrders, loading: ordersLoading } = useOrderStats(product.id);
 
   // Calculate variant price if applicable
-  const variantPrice = product.variantPrices?.[Object.values(selectedOptions).join(':')] || 0;
+  const variantPrice = product.variant_prices?.[Object.values(selectedOptions).join(':')] || 0;
   const finalPrice = variantPrice > 0 ? variantPrice : modifiedPrice;
 
   // Calculate stock availability and status
-  const isUnlimited = product.stock === null;
-  const isSoldOut = !isUnlimited && typeof currentOrders === 'number' && currentOrders >= (product.stock ?? 0);
+  const isUnlimited = product.quantity === null;
+  const isSoldOut = !isUnlimited && typeof currentOrders === 'number' && currentOrders >= (product.quantity ?? 0);
   const remainingStock = isUnlimited ? null : 
-    typeof currentOrders === 'number' ? Math.max(0, (product.stock ?? 0) - currentOrders) : 
-    product.stock;
+    typeof currentOrders === 'number' ? Math.max(0, (product.quantity ?? 0) - currentOrders) : 
+    product.quantity;
 
   return (
     <div className="flex items-center gap-4">
