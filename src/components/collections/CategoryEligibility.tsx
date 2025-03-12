@@ -2,7 +2,6 @@ import type { RuleGroup, CategoryRule } from '../../types';
 
 interface CategoryEligibilityProps {
   groups: RuleGroup[];
-  type: string;
 }
 
 function RuleDisplay({ rule }: { rule: CategoryRule }) {
@@ -39,7 +38,7 @@ function RuleDisplay({ rule }: { rule: CategoryRule }) {
   }
 }
 
-export function CategoryEligibility({ groups, type }: CategoryEligibilityProps) {
+export function CategoryEligibility({ groups }: CategoryEligibilityProps) {
   if (!groups?.length) {
     return (
       <div className="space-y-2">
