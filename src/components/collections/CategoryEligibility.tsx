@@ -10,7 +10,7 @@ function RuleDisplay({ rule }: { rule: CategoryRule }) {
       return (
         <span>
           Hold {rule.quantity || 1} {rule.quantity === 1 ? 'token' : 'tokens'} from{' '}
-          <code className="px-1 py-0.5 bg-purple-500/10 text-purple-400 rounded break-all">
+          <code className="px-1 py-0.5 bg-amber-500/10 text-amber-400 rounded break-all">
             {rule.value}
           </code>
         </span>
@@ -19,7 +19,7 @@ function RuleDisplay({ rule }: { rule: CategoryRule }) {
       return (
         <span>
           Hold {rule.quantity || 1} {rule.quantity === 1 ? 'NFT' : 'NFTs'} from{' '}
-          <code className="px-1 py-0.5 bg-green-500/10 text-green-400 rounded break-all">
+          <code className="px-1 py-0.5 bg-indigo-500/10 text-indigo-400 rounded break-all">
             {rule.value}
           </code>
         </span>
