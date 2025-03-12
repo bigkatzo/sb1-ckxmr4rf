@@ -67,9 +67,9 @@ async function createConnectionWithRetry(): Promise<Connection> {
     }
   }
 
-  // If all endpoints failed, create a connection to primary anyway
+  // If all endpoints failed, log the last error and create a connection to primary anyway
   // It might work later and the app can handle connection errors gracefully
-  console.warn('⚠️ All RPC endpoints failed, using primary endpoint');
+  console.warn('⚠️ All RPC endpoints failed, using primary endpoint. Last error:', lastError?.message);
   return new Connection(RPC_ENDPOINTS.primary, CONNECTION_CONFIG);
 }
 
