@@ -39,7 +39,10 @@ function RuleDisplay({ rule }: { rule: CategoryRule }) {
 }
 
 export function CategoryEligibility({ groups }: CategoryEligibilityProps) {
-  if (!groups?.length) {
+  // Check if there are no groups or if all groups have no rules
+  const hasNoRules = !groups?.length || groups.every(group => !group.rules?.length);
+  
+  if (hasNoRules) {
     return (
       <div className="text-[10px] sm:text-xs text-gray-400">
         <div className="font-medium text-gray-300 mb-2">
