@@ -1,8 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { uploadProductImages } from './products/upload';
-import { generateProductId, generateSlug } from '../utils/id-helpers';
 import { withRetry } from '../lib/supabase';
-import type { ProductData } from './products/types';
 import type { PostgrestResponse } from '@supabase/supabase-js';
 
 export async function createProduct(collectionId: string, data: FormData) {

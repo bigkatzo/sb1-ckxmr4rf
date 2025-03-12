@@ -37,7 +37,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const [price, setPrice] = useState(initialData?.price || 0);
   const [stock, setStock] = useState<string>(initialData?.stock?.toString() || '');
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
-  const [sku, setSku] = useState(initialData?.sku || '');
   const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
   const [visible, setVisible] = useState(initialData?.visible ?? true);
   const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<string>(
@@ -46,6 +45,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const [priceModifierAfterMin, setPriceModifierAfterMin] = useState<string>(
     initialData?.priceModifierAfterMin?.toString() || ''
   );
+  const [sku] = useState(initialData?.sku || '');
 
   const handleStockChange = (value: string) => {
     setStock(value);

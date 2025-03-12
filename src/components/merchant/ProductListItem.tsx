@@ -1,4 +1,4 @@
-import { Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Image as ImageIcon, EyeOff } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { DeleteButton } from '../ui/DeleteButton';
 import { OptimizedImage } from '../ui/OptimizedImage';

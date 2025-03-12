@@ -1,4 +1,4 @@
-import type { Collection, Category, Product } from '../../types';
+import type { Collection, Category, Product } from '../../types/index';
 import type { ProductVariant } from '../../types/variants';
 import { normalizeStorageUrl } from '../storage';
 

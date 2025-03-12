@@ -1,4 +1,4 @@
-import type { Category, RuleGroup } from './index';
+import type { Category } from './index';
 
 export interface ProductVariantOption {
   id: string;
