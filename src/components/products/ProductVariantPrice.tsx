@@ -1,6 +1,6 @@
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { useOrderStats } from '../../hooks/useOrderStats';
-import type { Product } from '../../types';
+import type { Product } from '../../types/variants';
 
 interface ProductVariantPriceProps {
   product: Product;
