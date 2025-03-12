@@ -1,4 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
+import { Metaplex, Nft, Metadata, Sft } from '@metaplex-foundation/js';
 import { SOLANA_CONNECTION } from '../config/solana';
 
 export interface NFTVerificationResult {
@@ -15,53 +16,43 @@ export async function verifyNFTHolding(
   try {
     const walletPubKey = new PublicKey(walletAddress);
     const collectionPubKey = new PublicKey(collectionAddress);
+    const metaplex = Metaplex.make(SOLANA_CONNECTION);
 
-    // Get all token accounts owned by the wallet
-    const tokenAccounts = await SOLANA_CONNECTION.getParsedTokenAccountsByOwner(walletPubKey, {
-      programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') // SPL Token program ID
+    // Get all NFTs owned by the user
+    const nfts = await metaplex.nfts().findAllByOwner({ owner: walletPubKey });
+
+    // Filter NFTs that belong to the specified verified collection
+    const matchingNFTs = nfts.filter((nft: Metadata | Nft | Sft) => {
+      return (
+        'collection' in nft &&
+        nft.collection &&
+        nft.collection.verified === true &&
+        nft.collection.address.toBase58() === collectionPubKey.toBase58()
+      );
     });
 
-    // Filter and count NFTs from the specified collection
-    let nftCount = 0;
-    for (const account of tokenAccounts.value) {
-      const tokenAmount = account.account.data.parsed.info.tokenAmount;
-      
-      // Check if it's an NFT (decimals === 0) and the amount is 1
-      if (tokenAmount.decimals === 0 && tokenAmount.amount === '1') {
-        const mint = account.account.data.parsed.info.mint;
-        
-        try {
-          // Get metadata account
-          const [metadataAddress] = await PublicKey.findProgramAddress(
-            [
-              Buffer.from('metadata'),
-              new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s').toBuffer(), // Metaplex program ID
-              new PublicKey(mint).toBuffer()
-            ],
-            new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s') // Metaplex program ID
-          );
+    const nftCount = matchingNFTs.length;
 
-          // Get metadata account info
-          const metadataInfo = await SOLANA_CONNECTION.getAccountInfo(metadataAddress);
-          
-          if (metadataInfo) {
-            // Parse metadata to check collection
-            const collection = parseMetadataCollection(metadataInfo.data);
-            if (collection && collection.equals(collectionPubKey)) {
-              nftCount++;
-            }
-          }
-        } catch (error) {
-          console.error('Error checking NFT metadata:', error);
-          // Continue checking other tokens
-          continue;
-        }
-      }
-    }
+    // Debug information
+    console.log('NFT Verification Debug:', {
+      walletAddress: walletAddress,
+      collectionAddress: collectionAddress,
+      totalNFTs: nfts.length,
+      matchingNFTs: nftCount,
+      matchingNFTDetails: matchingNFTs.map((nft: Metadata | Nft | Sft) => ({
+        mint: nft.address.toBase58(),
+        collection: nft.collection ? {
+          address: nft.collection.address.toBase58(),
+          verified: nft.collection.verified
+        } : null
+      }))
+    });
 
     return {
       isValid: nftCount >= minAmount,
-      balance: nftCount
+      balance: nftCount,
+      error: nftCount >= minAmount ? undefined : 
+             `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
     };
   } catch (error) {
     console.error('Error verifying NFT balance:', error);
