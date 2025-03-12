@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Toggle } from '../../../ui/Toggle';
+import React from 'react';
 
 interface ProductBasicInfoProps {
   categories: Array<{
@@ -39,6 +40,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const [stock, setStock] = useState<string>(initialData?.stock?.toString() || '');
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
   const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
+  const [visible, setVisible] = useState(initialData?.visible ?? true);
   const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<string>(
     initialData?.priceModifierBeforeMin?.toString() || ''
   );
@@ -46,6 +48,19 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
     initialData?.priceModifierAfterMin?.toString() || ''
   );
   const [sku] = useState(initialData?.sku || '');
+
+  // Update local state when initialData changes
+  React.useEffect(() => {
+    setName(initialData?.name || '');
+    setDescription(initialData?.description || '');
+    setPrice(initialData?.price || 0);
+    setStock(initialData?.stock?.toString() || '');
+    setCategoryId(initialData?.categoryId || '');
+    setMinimumOrderQuantity(initialData?.minimumOrderQuantity || 50);
+    setVisible(initialData?.visible ?? true);
+    setPriceModifierBeforeMin(initialData?.priceModifierBeforeMin?.toString() || '');
+    setPriceModifierAfterMin(initialData?.priceModifierAfterMin?.toString() || '');
+  }, [initialData]);
 
   const handleStockChange = (value: string) => {
     setStock(value);
@@ -123,8 +138,9 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         </label>
         <div className="flex flex-col gap-1">
           <Toggle
-            checked={initialData?.visible ?? true}
+            checked={visible}
             onCheckedChange={(checked) => {
+              setVisible(checked);
               onChange({ visible: checked });
             }}
             label="Product Visibility"
