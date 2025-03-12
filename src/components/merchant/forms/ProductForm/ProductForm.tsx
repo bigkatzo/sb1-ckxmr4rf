@@ -5,8 +5,8 @@ import { ProductBasicInfo } from './ProductBasicInfo';
 import { ProductImages } from './ProductImages';
 import { ProductVariants } from './ProductVariants';
 import { FormSkeleton } from '../../../ui/Skeleton';
-import type { Product, Category } from '../../../../types';
-import type { ProductVariant, VariantPricing } from '../../../../types/variants';
+import type { Category } from '../../../../types/index';
+import type { Product, ProductVariant, VariantPricing } from '../../../../types/variants';
 
 interface ProductFormData {
   name: string;
@@ -18,6 +18,7 @@ interface ProductFormData {
   minimumOrderQuantity: number;
   priceModifierBeforeMin: number | null;
   priceModifierAfterMin: number | null;
+  visible: boolean;
 }
 
 export interface ProductFormProps {
@@ -46,7 +47,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     sku: initialData?.sku || '',
     minimumOrderQuantity: initialData?.minimumOrderQuantity || 50,
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
-    priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null
+    priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
+    visible: initialData?.visible ?? true
   });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

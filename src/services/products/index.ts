@@ -50,7 +50,8 @@ export async function createProduct(data: FormData) {
       images,
       variants,
       variant_prices: variantPrices,
-      slug: generateSlug(name, true)
+      slug: generateSlug(name, true),
+      visible: data.get('visible') === 'true'
     };
 
     const { data: product, error } = await supabase
@@ -139,7 +140,8 @@ export async function updateProduct(id: string, data: FormData) {
       category_id: categoryId as string,
       images,
       variants,
-      variant_prices: variantPrices
+      variant_prices: variantPrices,
+      visible: data.get('visible') === 'true'
     };
 
     const { data: product, error } = await supabase

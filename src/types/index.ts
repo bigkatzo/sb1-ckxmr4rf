@@ -66,6 +66,7 @@ export interface Product {
   salesCount?: number;
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
+  visible?: boolean;
 }
 
 export interface SearchResult {

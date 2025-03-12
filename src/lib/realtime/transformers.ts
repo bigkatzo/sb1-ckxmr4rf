@@ -51,6 +51,7 @@ export function transformProduct(dbProduct: any): Product {
     variants,
     variantPrices: dbProduct.variant_prices || {},
     priceModifierBeforeMin: dbProduct.price_modifier_before_min ?? null,
-    priceModifierAfterMin: dbProduct.price_modifier_after_min ?? null
+    priceModifierAfterMin: dbProduct.price_modifier_after_min ?? null,
+    visible: dbProduct.visible ?? true
   };
 }

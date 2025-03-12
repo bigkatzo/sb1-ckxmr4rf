@@ -15,6 +15,7 @@ interface ProductBasicInfoProps {
     minimumOrderQuantity?: number;
     priceModifierBeforeMin?: number | null;
     priceModifierAfterMin?: number | null;
+    visible?: boolean;
   };
   onChange: (data: Partial<{
     name: string;
@@ -26,6 +27,7 @@ interface ProductBasicInfoProps {
     minimumOrderQuantity: number;
     priceModifierBeforeMin: number | null;
     priceModifierAfterMin: number | null;
+    visible: boolean;
   }>) => void;
 }
 
@@ -37,6 +39,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
   const [sku, setSku] = useState(initialData?.sku || '');
   const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
+  const [visible, setVisible] = useState(initialData?.visible ?? true);
   const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<string>(
     initialData?.priceModifierBeforeMin?.toString() || ''
   );
@@ -112,6 +115,26 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           }}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+      </div>
+
+      <div>
+        <label htmlFor="visible" className="flex items-center gap-2 text-sm font-medium text-white">
+          <input
+            type="checkbox"
+            id="visible"
+            name="visible"
+            checked={visible}
+            onChange={(e) => {
+              setVisible(e.target.checked);
+              onChange({ visible: e.target.checked });
+            }}
+            className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-purple-500 focus:ring-2 focus:ring-purple-500"
+          />
+          Visible
+        </label>
+        <p className="mt-1 text-sm text-gray-400">
+          When enabled, this product will be visible in the storefront
+        </p>
       </div>
 
       <div>

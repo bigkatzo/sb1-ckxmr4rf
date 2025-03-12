@@ -1,10 +1,10 @@
-import { Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { DeleteButton } from '../ui/DeleteButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useOrderStats } from '../../hooks/useOrderStats';
 import { getCategoryColorSet } from '../../utils/category-colors';
-import type { Product } from '../../types';
+import type { Product } from '../../types/variants';
 
 interface ProductListItemProps {
   product: Product;
@@ -70,7 +70,15 @@ export function ProductListItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h3 className="text-sm font-medium text-white truncate">{product.name}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-white truncate">{product.name}</h3>
+                {product.visible === false && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
+                    <EyeOff className="h-3 w-3" />
+                    Hidden
+                  </span>
+                )}
+              </div>
               
               <div className="flex items-center gap-2 mt-1">
                 {product.category && (

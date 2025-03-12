@@ -1,4 +1,4 @@
-import type { RuleGroup } from './index';
+import type { Category, RuleGroup } from './index';
 
 export interface ProductVariantOption {
   id: string;
@@ -13,16 +13,6 @@ export interface ProductVariant {
 
 export interface VariantPricing {
   [key: string]: number; // combination key -> price
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  type: string;
-  eligibilityRules?: {
-    groups: RuleGroup[];
-  };
 }
 
 export interface Product {
@@ -43,6 +33,9 @@ export interface Product {
   variants?: ProductVariant[];
   variantPrices?: VariantPricing;
   sku: string;
+  visible?: boolean;
+  priceModifierBeforeMin?: number | null;
+  priceModifierAfterMin?: number | null;
 }
 
 export interface ProductVariantFormData {

@@ -5,76 +5,65 @@ import { withRetry } from '../lib/supabase';
 import type { ProductData } from './products/types';
 import type { PostgrestResponse } from '@supabase/supabase-js';
 
-export async function createProduct(data: FormData) {
+export async function createProduct(collectionId: string, data: FormData) {
   try {
-    // Handle images first
-    const images = [];
+    // Upload images first
+    const images: string[] = [];
     for (let i = 0; data.get(`image${i}`); i++) {
       const imageFile = data.get(`image${i}`) as File;
-      const imageUrls = await uploadProductImages([imageFile]);
-      images.push(...imageUrls);
+      if (imageFile instanceof File) {
+        const imageUrls = await uploadProductImages([imageFile]);
+        images.push(...imageUrls);
+      }
     }
 
     // Parse variant data
     const variants = JSON.parse(data.get('variants') as string || '[]');
     const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
 
-    // Get collection and category IDs
-    const collectionId = data.get('collection');
+    // Get category ID
     const categoryId = data.get('categoryId');
-
-    if (!collectionId || !categoryId) {
-      throw new Error('Collection and category are required');
+    if (!categoryId) {
+      throw new Error('Category is required');
     }
 
-    const name = data.get('name') as string;
+    // Process other fields
+    const name = data.get('name');
+    if (!name) {
+      throw new Error('Product name is required');
+    }
+
     const stockValue = data.get('stock') as string;
     const quantity = stockValue === '' ? null : parseInt(stockValue, 10);
+    const price = parseFloat(data.get('price') as string);
+    if (isNaN(price)) {
+      throw new Error('Invalid price value');
+    }
 
-    const productData: ProductData = {
-      id: generateProductId(),
-      name,
-      description: data.get('description') as string,
-      price: parseFloat(data.get('price') as string) || 0,
-      quantity,
-      minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
-      category_id: categoryId as string,
-      collection_id: collectionId as string,
-      images,
-      variants,
-      variant_prices: variantPrices,
-      slug: generateSlug(name, true)
-    };
-
-    const { data: product, error } = (await withRetry(() => 
-      supabase
-        .from('products')
-        .insert(productData)
-        .select(`
-          *,
-          categories:category_id (
-            id,
-            name,
-            description,
-            type,
-            eligibility_rules
-          ),
-          collections:collection_id (
-            id,
-            name,
-            slug
-          )
-        `)
-        .single()
-    )) as PostgrestResponse<any>;
+    const { error } = await supabase
+      .from('products')
+      .insert({
+        name,
+        description: data.get('description'),
+        price,
+        quantity,
+        category_id: categoryId,
+        collection_id: collectionId,
+        images,
+        variants,
+        variant_prices: variantPrices,
+        minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
+        price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
+        price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
+        visible: data.get('visible') === 'true'
+      });
 
     if (error) throw error;
-    if (!product) throw new Error('Failed to create product');
 
-    return product;
+    return { success: true };
   } catch (error) {
     console.error('Error creating product:', error);
-    throw error instanceof Error ? error : new Error('Failed to create product');
+    throw error;
   }
 }
 
@@ -137,56 +126,26 @@ export async function updateProduct(id: string, data: FormData) {
     }
 
     updateData.name = name;
-    updateData.description = data.get('description') as string;
+    updateData.description = data.get('description');
     updateData.price = price;
     updateData.quantity = quantity;
+    updateData.category_id = categoryId;
     updateData.minimum_order_quantity = parseInt(data.get('minimumOrderQuantity') as string, 10) || 50;
-    updateData.category_id = categoryId as string;
+    updateData.price_modifier_before_min = data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null;
+    updateData.price_modifier_after_min = data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null;
+    updateData.visible = data.get('visible') === 'true';
 
-    console.log('Updating product with data:', updateData);
+    const { error } = await supabase
+      .from('products')
+      .update(updateData)
+      .eq('id', id);
 
-    const { data: product, error } = (await withRetry(() => 
-      supabase
-        .from('products')
-        .update(updateData)
-        .eq('id', id)
-        .select(`
-          *,
-          categories:category_id (
-            id,
-            name,
-            description,
-            type,
-            eligibility_rules
-          ),
-          collections:collection_id (
-            id,
-            name,
-            slug
-          )
-        `)
-        .single()
-    )) as PostgrestResponse<any>;
+    if (error) throw error;
 
-    if (error) {
-      console.error('Database error:', error);
-      throw error;
-    }
-    if (!product) {
-      throw new Error('Failed to update product - no product returned');
-    }
-
-    return product;
+    return { success: true };
   } catch (error) {
     console.error('Error updating product:', error);
-    if (error instanceof Error) {
-      throw error;
-    } else if (typeof error === 'object' && error !== null) {
-      console.error('Detailed error:', JSON.stringify(error, null, 2));
-      throw new Error('Failed to update product - database error');
-    } else {
-      throw new Error('Failed to update product - unknown error');
-    }
+    throw error;
   }
 }
 
