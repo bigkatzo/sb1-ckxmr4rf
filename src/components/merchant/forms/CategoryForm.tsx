@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { Dialog } from '@headlessui/react';
 import { toast } from 'react-toastify';
+import { Toggle } from '../../ui/Toggle';
 import type { CategoryRule, RuleGroup } from '../../../types';
 
 interface CategoryFormProps {
@@ -185,18 +186,20 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="visible"
-                    name="visible"
-                    checked={visible}
-                    onChange={(e) => setVisible(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-purple-500 focus:ring-2 focus:ring-purple-500"
-                  />
-                  <label htmlFor="visible" className="text-sm font-medium text-white">
-                    Visible
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1">
+                    Category Visibility
                   </label>
+                  <div className="flex flex-col gap-1">
+                    <Toggle
+                      checked={visible}
+                      onCheckedChange={setVisible}
+                      label="Category Visibility"
+                    />
+                    <p className="text-xs text-gray-400 ml-11">
+                      When disabled, this category will be hidden from the storefront
+                    </p>
+                  </div>
                 </div>
 
                 <div className="space-y-6">

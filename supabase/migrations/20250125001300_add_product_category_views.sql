@@ -56,7 +56,8 @@ SELECT
 FROM products p
 JOIN collections c ON c.id = p.collection_id
 LEFT JOIN categories cat ON cat.id = p.category_id
-WHERE c.visible = true;
+WHERE c.visible = true
+  AND (cat.id IS NULL OR cat.visible = true);
 
 -- Grant access to anonymous users (public storefront)
 GRANT SELECT ON public_products_with_categories TO anon;

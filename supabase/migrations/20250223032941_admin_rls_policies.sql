@@ -202,6 +202,21 @@ USING (
     has_content_access(auth.uid(), collection_id, id, NULL, 'edit')
 );
 
+-- 3.1 Storefront Policy (Public Access)
+CREATE POLICY "categories_storefront_view"
+ON categories
+FOR SELECT
+TO public
+USING (
+  -- Only show categories from visible collections that are also visible themselves
+  EXISTS (
+    SELECT 1 FROM collections c
+    WHERE c.id = collection_id
+    AND c.visible = true
+  )
+  AND visible = true
+);
+
 -- Create RLS policies for products
 CREATE POLICY "products_view_policy"
 ON public.products

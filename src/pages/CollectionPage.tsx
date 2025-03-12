@@ -9,6 +9,7 @@ import { CollectionSkeleton } from '../components/collections/CollectionSkeleton
 import { CollectionNotFound } from '../components/collections/CollectionNotFound';
 import { createCategoryIndices } from '../utils/category-mapping';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
+import type { Category } from '../types/index';
 
 export function CollectionPage() {
   const { slug } = useParams();
@@ -74,7 +75,8 @@ export function CollectionPage() {
     return <CollectionNotFound error={error || undefined} />;
   }
 
-  const categoryIndices = createCategoryIndices(collection.categories);
+  const visibleCategories = collection.categories.filter((cat: Category) => cat.visible);
+  const categoryIndices = createCategoryIndices(visibleCategories);
   const isUpcoming = collection.launchDate > new Date();
   const isNew = !isUpcoming && (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000);
 
@@ -158,9 +160,9 @@ export function CollectionPage() {
 
       {/* Content Section */}
       <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg">
-        {collection.categories.length > 0 && (
+        {visibleCategories.length > 0 && (
           <CategoryTabs
-            categories={collection.categories}
+            categories={visibleCategories}
             selectedId={selectedCategory}
             onChange={handleCategoryChange}
             categoryIndices={categoryIndices}
