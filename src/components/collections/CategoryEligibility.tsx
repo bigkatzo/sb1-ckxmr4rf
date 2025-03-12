@@ -1,7 +1,9 @@
 import type { RuleGroup, CategoryRule } from '../../types';
+import { getCategoryTypeInfo } from './CategoryTypeInfo';
 
 interface CategoryEligibilityProps {
   groups: RuleGroup[];
+  type: string;
 }
 
 function RuleDisplay({ rule }: { rule: CategoryRule }) {
@@ -38,38 +40,52 @@ function RuleDisplay({ rule }: { rule: CategoryRule }) {
   }
 }
 
-export function CategoryEligibility({ groups }: CategoryEligibilityProps) {
+export function CategoryEligibility({ groups, type }: CategoryEligibilityProps) {
+  const typeInfo = getCategoryTypeInfo(type, groups);
+
   if (!groups?.length) {
     return (
-      <div className="text-gray-400">
-        <span className="text-[10px] sm:text-xs">Open to all collectors</span>
+      <div className="space-y-2">
+        <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
+          {typeInfo.icon}
+          <span className="font-medium">{typeInfo.label}</span>
+        </div>
+        <div className="text-gray-400">
+          <span className="text-[10px] sm:text-xs">This collection is open to all collectors</span>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
+        {typeInfo.icon}
+        <span className="font-medium">{typeInfo.label}</span>
+      </div>
       {groups.map((group, groupIndex) => (
         <div key={groupIndex} className="space-y-2">
-          <div className="text-[10px] sm:text-xs text-gray-400">
-            <div className="font-medium text-gray-300 mb-2">
-              Requirements Group {groupIndex + 1}:
+          {group.rules.length > 0 && (
+            <div className="text-[10px] sm:text-xs text-gray-400">
+              <div className="font-medium text-gray-300 mb-2">
+                Requirements Group {groupIndex + 1}:
+              </div>
+              <div className="space-y-2 ml-2">
+                {group.rules.map((rule, ruleIndex) => (
+                  <div key={ruleIndex} className="flex items-start">
+                    <span className="mr-1">•</span>
+                    <RuleDisplay rule={rule} />
+                    {ruleIndex < group.rules.length - 1 && (
+                      <span className="mx-2 text-gray-500 font-medium">
+                        {group.operator}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-2 ml-2">
-              {group.rules.map((rule, ruleIndex) => (
-                <div key={ruleIndex} className="flex items-start">
-                  <span className="mr-1">•</span>
-                  <RuleDisplay rule={rule} />
-                  {ruleIndex < group.rules.length - 1 && (
-                    <span className="mx-2 text-gray-500 font-medium">
-                      {group.operator}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          {groupIndex < groups.length - 1 && (
+          )}
+          {groupIndex < groups.length - 1 && group.rules.length > 0 && (
             <div className="text-[10px] sm:text-xs text-gray-500 font-medium text-center">
               AND
             </div>

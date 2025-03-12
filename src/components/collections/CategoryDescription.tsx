@@ -24,7 +24,7 @@ export function CategoryDescription({ category, categoryIndex }: CategoryDescrip
       
       <div className="space-y-3">
         <p className="text-gray-400 break-words text-xs sm:text-sm">{category.description}</p>
-        <CategoryEligibility groups={category.eligibilityRules?.groups || []} />
+        <CategoryEligibility groups={category.eligibilityRules?.groups || []} type={category.type} />
       </div>
     </div>
   );
