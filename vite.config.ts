@@ -23,27 +23,67 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          // Core React dependencies
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-solana': ['@solana/web3.js', '@solana/spl-token', '@metaplex-foundation/js'],
-          'vendor-ui': ['lucide-react', 'react-toastify', 'react-dropzone'],
-          'vendor-utils': ['date-fns', 'uuid']
+          
+          // Split Solana dependencies into smaller chunks
+          'vendor-solana-core': ['@solana/web3.js'],
+          'vendor-solana-token': ['@solana/spl-token'],
+          'vendor-solana-wallet': [
+            '@solana/wallet-adapter-base',
+            '@solana/wallet-adapter-react',
+            '@solana/wallet-adapter-react-ui',
+            '@solana/wallet-adapter-wallets'
+          ],
+          'vendor-metaplex': ['@metaplex-foundation/js'],
+          
+          // UI dependencies
+          'vendor-ui': ['lucide-react', 'react-toastify', 'react-dropzone', '@headlessui/react', '@radix-ui/react-tooltip'],
+          
+          // Utility libraries
+          'vendor-utils': ['date-fns', 'uuid', 'bs58', 'buffer'],
+          
+          // Data visualization
+          'vendor-charts': ['recharts'],
+          
+          // DnD functionality
+          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities']
         }
       }
     }
   },
   optimizeDeps: {
     include: [
+      // Core dependencies
       'react', 
       'react-dom', 
-      'react-router-dom', 
+      'react-router-dom',
+      
+      // Solana ecosystem
       '@solana/web3.js',
       '@solana/spl-token',
+      '@solana/wallet-adapter-base',
+      '@solana/wallet-adapter-react',
+      '@solana/wallet-adapter-react-ui',
+      '@solana/wallet-adapter-wallets',
       '@metaplex-foundation/js',
+      
+      // UI and utilities
       'lucide-react',
       'react-toastify',
       'react-dropzone',
+      '@headlessui/react',
+      '@radix-ui/react-tooltip',
       'date-fns',
-      'uuid'
+      'uuid',
+      'bs58',
+      'buffer',
+      'recharts',
+      
+      // DnD
+      '@dnd-kit/core',
+      '@dnd-kit/sortable',
+      '@dnd-kit/utilities'
     ],
     esbuildOptions: {
       target: 'esnext'
