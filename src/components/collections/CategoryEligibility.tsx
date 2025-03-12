@@ -46,7 +46,7 @@ export function CategoryEligibility({ groups }: CategoryEligibilityProps) {
     return (
       <div className="text-[10px] sm:text-xs text-gray-400">
         <div className="font-medium text-gray-300 mb-2">
-          Access Requirements:
+          Eligibility Rules:
         </div>
         <div className="space-y-2 ml-2">
           <div className="flex items-start">
