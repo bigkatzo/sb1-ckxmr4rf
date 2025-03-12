@@ -21,6 +21,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
   const [variantPrices, setVariantPrices] = useState<VariantPricing>(initialData?.variantPrices || {});
   const [basePrice, setBasePrice] = useState<number>(initialData?.price || 0);
+  const [visible, setVisible] = useState<boolean>(initialData?.visible ?? true);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -40,6 +41,9 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
     // Add variant data
     formData.append('variants', JSON.stringify(variants));
     formData.append('variantPrices', JSON.stringify(variantPrices));
+
+    // Add visibility state
+    formData.append('visible', visible.toString());
 
     // Update base price from form data
     const newBasePrice = parseFloat(formData.get('price') as string) || 0;
@@ -65,17 +69,18 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
       setBasePrice(data.price);
     }
 
+    // Update visibility if changed
+    if (data.visible !== undefined) {
+      setVisible(data.visible);
+    }
+
     // Update form fields
     const form = document.getElementById('product-form') as HTMLFormElement;
     if (form) {
       Object.entries(data).forEach(([key, value]) => {
         const input = form.elements.namedItem(key) as HTMLInputElement;
-        if (input) {
-          if (key === 'visible') {
-            input.value = value ? 'true' : 'false';
-          } else {
-            input.value = value?.toString() ?? '';
-          }
+        if (input && key !== 'visible') { // Skip visible as it's handled by state
+          input.value = value?.toString() ?? '';
         }
       });
     }
@@ -96,7 +101,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
       submitLabel={initialData ? 'Update Product' : 'Create Product'}
       className="sm:min-w-[600px] sm:max-w-2xl"
     >
-      <input type="hidden" name="visible" value={initialData?.visible?.toString() ?? 'true'} />
       <ProductImages
         images={images}
         previews={previews}
@@ -109,7 +113,10 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
 
       <ProductBasicInfo 
         categories={categories}
-        initialData={initialData}
+        initialData={{
+          ...initialData,
+          visible: visible // Pass current visibility state
+        }}
         onChange={handleBasicInfoChange}
       />
 
