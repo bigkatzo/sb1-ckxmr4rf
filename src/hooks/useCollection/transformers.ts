@@ -1,4 +1,4 @@
-import type { Category, Collection, Product } from '../../types';
+import type { Category, Collection, Product } from '../../types/index';
 
 export function transformCategory(category: any): Category | undefined {
   if (!category?.id) return undefined;
@@ -39,6 +39,8 @@ export function transformProduct(product: any, collectionData: any): Product | n
     minimumOrderQuantity: product.minimum_order_quantity || 50,
     variants: product.variants || [],
     variantPrices: product.variant_prices || {},
+    priceModifierBeforeMin: product.price_modifier_before_min ?? null,
+    priceModifierAfterMin: product.price_modifier_after_min ?? null
   };
 }
 
