@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   BarChart,
   Bar,
@@ -8,13 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-
-interface ProductQuantityChartProps {
-  data: Array<{
-    name: string;
-    quantity: number;
-  }>;
-}
+import type { ProductQuantityChartProps } from './types';
 
 export default function ProductQuantityChart({ data }: ProductQuantityChartProps) {
   return (

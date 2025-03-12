@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   BarChart,
   Bar,
@@ -8,13 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-
-interface ProductSolChartProps {
-  data: Array<{
-    name: string;
-    solAmount: number;
-  }>;
-}
+import type { ProductSolChartProps } from './types';
 
 export default function ProductSolChart({ data }: ProductSolChartProps) {
   return (

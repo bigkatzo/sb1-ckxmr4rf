@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   AreaChart,
   Area,
@@ -8,13 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-
-interface SalesChartProps {
-  data: Array<{
-    date: string;
-    amount: number;
-  }>;
-}
+import type { SalesChartProps } from './types';
 
 export default function SalesChart({ data }: SalesChartProps) {
   return (

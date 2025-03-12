@@ -1,14 +1,4 @@
-import React from 'react';
-
-interface ProductTableProps {
-  data: Array<{
-    rank: number;
-    name: string;
-    quantity: number;
-    solAmount: number;
-    collection?: string;
-  }>;
-}
+import type { ProductTableProps } from './types';
 
 export default function ProductTable({ data }: ProductTableProps) {
   return (

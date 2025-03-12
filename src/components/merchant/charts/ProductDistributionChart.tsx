@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   PieChart,
   Pie,
@@ -6,14 +5,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-
-interface ProductDistributionChartProps {
-  data: Array<{
-    name: string;
-    value: number;
-    solAmount: number;
-  }>;
-}
+import type { ProductDistributionChartProps } from './types';
 
 const COLORS = ['#9333ea', '#2563eb', '#db2777', '#059669', '#d97706'];
 
