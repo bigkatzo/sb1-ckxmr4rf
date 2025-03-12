@@ -41,7 +41,7 @@ export function useCategories(collectionId: string) {
         type: category.type,
         visible: category.visible,
         eligibilityRules: {
-          rules: category.eligibility_rules?.rules || []
+          groups: category.eligibility_rules?.groups || []
         }
       }));
 

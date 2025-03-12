@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { Dialog } from '@headlessui/react';
 import { toast } from 'react-toastify';
+import type { CategoryRule, RuleGroup } from '../../../types';
 
 interface CategoryFormProps {
   onClose: () => void;
@@ -12,13 +13,13 @@ interface CategoryFormProps {
     description: string;
     type: string;
     visible: boolean;
-    eligibilityRules: { rules: Array<{ type: string; value: string; quantity?: number }> };
+    eligibilityRules: { groups: RuleGroup[] };
   };
 }
 
 export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormProps) {
-  const [rules, setRules] = React.useState<Array<{ type: string; value: string; quantity?: number }>>(
-    initialData?.eligibilityRules?.rules || []
+  const [groups, setGroups] = React.useState<RuleGroup[]>(
+    initialData?.eligibilityRules?.groups || []
   );
   const [visible, setVisible] = React.useState(initialData?.visible ?? true);
 
@@ -29,12 +30,39 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
     };
   }, []);
 
-  const addRule = () => {
-    setRules([...rules, { type: 'token', value: '', quantity: 1 }]);
+  const addGroup = () => {
+    setGroups([...groups, { operator: 'AND', rules: [] }]);
   };
 
-  const removeRule = (index: number) => {
-    setRules(rules.filter((_, i) => i !== index));
+  const removeGroup = (groupIndex: number) => {
+    setGroups(groups.filter((_: RuleGroup, i: number) => i !== groupIndex));
+  };
+
+  const addRule = (groupIndex: number) => {
+    const newGroups = [...groups];
+    newGroups[groupIndex].rules.push({ type: 'token', value: '', quantity: 1 });
+    setGroups(newGroups);
+  };
+
+  const removeRule = (groupIndex: number, ruleIndex: number) => {
+    const newGroups = [...groups];
+    newGroups[groupIndex].rules = newGroups[groupIndex].rules.filter((_, i) => i !== ruleIndex);
+    setGroups(newGroups);
+  };
+
+  const updateGroup = (groupIndex: number, updates: Partial<RuleGroup>) => {
+    const newGroups = [...groups];
+    newGroups[groupIndex] = { ...newGroups[groupIndex], ...updates };
+    setGroups(newGroups);
+  };
+
+  const updateRule = (groupIndex: number, ruleIndex: number, updates: Partial<CategoryRule>) => {
+    const newGroups = [...groups];
+    newGroups[groupIndex].rules[ruleIndex] = {
+      ...newGroups[groupIndex].rules[ruleIndex],
+      ...updates
+    };
+    setGroups(newGroups);
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -52,22 +80,22 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
       }
 
       // Validate rules format
-      const validRules = rules.every(rule => {
-        if (!rule.type || !rule.value) return false;
-        
-        if (rule.type === 'token' || rule.type === 'nft') {
-          return typeof rule.quantity === 'number' && rule.quantity > 0;
-        }
-        
-        return true;
-      });
+      const validRules = groups.every(group => 
+        group.rules.every(rule => {
+          if (!rule.type || !rule.value) return false;
+          if (rule.type === 'token' || rule.type === 'nft') {
+            return typeof rule.quantity === 'number' && rule.quantity > 0;
+          }
+          return true;
+        })
+      );
 
-      if (rules.length > 0 && !validRules) {
+      if (groups.some(g => g.rules.length > 0) && !validRules) {
         toast.error('Please ensure all rules are properly filled out');
         return;
       }
 
-      formData.append('rules', JSON.stringify(rules));
+      formData.append('groups', JSON.stringify(groups));
       formData.append('visible', visible.toString());
       
       // Log the data being submitted
@@ -75,7 +103,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
         name: formData.get('name'),
         description: formData.get('description'),
         visible: formData.get('visible'),
-        rules: JSON.parse(formData.get('rules') as string)
+        groups: JSON.parse(formData.get('groups') as string)
       });
 
       onSubmit(formData);
@@ -85,14 +113,14 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
     }
   };
 
-  const getPlaceholder = (type: string) => {
+  const getPlaceholder = (type: CategoryRule['type']) => {
     switch (type) {
       case 'token':
         return 'Token Address';
       case 'nft':
         return 'NFT Collection Address';
       case 'whitelist':
-        return 'Wallet Address';
+        return 'Comma-separated Wallet Addresses';
       default:
         return '';
     }
@@ -171,107 +199,138 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                   </label>
                 </div>
 
-                <div>
-                  <div className="flex justify-between items-center mb-4">
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
                     <label className="text-sm font-medium text-white">Eligibility Rules</label>
                     <button
                       type="button"
-                      onClick={addRule}
+                      onClick={addGroup}
                       className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors"
                     >
                       <Plus className="h-4 w-4" />
-                      <span>Add Rule</span>
+                      <span>Add Rule Group</span>
                     </button>
                   </div>
 
-                  <div className="space-y-4">
-                    {rules.map((rule, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                  {groups.map((group, groupIndex) => (
+                    <div key={groupIndex} className="space-y-4 p-4 bg-gray-800/50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <h3 className="text-sm font-medium text-white">Group {groupIndex + 1}</h3>
                           <select
-                            value={rule.type}
-                            onChange={(e) => {
-                              const newRules = [...rules];
-                              newRules[index] = {
-                                ...rule,
-                                type: e.target.value,
-                                quantity: e.target.value === 'token' ? 1 : undefined
-                              };
-                              setRules(newRules);
-                            }}
-                            className="w-full sm:w-auto rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+                            value={group.operator}
+                            onChange={(e) => updateGroup(groupIndex, { operator: e.target.value as 'AND' | 'OR' })}
+                            className="bg-gray-800 rounded-lg px-3 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                           >
-                            <option value="token">Token Holding</option>
-                            <option value="nft">NFT Holding</option>
-                            <option value="whitelist">Whitelist</option>
+                            <option value="AND">AND</option>
+                            <option value="OR">OR</option>
                           </select>
-                          <div className="flex-1 w-full sm:w-auto flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={rule.value}
-                              onChange={(e) => {
-                                const newRules = [...rules];
-                                newRules[index] = { ...rule, value: e.target.value };
-                                setRules(newRules);
-                              }}
-                              placeholder={getPlaceholder(rule.type)}
-                              className="flex-1 rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
-                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => addRule(groupIndex)}
+                            className="flex items-center gap-2 text-purple-400 hover:text-purple-300 text-sm"
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>Add Rule</span>
+                          </button>
+                          {groups.length > 1 && (
                             <button
                               type="button"
-                              onClick={() => removeRule(index)}
-                              className="p-2 bg-red-500/90 rounded-full text-white hover:bg-red-600 transition-colors"
+                              onClick={() => removeGroup(groupIndex)}
+                              className="text-red-400 hover:text-red-300 p-1"
+                              aria-label="Remove group"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
-                          </div>
+                          )}
                         </div>
-                        {(rule.type === 'token' || rule.type === 'nft') && (
-                          <div className="flex items-center gap-2 pl-0 sm:pl-[calc(25%+1rem)]">
-                            <label className="text-sm text-gray-400 whitespace-nowrap">
-                              Required {rule.type === 'nft' ? 'NFTs' : 'Amount'}:
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={rule.quantity || 1}
-                              onChange={(e) => {
-                                const newRules = [...rules];
-                                newRules[index] = {
-                                  ...rule,
-                                  quantity: parseInt(e.target.value, 10)
-                                };
-                                setRules(newRules);
-                              }}
-                              className="w-32 rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
-                            />
-                          </div>
-                        )}
                       </div>
-                    ))}
-                  </div>
+
+                      <div className="space-y-4">
+                        {group.rules.map((rule: CategoryRule, ruleIndex: number) => (
+                          <div key={ruleIndex} className="space-y-2">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                              <select
+                                value={rule.type}
+                                onChange={(e) => {
+                                  const newType = e.target.value as CategoryRule['type'];
+                                  updateRule(groupIndex, ruleIndex, {
+                                    type: newType,
+                                    quantity: (newType === 'token' || newType === 'nft') ? 1 : undefined
+                                  });
+                                }}
+                                className="w-full sm:w-auto rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+                              >
+                                <option value="token">Token Holding</option>
+                                <option value="nft">NFT Holding</option>
+                                <option value="whitelist">Whitelist</option>
+                              </select>
+                              <div className="flex-1 w-full sm:w-auto flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={rule.value}
+                                  onChange={(e) => updateRule(groupIndex, ruleIndex, { value: e.target.value })}
+                                  placeholder={getPlaceholder(rule.type)}
+                                  className="flex-1 rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeRule(groupIndex, ruleIndex)}
+                                  className="p-2 bg-red-500/90 rounded-full text-white hover:bg-red-600 transition-colors"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                            {(rule.type === 'token' || rule.type === 'nft') && (
+                              <div className="flex items-center gap-2 pl-0 sm:pl-[calc(25%+1rem)]">
+                                <label className="text-sm text-gray-400 whitespace-nowrap">
+                                  Required {rule.type === 'nft' ? 'NFTs' : 'Amount'}:
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={rule.quantity || 1}
+                                  onChange={(e) => updateRule(groupIndex, ruleIndex, {
+                                    quantity: parseInt(e.target.value, 10)
+                                  })}
+                                  className="w-32 rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  {groups.length === 0 && (
+                    <div className="text-center text-gray-400 py-8">
+                      No rule groups added. Click "Add Rule Group" to create eligibility rules.
+                    </div>
+                  )}
                 </div>
               </form>
             </div>
 
             {/* Footer */}
-            <div className="flex-none bg-gray-900 border-t border-gray-800 p-4 sm:p-6">
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  form="category-form"
-                  type="submit"
-                  className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white"
-                >
-                  {initialData ? 'Save Changes' : 'Create Category'}
-                </button>
-              </div>
+            <div className="flex-none bg-gray-900 z-10 flex justify-end gap-3 p-4 sm:p-6 border-t border-gray-800">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="category-form"
+                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+              >
+                {initialData ? 'Update Category' : 'Create Category'}
+              </button>
             </div>
           </div>
         </div>

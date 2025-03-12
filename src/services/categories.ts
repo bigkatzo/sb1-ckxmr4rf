@@ -1,31 +1,18 @@
 import { supabase } from '../lib/supabase';
 
-interface CategoryData {
-  name: string;
-  description: string;
-  type: 'blank' | 'whitelist' | 'rules-based';
-  eligibility_rules: {
-    rules: Array<{
-      type: string;
-      value: string;
-      quantity?: number;
-    }>;
-  };
-}
-
 export async function createCategory(data: FormData, collectionId: string) {
   try {
     const name = data.get('name');
     const description = data.get('description');
-    const rules = JSON.parse(data.get('rules') as string || '[]');
+    const groups = JSON.parse(data.get('groups') as string || '[]');
     const visible = data.get('visible') === 'true';
     
     const categoryData = {
       collection_id: collectionId,
       name,
       description,
-      type: rules.length > 0 ? 'rules-based' : 'blank',
-      eligibility_rules: { rules },
+      type: groups.length > 0 ? 'rules-based' : 'blank',
+      eligibility_rules: { groups },
       visible
     };
 
@@ -45,14 +32,14 @@ export async function createCategory(data: FormData, collectionId: string) {
 
 export async function updateCategory(id: string, data: FormData) {
   try {
-    const rules = JSON.parse(data.get('rules') as string || '[]');
+    const groups = JSON.parse(data.get('groups') as string || '[]');
     const visible = data.get('visible') === 'true';
     
     const categoryData = {
       name: data.get('name'),
       description: data.get('description'),
-      type: rules.length > 0 ? 'rules-based' : 'blank',
-      eligibility_rules: { rules },
+      type: groups.length > 0 ? 'rules-based' : 'blank',
+      eligibility_rules: { groups },
       visible
     };
 

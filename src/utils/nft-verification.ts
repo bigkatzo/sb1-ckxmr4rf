@@ -1,4 +1,4 @@
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
 
 export interface NFTVerificationResult {
