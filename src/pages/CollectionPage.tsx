@@ -19,19 +19,16 @@ export function CollectionPage() {
   
   const { collection, loading, error } = useCollection(slug || '');
 
-  // Create indices from all categories to maintain color consistency
-  const allCategories = collection?.categories || [];
-  const allCategoryIndices = collection ? createCategoryIndices(allCategories) : {};
+  // Categories are already filtered by visibility in the public_categories view
+  const categories = collection?.categories || [];
+  const categoryIndices = collection ? createCategoryIndices(categories) : {};
   
-  // Filter visible categories while maintaining original order
-  const visibleCategories = allCategories.filter((cat: Category) => cat.visible);
-  
-  // Get selectedCategory from location state or use local state, ensuring it's visible
+  // Get selectedCategory from location state or use local state
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(() => {
     const initialCategory = location.state?.selectedCategoryId;
-    // Only use the initial category if it exists and is visible
-    if (initialCategory && allCategories.some((cat: Category) => 
-      cat.id === initialCategory && cat.visible
+    // Only use the initial category if it exists in the visible categories
+    if (initialCategory && categories.some((cat: Category) => 
+      cat.id === initialCategory
     )) {
       return initialCategory;
     }
@@ -40,10 +37,10 @@ export function CollectionPage() {
   
   // Reset selected category if it becomes hidden
   useEffect(() => {
-    if (selectedCategory && !visibleCategories.some((cat: Category) => cat.id === selectedCategory)) {
+    if (selectedCategory && !categories.some((cat: Category) => cat.id === selectedCategory)) {
       setSelectedCategory(undefined);
     }
-  }, [visibleCategories, selectedCategory]);
+  }, [categories, selectedCategory]);
 
   // Handle initial load and scroll restoration
   useEffect(() => {
@@ -82,7 +79,7 @@ export function CollectionPage() {
   // Handle category change by updating state
   const handleCategoryChange = (categoryId: string) => {
     // Only allow selecting visible categories
-    if (!categoryId || visibleCategories.some((cat: Category) => cat.id === categoryId)) {
+    if (!categoryId || categories.some((cat: Category) => cat.id === categoryId)) {
       setSelectedCategory(categoryId || undefined);
     }
   };
@@ -105,7 +102,7 @@ export function CollectionPage() {
   // Filter products to only show those in visible categories
   const visibleProducts = collection.products.filter((product: Product) => 
     !product.categoryId || // Include products without a category
-    visibleCategories.some((cat: Category) => cat.id === product.categoryId) // Include products in visible categories
+    categories.some((cat: Category) => cat.id === product.categoryId) // Include products in visible categories
   );
 
   return (
@@ -188,12 +185,12 @@ export function CollectionPage() {
 
       {/* Content Section */}
       <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg">
-        {visibleCategories.length > 0 && (
+        {categories.length > 0 && (
           <CategoryTabs
-            categories={visibleCategories}
+            categories={categories}
             selectedId={selectedCategory}
             onChange={handleCategoryChange}
-            categoryIndices={allCategoryIndices}
+            categoryIndices={categoryIndices}
           />
         )}
 
@@ -201,7 +198,7 @@ export function CollectionPage() {
           <ProductGrid 
             products={visibleProducts}
             categoryId={selectedCategory}
-            categoryIndices={allCategoryIndices}
+            categoryIndices={categoryIndices}
             loading={loading && !isInitialLoad}
           />
         </div>
