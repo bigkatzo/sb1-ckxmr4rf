@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Toggle } from '../../../ui/Toggle';
 
 interface ProductBasicInfoProps {
   categories: Array<{
@@ -118,23 +119,22 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
       </div>
 
       <div>
-        <label htmlFor="visible" className="flex items-center gap-2 text-sm font-medium text-white">
-          <input
-            type="checkbox"
-            id="visible"
-            name="visible"
-            checked={visible}
-            onChange={(e) => {
-              setVisible(e.target.checked);
-              onChange({ visible: e.target.checked });
-            }}
-            className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-purple-500 focus:ring-2 focus:ring-purple-500"
-          />
-          Visible
+        <label className="block text-sm font-medium text-white mb-1">
+          Product Visibility
         </label>
-        <p className="mt-1 text-sm text-gray-400">
-          When enabled, this product will be visible in the storefront
-        </p>
+        <div className="flex flex-col gap-1">
+          <Toggle
+            checked={visible}
+            onCheckedChange={(checked) => {
+              setVisible(checked);
+              onChange({ visible: checked });
+            }}
+            label="Product Visibility"
+          />
+          <p className="text-xs text-gray-400 ml-11">
+            When disabled, this product will be hidden from the storefront
+          </p>
+        </div>
       </div>
 
       <div>
