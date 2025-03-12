@@ -16,36 +16,17 @@ export default defineConfig({
   },
   envPrefix: ['VITE_'],
   build: {
-    sourcemap: true,
+    sourcemap: false,
     target: 'esnext',
     minify: 'esbuild',
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          // Core React dependencies
-          if (id.includes('node_modules/react/') || 
-              id.includes('node_modules/react-dom/') ||
-              id.includes('node_modules/react-router-dom/')) {
-            return 'vendor-react';
-          }
-          
-          // Solana dependencies
-          if (id.includes('node_modules/@solana/')) {
-            return 'vendor-solana';
-          }
-          
-          // UI dependencies
-          if (id.includes('node_modules/lucide-react/') ||
-              id.includes('node_modules/react-toastify/') ||
-              id.includes('node_modules/react-dropzone/')) {
-            return 'vendor-ui';
-          }
-          
-          // Utility dependencies
-          if (id.includes('node_modules/date-fns/') ||
-              id.includes('node_modules/uuid/')) {
-            return 'vendor-utils';
-          }
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-solana': ['@solana/web3.js', '@solana/spl-token', '@metaplex-foundation/js'],
+          'vendor-ui': ['lucide-react', 'react-toastify', 'react-dropzone'],
+          'vendor-utils': ['date-fns', 'uuid']
         }
       }
     }
@@ -57,6 +38,7 @@ export default defineConfig({
       'react-router-dom', 
       '@solana/web3.js',
       '@solana/spl-token',
+      '@metaplex-foundation/js',
       'lucide-react',
       'react-toastify',
       'react-dropzone',
