@@ -41,16 +41,14 @@ function RuleDisplay({ rule }: { rule: CategoryRule }) {
 export function CategoryEligibility({ groups }: CategoryEligibilityProps) {
   if (!groups?.length) {
     return (
-      <div className="space-y-2">
-        <div className="text-[10px] sm:text-xs text-gray-400">
-          <div className="font-medium text-gray-300 mb-2">
-            Access Requirements:
-          </div>
-          <div className="space-y-2 ml-2">
-            <div className="flex items-start">
-              <span className="mr-1">•</span>
-              <span>This category is open to all collectors</span>
-            </div>
+      <div className="text-[10px] sm:text-xs text-gray-400">
+        <div className="font-medium text-gray-300 mb-2">
+          Access Requirements:
+        </div>
+        <div className="space-y-2 ml-2">
+          <div className="flex items-start">
+            <span className="mr-1">•</span>
+            <span>This category is open to all collectors</span>
           </div>
         </div>
       </div>

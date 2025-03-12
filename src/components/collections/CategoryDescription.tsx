@@ -34,12 +34,6 @@ export function CategoryDescription({ category, categoryIndex }: CategoryDescrip
       <div className="space-y-3">
         <p className="text-gray-400 break-words text-xs sm:text-sm">
           {category.description}
-          {(!category.eligibilityRules?.groups || category.eligibilityRules.groups.length === 0) && (
-            <>
-              {category.description && ' '}
-              This category is open to all collectors.
-            </>
-          )}
         </p>
         <CategoryEligibility groups={category.eligibilityRules?.groups || []} />
       </div>
