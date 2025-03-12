@@ -53,7 +53,7 @@ export function CategoryEligibility({ groups, type }: CategoryEligibilityProps) 
           <div className="space-y-2 ml-2">
             <div className="flex items-start">
               <span className="mr-1">•</span>
-              <span>No special requirements - this collection is open to all collectors</span>
+              <span>This category is open to all collectors</span>
             </div>
           </div>
         </div>
