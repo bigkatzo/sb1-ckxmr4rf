@@ -46,12 +46,16 @@ export function CategoryEligibility({ groups, type }: CategoryEligibilityProps) 
   if (!groups?.length) {
     return (
       <div className="space-y-2">
-        <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
-          {typeInfo.icon}
-          <span className="font-medium">{typeInfo.label}</span>
-        </div>
-        <div className="text-gray-400">
-          <span className="text-[10px] sm:text-xs">This collection is open to all collectors</span>
+        <div className="text-[10px] sm:text-xs text-gray-400">
+          <div className="font-medium text-gray-300 mb-2">
+            Access Requirements:
+          </div>
+          <div className="space-y-2 ml-2">
+            <div className="flex items-start">
+              <span className="mr-1">•</span>
+              <span>No special requirements - this collection is open to all collectors</span>
+            </div>
+          </div>
         </div>
       </div>
     );
