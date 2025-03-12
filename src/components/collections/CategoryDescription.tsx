@@ -1,6 +1,6 @@
 import { CategoryDiamond } from './CategoryDiamond';
 import { CategoryEligibility } from './CategoryEligibility';
-import type { Category } from '../../types';
+import type { Category } from '../../types/index';
 
 interface CategoryDescriptionProps {
   category: Category;
