@@ -20,16 +20,17 @@ export function CollectionPage() {
   const { collection, loading, error } = useCollection(slug || '');
 
   // Create indices from all categories to maintain color consistency
-  const allCategoryIndices = collection ? createCategoryIndices(collection.categories) : {};
+  const allCategories = collection?.categories || [];
+  const allCategoryIndices = collection ? createCategoryIndices(allCategories) : {};
   
-  // Filter visible categories
-  const visibleCategories = collection?.categories.filter((cat: Category) => cat.visible) || [];
+  // Filter visible categories while maintaining original order
+  const visibleCategories = allCategories.filter((cat: Category) => cat.visible);
   
   // Get selectedCategory from location state or use local state, ensuring it's visible
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(() => {
     const initialCategory = location.state?.selectedCategoryId;
     // Only use the initial category if it exists and is visible
-    if (initialCategory && collection?.categories.some((cat: Category) => 
+    if (initialCategory && allCategories.some((cat: Category) => 
       cat.id === initialCategory && cat.visible
     )) {
       return initialCategory;
