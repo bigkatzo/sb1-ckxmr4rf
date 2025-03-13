@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, EyeOff, Ban } from 'lucide-react';
+import { Plus, EyeOff } from 'lucide-react';
 import { CategoryForm } from '../../components/merchant/forms/CategoryForm';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
@@ -142,12 +142,6 @@ export function CategoriesTab() {
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
                               <EyeOff className="h-3 w-3" />
                               Hidden
-                            </span>
-                          )}
-                          {category.saleEnded && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400">
-                              <Ban className="h-3 w-3" />
-                              Sale Ended
                             </span>
                           )}
                         </div>
