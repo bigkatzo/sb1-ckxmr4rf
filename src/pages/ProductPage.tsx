@@ -34,7 +34,7 @@ export function ProductPage() {
     const scrollPosition = location.state?.scrollPosition;
     const activeCategory = location.state?.selectedCategoryId;
 
-    navigate(`/collections/${collectionSlug}`, {
+    navigate(`/${collectionSlug}`, {
       state: {
         scrollPosition,
         selectedCategoryId: activeCategory,
