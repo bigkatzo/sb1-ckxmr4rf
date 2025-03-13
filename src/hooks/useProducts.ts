@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError, isValidId } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
-import type { Product } from '../types';
+import type { Product } from '../types/variants';
 
 export function useProducts(collectionId?: string, categoryId?: string, isMerchant: boolean = false) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -71,7 +71,8 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
         variants: product.variants || [],
         variantPrices: product.variant_prices || {},
         priceModifierBeforeMin: product.price_modifier_before_min ?? null,
-        priceModifierAfterMin: product.price_modifier_after_min ?? null
+        priceModifierAfterMin: product.price_modifier_after_min ?? null,
+        visible: product.visible ?? true
       }));
 
       setProducts(transformedProducts);
