@@ -33,7 +33,7 @@ export interface Product {
   variants?: ProductVariant[];
   variantPrices?: VariantPricing;
   sku: string;
-  visible?: boolean;
+  visible: boolean;
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
 }
