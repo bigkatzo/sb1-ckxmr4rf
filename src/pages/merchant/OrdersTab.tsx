@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Loader2 } from 'lucide-react';
+import { Package } from 'lucide-react';
 import { OrderList } from '../../components/merchant/OrderList';
 import { OrderFilters } from '../../components/merchant/OrderFilters';
 import { useMerchantOrders } from '../../hooks/useMerchantOrders';
