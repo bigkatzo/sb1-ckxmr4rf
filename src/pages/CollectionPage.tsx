@@ -25,37 +25,25 @@ export function CollectionPage() {
 
   // Get selectedCategory from location state or use local state
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(() => {
-    // Only restore category selection if returning from a product page
-    if (location.state?.returnedFromProduct) {
-      return location.state.selectedCategoryId || undefined;
+    // Only restore category selection if directly returning from a product page
+    // with returnedFromProduct flag and selectedCategoryId in location state
+    if (location.state?.returnedFromProduct && location.state?.selectedCategoryId) {
+      return location.state.selectedCategoryId;
     }
     // In all other cases (first visit, refresh, navigation from other pages),
     // start with no category selected
     return undefined;
   });
 
-  // Store category selection in sessionStorage when it changes
-  useEffect(() => {
-    if (slug) {
-      if (selectedCategory) {
-        sessionStorage.setItem(`collection_${slug}_category`, selectedCategory);
-      } else {
-        // Clean up any stored category when none is selected
-        sessionStorage.removeItem(`collection_${slug}_category`);
-      }
-    }
-  }, [selectedCategory, slug]);
-
   // Handle category change by updating state
   const handleCategoryChange = useCallback((categoryId: string) => {
     if (selectedCategory === categoryId) {
       // Clicking the same category again deselects it, showing all products
       setSelectedCategory(undefined);
-      sessionStorage.removeItem(`collection_${slug}_category`);
     } else {
       setSelectedCategory(categoryId);
     }
-  }, [selectedCategory, slug]);
+  }, [selectedCategory]);
   
   // Handle initial load and scroll restoration
   useEffect(() => {

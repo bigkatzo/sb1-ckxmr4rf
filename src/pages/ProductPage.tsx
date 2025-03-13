@@ -32,12 +32,15 @@ export function ProductPage() {
   // Handle closing the product modal and returning to collection page
   const handleClose = () => {
     const scrollPosition = location.state?.scrollPosition;
+    // Only pass the category if it was explicitly selected before
     const activeCategory = location.state?.selectedCategoryId;
 
     navigate(`/${collectionSlug}`, {
+      replace: true, // Use replace to ensure back button works correctly
       state: {
         scrollPosition,
-        selectedCategoryId: activeCategory,
+        // Only include selectedCategoryId if there was an active category
+        ...(activeCategory && { selectedCategoryId: activeCategory }),
         returnedFromProduct: true
       }
     });
