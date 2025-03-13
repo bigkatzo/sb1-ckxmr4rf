@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, EyeOff } from 'lucide-react';
 import { CategoryForm } from '../../components/merchant/forms/CategoryForm';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
@@ -136,7 +136,15 @@ export function CategoriesTab() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="font-medium text-xs sm:text-sm truncate">{category.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-xs sm:text-sm truncate">{category.name}</h3>
+                          {category.visible === false && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
+                              <EyeOff className="h-3 w-3" />
+                              Hidden
+                            </span>
+                          )}
+                        </div>
                         <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
                           {category.description}
                         </p>
