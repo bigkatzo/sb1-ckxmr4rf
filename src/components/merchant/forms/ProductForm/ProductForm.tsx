@@ -163,7 +163,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
                     }}
                   />
 
-                  <div className="space-y-4">
+                  <div className="space-y-4 border border-purple-500 p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <label className="block text-sm font-medium text-white">
@@ -173,11 +173,19 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
                           When disabled, this product will be hidden from the storefront
                         </p>
                       </div>
-                      <Toggle
-                        checked={visible}
-                        onCheckedChange={setVisible}
-                        size="md"
-                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">
+                          Current state: {visible ? 'Visible' : 'Hidden'}
+                        </span>
+                        <Toggle
+                          checked={visible}
+                          onCheckedChange={(newValue) => {
+                            console.log('Toggle changed:', newValue);
+                            setVisible(newValue);
+                          }}
+                          size="md"
+                        />
+                      </div>
                     </div>
                   </div>
 
