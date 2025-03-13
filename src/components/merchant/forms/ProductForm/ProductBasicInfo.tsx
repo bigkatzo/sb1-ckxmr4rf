@@ -40,7 +40,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const [stock, setStock] = useState<string>(initialData?.stock?.toString() || '');
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
   const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
-  const [visible, setVisible] = useState(initialData?.visible ?? true);
+  const [visible, setVisible] = useState(initialData?.visible === undefined ? true : initialData.visible);
   const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<string>(
     initialData?.priceModifierBeforeMin?.toString() || ''
   );
@@ -57,7 +57,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
     setStock(initialData?.stock?.toString() || '');
     setCategoryId(initialData?.categoryId || '');
     setMinimumOrderQuantity(initialData?.minimumOrderQuantity || 50);
-    setVisible(initialData?.visible ?? true);
+    setVisible(initialData?.visible === undefined ? true : initialData.visible);
     setPriceModifierBeforeMin(initialData?.priceModifierBeforeMin?.toString() || '');
     setPriceModifierAfterMin(initialData?.priceModifierAfterMin?.toString() || '');
   }, [initialData]);
@@ -254,6 +254,11 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           Product Visibility
         </label>
         <div className="flex flex-col gap-1">
+          <input
+            type="hidden"
+            name="visible"
+            value={visible.toString()}
+          />
           <Toggle
             checked={visible}
             onCheckedChange={(checked) => {

@@ -48,7 +48,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     minimumOrderQuantity: initialData?.minimumOrderQuantity || 50,
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
     priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
-    visible: initialData?.visible ?? true
+    visible: initialData?.visible === undefined ? true : initialData.visible
   });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
