@@ -80,6 +80,25 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   return (
     <div className="space-y-4">
       <div>
+        <label htmlFor="sku" className="block text-sm font-medium text-white">
+          SKU
+        </label>
+        <input
+          type="text"
+          id="sku"
+          name="sku"
+          value={sku}
+          readOnly
+          disabled
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-gray-400 cursor-not-allowed focus:outline-none"
+          placeholder="Auto-generated"
+        />
+        <p className="mt-1 text-sm text-gray-400">
+          SKU is auto-generated and cannot be changed
+        </p>
+      </div>
+
+      <div>
         <label htmlFor="name" className="block text-sm font-medium text-white">
           Name
         </label>
@@ -114,6 +133,29 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
       </div>
 
       <div>
+        <label htmlFor="category" className="block text-sm font-medium text-white">
+          Category
+        </label>
+        <input type="hidden" name="categoryId" value={categoryId} />
+        <select
+          id="category"
+          value={categoryId}
+          onChange={(e) => {
+            setCategoryId(e.target.value);
+            onChange({ categoryId: e.target.value });
+          }}
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          <option value="">Select a category</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
         <label htmlFor="price" className="block text-sm font-medium text-white">
           Base Price (SOL)
         </label>
@@ -130,25 +172,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           }}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-white mb-1">
-          Product Visibility
-        </label>
-        <div className="flex flex-col gap-1">
-          <Toggle
-            checked={visible}
-            onCheckedChange={(checked) => {
-              setVisible(checked);
-              onChange({ visible: checked });
-            }}
-            label="Product Visibility"
-          />
-          <p className="text-xs text-gray-400 ml-11">
-            When disabled, this product will be hidden from the storefront
-          </p>
-        </div>
       </div>
 
       <div>
@@ -227,45 +250,22 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
       </div>
 
       <div>
-        <label htmlFor="category" className="block text-sm font-medium text-white">
-          Category
+        <label className="block text-sm font-medium text-white mb-1">
+          Product Visibility
         </label>
-        <input type="hidden" name="categoryId" value={categoryId} />
-        <select
-          id="category"
-          value={categoryId}
-          onChange={(e) => {
-            setCategoryId(e.target.value);
-            onChange({ categoryId: e.target.value });
-          }}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="">Select a category</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor="sku" className="block text-sm font-medium text-white">
-          SKU
-        </label>
-        <input
-          type="text"
-          id="sku"
-          name="sku"
-          value={sku}
-          readOnly
-          disabled
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-gray-400 cursor-not-allowed focus:outline-none"
-          placeholder="Auto-generated"
-        />
-        <p className="mt-1 text-sm text-gray-400">
-          SKU is auto-generated and cannot be changed
-        </p>
+        <div className="flex flex-col gap-1">
+          <Toggle
+            checked={visible}
+            onCheckedChange={(checked) => {
+              setVisible(checked);
+              onChange({ visible: checked });
+            }}
+            label="Product Visibility"
+          />
+          <p className="text-xs text-gray-400 ml-11">
+            When disabled, this product will be hidden from the storefront
+          </p>
+        </div>
       </div>
     </div>
   );
