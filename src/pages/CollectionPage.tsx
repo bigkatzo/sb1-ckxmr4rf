@@ -50,36 +50,17 @@ export function CollectionPage() {
     if (!loading && isInitialLoad) {
       setIsInitialLoad(false);
       
-      // Try to restore scroll position from location state first, then fallback to sessionStorage
-      const scrollPosition = location.state?.scrollPosition || 
-        parseInt(sessionStorage.getItem(`collection_${slug}_scroll`) || '0');
-      
-      if (scrollPosition && pageRef.current) {
+      // Only restore scroll position if returning directly from a product
+      if (location.state?.returnedFromProduct && location.state?.scrollPosition) {
         setTimeout(() => {
           window.scrollTo({
-            top: scrollPosition,
+            top: location.state.scrollPosition,
             behavior: 'auto'
           });
-          // Clear the stored position after restoration
-          sessionStorage.removeItem(`collection_${slug}_scroll`);
         }, 100);
       }
     }
-  }, [loading, isInitialLoad, location.state, slug]);
-  
-  // Save scroll position when navigating away
-  useEffect(() => {
-    const saveScrollPosition = () => {
-      if (slug) {
-        sessionStorage.setItem(`collection_${slug}_scroll`, window.scrollY.toString());
-      }
-    };
-
-    window.addEventListener('beforeunload', saveScrollPosition);
-    return () => {
-      window.removeEventListener('beforeunload', saveScrollPosition);
-    };
-  }, [slug]);
+  }, [loading, isInitialLoad, location.state]);
   
   if (!slug) {
     return <Navigate to="/" replace />;
@@ -197,12 +178,14 @@ export function CollectionPage() {
             )}
 
             <div className="p-4 sm:p-6">
-              <ProductGrid 
-                products={visibleProducts}
-                categoryId={selectedCategory}
-                categoryIndices={categoryIndices}
-                loading={loading && !isInitialLoad && !location.state?.returnedFromProduct}
-              />
+              <div className="transition-opacity duration-200 ease-in-out">
+                <ProductGrid 
+                  products={visibleProducts}
+                  categoryId={selectedCategory}
+                  categoryIndices={categoryIndices}
+                  loading={loading && !isInitialLoad && !location.state?.returnedFromProduct}
+                />
+              </div>
             </div>
           </div>
         </>
