@@ -163,23 +163,22 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
                     }}
                   />
 
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <label className="block text-sm font-medium text-white">
-                          Product Visibility
-                        </label>
-                        <p className="text-xs text-gray-400">
-                          When disabled, this product will be hidden from the storefront
-                        </p>
-                      </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      Product Visibility
+                    </label>
+                    <div className="flex flex-col gap-1">
                       <Toggle
                         checked={visible}
                         onCheckedChange={(newValue) => {
                           setVisible(newValue);
                         }}
                         size="md"
+                        label="Product Visibility"
                       />
+                      <p className="text-xs text-gray-400 ml-11">
+                        When disabled, this product will be hidden from the storefront
+                      </p>
                     </div>
                   </div>
 
