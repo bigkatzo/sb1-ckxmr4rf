@@ -28,8 +28,6 @@ export function ProductsTab() {
   const handleSubmit = async (data: FormData) => {
     try {
       if (editingProduct) {
-        console.log('Updating product:', editingProduct.id);
-        console.log('Form data entries:', Array.from(data.entries()));
         await updateProduct(editingProduct.id, data);
         toast.success('Product updated successfully');
       } else {

@@ -110,7 +110,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
         onChange={handleBasicInfoChange}
       />
 
-      <div className="space-y-4 border border-purple-500 p-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <label className="block text-sm font-medium text-white">
@@ -120,19 +120,13 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
               When disabled, this product will be hidden from the storefront
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">
-              Current state: {formState.visible ? 'Visible' : 'Hidden'}
-            </span>
-            <Toggle
-              checked={formState.visible}
-              onCheckedChange={(newValue: boolean) => {
-                console.log('Toggle changed:', newValue);
-                handleBasicInfoChange({ visible: newValue });
-              }}
-              size="md"
-            />
-          </div>
+          <Toggle
+            checked={formState.visible}
+            onCheckedChange={(newValue: boolean) => {
+              handleBasicInfoChange({ visible: newValue });
+            }}
+            size="md"
+          />
         </div>
       </div>
 
