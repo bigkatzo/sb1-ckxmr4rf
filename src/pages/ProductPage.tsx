@@ -37,19 +37,16 @@ export function ProductPage() {
     // Get scroll position from location state
     const scrollPosition = location.state?.scrollPosition;
     
-    // Navigate back to collection with selected category in state
-    if (selectedCategoryId) {
-      navigate(`/${collectionSlug}`, { 
-        replace: true,
-        state: { 
-          selectedCategoryId,
-          scrollPosition
-        }
-      });
-    } else {
-      // Otherwise just go back
-      window.history.back();
-    }
+    // Navigate back to collection with selected category and scroll position
+    navigate(`/${collectionSlug}`, { 
+      replace: true,
+      state: { 
+        selectedCategoryId: selectedCategoryId || location.state?.selectedCategoryId,
+        categoryIndex: categoryIndex || location.state?.categoryIndex,
+        scrollPosition,
+        returnedFromProduct: true // Flag to indicate we're returning from product page
+      }
+    });
   };
 
   return (
