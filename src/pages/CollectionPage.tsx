@@ -26,14 +26,28 @@ export function CollectionPage() {
   // Get selectedCategory from location state or use local state
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(() => {
     const initialCategory = location.state?.selectedCategoryId;
-    // Only use the initial category if it exists in the visible categories
-    if (initialCategory && categories.some((cat: Category) => 
-      cat.id === initialCategory
-    )) {
-      return initialCategory;
+    const storedCategory = sessionStorage.getItem(`collection_${slug}_category`);
+    
+    // Try location state first, then sessionStorage
+    const categoryToUse = initialCategory || storedCategory;
+    
+    // Only use the category if it exists in the visible categories
+    if (categoryToUse && categories.some((cat: Category) => cat.id === categoryToUse)) {
+      return categoryToUse;
     }
     return undefined;
   });
+  
+  // Store category selection in sessionStorage when it changes
+  useEffect(() => {
+    if (slug) {
+      if (selectedCategory) {
+        sessionStorage.setItem(`collection_${slug}_category`, selectedCategory);
+      } else {
+        sessionStorage.removeItem(`collection_${slug}_category`);
+      }
+    }
+  }, [selectedCategory, slug]);
   
   // Reset selected category if it becomes hidden
   useEffect(() => {
