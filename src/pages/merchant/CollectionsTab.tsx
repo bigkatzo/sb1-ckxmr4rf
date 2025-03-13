@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Image as ImageIcon, EyeOff } from 'lucide-react';
+import { Plus, Image as ImageIcon, EyeOff, Ban } from 'lucide-react';
 import { CollectionForm } from '../../components/merchant/forms/CollectionForm';
 import { createCollection, updateCollection, toggleFeatured, deleteCollection } from '../../services/collections';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
@@ -132,12 +132,20 @@ export function CollectionsTab() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-sm truncate">{collection.name}</h3>
-                          {collection.visible === false && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
-                              <EyeOff className="h-3 w-3" />
-                              Hidden
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {collection.visible === false && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
+                                <EyeOff className="h-3 w-3" />
+                                Hidden
+                              </span>
+                            )}
+                            {collection.saleEnded && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400">
+                                <Ban className="h-3 w-3" />
+                                Sale Ended
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <p className="text-gray-400 text-xs line-clamp-2 mt-1">
                           {collection.description}
