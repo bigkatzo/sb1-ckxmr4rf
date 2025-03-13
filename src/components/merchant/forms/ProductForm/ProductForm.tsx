@@ -7,6 +7,7 @@ import { ProductVariants } from './ProductVariants';
 import { FormSkeleton } from '../../../ui/Skeleton';
 import type { Category } from '../../../../types/index';
 import type { Product, ProductVariant, VariantPricing } from '../../../../types/variants';
+import { Toggle } from '../../../ui/Toggle';
 
 interface ProductFormData {
   name: string;
@@ -38,6 +39,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   const [variantPrices, setVariantPrices] = useState<VariantPricing>(initialData?.variantPrices || {});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [visible, setVisible] = useState(initialData?.visible === undefined ? true : initialData.visible);
   const [formData, setFormData] = useState<ProductFormData>({
     name: initialData?.name || '',
     description: initialData?.description || '',
@@ -61,10 +63,13 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
 
       // Add basic product info
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null) {
+        if (value !== null && key !== 'visible') {  // Skip visible since we handle it separately
           data.append(key, value.toString());
         }
       });
+      
+      // Add visibility state
+      data.append('visible', visible.toString());
 
       // Add images to form data
       images.forEach((file, index) => {
@@ -157,6 +162,22 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
                       }));
                     }}
                   />
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      Product Visibility
+                    </label>
+                    <div className="flex flex-col gap-1">
+                      <Toggle
+                        checked={visible}
+                        onCheckedChange={setVisible}
+                        label="Product Visibility"
+                      />
+                      <p className="text-xs text-gray-400 ml-11">
+                        When disabled, this product will be hidden from the storefront
+                      </p>
+                    </div>
+                  </div>
 
                   <ProductVariants
                     variants={variants}

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Toggle } from '../../../ui/Toggle';
 import React from 'react';
 
 interface ProductBasicInfoProps {
@@ -17,7 +16,6 @@ interface ProductBasicInfoProps {
     minimumOrderQuantity?: number;
     priceModifierBeforeMin?: number | null;
     priceModifierAfterMin?: number | null;
-    visible?: boolean;
   };
   onChange: (data: Partial<{
     name: string;
@@ -29,7 +27,6 @@ interface ProductBasicInfoProps {
     minimumOrderQuantity: number;
     priceModifierBeforeMin: number | null;
     priceModifierAfterMin: number | null;
-    visible: boolean;
   }>) => void;
 }
 
@@ -40,7 +37,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const [stock, setStock] = useState<string>(initialData?.stock?.toString() || '');
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
   const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
-  const [visible, setVisible] = useState(initialData?.visible === undefined ? true : initialData.visible);
   const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<string>(
     initialData?.priceModifierBeforeMin?.toString() || ''
   );
@@ -57,7 +53,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
     setStock(initialData?.stock?.toString() || '');
     setCategoryId(initialData?.categoryId || '');
     setMinimumOrderQuantity(initialData?.minimumOrderQuantity || 50);
-    setVisible(initialData?.visible === undefined ? true : initialData.visible);
     setPriceModifierBeforeMin(initialData?.priceModifierBeforeMin?.toString() || '');
     setPriceModifierAfterMin(initialData?.priceModifierAfterMin?.toString() || '');
   }, [initialData]);
@@ -247,30 +242,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           }}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-white mb-1">
-          Product Visibility
-        </label>
-        <div className="flex flex-col gap-1">
-          <input
-            type="hidden"
-            name="visible"
-            value={visible.toString()}
-          />
-          <Toggle
-            checked={visible}
-            onCheckedChange={(checked) => {
-              setVisible(checked);
-              onChange({ visible: checked });
-            }}
-            label="Product Visibility"
-          />
-          <p className="text-xs text-gray-400 ml-11">
-            When disabled, this product will be hidden from the storefront
-          </p>
-        </div>
       </div>
     </div>
   );
