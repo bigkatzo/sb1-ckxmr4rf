@@ -5,6 +5,7 @@ import { ProductImages } from './ProductImages';
 import { ProductVariants } from './ProductVariants';
 import type { Category } from '../../../../types/index';
 import type { Product, ProductVariant, VariantPricing } from '../../../../types/variants';
+import { Toggle } from '../../../ui/Toggle';
 
 export interface ProductFormProps {
   categories: Category[];
@@ -108,6 +109,32 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
         initialData={formState}
         onChange={handleBasicInfoChange}
       />
+
+      <div className="space-y-4 border border-purple-500 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="block text-sm font-medium text-white">
+              Product Visibility
+            </label>
+            <p className="text-xs text-gray-400">
+              When disabled, this product will be hidden from the storefront
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">
+              Current state: {formState.visible ? 'Visible' : 'Hidden'}
+            </span>
+            <Toggle
+              checked={formState.visible}
+              onCheckedChange={(newValue: boolean) => {
+                console.log('Toggle changed:', newValue);
+                handleBasicInfoChange({ visible: newValue });
+              }}
+              size="md"
+            />
+          </div>
+        </div>
+      </div>
 
       <ProductVariants
         variants={variants}
