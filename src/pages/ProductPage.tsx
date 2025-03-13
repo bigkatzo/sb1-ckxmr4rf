@@ -13,9 +13,6 @@ export function ProductPage() {
   // Get category index from location state or calculate it
   const categoryIndex = location.state?.categoryIndex ?? 
     (product ? createCategoryIndicesFromProducts([product])[product.categoryId] || 0 : 0);
-    
-  // Get the selected category ID from location state
-  const selectedCategoryId = location.state?.selectedCategoryId;
 
   if (loading) {
     return <ProductModalSkeleton />;
@@ -34,17 +31,19 @@ export function ProductPage() {
   
   // Handle closing the product modal and returning to collection page
   const handleClose = () => {
-    // Get scroll position from location state
+    // Get scroll position and category state from location state
     const scrollPosition = location.state?.scrollPosition;
+    const storedCategoryId = location.state?.selectedCategoryId || 
+      sessionStorage.getItem(`collection_${collectionSlug}_category`);
     
-    // Navigate back to collection with selected category and scroll position
+    // Navigate back to collection with all necessary state
     navigate(`/${collectionSlug}`, { 
       replace: true,
       state: { 
-        selectedCategoryId: selectedCategoryId || location.state?.selectedCategoryId,
-        categoryIndex: categoryIndex || location.state?.categoryIndex,
+        selectedCategoryId: storedCategoryId,
+        categoryIndex: location.state?.categoryIndex,
         scrollPosition,
-        returnedFromProduct: true // Flag to indicate we're returning from product page
+        returnedFromProduct: true
       }
     });
   };
