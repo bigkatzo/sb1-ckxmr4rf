@@ -115,14 +115,16 @@ export function ProductForm({ categories, initialData, onClose, onSubmit }: Prod
           Product Visibility
         </label>
         <div className="flex flex-col gap-1">
-          <Toggle
-            checked={formState.visible}
-            onCheckedChange={(newValue: boolean) => {
-              handleBasicInfoChange({ visible: newValue });
-            }}
-            size="md"
-            label="Product Visibility"
-          />
+          <div className="flex items-center gap-2">
+            <Toggle
+              checked={formState.visible}
+              onCheckedChange={(newValue: boolean) => {
+                handleBasicInfoChange({ visible: newValue });
+              }}
+              size="md"
+            />
+            <span className="text-sm text-white">Show in storefront</span>
+          </div>
           <p className="text-xs text-gray-400 ml-11">
             When disabled, this product will be hidden from the storefront
           </p>
