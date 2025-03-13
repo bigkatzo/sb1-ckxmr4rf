@@ -7,6 +7,7 @@ import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import type { OrderStatus } from '../../types/orders';
+import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 
 export function OrdersTab() {
   const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
@@ -94,11 +95,7 @@ export function OrdersTab() {
   }, [orders, selectedCollection, selectedProduct, searchQuery]);
 
   if (loading) {
-    return (
-      <div className="px-4 sm:px-6 lg:px-8 flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
-      </div>
-    );
+    return <Loading type={LoadingType.PAGE} text="Loading orders..." />;
   }
 
   if (error) {

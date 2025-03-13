@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { Loading, LoadingType } from './LoadingStates';
 
 interface RefreshButtonProps {
   onRefresh: () => Promise<void>;
@@ -29,7 +30,11 @@ export function RefreshButton({ onRefresh, className = '' }: RefreshButtonProps)
       } ${className}`}
       title="Refresh"
     >
-      <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+      {isRefreshing ? (
+        <Loading type={LoadingType.ACTION} />
+      ) : (
+        <RefreshCw className="h-4 w-4" />
+      )}
     </button>
   );
 }

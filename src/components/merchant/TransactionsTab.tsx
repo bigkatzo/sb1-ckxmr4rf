@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { RefreshButton } from '../ui/RefreshButton';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'react-toastify';
+import { Loading, LoadingType } from '../ui/LoadingStates';
 
 interface FailedTransaction {
   id: string;
@@ -102,11 +103,7 @@ export function TransactionsTab() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500" />
-      </div>
-    );
+    return <Loading type={LoadingType.PAGE} text="Loading transactions..." />;
   }
 
   return (
@@ -204,10 +201,7 @@ export function TransactionsTab() {
                         className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-2.5 py-1.5 rounded text-[10px] sm:text-xs transition-colors"
                       >
                         {recovering.has(tx.signature) ? (
-                          <>
-                            <RefreshCw className="h-3 w-3 animate-spin" />
-                            <span>Recovering...</span>
-                          </>
+                          <Loading type={LoadingType.ACTION} text="Recovering..." className="scale-90" />
                         ) : (
                           <>
                             <RefreshCw className="h-3 w-3" />

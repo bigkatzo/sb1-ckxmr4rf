@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
 import { verifyWhitelistAccess } from '../../utils/whitelist-verification';
@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import { toastService } from '../../services/toast';
 import type { Product, CategoryRule } from '../../types/index';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
+import { Loading, LoadingType } from '../ui/LoadingStates';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -251,8 +252,7 @@ export function TokenVerificationModal({
             <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
               {verifying ? (
                 <>
-                  <Loader2 className="h-5 w-5 text-purple-400 animate-spin" />
-                  <span className="text-gray-100">Verifying eligibility...</span>
+                  <Loading type={LoadingType.ACTION} text="Verifying eligibility..." />
                 </>
               ) : verificationResult?.isValid ? (
                 <>
@@ -401,8 +401,7 @@ export function TokenVerificationModal({
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Processing Payment...</span>
+                      <Loading type={LoadingType.ACTION} text="Processing Payment..." />
                     </>
                   ) : (
                     <>

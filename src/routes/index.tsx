@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 import { App } from '../App';
 import { HomePage } from '../pages/HomePage';
 import { ProtectedRoute } from '../components/merchant/ProtectedRoute';
+import { Loading, LoadingType } from '../components/ui/LoadingStates';
 
 // Lazy load routes that aren't needed immediately
 const CollectionPage = lazy(() => import('../pages/CollectionPage').then(module => ({ default: module.CollectionPage })));
@@ -17,9 +18,7 @@ const OrdersPage = lazy(() => import('../pages/OrdersPage').then(module => ({ de
 
 // Loading component for lazy-loaded routes
 const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-  </div>
+  <Loading type={LoadingType.PAGE} text="Loading..." />
 );
 
 export const router = createBrowserRouter([

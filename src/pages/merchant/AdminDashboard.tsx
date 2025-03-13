@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { Tabs } from '../../components/ui/Tabs';
 import { toast } from 'react-toastify';
 import { ArrowLeft } from 'lucide-react';
+import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 
 const tabs = [
   { id: 'users', label: 'Users' },
@@ -19,6 +20,7 @@ export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('users');
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
     async function checkAdmin() {
@@ -27,6 +29,7 @@ export function AdminDashboard() {
         if (!session?.user?.id) {
           setError('Please sign in to access admin settings');
           setIsAdmin(false);
+          setLoading(false);
           return;
         }
 
@@ -41,12 +44,14 @@ export function AdminDashboard() {
           console.error('Error checking admin status:', adminError);
           setError('Error verifying admin access');
           setIsAdmin(false);
+          setLoading(false);
           return;
         }
 
         if (!profile || profile.role !== 'admin') {
           setError('You do not have admin access');
           setIsAdmin(false);
+          setLoading(false);
           return;
         }
 
@@ -56,18 +61,19 @@ export function AdminDashboard() {
         console.error('Unexpected error checking admin status:', err);
         setError('An unexpected error occurred');
         setIsAdmin(false);
+        setLoading(false);
       }
     }
 
     checkAdmin();
   }, [session]);
 
+  if (loading) {
+    return <Loading type={LoadingType.PAGE} text="Loading admin dashboard..." />;
+  }
+
   if (isAdmin === null) {
-    return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500" />
-      </div>
-    );
+    return <Loading type={LoadingType.PAGE} text="Verifying admin access..." />;
   }
 
   if (!isAdmin) {

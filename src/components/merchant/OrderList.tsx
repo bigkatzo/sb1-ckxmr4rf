@@ -11,7 +11,8 @@ import {
   Loader2,
   Calendar,
   Download,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
@@ -20,6 +21,8 @@ import { OrderAnalytics } from './OrderAnalytics';
 import { toast } from 'react-toastify';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
+import { Loading, LoadingType } from '../ui/LoadingStates';
+import { Button } from '../ui/Button';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -55,6 +58,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const [endDate, setEndDate] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     if (!onStatusUpdate) return;
@@ -373,6 +377,20 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
     );
   };
 
+  const refreshOrders = async () => {
+    setIsRefreshing(true);
+    try {
+      // Implement the logic to refresh orders
+      // This is a placeholder and should be replaced with the actual implementation
+      console.log('Refreshing orders');
+    } catch (error) {
+      console.error('Error refreshing orders:', error);
+      toast.error('Failed to refresh orders');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header with Filters and Actions */}
@@ -445,21 +463,30 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
           )}
 
           {/* Export Button */}
-          <button
-            onClick={() => {
-              console.log('Export button clicked');
-              void exportToCSV();
-            }}
+          <Button
+            onClick={() => void exportToCSV()}
             disabled={isExporting || filteredOrders.length === 0}
-            className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded-md border border-gray-700 focus:ring-2 focus:ring-purple-500/40 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="secondary"
+            size="sm"
+            isLoading={isExporting}
+            className="flex items-center gap-2"
           >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-            <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
-          </button>
+            <Download className="h-4 w-4" />
+            Export to CSV
+          </Button>
+
+          {/* Refresh Button */}
+          <Button
+            onClick={() => void refreshOrders()}
+            disabled={isRefreshing}
+            variant="ghost"
+            size="sm"
+            isLoading={isRefreshing}
+            loadingText="Refreshing..."
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -501,10 +528,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                     <div className="shrink-0">
                       <div className="flex items-center gap-2">
                         {updatingOrderId === order.id ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs text-blue-400 bg-blue-500/10">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span>Updating...</span>
-                          </div>
+                          <Loading type={LoadingType.ACTION} className="absolute inset-0 flex items-center justify-center bg-gray-900/50" />
                         ) : (
                           renderStatusSelect(order)
                         )}
@@ -533,10 +557,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                     <div className="shrink-0">
                       <div className="flex items-center gap-2">
                         {updatingOrderId === order.id ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs text-blue-400 bg-blue-500/10">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span>Updating...</span>
-                          </div>
+                          <Loading type={LoadingType.ACTION} className="absolute inset-0 flex items-center justify-center bg-gray-900/50" />
                         ) : (
                           renderStatusSelect(order)
                         )}

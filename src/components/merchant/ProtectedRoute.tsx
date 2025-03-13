@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { Loading, LoadingType } from '../ui/LoadingStates';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -59,11 +60,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, [session]);
 
   if (authLoading || hasAccess === null) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500" />
-      </div>
-    );
+    return <Loading type={LoadingType.PAGE} text="Checking access..." />;
   }
 
   if (!session || !hasAccess) {

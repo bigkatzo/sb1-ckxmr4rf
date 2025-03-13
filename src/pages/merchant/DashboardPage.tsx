@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Tabs } from '../../components/ui/Tabs';
 import { Settings } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 
 // Lazy load tab components
 const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
@@ -13,8 +14,8 @@ const TransactionsTab = lazy(() => import('../../components/merchant/Transaction
 
 // Loading component for lazy-loaded tabs
 const TabLoader = () => (
-  <div className="flex items-center justify-center h-[400px]">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+  <div className="h-[400px]">
+    <Loading type={LoadingType.CONTENT} />
   </div>
 );
 
