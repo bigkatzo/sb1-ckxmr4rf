@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Navigate, useLocation } from 'react-router-dom';
 import { CategoryTabs } from '../components/collections/CategoryTabs';
 import { ProductGrid } from '../components/products/ProductGrid';
@@ -22,52 +22,33 @@ export function CollectionPage() {
   // Categories are already filtered by visibility in the public_categories view
   const categories = collection?.categories || [];
   const categoryIndices = collection ? createCategoryIndices(categories) : {};
-  
-  // Memoize valid category IDs for faster lookups
-  const validCategoryIds = useMemo(() => 
-    new Set(categories.map((cat: Category) => cat.id))
-  , [categories]);
 
   // Get selectedCategory from location state or use local state
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(() => {
-    const categoryToUse = location.state?.selectedCategoryId || 
+    // On initial load, try to get category from location state or sessionStorage
+    const savedCategory = location.state?.selectedCategoryId || 
       sessionStorage.getItem(`collection_${slug}_category`);
     
-    return categoryToUse && validCategoryIds.has(categoryToUse) ? categoryToUse : undefined;
+    return savedCategory || undefined;
   });
 
-  // Combined effect for category state management
+  // Store category selection in sessionStorage when it changes
   useEffect(() => {
-    if (!slug) return;
-
-    // Update from location state if available and valid
-    const categoryFromState = location.state?.selectedCategoryId;
-    if (categoryFromState && validCategoryIds.has(categoryFromState)) {
-      setSelectedCategory(categoryFromState);
-      sessionStorage.setItem(`collection_${slug}_category`, categoryFromState);
-      return;
+    if (slug && selectedCategory) {
+      sessionStorage.setItem(`collection_${slug}_category`, selectedCategory);
     }
+  }, [selectedCategory, slug]);
 
-    // Reset if current category becomes invalid
-    if (selectedCategory && !validCategoryIds.has(selectedCategory)) {
-      setSelectedCategory(undefined);
-      sessionStorage.removeItem(`collection_${slug}_category`);
-    }
-  }, [slug, location.state?.selectedCategoryId, selectedCategory, validCategoryIds]);
-  
   // Handle category change by updating state
   const handleCategoryChange = useCallback((categoryId: string) => {
-    if (!categoryId || validCategoryIds.has(categoryId)) {
-      setSelectedCategory(categoryId || undefined);
-      if (slug) {
-        if (categoryId) {
-          sessionStorage.setItem(`collection_${slug}_category`, categoryId);
-        } else {
-          sessionStorage.removeItem(`collection_${slug}_category`);
-        }
-      }
+    if (selectedCategory === categoryId) {
+      // Clicking the same category again deselects it
+      setSelectedCategory(undefined);
+      sessionStorage.removeItem(`collection_${slug}_category`);
+    } else {
+      setSelectedCategory(categoryId);
     }
-  }, [slug, validCategoryIds]);
+  }, [selectedCategory, slug]);
   
   // Handle initial load and scroll restoration
   useEffect(() => {

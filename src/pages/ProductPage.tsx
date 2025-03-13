@@ -31,17 +31,17 @@ export function ProductPage() {
   
   // Handle closing the product modal and returning to collection page
   const handleClose = () => {
-    // Get scroll position and category state from location state
+    // Get scroll position from location state
     const scrollPosition = location.state?.scrollPosition;
-    const storedCategoryId = location.state?.selectedCategoryId || 
-      sessionStorage.getItem(`collection_${collectionSlug}_category`);
     
-    // Navigate back to collection with all necessary state
+    // Keep the same category that was active when the product was opened
+    const activeCategory = location.state?.selectedCategoryId;
+    
+    // Navigate back to collection with state preservation
     navigate(`/${collectionSlug}`, { 
       replace: true,
       state: { 
-        selectedCategoryId: storedCategoryId,
-        categoryIndex: location.state?.categoryIndex,
+        selectedCategoryId: activeCategory,
         scrollPosition,
         returnedFromProduct: true
       }
