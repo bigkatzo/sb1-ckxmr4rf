@@ -34,7 +34,7 @@ export function ProductsTab() {
         toast.success('Product updated successfully');
       } else {
         data.append('collection', selectedCollection);
-        await createProduct(data);
+        await createProduct(selectedCollection, data);
         toast.success('Product created successfully');
       }
       setShowForm(false);
