@@ -10,7 +10,7 @@ const ProductPage = lazy(() => import('../pages/ProductPage').then(module => ({ 
 const SignInPage = lazy(() => import('../pages/merchant/SignInPage').then(module => ({ default: module.SignInPage })));
 const RegisterPage = lazy(() => import('../pages/merchant/RegisterPage').then(module => ({ default: module.RegisterPage })));
 const DashboardPage = lazy(() => import('../pages/merchant/DashboardPage').then(module => ({ default: module.DashboardPage })));
-const AdminDashboard = lazy(() => import('../pages/merchant/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
+const AdminDashboard = lazy(() => import('../pages/merchant/AdminDashboard'));
 const PrivacyPolicyPage = lazy(() => import('../pages/legal/PrivacyPolicyPage').then(module => ({ default: module.PrivacyPolicyPage })));
 const TermsPage = lazy(() => import('../pages/legal/TermsPage').then(module => ({ default: module.TermsPage })));
 const OrdersPage = lazy(() => import('../pages/OrdersPage').then(module => ({ default: module.OrdersPage })));

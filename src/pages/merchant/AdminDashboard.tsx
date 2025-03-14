@@ -14,7 +14,7 @@ const tabs = [
   { id: 'wallets', label: 'Wallets' }
 ];
 
-export function AdminDashboard() {
+function AdminDashboard() {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
@@ -25,20 +25,28 @@ export function AdminDashboard() {
   React.useEffect(() => {
     async function checkAdmin() {
       try {
+        console.log('Checking admin status...');
+        console.log('Session:', session);
+        
         // First verify we have a session
         if (!session?.user?.id) {
+          console.log('No session or user ID found');
           setError('Please sign in to access admin settings');
           setIsAdmin(false);
           setLoading(false);
           return;
         }
 
+        console.log('Fetching user profile for ID:', session.user.id);
         // Check if user has admin role
         const { data: profile, error: adminError } = await supabase
           .from('user_profiles')
           .select('role')
           .eq('id', session.user.id)
           .single();
+
+        console.log('Profile data:', profile);
+        console.log('Admin check error:', adminError);
 
         if (adminError) {
           console.error('Error checking admin status:', adminError);
@@ -49,18 +57,21 @@ export function AdminDashboard() {
         }
 
         if (!profile || profile.role !== 'admin') {
+          console.log('User is not an admin. Role:', profile?.role);
           setError('You do not have admin access');
           setIsAdmin(false);
           setLoading(false);
           return;
         }
 
+        console.log('User verified as admin');
         setIsAdmin(true);
         setError(null);
       } catch (err) {
         console.error('Unexpected error checking admin status:', err);
         setError('An unexpected error occurred');
         setIsAdmin(false);
+      } finally {
         setLoading(false);
       }
     }
@@ -111,3 +122,5 @@ export function AdminDashboard() {
     </div>
   );
 }
+
+export default AdminDashboard;
