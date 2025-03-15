@@ -1,6 +1,5 @@
 import React, { createContext, useContext } from 'react';
 import { cacheManager } from '../lib/cache';
-import type { Collection } from '../types/collections';
 
 interface CollectionContextType {
   invalidateCollection: (slug: string) => void;

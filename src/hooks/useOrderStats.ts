@@ -36,14 +36,14 @@ export function useOrderStats(productId: string) {
         
         // If stale, revalidate in background
         if (needsRevalidation && !isFetchingRef.current) {
-          revalidateOrderStats(attempt);
+          revalidateOrderStats();
         }
         
         return;
       }
 
       // No cache hit, fetch fresh data
-      await fetchFreshOrderStats(attempt);
+      await fetchFreshOrderStats();
     } catch (err) {
       console.error('Error fetching order stats:', err);
       
@@ -69,7 +69,7 @@ export function useOrderStats(productId: string) {
     }
   }, [productId]);
 
-  const fetchFreshOrderStats = useCallback(async (attempt = 0) => {
+  const fetchFreshOrderStats = useCallback(async () => {
     if (isFetchingRef.current) return;
     
     isFetchingRef.current = true;
@@ -112,13 +112,13 @@ export function useOrderStats(productId: string) {
     }
   }, [productId]);
 
-  const revalidateOrderStats = useCallback((attempt = 0) => {
+  const revalidateOrderStats = useCallback(() => {
     if (isFetchingRef.current) return;
     
     const cacheKey = `order_stats:${productId}`;
     cacheManager.markRevalidating(cacheKey);
     
-    fetchFreshOrderStats(attempt)
+    fetchFreshOrderStats()
       .catch(err => {
         console.error('Error revalidating order stats:', err);
       })

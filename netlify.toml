@@ -5,6 +5,19 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Service Worker - ensure correct MIME type
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Content-Type = "application/javascript; charset=utf-8"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Offline fallback page
+[[headers]]
+  for = "/offline.html"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
 # Asset handling
 [[headers]]
   for = "/*"
