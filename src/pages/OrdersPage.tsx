@@ -6,16 +6,20 @@ import type { OrderStatus } from '../types/orders';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
 import { OrderPageSkeleton } from '../components/ui/Skeletons';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
   const { orders, loading } = useOrders();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const prevWalletRef = useRef<string | null>(null);
   
   // Reset isInitialLoad when wallet address changes
   useEffect(() => {
-    setIsInitialLoad(true);
+    if (prevWalletRef.current !== walletAddress) {
+      setIsInitialLoad(true);
+      prevWalletRef.current = walletAddress;
+    }
   }, [walletAddress]);
   
   // Track initial vs subsequent loads
@@ -151,13 +155,8 @@ export function OrdersPage() {
     );
   }
 
-  // For initial load, let the router-level skeleton handle it
-  if (loading && isInitialLoad) {
-    return null;
-  }
-  
-  // For subsequent loads, show the skeleton within the component
-  if (loading && !isInitialLoad) {
+  // Always show skeleton during loading, regardless of initial or subsequent load
+  if (loading) {
     return <OrderPageSkeleton />;
   }
 

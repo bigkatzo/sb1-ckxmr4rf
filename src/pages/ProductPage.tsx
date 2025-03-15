@@ -3,7 +3,7 @@ import { useProduct } from '../hooks/useProduct';
 import { ProductModal } from '../components/products/ProductModal';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
 import { ProductModalSkeleton } from '../components/ui/Skeletons';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
@@ -12,10 +12,18 @@ export function ProductPage() {
   const { product, loading, error } = useProduct(collectionSlug, productSlug);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
-  // Reset isInitialLoad when route parameters change
+  // Keep track of the previous route to detect changes
+  const prevRouteRef = useRef<string>('');
+  const currentRoute = `${collectionSlug}/${productSlug}`;
+  
+  // Reset isInitialLoad when route parameters change or location changes
   useEffect(() => {
-    setIsInitialLoad(true);
-  }, [productSlug, collectionSlug]);
+    // Check if the route has actually changed
+    if (prevRouteRef.current !== currentRoute) {
+      setIsInitialLoad(true);
+      prevRouteRef.current = currentRoute;
+    }
+  }, [productSlug, collectionSlug, currentRoute, location.key]);
   
   // Track initial vs subsequent loads
   useEffect(() => {
@@ -28,13 +36,8 @@ export function ProductPage() {
   const categoryIndex = location.state?.categoryIndex ?? 
     (product ? createCategoryIndicesFromProducts([product])[product.categoryId] || 0 : 0);
 
-  // For initial load, let the router-level skeleton handle it
-  if (loading && !product && isInitialLoad) {
-    return null;
-  }
-  
-  // For subsequent loads, show the skeleton within the component
-  if (loading && !product && !isInitialLoad) {
+  // Always show skeleton during loading, regardless of initial or subsequent load
+  if (loading && !product) {
     return <ProductModalSkeleton />;
   }
 

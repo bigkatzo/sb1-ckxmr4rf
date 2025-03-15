@@ -16,13 +16,18 @@ export function CollectionPage() {
   const location = useLocation();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const pageRef = useRef<HTMLDivElement>(null);
+  const prevRouteRef = useRef<string>('');
   
   const { collection, loading, error } = useCollection(slug || '');
   
-  // Reset isInitialLoad when route parameters change
+  // Reset isInitialLoad when route parameters change or location changes
   useEffect(() => {
-    setIsInitialLoad(true);
-  }, [slug]);
+    // Check if the route has actually changed
+    if (prevRouteRef.current !== slug) {
+      setIsInitialLoad(true);
+      prevRouteRef.current = slug || '';
+    }
+  }, [slug, location.key]);
   
   // Categories are already filtered by visibility in the public_categories view
   const categories = collection?.categories || [];
@@ -84,16 +89,11 @@ export function CollectionPage() {
     return <CollectionNotFound error={error || undefined} />;
   }
 
-  // For initial load, let the router-level skeleton handle it
-  if (loading && !collection && isInitialLoad) {
-    return null;
-  }
-  
-  // For subsequent loads, show the skeleton within the component
-  if (loading && !collection && !isInitialLoad) {
+  // Always show skeleton during loading, regardless of initial or subsequent load
+  if (loading && !collection) {
     return <CollectionSkeleton />;
   }
-
+  
   // At this point we either have collection data or we're in a subsequent loading state
   const isUpcoming = collection?.launchDate ? collection.launchDate > new Date() : false;
   const isNew = collection?.launchDate && !isUpcoming 
