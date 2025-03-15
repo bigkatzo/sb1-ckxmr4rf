@@ -12,6 +12,11 @@ export function ProductPage() {
   const { product, loading, error } = useProduct(collectionSlug, productSlug);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
+  // Reset isInitialLoad when route parameters change
+  useEffect(() => {
+    setIsInitialLoad(true);
+  }, [productSlug, collectionSlug]);
+  
   // Track initial vs subsequent loads
   useEffect(() => {
     if (!loading && isInitialLoad) {

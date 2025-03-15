@@ -19,6 +19,11 @@ export function CollectionPage() {
   
   const { collection, loading, error } = useCollection(slug || '');
   
+  // Reset isInitialLoad when route parameters change
+  useEffect(() => {
+    setIsInitialLoad(true);
+  }, [slug]);
+  
   // Categories are already filtered by visibility in the public_categories view
   const categories = collection?.categories || [];
   

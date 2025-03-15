@@ -13,6 +13,11 @@ export function OrdersPage() {
   const { orders, loading } = useOrders();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
+  // Reset isInitialLoad when wallet address changes
+  useEffect(() => {
+    setIsInitialLoad(true);
+  }, [walletAddress]);
+  
   // Track initial vs subsequent loads
   useEffect(() => {
     if (!loading && isInitialLoad) {
