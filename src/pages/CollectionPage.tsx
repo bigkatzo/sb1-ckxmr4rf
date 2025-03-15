@@ -23,7 +23,10 @@ export function CollectionPage() {
   const categories = collection?.categories || [];
   
   // Get selected category from URL or state
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>(
+    // Initialize with the selectedCategoryId from location state if available
+    location.state?.selectedCategoryId || ''
+  );
   
   // Create category indices for consistent colors
   const categoryIndices = createCategoryIndices(categories);
@@ -52,8 +55,20 @@ export function CollectionPage() {
           });
         }, 100);
       }
+      
+      // Set selected category from location state if available
+      if (location.state?.selectedCategoryId) {
+        setSelectedCategory(location.state.selectedCategoryId);
+      }
     }
   }, [loading, isInitialLoad, location.state]);
+  
+  // Update selectedCategory when location state changes
+  useEffect(() => {
+    if (location.state?.selectedCategoryId) {
+      setSelectedCategory(location.state.selectedCategoryId);
+    }
+  }, [location.state?.selectedCategoryId]);
   
   if (!slug) {
     return <Navigate to="/" replace />;

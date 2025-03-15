@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ProductCard } from './ProductCard';
 import { ProductGridSkeleton } from '../ui/Skeletons';
 import { isValidProductNavigation } from '../../utils/validation';
-import type { Product } from '../../types';
+import type { Product } from '../../types/variants';
 
 interface ProductGridProps {
   products: Product[];
