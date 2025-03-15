@@ -3,7 +3,7 @@ import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
-import type { Product } from '../../types';
+import type { Product } from '../../types/variants';
 import { useState } from 'react';
 
 interface ProductCardProps {
