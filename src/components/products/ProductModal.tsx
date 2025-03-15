@@ -130,7 +130,8 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isAnimating.current) return;
     
-    setTouchStart(e.targetTouches[0].clientX);
+    const touch = e.targetTouches[0];
+    setTouchStart(touch.clientX);
     setTouchEnd(null);
     setIsDragging(true);
     setDragOffset(0);
@@ -141,24 +142,22 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStart || !isDragging) return;
     
-    const currentTouch = e.targetTouches[0];
-    const touchDeltaX = currentTouch.clientX - touchStart;
-    const touchDeltaY = currentTouch.clientY - (e.target as HTMLElement).getBoundingClientRect().top;
+    const touch = e.targetTouches[0];
+    const touchDeltaX = touch.clientX - touchStart;
     
-    // Only prevent default if the horizontal movement is greater than vertical movement
-    // This allows vertical scrolling when the user is primarily scrolling up/down
-    if (Math.abs(touchDeltaX) > Math.abs(touchDeltaY)) {
+    // Add resistance at the edges
+    if ((selectedImageIndex === 0 && touchDeltaX > 0) || 
+        (selectedImageIndex === images.length - 1 && touchDeltaX < 0)) {
+      setDragOffset(touchDeltaX * 0.3); // Apply resistance
+    } else {
+      setDragOffset(touchDeltaX);
+    }
+    
+    setTouchEnd(touch.clientX);
+    
+    // Only prevent default for horizontal swipes
+    if (Math.abs(touchDeltaX) > 10) {
       e.preventDefault();
-      
-      // Add resistance at the edges
-      if ((selectedImageIndex === 0 && touchDeltaX > 0) || 
-          (selectedImageIndex === images.length - 1 && touchDeltaX < 0)) {
-        setDragOffset(touchDeltaX * 0.3); // Apply resistance
-      } else {
-        setDragOffset(touchDeltaX);
-      }
-      
-      setTouchEnd(currentTouch.clientX);
     }
   };
 
@@ -397,8 +396,12 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
               {/* Image container - consistent for both single and multiple images */}
               <div 
-                className="absolute inset-0 touch-pan-x select-none image-container"
+                className="absolute inset-0 select-none image-container"
                 onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
               >
                 <div
                   className={`h-full flex ${images.length > 1 ? 'will-change-transform transform-gpu' : 'justify-center items-center'}`}
