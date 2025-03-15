@@ -9,12 +9,13 @@ export function FeaturedCollection() {
   const { collections, loading } = useFeaturedCollections();
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [dragStartTime, setDragStartTime] = useState(0);
   const [dragVelocity, setDragVelocity] = useState(0);
+  const [scrollDirection, setScrollDirection] = useState<'horizontal' | 'vertical' | null>(null);
   const autoScrollTimer = useRef<NodeJS.Timeout>();
   const sliderRef = useRef<HTMLDivElement>(null);
   const mouseDownPos = useRef<number | null>(null);
@@ -24,6 +25,8 @@ export function FeaturedCollection() {
   const minSwipeDistance = 50;
   // Velocity threshold for momentum scrolling (pixels per millisecond)
   const velocityThreshold = 0.5;
+  // Angle threshold for determining vertical vs horizontal movement (in degrees)
+  const angleThreshold = 30;
 
   // Reset auto-scroll timer
   const resetAutoScroll = useCallback(() => {
@@ -44,11 +47,13 @@ export function FeaturedCollection() {
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isAnimating.current) return;
     
-    setTouchStart(e.targetTouches[0].clientX);
+    const touch = e.targetTouches[0];
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
     setTouchEnd(null);
     setIsDragging(true);
     setDragOffset(0);
     setDragStartTime(Date.now());
+    setScrollDirection(null);
     isAnimating.current = false;
   };
 
@@ -56,18 +61,31 @@ export function FeaturedCollection() {
     if (!touchStart || !isDragging) return;
     
     const touch = e.targetTouches[0];
-    const touchDeltaX = touch.clientX - touchStart;
+    const touchDeltaX = touch.clientX - touchStart.x;
+    const touchDeltaY = touch.clientY - touchStart.y;
     
-    // Only prevent default for significant horizontal movement (20px threshold)
-    if (Math.abs(touchDeltaX) > 20) {
+    // Calculate angle of movement
+    const angle = Math.abs(Math.atan2(touchDeltaY, touchDeltaX) * 180 / Math.PI);
+    
+    // Determine scroll direction if not already set
+    if (!scrollDirection) {
+      if (angle > 90 - angleThreshold && angle < 90 + angleThreshold) {
+        setScrollDirection('vertical');
+      } else {
+        setScrollDirection('horizontal');
+      }
+    }
+    
+    // Only handle horizontal scrolling if that's the determined direction
+    if (scrollDirection === 'horizontal') {
       e.preventDefault();
       
-      // Add resistance at the edges
+      // Add resistance at the edges with smoother transition
       if ((currentIndex === 0 && touchDeltaX > 0) || 
           (currentIndex === collections.length - 1 && touchDeltaX < 0)) {
-        setDragOffset(touchDeltaX * 0.3); // Apply resistance
+        setDragOffset(touchDeltaX * 0.2); // Reduced resistance for smoother feel
       } else {
-        setDragOffset(touchDeltaX);
+        setDragOffset(touchDeltaX * 0.8); // Add slight resistance for smoother movement
       }
       
       setTouchEnd(touch.clientX);
@@ -77,8 +95,7 @@ export function FeaturedCollection() {
   const handleTouchEnd = useCallback(() => {
     if (!touchStart || !touchEnd || !isDragging) return;
 
-    // Invert the distance calculation to match the natural swipe direction
-    const distance = touchEnd - touchStart;
+    const distance = touchEnd - touchStart.x;
     const isLeftSwipe = distance < -minSwipeDistance;
     const isRightSwipe = distance > minSwipeDistance;
     
@@ -90,22 +107,23 @@ export function FeaturedCollection() {
     
     isAnimating.current = true;
     
-    if (isLeftSwipe || (velocity > velocityThreshold && distance < 0)) {
+    if (scrollDirection === 'horizontal' && (isLeftSwipe || (velocity > velocityThreshold && distance < 0))) {
       nextSlide();
-    } else if (isRightSwipe || (velocity > velocityThreshold && distance > 0)) {
+    } else if (scrollDirection === 'horizontal' && (isRightSwipe || (velocity > velocityThreshold && distance > 0))) {
       prevSlide();
     } else {
-      // Snap back to current slide if swipe wasn't strong enough
+      // Snap back to current slide with smooth transition
       setDragOffset(0);
       setTimeout(() => {
         isAnimating.current = false;
-      }, 50); // Reduced to 50ms for very fast response
+      }, 50);
     }
 
     setTouchStart(null);
     setTouchEnd(null);
     setIsDragging(false);
-  }, [touchStart, touchEnd, dragStartTime, isDragging, collections.length]);
+    setScrollDirection(null);
+  }, [touchStart, touchEnd, dragStartTime, isDragging, collections.length, scrollDirection]);
 
   // Mouse drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {

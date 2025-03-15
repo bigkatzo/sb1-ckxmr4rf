@@ -80,18 +80,21 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const modalRef = useRef<HTMLDivElement>(null);
   const images = product.images?.length ? product.images : [product.imageUrl];
-  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [dragStartTime, setDragStartTime] = useState(0);
   const [dragVelocity, setDragVelocity] = useState(0);
+  const [scrollDirection, setScrollDirection] = useState<'horizontal' | 'vertical' | null>(null);
   const isAnimating = useRef(false);
   
   // Required minimum swipe distance in pixels
   const minSwipeDistance = 50;
   // Velocity threshold for momentum scrolling (pixels per millisecond)
   const velocityThreshold = 0.5;
+  // Angle threshold for determining vertical vs horizontal movement (in degrees)
+  const angleThreshold = 30;
   
   // Safe check for variants
   const hasVariants = !!product.variants && product.variants.length > 0;
@@ -131,11 +134,12 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     if (isAnimating.current) return;
     
     const touch = e.targetTouches[0];
-    setTouchStart(touch.clientX);
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
     setTouchEnd(null);
     setIsDragging(true);
     setDragOffset(0);
     setDragStartTime(Date.now());
+    setScrollDirection(null);
     isAnimating.current = false;
   };
 
@@ -143,18 +147,31 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     if (!touchStart || !isDragging) return;
     
     const touch = e.targetTouches[0];
-    const touchDeltaX = touch.clientX - touchStart;
+    const touchDeltaX = touch.clientX - touchStart.x;
+    const touchDeltaY = touch.clientY - touchStart.y;
     
-    // Only prevent default for significant horizontal movement (20px threshold)
-    if (Math.abs(touchDeltaX) > 20) {
+    // Calculate angle of movement
+    const angle = Math.abs(Math.atan2(touchDeltaY, touchDeltaX) * 180 / Math.PI);
+    
+    // Determine scroll direction if not already set
+    if (!scrollDirection) {
+      if (angle > 90 - angleThreshold && angle < 90 + angleThreshold) {
+        setScrollDirection('vertical');
+      } else {
+        setScrollDirection('horizontal');
+      }
+    }
+    
+    // Only handle horizontal scrolling if that's the determined direction
+    if (scrollDirection === 'horizontal') {
       e.preventDefault();
       
-      // Add resistance at the edges
+      // Add resistance at the edges with smoother transition
       if ((selectedImageIndex === 0 && touchDeltaX > 0) || 
           (selectedImageIndex === images.length - 1 && touchDeltaX < 0)) {
-        setDragOffset(touchDeltaX * 0.3); // Apply resistance
+        setDragOffset(touchDeltaX * 0.2); // Reduced resistance for smoother feel
       } else {
-        setDragOffset(touchDeltaX);
+        setDragOffset(touchDeltaX * 0.8); // Add slight resistance for smoother movement
       }
       
       setTouchEnd(touch.clientX);
@@ -164,7 +181,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const handleTouchEnd = useCallback(() => {
     if (!touchStart || !touchEnd || !isDragging) return;
 
-    const distance = touchEnd - touchStart;
+    const distance = touchEnd - touchStart.x;
     const isLeftSwipe = distance < -minSwipeDistance;
     const isRightSwipe = distance > minSwipeDistance;
     
@@ -176,12 +193,12 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     
     isAnimating.current = true;
     
-    if (isLeftSwipe || (velocity > velocityThreshold && distance < 0)) {
+    if (scrollDirection === 'horizontal' && (isLeftSwipe || (velocity > velocityThreshold && distance < 0))) {
       nextImage();
-    } else if (isRightSwipe || (velocity > velocityThreshold && distance > 0)) {
+    } else if (scrollDirection === 'horizontal' && (isRightSwipe || (velocity > velocityThreshold && distance > 0))) {
       prevImage();
     } else {
-      // Snap back to current slide if swipe wasn't strong enough
+      // Snap back to current slide with smooth transition
       setDragOffset(0);
       setTimeout(() => {
         isAnimating.current = false;
@@ -191,13 +208,14 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     setTouchStart(null);
     setTouchEnd(null);
     setIsDragging(false);
-  }, [touchStart, touchEnd, dragStartTime, isDragging, images.length]);
+    setScrollDirection(null);
+  }, [touchStart, touchEnd, dragStartTime, isDragging, images.length, scrollDirection]);
 
   // Mouse drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isAnimating.current) return;
     
-    setTouchStart(e.clientX);
+    setTouchStart({ x: e.clientX, y: e.clientY });
     setTouchEnd(null);
     setIsDragging(true);
     setDragOffset(0);
@@ -218,7 +236,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     // Prevent default to ensure smooth dragging
     e.preventDefault();
     
-    const diff = e.clientX - touchStart;
+    const diff = e.clientX - touchStart.x;
     
     // Add resistance at the edges
     if ((selectedImageIndex === 0 && diff > 0) || 
@@ -232,7 +250,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (!touchStart || !isDragging) return;
     
-    const distance = e.clientX - touchStart;
+    const distance = e.clientX - touchStart.x;
     const isLeftSwipe = distance < -minSwipeDistance;
     const isRightSwipe = distance > minSwipeDistance;
     
