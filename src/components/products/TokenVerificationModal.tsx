@@ -74,8 +74,12 @@ export function TokenVerificationModal({
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
 
   // Calculate final price including variants and modifications
-  const variantPrice = product.variantPrices?.[Object.values(selectedOptions).join(':')] || 0;
-  const finalPrice = variantPrice > 0 ? variantPrice : modifiedPrice;
+  const variantKey = Object.values(selectedOptions).join(':');
+  const hasVariantPrice = 
+    Object.keys(selectedOptions).length > 0 && 
+    product.variantPrices && 
+    variantKey in product.variantPrices;
+  const finalPrice = hasVariantPrice ? product.variantPrices![variantKey] : modifiedPrice;
 
   // Initialize shipping info from localStorage if available
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo>(() => {

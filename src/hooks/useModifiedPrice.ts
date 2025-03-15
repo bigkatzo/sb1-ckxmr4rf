@@ -22,12 +22,16 @@ export function useModifiedPrice({ product, selectedOptions = {} }: UseModifiedP
   const result = useMemo(() => {
     // Get variant price if available
     const variantKey = Object.values(selectedOptions).join(':');
-    const variantPrice = selectedOptions && Object.keys(selectedOptions).length > 0 && product.variantPrices?.[variantKey] 
-      ? product.variantPrices[variantKey] 
-      : 0;
     
-    // Use variant price if available, otherwise use base price
-    const basePrice = variantPrice > 0 ? variantPrice : product.price;
+    // Check if we have valid selected options and if the variant price exists
+    const hasVariantPrice = 
+      selectedOptions && 
+      Object.keys(selectedOptions).length > 0 && 
+      product.variantPrices && 
+      variantKey in product.variantPrices;
+    
+    // Use variant price if it exists, otherwise use base price
+    const basePrice = hasVariantPrice ? product.variantPrices![variantKey] : product.price;
     
     const modifiedPrice = calculateModifiedPrice({
       basePrice,
