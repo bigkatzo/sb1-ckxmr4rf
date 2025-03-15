@@ -21,8 +21,12 @@ export default defineConfig({
     target: 'esnext',
     minify: 'esbuild',
     chunkSizeWarningLimit: 1000,
+    assetsDir: 'assets',
     rollupOptions: {
       output: {
+        assetFileNames: 'assets/[name]-[hash][extname]',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
         manualChunks: {
           // Core React dependencies
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
