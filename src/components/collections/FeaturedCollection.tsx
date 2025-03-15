@@ -55,22 +55,23 @@ export function FeaturedCollection() {
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStart || !isDragging) return;
     
-    // Prevent default to avoid page scrolling during swipe
-    e.preventDefault();
+    const touch = e.targetTouches[0];
+    const touchDeltaX = touch.clientX - touchStart;
     
-    const currentTouch = e.targetTouches[0].clientX;
-    // Invert the diff calculation to match the natural swipe direction
-    const diff = currentTouch - touchStart;
-    
-    // Add resistance at the edges (with inverted logic)
-    if ((currentIndex === 0 && diff > 0) || 
-        (currentIndex === collections.length - 1 && diff < 0)) {
-      setDragOffset(diff * 0.3); // Apply resistance
-    } else {
-      setDragOffset(diff);
+    // Only prevent default for significant horizontal movement
+    if (Math.abs(touchDeltaX) > 10) {
+      e.preventDefault();
+      
+      // Add resistance at the edges
+      if ((currentIndex === 0 && touchDeltaX > 0) || 
+          (currentIndex === collections.length - 1 && touchDeltaX < 0)) {
+        setDragOffset(touchDeltaX * 0.3); // Apply resistance
+      } else {
+        setDragOffset(touchDeltaX);
+      }
+      
+      setTouchEnd(touch.clientX);
     }
-    
-    setTouchEnd(currentTouch);
   };
 
   const handleTouchEnd = useCallback(() => {
@@ -288,7 +289,7 @@ export function FeaturedCollection() {
     <div className="space-y-2">
       <div 
         ref={sliderRef}
-        className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing touch-none select-none"
+        className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing select-none"
         onMouseDown={handleMouseDown}
       >
         <div 
