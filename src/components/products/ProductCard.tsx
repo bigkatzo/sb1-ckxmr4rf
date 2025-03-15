@@ -1,10 +1,10 @@
-import { Image as ImageIcon } from 'lucide-react';
+import { useState } from 'react';
+import { ImageIcon } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import type { Product } from '../../types/variants';
-import { useState } from 'react';
 
 interface ProductCardProps {
   product: Product;
@@ -15,7 +15,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport }: ProductCardProps) {
   const [imageLoading, setImageLoading] = useState(true);
-  const { modifiedPrice } = useModifiedPrice(product);
+  const { modifiedPrice } = useModifiedPrice({ product });
 
   const handleClick = () => {
     if (onClick) {

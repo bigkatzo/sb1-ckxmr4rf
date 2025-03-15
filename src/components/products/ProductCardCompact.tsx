@@ -1,11 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Image as ImageIcon } from 'lucide-react';
+import { ImageIcon } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
-import type { Product } from '../../types';
+import type { Product } from '../../types/variants';
 
 interface ProductCardCompactProps {
   product: Product;
@@ -21,7 +21,7 @@ export function ProductCardCompact({
   showCategory = false
 }: ProductCardCompactProps) {
   const navigate = useNavigate();
-  const { modifiedPrice } = useModifiedPrice(product);
+  const { modifiedPrice } = useModifiedPrice({ product });
 
   const handleCollectionClick = (e: React.MouseEvent) => {
     e.stopPropagation();

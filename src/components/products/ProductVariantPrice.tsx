@@ -8,12 +8,8 @@ interface ProductVariantPriceProps {
 }
 
 export function ProductVariantPrice({ product, selectedOptions }: ProductVariantPriceProps) {
-  const { modifiedPrice, loading: priceLoading } = useModifiedPrice(product);
+  const { modifiedPrice, loading: priceLoading } = useModifiedPrice({ product, selectedOptions });
   const { currentOrders, loading: ordersLoading } = useOrderStats(product.id);
-
-  // Calculate variant price if applicable
-  const variantPrice = product.variantPrices?.[Object.values(selectedOptions).join(':')] || 0;
-  const finalPrice = variantPrice > 0 ? variantPrice : modifiedPrice;
 
   // Calculate stock availability and status
   const isUnlimited = product.stock === null;
@@ -26,7 +22,7 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className="text-2xl font-bold text-white">
-          {finalPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
+          {modifiedPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
         </span>
         {priceLoading && (
           <span className="text-sm text-gray-500 animate-pulse">

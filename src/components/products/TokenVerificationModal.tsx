@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
 import { verifyWhitelistAccess } from '../../utils/whitelist-verification';
@@ -7,7 +7,8 @@ import { usePayment } from '../../hooks/usePayment';
 import { createOrder } from '../../services/orders';
 import { toast } from 'react-toastify';
 import { toastService } from '../../services/toast';
-import type { Product, CategoryRule } from '../../types/index';
+import type { Product } from '../../types/variants';
+import type { CategoryRule } from '../../types';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 
@@ -69,7 +70,7 @@ export function TokenVerificationModal({
   const { processPayment } = usePayment();
   const [verifying, setVerifying] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const { modifiedPrice } = useModifiedPrice(product);
+  const { modifiedPrice } = useModifiedPrice({ product, selectedOptions });
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
 
   // Calculate final price including variants and modifications
@@ -261,12 +262,9 @@ export function TokenVerificationModal({
                 </>
               ) : (
                 <>
-                  <AlertCircle className="h-5 w-5 text-red-400" />
+                  <AlertTriangle className="h-5 w-5 text-yellow-400" />
                   <div className="flex-1">
-                    <p className="text-red-400">Not eligible</p>
-                    {verificationResult?.error && (
-                      <p className="text-sm text-gray-300 mt-1">{verificationResult.error}</p>
-                    )}
+                    <p className="text-yellow-400">Verification in progress</p>
                   </div>
                 </>
               )}
