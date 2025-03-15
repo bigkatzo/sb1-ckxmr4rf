@@ -79,9 +79,14 @@ export function CollectionPage() {
     return <CollectionNotFound error={error || undefined} />;
   }
 
-  // If still loading and we have no collection data yet, let the router-level skeleton handle it
-  if (loading && !collection) {
+  // For initial load, let the router-level skeleton handle it
+  if (loading && !collection && isInitialLoad) {
     return null;
+  }
+  
+  // For subsequent loads, show the skeleton within the component
+  if (loading && !collection && !isInitialLoad) {
+    return <CollectionSkeleton />;
   }
 
   // At this point we either have collection data or we're in a subsequent loading state

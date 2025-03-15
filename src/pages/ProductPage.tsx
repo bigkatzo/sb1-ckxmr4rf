@@ -2,20 +2,35 @@ import { useParams, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct';
 import { ProductModal } from '../components/products/ProductModal';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
+import { ProductModalSkeleton } from '../components/ui/Skeletons';
+import { useEffect, useState } from 'react';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const { product, loading, error } = useProduct(collectionSlug, productSlug);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Track initial vs subsequent loads
+  useEffect(() => {
+    if (!loading && isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  }, [loading, isInitialLoad]);
   
   // Get category index from location state or calculate it
   const categoryIndex = location.state?.categoryIndex ?? 
     (product ? createCategoryIndicesFromProducts([product])[product.categoryId] || 0 : 0);
 
-  // If still loading, let the router-level skeleton handle it
-  if (loading && !product) {
+  // For initial load, let the router-level skeleton handle it
+  if (loading && !product && isInitialLoad) {
     return null;
+  }
+  
+  // For subsequent loads, show the skeleton within the component
+  if (loading && !product && !isInitialLoad) {
+    return <ProductModalSkeleton />;
   }
 
   // Only redirect if we're not loading and there's an error or no product

@@ -5,11 +5,20 @@ import { formatDistanceToNow } from 'date-fns';
 import type { OrderStatus } from '../types/orders';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
+import { OrderPageSkeleton } from '../components/ui/Skeletons';
+import { useEffect, useState } from 'react';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
-  // We fetch orders and loading state, but loading is handled at the router level with skeletons
   const { orders, loading } = useOrders();
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Track initial vs subsequent loads
+  useEffect(() => {
+    if (!loading && isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  }, [loading, isInitialLoad]);
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
@@ -137,9 +146,14 @@ export function OrdersPage() {
     );
   }
 
-  // If still loading, let the router-level skeleton handle it
-  if (loading) {
+  // For initial load, let the router-level skeleton handle it
+  if (loading && isInitialLoad) {
     return null;
+  }
+  
+  // For subsequent loads, show the skeleton within the component
+  if (loading && !isInitialLoad) {
+    return <OrderPageSkeleton />;
   }
 
   return (

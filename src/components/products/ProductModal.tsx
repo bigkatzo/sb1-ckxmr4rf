@@ -78,6 +78,11 @@ function ProductBuyButton({
 }
 
 export function ProductModal({ product, onClose, categoryIndex, loading = false }: ProductModalProps) {
+  // If loading, show skeleton
+  if (loading) {
+    return <ProductModalSkeleton />;
+  }
+  
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const modalRef = useRef<HTMLDivElement>(null);
@@ -100,11 +105,6 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   
   // Safe check for variants
   const hasVariants = !!product.variants && product.variants.length > 0;
-
-  // If loading, show skeleton
-  if (loading) {
-    return <ProductModalSkeleton />;
-  }
 
   useEffect(() => {
     // Remove the body scroll lock since we want to allow scrolling
