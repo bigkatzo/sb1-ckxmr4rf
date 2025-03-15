@@ -1,21 +1,23 @@
-import React, { createContext, useContext, useState } from 'react';
-import type { Collection } from '../types';
+import React, { createContext, useContext } from 'react';
+import { cacheManager } from '../lib/cache';
+import type { Collection } from '../types/collections';
 
 interface CollectionContextType {
-  cachedCollection: Collection | null;
-  setCachedCollection: (collection: Collection | null) => void;
+  invalidateCollection: (slug: string) => void;
 }
 
 const CollectionContext = createContext<CollectionContextType>({
-  cachedCollection: null,
-  setCachedCollection: () => {},
+  invalidateCollection: () => {},
 });
 
 export function CollectionProvider({ children }: { children: React.ReactNode }) {
-  const [cachedCollection, setCachedCollection] = useState<Collection | null>(null);
+  // Function to invalidate a collection in the cache
+  const invalidateCollection = (slug: string) => {
+    cacheManager.invalidate(`collection:${slug}`);
+  };
 
   return (
-    <CollectionContext.Provider value={{ cachedCollection, setCachedCollection }}>
+    <CollectionContext.Provider value={{ invalidateCollection }}>
       {children}
     </CollectionContext.Provider>
   );

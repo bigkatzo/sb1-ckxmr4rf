@@ -1,35 +1,93 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleCollectionError } from '../utils/error-handlers';
 import { isValidCollectionSlug } from '../utils/validation';
-import { useCollectionCache } from '../contexts/CollectionContext';
-import type { Collection } from '../types';
+import type { Collection } from '../types/collections';
 import { normalizeStorageUrl } from '../lib/storage';
+import { cacheManager } from '../lib/cache';
+
+// Cache durations in milliseconds
+const COLLECTION_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const COLLECTION_STALE_TIME = 30 * 60 * 1000; // 30 minutes
 
 export function useCollection(slug: string) {
   const [collection, setCollection] = useState<Collection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { cachedCollection, setCachedCollection } = useCollectionCache();
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
+    let isMounted = true;
+    
     async function fetchCollection() {
       if (!slug || !isValidCollectionSlug(slug)) {
-        setError('Invalid collection URL');
-        setLoading(false);
+        if (isMounted) {
+          setError('Invalid collection URL');
+          setLoading(false);
+        }
         return;
       }
 
-      // Use cached collection if available and matches current slug
-      if (cachedCollection && cachedCollection.slug === slug) {
-        setCollection(cachedCollection);
-        setLoading(false);
+      const cacheKey = `collection:${slug}`;
+      const { value: cachedCollection, needsRevalidation } = cacheManager.get<Collection>(cacheKey);
+      
+      // Use cached data if available
+      if (cachedCollection) {
+        if (isMounted) {
+          setCollection(cachedCollection);
+          setLoading(false);
+        }
+        
+        // If stale, revalidate in background
+        if (needsRevalidation && !isFetchingRef.current) {
+          revalidateCollection(cacheKey);
+        }
+        
         return;
       }
-
-      try {
+      
+      // No cache hit, fetch fresh data
+      if (isMounted) {
         setLoading(true);
-        setError(null);
+      }
+      
+      try {
+        await fetchFreshCollection(cacheKey);
+      } catch (err) {
+        console.error('Error fetching collection:', err);
+        if (isMounted) {
+          setError(handleCollectionError(err));
+          setCollection(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+    
+    async function revalidateCollection(cacheKey: string) {
+      if (isFetchingRef.current) return;
+      
+      isFetchingRef.current = true;
+      cacheManager.markRevalidating(cacheKey);
+      
+      try {
+        await fetchFreshCollection(cacheKey, false);
+      } catch (err) {
+        console.error('Error revalidating collection:', err);
+      } finally {
+        isFetchingRef.current = false;
+        cacheManager.unmarkRevalidating(cacheKey);
+      }
+    }
+    
+    async function fetchFreshCollection(cacheKey: string, updateLoadingState = true) {
+      try {
+        if (updateLoadingState && isMounted) {
+          setLoading(true);
+          setError(null);
+        }
 
         // Fetch collection from public view
         const { data: collectionData, error: collectionError } = await supabase
@@ -60,12 +118,18 @@ export function useCollection(slug: string) {
           id: collectionData.id,
           name: collectionData.name,
           description: collectionData.description,
+          image_url: collectionData.image_url || '',
           imageUrl: collectionData.image_url ? normalizeStorageUrl(collectionData.image_url) : '',
+          launch_date: collectionData.launch_date,
           launchDate: new Date(collectionData.launch_date),
           featured: collectionData.featured,
           visible: collectionData.visible,
+          sale_ended: collectionData.sale_ended,
           saleEnded: collectionData.sale_ended,
           slug: collectionData.slug,
+          user_id: collectionData.user_id || '',
+          isOwner: false,
+          owner_username: null,
           categories: (categoriesResponse.data || []).map(category => ({
             id: category.id,
             name: category.name,
@@ -111,20 +175,33 @@ export function useCollection(slug: string) {
           accessType: null // Public collections don't have access type
         };
 
-        setCollection(transformedCollection);
-        setCachedCollection(transformedCollection);
-        setError(null);
+        // Cache the collection with TTL and stale time
+        cacheManager.set(cacheKey, transformedCollection, COLLECTION_CACHE_TTL, COLLECTION_STALE_TIME);
+
+        if (isMounted) {
+          setCollection(transformedCollection);
+          setError(null);
+          if (updateLoadingState) {
+            setLoading(false);
+          }
+        }
       } catch (err) {
         console.error('Error fetching collection:', err);
-        setError(handleCollectionError(err));
-        setCollection(null);
-      } finally {
-        setLoading(false);
+        if (isMounted && updateLoadingState) {
+          setError(handleCollectionError(err));
+          setCollection(null);
+          setLoading(false);
+        }
+        throw err;
       }
     }
 
     fetchCollection();
-  }, [slug, cachedCollection, setCachedCollection]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [slug]);
 
   return { collection, loading, error };
 }

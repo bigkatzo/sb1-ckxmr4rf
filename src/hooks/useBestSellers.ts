@@ -1,9 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
-import type { Product } from '../types';
+import { cacheManager } from '../lib/cache';
+import type { Product } from '../types/index';
+
+// Cache durations in milliseconds
+const BESTSELLERS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const BESTSELLERS_STALE_TIME = 20 * 60 * 1000; // 20 minutes
 
 interface PublicProduct {
   id: string;
@@ -37,13 +42,77 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
   const [categoryIndices, setCategoryIndices] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
 
     async function fetchBestSellers() {
-      try {
+      const cacheKey = `bestsellers:${limit}:${sortBy}`;
+      const { value: cachedData, needsRevalidation } = cacheManager.get<{
+        products: Product[];
+        categoryIndices: Record<string, number>;
+      }>(cacheKey);
+      
+      // Use cached data if available
+      if (cachedData) {
+        if (isMounted) {
+          setProducts(cachedData.products);
+          setCategoryIndices(cachedData.categoryIndices);
+          setLoading(false);
+        }
+        
+        // If stale, revalidate in background
+        if (needsRevalidation && !isFetchingRef.current) {
+          revalidateBestSellers(cacheKey);
+        }
+        
+        return;
+      }
+      
+      // No cache hit, fetch fresh data
+      if (isMounted) {
         setLoading(true);
+      }
+      
+      try {
+        await fetchFreshBestSellers(cacheKey);
+      } catch (err) {
+        console.error('Error fetching best sellers:', err);
+        if (isMounted) {
+          setError(handleError(err));
+          setProducts([]);
+          setCategoryIndices({});
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+    
+    async function revalidateBestSellers(cacheKey: string) {
+      if (isFetchingRef.current) return;
+      
+      isFetchingRef.current = true;
+      cacheManager.markRevalidating(cacheKey);
+      
+      try {
+        await fetchFreshBestSellers(cacheKey, false);
+      } catch (err) {
+        console.error('Error revalidating best sellers:', err);
+      } finally {
+        isFetchingRef.current = false;
+        cacheManager.unmarkRevalidating(cacheKey);
+      }
+    }
+    
+    async function fetchFreshBestSellers(cacheKey: string, updateLoadingState = true) {
+      try {
+        if (updateLoadingState && isMounted) {
+          setLoading(true);
+        }
+        
         const { data, error } = await supabase
           .rpc('get_best_sellers', { 
             p_limit: limit,
@@ -90,23 +159,31 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
           console.warn('Sales count not provided by backend, sorting may not be accurate');
         }
 
+        const indices = createCategoryIndicesFromProducts(transformedProducts);
+        
+        // Cache the results
+        cacheManager.set(cacheKey, {
+          products: transformedProducts,
+          categoryIndices: indices
+        }, BESTSELLERS_CACHE_TTL, BESTSELLERS_STALE_TIME);
+
         if (isMounted) {
           setProducts(transformedProducts);
-          const indices = createCategoryIndicesFromProducts(transformedProducts);
           setCategoryIndices(indices);
           setError(null);
+          if (updateLoadingState) {
+            setLoading(false);
+          }
         }
       } catch (err) {
         console.error('Error fetching best sellers:', err);
-        if (isMounted) {
+        if (isMounted && updateLoadingState) {
           setError(handleError(err));
           setProducts([]);
           setCategoryIndices({});
-        }
-      } finally {
-        if (isMounted) {
           setLoading(false);
         }
+        throw err;
       }
     }
 

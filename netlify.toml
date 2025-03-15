@@ -26,6 +26,18 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# API responses - short cache with revalidation
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Cache-Control = "public, max-age=60, stale-while-revalidate=300"
+
+# Supabase storage assets - longer cache
+[[headers]]
+  for = "/storage/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
 # Handle client-side routing
 [[redirects]]
   from = "/assets/*"

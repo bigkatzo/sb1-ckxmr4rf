@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
+import { cacheManager } from '../lib/cache';
 
 interface OrderStats {
   currentOrders: number;
@@ -11,10 +12,8 @@ interface OrderStats {
 
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff delays
 const CACHE_DURATION = 5000; // 5 seconds cache
+const STALE_DURATION = 10000; // 10 seconds stale-while-revalidate
 const DEBOUNCE_WAIT = 500; // 500ms debounce for real-time updates
-
-// In-memory cache
-const statsCache = new Map<string, { value: number; timestamp: number }>();
 
 export function useOrderStats(productId: string) {
   const [stats, setStats] = useState<OrderStats>({
@@ -22,42 +21,31 @@ export function useOrderStats(productId: string) {
     loading: true,
     error: null
   });
+  const isFetchingRef = useRef(false);
 
   const fetchOrderStats = useCallback(async (attempt = 0) => {
     try {
       // Check cache first
-      const cached = statsCache.get(productId);
-      const now = Date.now();
-      if (cached && now - cached.timestamp < CACHE_DURATION) {
+      const cacheKey = `order_stats:${productId}`;
+      const { value: cachedValue, needsRevalidation } = cacheManager.get<number>(cacheKey);
+      
+      if (cachedValue !== null) {
         setStats({
-          currentOrders: cached.value,
+          currentOrders: cachedValue,
           loading: false,
           error: null
         });
+        
+        // If stale, revalidate in background
+        if (needsRevalidation && !isFetchingRef.current) {
+          revalidateOrderStats(attempt);
+        }
+        
         return;
       }
 
-      const { data, error } = await supabase
-        .from('public_order_counts')
-        .select('total_orders')
-        .eq('product_id', productId)
-        .single();
-
-      if (error) throw error;
-
-      const orderCount = data?.total_orders || 0;
-
-      // Update cache
-      statsCache.set(productId, {
-        value: orderCount,
-        timestamp: now
-      });
-
-      setStats({
-        currentOrders: orderCount,
-        loading: false,
-        error: null
-      });
+      // No cache hit, fetch fresh data
+      await fetchFreshOrderStats(attempt);
     } catch (err) {
       console.error('Error fetching order stats:', err);
       
@@ -82,6 +70,59 @@ export function useOrderStats(productId: string) {
       }
     }
   }, [productId]);
+
+  const fetchFreshOrderStats = useCallback(async (attempt = 0) => {
+    if (isFetchingRef.current) return;
+    
+    isFetchingRef.current = true;
+    const cacheKey = `order_stats:${productId}`;
+    
+    try {
+      setStats(prev => ({
+        ...prev,
+        loading: true,
+        error: null
+      }));
+      
+      const { data, error } = await supabase
+        .from('public_order_counts')
+        .select('total_orders')
+        .eq('product_id', productId)
+        .single();
+
+      if (error) throw error;
+
+      const orderCount = data?.total_orders || 0;
+
+      // Update cache
+      cacheManager.set(cacheKey, orderCount, CACHE_DURATION, STALE_DURATION);
+
+      setStats({
+        currentOrders: orderCount,
+        loading: false,
+        error: null
+      });
+    } catch (err) {
+      throw err; // Let the parent function handle retries
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [productId]);
+
+  const revalidateOrderStats = useCallback((attempt = 0) => {
+    if (isFetchingRef.current) return;
+    
+    const cacheKey = `order_stats:${productId}`;
+    cacheManager.markRevalidating(cacheKey);
+    
+    fetchFreshOrderStats(attempt)
+      .catch(err => {
+        console.error('Error revalidating order stats:', err);
+      })
+      .finally(() => {
+        cacheManager.unmarkRevalidating(cacheKey);
+      });
+  }, [productId, fetchFreshOrderStats]);
 
   // Debounced version of fetchOrderStats for real-time updates
   const debouncedFetch = useCallback(
