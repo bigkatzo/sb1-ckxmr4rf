@@ -1,6 +1,6 @@
 import { Image as ImageIcon, Ban, ArrowRight, Calendar } from 'lucide-react';
 import { OptimizedImage } from '../ui/OptimizedImage';
-import type { Collection } from '../../types';
+import type { Collection } from '../../types/collections';
 import { format } from 'date-fns';
 
 interface CollectionCardProps {

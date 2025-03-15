@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CollectionCard } from './CollectionCard';
 import { useCollections } from '../../hooks/useCollections';
-import { createCategoryIndicesFromProducts } from '../../utils/category-mapping';
 import { CollectionScrollerSkeleton } from '../ui/Skeletons';
+import type { Collection } from '../../types/collections';
 
 interface CollectionScrollerProps {
   filter: 'upcoming' | 'latest' | 'popular';
@@ -14,16 +14,6 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { collections, loading } = useCollections(filter);
-  const categoryIndices = React.useMemo(() => {
-    const allProducts = collections.flatMap(c => {
-      // Add collection launch date to each product
-      return c.products.map(p => ({
-        ...p,
-        collectionLaunchDate: c.launchDate
-      }));
-    });
-    return createCategoryIndicesFromProducts(allProducts);
-  }, [collections]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -49,12 +39,11 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
         {collections.map((collection) => (
           <div
             key={collection.id}
-            className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start"
+            className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start cursor-pointer"
             onClick={() => navigate(`/${collection.slug}`)}
           >
             <CollectionCard 
               collection={collection} 
-              categoryIndices={categoryIndices}
               variant="small"
             />
           </div>
