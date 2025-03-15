@@ -1,10 +1,9 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CollectionCard } from './CollectionCard';
 import { useCollections } from '../../hooks/useCollections';
 import { CollectionScrollerSkeleton } from '../ui/Skeletons';
-import type { Collection } from '../../types/collections';
 
 interface CollectionScrollerProps {
   filter: 'upcoming' | 'latest' | 'popular';
