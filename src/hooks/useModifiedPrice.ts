@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useOrderStats } from './useOrderStats';
 import { calculateModifiedPrice, calculatePriceModificationPercentage } from '../utils/price';
+import { getVariantKey } from '../utils/variant-helpers';
 import type { Product } from '../types/variants';
 
 interface UseModifiedPriceResult {
@@ -21,12 +22,11 @@ export function useModifiedPrice({ product, selectedOptions = {} }: UseModifiedP
   
   const result = useMemo(() => {
     // Get variant price if available
-    const variantKey = Object.values(selectedOptions).join(':');
+    const variantKey = product.variants ? getVariantKey(product.variants, selectedOptions) : null;
     
     // Check if we have valid selected options and if the variant price exists
     const hasVariantPrice = 
-      selectedOptions && 
-      Object.keys(selectedOptions).length > 0 && 
+      variantKey && 
       product.variantPrices && 
       variantKey in product.variantPrices;
     
