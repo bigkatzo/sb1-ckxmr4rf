@@ -9,6 +9,27 @@ interface CacheEntry<T> {
   staleUntil?: number;
 }
 
+/**
+ * Cache durations in milliseconds for different types of data
+ */
+export const CACHE_DURATIONS = {
+  // Realtime data (stock, prices, order counts)
+  REALTIME: {
+    TTL: 3 * 1000,        // 3 seconds
+    STALE: 7 * 1000       // 7 seconds stale time
+  },
+  // Semi-dynamic data (best sellers, featured collections)
+  SEMI_DYNAMIC: {
+    TTL: 30 * 1000,       // 30 seconds
+    STALE: 60 * 1000      // 1 minute stale time
+  },
+  // Static data (collection details, product descriptions)
+  STATIC: {
+    TTL: 5 * 60 * 1000,   // 5 minutes
+    STALE: 15 * 60 * 1000 // 15 minutes stale time
+  }
+};
+
 export class CacheManager {
   private cache = new Map<string, CacheEntry<any>>();
   private revalidationQueue = new Set<string>();
@@ -105,4 +126,60 @@ export class CacheManager {
 }
 
 // Create a singleton instance
-export const cacheManager = new CacheManager(); 
+export const cacheManager = new CacheManager();
+
+/**
+ * Set up realtime invalidation for cache entries based on Supabase events
+ */
+export function setupRealtimeInvalidation(supabase: any) {
+  // Listen for stock/price changes
+  supabase.channel('product_changes')
+    .on(
+      'postgres_changes',
+      { 
+        event: '*', 
+        schema: 'public', 
+        table: 'products'
+      },
+      (payload: any) => {
+        const productId = payload.new?.id || payload.old?.id;
+        if (productId) {
+          // Check if price or stock changed
+          if (
+            payload.new?.price !== payload.old?.price ||
+            payload.new?.quantity !== payload.old?.quantity
+          ) {
+            // Invalidate bestsellers cache
+            cacheManager.invalidateByPrefix('bestsellers:');
+            
+            // Invalidate specific product dynamic data
+            cacheManager.invalidate(`product_dynamic:${productId}`);
+            cacheManager.invalidate(`product_stock:${productId}`);
+            cacheManager.invalidate(`product_price:${productId}`);
+          }
+        }
+      }
+    )
+    .subscribe();
+    
+  // Listen for order changes (affects stock and bestsellers)
+  supabase.channel('order_changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'orders' },
+      (payload: any) => {
+        const productId = payload.new?.product_id || payload.old?.product_id;
+        if (productId) {
+          // Invalidate order stats
+          cacheManager.invalidate(`order_stats:${productId}`);
+          
+          // Invalidate bestsellers
+          cacheManager.invalidateByPrefix('bestsellers:');
+          
+          // Invalidate product stock (since orders affect stock)
+          cacheManager.invalidate(`product_stock:${productId}`);
+        }
+      }
+    )
+    .subscribe();
+} 

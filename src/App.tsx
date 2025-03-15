@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
 import { WalletProvider } from './contexts/WalletContext';
@@ -13,6 +14,9 @@ import { usePayment } from './hooks/usePayment';
 import { ToastContainer } from 'react-toastify';
 import { validateEnvironmentVariables } from './utils/env-validation';
 import { ScrollBehavior } from './components/ui/ScrollBehavior';
+import { setupCachePreloader } from './lib/cache-preloader';
+import { setupRealtimeInvalidation } from './lib/cache';
+import { supabase } from './lib/supabase';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Validate environment variables at startup
@@ -47,6 +51,19 @@ function NotificationsWrapper() {
 }
 
 function AppContent() {
+  // Initialize cache system
+  useEffect(() => {
+    // Set up cache preloader
+    const cleanupPreloader = setupCachePreloader();
+    
+    // Set up realtime cache invalidation
+    setupRealtimeInvalidation(supabase);
+    
+    return () => {
+      cleanupPreloader();
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
       <ScrollBehavior />

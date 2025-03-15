@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
-import { cacheManager } from '../lib/cache';
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 
 interface OrderStats {
   currentOrders: number;
@@ -11,8 +11,6 @@ interface OrderStats {
 }
 
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff delays
-const CACHE_DURATION = 5000; // 5 seconds cache
-const STALE_DURATION = 10000; // 10 seconds stale-while-revalidate
 const DEBOUNCE_WAIT = 500; // 500ms debounce for real-time updates
 
 export function useOrderStats(productId: string) {
@@ -94,8 +92,13 @@ export function useOrderStats(productId: string) {
 
       const orderCount = data?.total_orders || 0;
 
-      // Update cache
-      cacheManager.set(cacheKey, orderCount, CACHE_DURATION, STALE_DURATION);
+      // Update cache with REALTIME durations
+      cacheManager.set(
+        cacheKey, 
+        orderCount, 
+        CACHE_DURATIONS.REALTIME.TTL, 
+        CACHE_DURATIONS.REALTIME.STALE
+      );
 
       setStats({
         currentOrders: orderCount,

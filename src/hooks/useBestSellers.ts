@@ -3,12 +3,8 @@ import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
-import { cacheManager } from '../lib/cache';
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Product } from '../types/index';
-
-// Cache durations in milliseconds
-const BESTSELLERS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-const BESTSELLERS_STALE_TIME = 20 * 60 * 1000; // 20 minutes
 
 interface PublicProduct {
   id: string;
@@ -161,11 +157,16 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
 
         const indices = createCategoryIndicesFromProducts(transformedProducts);
         
-        // Cache the results
-        cacheManager.set(cacheKey, {
-          products: transformedProducts,
-          categoryIndices: indices
-        }, BESTSELLERS_CACHE_TTL, BESTSELLERS_STALE_TIME);
+        // Cache the results with SEMI_DYNAMIC durations
+        cacheManager.set(
+          cacheKey, 
+          {
+            products: transformedProducts,
+            categoryIndices: indices
+          }, 
+          CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
+          CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+        );
 
         if (isMounted) {
           setProducts(transformedProducts);

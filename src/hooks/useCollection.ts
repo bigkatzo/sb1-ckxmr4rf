@@ -4,11 +4,7 @@ import { handleCollectionError } from '../utils/error-handlers';
 import { isValidCollectionSlug } from '../utils/validation';
 import type { Collection } from '../types/collections';
 import { normalizeStorageUrl } from '../lib/storage';
-import { cacheManager } from '../lib/cache';
-
-// Cache durations in milliseconds
-const COLLECTION_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
-const COLLECTION_STALE_TIME = 30 * 60 * 1000; // 30 minutes
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 
 export function useCollection(slug: string) {
   const [collection, setCollection] = useState<Collection | null>(null);
@@ -114,18 +110,13 @@ export function useCollection(slug: string) {
         if (categoriesResponse.error) throw categoriesResponse.error;
         if (productsResponse.error) throw productsResponse.error;
 
-        const transformedCollection: Collection = {
+        // Transform collection data (static)
+        const collectionStatic = {
           id: collectionData.id,
           name: collectionData.name,
           description: collectionData.description,
           image_url: collectionData.image_url || '',
           imageUrl: collectionData.image_url ? normalizeStorageUrl(collectionData.image_url) : '',
-          launch_date: collectionData.launch_date,
-          launchDate: new Date(collectionData.launch_date),
-          featured: collectionData.featured,
-          visible: collectionData.visible,
-          sale_ended: collectionData.sale_ended,
-          saleEnded: collectionData.sale_ended,
           slug: collectionData.slug,
           user_id: collectionData.user_id || '',
           isOwner: false,
@@ -140,12 +131,24 @@ export function useCollection(slug: string) {
               groups: category.eligibility_rules?.groups || []
             }
           })),
-          products: (productsResponse.data || []).map(product => ({
+        };
+        
+        // Cache static collection data with long TTL
+        cacheManager.set(
+          `collection_static:${collectionData.id}`, 
+          collectionStatic, 
+          CACHE_DURATIONS.STATIC.TTL, 
+          CACHE_DURATIONS.STATIC.STALE
+        );
+        
+        // Transform products with separate static and dynamic data
+        const products = (productsResponse.data || []).map(product => {
+          // Static product data (doesn't change often)
+          const productStatic = {
             id: product.id,
             sku: product.sku,
             name: product.name,
             description: product.description,
-            price: product.price,
             imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
             images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
             categoryId: product.category_id,
@@ -162,21 +165,78 @@ export function useCollection(slug: string) {
             collectionId: collectionData.id,
             collectionName: collectionData.name,
             collectionSlug: collectionData.slug,
-            collectionLaunchDate: new Date(collectionData.launch_date),
-            collectionSaleEnded: collectionData.sale_ended,
             slug: product.slug || '',
+            variants: product.variants || [],
+          };
+          
+          // Dynamic product data (changes frequently)
+          const productDynamic = {
+            price: product.price,
             stock: product.quantity,
             minimumOrderQuantity: product.minimum_order_quantity || 50,
-            variants: product.variants || [],
             variantPrices: product.variant_prices || {},
             priceModifierBeforeMin: product.price_modifier_before_min ?? null,
-            priceModifierAfterMin: product.price_modifier_after_min ?? null
-          })),
+            priceModifierAfterMin: product.price_modifier_after_min ?? null,
+          };
+          
+          // Cache static product data with long TTL
+          cacheManager.set(
+            `product_static:${product.id}`, 
+            productStatic, 
+            CACHE_DURATIONS.STATIC.TTL, 
+            CACHE_DURATIONS.STATIC.STALE
+          );
+          
+          // Cache dynamic product data with short TTL
+          cacheManager.set(
+            `product_dynamic:${product.id}`, 
+            productDynamic, 
+            CACHE_DURATIONS.REALTIME.TTL, 
+            CACHE_DURATIONS.REALTIME.STALE
+          );
+          
+          // Return combined product
+          return {
+            ...productStatic,
+            ...productDynamic,
+            collectionLaunchDate: new Date(collectionData.launch_date),
+            collectionSaleEnded: collectionData.sale_ended,
+          };
+        });
+        
+        // Dynamic collection data
+        const collectionDynamic = {
+          launch_date: collectionData.launch_date,
+          launchDate: new Date(collectionData.launch_date),
+          featured: collectionData.featured,
+          visible: collectionData.visible,
+          sale_ended: collectionData.sale_ended,
+          saleEnded: collectionData.sale_ended,
           accessType: null // Public collections don't have access type
         };
+        
+        // Cache dynamic collection data with medium TTL
+        cacheManager.set(
+          `collection_dynamic:${collectionData.id}`, 
+          collectionDynamic, 
+          CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
+          CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+        );
 
-        // Cache the collection with TTL and stale time
-        cacheManager.set(cacheKey, transformedCollection, COLLECTION_CACHE_TTL, COLLECTION_STALE_TIME);
+        // Combine everything for the complete collection
+        const transformedCollection: Collection = {
+          ...collectionStatic,
+          ...collectionDynamic,
+          products
+        };
+
+        // Cache the complete collection
+        cacheManager.set(
+          cacheKey, 
+          transformedCollection, 
+          CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
+          CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+        );
 
         if (isMounted) {
           setCollection(transformedCollection);
