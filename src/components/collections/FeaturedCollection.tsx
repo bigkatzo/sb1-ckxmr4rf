@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Clock, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFeaturedCollections } from '../../hooks/useFeaturedCollections';
 import { CountdownTimer } from '../ui/CountdownTimer';
@@ -7,6 +7,7 @@ import { OptimizedImage } from '../ui/OptimizedImage';
 
 export function FeaturedCollection() {
   const { collections, loading } = useFeaturedCollections();
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -142,14 +143,10 @@ export function FeaturedCollection() {
   }, [isDragging, currentIndex, collections.length]);
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
-    if (mouseDownPos.current === null || !isDragging) return;
+    if (!mouseDownPos.current || !isDragging) return;
     
-    // Invert the distance calculation to match the natural swipe direction
+    // Calculate distance and velocity
     const distance = e.clientX - mouseDownPos.current;
-    const isLeftSwipe = distance < -minSwipeDistance;
-    const isRightSwipe = distance > minSwipeDistance;
-    
-    // Calculate velocity for momentum scrolling
     const endTime = Date.now();
     const duration = endTime - dragStartTime;
     const velocity = Math.abs(distance) / duration;
@@ -157,24 +154,31 @@ export function FeaturedCollection() {
     
     isAnimating.current = true;
     
-    if (isLeftSwipe || (velocity > velocityThreshold && distance < 0)) {
+    if (Math.abs(distance) < minSwipeDistance && velocity < velocityThreshold) {
+      // If the drag was small and slow, treat it as a click
+      setDragOffset(0);
+      setTimeout(() => {
+        isAnimating.current = false;
+      }, 50);
+    } else if (distance < -minSwipeDistance || (velocity > velocityThreshold && distance < 0)) {
       nextSlide();
-    } else if (isRightSwipe || (velocity > velocityThreshold && distance > 0)) {
+    } else if (distance > minSwipeDistance || (velocity > velocityThreshold && distance > 0)) {
       prevSlide();
     } else {
       // Snap back to current slide if swipe wasn't strong enough
       setDragOffset(0);
       setTimeout(() => {
         isAnimating.current = false;
-      }, 50); // Reduced to 50ms for very fast response
+      }, 50);
     }
-    
-    mouseDownPos.current = null;
+
     setIsDragging(false);
+    mouseDownPos.current = null;
     
+    // Remove event listeners
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-  }, [isDragging, dragStartTime, collections.length]);
+  }, [dragStartTime, isDragging, collections.length]);
 
   // Cleanup mouse events on unmount
   useEffect(() => {
@@ -284,7 +288,7 @@ export function FeaturedCollection() {
     <div className="space-y-2">
       <div 
         ref={sliderRef}
-        className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing touch-none"
+        className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing touch-none select-none"
         onMouseDown={handleMouseDown}
       >
         <div 
@@ -301,7 +305,13 @@ export function FeaturedCollection() {
             return (
               <div 
                 key={collection.id} 
-                className="relative min-w-full h-full flex-shrink-0 select-none"
+                className="relative min-w-full h-full flex-shrink-0 cursor-pointer"
+                onClick={() => {
+                  // Only navigate if we haven't dragged significantly
+                  if (!isDragging || Math.abs(dragOffset) < minSwipeDistance) {
+                    navigate(`/${collection.slug}`);
+                  }
+                }}
               >
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
                   {collection.imageUrl ? (
@@ -363,8 +373,10 @@ export function FeaturedCollection() {
                       to={`/${collection.slug}`}
                       className="mt-3 sm:mt-4 md:mt-6 inline-flex items-center space-x-2 rounded-full bg-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-6 md:py-3 text-xs sm:text-sm font-medium text-black transition-colors hover:bg-gray-100"
                       onClick={(e) => {
+                        // Prevent navigation if we're dragging
                         if (isDragging && Math.abs(dragOffset) > minSwipeDistance) {
                           e.preventDefault();
+                          e.stopPropagation();
                         }
                       }}
                     >
