@@ -59,18 +59,27 @@ export function CollectionPage() {
     return <Navigate to="/" replace />;
   }
 
-  if (error || !collection) {
+  // Don't show error state during loading - this was causing the "collection not found" flash
+  if (!loading && (error || !collection)) {
     return <CollectionNotFound error={error || undefined} />;
   }
 
-  const isUpcoming = collection.launchDate > new Date();
-  const isNew = !isUpcoming && (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000);
+  // If still loading and we have no collection data yet, let the router-level skeleton handle it
+  if (loading && !collection) {
+    return null;
+  }
+
+  // At this point we either have collection data or we're in a subsequent loading state
+  const isUpcoming = collection?.launchDate ? collection.launchDate > new Date() : false;
+  const isNew = collection?.launchDate && !isUpcoming 
+    ? (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000) 
+    : false;
 
   // Filter products to only show those in visible categories
-  const visibleProducts = collection.products.filter((product: Product) => 
+  const visibleProducts = collection?.products?.filter((product: Product) => 
     !product.categoryId || // Include products without a category
     categories.some((cat: Category) => cat.id === product.categoryId) // Include products in visible categories
-  );
+  ) || [];
 
   return (
     <div 

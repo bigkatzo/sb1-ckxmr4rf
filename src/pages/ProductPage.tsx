@@ -13,8 +13,19 @@ export function ProductPage() {
   const categoryIndex = location.state?.categoryIndex ?? 
     (product ? createCategoryIndicesFromProducts([product])[product.categoryId] || 0 : 0);
 
-  // Skip showing loading state since we're already showing a skeleton at the router level
-  if (error || !product) {
+  // If still loading, let the router-level skeleton handle it
+  if (loading && !product) {
+    return null;
+  }
+
+  // Only redirect if we're not loading and there's an error or no product
+  if (!loading && (error || !product)) {
+    return <Navigate to={`/${collectionSlug}`} replace />;
+  }
+
+  // At this point we should have product data
+  if (!product) {
+    console.error('Product page rendered without product data');
     return <Navigate to={`/${collectionSlug}`} replace />;
   }
 
