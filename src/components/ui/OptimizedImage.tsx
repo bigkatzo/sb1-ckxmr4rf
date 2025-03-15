@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -26,18 +26,29 @@ export function OptimizedImage({
 }: OptimizedImageProps) {
   const [isLoading, setIsLoading] = useState(!priority);
 
-  // Simple URL optimization
-  const optimizedSrc = src.includes('/storage/v1/object/public/')
-    ? src.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') +
-      `?width=${width}&quality=${quality}`
-    : src;
+  // Enhanced URL optimization with caching
+  const optimizedSrc = useMemo(() => {
+    if (src.includes('/storage/v1/object/public/')) {
+      // For Supabase storage URLs, add render endpoint and caching params
+      const baseUrl = src.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+      const params = new URLSearchParams({
+        width: width.toString(),
+        quality: quality.toString(),
+        cache: '604800' // 1 week cache
+      });
+      return `${baseUrl}?${params.toString()}`;
+    }
+    return src;
+  }, [src, width, quality]);
 
   const handleImageError = () => {
-    // If render endpoint fails, fall back to original URL
+    // If render endpoint fails, fall back to original URL with cache control
     if (src.includes('/storage/v1/render/image/public/')) {
+      const fallbackUrl = new URL(src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/'));
+      fallbackUrl.searchParams.set('cache', '604800'); // 1 week cache
       const img = document.querySelector(`img[src="${optimizedSrc}"]`) as HTMLImageElement;
       if (img) {
-        img.src = src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+        img.src = fallbackUrl.toString();
       }
     }
     setIsLoading(false);

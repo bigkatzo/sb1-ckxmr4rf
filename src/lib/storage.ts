@@ -153,7 +153,7 @@ export async function uploadImage(
 ): Promise<string> {
   const {
     maxSizeMB = 5,
-    cacheControl = '3600',
+    cacheControl = '604800',
     upsert = false
   } = options;
 

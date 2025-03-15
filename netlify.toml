@@ -11,18 +11,20 @@
   [headers.values]
     X-Frame-Options = "DENY"
     X-XSS-Protection = "1; mode=block"
-    Cache-Control = "public, max-age=31536000"
+    # Short cache for HTML files
+    Cache-Control = "public, max-age=0, must-revalidate"
 
-[[headers]]
-  for = "/*.js"
-  [headers.values]
-    Content-Type = "application/javascript; charset=utf-8"
-    Cache-Control = "public, max-age=31536000"
-
+# Medium cache for unhashed assets (more general pattern first)
 [[headers]]
   for = "/assets/*"
   [headers.values]
-    Cache-Control = "public, max-age=31536000"
+    Cache-Control = "public, max-age=86400"
+
+# Long cache for hashed assets (more specific pattern last)
+[[headers]]
+  for = "/assets/*-*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
 
 # Handle client-side routing
 [[redirects]]
