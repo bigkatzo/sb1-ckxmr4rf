@@ -7,7 +7,13 @@ import { ProductVariantPrice } from './ProductVariantPrice';
 import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
-import type { Product } from '../../types';
+import type { Product as BaseProduct } from '../../types/variants';
+
+// Extend the base Product type with additional properties needed for the modal
+interface Product extends BaseProduct {
+  collectionLaunchDate?: Date;
+  collectionSaleEnded?: boolean;
+}
 
 interface ProductModalProps {
   product: Product;
@@ -313,7 +319,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     : -(selectedImageIndex * 100);
 
   const allOptionsSelected = hasVariants
-    ? product.variants!.every(variant => selectedOptions[variant.id])
+    ? product.variants!.every((variant: { id: string }) => selectedOptions[variant.id])
     : true;
 
   // Check if collection is not live yet or sale has ended
@@ -322,17 +328,17 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
 
   return (
     <div 
-      className="fixed inset-0 z-50 overflow-y-auto" 
+      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain" 
       aria-modal="true" 
       role="dialog"
       aria-labelledby="modal-title"
     >
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative min-h-screen flex items-center justify-center p-0 sm:p-4">
+      <div className="min-h-screen w-full flex items-start justify-center p-0 sm:p-4 sm:items-center">
         <div 
           ref={modalRef}
-          className="relative bg-gray-900 w-full h-full sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden"
+          className="relative bg-gray-900 w-full min-h-screen sm:min-h-0 sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden"
         >
           <div className="absolute top-4 right-4 z-10">
             <button
@@ -345,7 +351,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
           </div>
 
           {/* Mobile: Single scroll container, Desktop: Grid layout */}
-          <div className="h-full md:grid md:grid-cols-2">
+          <div className="min-h-screen sm:min-h-0 sm:h-auto md:grid md:grid-cols-2">
             <div className="w-full aspect-square md:aspect-auto md:h-[600px] relative bg-gray-950/50 overflow-hidden">
               {/* Fixed navigation arrows */}
               {images.length > 1 && (
@@ -366,7 +372,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                   </button>
 
                   <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                    {images.map((_, index) => (
+                    {images.map((_: string, index: number) => (
                       <button
                         key={index}
                         onClick={() => {
@@ -397,7 +403,7 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
                     transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`
                   } : {}}
                 >
-                  {images.map((image, index) => (
+                  {images.map((image: string, index: number) => (
                     <div
                       key={index}
                       className={`${images.length > 1 ? 'w-full flex-shrink-0' : ''} h-full flex items-center justify-center`}
