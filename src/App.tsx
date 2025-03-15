@@ -18,6 +18,7 @@ import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
 import { supabase } from './lib/supabase';
 import 'react-toastify/dist/ReactToastify.css';
+import { setupServiceWorker } from './lib/service-worker';
 
 // Validate environment variables at startup
 validateEnvironmentVariables();
@@ -58,6 +59,11 @@ function AppContent() {
     
     // Set up realtime cache invalidation
     setupRealtimeInvalidation(supabase);
+    
+    // Set up service worker
+    setupServiceWorker().catch(err => {
+      console.error('Failed to set up service worker:', err);
+    });
     
     return () => {
       cleanupPreloader();
