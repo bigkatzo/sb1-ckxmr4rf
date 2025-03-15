@@ -58,8 +58,8 @@ export function FeaturedCollection() {
     const touch = e.targetTouches[0];
     const touchDeltaX = touch.clientX - touchStart;
     
-    // Only prevent default for significant horizontal movement
-    if (Math.abs(touchDeltaX) > 10) {
+    // Only prevent default for significant horizontal movement (20px threshold)
+    if (Math.abs(touchDeltaX) > 20) {
       e.preventDefault();
       
       // Add resistance at the edges

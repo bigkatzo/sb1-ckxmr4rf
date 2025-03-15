@@ -145,19 +145,19 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
     const touch = e.targetTouches[0];
     const touchDeltaX = touch.clientX - touchStart;
     
-    // Add resistance at the edges
-    if ((selectedImageIndex === 0 && touchDeltaX > 0) || 
-        (selectedImageIndex === images.length - 1 && touchDeltaX < 0)) {
-      setDragOffset(touchDeltaX * 0.3); // Apply resistance
-    } else {
-      setDragOffset(touchDeltaX);
-    }
-    
-    setTouchEnd(touch.clientX);
-    
-    // Only prevent default for horizontal swipes
-    if (Math.abs(touchDeltaX) > 10) {
+    // Only prevent default for significant horizontal movement (20px threshold)
+    if (Math.abs(touchDeltaX) > 20) {
       e.preventDefault();
+      
+      // Add resistance at the edges
+      if ((selectedImageIndex === 0 && touchDeltaX > 0) || 
+          (selectedImageIndex === images.length - 1 && touchDeltaX < 0)) {
+        setDragOffset(touchDeltaX * 0.3); // Apply resistance
+      } else {
+        setDragOffset(touchDeltaX);
+      }
+      
+      setTouchEnd(touch.clientX);
     }
   };
 
