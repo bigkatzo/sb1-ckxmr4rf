@@ -91,10 +91,9 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const hasVariants = !!product.variants && product.variants.length > 0;
 
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
+    // Remove the body scroll lock since we want to allow scrolling
+    // We'll handle touch events specifically in the image container
+    return () => {};
   }, []);
 
   useEffect(() => {
