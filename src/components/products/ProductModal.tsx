@@ -141,21 +141,25 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStart || !isDragging) return;
     
-    // Prevent default to avoid page scrolling during swipe
-    e.preventDefault();
+    const currentTouch = e.targetTouches[0];
+    const touchDeltaX = currentTouch.clientX - touchStart;
+    const touchDeltaY = currentTouch.clientY - (e.target as HTMLElement).getBoundingClientRect().top;
     
-    const currentTouch = e.targetTouches[0].clientX;
-    const diff = currentTouch - touchStart;
-    
-    // Add resistance at the edges
-    if ((selectedImageIndex === 0 && diff > 0) || 
-        (selectedImageIndex === images.length - 1 && diff < 0)) {
-      setDragOffset(diff * 0.3); // Apply resistance
-    } else {
-      setDragOffset(diff);
+    // Only prevent default if the horizontal movement is greater than vertical movement
+    // This allows vertical scrolling when the user is primarily scrolling up/down
+    if (Math.abs(touchDeltaX) > Math.abs(touchDeltaY)) {
+      e.preventDefault();
+      
+      // Add resistance at the edges
+      if ((selectedImageIndex === 0 && touchDeltaX > 0) || 
+          (selectedImageIndex === images.length - 1 && touchDeltaX < 0)) {
+        setDragOffset(touchDeltaX * 0.3); // Apply resistance
+      } else {
+        setDragOffset(touchDeltaX);
+      }
+      
+      setTouchEnd(currentTouch.clientX);
     }
-    
-    setTouchEnd(currentTouch);
   };
 
   const handleTouchEnd = useCallback(() => {
