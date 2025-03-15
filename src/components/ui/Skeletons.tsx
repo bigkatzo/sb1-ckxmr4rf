@@ -199,4 +199,74 @@ export function OrderProgressBarSkeleton() {
       </div>
     </div>
   );
+}
+
+export function CollectionSkeleton() {
+  return (
+    <div className="space-y-8">
+      {/* Collection header */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-10 w-32 rounded-lg" />
+        </div>
+        <Skeleton className="h-4 w-full max-w-2xl" />
+        <Skeleton className="h-4 w-3/4 max-w-xl" />
+      </div>
+
+      {/* Categories */}
+      <div className="bg-gray-900/50 rounded-lg p-4">
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-10 w-32 rounded-full flex-shrink-0" />
+          ))}
+        </div>
+      </div>
+
+      {/* Products */}
+      <div className="bg-gray-900/50 rounded-lg p-4">
+        <ProductGridSkeleton />
+      </div>
+    </div>
+  );
+}
+
+export function OrderPageSkeleton() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Your Orders</h1>
+      <div className="animate-pulse space-y-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="bg-gray-900 rounded-lg overflow-hidden">
+            <div className="bg-gray-800/50 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="flex items-start gap-4">
+                <Skeleton className="h-20 w-20 rounded-lg flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-5 w-24 rounded-full" />
+                  </div>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex justify-between pt-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 } 

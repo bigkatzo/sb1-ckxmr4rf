@@ -8,7 +8,8 @@ import { ImageIcon } from 'lucide-react';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
-  const { orders, loading } = useOrders();
+  // We fetch orders and loading state, but loading is handled at the router level with skeletons
+  const { orders } = useOrders();
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
@@ -131,18 +132,6 @@ export function OrdersPage() {
           <Package className="h-12 w-12 text-gray-600 mb-4" />
           <h1 className="text-xl font-bold mb-2">Connect Your Wallet</h1>
           <p className="text-gray-400">Please connect your wallet to view your orders</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Your Orders</h1>
-        <div className="animate-pulse space-y-4">
-          <div className="h-32 bg-gray-800 rounded-lg" />
-          <div className="h-32 bg-gray-800 rounded-lg" />
         </div>
       </div>
     );

@@ -2,7 +2,6 @@ import { useParams, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct';
 import { ProductModal } from '../components/products/ProductModal';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
-import { ProductModalSkeleton } from '../components/ui/Skeletons';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
@@ -14,10 +13,7 @@ export function ProductPage() {
   const categoryIndex = location.state?.categoryIndex ?? 
     (product ? createCategoryIndicesFromProducts([product])[product.categoryId] || 0 : 0);
 
-  if (loading) {
-    return <ProductModalSkeleton />;
-  }
-
+  // Skip showing loading state since we're already showing a skeleton at the router level
   if (error || !product) {
     return <Navigate to={`/${collectionSlug}`} replace />;
   }
@@ -51,6 +47,7 @@ export function ProductPage() {
       product={enrichedProduct}
       onClose={handleClose}
       categoryIndex={categoryIndex}
+      loading={loading} // Pass loading state to modal
     />
   );
 }

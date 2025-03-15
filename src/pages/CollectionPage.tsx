@@ -5,7 +5,7 @@ import { ProductGrid } from '../components/products/ProductGrid';
 import { useCollection } from '../hooks/useCollection';
 import { Clock, Image as ImageIcon, Ban } from 'lucide-react';
 import { CountdownTimer } from '../components/ui/CountdownTimer';
-import { CollectionSkeleton } from '../components/collections/CollectionSkeleton';
+import { CollectionSkeleton } from '../components/ui/Skeletons';
 import { CollectionNotFound } from '../components/collections/CollectionNotFound';
 import { createCategoryIndices } from '../utils/category-mapping';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
@@ -18,28 +18,21 @@ export function CollectionPage() {
   const pageRef = useRef<HTMLDivElement>(null);
   
   const { collection, loading, error } = useCollection(slug || '');
-
+  
   // Categories are already filtered by visibility in the public_categories view
   const categories = collection?.categories || [];
-  const categoryIndices = collection ? createCategoryIndices(categories) : {};
-
-  // Get selectedCategory from location state or use local state
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(() => {
-    // Only restore category selection if directly returning from a product page
-    // with returnedFromProduct flag and selectedCategoryId in location state
-    if (location.state?.returnedFromProduct && location.state?.selectedCategoryId) {
-      return location.state.selectedCategoryId;
-    }
-    // In all other cases (first visit, refresh, navigation from other pages),
-    // start with no category selected
-    return undefined;
-  });
+  
+  // Get selected category from URL or state
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  
+  // Create category indices for consistent colors
+  const categoryIndices = createCategoryIndices(categories);
 
   // Handle category change by updating state
   const handleCategoryChange = useCallback((categoryId: string) => {
     if (selectedCategory === categoryId) {
       // Clicking the same category again deselects it, showing all products
-      setSelectedCategory(undefined);
+      setSelectedCategory('');
     } else {
       setSelectedCategory(categoryId);
     }
@@ -64,10 +57,6 @@ export function CollectionPage() {
   
   if (!slug) {
     return <Navigate to="/" replace />;
-  }
-
-  if (loading && isInitialLoad) {
-    return <CollectionSkeleton />;
   }
 
   if (error || !collection) {

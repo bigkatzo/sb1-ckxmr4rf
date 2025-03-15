@@ -7,6 +7,7 @@ import { ProductVariantPrice } from './ProductVariantPrice';
 import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { ProductModalSkeleton } from '../ui/Skeletons';
 import type { Product as BaseProduct } from '../../types/variants';
 
 // Extend the base Product type with additional properties needed for the modal
@@ -19,6 +20,7 @@ interface ProductModalProps {
   product: Product;
   onClose: () => void;
   categoryIndex: number;
+  loading?: boolean;
 }
 
 // Helper component for buy button to avoid duplication
@@ -75,7 +77,7 @@ function ProductBuyButton({
   );
 }
 
-export function ProductModal({ product, onClose, categoryIndex }: ProductModalProps) {
+export function ProductModal({ product, onClose, categoryIndex, loading = false }: ProductModalProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const modalRef = useRef<HTMLDivElement>(null);
@@ -98,6 +100,11 @@ export function ProductModal({ product, onClose, categoryIndex }: ProductModalPr
   
   // Safe check for variants
   const hasVariants = !!product.variants && product.variants.length > 0;
+
+  // If loading, show skeleton
+  if (loading) {
+    return <ProductModalSkeleton />;
+  }
 
   useEffect(() => {
     // Remove the body scroll lock since we want to allow scrolling

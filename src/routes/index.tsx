@@ -3,6 +3,11 @@ import { lazy, Suspense } from 'react';
 import { App } from '../App';
 import { HomePage } from '../pages/HomePage';
 import { ProtectedRoute } from '../components/merchant/ProtectedRoute';
+import { 
+  CollectionSkeleton, 
+  ProductModalSkeleton,
+  OrderPageSkeleton
+} from '../components/ui/Skeletons';
 
 // Lazy load routes that aren't needed immediately
 const CollectionPage = lazy(() => import('../pages/CollectionPage').then(module => ({ default: module.CollectionPage })));
@@ -15,7 +20,7 @@ const PrivacyPolicyPage = lazy(() => import('../pages/legal/PrivacyPolicyPage').
 const TermsPage = lazy(() => import('../pages/legal/TermsPage').then(module => ({ default: module.TermsPage })));
 const OrdersPage = lazy(() => import('../pages/OrdersPage').then(module => ({ default: module.OrdersPage })));
 
-// Loading component for lazy-loaded routes
+// Loading component for merchant/admin pages
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
@@ -33,15 +38,15 @@ export const router = createBrowserRouter([
       },
       {
         path: 'orders',
-        element: <Suspense fallback={<PageLoader />}><OrdersPage /></Suspense>
+        element: <Suspense fallback={<OrderPageSkeleton />}><OrdersPage /></Suspense>
       },
       {
         path: ':slug',
-        element: <Suspense fallback={<PageLoader />}><CollectionPage /></Suspense>
+        element: <Suspense fallback={<CollectionSkeleton />}><CollectionPage /></Suspense>
       },
       {
         path: ':collectionSlug/:productSlug',
-        element: <Suspense fallback={<PageLoader />}><ProductPage /></Suspense>
+        element: <Suspense fallback={<ProductModalSkeleton />}><ProductPage /></Suspense>
       },
       {
         path: 'merchant/signin',
