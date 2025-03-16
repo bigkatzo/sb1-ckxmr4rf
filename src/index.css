@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Add dark background to html and body elements and prevent overscroll bounce effect */
+html, body {
+  background-color: #030712; /* This is the same as bg-gray-950 */
+  overscroll-behavior: none; /* Prevents the bounce/overscroll effect */
+}
+
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;
