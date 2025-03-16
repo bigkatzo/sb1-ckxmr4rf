@@ -5,12 +5,16 @@
 [build.environment]
   NODE_VERSION = "22"
 
-# Service Worker - ensure correct MIME type
+# Service Worker - ensure correct MIME type and prevent transformations
 [[headers]]
   for = "/service-worker.js"
   [headers.values]
     Content-Type = "application/javascript; charset=utf-8"
-    Cache-Control = "public, max-age=0, must-revalidate"
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+    Content-Disposition = "inline"
+    # Prevent Netlify from processing this file
+    X-Netlify-Original-Filename = "service-worker.js"
 
 # Offline fallback page
 [[headers]]
@@ -50,6 +54,15 @@
   for = "/storage/*"
   [headers.values]
     Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+# Specific redirect for service worker - highest priority
+[[redirects]]
+  from = "/service-worker.js"
+  to = "/service-worker.js"
+  status = 200
+  force = true
+  # Make this redirect take precedence over others
+  priority = 100
 
 # Handle client-side routing
 [[redirects]]

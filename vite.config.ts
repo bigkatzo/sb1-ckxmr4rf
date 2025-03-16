@@ -1,6 +1,34 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { resolve } from 'path';
+import fs from 'fs';
+import type { Plugin } from 'vite';
+
+// Custom plugin to handle service worker
+const serviceWorkerPlugin = (): Plugin => {
+  return {
+    name: 'service-worker-plugin',
+    apply: 'build', // Only apply during build
+    closeBundle: {
+      sequential: true,
+      order: 'post' as const,
+      handler() {
+        // Copy service worker directly without transformation
+        const srcPath = resolve(__dirname, 'public/service-worker.js');
+        const destPath = resolve(__dirname, 'dist/service-worker.js');
+        
+        if (fs.existsSync(srcPath)) {
+          const content = fs.readFileSync(srcPath, 'utf-8');
+          fs.writeFileSync(destPath, content);
+          console.log('Service worker copied to dist/service-worker.js');
+        } else {
+          console.error('Service worker source file not found at', srcPath);
+        }
+      }
+    }
+  };
+};
 
 export default defineConfig({
   base: '/',
@@ -10,7 +38,8 @@ export default defineConfig({
       globals: {
         Buffer: true
       }
-    })
+    }),
+    serviceWorkerPlugin()
   ],
   define: {
     'process.env': {},

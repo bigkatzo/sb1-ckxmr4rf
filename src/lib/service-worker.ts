@@ -17,7 +17,22 @@ export const CACHE_NAMES = {
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if ('serviceWorker' in navigator) {
     try {
-      const registration = await navigator.serviceWorker.register('/service-worker.js');
+      // First check if the service worker file exists
+      try {
+        const response = await fetch('/service-worker.js', { method: 'HEAD' });
+        if (!response.ok) {
+          console.error('Service Worker file not found or not accessible:', response.status, response.statusText);
+          return null;
+        }
+      } catch (fetchError) {
+        console.error('Error checking Service Worker file:', fetchError);
+        return null;
+      }
+
+      // If the file exists, register the service worker
+      const registration = await navigator.serviceWorker.register('/service-worker.js', {
+        scope: '/'
+      });
       console.log('Service Worker registered with scope:', registration.scope);
       return registration;
     } catch (error) {
