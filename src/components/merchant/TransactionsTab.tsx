@@ -76,17 +76,30 @@ export function TransactionsTab() {
 
       // Default recovery shipping info
       const shippingInfo = {
-        address: "Recovery needed - Contact buyer",
-        contactMethod: "email",
-        contactValue: "recovery@example.com"
+        shipping_address: {
+          address: "Recovery needed - Contact buyer",
+          city: "Recovery City",
+          country: "Recovery Country",
+          zip: "00000"
+        },
+        contact_info: {
+          method: "email",
+          value: "recovery@example.com"
+        }
       };
+
+      console.log(`Attempting to recover order for transaction: ${signature}`);
 
       const { error } = await supabase.rpc('recover_failed_order', {
         p_signature: signature,
-        p_shipping_info: shippingInfo
+        p_shipping_info: shippingInfo,
+        p_variants: [] // Empty array for variant selections
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error recovering order:', error);
+        throw error;
+      }
 
       toast.success('Order recovered successfully');
       await fetchTransactions();

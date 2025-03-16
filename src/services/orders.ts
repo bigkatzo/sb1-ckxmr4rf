@@ -42,17 +42,103 @@ function getBackoffDelay(attempt: number): number {
 
 export async function createOrder(data: CreateOrderData, attempt = 0): Promise<Order> {
   try {
+    console.log(`Attempting to create order (attempt ${attempt + 1}/${MAX_RETRIES})`, {
+      productId: data.productId,
+      transactionId: data.transactionId,
+      hasVariants: data.variant_selections && data.variant_selections.length > 0,
+      amountSol: data.amountSol
+    });
+
     // Check if order already exists for this transaction
-    const { data: existingOrder } = await supabase
+    const { data: existingOrder, error: existingOrderError } = await supabase
       .from('orders')
       .select('*')
       .eq('transaction_signature', data.transactionId)
       .single();
 
+    if (existingOrderError && !existingOrderError.message.includes('No rows found')) {
+      console.error('Error checking for existing order:', existingOrderError);
+      throw existingOrderError;
+    }
+
     if (existingOrder) {
+      console.log('Order already exists for this transaction, returning existing order');
       return existingOrder;
     }
 
+    // Verify the transaction amount from the blockchain
+    try {
+      console.log('Verifying transaction amount from transaction logs');
+      const { data: txLog, error: txLogError } = await supabase
+        .from('transaction_logs')
+        .select('amount')
+        .eq('signature', data.transactionId)
+        .single();
+
+      if (txLogError) {
+        console.warn('Could not verify transaction amount from logs:', txLogError);
+      } else if (txLog) {
+        // Use the actual transaction amount from the logs
+        console.log(`Using verified transaction amount: ${txLog.amount} SOL (provided: ${data.amountSol} SOL)`);
+        data.amountSol = txLog.amount;
+      }
+    } catch (verifyError) {
+      console.warn('Error verifying transaction amount:', verifyError);
+      // Continue with the provided amount if verification fails
+    }
+
+    // Try using the database function first (more reliable)
+    try {
+      console.log('Attempting to create order using database function');
+      const { data: orderId, error: functionError } = await supabase.rpc('create_order', {
+        p_product_id: data.productId,
+        p_variants: data.variant_selections || [],
+        p_shipping_info: {
+          shipping_address: data.shippingInfo.shipping_address,
+          contact_info: data.shippingInfo.contact_info
+        },
+        p_transaction_id: data.transactionId,
+        p_wallet_address: data.walletAddress
+      });
+
+      if (functionError) {
+        console.error('Error using create_order function:', functionError);
+        throw functionError;
+      }
+
+      if (orderId) {
+        // Fetch the created order
+        const { data: createdOrder, error: fetchError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+
+        if (fetchError) {
+          console.error('Error fetching created order:', fetchError);
+          throw fetchError;
+        }
+
+        // Update the order with the verified amount
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({ amount_sol: data.amountSol })
+          .eq('id', orderId);
+
+        if (updateError) {
+          console.warn('Could not update order with verified amount:', updateError);
+        }
+
+        console.log('Order created successfully using database function');
+        return { ...createdOrder, amount_sol: data.amountSol };
+      }
+    } catch (functionError) {
+      console.warn('Failed to create order using database function, falling back to direct insert:', functionError);
+      // Continue to fallback method
+    }
+
+    // Fallback: Direct insert if the function call fails
+    console.log('Falling back to direct insert method');
     const { data: order, error } = await supabase
       .from('orders')
       .insert([{
@@ -69,17 +155,40 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
       .select()
       .single();
 
-    if (error) throw error;
-    if (!order) throw new Error('No order data returned');
+    if (error) {
+      console.error('Error creating order via direct insert:', error);
+      throw error;
+    }
+    
+    if (!order) {
+      throw new Error('No order data returned from insert operation');
+    }
 
+    console.log('Order created successfully via direct insert');
     return order;
   } catch (error) {
+    console.error(`Order creation attempt ${attempt + 1} failed:`, error);
+    
+    // Log the error to the transaction_logs table if this is the final attempt
+    if (attempt >= MAX_RETRIES - 1) {
+      try {
+        await supabase.rpc('log_order_creation_error', {
+          p_signature: data.transactionId,
+          p_error_message: error instanceof Error ? error.message : 'Unknown order creation error'
+        });
+        console.log('Order creation error logged to transaction_logs');
+      } catch (logError) {
+        console.error('Failed to log order creation error:', logError);
+      }
+    }
+    
     if (attempt >= MAX_RETRIES) {
       console.error('Max retries reached for order creation:', error);
       throw error;
     }
 
-    const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+    const delay = getBackoffDelay(attempt);
+    console.log(`Retrying in ${Math.round(delay / 1000)} seconds...`);
     await new Promise(resolve => setTimeout(resolve, delay));
     return createOrder(data, attempt + 1);
   }

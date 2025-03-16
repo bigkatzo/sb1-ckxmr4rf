@@ -11,6 +11,7 @@ import type { Product } from '../../types/variants';
 import type { CategoryRule } from '../../types';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { Loading, LoadingType } from '../ui/LoadingStates';
+import { supabase } from '../../lib/supabase';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -177,6 +178,15 @@ export function TokenVerificationModal({
       // Save shipping info to localStorage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfo));
       
+      // Log the price being used for payment
+      console.log(`Processing payment with price: ${finalPrice} SOL`, {
+        basePrice: product.price,
+        hasVariantPrice,
+        variantKey,
+        modifiedPrice,
+        finalPrice
+      });
+      
       // Process payment with modified price
       const { success, signature } = await processPayment(finalPrice, product.collectionId);
       
@@ -198,6 +208,27 @@ export function TokenVerificationModal({
         }
       };
 
+      // Format variant selections
+      const formattedVariantSelections = product.variants && product.variants.length > 0
+        ? Object.entries(selectedOptions)
+            .filter(([id, value]) => value) // Only include non-empty selections
+            .map(([id, value]) => {
+              const variant = product.variants?.find(v => v.id === id);
+              return {
+                name: variant?.name || '',
+                value
+              };
+            })
+        : [];
+
+      // Log variant information for debugging
+      console.log('Creating order with variants:', {
+        hasVariants: product.variants && product.variants.length > 0,
+        selectedOptions,
+        formattedVariantSelections,
+        finalPrice
+      });
+
       // Create order record with retries
       let orderError;
       toast.info('Creating order...', { autoClose: 3000 });
@@ -206,10 +237,7 @@ export function TokenVerificationModal({
           await createOrder({
             productId: product.id,
             collectionId: product.collectionId,
-            variant_selections: Object.entries(selectedOptions).map(([id, value]) => ({
-              name: product.variants?.find(v => v.id === id)?.name || '',
-              value
-            })),
+            variant_selections: formattedVariantSelections,
             shippingInfo: formattedShippingInfo,
             transactionId: signature,
             walletAddress,
@@ -224,7 +252,37 @@ export function TokenVerificationModal({
         }
       }
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        // If order creation failed but payment succeeded, mark the transaction as 'order_failed'
+        console.error('All order creation attempts failed:', orderError);
+        
+        try {
+          // Update transaction status to 'order_failed' so it appears in the recovery view
+          const { error: updateError } = await supabase.rpc('update_transaction_status', {
+            p_signature: signature,
+            p_status: 'order_failed',
+            p_error_message: orderError instanceof Error ? orderError.message : 'Order creation failed'
+          });
+          
+          if (updateError) {
+            console.error('Failed to update transaction status to order_failed:', updateError);
+          } else {
+            console.log('Transaction status updated to order_failed');
+          }
+        } catch (updateErr) {
+          console.error('Error updating transaction status:', updateErr);
+        }
+        
+        toast.warning(
+          'Your payment was successful, but we had trouble creating your order. Our team has been notified and will contact you soon.',
+          { autoClose: false }
+        );
+        
+        // Still consider this a success from the user's perspective since payment went through
+        toastService.showOrderSuccess();
+        onSuccess();
+        return;
+      }
 
       toastService.showOrderSuccess();
       onSuccess();

@@ -7,11 +7,13 @@ interface TransactionStatus {
   success: boolean;
   error: string | null;
   signature?: string;
+  paymentConfirmed?: boolean;
 }
 
 const MAX_RETRIES = 30;
 const INITIAL_DELAY = 1000;
 const ALCHEMY_RPC_URL = `https://solana-mainnet.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_API_KEY}`;
+const LAMPORTS_PER_SOL = 1_000_000_000;
 
 export async function monitorTransaction(
   signature: string,
@@ -59,11 +61,16 @@ export async function monitorTransaction(
             const errorMessage = 'Transaction failed on chain';
             
             // Update transaction log with failure
-            await supabase.rpc('update_transaction_status', {
-              p_signature: signature,
-              p_status: 'failed',
-              p_error_message: errorMessage
-            });
+            try {
+              await supabase.rpc('update_transaction_status', {
+                p_signature: signature,
+                p_status: 'failed',
+                p_error_message: errorMessage
+              });
+              console.log('Transaction status updated to failed');
+            } catch (updateError) {
+              console.error('Failed to update transaction status:', updateError);
+            }
 
             toast.update(toastId, {
               render: errorMessage,
@@ -89,20 +96,61 @@ export async function monitorTransaction(
             const errorMessage = 'Transaction verification failed';
             
             // Update transaction log with failure
-            await supabase.rpc('update_transaction_status', {
-              p_signature: signature,
-              p_status: 'failed',
-              p_error_message: errorMessage
-            });
+            try {
+              await supabase.rpc('update_transaction_status', {
+                p_signature: signature,
+                p_status: 'failed',
+                p_error_message: errorMessage
+              });
+              console.log('Transaction status updated to failed (verification failed)');
+            } catch (updateError) {
+              console.error('Failed to update transaction status:', updateError);
+            }
 
             throw new Error(errorMessage);
           }
 
           // Update transaction log with success
-          await supabase.rpc('update_transaction_status', {
-            p_signature: signature,
-            p_status: 'confirmed'
-          });
+          try {
+            await supabase.rpc('update_transaction_status', {
+              p_signature: signature,
+              p_status: 'confirmed'
+            });
+            console.log('Transaction status updated to confirmed');
+            
+            // Log a transaction for order creation monitoring
+            try {
+              const { error: logError } = await supabase.rpc('log_order_creation_attempt', {
+                p_signature: signature
+              });
+              
+              if (logError) {
+                console.warn('Failed to log order creation attempt:', logError);
+              }
+            } catch (logError) {
+              console.warn('Failed to log order creation attempt:', logError);
+            }
+          } catch (updateError) {
+            console.error('Failed to update transaction status to confirmed:', updateError);
+            
+            // Even if we can't update the status, the payment was successful
+            // We should mark this as a special case where payment succeeded but order might not be created
+            toast.warning(
+              'Payment confirmed, but there was an issue recording it. Please contact support with your transaction ID.',
+              { autoClose: false }
+            );
+            
+            onStatusUpdate({
+              processing: false,
+              success: true,
+              paymentConfirmed: true,
+              error: 'Payment confirmed, but there was an issue recording it. Please contact support.',
+              signature
+            });
+            
+            // Still return true since payment was successful
+            return true;
+          }
 
           const solscanUrl = `https://solscan.io/tx/${signature}`;
           toast.update(toastId, {
@@ -129,7 +177,8 @@ export async function monitorTransaction(
             processing: false,
             success: true,
             error: null,
-            signature
+            signature,
+            paymentConfirmed: true
           });
           return true;
         }
