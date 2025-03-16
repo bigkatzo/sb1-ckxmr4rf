@@ -211,7 +211,7 @@ export function TokenVerificationModal({
       // Format variant selections
       const formattedVariantSelections = product.variants && product.variants.length > 0
         ? Object.entries(selectedOptions)
-            .filter(([id, value]) => value) // Only include non-empty selections
+            .filter(([_, value]) => value) // Only include non-empty selections
             .map(([id, value]) => {
               const variant = product.variants?.find(v => v.id === id);
               return {

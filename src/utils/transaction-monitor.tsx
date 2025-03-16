@@ -13,7 +13,6 @@ interface TransactionStatus {
 const MAX_RETRIES = 30;
 const INITIAL_DELAY = 1000;
 const ALCHEMY_RPC_URL = `https://solana-mainnet.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_API_KEY}`;
-const LAMPORTS_PER_SOL = 1_000_000_000;
 
 export async function monitorTransaction(
   signature: string,
