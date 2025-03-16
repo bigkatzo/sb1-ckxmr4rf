@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ImageIcon } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
@@ -22,6 +22,8 @@ export function ProductCardCompact({
 }: ProductCardCompactProps) {
   const navigate = useNavigate();
   const { modifiedPrice } = useModifiedPrice({ product });
+  const [touchStartTime, setTouchStartTime] = useState<number | null>(null);
+  const [touchStartPosition, setTouchStartPosition] = useState<{x: number, y: number} | null>(null);
 
   const handleCollectionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -36,10 +38,47 @@ export function ProductCardCompact({
     }
   };
 
+  // Touch event handlers for better mobile experience
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartTime(Date.now());
+    setTouchStartPosition({
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    });
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartTime || !touchStartPosition) return;
+    
+    // Calculate touch duration and distance
+    const touchDuration = Date.now() - touchStartTime;
+    const touchEndPosition = {
+      x: e.changedTouches[0].clientX,
+      y: e.changedTouches[0].clientY
+    };
+    
+    const distance = Math.sqrt(
+      Math.pow(touchEndPosition.x - touchStartPosition.x, 2) +
+      Math.pow(touchEndPosition.y - touchStartPosition.y, 2)
+    );
+    
+    // If it was a quick tap (less than 300ms) and didn't move much (less than 10px),
+    // consider it a tap and trigger the click handler
+    if (touchDuration < 300 && distance < 10) {
+      handleClick();
+    }
+    
+    // Reset touch state
+    setTouchStartTime(null);
+    setTouchStartPosition(null);
+  };
+
   return (
     <div 
       onClick={handleClick}
-      className="group relative bg-gray-900 rounded-lg overflow-hidden h-full hover:ring-1 hover:ring-purple-500/50 hover:-translate-y-0.5 transition-all cursor-pointer"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="group relative bg-gray-900 rounded-lg overflow-hidden h-full hover:ring-1 hover:ring-purple-500/50 hover:-translate-y-0.5 transition-all cursor-pointer touch-manipulation"
     >
       <div className="relative aspect-[4/3] overflow-hidden">
         {product.imageUrl ? (
@@ -88,7 +127,10 @@ export function ProductCardCompact({
             product={product}
             disabled={product.stock === 0 && product.stock !== null}
             className="z-10 text-[10px] sm:text-xs"
-            onClick={handleClick}
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent event bubbling
+              handleClick();
+            }}
           />
         </div>
       </div>
