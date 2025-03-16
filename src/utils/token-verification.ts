@@ -1,4 +1,4 @@
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { SOLANA_CONNECTION } from '../config/solana';
 
@@ -27,13 +27,15 @@ export async function verifyTokenHolding(
 
       return {
         isValid: tokenBalance >= minAmount,
-        balance: tokenBalance
+        balance: tokenBalance,
+        error: tokenBalance >= minAmount ? undefined : 
+               `Insufficient tokens. You have ${tokenBalance} but need ${minAmount} tokens.`
       };
     } catch (error) {
       // Token account doesn't exist - user has never held this token
       return {
         isValid: false,
-        error: 'No token account found. You need to acquire the required tokens first.',
+        error: `No tokens found. You need to buy the required (${minAmount}) tokens first.`,
         balance: 0
       };
     }

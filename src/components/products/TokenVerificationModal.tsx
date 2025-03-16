@@ -326,9 +326,14 @@ export function TokenVerificationModal({
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="h-5 w-5 text-yellow-400" />
-                  <div className="flex-1">
-                    <p className="text-yellow-400">Verification in progress</p>
+                  <div className="w-full flex flex-col items-center gap-3 py-2">
+                    <AlertTriangle className="h-10 w-10 text-red-500" />
+                    <div className="text-center">
+                      <p className="text-red-500 font-semibold text-lg">Access Denied</p>
+                      {verificationResult?.error && (
+                        <p className="text-gray-400 text-sm mt-1">{verificationResult.error}</p>
+                      )}
+                    </div>
                   </div>
                 </>
               )}
