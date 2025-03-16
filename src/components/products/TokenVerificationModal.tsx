@@ -265,12 +265,14 @@ export function TokenVerificationModal({
           });
           
           if (updateError) {
-            console.error('Failed to update transaction status to order_failed:', updateError);
+            // This is expected if the migration hasn't been applied yet
+            console.error('Failed to update transaction status to order_failed (function may not be updated yet):', updateError);
           } else {
             console.log('Transaction status updated to order_failed');
           }
         } catch (updateErr) {
-          console.error('Error updating transaction status:', updateErr);
+          // This is expected if the migration hasn't been applied yet
+          console.error('Exception updating transaction status (function may not be updated yet):', updateErr);
         }
         
         toast.warning(

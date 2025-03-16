@@ -97,7 +97,9 @@ export function TransactionsTab() {
       });
 
       if (error) {
-        console.error('Error recovering order:', error);
+        // This could happen if the migration hasn't been applied yet
+        console.error('Error recovering order (function may not exist yet):', error);
+        toast.error('Unable to recover this order at the moment. This feature may still be deploying. Please try again in a few minutes.');
         throw error;
       }
 
@@ -105,7 +107,7 @@ export function TransactionsTab() {
       await fetchTransactions();
     } catch (err) {
       console.error('Error recovering order:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to recover order');
+      toast.error('Unable to recover this order. Please contact support if this issue persists.');
     } finally {
       setRecovering(prev => {
         const next = new Set(prev);

@@ -50,37 +50,38 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
     });
 
     // Check if order already exists for this transaction
-    const { data: existingOrder, error: existingOrderError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('transaction_signature', data.transactionId)
-      .single();
+    try {
+      const { data: existingOrders, error: existingOrderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('transaction_signature', data.transactionId);
 
-    if (existingOrderError && !existingOrderError.message.includes('No rows found')) {
-      console.error('Error checking for existing order:', existingOrderError);
-      throw existingOrderError;
-    }
-
-    if (existingOrder) {
-      console.log('Order already exists for this transaction, returning existing order');
-      return existingOrder;
+      if (existingOrderError) {
+        console.error('Error checking for existing orders:', existingOrderError);
+        // Continue with order creation even if check fails
+      } else if (existingOrders && existingOrders.length > 0) {
+        console.log('Order already exists for this transaction, returning existing order');
+        return existingOrders[0];
+      }
+    } catch (checkError) {
+      console.error('Exception checking for existing order:', checkError);
+      // Continue with order creation even if check fails
     }
 
     // Verify the transaction amount from the blockchain
     try {
       console.log('Verifying transaction amount from transaction logs');
-      const { data: txLog, error: txLogError } = await supabase
+      const { data: txLogs, error: txLogError } = await supabase
         .from('transaction_logs')
         .select('amount')
-        .eq('signature', data.transactionId)
-        .single();
+        .eq('signature', data.transactionId);
 
       if (txLogError) {
         console.warn('Could not verify transaction amount from logs:', txLogError);
-      } else if (txLog) {
+      } else if (txLogs && txLogs.length > 0 && txLogs[0].amount) {
         // Use the actual transaction amount from the logs
-        console.log(`Using verified transaction amount: ${txLog.amount} SOL (provided: ${data.amountSol} SOL)`);
-        data.amountSol = txLog.amount;
+        console.log(`Using verified transaction amount: ${txLogs[0].amount} SOL (provided: ${data.amountSol} SOL)`);
+        data.amountSol = txLogs[0].amount;
       }
     } catch (verifyError) {
       console.warn('Error verifying transaction amount:', verifyError);
@@ -108,29 +109,36 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
 
       if (orderId) {
         // Fetch the created order
-        const { data: createdOrder, error: fetchError } = await supabase
+        const { data: createdOrders, error: fetchError } = await supabase
           .from('orders')
           .select('*')
-          .eq('id', orderId)
-          .single();
+          .eq('id', orderId);
 
         if (fetchError) {
           console.error('Error fetching created order:', fetchError);
           throw fetchError;
         }
 
-        // Update the order with the verified amount
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({ amount_sol: data.amountSol })
-          .eq('id', orderId);
+        if (!createdOrders || createdOrders.length === 0) {
+          throw new Error('Order was created but could not be retrieved');
+        }
 
-        if (updateError) {
-          console.warn('Could not update order with verified amount:', updateError);
+        // Update the order with the verified amount
+        try {
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update({ amount_sol: data.amountSol })
+            .eq('id', orderId);
+
+          if (updateError) {
+            console.warn('Could not update order with verified amount:', updateError);
+          }
+        } catch (updateError) {
+          console.warn('Exception updating order amount:', updateError);
         }
 
         console.log('Order created successfully using database function');
-        return { ...createdOrder, amount_sol: data.amountSol };
+        return { ...createdOrders[0], amount_sol: data.amountSol };
       }
     } catch (functionError) {
       console.warn('Failed to create order using database function, falling back to direct insert:', functionError);
@@ -139,7 +147,7 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
 
     // Fallback: Direct insert if the function call fails
     console.log('Falling back to direct insert method');
-    const { data: order, error } = await supabase
+    const { data: orders, error } = await supabase
       .from('orders')
       .insert([{
         product_id: data.productId,
@@ -152,31 +160,36 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
         status: 'pending',
         amount_sol: data.amountSol
       }])
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('Error creating order via direct insert:', error);
       throw error;
     }
     
-    if (!order) {
+    if (!orders || orders.length === 0) {
       throw new Error('No order data returned from insert operation');
     }
 
     console.log('Order created successfully via direct insert');
-    return order;
+    return orders[0];
   } catch (error) {
     console.error(`Order creation attempt ${attempt + 1} failed:`, error);
     
     // Log the error to the transaction_logs table if this is the final attempt
     if (attempt >= MAX_RETRIES - 1) {
       try {
-        await supabase.rpc('log_order_creation_error', {
+        // Only try to log if the function exists
+        const { error: logError } = await supabase.rpc('log_order_creation_error', {
           p_signature: data.transactionId,
           p_error_message: error instanceof Error ? error.message : 'Unknown order creation error'
         });
-        console.log('Order creation error logged to transaction_logs');
+        
+        if (logError) {
+          console.warn('Failed to log order creation error (function may not exist yet):', logError);
+        } else {
+          console.log('Order creation error logged to transaction_logs');
+        }
       } catch (logError) {
         console.error('Failed to log order creation error:', logError);
       }

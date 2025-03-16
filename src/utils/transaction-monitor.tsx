@@ -125,10 +125,14 @@ export async function monitorTransaction(
               });
               
               if (logError) {
-                console.warn('Failed to log order creation attempt:', logError);
+                // This is expected if the function doesn't exist yet
+                console.warn('Failed to log order creation attempt (function may not exist yet):', logError);
+              } else {
+                console.log('Order creation attempt logged successfully');
               }
             } catch (logError) {
-              console.warn('Failed to log order creation attempt:', logError);
+              // This is expected if the function doesn't exist yet
+              console.warn('Exception logging order creation attempt:', logError);
             }
           } catch (updateError) {
             console.error('Failed to update transaction status to confirmed:', updateError);
