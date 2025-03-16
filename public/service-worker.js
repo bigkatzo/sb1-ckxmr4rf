@@ -12,10 +12,9 @@ const IMAGE_CACHE_NAME = 'storedot-images-v1';
 const STATIC_RESOURCES = [
   '/',
   '/index.html',
-  '/manifest.json',
-  '/favicon.ico',
-  '/assets/css/main.css',
-  '/assets/js/main.js'
+  '/offline.html',
+  '/service-worker.js'
+  // Don't include resources that don't exist or might have hashed filenames
 ];
 
 // Cache size limits
@@ -28,10 +27,31 @@ self.addEventListener('install', (event) => {
     caches.open(STATIC_CACHE_NAME)
       .then((cache) => {
         console.log('Service Worker: Caching static files');
-        return cache.addAll(STATIC_RESOURCES);
+        // Use a more resilient approach to caching static files
+        return Promise.all(
+          STATIC_RESOURCES.map(url => {
+            return fetch(url)
+              .then(response => {
+                if (response.ok) {
+                  return cache.put(url, response);
+                }
+                console.warn(`Failed to cache ${url}: ${response.status} ${response.statusText}`);
+                return Promise.resolve(); // Continue even if one resource fails
+              })
+              .catch(error => {
+                console.warn(`Failed to fetch ${url} for caching:`, error);
+                return Promise.resolve(); // Continue even if one resource fails
+              });
+          })
+        );
       })
       .then(() => {
+        console.log('Service Worker: Static caching completed');
         return self.skipWaiting();
+      })
+      .catch(error => {
+        console.error('Service Worker: Installation failed:', error);
+        return self.skipWaiting(); // Skip waiting even if caching fails
       })
   );
 });
@@ -192,6 +212,7 @@ async function handleImageRequest(request) {
  */
 async function handleStaticRequest(request) {
   const cache = await caches.open(STATIC_CACHE_NAME);
+  const url = new URL(request.url);
   
   // Try to get from cache first
   const cachedResponse = await cache.match(request);
@@ -199,14 +220,28 @@ async function handleStaticRequest(request) {
     return cachedResponse;
   }
   
+  // Special handling for assets that might have hashed filenames
+  const isAssetRequest = url.pathname.startsWith('/assets/');
+  
   // If not in cache, fetch from network
   try {
     const networkResponse = await fetch(request);
     
     // Only cache successful responses
     if (networkResponse.ok) {
-      // Clone the response because it can only be used once
-      await cache.put(request, networkResponse.clone());
+      // For assets with hashed filenames, we can cache them with a long expiry
+      if (isAssetRequest) {
+        // Clone the response because it can only be used once
+        await cache.put(request, networkResponse.clone());
+        
+        // Trim cache if needed for assets
+        if (url.pathname.includes('/assets/')) {
+          await trimCache(STATIC_CACHE_NAME, 200); // Limit asset cache size
+        }
+      } else {
+        // For other static resources, cache them normally
+        await cache.put(request, networkResponse.clone());
+      }
     }
     
     return networkResponse;
@@ -215,7 +250,10 @@ async function handleStaticRequest(request) {
     
     // For navigation requests, return the offline page
     if (request.mode === 'navigate') {
-      return caches.match('/offline.html');
+      const offlineResponse = await caches.match('/offline.html');
+      if (offlineResponse) {
+        return offlineResponse;
+      }
     }
     
     throw error;
