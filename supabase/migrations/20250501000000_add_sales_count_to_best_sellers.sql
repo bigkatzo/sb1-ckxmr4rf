@@ -1,14 +1,14 @@
 -- Drop existing function
 DROP FUNCTION IF EXISTS public.get_best_sellers(integer, text);
 
--- Create the fixed function
+-- Create the updated function using total_orders directly
 CREATE OR REPLACE FUNCTION public.get_best_sellers(p_limit integer DEFAULT 6, p_sort_by text DEFAULT 'sales')
 RETURNS SETOF public_products_with_categories
 LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT p.*, COALESCE(oc.total_orders, 0) as sales_count
+  SELECT p.*
   FROM public_products_with_categories p
   LEFT JOIN (
     SELECT product_id, COUNT(*) as total_orders
@@ -28,4 +28,4 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_best_sellers(integer, text) TO anon;
 
 -- Update comment
-COMMENT ON FUNCTION public.get_best_sellers(integer, text) IS 'Returns best-selling products from visible collections with active sales, sorted by actual sales data and includes sales_count'; 
+COMMENT ON FUNCTION public.get_best_sellers(integer, text) IS 'Returns best-selling products from visible collections with active sales, sorted by actual sales data'; 

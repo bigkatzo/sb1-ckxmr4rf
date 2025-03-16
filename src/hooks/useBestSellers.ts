@@ -151,10 +151,6 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
           salesCount: product.sales_count || 0
         }));
 
-        if (sortBy === 'sales' && !transformedProducts.some((p: { salesCount?: number }) => p.salesCount && p.salesCount > 0)) {
-          console.warn('Sales count not provided by backend, sorting may not be accurate');
-        }
-
         const indices = createCategoryIndicesFromProducts(transformedProducts);
         
         // Cache the results with SEMI_DYNAMIC durations
