@@ -37,6 +37,17 @@ interface VerificationResult {
   balance?: number;
 }
 
+// Add new interface for progress steps
+interface ProgressStep {
+  label: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  description?: string;
+  details?: {
+    success?: string;
+    error?: string;
+  };
+}
+
 // Helper function to handle NFT verification
 async function handleVerification(walletAddress: string, value: string, quantity: number): Promise<VerificationResult> {
   try {
@@ -73,6 +84,41 @@ export function TokenVerificationModal({
   const [submitting, setSubmitting] = useState(false);
   const { modifiedPrice } = useModifiedPrice({ product, selectedOptions });
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
+  
+  // Add new state for progress steps
+  const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
+    { 
+      label: 'Payment Processing',
+      status: 'pending',
+      details: {
+        success: 'Payment confirmed on Solana network',
+        error: 'Unable to process payment'
+      }
+    },
+    { 
+      label: 'Transaction Confirmation',
+      status: 'pending',
+      details: {
+        success: 'Transaction finalized on-chain',
+        error: 'Transaction verification failed'
+      }
+    },
+    { 
+      label: 'Order Creation',
+      status: 'pending',
+      details: {
+        success: 'Order successfully created',
+        error: 'Failed to create order'
+      }
+    }
+  ]);
+
+  // Add helper function to update progress steps
+  const updateProgressStep = (index: number, status: ProgressStep['status'], description?: string) => {
+    setProgressSteps(steps => steps.map((step, i) => 
+      i === index ? { ...step, status, description } : step
+    ));
+  };
 
   // Calculate final price including variants and modifications
   const variantKey = Object.values(selectedOptions).join(':');
@@ -178,21 +224,19 @@ export function TokenVerificationModal({
       // Save shipping info to localStorage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfo));
       
-      // Log the price being used for payment
-      console.log(`Processing payment with price: ${finalPrice} SOL`, {
-        basePrice: product.price,
-        hasVariantPrice,
-        variantKey,
-        modifiedPrice,
-        finalPrice
-      });
+      // Update payment processing step
+      updateProgressStep(0, 'processing');
       
       // Process payment with modified price
       const { success, signature } = await processPayment(finalPrice, product.collectionId);
       
       if (!success || !signature) {
+        updateProgressStep(0, 'error', 'Payment failed');
         throw new Error('Payment failed');
       }
+      
+      updateProgressStep(0, 'completed');
+      updateProgressStep(1, 'processing');
 
       // Format shipping address
       const formattedShippingInfo = {
@@ -230,8 +274,8 @@ export function TokenVerificationModal({
       });
 
       // Create order record with retries
+      updateProgressStep(2, 'processing');
       let orderError;
-      toast.info('Creating order...', { autoClose: 3000 });
       for (let i = 0; i < 3; i++) {
         try {
           await createOrder({
@@ -244,11 +288,16 @@ export function TokenVerificationModal({
             amountSol: finalPrice
           });
           orderError = null;
+          updateProgressStep(2, 'completed');
           break;
         } catch (err) {
           console.error(`Order creation attempt ${i + 1} failed:`, err);
           orderError = err;
-          if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+          if (i < 2) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+          } else {
+            updateProgressStep(2, 'error', 'Failed to create order');
+          }
         }
       }
 
@@ -292,11 +341,89 @@ export function TokenVerificationModal({
       console.error('Order error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
       toast.error(errorMessage, {
-        autoClose: false // Keep error visible until manually closed
+        autoClose: false
       });
       setSubmitting(false);
     }
   };
+
+  // Add progress indicator component
+  const ProgressIndicator = () => (
+    <div className="space-y-6 p-6 bg-gray-800/50 rounded-lg">
+      <h3 className="text-sm font-medium text-gray-300">Order Progress</h3>
+      <div className="relative space-y-6">
+        {progressSteps.map((step, index) => (
+          <div key={step.label} className="relative">
+            {/* Timeline connector */}
+            {index < progressSteps.length - 1 && (
+              <div className={`absolute left-[15px] top-8 w-[2px] h-[calc(100%+8px)] -ml-px transition-colors duration-300 ${
+                step.status === 'completed' ? 'bg-green-500/50' :
+                step.status === 'processing' ? 'bg-purple-500/50 animate-pulse' :
+                'bg-gray-700'
+              }`} />
+            )}
+            
+            <div className={`relative flex items-start gap-4 transition-opacity duration-300 ${
+              step.status === 'processing' ? 'opacity-100' : 'opacity-70'
+            }`}>
+              {/* Status indicator */}
+              <div className={`relative flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+                step.status === 'completed' ? 'bg-green-500/20 text-green-400 ring-2 ring-green-500/30' :
+                step.status === 'processing' ? 'bg-purple-500/20 text-purple-400 ring-2 ring-purple-500/30 scale-110' :
+                step.status === 'error' ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/30' :
+                'bg-gray-700/50 text-gray-400'
+              }`}>
+                {step.status === 'completed' ? (
+                  <CheckCircle2 className="h-5 w-5" />
+                ) : step.status === 'processing' ? (
+                  <div className="relative">
+                    <Loading type={LoadingType.ACTION} />
+                    <div className="absolute inset-0 rounded-full animate-[ping_2s_ease-in-out_infinite]">
+                      <div className="absolute inset-0 rounded-full bg-purple-500/30 animate-[ping_2s_ease-in-out_infinite_0.75s]" />
+                    </div>
+                  </div>
+                ) : step.status === 'error' ? (
+                  <AlertTriangle className="h-5 w-5" />
+                ) : (
+                  <div className="h-2 w-2 rounded-full bg-current" />
+                )}
+              </div>
+
+              {/* Step content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className={`text-sm font-medium transition-colors duration-300 ${
+                    step.status === 'completed' ? 'text-green-400' :
+                    step.status === 'processing' ? 'text-purple-400' :
+                    step.status === 'error' ? 'text-red-400' :
+                    'text-gray-400'
+                  }`}>
+                    {step.label}
+                  </p>
+                </div>
+                
+                {/* Status messages */}
+                <div className="mt-1">
+                  {(step.status === 'completed' && step.details?.success) && (
+                    <p className="text-xs text-green-400/80 animate-fadeIn">{step.details.success}</p>
+                  )}
+                  {(step.status === 'error' && step.details?.error) && (
+                    <p className="text-xs text-red-400/80 animate-fadeIn">{step.details.error}</p>
+                  )}
+                  {step.status === 'processing' && (
+                    <p className="text-xs text-purple-400/80 animate-pulse">Processing...</p>
+                  )}
+                  {step.description && (
+                    <p className="text-xs text-gray-500">{step.description}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -305,7 +432,8 @@ export function TokenVerificationModal({
           <h2 className="text-lg font-semibold text-white">Complete Your Purchase</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
+            disabled={submitting}
+            className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <X className="h-5 w-5" />
           </button>
@@ -345,6 +473,9 @@ export function TokenVerificationModal({
             </div>
           )}
 
+          {/* Progress Indicator (show when submitting) */}
+          {submitting && <ProgressIndicator />}
+
           {/* Shipping Form */}
           {(!product.category?.eligibilityRules?.groups?.length || verificationResult?.isValid) && (
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -361,7 +492,8 @@ export function TokenVerificationModal({
                       address: e.target.value
                     }))}
                     required
-                    className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500"
+                    disabled={submitting}
+                    className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Enter your street address"
                   />
                 </div>
@@ -379,7 +511,8 @@ export function TokenVerificationModal({
                         city: e.target.value
                       }))}
                       required
-                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500"
+                      disabled={submitting}
+                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="City"
                     />
                   </div>
@@ -395,7 +528,8 @@ export function TokenVerificationModal({
                         zip: e.target.value
                       }))}
                       required
-                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500"
+                      disabled={submitting}
+                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="ZIP code"
                     />
                   </div>
@@ -413,7 +547,8 @@ export function TokenVerificationModal({
                       country: e.target.value
                     }))}
                     required
-                    className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500"
+                    disabled={submitting}
+                    className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Country"
                   />
                 </div>
@@ -432,6 +567,7 @@ export function TokenVerificationModal({
                       contactValue: '' // Reset value when changing method
                     }))}
                     className="w-full sm:w-auto bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    disabled={submitting}
                   >
                     <option value="telegram">Telegram</option>
                     <option value="email">Email</option>
@@ -446,7 +582,8 @@ export function TokenVerificationModal({
                         contactValue: e.target.value
                       }))}
                       required
-                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 truncate"
+                      disabled={submitting}
+                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 truncate disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder={
                         shippingInfo.contactMethod === 'telegram' ? '@username' :
                         shippingInfo.contactMethod === 'email' ? 'email@example.com' :
@@ -467,13 +604,9 @@ export function TokenVerificationModal({
                   className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   {submitting ? (
-                    <>
-                      <Loading type={LoadingType.ACTION} text="Processing Payment..." />
-                    </>
+                    <span>Processing...</span>
                   ) : (
-                    <>
-                      <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>
-                    </>
+                    <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>
                   )}
                 </button>
               </div>
