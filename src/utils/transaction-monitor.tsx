@@ -12,7 +12,6 @@ interface TransactionStatus {
 
 const MAX_RETRIES = 30;
 const INITIAL_DELAY = 1000;
-const ALCHEMY_RPC_URL = `https://solana-mainnet.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_API_KEY}`;
 
 export async function monitorTransaction(
   signature: string,
@@ -35,24 +34,12 @@ export async function monitorTransaction(
 
     while (attempts < MAX_RETRIES) {
       try {
-        const response = await fetch(ALCHEMY_RPC_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getSignatureStatuses',
-            params: [[signature], { searchTransactionHistory: true }]
-          })
+        // Use SOLANA_CONNECTION instead of direct Alchemy RPC
+        const statuses = await SOLANA_CONNECTION.getSignatureStatuses([signature], {
+          searchTransactionHistory: true
         });
-
-        const data = await response.json();
         
-        if (data.error) {
-          throw new Error(data.error.message);
-        }
-
-        const status = data.result?.value?.[0];
+        const status = statuses.value?.[0];
         console.log(`Status check ${attempts + 1}:`, status);
 
         if (status?.confirmationStatus === 'finalized') {

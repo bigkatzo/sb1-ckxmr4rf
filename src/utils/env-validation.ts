@@ -11,16 +11,24 @@ export function validateEnvironmentVariables(): void {
     VITE_SUPABASE_ANON_KEY: {
       validate: (value: string) => value.split('.').length === 3, // JWT format
       message: 'Must be a valid JWT token'
+    }
+  };
+
+  const optionalVars = {
+    VITE_HELIUS_API_KEY: {
+      validate: (value: string) => value.length > 0,
+      message: 'If provided, must not be empty'
     },
     VITE_ALCHEMY_API_KEY: {
       validate: (value: string) => value.length > 0,
-      message: 'Must not be empty'
+      message: 'If provided, must not be empty'
     }
   };
 
   const missingVars: string[] = [];
   const invalidVars: string[] = [];
 
+  // Check required vars
   Object.entries(requiredVars).forEach(([varName, config]) => {
     const value = import.meta.env[varName];
     
@@ -33,6 +41,24 @@ export function validateEnvironmentVariables(): void {
       invalidVars.push(`${varName}: ${config.message}`);
     }
   });
+
+  // Check optional vars if they are provided
+  Object.entries(optionalVars).forEach(([varName, config]) => {
+    const value = import.meta.env[varName];
+    
+    if (value && !config.validate(value)) {
+      invalidVars.push(`${varName}: ${config.message}`);
+    }
+  });
+
+  // Warn if no RPC API keys are provided
+  if (!import.meta.env.VITE_HELIUS_API_KEY && !import.meta.env.VITE_ALCHEMY_API_KEY) {
+    console.warn(
+      '⚠️ No RPC API keys provided. The app will use public RPC endpoints, ' +
+      'which may have rate limits and reliability issues. ' +
+      'Consider adding VITE_HELIUS_API_KEY or VITE_ALCHEMY_API_KEY for better performance.'
+    );
+  }
 
   if (missingVars.length > 0 || invalidVars.length > 0) {
     const errors: string[] = [];
@@ -55,5 +81,14 @@ export function validateEnvironmentVariables(): void {
   // Only log success in development, but don't show any values
   if (import.meta.env.DEV) {
     console.log('✅ Environment variables validated');
+    
+    // Log RPC configuration in development
+    if (import.meta.env.VITE_HELIUS_API_KEY) {
+      console.log('Using Helius as primary RPC provider');
+    } else if (import.meta.env.VITE_ALCHEMY_API_KEY) {
+      console.log('Using Alchemy as primary RPC provider');
+    } else {
+      console.log('Using public RPC endpoints');
+    }
   }
 } 
