@@ -1,4 +1,4 @@
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, Connection, ConnectionConfig } from '@solana/web3.js';
 import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { SOLANA_CONNECTION } from '../config/solana';
 
@@ -8,21 +8,67 @@ export interface TokenVerificationResult {
   balance?: number;
 }
 
+// Validate Solana address format
+function isValidSolanaAddress(address: string): boolean {
+  try {
+    new PublicKey(address);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function verifyTokenHolding(
   walletAddress: string,
   tokenMintAddress: string,
   minAmount: number
 ): Promise<TokenVerificationResult> {
+  // Input validation
+  if (!walletAddress || !isValidSolanaAddress(walletAddress)) {
+    return {
+      isValid: false,
+      error: 'Invalid wallet address format',
+      balance: 0
+    };
+  }
+
+  if (!tokenMintAddress || !isValidSolanaAddress(tokenMintAddress)) {
+    return {
+      isValid: false,
+      error: 'Invalid token mint address format',
+      balance: 0
+    };
+  }
+
+  if (typeof minAmount !== 'number' || minAmount < 0) {
+    return {
+      isValid: false,
+      error: 'Invalid minimum amount specified',
+      balance: 0
+    };
+  }
+
   try {
     const walletPubKey = new PublicKey(walletAddress);
     const tokenMintPubKey = new PublicKey(tokenMintAddress);
+
+    // Configure connection with timeout
+    const connectionConfig: ConnectionConfig = {
+      commitment: 'confirmed',
+      confirmTransactionInitialTimeout: 30000, // 30 seconds
+    };
+    
+    const connection = new Connection(
+      SOLANA_CONNECTION.rpcEndpoint,
+      connectionConfig
+    );
 
     // Get the associated token account for the wallet
     const tokenAccount = await getAssociatedTokenAddress(tokenMintPubKey, walletPubKey);
 
     try {
       // Fetch balance of the token account
-      const balanceInfo = await SOLANA_CONNECTION.getTokenAccountBalance(tokenAccount);
+      const balanceInfo = await connection.getTokenAccountBalance(tokenAccount);
       const tokenBalance = parseFloat(balanceInfo.value.amount);
 
       return {
