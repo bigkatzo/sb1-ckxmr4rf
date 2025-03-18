@@ -14,6 +14,7 @@ interface OptimizedImageProps {
   isGalleryImage?: boolean;
   fallbackSrc?: string;
   objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
+  sizes?: string;
 }
 
 export function OptimizedImage({
