@@ -10,25 +10,31 @@ interface GalleryPreloaderProps {
 export function GalleryPreloader({
   urls,
   currentIndex,
-  preloadCount = 3
+  preloadCount = 2
 }: GalleryPreloaderProps) {
   useEffect(() => {
+    // Only preload if we have URLs and we're not at the end
+    if (!urls.length || currentIndex >= urls.length - 1) return;
+    
     // Calculate which images to preload
     const preloadUrls: string[] = [];
     
-    // Preload next N images
-    for (let i = 1; i <= preloadCount; i++) {
-      const nextIndex = (currentIndex + i) % urls.length;
-      preloadUrls.push(urls[nextIndex]);
+    // Only preload next images (not previous)
+    for (let i = 1; i <= preloadCount && currentIndex + i < urls.length; i++) {
+      preloadUrls.push(urls[currentIndex + i]);
     }
     
-    // Preload previous image if available
-    if (currentIndex > 0) {
-      preloadUrls.unshift(urls[currentIndex - 1]);
+    // Use requestIdleCallback for preloading if available
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => {
+        preloadImages(preloadUrls);
+      });
+    } else {
+      // Fallback to setTimeout
+      setTimeout(() => {
+        preloadImages(preloadUrls);
+      }, 1000);
     }
-    
-    // Start preloading
-    preloadImages(preloadUrls);
   }, [urls, currentIndex, preloadCount]);
 
   // This is a utility component that doesn't render anything

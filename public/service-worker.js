@@ -487,70 +487,7 @@ async function fetchWithRetry(request, maxRetries = 2) {
   throw lastError;
 }
 
-// Helper function to fetch Supabase image with proper headers
-async function fetchSupabaseImage(request) {
-  const url = new URL(request.url);
-  const priority = url.searchParams.get('priority') || 'low';
-  const isVisible = url.searchParams.get('visible') === 'true';
-  
-  // Remove the parameters from the URL to avoid cache key conflicts
-  url.searchParams.delete('priority');
-  url.searchParams.delete('visible');
-  
-  const modifiedRequest = new Request(url.toString(), {
-    method: 'GET',
-    headers: {
-      'Accept': 'image/*',
-      'Cache-Control': 'no-cache',
-      'X-Client-Info': 'service-worker',
-      'X-Image-Priority': priority,
-      'X-Viewport-Visible': isVisible ? 'true' : 'false'
-    },
-    mode: 'cors',
-    credentials: 'omit',
-    priority: priority === 'high' ? 'high' : 'low'
-  });
-  
-  return fetchWithRetry(modifiedRequest);
-}
-
-// Helper function to cache Supabase image
-async function cacheSupabaseImage(response, request, cache) {
-  const url = new URL(request.url);
-  const priority = url.searchParams.get('priority') || 'low';
-  const isVisible = url.searchParams.get('visible') === 'true';
-  
-  // Remove the parameters from the URL for caching
-  url.searchParams.delete('priority');
-  url.searchParams.delete('visible');
-  
-  const headers = new Headers(response.headers);
-  headers.set('X-Cache-Time', Date.now().toString());
-  headers.set('X-Last-Accessed', Date.now().toString());
-  headers.set('X-Cache-Source', 'supabase-storage');
-  headers.set('X-Image-Priority', priority);
-  headers.set('X-Viewport-Visible', isVisible ? 'true' : 'false');
-  headers.set('X-Cache-Version', CACHE_CONFIG.IMAGES.version);
-  
-  const enhancedResponse = new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers
-  });
-  
-  try {
-    // Cache using the URL without parameters
-    const cacheRequest = new Request(url.toString());
-    await cache.put(cacheRequest, enhancedResponse);
-    
-    // Maintain cache size and remove old entries
-    await maintainCache(CACHE_NAMES.IMAGES);
-  } catch (error) {
-    console.error('Failed to cache Supabase image:', error);
-  }
-}
-
-// Improved Supabase storage handling with priority
+// Simplified Supabase storage handling
 async function handleSupabaseStorageRequest(request) {
   const cache = await caches.open(CACHE_NAMES.IMAGES);
   const url = new URL(request.url);
@@ -561,67 +498,48 @@ async function handleSupabaseStorageRequest(request) {
   cacheUrl.searchParams.delete('visible');
   const cacheRequest = new Request(cacheUrl.toString());
   
+  // Check cache first
   const cachedResponse = await cache.match(cacheRequest);
-  
-  // Check if cached response is from current cache version
   if (cachedResponse) {
+    // Validate cache version
     const cacheVersion = cachedResponse.headers.get('X-Cache-Version');
-    if (cacheVersion !== CACHE_CONFIG.IMAGES.version) {
-      await cache.delete(cacheRequest);
-      return fetchAndCache();
-    }
-  }
-  
-  const priority = url.searchParams.get('priority') || 'low';
-  const isVisible = url.searchParams.get('visible') === 'true';
-  
-  // For high priority or visible images, skip cache for freshness
-  if ((priority === 'high' || isVisible) && !cachedResponse) {
-    return fetchAndCache();
-  }
-  
-  if (cachedResponse) {
-    const cachedDate = cachedResponse.headers.get('X-Cache-Time');
-    const maxAge = priority === 'high' ? 3600 : 86400; // 1 hour for high priority, 24 hours for low
-    const staleWhileRevalidate = priority === 'high' ? 7200 : 604800; // 2 hours for high priority, 1 week for low
-    
-    if (cachedDate) {
-      const age = (Date.now() - parseInt(cachedDate)) / 1000;
-      
-      if (age < maxAge) {
-        // Fresh cache hit - return immediately
-        return cachedResponse.clone();
+    if (cacheVersion === CACHE_CONFIG.IMAGES.version) {
+      // Background revalidate if older than 1 hour
+      const cachedTime = parseInt(cachedResponse.headers.get('X-Cache-Time') || '0');
+      if (Date.now() - cachedTime > 3600000) { // 1 hour
+        fetchAndCache().catch(console.error);
       }
-      
-      if (age < maxAge + staleWhileRevalidate) {
-        // Background revalidation with priority
-        const revalidationPromise = revalidateSupabaseImage(request.clone(), cache);
-        if (priority === 'high' || isVisible) {
-          // Wait for revalidation for high priority images
-          await revalidationPromise;
-        } else {
-          // Don't wait for low priority images
-          revalidationPromise.catch(console.error);
-        }
-        return cachedResponse.clone();
-      }
+      return cachedResponse.clone();
     }
   }
   
   return fetchAndCache();
   
-  // Helper function to fetch and cache
   async function fetchAndCache() {
     try {
-      const networkResponse = await fetchSupabaseImage(request.clone());
-      if (networkResponse.ok) {
-        await cacheSupabaseImage(networkResponse.clone(), request.clone(), cache);
-        return networkResponse;
-      }
+      const response = await fetch(request.clone(), {
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Accept': 'image/*',
+          'Cache-Control': 'no-cache',
+          'X-Client-Info': 'service-worker'
+        }
+      });
       
-      if (cachedResponse) {
-        console.log('Network failed, using cached response');
-        return cachedResponse.clone();
+      if (response.ok) {
+        const headers = new Headers(response.headers);
+        headers.set('X-Cache-Time', Date.now().toString());
+        headers.set('X-Cache-Version', CACHE_CONFIG.IMAGES.version);
+        
+        const enhancedResponse = new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers
+        });
+        
+        await cache.put(cacheRequest, enhancedResponse.clone());
+        return enhancedResponse;
       }
       
       throw new Error('Network response was not ok');
@@ -630,18 +548,6 @@ async function handleSupabaseStorageRequest(request) {
       if (cachedResponse) return cachedResponse.clone();
       throw error;
     }
-  }
-}
-
-// Helper function to revalidate Supabase image in background
-async function revalidateSupabaseImage(request, cache) {
-  try {
-    const networkResponse = await fetchSupabaseImage(request);
-    if (networkResponse.ok) {
-      await cacheSupabaseImage(networkResponse, request, cache);
-    }
-  } catch (error) {
-    console.error('Background revalidation failed:', error);
   }
 }
 
