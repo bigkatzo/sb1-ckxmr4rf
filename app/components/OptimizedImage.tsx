@@ -15,7 +15,11 @@ interface OptimizedImageProps {
   // New props for gallery/slider images
   isGalleryImage?: boolean;
   galleryIndex?: number;
+  fallbackSrc?: string;
+  retryCount?: number;
 }
+
+type LoadingState = 'initial' | 'loading' | 'loaded' | 'error';
 
 export function OptimizedImage({
   src,
@@ -29,9 +33,12 @@ export function OptimizedImage({
   onError,
   isGalleryImage = false,
   galleryIndex = 0,
+  fallbackSrc,
+  retryCount = 2,
 }: OptimizedImageProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [hasStartedLoading, setHasStartedLoading] = useState(false);
+  const [loadingState, setLoadingState] = useState<LoadingState>('initial');
+  const [retries, setRetries] = useState(0);
+  const [currentSrc, setCurrentSrc] = useState(src);
   
   // Use a larger rootMargin for gallery images to start loading earlier
   const rootMargin = isGalleryImage ? '100px 0px' : '50px 0px';
@@ -40,7 +47,6 @@ export function OptimizedImage({
     triggerOnce: true,
     rootMargin,
     // For gallery images, we want to track when they enter/leave the viewport
-    // For regular images, we only need to know when they first enter
     trackVisibility: isGalleryImage,
     delay: isGalleryImage ? 100 : 0,
   });
@@ -57,30 +63,49 @@ export function OptimizedImage({
 
   // Construct URL with priority parameters
   const imageUrl = useMemo(() => {
-    return getPrioritizedImageUrl(src, effectivePriority as 'high' | 'low', inView);
-  }, [src, effectivePriority, inView]);
+    return getPrioritizedImageUrl(currentSrc, effectivePriority as 'high' | 'low', inView);
+  }, [currentSrc, effectivePriority, inView]);
 
   // Determine loading strategy
   const loading = priority ? 'eager' : propLoading || 'lazy';
 
-  // Start loading when in view or preloaded
+  // Reset state when src changes
   useEffect(() => {
-    if (!hasStartedLoading && (inView || isImagePreloaded(src) || priority)) {
-      setHasStartedLoading(true);
-    }
-  }, [inView, src, hasStartedLoading, priority]);
+    setCurrentSrc(src);
+    setLoadingState('initial');
+    setRetries(0);
+  }, [src]);
 
   // Handle load event
   const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    setIsLoaded(true);
+    setLoadingState('loaded');
     onLoad?.();
   };
 
   // Handle error event
   const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    console.error(`Failed to load image: ${imageUrl}`);
-    onError?.();
+    if (retries < retryCount) {
+      // Retry loading after a delay
+      setRetries(prev => prev + 1);
+      setTimeout(() => {
+        setCurrentSrc(`${src}${src.includes('?') ? '&' : '?'}retry=${retries + 1}`);
+      }, Math.min(1000 * Math.pow(2, retries), 5000));
+    } else if (fallbackSrc && currentSrc !== fallbackSrc) {
+      // Try fallback image
+      setCurrentSrc(fallbackSrc);
+      setRetries(0);
+    } else {
+      setLoadingState('error');
+      onError?.();
+    }
   };
+
+  // Start loading when in view or preloaded
+  useEffect(() => {
+    if (loadingState === 'initial' && (inView || isImagePreloaded(src) || priority)) {
+      setLoadingState('loading');
+    }
+  }, [inView, src, loadingState, priority]);
 
   return (
     <div 
@@ -90,7 +115,7 @@ export function OptimizedImage({
         aspectRatio: width && height ? `${width}/${height}` : 'auto',
       }}
     >
-      {hasStartedLoading && (
+      {loadingState !== 'initial' && (
         <img
           src={imageUrl}
           alt={alt}
@@ -98,21 +123,28 @@ export function OptimizedImage({
           height={height}
           loading={loading}
           className={`transition-opacity duration-300 ${
-            isLoaded ? 'opacity-100' : 'opacity-0'
+            loadingState === 'loaded' ? 'opacity-100' : 'opacity-0'
           } absolute top-0 left-0 w-full h-full object-cover`}
           onLoad={handleLoad}
           onError={handleError}
         />
       )}
       
-      {/* Placeholder while loading */}
-      {!isLoaded && (
+      {/* Loading placeholder */}
+      {loadingState !== 'loaded' && (
         <div 
           className="absolute top-0 left-0 w-full h-full bg-gray-100 animate-pulse"
           style={{
             aspectRatio: width && height ? `${width}/${height}` : 'auto',
           }}
         />
+      )}
+
+      {/* Error state */}
+      {loadingState === 'error' && (
+        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-100">
+          <span className="text-gray-500">Failed to load image</span>
+        </div>
       )}
     </div>
   );

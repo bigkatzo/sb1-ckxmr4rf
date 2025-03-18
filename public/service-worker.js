@@ -426,6 +426,67 @@ async function trimCache(cacheName, maxItems) {
   }
 }
 
+const CACHE_CONFIG = {
+  IMAGES: {
+    maxItems: 100, // Maximum number of items to keep in cache
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week in milliseconds
+    version: '1' // Cache version
+  }
+};
+
+// Helper function to manage cache size and age
+async function maintainCache(cacheName) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  const config = CACHE_CONFIG[cacheName.split('-')[1]] || {};
+  const now = Date.now();
+
+  const itemsWithMetadata = await Promise.all(
+    keys.map(async (request) => {
+      const response = await cache.match(request);
+      const timestamp = Number(response?.headers.get('X-Cache-Time') || 0);
+      return { request, timestamp };
+    })
+  );
+
+  // Remove expired items
+  const expired = itemsWithMetadata.filter(
+    ({ timestamp }) => now - timestamp > config.maxAge
+  );
+  await Promise.all(expired.map(({ request }) => cache.delete(request)));
+
+  // Sort remaining by timestamp (oldest first)
+  const remaining = itemsWithMetadata
+    .filter(({ timestamp }) => now - timestamp <= config.maxAge)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  // Remove oldest items if we're over the limit
+  if (remaining.length > config.maxItems) {
+    const toRemove = remaining.slice(0, remaining.length - config.maxItems);
+    await Promise.all(toRemove.map(({ request }) => cache.delete(request)));
+  }
+}
+
+// Helper function to fetch with retry
+async function fetchWithRetry(request, maxRetries = 2) {
+  let lastError;
+  
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      const response = await fetch(request.clone());
+      if (response.ok) return response;
+      lastError = new Error(`HTTP error! status: ${response.status}`);
+    } catch (error) {
+      lastError = error;
+      if (i === maxRetries) break;
+      // Wait 1s, then 2s before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+  
+  throw lastError;
+}
+
 // Helper function to fetch Supabase image with proper headers
 async function fetchSupabaseImage(request) {
   const url = new URL(request.url);
@@ -450,7 +511,7 @@ async function fetchSupabaseImage(request) {
     priority: priority === 'high' ? 'high' : 'low'
   });
   
-  return fetch(modifiedRequest);
+  return fetchWithRetry(modifiedRequest);
 }
 
 // Helper function to cache Supabase image
@@ -469,6 +530,7 @@ async function cacheSupabaseImage(response, request, cache) {
   headers.set('X-Cache-Source', 'supabase-storage');
   headers.set('X-Image-Priority', priority);
   headers.set('X-Viewport-Visible', isVisible ? 'true' : 'false');
+  headers.set('X-Cache-Version', CACHE_CONFIG.IMAGES.version);
   
   const enhancedResponse = new Response(response.body, {
     status: response.status,
@@ -480,6 +542,9 @@ async function cacheSupabaseImage(response, request, cache) {
     // Cache using the URL without parameters
     const cacheRequest = new Request(url.toString());
     await cache.put(cacheRequest, enhancedResponse);
+    
+    // Maintain cache size and remove old entries
+    await maintainCache(CACHE_NAMES.IMAGES);
   } catch (error) {
     console.error('Failed to cache Supabase image:', error);
   }
@@ -488,22 +553,31 @@ async function cacheSupabaseImage(response, request, cache) {
 // Improved Supabase storage handling with priority
 async function handleSupabaseStorageRequest(request) {
   const cache = await caches.open(CACHE_NAMES.IMAGES);
-  const cachedResponse = await cache.match(request);
+  const url = new URL(request.url);
   
-  const priority = request.headers.get('X-Image-Priority') || 'low';
-  const isVisible = request.headers.get('X-Viewport-Visible') === 'true';
+  // Create cache key without parameters
+  const cacheUrl = new URL(url.toString());
+  cacheUrl.searchParams.delete('priority');
+  cacheUrl.searchParams.delete('visible');
+  const cacheRequest = new Request(cacheUrl.toString());
+  
+  const cachedResponse = await cache.match(cacheRequest);
+  
+  // Check if cached response is from current cache version
+  if (cachedResponse) {
+    const cacheVersion = cachedResponse.headers.get('X-Cache-Version');
+    if (cacheVersion !== CACHE_CONFIG.IMAGES.version) {
+      await cache.delete(cacheRequest);
+      return fetchAndCache();
+    }
+  }
+  
+  const priority = url.searchParams.get('priority') || 'low';
+  const isVisible = url.searchParams.get('visible') === 'true';
   
   // For high priority or visible images, skip cache for freshness
   if ((priority === 'high' || isVisible) && !cachedResponse) {
-    try {
-      const networkResponse = await fetchSupabaseImage(request.clone());
-      if (networkResponse.ok) {
-        await cacheSupabaseImage(networkResponse.clone(), request.clone(), cache);
-        return networkResponse;
-      }
-    } catch (error) {
-      console.error('High priority fetch failed:', error);
-    }
+    return fetchAndCache();
   }
   
   if (cachedResponse) {
@@ -534,23 +608,28 @@ async function handleSupabaseStorageRequest(request) {
     }
   }
   
-  try {
-    const networkResponse = await fetchSupabaseImage(request.clone());
-    if (networkResponse.ok) {
-      await cacheSupabaseImage(networkResponse.clone(), request.clone(), cache);
-      return networkResponse;
+  return fetchAndCache();
+  
+  // Helper function to fetch and cache
+  async function fetchAndCache() {
+    try {
+      const networkResponse = await fetchSupabaseImage(request.clone());
+      if (networkResponse.ok) {
+        await cacheSupabaseImage(networkResponse.clone(), request.clone(), cache);
+        return networkResponse;
+      }
+      
+      if (cachedResponse) {
+        console.log('Network failed, using cached response');
+        return cachedResponse.clone();
+      }
+      
+      throw new Error('Network response was not ok');
+    } catch (error) {
+      console.error('Supabase storage fetch error:', error);
+      if (cachedResponse) return cachedResponse.clone();
+      throw error;
     }
-    
-    if (cachedResponse) {
-      console.log('Network failed, using cached response');
-      return cachedResponse.clone();
-    }
-    
-    throw new Error('Network response was not ok');
-  } catch (error) {
-    console.error('Supabase storage fetch error:', error);
-    if (cachedResponse) return cachedResponse.clone();
-    throw error;
   }
 }
 
