@@ -112,7 +112,7 @@ Object.keys(CACHE_NAMES).forEach(type => {
 });
 
 // Version check endpoint
-const VERSION_CHECK_URL = '/api/version';
+const VERSION_CHECK_URL = '/.netlify/functions/version';
 
 // Function to check for updates - only called on page refresh
 async function checkForUpdates() {
@@ -124,11 +124,17 @@ async function checkForUpdates() {
       }
     });
     
-    if (!response.ok) return false;
+    if (!response.ok) {
+      console.error('Version check failed:', response.status, response.statusText);
+      return false;
+    }
     
-    const { version } = await response.json();
-    if (version !== APP_VERSION) {
-      console.log(`New version available: ${version}`);
+    const data = await response.json();
+    // Use deployId as version if available, otherwise fall back to version from package.json
+    const currentVersion = data.deployId || data.version;
+    
+    if (currentVersion !== APP_VERSION) {
+      console.log(`New version available: ${currentVersion} (current: ${APP_VERSION})`);
       // Clear all caches when a new version is detected
       const cacheKeys = await caches.keys();
       await Promise.all(
@@ -139,7 +145,7 @@ async function checkForUpdates() {
       clients.forEach(client => {
         client.postMessage({
           type: 'NEW_VERSION_INSTALLED',
-          version: version
+          version: currentVersion
         });
       });
       return true;
