@@ -227,10 +227,24 @@ function recordMetric(cacheType, status, duration) {
   }
 }
 
+// Helper function to check if URL is from Supabase storage
+function isSupabaseStorageUrl(url) {
+  return url.hostname.includes('supabase.co') && 
+         (url.pathname.includes('/storage/v1/object') || 
+          url.pathname.includes('/storage/v1/render'));
+}
+
 // Main fetch handler
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Special handling for Supabase storage URLs
+  if (isSupabaseStorageUrl(url)) {
+    event.respondWith(handleSupabaseStorageRequest(event.request));
+    return;
+  }
+
   const cacheType = getCacheType(event.request);
-  const startTime = Date.now();
   
   // Don't cache if no matching cache type
   if (!cacheType) {
@@ -239,53 +253,89 @@ self.addEventListener('fetch', (event) => {
   }
   
   event.respondWith((async () => {
-    const cache = await caches.open(CACHE_NAMES[cacheType]);
-    
     try {
-      // Try cache first
-      const cachedResponse = await cache.match(event.request);
+      const cache = await caches.open(CACHE_NAMES[cacheType]);
+      let cachedResponse = await cache.match(event.request);
+      
+      // Check if cached response is still fresh
       if (cachedResponse) {
-        // Check if cached response is still fresh
         const cachedTtl = cachedResponse.headers.get('X-Cache-TTL');
         const cachedTime = cachedResponse.headers.get('X-Cache-Time');
         
         if (cachedTtl && cachedTime) {
           const age = (Date.now() - parseInt(cachedTime)) / 1000;
           if (age < parseInt(cachedTtl)) {
-            // Cache hit
             recordMetric(cacheType, 'hit', Date.now() - startTime);
             return cachedResponse;
           }
         }
       }
       
-      // Cache miss, fetch from network
-      recordMetric(cacheType, 'miss');
+      // If no cache or stale, fetch from network
       const networkResponse = await fetch(event.request);
-      
       if (networkResponse.ok) {
-        // Add cache headers and store in cache
         const cachedResponse = await addCacheHeaders(networkResponse.clone(), cacheType);
         await cache.put(event.request, cachedResponse);
-        
-        // Trim cache if needed
         await trimCache(CACHE_NAMES[cacheType], CACHE_LIMITS[cacheType]);
-        
-        recordMetric(cacheType, 'network', Date.now() - startTime);
         return networkResponse;
       }
+      
+      // If network fails and we have cached response, return it
+      if (cachedResponse) {
+        console.log('Network failed, using cached response');
+        return cachedResponse;
+      }
+      
       throw new Error('Network response was not ok');
     } catch (error) {
-      recordMetric(cacheType, 'error');
-      // If network fails and we have cached data, return it
+      console.error('Fetch error:', error);
+      // If we have a cached response, return it as fallback
+      const cache = await caches.open(CACHE_NAMES[cacheType]);
+      const cachedResponse = await cache.match(event.request);
       if (cachedResponse) {
-        console.log('Network failed, using cached data:', error);
         return cachedResponse;
       }
       throw error;
     }
   })());
 });
+
+// Handle Supabase storage requests
+async function handleSupabaseStorageRequest(request) {
+  try {
+    // Try to fetch from network first
+    const networkResponse = await fetch(request.clone(), {
+      mode: 'cors',
+      credentials: 'same-origin'
+    });
+    
+    if (networkResponse.ok) {
+      // Cache successful responses
+      const cache = await caches.open(CACHE_NAMES.IMAGES);
+      await cache.put(request, networkResponse.clone());
+      return networkResponse;
+    }
+    
+    // If network fails, try cache
+    const cache = await caches.open(CACHE_NAMES.IMAGES);
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // If both network and cache fail, throw error
+    throw new Error('Failed to fetch Supabase storage resource');
+  } catch (error) {
+    console.error('Supabase storage fetch error:', error);
+    // Try cache one last time
+    const cache = await caches.open(CACHE_NAMES.IMAGES);
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    throw error;
+  }
+}
 
 // Modify the install event to be less aggressive
 self.addEventListener('install', event => {

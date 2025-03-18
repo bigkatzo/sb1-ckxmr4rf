@@ -59,11 +59,15 @@
   [headers.values]
     Cache-Control = "public, max-age=60, stale-while-revalidate=300"
 
-# Supabase storage assets
+# Supabase storage assets - with CORS headers
 [[headers]]
   for = "/storage/*"
   [headers.values]
     Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, HEAD, OPTIONS"
+    Access-Control-Max-Age = "86400"
+    X-Cache-Type = "IMAGES"
 
 # NFT Metadata
 [[headers]]
