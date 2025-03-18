@@ -70,7 +70,24 @@
     Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, HEAD, OPTIONS"
+    Access-Control-Allow-Headers = "Accept, Authorization, Cache-Control, Content-Type, Keep-Alive, Origin, X-Client-Info"
+    Access-Control-Expose-Headers = "Content-Length, Content-Range"
     Access-Control-Max-Age = "86400"
+    Timing-Allow-Origin = "*"
+    X-Cache-Type = "IMAGES"
+    X-Cache-Strategy = "dynamic"
+
+# Additional headers for Supabase render endpoint
+[[headers]]
+  for = "/.netlify/functions/supabase-proxy/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, HEAD, OPTIONS"
+    Access-Control-Allow-Headers = "Accept, Authorization, Cache-Control, Content-Type, Keep-Alive, Origin, X-Client-Info"
+    Access-Control-Expose-Headers = "Content-Length, Content-Range"
+    Access-Control-Max-Age = "86400"
+    Timing-Allow-Origin = "*"
     X-Cache-Type = "IMAGES"
     X-Cache-Strategy = "dynamic"
 

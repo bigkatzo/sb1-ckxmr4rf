@@ -440,74 +440,83 @@ async function handleSupabaseStorageRequest(request) {
       const age = (Date.now() - parseInt(cachedDate)) / 1000;
       
       if (age < maxAge) {
-        // Update last accessed time
-        const headers = new Headers(cachedResponse.headers);
-        headers.set('X-Last-Accessed', Date.now().toString());
-        const updatedResponse = new Response(cachedResponse.body, {
-          status: cachedResponse.status,
-          statusText: cachedResponse.statusText,
-          headers
-        });
-        await cache.put(request, updatedResponse);
-        return cachedResponse;
+        // Fresh cache hit - return immediately
+        return cachedResponse.clone();
       }
       
       if (age < maxAge + staleWhileRevalidate) {
         // Background revalidation
-        const networkPromise = fetch(request.clone(), {
-          mode: 'cors',
-          credentials: 'same-origin'
-        }).then(async networkResponse => {
-          if (networkResponse.ok) {
-            const responseToCache = await efficientResponseClone(networkResponse, 'IMAGES');
-            const headers = new Headers(responseToCache.headers);
-            headers.set('X-Cache-Time', Date.now().toString());
-            headers.set('X-Last-Accessed', Date.now().toString());
-            const enhancedResponse = new Response(responseToCache.body, {
-              status: responseToCache.status,
-              statusText: responseToCache.statusText,
-              headers
-            });
-            await cache.put(request, enhancedResponse);
-          }
-        }).catch(console.error);
-        
-        return cachedResponse;
+        revalidateSupabaseImage(request.clone(), cache).catch(console.error);
+        return cachedResponse.clone();
       }
     }
   }
   
   try {
-    const networkResponse = await fetch(request.clone(), {
-      mode: 'cors',
-      credentials: 'same-origin'
-    });
-    
+    const networkResponse = await fetchSupabaseImage(request.clone());
     if (networkResponse.ok) {
-      const responseToCache = await efficientResponseClone(networkResponse, 'IMAGES');
-      const headers = new Headers(responseToCache.headers);
-      headers.set('X-Cache-Time', Date.now().toString());
-      headers.set('X-Last-Accessed', Date.now().toString());
-      const enhancedResponse = new Response(responseToCache.body, {
-        status: responseToCache.status,
-        statusText: responseToCache.statusText,
-        headers
-      });
-      
-      await cache.put(request, enhancedResponse);
+      await cacheSupabaseImage(networkResponse.clone(), request.clone(), cache);
       return networkResponse;
     }
     
     if (cachedResponse) {
       console.log('Network failed, using cached response');
-      return cachedResponse;
+      return cachedResponse.clone();
     }
     
     throw new Error('Network response was not ok');
   } catch (error) {
     console.error('Supabase storage fetch error:', error);
-    if (cachedResponse) return cachedResponse;
+    if (cachedResponse) return cachedResponse.clone();
     throw error;
+  }
+}
+
+// Helper function to fetch Supabase image with proper headers
+async function fetchSupabaseImage(request) {
+  const modifiedRequest = new Request(request.url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'image/*',
+      'Cache-Control': 'no-cache',
+      'X-Client-Info': 'service-worker'
+    },
+    mode: 'cors',
+    credentials: 'omit'
+  });
+  
+  return fetch(modifiedRequest);
+}
+
+// Helper function to cache Supabase image
+async function cacheSupabaseImage(response, request, cache) {
+  const headers = new Headers(response.headers);
+  headers.set('X-Cache-Time', Date.now().toString());
+  headers.set('X-Last-Accessed', Date.now().toString());
+  headers.set('X-Cache-Source', 'supabase-storage');
+  
+  const enhancedResponse = new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+  
+  try {
+    await cache.put(request, enhancedResponse);
+  } catch (error) {
+    console.error('Failed to cache Supabase image:', error);
+  }
+}
+
+// Helper function to revalidate Supabase image in background
+async function revalidateSupabaseImage(request, cache) {
+  try {
+    const networkResponse = await fetchSupabaseImage(request);
+    if (networkResponse.ok) {
+      await cacheSupabaseImage(networkResponse, request, cache);
+    }
+  } catch (error) {
+    console.error('Background revalidation failed:', error);
   }
 }
 
