@@ -12,6 +12,7 @@ import type { CategoryRule } from '../../types';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { supabase } from '../../lib/supabase';
+import { verifyNFTHolding } from '../../utils/nft-verification';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -48,23 +49,12 @@ interface ProgressStep {
   };
 }
 
-// Helper function to handle NFT verification
-async function handleVerification(walletAddress: string, value: string, quantity: number): Promise<VerificationResult> {
-  try {
-    const { verifyNFTHolding } = await import('../../utils/nft-verification');
-    return verifyNFTHolding(walletAddress, value, quantity);
-  } catch (error) {
-    console.error('Error loading verification module:', error);
-    return { isValid: false, error: 'Failed to load verification module' };
-  }
-}
-
 async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ isValid: boolean; error?: string }> {
   switch (rule.type) {
     case 'token':
       return verifyTokenHolding(walletAddress, rule.value, rule.quantity || 1);
     case 'nft':
-      return handleVerification(walletAddress, rule.value, rule.quantity || 1);
+      return verifyNFTHolding(walletAddress, rule.value, rule.quantity || 1);
     case 'whitelist':
       return verifyWhitelistAccess(walletAddress, rule.value);
     default:

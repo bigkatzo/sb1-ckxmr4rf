@@ -17,6 +17,7 @@ import { ScrollBehavior } from './components/ui/ScrollBehavior';
 import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
 import { supabase } from './lib/supabase';
+import { preloadNFTVerifier } from './utils/nft-verification';
 import 'react-toastify/dist/ReactToastify.css';
 import { setupServiceWorker } from './lib/service-worker';
 
@@ -64,6 +65,9 @@ function AppContent() {
     setupServiceWorker().catch(err => {
       console.error('Failed to set up service worker:', err);
     });
+
+    // Preload NFT verifier after a delay
+    preloadNFTVerifier();
     
     return () => {
       cleanupPreloader();

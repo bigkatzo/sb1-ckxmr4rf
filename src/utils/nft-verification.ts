@@ -8,169 +8,233 @@ export interface NFTVerificationResult {
   balance?: number;
 }
 
-// Validate Solana address format
-function isValidSolanaAddress(address: string): boolean {
-  try {
-    new PublicKey(address);
-    return true;
-  } catch {
-    return false;
-  }
-}
+// Singleton class for NFT verification with lazy loading
+class NFTVerifier {
+  private static instance: NFTVerifier;
+  private connection: Connection;
+  private metaplex: any | null = null; // Will be initialized lazily
+  private initializationPromise: Promise<void> | null = null;
 
-// Chunk array into smaller arrays for rate limiting
-function chunkArray<T>(array: T[], size: number): T[][] {
-  return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
-    array.slice(i * size, i * size + size)
-  );
-}
-
-export async function verifyNFTHolding(
-  walletAddress: string,
-  collectionAddress: string,
-  minAmount: number,
-  retryAttempts = 2
-): Promise<NFTVerificationResult> {
-  // Input validation
-  if (!walletAddress || !isValidSolanaAddress(walletAddress)) {
-    return {
-      isValid: false,
-      error: 'Invalid wallet address format',
-      balance: 0
-    };
-  }
-
-  if (!collectionAddress || !isValidSolanaAddress(collectionAddress)) {
-    return {
-      isValid: false,
-      error: 'Invalid collection address format',
-      balance: 0
-    };
-  }
-
-  if (typeof minAmount !== 'number' || minAmount < 0) {
-    return {
-      isValid: false,
-      error: 'Invalid minimum amount specified',
-      balance: 0
-    };
-  }
-
-  try {
-    const walletPubKey = new PublicKey(walletAddress);
-    const collectionPubKey = new PublicKey(collectionAddress);
-    
-    // Configure connection with timeouts and commitment
+  private constructor() {
     const connectionConfig: ConnectionConfig = {
       commitment: 'confirmed',
       confirmTransactionInitialTimeout: 60000, // 60 seconds
     };
     
-    const connection = new Connection(
+    this.connection = new Connection(
       SOLANA_CONNECTION.rpcEndpoint,
       connectionConfig
     );
+  }
 
-    // Dynamically import only the required Metaplex functionality
-    const { Metaplex } = await import('@metaplex-foundation/js');
-    const metaplex = Metaplex.make(connection);
+  public static getInstance(): NFTVerifier {
+    if (!NFTVerifier.instance) {
+      NFTVerifier.instance = new NFTVerifier();
+    }
+    return NFTVerifier.instance;
+  }
 
-    // Retry logic for network issues
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt <= retryAttempts; attempt++) {
-      try {
-        // Get all NFTs owned by the user (returns Metadata objects)
-        const nfts = await metaplex.nfts().findAllByOwner({ owner: walletPubKey });
-
-        // Filter NFTs that belong to the specified verified collection
-        const matchingNFTs = nfts.filter((nft: Metadata | Nft | Sft) => {
-          const collection = 'collection' in nft ? nft.collection : null;
-          if (!collection) {
-            return false;
-          }
-
-          // Check collection match and verification
-          return (
-            collection.verified === true &&
-            collection.address.toBase58() === collectionPubKey.toBase58()
-          );
-        });
-
-        // Process NFTs in chunks to avoid rate limits
-        const CHUNK_SIZE = 5;
-        const nftChunks = chunkArray(matchingNFTs, CHUNK_SIZE);
-        const loadedNFTsArrays = await Promise.all(
-          nftChunks.map(async (chunk) => {
-            const chunkPromises = chunk.map(async (nft) => {
-              try {
-                // If it's already an Nft type, return it directly
-                if ('model' in nft && nft.model === 'nft') {
-                  return nft as Nft;
-                }
-                // Otherwise load the full NFT data
-                return await metaplex.nfts().load({ metadata: nft as Metadata });
-              } catch (error) {
-                console.error('Error loading NFT data:', error);
-                return null;
-              }
-            });
-            
-            // Add slight delay between chunks to respect rate limits
-            await new Promise(resolve => setTimeout(resolve, 100));
-            return Promise.all(chunkPromises);
-          })
-        );
-
-        // Flatten chunks and filter out nulls
-        const loadedNFTs = loadedNFTsArrays.flat();
-        const validNFTs = loadedNFTs.filter((nft): nft is Nft => nft !== null);
-        const nftCount = validNFTs.length;
-
-        // Debug information with more details
-        console.log('NFT Verification Debug:', {
-          walletAddress: walletAddress,
-          collectionAddress: collectionAddress,
-          totalNFTs: nfts.length,
-          matchingNFTs: nftCount,
-          attemptNumber: attempt + 1,
-          matchingNFTDetails: validNFTs.map((nft) => ({
-            mint: nft.address.toBase58(),
-            name: nft.name,
-            symbol: nft.symbol,
-            collection: nft.collection ? {
-              address: nft.collection.address.toBase58(),
-              verified: nft.collection.verified
-            } : null,
-            uri: nft.uri
-          }))
-        });
-
-        return {
-          isValid: nftCount >= minAmount,
-          balance: nftCount,
-          error: nftCount >= minAmount ? undefined : 
-                 `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
-        };
-      } catch (error) {
-        lastError = error as Error;
-        console.error(`Attempt ${attempt + 1} failed:`, error);
-        
-        // If this isn't our last attempt, wait before retrying
-        if (attempt < retryAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1))); // Exponential backoff
-          continue;
+  public async initializeMetaplex() {
+    if (!this.initializationPromise) {
+      this.initializationPromise = (async () => {
+        try {
+          const { Metaplex } = await import('@metaplex-foundation/js');
+          this.metaplex = Metaplex.make(this.connection);
+        } catch (error) {
+          this.initializationPromise = null; // Reset promise on failure
+          throw error;
         }
-      }
+      })();
+    }
+    return this.initializationPromise;
+  }
+
+  // Validate Solana address format
+  private isValidSolanaAddress(address: string): boolean {
+    try {
+      new PublicKey(address);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Chunk array into smaller arrays for rate limiting
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
+      array.slice(i * size, i * size + size)
+    );
+  }
+
+  public async verifyNFTHolding(
+    walletAddress: string,
+    collectionAddress: string,
+    minAmount: number,
+    retryAttempts = 2
+  ): Promise<NFTVerificationResult> {
+    // Input validation
+    if (!walletAddress || !this.isValidSolanaAddress(walletAddress)) {
+      return {
+        isValid: false,
+        error: 'Invalid wallet address format',
+        balance: 0
+      };
     }
 
-    // If we get here, all attempts failed
-    throw lastError || new Error('All verification attempts failed');
+    if (!collectionAddress || !this.isValidSolanaAddress(collectionAddress)) {
+      return {
+        isValid: false,
+        error: 'Invalid collection address format',
+        balance: 0
+      };
+    }
+
+    if (typeof minAmount !== 'number' || minAmount < 0) {
+      return {
+        isValid: false,
+        error: 'Invalid minimum amount specified',
+        balance: 0
+      };
+    }
+
+    try {
+      // Ensure Metaplex is initialized before proceeding
+      await this.initializeMetaplex();
+      
+      const walletPubKey = new PublicKey(walletAddress);
+      const collectionPubKey = new PublicKey(collectionAddress);
+
+      // Retry logic for network issues
+      let lastError: Error | null = null;
+      for (let attempt = 0; attempt <= retryAttempts; attempt++) {
+        try {
+          // Get all NFTs owned by the user (returns Metadata objects)
+          const nfts: (Metadata | Nft | Sft)[] = await this.metaplex.nfts().findAllByOwner({ owner: walletPubKey });
+
+          // Filter NFTs that belong to the specified verified collection
+          const matchingNFTs = nfts.filter((nft) => {
+            if (!nft || typeof nft !== 'object') return false;
+            const collection = 'collection' in nft ? nft.collection : null;
+            if (!collection) {
+              return false;
+            }
+
+            // Check collection match and verification
+            return (
+              collection.verified === true &&
+              collection.address.toBase58() === collectionPubKey.toBase58()
+            );
+          });
+
+          // Process NFTs in chunks to avoid rate limits
+          const CHUNK_SIZE = 5;
+          const nftChunks = this.chunkArray(matchingNFTs, CHUNK_SIZE);
+          const loadedNFTsArrays = await Promise.all(
+            nftChunks.map(async (chunk) => {
+              const chunkPromises = chunk.map(async (nft) => {
+                try {
+                  // If it's already an Nft type, return it directly
+                  if ('model' in nft && nft.model === 'nft') {
+                    return nft as Nft;
+                  }
+                  // Otherwise load the full NFT data
+                  return await this.metaplex.nfts().load({ metadata: nft as Metadata });
+                } catch (error) {
+                  console.error('Error loading NFT data:', error);
+                  return null;
+                }
+              });
+              
+              // Add slight delay between chunks to respect rate limits
+              await new Promise(resolve => setTimeout(resolve, 100));
+              return Promise.all(chunkPromises);
+            })
+          );
+
+          // Flatten chunks and filter out nulls
+          const loadedNFTs = loadedNFTsArrays.flat();
+          const validNFTs = loadedNFTs.filter((nft): nft is Nft => nft !== null);
+          const nftCount = validNFTs.length;
+
+          // Debug information with more details
+          console.log('NFT Verification Debug:', {
+            walletAddress: walletAddress,
+            collectionAddress: collectionAddress,
+            totalNFTs: nfts.length,
+            matchingNFTs: nftCount,
+            attemptNumber: attempt + 1,
+            matchingNFTDetails: validNFTs.map((nft) => ({
+              mint: nft.address.toBase58(),
+              name: nft.name,
+              symbol: nft.symbol,
+              collection: nft.collection ? {
+                address: nft.collection.address.toBase58(),
+                verified: nft.collection.verified
+              } : null,
+              uri: nft.uri
+            }))
+          });
+
+          return {
+            isValid: nftCount >= minAmount,
+            balance: nftCount,
+            error: nftCount >= minAmount ? undefined : 
+                   `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
+          };
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`Attempt ${attempt + 1} failed:`, error);
+          
+          // If this isn't our last attempt, wait before retrying
+          if (attempt < retryAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1))); // Exponential backoff
+            continue;
+          }
+        }
+      }
+
+      // If we get here, all attempts failed
+      throw lastError || new Error('All verification attempts failed');
+    } catch (error) {
+      console.error('Error verifying NFT balance:', error);
+      return {
+        isValid: false,
+        error: error instanceof Error ? error.message : 'Failed to verify NFT balance',
+        balance: 0
+      };
+    }
+  }
+}
+
+// Export the verification function that uses the singleton
+export async function verifyNFTHolding(
+  walletAddress: string,
+  collectionAddress: string,
+  minAmount: number
+): Promise<NFTVerificationResult> {
+  const verifier = NFTVerifier.getInstance();
+  return verifier.verifyNFTHolding(walletAddress, collectionAddress, minAmount);
+}
+
+// Add preload function that can be called after initial app load
+export function preloadNFTVerifier(): void {
+  // Preload in the background without blocking
+  setTimeout(() => {
+    const verifier = NFTVerifier.getInstance();
+    verifier.initializeMetaplex().catch(err => {
+      // Silent fail on preload
+      console.debug('NFT Verifier preload failed:', err);
+    });
+  }, 3000); // Wait 3 seconds after call to start preloading
+}
+
+// Add initialization function
+export async function initializeNFTVerifier(): Promise<void> {
+  try {
+    await NFTVerifier.getInstance();
+    console.log('NFT Verifier initialized successfully');
   } catch (error) {
-    console.error('Error verifying NFT balance:', error);
-    return {
-      isValid: false,
-      error: error instanceof Error ? error.message : 'Failed to verify NFT balance',
-      balance: 0
-    };
+    console.error('Failed to initialize NFT Verifier:', error);
+    throw error;
   }
 } 
