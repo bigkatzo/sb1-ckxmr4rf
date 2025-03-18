@@ -426,15 +426,90 @@ async function trimCache(cacheName, maxItems) {
   }
 }
 
-// Improved Supabase storage handling
+// Helper function to fetch Supabase image with proper headers
+async function fetchSupabaseImage(request) {
+  const url = new URL(request.url);
+  const priority = url.searchParams.get('priority') || 'low';
+  const isVisible = url.searchParams.get('visible') === 'true';
+  
+  // Remove the parameters from the URL to avoid cache key conflicts
+  url.searchParams.delete('priority');
+  url.searchParams.delete('visible');
+  
+  const modifiedRequest = new Request(url.toString(), {
+    method: 'GET',
+    headers: {
+      'Accept': 'image/*',
+      'Cache-Control': 'no-cache',
+      'X-Client-Info': 'service-worker',
+      'X-Image-Priority': priority,
+      'X-Viewport-Visible': isVisible ? 'true' : 'false'
+    },
+    mode: 'cors',
+    credentials: 'omit',
+    priority: priority === 'high' ? 'high' : 'low'
+  });
+  
+  return fetch(modifiedRequest);
+}
+
+// Helper function to cache Supabase image
+async function cacheSupabaseImage(response, request, cache) {
+  const url = new URL(request.url);
+  const priority = url.searchParams.get('priority') || 'low';
+  const isVisible = url.searchParams.get('visible') === 'true';
+  
+  // Remove the parameters from the URL for caching
+  url.searchParams.delete('priority');
+  url.searchParams.delete('visible');
+  
+  const headers = new Headers(response.headers);
+  headers.set('X-Cache-Time', Date.now().toString());
+  headers.set('X-Last-Accessed', Date.now().toString());
+  headers.set('X-Cache-Source', 'supabase-storage');
+  headers.set('X-Image-Priority', priority);
+  headers.set('X-Viewport-Visible', isVisible ? 'true' : 'false');
+  
+  const enhancedResponse = new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+  
+  try {
+    // Cache using the URL without parameters
+    const cacheRequest = new Request(url.toString());
+    await cache.put(cacheRequest, enhancedResponse);
+  } catch (error) {
+    console.error('Failed to cache Supabase image:', error);
+  }
+}
+
+// Improved Supabase storage handling with priority
 async function handleSupabaseStorageRequest(request) {
   const cache = await caches.open(CACHE_NAMES.IMAGES);
   const cachedResponse = await cache.match(request);
   
+  const priority = request.headers.get('X-Image-Priority') || 'low';
+  const isVisible = request.headers.get('X-Viewport-Visible') === 'true';
+  
+  // For high priority or visible images, skip cache for freshness
+  if ((priority === 'high' || isVisible) && !cachedResponse) {
+    try {
+      const networkResponse = await fetchSupabaseImage(request.clone());
+      if (networkResponse.ok) {
+        await cacheSupabaseImage(networkResponse.clone(), request.clone(), cache);
+        return networkResponse;
+      }
+    } catch (error) {
+      console.error('High priority fetch failed:', error);
+    }
+  }
+  
   if (cachedResponse) {
     const cachedDate = cachedResponse.headers.get('X-Cache-Time');
-    const maxAge = 86400; // 24 hours
-    const staleWhileRevalidate = 604800; // 1 week
+    const maxAge = priority === 'high' ? 3600 : 86400; // 1 hour for high priority, 24 hours for low
+    const staleWhileRevalidate = priority === 'high' ? 7200 : 604800; // 2 hours for high priority, 1 week for low
     
     if (cachedDate) {
       const age = (Date.now() - parseInt(cachedDate)) / 1000;
@@ -445,8 +520,15 @@ async function handleSupabaseStorageRequest(request) {
       }
       
       if (age < maxAge + staleWhileRevalidate) {
-        // Background revalidation
-        revalidateSupabaseImage(request.clone(), cache).catch(console.error);
+        // Background revalidation with priority
+        const revalidationPromise = revalidateSupabaseImage(request.clone(), cache);
+        if (priority === 'high' || isVisible) {
+          // Wait for revalidation for high priority images
+          await revalidationPromise;
+        } else {
+          // Don't wait for low priority images
+          revalidationPromise.catch(console.error);
+        }
         return cachedResponse.clone();
       }
     }
@@ -469,42 +551,6 @@ async function handleSupabaseStorageRequest(request) {
     console.error('Supabase storage fetch error:', error);
     if (cachedResponse) return cachedResponse.clone();
     throw error;
-  }
-}
-
-// Helper function to fetch Supabase image with proper headers
-async function fetchSupabaseImage(request) {
-  const modifiedRequest = new Request(request.url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'image/*',
-      'Cache-Control': 'no-cache',
-      'X-Client-Info': 'service-worker'
-    },
-    mode: 'cors',
-    credentials: 'omit'
-  });
-  
-  return fetch(modifiedRequest);
-}
-
-// Helper function to cache Supabase image
-async function cacheSupabaseImage(response, request, cache) {
-  const headers = new Headers(response.headers);
-  headers.set('X-Cache-Time', Date.now().toString());
-  headers.set('X-Last-Accessed', Date.now().toString());
-  headers.set('X-Cache-Source', 'supabase-storage');
-  
-  const enhancedResponse = new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers
-  });
-  
-  try {
-    await cache.put(request, enhancedResponse);
-  } catch (error) {
-    console.error('Failed to cache Supabase image:', error);
   }
 }
 
