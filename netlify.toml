@@ -13,6 +13,7 @@
     Cache-Control = "no-cache, no-store, must-revalidate"
     X-Content-Type-Options = "nosniff"
     Content-Disposition = "inline"
+    Pragma = "no-cache"
     # Prevent Netlify from processing this file
     X-Netlify-Original-Filename = "service-worker.js"
 
@@ -22,7 +23,7 @@
   [headers.values]
     Cache-Control = "public, max-age=86400"
 
-# Asset handling
+# Global security headers and HTML cache control
 [[headers]]
   for = "/*"
   [headers.values]
@@ -31,17 +32,26 @@
     # Short cache for HTML files
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Medium cache for unhashed assets (more general pattern first)
+# Images
 [[headers]]
-  for = "/assets/*"
+  for = "/*.{jpg,jpeg,png,gif,webp,svg,avif}"
   [headers.values]
     Cache-Control = "public, max-age=86400"
+    X-Cache-Type = "IMAGES"
 
-# Long cache for hashed assets (more specific pattern last)
+# Static assets with hash (immutable) - most specific first
 [[headers]]
   for = "/assets/*-*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+    X-Cache-Type = "STATIC"
+
+# Regular static assets - more general pattern
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+    X-Cache-Type = "ASSETS"
 
 # API responses - short cache with revalidation
 [[headers]]
@@ -49,91 +59,11 @@
   [headers.values]
     Cache-Control = "public, max-age=60, stale-while-revalidate=300"
 
-# Supabase storage assets - longer cache
+# Supabase storage assets
 [[headers]]
   for = "/storage/*"
   [headers.values]
     Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
-
-# Prevent caching for critical operations
-[[headers]]
-  for = "/api/blockchain/*"
-  [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate"
-    Pragma = "no-cache"
-
-[[headers]]
-  for = "/api/checkout/*"
-  [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate"
-    Pragma = "no-cache"
-
-[[headers]]
-  for = "/api/payment/*"
-  [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate"
-    Pragma = "no-cache"
-
-[[headers]]
-  for = "/api/orders/*"
-  [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate"
-    Pragma = "no-cache"
-
-# Very short cache for dynamic data
-[[headers]]
-  for = "/api/pricing/*"
-  [headers.values]
-    Cache-Control = "no-cache, max-age=0, must-revalidate"
-
-[[headers]]
-  for = "/api/stock/*"
-  [headers.values]
-    Cache-Control = "no-cache, max-age=0, must-revalidate"
-
-# Specific redirect for service worker - highest priority
-[[redirects]]
-  from = "/service-worker.js"
-  to = "/service-worker.js"
-  status = 200
-  force = true
-  # Make this redirect take precedence over others
-  priority = 100
-
-# Handle client-side routing
-[[redirects]]
-  from = "/assets/*"
-  to = "/assets/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  force = true
-
-# Cache Control Headers
-
-# Static assets with hash (immutable)
-[[headers]]
-  for = "/assets/*-*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-    X-Cache-Type = "STATIC"
-
-# Regular static assets
-[[headers]]
-  for = "/assets/*"
-  [headers.values]
-    Cache-Control = "public, max-age=86400"
-    X-Cache-Type = "ASSETS"
-
-# Images
-[[headers]]
-  for = "/*.{jpg,jpeg,png,gif,webp,svg,avif}"
-  [headers.values]
-    Cache-Control = "public, max-age=86400"
-    X-Cache-Type = "IMAGES"
 
 # NFT Metadata
 [[headers]]
@@ -197,4 +127,36 @@
   for = "/api/auth/*"
   [headers.values]
     Cache-Control = "no-store, no-cache, must-revalidate"
-    Pragma = "no-cache" 
+    Pragma = "no-cache"
+
+[[headers]]
+  for = "/api/orders/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+
+# Version endpoint
+[[headers]]
+  for = "/api/version"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+
+# Redirects
+[[redirects]]
+  from = "/service-worker.js"
+  to = "/service-worker.js"
+  status = 200
+  force = true
+  priority = 100
+
+[[redirects]]
+  from = "/assets/*"
+  to = "/assets/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true 
