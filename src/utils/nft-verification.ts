@@ -111,33 +111,14 @@ class NFTVerifier {
           // Get all NFTs owned by the user (returns Metadata objects)
           const nfts: (Metadata | Nft | Sft)[] = await this.metaplex.nfts().findAllByOwner({ owner: walletPubKey });
 
-          // Filter NFTs that belong to the specified verified collection
-          const matchingNFTs = nfts.filter((nft) => {
-            if (!nft || typeof nft !== 'object') return false;
-            const collection = 'collection' in nft ? nft.collection : null;
-            if (!collection) {
-              return false;
-            }
-
-            // Check collection match and verification
-            return (
-              collection.verified === true &&
-              collection.address.toBase58() === collectionPubKey.toBase58()
-            );
-          });
-
-          // Process NFTs in chunks to avoid rate limits
+          // First: load all NFTs regardless of collection
           const CHUNK_SIZE = 5;
-          const nftChunks = this.chunkArray(matchingNFTs, CHUNK_SIZE);
+          const nftChunks = this.chunkArray(nfts, CHUNK_SIZE);
           const loadedNFTsArrays = await Promise.all(
             nftChunks.map(async (chunk) => {
               const chunkPromises = chunk.map(async (nft) => {
                 try {
-                  // If it's already an Nft type, return it directly
-                  if ('model' in nft && nft.model === 'nft') {
-                    return nft as Nft;
-                  }
-                  // Otherwise load the full NFT data
+                  // Always load full NFT data to ensure collection info is available
                   return await this.metaplex.nfts().load({ metadata: nft as Metadata });
                 } catch (error) {
                   console.error('Error loading NFT data:', error);
@@ -151,25 +132,31 @@ class NFTVerifier {
             })
           );
 
-          // Flatten chunks and filter out nulls
+          // Then filter after full loading
           const loadedNFTs = loadedNFTsArrays.flat();
           const validNFTs = loadedNFTs.filter((nft): nft is Nft => nft !== null);
-          const nftCount = validNFTs.length;
+
+          // Now filter for collection membership with fully loaded NFT data
+          const matchingNFTs = validNFTs.filter((nft) =>
+            nft.collection?.address.toBase58() === collectionPubKey.toBase58()
+          );
+
+          const nftCount = matchingNFTs.length;
 
           // Debug information with more details
           console.log('NFT Verification Debug:', {
             walletAddress: walletAddress,
             collectionAddress: collectionAddress,
             totalNFTs: nfts.length,
+            loadedNFTs: validNFTs.length,
             matchingNFTs: nftCount,
             attemptNumber: attempt + 1,
-            matchingNFTDetails: validNFTs.map((nft) => ({
+            matchingNFTDetails: matchingNFTs.map((nft) => ({
               mint: nft.address.toBase58(),
               name: nft.name,
               symbol: nft.symbol,
               collection: nft.collection ? {
-                address: nft.collection.address.toBase58(),
-                verified: nft.collection.verified
+                address: nft.collection.address.toBase58()
               } : null,
               uri: nft.uri
             }))
@@ -185,7 +172,6 @@ class NFTVerifier {
           lastError = error as Error;
           console.error(`Attempt ${attempt + 1} failed:`, error);
           
-          // If this isn't our last attempt, wait before retrying
           if (attempt < retryAttempts) {
             await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1))); // Exponential backoff
             continue;
