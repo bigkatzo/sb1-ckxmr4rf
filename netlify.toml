@@ -32,12 +32,13 @@
     # Short cache for HTML files
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Images
+# Images with improved caching strategy
 [[headers]]
   for = "/*.{jpg,jpeg,png,gif,webp,svg,avif}"
   [headers.values]
-    Cache-Control = "public, max-age=86400"
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
     X-Cache-Type = "IMAGES"
+    X-Cache-Strategy = "dynamic"
 
 # Static assets with hash (immutable) - most specific first
 [[headers]]
@@ -45,19 +46,22 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
     X-Cache-Type = "STATIC"
+    X-Cache-Strategy = "immutable"
 
 # Regular static assets - more general pattern
 [[headers]]
   for = "/assets/*"
   [headers.values]
-    Cache-Control = "public, max-age=86400"
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
     X-Cache-Type = "ASSETS"
+    X-Cache-Strategy = "dynamic"
 
 # API responses - short cache with revalidation
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
     Cache-Control = "public, max-age=60, stale-while-revalidate=300"
+    X-Cache-Strategy = "dynamic"
 
 # Supabase storage assets - with CORS headers
 [[headers]]
@@ -68,6 +72,7 @@
     Access-Control-Allow-Methods = "GET, HEAD, OPTIONS"
     Access-Control-Max-Age = "86400"
     X-Cache-Type = "IMAGES"
+    X-Cache-Strategy = "dynamic"
 
 # NFT Metadata
 [[headers]]

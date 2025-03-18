@@ -300,39 +300,213 @@ self.addEventListener('fetch', (event) => {
   })());
 });
 
-// Handle Supabase storage requests
+// Memory and device info constants
+const MEMORY_INFO = {
+  LOW_MEMORY_THRESHOLD: 100 * 1024 * 1024,  // 100MB
+  CRITICAL_MEMORY_THRESHOLD: 50 * 1024 * 1024,  // 50MB
+  DEFAULT_DEVICE_MEMORY: 4  // 4GB default if not available
+};
+
+// Dynamic cache management
+function getDynamicCacheLimits() {
+  const deviceMemory = navigator.deviceMemory || MEMORY_INFO.DEFAULT_DEVICE_MEMORY;
+  const isLowMemoryDevice = deviceMemory < 4;
+  
+  return {
+    STATIC: isLowMemoryDevice ? 50 : CACHE_LIMITS.STATIC,
+    ASSETS: isLowMemoryDevice ? 100 : CACHE_LIMITS.ASSETS,
+    IMAGES: isLowMemoryDevice ? 150 : CACHE_LIMITS.IMAGES,
+    NFT_METADATA: isLowMemoryDevice ? 500 : CACHE_LIMITS.NFT_METADATA,
+    PRODUCT_DATA: isLowMemoryDevice ? 250 : CACHE_LIMITS.PRODUCT_DATA,
+    DYNAMIC_DATA: isLowMemoryDevice ? 50 : CACHE_LIMITS.DYNAMIC_DATA
+  };
+}
+
+// Atomic cache operations
+class AtomicCache {
+  constructor(cacheName) {
+    this.cacheName = cacheName;
+    this.lockPromises = new Map();
+  }
+  
+  async acquireLock(key, timeout = 5000) {
+    if (this.lockPromises.has(key)) {
+      await this.lockPromises.get(key);
+    }
+    
+    let releaseLock;
+    const lockPromise = new Promise(resolve => {
+      releaseLock = resolve;
+    });
+    
+    this.lockPromises.set(key, lockPromise);
+    
+    setTimeout(() => {
+      if (this.lockPromises.get(key) === lockPromise) {
+        this.releaseLock(key);
+      }
+    }, timeout);
+    
+    return () => this.releaseLock(key);
+  }
+  
+  releaseLock(key) {
+    const lockPromise = this.lockPromises.get(key);
+    if (lockPromise) {
+      this.lockPromises.delete(key);
+      lockPromise();
+    }
+  }
+  
+  async atomicUpdate(key, updateFn) {
+    const releaseLock = await this.acquireLock(key);
+    try {
+      const cache = await caches.open(this.cacheName);
+      return await updateFn(cache);
+    } finally {
+      releaseLock();
+    }
+  }
+}
+
+// Efficient response cloning
+async function efficientResponseClone(response, cacheType) {
+  if (response.headers.get('Cache-Control')?.includes('no-store')) {
+    return response;
+  }
+  
+  if (response.bodyUsed) {
+    return await fetch(response.url);
+  }
+  
+  if (cacheType === 'IMAGES') {
+    const blob = await response.blob();
+    return new Response(blob, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: new Headers(response.headers)
+    });
+  }
+  
+  if (response.headers.get('Content-Type')?.includes('application/json')) {
+    const data = await response.json();
+    return new Response(JSON.stringify(data), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: new Headers(response.headers)
+    });
+  }
+  
+  return response.clone();
+}
+
+// Improved cache trimming with LRU
+async function trimCache(cacheName, maxItems) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  
+  const dynamicLimits = getDynamicCacheLimits();
+  const adjustedMaxItems = dynamicLimits[cacheName.split('-')[1]] || maxItems;
+  
+  if (keys.length > adjustedMaxItems) {
+    console.log(`Trimming cache ${cacheName} (${keys.length} > ${adjustedMaxItems})`);
+    
+    const keyMetadata = await Promise.all(keys.map(async key => {
+      const response = await cache.match(key);
+      const lastAccessed = response?.headers?.get('X-Last-Accessed') || 0;
+      return { key, lastAccessed: parseInt(lastAccessed) || 0 };
+    }));
+    
+    keyMetadata.sort((a, b) => a.lastAccessed - b.lastAccessed);
+    const keysToDelete = keyMetadata
+      .slice(0, keys.length - adjustedMaxItems)
+      .map(item => item.key);
+    
+    await Promise.all(keysToDelete.map(key => cache.delete(key)));
+  }
+}
+
+// Improved Supabase storage handling
 async function handleSupabaseStorageRequest(request) {
+  const cache = await caches.open(CACHE_NAMES.IMAGES);
+  const cachedResponse = await cache.match(request);
+  
+  if (cachedResponse) {
+    const cachedDate = cachedResponse.headers.get('X-Cache-Time');
+    const maxAge = 86400; // 24 hours
+    const staleWhileRevalidate = 604800; // 1 week
+    
+    if (cachedDate) {
+      const age = (Date.now() - parseInt(cachedDate)) / 1000;
+      
+      if (age < maxAge) {
+        // Update last accessed time
+        const headers = new Headers(cachedResponse.headers);
+        headers.set('X-Last-Accessed', Date.now().toString());
+        const updatedResponse = new Response(cachedResponse.body, {
+          status: cachedResponse.status,
+          statusText: cachedResponse.statusText,
+          headers
+        });
+        await cache.put(request, updatedResponse);
+        return cachedResponse;
+      }
+      
+      if (age < maxAge + staleWhileRevalidate) {
+        // Background revalidation
+        const networkPromise = fetch(request.clone(), {
+          mode: 'cors',
+          credentials: 'same-origin'
+        }).then(async networkResponse => {
+          if (networkResponse.ok) {
+            const responseToCache = await efficientResponseClone(networkResponse, 'IMAGES');
+            const headers = new Headers(responseToCache.headers);
+            headers.set('X-Cache-Time', Date.now().toString());
+            headers.set('X-Last-Accessed', Date.now().toString());
+            const enhancedResponse = new Response(responseToCache.body, {
+              status: responseToCache.status,
+              statusText: responseToCache.statusText,
+              headers
+            });
+            await cache.put(request, enhancedResponse);
+          }
+        }).catch(console.error);
+        
+        return cachedResponse;
+      }
+    }
+  }
+  
   try {
-    // Try to fetch from network first
     const networkResponse = await fetch(request.clone(), {
       mode: 'cors',
       credentials: 'same-origin'
     });
     
     if (networkResponse.ok) {
-      // Cache successful responses
-      const cache = await caches.open(CACHE_NAMES.IMAGES);
-      await cache.put(request, networkResponse.clone());
+      const responseToCache = await efficientResponseClone(networkResponse, 'IMAGES');
+      const headers = new Headers(responseToCache.headers);
+      headers.set('X-Cache-Time', Date.now().toString());
+      headers.set('X-Last-Accessed', Date.now().toString());
+      const enhancedResponse = new Response(responseToCache.body, {
+        status: responseToCache.status,
+        statusText: responseToCache.statusText,
+        headers
+      });
+      
+      await cache.put(request, enhancedResponse);
       return networkResponse;
     }
     
-    // If network fails, try cache
-    const cache = await caches.open(CACHE_NAMES.IMAGES);
-    const cachedResponse = await cache.match(request);
     if (cachedResponse) {
+      console.log('Network failed, using cached response');
       return cachedResponse;
     }
     
-    // If both network and cache fail, throw error
-    throw new Error('Failed to fetch Supabase storage resource');
+    throw new Error('Network response was not ok');
   } catch (error) {
     console.error('Supabase storage fetch error:', error);
-    // Try cache one last time
-    const cache = await caches.open(CACHE_NAMES.IMAGES);
-    const cachedResponse = await cache.match(request);
-    if (cachedResponse) {
-      return cachedResponse;
-    }
+    if (cachedResponse) return cachedResponse;
     throw error;
   }
 }
@@ -383,18 +557,6 @@ self.addEventListener('activate', event => {
     })()
   );
 });
-
-// Helper function to clean up caches when they get too large
-async function trimCache(cacheName, maxItems) {
-  const cache = await caches.open(cacheName);
-  const keys = await cache.keys();
-  
-  if (keys.length > maxItems) {
-    console.log(`Trimming cache ${cacheName} (${keys.length} > ${maxItems})`);
-    const keysToDelete = keys.slice(0, keys.length - maxItems);
-    await Promise.all(keysToDelete.map(key => cache.delete(key)));
-  }
-}
 
 // Listen for messages from the client
 self.addEventListener('message', (event) => {
