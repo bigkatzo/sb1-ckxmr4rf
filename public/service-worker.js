@@ -120,12 +120,20 @@ async function checkForUpdates() {
     const response = await fetch(VERSION_CHECK_URL, {
       cache: 'no-store',
       headers: {
-        'Cache-Control': 'no-cache'
-      }
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'application/json'
+      },
+      mode: 'cors',
+      credentials: 'omit'
     });
     
     if (!response.ok) {
       console.error('Version check failed:', response.status);
+      if (response.status === 502) {
+        console.log('Retrying version check in 5 seconds...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return checkForUpdates();
+      }
       return false;
     }
     
@@ -157,6 +165,12 @@ async function checkForUpdates() {
     return false;
   } catch (error) {
     console.error('Version check failed:', error);
+    // Retry on network errors
+    if (error.name === 'TypeError' || error.name === 'NetworkError') {
+      console.log('Network error, retrying version check in 5 seconds...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      return checkForUpdates();
+    }
     return false;
   }
 }
