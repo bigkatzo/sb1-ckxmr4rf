@@ -125,13 +125,17 @@ async function checkForUpdates() {
     });
     
     if (!response.ok) {
-      console.error('Version check failed:', response.status, response.statusText);
+      console.error('Version check failed:', response.status);
       return false;
     }
     
     const data = await response.json();
-    // Use deployId as version if available, otherwise fall back to version from package.json
-    const currentVersion = data.deployId || data.version;
+    const currentVersion = data.deployId;
+    
+    if (!currentVersion) {
+      console.error('No deploy ID in response');
+      return false;
+    }
     
     if (currentVersion !== APP_VERSION) {
       console.log(`New version available: ${currentVersion} (current: ${APP_VERSION})`);

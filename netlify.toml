@@ -65,8 +65,11 @@
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
-    Cache-Control = "public, max-age=60, stale-while-revalidate=300"
-    X-Cache-Strategy = "dynamic"
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
 
 # Supabase storage assets - with CORS headers
 [[headers]]
