@@ -5,7 +5,7 @@ import { resolve } from 'path';
 import fs from 'fs';
 import type { Plugin } from 'vite';
 
-// Custom plugin to handle service worker
+// Combined service worker plugin that handles both copying and version replacement
 const serviceWorkerPlugin = (): Plugin => {
   return {
     name: 'service-worker-plugin',
@@ -14,14 +14,24 @@ const serviceWorkerPlugin = (): Plugin => {
       sequential: true,
       order: 'post' as const,
       handler() {
-        // Copy service worker directly without transformation
+        // Read service worker file
         const srcPath = resolve(__dirname, 'public/service-worker.js');
         const destPath = resolve(__dirname, 'dist/service-worker.js');
         
         if (fs.existsSync(srcPath)) {
-          const content = fs.readFileSync(srcPath, 'utf-8');
+          let content = fs.readFileSync(srcPath, 'utf-8');
+          
+          // Replace version with Netlify deploy ID or timestamp
+          const deployId = process.env.NETLIFY_DEPLOY_ID || `build_${Date.now()}`;
+          content = content.replace(
+            /const APP_VERSION = '[^']*'/,
+            `const APP_VERSION = '${deployId}'`
+          );
+          
+          // Write transformed content
           fs.writeFileSync(destPath, content);
-          console.log('Service worker copied to dist/service-worker.js');
+          console.log('Service worker copied and transformed to dist/service-worker.js');
+          console.log('Using version:', deployId);
         } else {
           console.error('Service worker source file not found at', srcPath);
         }

@@ -4,7 +4,7 @@
  */
 
 // Add version control at the top of the file
-const APP_VERSION = '1.0.0'; // This should match your app version
+const APP_VERSION = 'development'; // Will be replaced with Netlify deploy ID during build
 
 // Modify cache names to include version
 const CACHE_NAMES = {
@@ -129,9 +129,19 @@ async function checkForUpdates() {
     const { version } = await response.json();
     if (version !== APP_VERSION) {
       console.log(`New version available: ${version}`);
-      // Don't automatically clear caches or unregister
-      // Just notify the client that an update is available
-      await notifyClientsToUpdate(version);
+      // Clear all caches when a new version is detected
+      const cacheKeys = await caches.keys();
+      await Promise.all(
+        cacheKeys.map(key => caches.delete(key))
+      );
+      // Notify clients to reload
+      const clients = await self.clients.matchAll();
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'NEW_VERSION_INSTALLED',
+          version: version
+        });
+      });
       return true;
     }
     return false;
@@ -139,17 +149,6 @@ async function checkForUpdates() {
     console.error('Version check failed:', error);
     return false;
   }
-}
-
-// Function to notify clients about update
-async function notifyClientsToUpdate(newVersion) {
-  const clients = await self.clients.matchAll();
-  clients.forEach(client => {
-    client.postMessage({
-      type: 'UPDATE_AVAILABLE',
-      version: newVersion
-    });
-  });
 }
 
 // Helper function to determine cache type for a request
@@ -569,7 +568,7 @@ self.addEventListener('install', event => {
   );
 });
 
-// Modify activate event to be less aggressive
+// Modify activate event to be less aggressive but more strategic
 self.addEventListener('activate', event => {
   event.waitUntil(
     (async () => {
@@ -590,7 +589,8 @@ self.addEventListener('activate', event => {
         // Take control of all clients
         await self.clients.claim();
         
-        // Don't start periodic checks
+        // Initial check
+        await checkForUpdates();
       } catch (error) {
         console.error('Service worker activation failed:', error);
       }
@@ -602,6 +602,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  
+  // Add check for visibility change message
+  if (event.data && event.data.type === 'CHECK_VERSION') {
+    checkForUpdates().catch(console.error);
   }
   
   // Handle cache invalidation messages
