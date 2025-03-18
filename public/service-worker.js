@@ -3,33 +3,255 @@
  * Provides advanced network caching strategies
  */
 
-// Cache names
-const STATIC_CACHE_NAME = 'storedot-static-v1';
-const API_CACHE_NAME = 'storedot-api-v1';
-const IMAGE_CACHE_NAME = 'storedot-images-v1';
+// Cache names with versioning
+const CACHE_NAMES = {
+  STATIC: 'storedot-static-v1',
+  ASSETS: 'storedot-assets-v1',
+  IMAGES: 'storedot-images-v1',
+  NFT_METADATA: 'storedot-nft-v1',
+  PRODUCT_DATA: 'storedot-products-v1',
+  DYNAMIC_DATA: 'storedot-dynamic-v1'
+};
 
-// Resources to cache immediately on install
-const STATIC_RESOURCES = [
-  '/',
-  '/index.html',
-  '/offline.html',
-  '/service-worker.js'
-  // Don't include resources that don't exist or might have hashed filenames
-];
+// Cache TTLs in seconds
+const CACHE_TTLS = {
+  STATIC: 7 * 24 * 60 * 60,    // 7 days
+  ASSETS: 24 * 60 * 60,        // 24 hours
+  IMAGES: 24 * 60 * 60,        // 24 hours
+  NFT_METADATA: 60 * 60,       // 1 hour
+  PRODUCT_DATA: 5 * 60,        // 5 minutes
+  DYNAMIC_DATA: 30             // 30 seconds
+};
 
 // Cache size limits
-const API_CACHE_MAX_ITEMS = 200;
-const IMAGE_CACHE_MAX_ITEMS = 100;
+const CACHE_LIMITS = {
+  STATIC: 100,
+  ASSETS: 200,
+  IMAGES: 300,
+  NFT_METADATA: 1000,
+  PRODUCT_DATA: 500,
+  DYNAMIC_DATA: 100
+};
+
+// Request patterns for different cache types
+const REQUEST_PATTERNS = {
+  STATIC: [
+    '/index.html',
+    '/offline.html',
+    '/manifest.json',
+    '/favicon.ico'
+  ],
+  ASSETS: [
+    '/assets/',
+    '/css/',
+    '/js/'
+  ],
+  IMAGES: [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.webp',
+    '/storage/images/'
+  ],
+  NFT_METADATA: [
+    '/api/nft/',
+    '/api/metadata/',
+    '/api/collections/'
+  ],
+  PRODUCT_DATA: [
+    '/api/products/',
+    '/api/categories/',
+    '/api/collections/'
+  ],
+  DYNAMIC_DATA: [
+    '/api/pricing/',
+    '/api/stock/',
+    '/api/availability/'
+  ]
+};
+
+// Never cache these patterns
+const NO_CACHE_PATTERNS = [
+  '/api/blockchain/transfer',
+  '/api/blockchain/mint',
+  '/api/blockchain/sign',
+  '/api/checkout',
+  '/api/payment',
+  '/api/orders',
+  '/api/auth/',
+  '/api/user/'
+];
+
+// RPC methods that should never be cached
+const NO_CACHE_RPC_METHODS = [
+  'eth_sendTransaction',
+  'eth_sendRawTransaction',
+  'eth_sign',
+  'personal_sign',
+  'eth_signTransaction'
+];
+
+// Cache monitoring metrics
+const metrics = {
+  hits: {},
+  misses: {},
+  errors: {},
+  timing: {}
+};
+
+// Initialize metrics for each cache type
+Object.keys(CACHE_NAMES).forEach(type => {
+  metrics.hits[type] = 0;
+  metrics.misses[type] = 0;
+  metrics.errors[type] = 0;
+  metrics.timing[type] = [];
+});
+
+// Helper function to determine cache type for a request
+function getCacheType(request) {
+  const url = new URL(request.url);
+  
+  // First check if this should not be cached
+  if (NO_CACHE_PATTERNS.some(pattern => url.pathname.includes(pattern))) {
+    return null;
+  }
+  
+  // Check RPC methods
+  if (url.pathname.includes('/rpc')) {
+    try {
+      const body = request.clone().json();
+      if (NO_CACHE_RPC_METHODS.includes(body.method)) {
+        return null;
+      }
+    } catch (e) {
+      console.warn('Failed to parse RPC request body:', e);
+      return null;
+    }
+  }
+  
+  // Match against patterns
+  for (const [type, patterns] of Object.entries(REQUEST_PATTERNS)) {
+    if (patterns.some(pattern => {
+      return pattern.startsWith('/')
+        ? url.pathname.includes(pattern)
+        : url.pathname.endsWith(pattern);
+    })) {
+      return type;
+    }
+  }
+  
+  return null;
+}
+
+// Helper function to add cache headers to response
+async function addCacheHeaders(response, cacheType) {
+  const headers = new Headers(response.headers);
+  const ttl = CACHE_TTLS[cacheType];
+  
+  if (ttl) {
+    headers.set('Cache-Control', `public, max-age=${ttl}`);
+    headers.set('X-Cache-TTL', ttl.toString());
+    headers.set('X-Cache-Type', cacheType);
+  }
+  
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
+// Helper function to record metrics
+function recordMetric(cacheType, status, duration) {
+  if (!cacheType) return;
+  
+  if (status === 'hit') {
+    metrics.hits[cacheType]++;
+  } else if (status === 'miss') {
+    metrics.misses[cacheType]++;
+  } else if (status === 'error') {
+    metrics.errors[cacheType]++;
+  }
+  
+  if (duration) {
+    metrics.timing[cacheType].push(duration);
+    // Keep only last 100 timing measurements
+    if (metrics.timing[cacheType].length > 100) {
+      metrics.timing[cacheType].shift();
+    }
+  }
+}
+
+// Main fetch handler
+self.addEventListener('fetch', (event) => {
+  const cacheType = getCacheType(event.request);
+  const startTime = Date.now();
+  
+  // Don't cache if no matching cache type
+  if (!cacheType) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAMES[cacheType]);
+    
+    try {
+      // Try cache first
+      const cachedResponse = await cache.match(event.request);
+      if (cachedResponse) {
+        // Check if cached response is still fresh
+        const cachedTtl = cachedResponse.headers.get('X-Cache-TTL');
+        const cachedTime = cachedResponse.headers.get('X-Cache-Time');
+        
+        if (cachedTtl && cachedTime) {
+          const age = (Date.now() - parseInt(cachedTime)) / 1000;
+          if (age < parseInt(cachedTtl)) {
+            // Cache hit
+            recordMetric(cacheType, 'hit', Date.now() - startTime);
+            return cachedResponse;
+          }
+        }
+      }
+      
+      // Cache miss, fetch from network
+      recordMetric(cacheType, 'miss');
+      const networkResponse = await fetch(event.request);
+      
+      if (networkResponse.ok) {
+        // Add cache headers and store in cache
+        const cachedResponse = await addCacheHeaders(networkResponse.clone(), cacheType);
+        await cache.put(event.request, cachedResponse);
+        
+        // Trim cache if needed
+        await trimCache(CACHE_NAMES[cacheType], CACHE_LIMITS[cacheType]);
+        
+        recordMetric(cacheType, 'network', Date.now() - startTime);
+        return networkResponse;
+      }
+      throw new Error('Network response was not ok');
+    } catch (error) {
+      recordMetric(cacheType, 'error');
+      // If network fails and we have cached data, return it
+      if (cachedResponse) {
+        console.log('Network failed, using cached data:', error);
+        return cachedResponse;
+      }
+      throw error;
+    }
+  })());
+});
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME)
+    caches.open(CACHE_NAMES.STATIC)
       .then((cache) => {
         console.log('Service Worker: Caching static files');
         // Use a more resilient approach to caching static files
         return Promise.all(
-          STATIC_RESOURCES.map(url => {
+          REQUEST_PATTERNS.STATIC.map(url => {
             return fetch(url)
               .then(response => {
                 if (response.ok) {
@@ -58,7 +280,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  const currentCaches = [STATIC_CACHE_NAME, API_CACHE_NAME, IMAGE_CACHE_NAME];
+  const currentCaches = [CACHE_NAMES.STATIC, CACHE_NAMES.ASSETS, CACHE_NAMES.IMAGES, CACHE_NAMES.NFT_METADATA, CACHE_NAMES.PRODUCT_DATA, CACHE_NAMES.DYNAMIC_DATA];
   
   event.waitUntil(
     caches.keys()
@@ -93,173 +315,6 @@ async function trimCache(cacheName, maxItems) {
   }
 }
 
-// Helper to determine if a request is for an API endpoint
-function isApiRequest(url) {
-  return url.pathname.includes('/api/') || 
-         url.pathname.includes('/rest/') || 
-         url.hostname.includes('supabase');
-}
-
-// Helper to determine if a request is for an image
-function isImageRequest(url) {
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.avif'];
-  return imageExtensions.some(ext => url.pathname.endsWith(ext)) || 
-         url.pathname.includes('/storage/') ||
-         url.pathname.includes('/images/');
-}
-
-// Fetch event - handle different caching strategies based on request type
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  
-  // Skip cross-origin requests
-  if (url.origin !== self.location.origin && 
-      !url.hostname.includes('supabase.co')) {
-    return;
-  }
-  
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') {
-    return;
-  }
-  
-  // Different caching strategies based on request type
-  if (isApiRequest(url)) {
-    // API requests: Stale-while-revalidate strategy
-    event.respondWith(handleApiRequest(event.request));
-  } else if (isImageRequest(url)) {
-    // Image requests: Cache-first strategy
-    event.respondWith(handleImageRequest(event.request));
-  } else {
-    // Static assets: Cache-first with network fallback
-    event.respondWith(handleStaticRequest(event.request));
-  }
-});
-
-/**
- * Handle API requests with stale-while-revalidate strategy
- */
-async function handleApiRequest(request) {
-  const cache = await caches.open(API_CACHE_NAME);
-  
-  // Try to get from cache first
-  const cachedResponse = await cache.match(request);
-  
-  // Clone the request because it can only be used once
-  const fetchPromise = fetch(request.clone())
-    .then(async (networkResponse) => {
-      // Only cache successful responses
-      if (networkResponse.ok) {
-        // Check cache control headers
-        const cacheControl = networkResponse.headers.get('Cache-Control');
-        if (cacheControl && !cacheControl.includes('no-store')) {
-          // Clone the response because it can only be used once
-          await cache.put(request, networkResponse.clone());
-          
-          // Trim cache if needed
-          await trimCache(API_CACHE_NAME, API_CACHE_MAX_ITEMS);
-        }
-      }
-      return networkResponse;
-    })
-    .catch((error) => {
-      console.error('Service Worker: API fetch failed', error);
-      // If we have a cached response, return it even if it's stale
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      throw error;
-    });
-  
-  // Return cached response immediately if available, otherwise wait for network
-  return cachedResponse || fetchPromise;
-}
-
-/**
- * Handle image requests with cache-first strategy
- */
-async function handleImageRequest(request) {
-  const cache = await caches.open(IMAGE_CACHE_NAME);
-  
-  // Try to get from cache first
-  const cachedResponse = await cache.match(request);
-  if (cachedResponse) {
-    return cachedResponse;
-  }
-  
-  // If not in cache, fetch from network
-  try {
-    const networkResponse = await fetch(request);
-    
-    // Only cache successful responses
-    if (networkResponse.ok) {
-      // Clone the response because it can only be used once
-      await cache.put(request, networkResponse.clone());
-      
-      // Trim cache if needed
-      await trimCache(IMAGE_CACHE_NAME, IMAGE_CACHE_MAX_ITEMS);
-    }
-    
-    return networkResponse;
-  } catch (error) {
-    console.error('Service Worker: Image fetch failed', error);
-    throw error;
-  }
-}
-
-/**
- * Handle static asset requests with cache-first strategy
- */
-async function handleStaticRequest(request) {
-  const cache = await caches.open(STATIC_CACHE_NAME);
-  const url = new URL(request.url);
-  
-  // Try to get from cache first
-  const cachedResponse = await cache.match(request);
-  if (cachedResponse) {
-    return cachedResponse;
-  }
-  
-  // Special handling for assets that might have hashed filenames
-  const isAssetRequest = url.pathname.startsWith('/assets/');
-  
-  // If not in cache, fetch from network
-  try {
-    const networkResponse = await fetch(request);
-    
-    // Only cache successful responses
-    if (networkResponse.ok) {
-      // For assets with hashed filenames, we can cache them with a long expiry
-      if (isAssetRequest) {
-        // Clone the response because it can only be used once
-        await cache.put(request, networkResponse.clone());
-        
-        // Trim cache if needed for assets
-        if (url.pathname.includes('/assets/')) {
-          await trimCache(STATIC_CACHE_NAME, 200); // Limit asset cache size
-        }
-      } else {
-        // For other static resources, cache them normally
-        await cache.put(request, networkResponse.clone());
-      }
-    }
-    
-    return networkResponse;
-  } catch (error) {
-    console.error('Service Worker: Static fetch failed', error);
-    
-    // For navigation requests, return the offline page
-    if (request.mode === 'navigate') {
-      const offlineResponse = await caches.match('/offline.html');
-      if (offlineResponse) {
-        return offlineResponse;
-      }
-    }
-    
-    throw error;
-  }
-}
-
 // Listen for messages from the client
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
@@ -283,5 +338,32 @@ self.addEventListener('message', (event) => {
         console.log(`Deleted cache ${cacheName}: ${success}`);
       });
     }
+  }
+  
+  // Add metrics reporting endpoint
+  if (event.data && event.data.type === 'GET_METRICS') {
+    // Calculate hit rates and average timings
+    const stats = Object.keys(CACHE_NAMES).reduce((acc, type) => {
+      const total = metrics.hits[type] + metrics.misses[type];
+      const hitRate = total > 0 ? (metrics.hits[type] / total) * 100 : 0;
+      const avgTiming = metrics.timing[type].length > 0 
+        ? metrics.timing[type].reduce((a, b) => a + b) / metrics.timing[type].length 
+        : 0;
+      
+      acc[type] = {
+        hitRate: hitRate.toFixed(2) + '%',
+        avgResponseTime: avgTiming.toFixed(2) + 'ms',
+        hits: metrics.hits[type],
+        misses: metrics.misses[type],
+        errors: metrics.errors[type]
+      };
+      return acc;
+    }, {});
+    
+    // Send metrics back to client
+    event.source.postMessage({
+      type: 'METRICS_REPORT',
+      stats
+    });
   }
 }); 

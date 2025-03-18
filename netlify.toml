@@ -55,6 +55,42 @@
   [headers.values]
     Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
 
+# Prevent caching for critical operations
+[[headers]]
+  for = "/api/blockchain/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+
+[[headers]]
+  for = "/api/checkout/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+
+[[headers]]
+  for = "/api/payment/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+
+[[headers]]
+  for = "/api/orders/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+
+# Very short cache for dynamic data
+[[headers]]
+  for = "/api/pricing/*"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/api/stock/*"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
+
 # Specific redirect for service worker - highest priority
 [[redirects]]
   from = "/service-worker.js"
@@ -74,4 +110,91 @@
   from = "/*"
   to = "/index.html"
   status = 200
-  force = true 
+  force = true
+
+# Cache Control Headers
+
+# Static assets with hash (immutable)
+[[headers]]
+  for = "/assets/*-*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    X-Cache-Type = "STATIC"
+
+# Regular static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+    X-Cache-Type = "ASSETS"
+
+# Images
+[[headers]]
+  for = "/*.{jpg,jpeg,png,gif,webp,svg,avif}"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+    X-Cache-Type = "IMAGES"
+
+# NFT Metadata
+[[headers]]
+  for = "/api/nft/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=7200"
+    X-Cache-Type = "NFT_METADATA"
+
+[[headers]]
+  for = "/api/metadata/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=7200"
+    X-Cache-Type = "NFT_METADATA"
+
+# Product Data
+[[headers]]
+  for = "/api/products/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300, stale-while-revalidate=600"
+    X-Cache-Type = "PRODUCT_DATA"
+
+[[headers]]
+  for = "/api/categories/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300, stale-while-revalidate=600"
+    X-Cache-Type = "PRODUCT_DATA"
+
+# Dynamic Data
+[[headers]]
+  for = "/api/pricing/*"
+  [headers.values]
+    Cache-Control = "public, max-age=30, stale-while-revalidate=60"
+    X-Cache-Type = "DYNAMIC_DATA"
+
+[[headers]]
+  for = "/api/stock/*"
+  [headers.values]
+    Cache-Control = "public, max-age=30, stale-while-revalidate=60"
+    X-Cache-Type = "DYNAMIC_DATA"
+
+# No Cache for Critical Operations
+[[headers]]
+  for = "/api/blockchain/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+
+[[headers]]
+  for = "/api/checkout/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+
+[[headers]]
+  for = "/api/payment/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+
+[[headers]]
+  for = "/api/auth/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache" 
