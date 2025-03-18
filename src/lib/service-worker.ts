@@ -17,30 +17,44 @@ export const CACHE_NAMES = {
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if ('serviceWorker' in navigator) {
     try {
-      // First check if the service worker file exists
+      // Check if service worker file exists
       try {
-        const response = await fetch('/service-worker.js', { method: 'HEAD' });
+        const response = await fetch('/service-worker.js', { 
+          method: 'HEAD',
+          cache: 'no-store'
+        });
         if (!response.ok) {
-          console.error('Service Worker file not found or not accessible:', response.status, response.statusText);
+          console.error('Service Worker file not found:', response.status);
           return null;
         }
       } catch (fetchError) {
-        console.error('Error checking Service Worker file:', fetchError);
+        console.error('Error checking Service Worker:', fetchError);
         return null;
       }
 
-      // If the file exists, register the service worker
+      // Register the service worker
       const registration = await navigator.serviceWorker.register('/service-worker.js', {
-        scope: '/'
+        scope: '/',
+        updateViaCache: 'none'
       });
-      console.log('Service Worker registered with scope:', registration.scope);
+
+      // Set up update handling
+      handleServiceWorkerUpdate(registration);
+      
+      // Listen for messages
+      listenForServiceWorkerMessages();
+
+      // Don't check for updates immediately
+      // Let it happen naturally on page refresh
+
+      console.log('Service Worker registered:', registration.scope);
       return registration;
     } catch (error) {
       console.error('Service Worker registration failed:', error);
       return null;
     }
   }
-  console.warn('Service Workers are not supported in this browser');
+  console.warn('Service Workers not supported');
   return null;
 }
 
@@ -153,4 +167,59 @@ export async function setupServiceWorker(): Promise<ServiceWorkerRegistration | 
   }
   
   return registration;
+}
+
+// Handle service worker updates in a non-intrusive way
+function handleServiceWorkerUpdate(registration: ServiceWorkerRegistration) {
+  registration.addEventListener('updatefound', () => {
+    const newWorker = registration.installing;
+    if (!newWorker) return;
+
+    newWorker.addEventListener('statechange', () => {
+      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+        // Log for developers
+        console.log('New version is available and will be used on next refresh');
+        
+        // Show a subtle notification
+        showUpdateNotification();
+      }
+    });
+  });
+}
+
+// Show a non-intrusive update notification
+function showUpdateNotification() {
+  // Try browser notification first
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      new Notification('Update Available', {
+        body: 'A new version will be used when you refresh the page',
+        icon: '/favicon.ico',
+        silent: true, // Don't make a sound
+        tag: 'version-update' // Prevent multiple notifications
+      });
+    } else if (Notification.permission !== 'denied') {
+      // Request permission if not denied before
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          showUpdateNotification();
+        }
+      });
+    }
+  }
+}
+
+// Listen for messages from service worker
+function listenForServiceWorkerMessages() {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
+      const { version } = event.data;
+      
+      // Log for developers
+      console.log(`New version ${version} is available and will be used on next refresh`);
+      
+      // Show notification about the update
+      showUpdateNotification();
+    }
+  });
 } 

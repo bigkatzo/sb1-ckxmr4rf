@@ -3,14 +3,17 @@
  * Provides advanced network caching strategies
  */
 
-// Cache names with versioning
+// Add version control at the top of the file
+const APP_VERSION = '1.0.0'; // This should match your app version
+
+// Modify cache names to include version
 const CACHE_NAMES = {
-  STATIC: 'storedot-static-v1',
-  ASSETS: 'storedot-assets-v1',
-  IMAGES: 'storedot-images-v1',
-  NFT_METADATA: 'storedot-nft-v1',
-  PRODUCT_DATA: 'storedot-products-v1',
-  DYNAMIC_DATA: 'storedot-dynamic-v1'
+  STATIC: `storedot-static-${APP_VERSION}`,
+  ASSETS: `storedot-assets-${APP_VERSION}`,
+  IMAGES: `storedot-images-${APP_VERSION}`,
+  NFT_METADATA: `storedot-nft-${APP_VERSION}`,
+  PRODUCT_DATA: `storedot-products-${APP_VERSION}`,
+  DYNAMIC_DATA: `storedot-dynamic-${APP_VERSION}`
 };
 
 // Cache TTLs in seconds
@@ -107,6 +110,47 @@ Object.keys(CACHE_NAMES).forEach(type => {
   metrics.errors[type] = 0;
   metrics.timing[type] = [];
 });
+
+// Version check endpoint
+const VERSION_CHECK_URL = '/api/version';
+
+// Function to check for updates - only called on page refresh
+async function checkForUpdates() {
+  try {
+    const response = await fetch(VERSION_CHECK_URL, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    });
+    
+    if (!response.ok) return false;
+    
+    const { version } = await response.json();
+    if (version !== APP_VERSION) {
+      console.log(`New version available: ${version}`);
+      // Don't automatically clear caches or unregister
+      // Just notify the client that an update is available
+      await notifyClientsToUpdate(version);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Version check failed:', error);
+    return false;
+  }
+}
+
+// Function to notify clients about update
+async function notifyClientsToUpdate(newVersion) {
+  const clients = await self.clients.matchAll();
+  clients.forEach(client => {
+    client.postMessage({
+      type: 'UPDATE_AVAILABLE',
+      version: newVersion
+    });
+  });
+}
 
 // Helper function to determine cache type for a request
 function getCacheType(request) {
@@ -243,63 +287,50 @@ self.addEventListener('fetch', (event) => {
   })());
 });
 
-// Install event - cache static assets
-self.addEventListener('install', (event) => {
+// Modify the install event to be less aggressive
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAMES.STATIC)
-      .then((cache) => {
-        console.log('Service Worker: Caching static files');
-        // Use a more resilient approach to caching static files
-        return Promise.all(
-          REQUEST_PATTERNS.STATIC.map(url => {
-            return fetch(url)
-              .then(response => {
-                if (response.ok) {
-                  return cache.put(url, response);
-                }
-                console.warn(`Failed to cache ${url}: ${response.status} ${response.statusText}`);
-                return Promise.resolve(); // Continue even if one resource fails
-              })
-              .catch(error => {
-                console.warn(`Failed to fetch ${url} for caching:`, error);
-                return Promise.resolve(); // Continue even if one resource fails
-              });
-          })
-        );
-      })
-      .then(() => {
-        console.log('Service Worker: Static caching completed');
-        return self.skipWaiting();
-      })
-      .catch(error => {
-        console.error('Service Worker: Installation failed:', error);
-        return self.skipWaiting(); // Skip waiting even if caching fails
-      })
+    (async () => {
+      try {
+        // Only cache static assets
+        const cache = await caches.open(CACHE_NAMES.STATIC);
+        await cache.addAll(REQUEST_PATTERNS.STATIC);
+        // Don't check for updates during install
+        await self.skipWaiting();
+      } catch (error) {
+        console.error('Service worker installation failed:', error);
+        await self.skipWaiting();
+      }
+    })()
   );
 });
 
-// Activate event - clean up old caches
-self.addEventListener('activate', (event) => {
-  const currentCaches = [CACHE_NAMES.STATIC, CACHE_NAMES.ASSETS, CACHE_NAMES.IMAGES, CACHE_NAMES.NFT_METADATA, CACHE_NAMES.PRODUCT_DATA, CACHE_NAMES.DYNAMIC_DATA];
-  
+// Modify activate event to be less aggressive
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return cacheNames.filter(
-          (cacheName) => !currentCaches.includes(cacheName)
+    (async () => {
+      try {
+        // Get all cache keys
+        const cacheKeys = await caches.keys();
+        
+        // Get current cache names
+        const currentCaches = Object.values(CACHE_NAMES);
+        
+        // Delete old caches
+        await Promise.all(
+          cacheKeys
+            .filter(key => !currentCaches.includes(key))
+            .map(key => caches.delete(key))
         );
-      })
-      .then((cachesToDelete) => {
-        return Promise.all(
-          cachesToDelete.map((cacheToDelete) => {
-            console.log('Service Worker: Deleting old cache', cacheToDelete);
-            return caches.delete(cacheToDelete);
-          })
-        );
-      })
-      .then(() => {
-        return self.clients.claim();
-      })
+        
+        // Take control of all clients
+        await self.clients.claim();
+        
+        // Don't start periodic checks
+      } catch (error) {
+        console.error('Service worker activation failed:', error);
+      }
+    })()
   );
 });
 
