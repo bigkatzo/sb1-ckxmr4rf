@@ -9,6 +9,7 @@ import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { ProductModalSkeleton } from '../ui/Skeletons';
 import type { Product as BaseProduct } from '../../types/variants';
+import { preloadImages } from '../../utils/ImagePreloader';
 
 // Extend the base Product type with additional properties needed for the modal
 interface Product extends BaseProduct {
@@ -354,6 +355,31 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
   const isSaleEnded = product.collectionSaleEnded;
 
+  // Focused preloading effect with immediate first image load
+  useEffect(() => {
+    if (!images.length) return;
+    
+    // Immediately preload the first image for instant display
+    if (images[selectedImageIndex]) {
+      const img = new Image();
+      img.src = images[selectedImageIndex];
+    }
+    
+    // Preload next image during idle time
+    const nextImage = images[(selectedImageIndex + 1) % images.length];
+    if (nextImage) {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => {
+          preloadImages([nextImage]);
+        });
+      } else {
+        setTimeout(() => {
+          preloadImages([nextImage]);
+        }, 500);
+      }
+    }
+  }, [selectedImageIndex, images]);
+
   return (
     <div 
       className="fixed inset-0 z-50 overflow-y-auto overscroll-contain" 
@@ -429,17 +455,27 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                 onTouchCancel={handleTouchEnd}
               >
                 <div
-                  className={`h-full flex ${images.length > 1 ? 'will-change-transform transform-gpu' : 'justify-center items-center'}`}
+                  className="h-full flex transform-gpu"
                   style={images.length > 1 ? {
-                    transform: `translateX(${translateX}%)`,
-                    transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`
-                  } : {}}
+                    transform: `translate3d(${translateX}%, 0, 0)`,
+                    transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`,
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden'
+                  } : {
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}
                 >
                   {images.map((image: string, index: number) => (
                     <div
                       key={index}
                       className={`${images.length > 1 ? 'w-full flex-shrink-0' : ''} h-full flex items-center justify-center`}
-                      style={images.length > 1 ? {} : { width: '100%' }}
+                      style={images.length > 1 ? {
+                        transform: 'translate3d(0, 0, 0)',
+                        willChange: 'transform',
+                        backfaceVisibility: 'hidden',
+                        WebkitBackfaceVisibility: 'hidden'
+                      } : { width: '100%' }}
                     >
                       <OptimizedImage
                         src={image}
@@ -447,9 +483,9 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                         width={1000}
                         height={1000}
                         quality={95}
+                        priority={Math.abs(index - selectedImageIndex) <= 1}
                         className="max-w-full max-h-full w-auto h-auto object-contain pointer-events-none"
-                        sizes="(max-width: 640px) 100vw, 600px"
-                        priority={images.length === 1 || Math.abs(index - selectedImageIndex) <= 1}
+                        sizes="(max-width: 640px) 100vw, 800px"
                       />
                     </div>
                   ))}
