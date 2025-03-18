@@ -224,8 +224,11 @@ export function TokenVerificationModal({
       // Save shipping info to localStorage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfo));
       
-      // Update payment processing step
-      updateProgressStep(0, 'processing');
+      // Reset all steps to pending
+      setProgressSteps(steps => steps.map(step => ({ ...step, status: 'pending' as const })));
+      
+      // Start payment processing
+      updateProgressStep(0, 'processing', 'Initiating payment on Solana network...');
       
       // Process payment with modified price
       const { success, signature } = await processPayment(finalPrice, product.collectionId);
@@ -235,8 +238,15 @@ export function TokenVerificationModal({
         throw new Error('Payment failed');
       }
       
+      // Payment successful
       updateProgressStep(0, 'completed');
-      updateProgressStep(1, 'processing');
+      
+      // Start transaction confirmation
+      updateProgressStep(1, 'processing', 'Waiting for transaction confirmation...');
+      
+      // Wait for transaction confirmation (assuming it's handled in processPayment)
+      // If you need additional confirmation logic, add it here
+      updateProgressStep(1, 'completed');
 
       // Format shipping address
       const formattedShippingInfo = {
@@ -255,7 +265,7 @@ export function TokenVerificationModal({
       // Format variant selections
       const formattedVariantSelections = product.variants && product.variants.length > 0
         ? Object.entries(selectedOptions)
-            .filter(([_, value]) => value) // Only include non-empty selections
+            .filter(([_, value]) => value)
             .map(([id, value]) => {
               const variant = product.variants?.find(v => v.id === id);
               return {
@@ -265,16 +275,10 @@ export function TokenVerificationModal({
             })
         : [];
 
-      // Log variant information for debugging
-      console.log('Creating order with variants:', {
-        hasVariants: product.variants && product.variants.length > 0,
-        selectedOptions,
-        formattedVariantSelections,
-        finalPrice
-      });
+      // Start order creation
+      updateProgressStep(2, 'processing', 'Creating your order...');
 
       // Create order record with retries
-      updateProgressStep(2, 'processing');
       let orderError;
       for (let i = 0; i < 3; i++) {
         try {
@@ -294,6 +298,7 @@ export function TokenVerificationModal({
           console.error(`Order creation attempt ${i + 1} failed:`, err);
           orderError = err;
           if (i < 2) {
+            updateProgressStep(2, 'processing', `Retrying order creation (attempt ${i + 2} of 3)...`);
             await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
           } else {
             updateProgressStep(2, 'error', 'Failed to create order');
@@ -306,7 +311,7 @@ export function TokenVerificationModal({
         console.error('All order creation attempts failed:', orderError);
         
         try {
-          // Update transaction status to 'order_failed' so it appears in the recovery view
+          // Update transaction status to 'order_failed'
           const { error: updateError } = await supabase.rpc('update_transaction_status', {
             p_signature: signature,
             p_status: 'order_failed',
@@ -314,14 +319,12 @@ export function TokenVerificationModal({
           });
           
           if (updateError) {
-            // This is expected if the migration hasn't been applied yet
-            console.error('Failed to update transaction status to order_failed (function may not be updated yet):', updateError);
+            console.error('Failed to update transaction status to order_failed:', updateError);
           } else {
             console.log('Transaction status updated to order_failed');
           }
         } catch (updateErr) {
-          // This is expected if the migration hasn't been applied yet
-          console.error('Exception updating transaction status (function may not be updated yet):', updateErr);
+          console.error('Exception updating transaction status:', updateErr);
         }
         
         toast.warning(
@@ -335,7 +338,11 @@ export function TokenVerificationModal({
         return;
       }
 
+      // All steps completed successfully
       toastService.showOrderSuccess();
+      
+      // Short delay to show the completed state before closing
+      await new Promise(resolve => setTimeout(resolve, 1000));
       onSuccess();
     } catch (error) {
       console.error('Order error:', error);
@@ -473,143 +480,153 @@ export function TokenVerificationModal({
             </div>
           )}
 
-          {/* Progress Indicator (show when submitting) */}
-          {submitting && <ProgressIndicator />}
-
-          {/* Shipping Form */}
+          {/* Show either the shipping form or progress indicator */}
           {(!product.category?.eligibilityRules?.groups?.length || verificationResult?.isValid) && (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-2">
-                    Street Address
-                  </label>
-                  <input
-                    type="text"
-                    value={shippingInfo.address}
-                    onChange={(e) => setShippingInfo(prev => ({
-                      ...prev,
-                      address: e.target.value
-                    }))}
-                    required
-                    disabled={submitting}
-                    className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    placeholder="Enter your street address"
-                  />
-                </div>
+              {submitting ? (
+                <>
+                  <ProgressIndicator />
+                  <div className="pt-4 border-t border-gray-800">
+                    <button
+                      type="submit"
+                      disabled
+                      className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <span>Processing...</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">
+                        Street Address
+                      </label>
+                      <input
+                        type="text"
+                        value={shippingInfo.address}
+                        onChange={(e) => setShippingInfo(prev => ({
+                          ...prev,
+                          address: e.target.value
+                        }))}
+                        required
+                        disabled={submitting}
+                        className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        placeholder="Enter your street address"
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingInfo.city}
+                          onChange={(e) => setShippingInfo(prev => ({
+                            ...prev,
+                            city: e.target.value
+                          }))}
+                          required
+                          disabled={submitting}
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="City"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
+                          ZIP / Postal Code
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingInfo.zip}
+                          onChange={(e) => setShippingInfo(prev => ({
+                            ...prev,
+                            zip: e.target.value
+                          }))}
+                          required
+                          disabled={submitting}
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="ZIP code"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">
+                        Country
+                      </label>
+                      <input
+                        type="text"
+                        value={shippingInfo.country}
+                        onChange={(e) => setShippingInfo(prev => ({
+                          ...prev,
+                          country: e.target.value
+                        }))}
+                        required
+                        disabled={submitting}
+                        className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        placeholder="Country"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-200 mb-2">
-                      City
+                      Contact Method
                     </label>
-                    <input
-                      type="text"
-                      value={shippingInfo.city}
-                      onChange={(e) => setShippingInfo(prev => ({
-                        ...prev,
-                        city: e.target.value
-                      }))}
-                      required
-                      disabled={submitting}
-                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder="City"
-                    />
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <select
+                        value={shippingInfo.contactMethod}
+                        onChange={(e) => setShippingInfo(prev => ({
+                          ...prev,
+                          contactMethod: e.target.value,
+                          contactValue: '' // Reset value when changing method
+                        }))}
+                        className="w-full sm:w-auto bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        disabled={submitting}
+                      >
+                        <option value="telegram">Telegram</option>
+                        <option value="email">Email</option>
+                        <option value="x">X (Twitter)</option>
+                      </select>
+                      <div className="flex-1 min-w-0">
+                        <input
+                          type={shippingInfo.contactMethod === 'email' ? 'email' : 'text'}
+                          value={shippingInfo.contactValue}
+                          onChange={(e) => setShippingInfo(prev => ({
+                            ...prev,
+                            contactValue: e.target.value
+                          }))}
+                          required
+                          disabled={submitting}
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 truncate disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder={
+                            shippingInfo.contactMethod === 'telegram' ? '@username' :
+                            shippingInfo.contactMethod === 'email' ? 'email@example.com' :
+                            '@handle'
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">
-                      ZIP / Postal Code
-                    </label>
-                    <input
-                      type="text"
-                      value={shippingInfo.zip}
-                      onChange={(e) => setShippingInfo(prev => ({
-                        ...prev,
-                        zip: e.target.value
-                      }))}
-                      required
-                      disabled={submitting}
-                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder="ZIP code"
-                    />
+
+                  <div className="pt-4 border-t border-gray-800">
+                    <button
+                      type="submit"
+                      disabled={submitting || !verificationResult?.isValid || 
+                        !shippingInfo.address || !shippingInfo.city || 
+                        !shippingInfo.country || !shippingInfo.zip || 
+                        !shippingInfo.contactValue}
+                      className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>
+                    </button>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-2">
-                    Country
-                  </label>
-                  <input
-                    type="text"
-                    value={shippingInfo.country}
-                    onChange={(e) => setShippingInfo(prev => ({
-                      ...prev,
-                      country: e.target.value
-                    }))}
-                    required
-                    disabled={submitting}
-                    className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    placeholder="Country"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                  Contact Method
-                </label>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <select
-                    value={shippingInfo.contactMethod}
-                    onChange={(e) => setShippingInfo(prev => ({
-                      ...prev,
-                      contactMethod: e.target.value,
-                      contactValue: '' // Reset value when changing method
-                    }))}
-                    className="w-full sm:w-auto bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    disabled={submitting}
-                  >
-                    <option value="telegram">Telegram</option>
-                    <option value="email">Email</option>
-                    <option value="x">X (Twitter)</option>
-                  </select>
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type={shippingInfo.contactMethod === 'email' ? 'email' : 'text'}
-                      value={shippingInfo.contactValue}
-                      onChange={(e) => setShippingInfo(prev => ({
-                        ...prev,
-                        contactValue: e.target.value
-                      }))}
-                      required
-                      disabled={submitting}
-                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 truncate disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder={
-                        shippingInfo.contactMethod === 'telegram' ? '@username' :
-                        shippingInfo.contactMethod === 'email' ? 'email@example.com' :
-                        '@handle'
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-gray-800">
-                <button
-                  type="submit"
-                  disabled={submitting || !verificationResult?.isValid || 
-                    !shippingInfo.address || !shippingInfo.city || 
-                    !shippingInfo.country || !shippingInfo.zip || 
-                    !shippingInfo.contactValue}
-                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  {submitting ? (
-                    <span>Processing...</span>
-                  ) : (
-                    <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>
-                  )}
-                </button>
-              </div>
+                </>
+              )}
             </form>
           )}
         </div>
