@@ -268,4 +268,26 @@ export async function forceClearCaches(): Promise<void> {
       console.error('Error clearing caches:', error);
     }
   }
+}
+
+// Expose cache control functions globally for debugging
+declare global {
+  interface Window {
+    __DEBUG_SW__: {
+      forceRefreshServiceWorker: typeof forceRefreshServiceWorker;
+      forceClearCaches: typeof forceClearCaches;
+      invalidateUrl: typeof invalidateUrl;
+      invalidateUrlsByPrefix: typeof invalidateUrlsByPrefix;
+    };
+  }
+}
+
+// Only expose in non-production or with debug flag
+if (import.meta.env.DEV || localStorage.getItem('debug_sw')) {
+  window.__DEBUG_SW__ = {
+    forceRefreshServiceWorker,
+    forceClearCaches,
+    invalidateUrl,
+    invalidateUrlsByPrefix
+  };
 } 
