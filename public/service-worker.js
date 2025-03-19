@@ -1,40 +1,110 @@
 /**
  * StoreDot Service Worker
- * Provides advanced network caching strategies
+ * Advanced caching and network strategy implementation
+ * 
+ * CACHE ARCHITECTURE:
+ * ------------------
+ * The caching system is divided into distinct layers, each optimized for specific content:
+ * 
+ * 1. STATIC (7 days)
+ *    - Core app files (HTML, manifest)
+ *    - Rarely changes, long-term cache
+ *    - Limited to essential files only
+ * 
+ * 2. ASSETS (24 hours)
+ *    - Build-generated JS/CSS with content hashes
+ *    - Automatically invalidated on new builds
+ *    - Immutable until next deployment
+ * 
+ * 3. IMAGES (24 hours)
+ *    - Optimized image handling with blob storage
+ *    - CDN-backed with background revalidation
+ *    - Special handling for Supabase storage
+ * 
+ * 4. NFT_METADATA (1 hour)
+ *    - Blockchain and NFT data
+ *    - Moderate refresh rate
+ *    - Balance between freshness and performance
+ * 
+ * 5. PRODUCT_DATA (5 minutes)
+ *    - Store catalog and inventory
+ *    - Frequent refresh for accuracy
+ *    - Critical for business operations
+ * 
+ * 6. DYNAMIC_DATA (30 seconds)
+ *    - Real-time pricing and stock
+ *    - Very short cache for time-sensitive data
+ *    - Fallback to stale data on network failure
+ * 
+ * CACHE INVALIDATION:
+ * ------------------
+ * Multiple mechanisms ensure fresh content:
+ * 1. Content-hash based versioning (automatic with builds)
+ * 2. TTL-based expiration (per cache type)
+ * 3. Manual override via CACHE_OVERRIDE constant
+ * 4. Programmatic invalidation through API
+ * 
+ * MEMORY MANAGEMENT:
+ * ----------------
+ * Automatic optimization based on device capabilities:
+ * - Adjusts cache sizes for low-memory devices
+ * - LRU-based cache trimming
+ * - Efficient response cloning per content type
+ * 
+ * MAINTENANCE GUIDELINES:
+ * ---------------------
+ * 1. Version Management:
+ *    - APP_VERSION: Updated automatically during build
+ *    - CACHE_OVERRIDE: Increment manually for force refresh
+ * 
+ * 2. Cache Limits:
+ *    - Monitor metrics via GET_METRICS message
+ *    - Adjust CACHE_LIMITS if hit rates are low
+ *    - Consider device memory constraints
+ * 
+ * 3. Performance Monitoring:
+ *    - Watch for high miss rates in metrics
+ *    - Check average response times
+ *    - Monitor error rates per cache type
+ * 
+ * 4. Troubleshooting:
+ *    - Check service worker logs for cache operations
+ *    - Use GET_VERSION to verify active version
+ *    - CLEAR_ALL_CACHES for reset if needed
  */
 
 // Add version control at the top of the file
 const APP_VERSION = '1.0.0'; // This will be replaced during build
 const CACHE_OVERRIDE = '1'; // Increment this to force cache invalidation
 
-// Modify cache names to include both versions
+// Cache names with versioning and purpose
 const CACHE_NAMES = {
-  STATIC: `storedot-static-${APP_VERSION}-${CACHE_OVERRIDE}`,
-  ASSETS: `storedot-assets-${APP_VERSION}-${CACHE_OVERRIDE}`,
-  IMAGES: `storedot-images-${APP_VERSION}-${CACHE_OVERRIDE}`,
-  NFT_METADATA: `storedot-nft-${APP_VERSION}-${CACHE_OVERRIDE}`,
-  PRODUCT_DATA: `storedot-products-${APP_VERSION}-${CACHE_OVERRIDE}`,
-  DYNAMIC_DATA: `storedot-dynamic-${APP_VERSION}-${CACHE_OVERRIDE}`
+  STATIC: `storedot-static-${APP_VERSION}-${CACHE_OVERRIDE}`,      // Core app files
+  ASSETS: `storedot-assets-${APP_VERSION}-${CACHE_OVERRIDE}`,      // Build assets
+  IMAGES: `storedot-images-${APP_VERSION}-${CACHE_OVERRIDE}`,      // Optimized images
+  NFT_METADATA: `storedot-nft-${APP_VERSION}-${CACHE_OVERRIDE}`,   // Blockchain data
+  PRODUCT_DATA: `storedot-products-${APP_VERSION}-${CACHE_OVERRIDE}`, // Catalog
+  DYNAMIC_DATA: `storedot-dynamic-${APP_VERSION}-${CACHE_OVERRIDE}`   // Real-time data
 };
 
-// Cache TTLs in seconds
+// Cache TTLs in seconds - tailored to data volatility and business needs
 const CACHE_TTLS = {
-  STATIC: 7 * 24 * 60 * 60,    // 7 days
-  ASSETS: 24 * 60 * 60,        // 24 hours
-  IMAGES: 24 * 60 * 60,        // 24 hours
-  NFT_METADATA: 60 * 60,       // 1 hour
-  PRODUCT_DATA: 5 * 60,        // 5 minutes
-  DYNAMIC_DATA: 30             // 30 seconds
+  STATIC: 7 * 24 * 60 * 60,    // 7 days - rarely changes
+  ASSETS: 24 * 60 * 60,        // 24 hours - build-dependent
+  IMAGES: 24 * 60 * 60,        // 24 hours - CDN-backed
+  NFT_METADATA: 60 * 60,       // 1 hour - blockchain data
+  PRODUCT_DATA: 5 * 60,        // 5 minutes - inventory
+  DYNAMIC_DATA: 30             // 30 seconds - pricing/stock
 };
 
-// Cache size limits
+// Cache size limits with rationale
 const CACHE_LIMITS = {
-  STATIC: 100,
-  ASSETS: 200,
-  IMAGES: 300,
-  NFT_METADATA: 1000,
-  PRODUCT_DATA: 500,
-  DYNAMIC_DATA: 100
+  STATIC: 100,    // Limited to core files
+  ASSETS: 200,    // Covers main chunks and dynamic imports
+  IMAGES: 300,    // Balance between UX and memory
+  NFT_METADATA: 1000, // Large to minimize blockchain calls
+  PRODUCT_DATA: 500,  // Cover main catalog
+  DYNAMIC_DATA: 100   // Short-lived, keep minimal
 };
 
 // Request patterns for different cache types
@@ -301,14 +371,21 @@ self.addEventListener('fetch', (event) => {
   })());
 });
 
-// Memory and device info constants
+/**
+ * Memory and device optimization constants
+ * Adjusts cache behavior based on device capabilities
+ */
 const MEMORY_INFO = {
-  LOW_MEMORY_THRESHOLD: 100 * 1024 * 1024,  // 100MB
-  CRITICAL_MEMORY_THRESHOLD: 50 * 1024 * 1024,  // 50MB
+  LOW_MEMORY_THRESHOLD: 100 * 1024 * 1024,  // 100MB - reduce caching
+  CRITICAL_MEMORY_THRESHOLD: 50 * 1024 * 1024,  // 50MB - minimal caching
   DEFAULT_DEVICE_MEMORY: 4  // 4GB default if not available
 };
 
-// Dynamic cache management
+/**
+ * Dynamic cache size adjustment based on device memory
+ * Reduces cache sizes on low-memory devices to prevent OOM
+ * @returns {Object} Adjusted cache limits
+ */
 function getDynamicCacheLimits() {
   const deviceMemory = navigator.deviceMemory || MEMORY_INFO.DEFAULT_DEVICE_MEMORY;
   const isLowMemoryDevice = deviceMemory < 4;
@@ -323,13 +400,22 @@ function getDynamicCacheLimits() {
   };
 }
 
-// Atomic cache operations
+/**
+ * Atomic cache operations handler
+ * Ensures thread-safe cache operations using locks
+ */
 class AtomicCache {
   constructor(cacheName) {
     this.cacheName = cacheName;
     this.lockPromises = new Map();
   }
   
+  /**
+   * Acquire a lock for atomic operations
+   * @param {string} key - Cache key to lock
+   * @param {number} timeout - Lock timeout in ms
+   * @returns {Function} Lock release function
+   */
   async acquireLock(key, timeout = 5000) {
     if (this.lockPromises.has(key)) {
       await this.lockPromises.get(key);
@@ -342,6 +428,7 @@ class AtomicCache {
     
     this.lockPromises.set(key, lockPromise);
     
+    // Auto-release lock after timeout
     setTimeout(() => {
       if (this.lockPromises.get(key) === lockPromise) {
         this.releaseLock(key);
@@ -351,6 +438,10 @@ class AtomicCache {
     return () => this.releaseLock(key);
   }
   
+  /**
+   * Release a previously acquired lock
+   * @param {string} key - Cache key to unlock
+   */
   releaseLock(key) {
     const lockPromise = this.lockPromises.get(key);
     if (lockPromise) {
@@ -359,6 +450,12 @@ class AtomicCache {
     }
   }
   
+  /**
+   * Perform an atomic cache update
+   * @param {string} key - Cache key to update
+   * @param {Function} updateFn - Update function
+   * @returns {Promise} Update result
+   */
   async atomicUpdate(key, updateFn) {
     const releaseLock = await this.acquireLock(key);
     try {
@@ -370,7 +467,13 @@ class AtomicCache {
   }
 }
 
-// Efficient response cloning
+/**
+ * Efficient response cloning based on content type
+ * Optimizes memory usage for different content types
+ * @param {Response} response - Response to clone
+ * @param {string} cacheType - Type of cache
+ * @returns {Promise<Response>} Cloned response
+ */
 async function efficientResponseClone(response, cacheType) {
   if (response.headers.get('Cache-Control')?.includes('no-store')) {
     return response;
@@ -380,6 +483,7 @@ async function efficientResponseClone(response, cacheType) {
     return await fetch(response.url);
   }
   
+  // Special handling for images using blob storage
   if (cacheType === 'IMAGES') {
     const blob = await response.blob();
     return new Response(blob, {
@@ -389,6 +493,7 @@ async function efficientResponseClone(response, cacheType) {
     });
   }
   
+  // Parse and stringify JSON to ensure clean clone
   if (response.headers.get('Content-Type')?.includes('application/json')) {
     const data = await response.json();
     return new Response(JSON.stringify(data), {
@@ -401,23 +506,31 @@ async function efficientResponseClone(response, cacheType) {
   return response.clone();
 }
 
-// Improved cache trimming with LRU
+/**
+ * LRU cache trimming implementation
+ * Removes least recently used items when cache exceeds limits
+ * @param {string} cacheName - Cache to trim
+ * @param {number} maxItems - Maximum items to keep
+ */
 async function trimCache(cacheName, maxItems) {
   const cache = await caches.open(cacheName);
   const keys = await cache.keys();
   
+  // Get dynamic limits based on device memory
   const dynamicLimits = getDynamicCacheLimits();
   const adjustedMaxItems = dynamicLimits[cacheName.split('-')[1]] || maxItems;
   
   if (keys.length > adjustedMaxItems) {
     console.log(`Trimming cache ${cacheName} (${keys.length} > ${adjustedMaxItems})`);
     
+    // Get metadata for LRU implementation
     const keyMetadata = await Promise.all(keys.map(async key => {
       const response = await cache.match(key);
       const lastAccessed = response?.headers?.get('X-Last-Accessed') || 0;
       return { key, lastAccessed: parseInt(lastAccessed) || 0 };
     }));
     
+    // Sort by access time and remove oldest
     keyMetadata.sort((a, b) => a.lastAccessed - b.lastAccessed);
     const keysToDelete = keyMetadata
       .slice(0, keys.length - adjustedMaxItems)
