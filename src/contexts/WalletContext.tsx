@@ -3,8 +3,16 @@ import { ConnectionProvider, WalletProvider as SolanaWalletProvider, useWallet a
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { Transaction, PublicKey } from '@solana/web3.js';
 import type { Adapter } from '@solana/wallet-adapter-base';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { SOLANA_CONNECTION } from '../config/solana';
 import '@solana/wallet-adapter-react-ui/styles.css';
+
+// Import wallet adapters
+import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
+import { BackpackWalletAdapter } from '@solana/wallet-adapter-backpack';
+import { LedgerWalletAdapter } from '@solana/wallet-adapter-ledger';
+import { TorusWalletAdapter } from '@solana/wallet-adapter-torus';
+import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
 
 interface WalletNotification {
   id: string;
@@ -138,11 +146,36 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   
   useEffect(() => {
     async function loadWallets() {
-      // Only load Solflare adapter since Phantom is auto-registered
-      const { SolflareWalletAdapter } = await import('@solana/wallet-adapter-wallets');
-      setWallets([
-        new SolflareWalletAdapter()
-      ]);
+      // Initialize adapters for non-standard wallets
+      const adapters = [
+        // Solflare - Still needed as a direct adapter
+        new SolflareWalletAdapter(),
+        
+        // Backpack - Popular but not yet standard-compliant
+        new BackpackWalletAdapter(),
+        
+        // Hardware wallet support
+        new LedgerWalletAdapter(),
+        
+        // Social login support (optional)
+        new TorusWalletAdapter(),
+        
+        // WalletConnect support for mobile (optional)
+        new WalletConnectWalletAdapter({
+          network: WalletAdapterNetwork.Mainnet,
+          options: {
+            projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '',
+            metadata: {
+              name: 'StoreDotFun',
+              description: 'StoreDotFun - Web3 Merch Store',
+              url: window.location.origin,
+              icons: [`${window.location.origin}/logo.png`]
+            }
+          }
+        })
+      ].filter(Boolean);
+
+      setWallets(adapters);
     }
     loadWallets();
   }, []);
