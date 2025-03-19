@@ -15,7 +15,7 @@ import { ToastContainer } from 'react-toastify';
 import { validateEnvironmentVariables } from './utils/env-validation';
 import { ScrollBehavior } from './components/ui/ScrollBehavior';
 import { setupCachePreloader } from './lib/cache-preloader';
-import { setupRealtimeInvalidation } from './lib/cache';
+import { setupRealtimeInvalidation, testRealtimeUpdates } from './lib/cache';
 import { supabase } from './lib/supabase';
 import { preloadNFTVerifier } from './utils/nft-verification';
 import 'react-toastify/dist/ReactToastify.css';
@@ -59,7 +59,7 @@ function AppContent() {
     const cleanupPreloader = setupCachePreloader();
     
     // Set up realtime cache invalidation
-    setupRealtimeInvalidation(supabase);
+    const cleanup = setupRealtimeInvalidation(supabase);
     
     // Set up service worker
     setupServiceWorker().catch(err => {
@@ -71,8 +71,21 @@ function AppContent() {
     
     return () => {
       cleanupPreloader();
+      cleanup();
     };
   }, []);
+
+  const handleTestRealtime = async () => {
+    try {
+      const cleanup = await testRealtimeUpdates(supabase);
+      // Cleanup after 30 seconds
+      setTimeout(() => {
+        cleanup();
+      }, 30000);
+    } catch (error) {
+      console.error('Failed to test realtime:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
@@ -101,6 +114,22 @@ function AppContent() {
         className="z-[99999] max-w-[90vw] sm:max-w-md"
         style={{ zIndex: 99999 }}
       />
+      <button 
+        onClick={handleTestRealtime}
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          padding: '10px',
+          background: '#4CAF50',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}
+      >
+        Test Realtime
+      </button>
     </div>
   );
 }

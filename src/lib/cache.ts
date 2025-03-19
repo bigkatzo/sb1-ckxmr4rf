@@ -704,4 +704,41 @@ export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
   return () => {
     channel.unsubscribe();
   };
+};
+
+/**
+ * Helper function to test real-time updates
+ */
+export const testRealtimeUpdates = async (supabase: any): Promise<() => void> => {
+  try {
+    // Subscribe to changes
+    console.log('Setting up real-time test subscription...');
+    
+    const channel = supabase.channel('test-channel')
+      .on('postgres_changes',
+        { event: '*', schema: 'public' },
+        (payload: any) => {
+          console.log('Received real-time update:', payload);
+        }
+      )
+      .subscribe((status: string) => {
+        console.log('Subscription status:', status);
+      });
+
+    // Test connection
+    const response = await supabase
+      .from('your_table')
+      .select('*')
+      .limit(1);
+
+    console.log('Test query response:', response);
+
+    return () => {
+      console.log('Cleaning up test subscription...');
+      channel.unsubscribe();
+    };
+  } catch (error) {
+    console.error('Real-time test error:', error);
+    throw error;
+  }
 }; 
