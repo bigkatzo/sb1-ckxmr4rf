@@ -5,7 +5,7 @@ import { resolve } from 'path';
 import fs from 'fs';
 import type { Plugin } from 'vite';
 
-// Combined service worker plugin that handles both copying and version replacement
+// Custom plugin to handle service worker
 const serviceWorkerPlugin = (): Plugin => {
   return {
     name: 'service-worker-plugin',
@@ -14,24 +14,31 @@ const serviceWorkerPlugin = (): Plugin => {
       sequential: true,
       order: 'post' as const,
       handler() {
-        // Read service worker file
+        // Read package.json for base version
+        const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
+        const baseVersion = packageJson.version;
+        
+        // Generate content hash from dist directory
+        const distFiles = fs.readdirSync('dist');
+        const mainJsFile = distFiles.find(file => file.startsWith('assets/index-') && file.endsWith('.js'));
+        const buildHash = mainJsFile ? mainJsFile.split('-')[1].split('.')[0] : Date.now().toString(36);
+        const buildVersion = `${baseVersion}+${buildHash}`;
+
+        // Copy and transform service worker
         const srcPath = resolve(__dirname, 'public/service-worker.js');
         const destPath = resolve(__dirname, 'dist/service-worker.js');
         
         if (fs.existsSync(srcPath)) {
           let content = fs.readFileSync(srcPath, 'utf-8');
           
-          // Replace version with Netlify deploy ID or timestamp
-          const deployId = process.env.NETLIFY_DEPLOY_ID || `build_${Date.now()}`;
+          // Replace the version constant with the build version
           content = content.replace(
-            /const APP_VERSION = '[^']*'/,
-            `const APP_VERSION = '${deployId}'`
+            /const APP_VERSION = ['"].*?['"];/,
+            `const APP_VERSION = '${buildVersion}';`
           );
           
-          // Write transformed content
           fs.writeFileSync(destPath, content);
-          console.log('Service worker copied and transformed to dist/service-worker.js');
-          console.log('Using version:', deployId);
+          console.log(`Service worker copied to dist/service-worker.js with version ${buildVersion}`);
         } else {
           console.error('Service worker source file not found at', srcPath);
         }

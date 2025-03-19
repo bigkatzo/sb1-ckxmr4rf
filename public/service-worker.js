@@ -4,16 +4,17 @@
  */
 
 // Add version control at the top of the file
-const APP_VERSION = 'development'; // Will be replaced with Netlify deploy ID during build
+const APP_VERSION = '1.0.0'; // This will be replaced during build
+const CACHE_OVERRIDE = '1'; // Increment this to force cache invalidation
 
-// Modify cache names to include version
+// Modify cache names to include both versions
 const CACHE_NAMES = {
-  STATIC: `storedot-static-${APP_VERSION}`,
-  ASSETS: `storedot-assets-${APP_VERSION}`,
-  IMAGES: `storedot-images-${APP_VERSION}`,
-  NFT_METADATA: `storedot-nft-${APP_VERSION}`,
-  PRODUCT_DATA: `storedot-products-${APP_VERSION}`,
-  DYNAMIC_DATA: `storedot-dynamic-${APP_VERSION}`
+  STATIC: `storedot-static-${APP_VERSION}-${CACHE_OVERRIDE}`,
+  ASSETS: `storedot-assets-${APP_VERSION}-${CACHE_OVERRIDE}`,
+  IMAGES: `storedot-images-${APP_VERSION}-${CACHE_OVERRIDE}`,
+  NFT_METADATA: `storedot-nft-${APP_VERSION}-${CACHE_OVERRIDE}`,
+  PRODUCT_DATA: `storedot-products-${APP_VERSION}-${CACHE_OVERRIDE}`,
+  DYNAMIC_DATA: `storedot-dynamic-${APP_VERSION}-${CACHE_OVERRIDE}`
 };
 
 // Cache TTLs in seconds
@@ -112,7 +113,7 @@ Object.keys(CACHE_NAMES).forEach(type => {
 });
 
 // Version check endpoint
-const VERSION_CHECK_URL = '/.netlify/functions/version';
+const VERSION_CHECK_URL = '/api/version';
 
 // Function to check for updates - only called on page refresh
 async function checkForUpdates() {
@@ -120,59 +121,36 @@ async function checkForUpdates() {
     const response = await fetch(VERSION_CHECK_URL, {
       cache: 'no-store',
       headers: {
-        'Cache-Control': 'no-cache',
-        'Content-Type': 'application/json'
-      },
-      mode: 'cors',
-      credentials: 'omit'
+        'Cache-Control': 'no-cache'
+      }
     });
     
-    if (!response.ok) {
-      console.error('Version check failed:', response.status);
-      if (response.status === 502) {
-        console.log('Retrying version check in 5 seconds...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        return checkForUpdates();
-      }
-      return false;
-    }
+    if (!response.ok) return false;
     
-    const data = await response.json();
-    const currentVersion = data.deployId;
-    
-    if (!currentVersion) {
-      console.error('No deploy ID in response');
-      return false;
-    }
-    
-    if (currentVersion !== APP_VERSION) {
-      console.log(`New version available: ${currentVersion} (current: ${APP_VERSION})`);
-      // Clear all caches when a new version is detected
-      const cacheKeys = await caches.keys();
-      await Promise.all(
-        cacheKeys.map(key => caches.delete(key))
-      );
-      // Notify clients to reload
-      const clients = await self.clients.matchAll();
-      clients.forEach(client => {
-        client.postMessage({
-          type: 'NEW_VERSION_INSTALLED',
-          version: currentVersion
-        });
-      });
+    const { version } = await response.json();
+    if (version !== APP_VERSION) {
+      console.log(`New version available: ${version}`);
+      // Don't automatically clear caches or unregister
+      // Just notify the client that an update is available
+      await notifyClientsToUpdate(version);
       return true;
     }
     return false;
   } catch (error) {
     console.error('Version check failed:', error);
-    // Retry on network errors
-    if (error.name === 'TypeError' || error.name === 'NetworkError') {
-      console.log('Network error, retrying version check in 5 seconds...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      return checkForUpdates();
-    }
     return false;
   }
+}
+
+// Function to notify clients about update
+async function notifyClientsToUpdate(newVersion) {
+  const clients = await self.clients.matchAll();
+  clients.forEach(client => {
+    client.postMessage({
+      type: 'UPDATE_AVAILABLE',
+      version: newVersion
+    });
+  });
 }
 
 // Helper function to determine cache type for a request
@@ -592,7 +570,7 @@ self.addEventListener('install', event => {
   );
 });
 
-// Modify activate event to be less aggressive but more strategic
+// Modify activate event to be less aggressive
 self.addEventListener('activate', event => {
   event.waitUntil(
     (async () => {
@@ -613,8 +591,7 @@ self.addEventListener('activate', event => {
         // Take control of all clients
         await self.clients.claim();
         
-        // Initial check
-        await checkForUpdates();
+        // Don't start periodic checks
       } catch (error) {
         console.error('Service worker activation failed:', error);
       }
@@ -626,11 +603,6 @@ self.addEventListener('activate', event => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
-  }
-  
-  // Add check for visibility change message
-  if (event.data && event.data.type === 'CHECK_VERSION') {
-    checkForUpdates().catch(console.error);
   }
   
   // Handle cache invalidation messages
@@ -650,6 +622,19 @@ self.addEventListener('message', (event) => {
         console.log(`Deleted cache ${cacheName}: ${success}`);
       });
     }
+  }
+
+  // Handle clear all caches message
+  if (event.data && event.data.type === 'CLEAR_ALL_CACHES') {
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          return caches.delete(cacheName).then(success => {
+            console.log(`Deleted cache ${cacheName}: ${success}`);
+          });
+        })
+      );
+    });
   }
   
   // Add metrics reporting endpoint

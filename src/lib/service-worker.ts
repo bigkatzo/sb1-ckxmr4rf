@@ -222,4 +222,50 @@ function listenForServiceWorkerMessages() {
       showUpdateNotification();
     }
   });
+}
+
+/**
+ * Force invalidate all caches and reload the service worker
+ */
+export async function forceRefreshServiceWorker(): Promise<void> {
+  if ('serviceWorker' in navigator) {
+    try {
+      // Get all service worker registrations
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      
+      // Unregister all service workers
+      await Promise.all(registrations.map(registration => registration.unregister()));
+      
+      // Clear all caches
+      const cacheKeys = await caches.keys();
+      await Promise.all(cacheKeys.map(key => caches.delete(key)));
+      
+      // Reload the page to register new service worker
+      window.location.reload();
+    } catch (error) {
+      console.error('Error forcing service worker refresh:', error);
+    }
+  }
+}
+
+/**
+ * Force clear all caches without reloading
+ */
+export async function forceClearCaches(): Promise<void> {
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    try {
+      // Send message to service worker to clear all caches
+      navigator.serviceWorker.controller.postMessage({
+        type: 'CLEAR_ALL_CACHES'
+      });
+      
+      // Also clear caches directly
+      const cacheKeys = await caches.keys();
+      await Promise.all(cacheKeys.map(key => caches.delete(key)));
+      
+      console.log('All caches cleared successfully');
+    } catch (error) {
+      console.error('Error clearing caches:', error);
+    }
+  }
 } 
