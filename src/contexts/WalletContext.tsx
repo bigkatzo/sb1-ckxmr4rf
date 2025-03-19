@@ -142,9 +142,70 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Add custom error event to detect wallet not found
+interface WalletNotFoundEvent extends Event {
+  walletName?: string;
+}
+
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   // Initialize wallet adapters
   const [wallets, setWallets] = useState<Adapter[]>([]);
+  
+  // Add listener to handle wallet not found events
+  useEffect(() => {
+    // Function to handle redirection to wallet websites
+    const handleWalletNotFound = (event: WalletNotFoundEvent) => {
+      const walletName = event.walletName;
+      
+      if (walletName === 'phantom') {
+        window.open('https://phantom.com/', '_blank');
+      }
+      // Add more wallets if needed in future
+    };
+
+    // Add the event listener
+    window.addEventListener('wallet-not-found', handleWalletNotFound as EventListener);
+
+    // If using the Phantom adapter, listen for clicks and check if Phantom exists
+    const checkForPhantomWallet = () => {
+      const phantomButtons = document.querySelectorAll('.wallet-adapter-button[data-id="phantom"]');
+      phantomButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+          if (!window.phantom?.solana) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Dispatch custom event
+            const walletNotFoundEvent = new Event('wallet-not-found') as WalletNotFoundEvent;
+            walletNotFoundEvent.walletName = 'phantom';
+            window.dispatchEvent(walletNotFoundEvent);
+            
+            return false;
+          }
+        });
+      });
+    };
+
+    // Add a mutation observer to detect when wallet buttons are added to the DOM
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList' && mutation.addedNodes.length) {
+          setTimeout(checkForPhantomWallet, 100);
+        }
+      }
+    });
+
+    // Start observing the document body for added nodes
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Initial check
+    setTimeout(checkForPhantomWallet, 1000);
+
+    return () => {
+      window.removeEventListener('wallet-not-found', handleWalletNotFound as EventListener);
+      observer.disconnect();
+    };
+  }, []);
   
   useEffect(() => {
     async function loadWallets() {

@@ -136,7 +136,7 @@
   font-weight: 500;
   font-size: 20px;
   line-height: 28px;
-  margin: 0 40px;
+  margin: 0 15px;
   text-align: center;
   color: #fff;
 }
@@ -296,7 +296,7 @@
   }
 
   .wallet-adapter-modal-title {
-    margin: 0 32px;
+    margin: 0 15px;
     font-size: 20px;
   }
 
