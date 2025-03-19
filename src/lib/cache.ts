@@ -634,13 +634,19 @@ export class EnhancedCacheManager {
   /**
    * Invalidate a specific cache key
    */
-  private invalidateKey(key: string): void {
+  public invalidateKey(key: string): void {
+    // Remove from memory cache
     this.memoryCache.delete(key);
+    
+    // Remove from IndexedDB if available
     if (this.db) {
-      this.db.delete('cache-store', key).catch((err: Error) => {
-        console.error('Error deleting from IndexedDB:', err);
+      this.db.delete('cache-store', key).catch(err => {
+        console.error('Failed to invalidate key from IndexedDB:', err);
       });
     }
+    
+    // Emit invalidation event
+    this.emit('invalidated', key);
   }
 }
 
@@ -649,4 +655,27 @@ export const cacheManager = new EnhancedCacheManager({
   enableMetrics: true,
   enablePrefetch: true,
   websocketUrl: process.env.CACHE_WEBSOCKET_URL || undefined
-}); 
+});
+
+export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
+  // Initialize WebSocket connection for real-time cache invalidation
+  const cacheManager = new EnhancedCacheManager({
+    websocketUrl: `${supabase.realtime.url}/realtime/v1/websocket`,
+    enableMetrics: true,
+    enablePrefetch: true
+  });
+
+  // Listen for database changes
+  const channel = supabase.channel('cache-invalidation')
+    .on('postgres_changes', { event: '*', schema: 'public' }, (payload: any) => {
+      const { table, record } = payload;
+      const key = `${table}:${record.id}`;
+      cacheManager.invalidateKey(key);
+    })
+    .subscribe();
+
+  // Return cleanup function
+  return () => {
+    channel.unsubscribe();
+  };
+}; 

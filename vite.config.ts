@@ -14,33 +14,50 @@ const serviceWorkerPlugin = (): Plugin => {
       sequential: true,
       order: 'post' as const,
       handler() {
-        // Read package.json for base version
-        const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
-        const baseVersion = packageJson.version;
-        
-        // Generate content hash from dist directory
-        const distFiles = fs.readdirSync('dist');
-        const mainJsFile = distFiles.find(file => file.startsWith('assets/index-') && file.endsWith('.js'));
-        const buildHash = mainJsFile ? mainJsFile.split('-')[1].split('.')[0] : Date.now().toString(36);
-        const buildVersion = `${baseVersion}+${buildHash}`;
+        try {
+          // Ensure dist directory exists
+          if (!fs.existsSync('dist')) {
+            fs.mkdirSync('dist', { recursive: true });
+            console.log('Created dist directory');
+            return; // Exit early as build hasn't completed yet
+          }
 
-        // Copy and transform service worker
-        const srcPath = resolve(__dirname, 'public/service-worker.js');
-        const destPath = resolve(__dirname, 'dist/service-worker.js');
-        
-        if (fs.existsSync(srcPath)) {
-          let content = fs.readFileSync(srcPath, 'utf-8');
+          // Read package.json for base version
+          const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
+          const baseVersion = packageJson.version;
           
-          // Replace the version constant with the build version
-          content = content.replace(
-            /const APP_VERSION = ['"].*?['"];/,
-            `const APP_VERSION = '${buildVersion}';`
-          );
+          // Generate content hash from dist directory
+          const distFiles = fs.readdirSync('dist');
+          if (!distFiles.length) {
+            console.log('Dist directory is empty, waiting for build to complete');
+            return;
+          }
+
+          const mainJsFile = distFiles.find(file => file.startsWith('assets/index-') && file.endsWith('.js'));
+          const buildHash = mainJsFile ? mainJsFile.split('-')[1].split('.')[0] : Date.now().toString(36);
+          const buildVersion = `${baseVersion}+${buildHash}`;
+
+          // Copy and transform service worker
+          const srcPath = resolve(__dirname, 'public/service-worker.js');
+          const destPath = resolve(__dirname, 'dist/service-worker.js');
           
-          fs.writeFileSync(destPath, content);
-          console.log(`Service worker copied to dist/service-worker.js with version ${buildVersion}`);
-        } else {
-          console.error('Service worker source file not found at', srcPath);
+          if (fs.existsSync(srcPath)) {
+            let content = fs.readFileSync(srcPath, 'utf-8');
+            
+            // Replace the version constant with the build version
+            content = content.replace(
+              /const APP_VERSION = ['"].*?['"];/,
+              `const APP_VERSION = '${buildVersion}';`
+            );
+            
+            fs.writeFileSync(destPath, content);
+            console.log(`Service worker copied to dist/service-worker.js with version ${buildVersion}`);
+          } else {
+            console.warn('Service worker source file not found at', srcPath);
+          }
+        } catch (error) {
+          console.error('Error in service worker plugin:', error);
+          // Don't throw to allow build to complete
         }
       }
     }
