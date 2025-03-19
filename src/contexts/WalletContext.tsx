@@ -156,24 +156,28 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     // Function to handle redirection to wallet websites or mobile apps
     const handleWalletNotFound = (event: WalletNotFoundEvent) => {
       const walletName = event.walletName;
+      console.log(`Wallet not found: ${walletName}`);
       
       if (walletName === 'phantom') {
-        // Mobile detection
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        // More robust mobile detection including tablets
+        const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        console.log(`Device detected as: ${isMobile ? 'mobile' : 'desktop'}`);
         
         if (isMobile) {
           // iOS detection
           const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+          console.log(`iOS device: ${isIOS}`);
           
           // App store links
           const appStoreLink = isIOS 
             ? 'https://apps.apple.com/us/app/phantom-solana-wallet/id1598432977'  // iOS App Store
             : 'https://play.google.com/store/apps/details?id=app.phantom'; // Google Play
           
-          // Universal link for Phantom (works better than deep links)
-          // This will open our app in Phantom's browser
+          // For Phantom browser, the format needs to be different
+          // The proper format is phantom.app/ul/v1/browse?url=...
           const appUrl = encodeURIComponent(window.location.href);
-          const universalLink = `https://phantom.app/ul/browse/${appUrl}`;
+          const universalLink = `https://phantom.app/ul/v1/browse?url=${appUrl}`;
+          console.log(`Attempting to open Phantom via: ${universalLink}`);
           
           // Track if we've redirected
           let hasRedirected = false;
@@ -182,19 +186,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           const appStoreTimeout = setTimeout(() => {
             if (!hasRedirected) {
               hasRedirected = true;
+              console.log(`Fallback to app store: ${appStoreLink}`);
               window.location.href = appStoreLink;
             }
-          }, 2000);
+          }, 2500); // Extended timeout for slower devices
           
           // Before navigating away, clear the timeout
           window.addEventListener('beforeunload', () => {
             clearTimeout(appStoreTimeout);
           });
           
-          // Try universal link first (this works better cross-platform)
+          // Try universal link
           window.location.href = universalLink;
         } else {
           // Desktop - open website
+          console.log('Opening Phantom website');
           window.open('https://phantom.com/', '_blank');
         }
       }
@@ -209,7 +215,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const phantomButtons = document.querySelectorAll('.wallet-adapter-button[data-id="phantom"]');
       phantomButtons.forEach(button => {
         button.addEventListener('click', (e) => {
-          if (!window.phantom?.solana) {
+          // Properly detect if Phantom exists
+          const hasPhantomWallet = window.phantom && window.phantom.solana && window.phantom.solana.isPhantom;
+          
+          if (!hasPhantomWallet) {
             e.preventDefault();
             e.stopPropagation();
             
