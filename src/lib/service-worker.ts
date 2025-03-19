@@ -270,6 +270,28 @@ export async function forceClearCaches(): Promise<void> {
   }
 }
 
+/**
+ * Get the current service worker version
+ */
+export async function getCurrentVersion(): Promise<string | null> {
+  const controller = navigator.serviceWorker?.controller;
+  if ('serviceWorker' in navigator && controller) {
+    return new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = (event) => {
+        if (event.data && event.data.type === 'VERSION_INFO') {
+          resolve(event.data.version);
+        }
+      };
+      
+      controller.postMessage({
+        type: 'GET_VERSION'
+      }, [channel.port2]);
+    });
+  }
+  return null;
+}
+
 // Expose cache control functions globally for debugging
 declare global {
   interface Window {
@@ -278,6 +300,7 @@ declare global {
       forceClearCaches: typeof forceClearCaches;
       invalidateUrl: typeof invalidateUrl;
       invalidateUrlsByPrefix: typeof invalidateUrlsByPrefix;
+      getCurrentVersion: typeof getCurrentVersion;
     };
   }
 }
@@ -288,6 +311,7 @@ if (import.meta.env.DEV || localStorage.getItem('debug_sw')) {
     forceRefreshServiceWorker,
     forceClearCaches,
     invalidateUrl,
-    invalidateUrlsByPrefix
+    invalidateUrlsByPrefix,
+    getCurrentVersion
   };
 } 

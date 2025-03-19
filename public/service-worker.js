@@ -636,6 +636,14 @@ self.addEventListener('message', (event) => {
       );
     });
   }
+
+  // Handle version check request
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({
+      type: 'VERSION_INFO',
+      version: APP_VERSION
+    });
+  }
   
   // Add metrics reporting endpoint
   if (event.data && event.data.type === 'GET_METRICS') {
