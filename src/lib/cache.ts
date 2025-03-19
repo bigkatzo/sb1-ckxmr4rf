@@ -162,7 +162,19 @@ export class EnhancedCacheManager {
     }
     
     try {
-      this.websocket = new WebSocket(url);
+      // Validate and normalize the WebSocket URL
+      let wsUrl = url;
+      if (!wsUrl.startsWith('ws:') && !wsUrl.startsWith('wss:')) {
+        if (wsUrl.startsWith('http:')) {
+          wsUrl = `ws:${wsUrl.substring(5)}`;
+        } else if (wsUrl.startsWith('https:')) {
+          wsUrl = `wss:${wsUrl.substring(6)}`;
+        } else {
+          wsUrl = `wss://${wsUrl}`;
+        }
+      }
+      
+      this.websocket = new WebSocket(wsUrl);
       
       this.websocket.onopen = () => {
         console.log('Cache invalidation WebSocket connected');
@@ -684,11 +696,13 @@ export const cacheManager = new EnhancedCacheManager({
 export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
   // Initialize WebSocket connection for real-time cache invalidation
   const cacheManager = new EnhancedCacheManager({
-    websocketUrl: supabase.realtime.url 
-      ? supabase.realtime.url.startsWith('ws') 
+    websocketUrl: supabase.realtime && supabase.realtime.url 
+      ? supabase.realtime.url.startsWith('ws')
         ? `${supabase.realtime.url}/realtime/v1/websocket`
-        : `wss://${supabase.realtime.url.replace(/^https?:\/\//, '')}/realtime/v1/websocket`
-      : `wss://${import.meta.env.VITE_SUPABASE_URL}/realtime/v1/websocket`,
+        : supabase.realtime.url.startsWith('http')
+          ? `wss://${supabase.realtime.url.replace(/^https?:\/\//, '')}/realtime/v1/websocket`
+          : `wss://${supabase.realtime.url}/realtime/v1/websocket`
+      : `wss://${import.meta.env.VITE_SUPABASE_URL.replace(/^https?:\/\//, '')}/realtime/v1/websocket`,
     enableMetrics: true,
     enablePrefetch: true
   });
