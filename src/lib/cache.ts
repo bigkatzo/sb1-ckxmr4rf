@@ -685,7 +685,9 @@ export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
   // Initialize WebSocket connection for real-time cache invalidation
   const cacheManager = new EnhancedCacheManager({
     websocketUrl: supabase.realtime.url 
-      ? `${supabase.realtime.url}/realtime/v1/websocket`
+      ? supabase.realtime.url.startsWith('ws') 
+        ? `${supabase.realtime.url}/realtime/v1/websocket`
+        : `wss://${supabase.realtime.url.replace(/^https?:\/\//, '')}/realtime/v1/websocket`
       : `wss://${import.meta.env.VITE_SUPABASE_URL}/realtime/v1/websocket`,
     enableMetrics: true,
     enablePrefetch: true
