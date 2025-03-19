@@ -6,6 +6,7 @@ import type { Adapter } from '@solana/wallet-adapter-base';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { SOLANA_CONNECTION } from '../config/solana';
 import '@solana/wallet-adapter-react-ui/styles.css';
+import '../styles/wallet-modal.css';
 
 // Import wallet adapters
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
@@ -13,6 +14,7 @@ import { BackpackWalletAdapter } from '@solana/wallet-adapter-backpack';
 import { LedgerWalletAdapter } from '@solana/wallet-adapter-ledger';
 import { TorusWalletAdapter } from '@solana/wallet-adapter-torus';
 import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 
 interface WalletNotification {
   id: string;
@@ -148,6 +150,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     async function loadWallets() {
       // Initialize adapters for non-standard wallets
       const adapters = [
+        // Phantom - Add it first to show at the top
+        new PhantomWalletAdapter(),
+        
         // Solflare - Still needed as a direct adapter
         new SolflareWalletAdapter(),
         
