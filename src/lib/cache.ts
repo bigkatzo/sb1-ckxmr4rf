@@ -156,25 +156,49 @@ export class EnhancedCacheManager {
    * Initialize WebSocket connection for real-time cache invalidation
    */
   private initializeWebSocket(url: string | undefined): void {
-    if (!url) return;
+    if (!url) {
+      console.warn('WebSocket URL not provided, skipping real-time cache invalidation');
+      return;
+    }
     
-    this.websocket = new WebSocket(url);
-    
-    this.websocket.onmessage = (event) => {
-      try {
-        const { type, keys } = JSON.parse(event.data);
-        if (type === 'invalidate' && Array.isArray(keys)) {
-          keys.forEach(key => this.invalidateKey(key));
+    try {
+      this.websocket = new WebSocket(url);
+      
+      this.websocket.onopen = () => {
+        console.log('Cache invalidation WebSocket connected');
+      };
+      
+      this.websocket.onmessage = (event) => {
+        try {
+          const { type, keys } = JSON.parse(event.data);
+          if (type === 'invalidate' && Array.isArray(keys)) {
+            keys.forEach(key => this.invalidateKey(key));
+          }
+        } catch (err) {
+          console.error('WebSocket message error:', err);
         }
-      } catch (err) {
-        console.error('WebSocket message error:', err);
-      }
-    };
+      };
 
-    // Reconnection logic
-    this.websocket.onclose = () => {
-      setTimeout(() => this.initializeWebSocket(url), 5000);
-    };
+      this.websocket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      // Reconnection logic with exponential backoff
+      let reconnectAttempts = 0;
+      const maxReconnectDelay = 30000; // 30 seconds
+      
+      this.websocket.onclose = () => {
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), maxReconnectDelay);
+        console.log(`WebSocket disconnected, attempting to reconnect in ${delay}ms`);
+        
+        setTimeout(() => {
+          reconnectAttempts++;
+          this.initializeWebSocket(url);
+        }, delay);
+      };
+    } catch (error) {
+      console.error('Failed to initialize WebSocket:', error);
+    }
   }
 
   /**
@@ -660,7 +684,9 @@ export const cacheManager = new EnhancedCacheManager({
 export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
   // Initialize WebSocket connection for real-time cache invalidation
   const cacheManager = new EnhancedCacheManager({
-    websocketUrl: `${supabase.realtime.url}/realtime/v1/websocket`,
+    websocketUrl: supabase.realtime.url 
+      ? `${supabase.realtime.url}/realtime/v1/websocket`
+      : `wss://${import.meta.env.VITE_SUPABASE_URL}/realtime/v1/websocket`,
     enableMetrics: true,
     enablePrefetch: true
   });
