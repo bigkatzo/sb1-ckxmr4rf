@@ -153,12 +153,50 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   
   // Add listener to handle wallet not found events
   useEffect(() => {
-    // Function to handle redirection to wallet websites
+    // Function to handle redirection to wallet websites or mobile apps
     const handleWalletNotFound = (event: WalletNotFoundEvent) => {
       const walletName = event.walletName;
       
       if (walletName === 'phantom') {
-        window.open('https://phantom.com/', '_blank');
+        // Mobile detection
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+          // iOS detection
+          const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+          
+          // App store links
+          const appStoreLink = isIOS 
+            ? 'https://apps.apple.com/us/app/phantom-solana-wallet/id1598432977'  // iOS App Store
+            : 'https://play.google.com/store/apps/details?id=app.phantom'; // Google Play
+          
+          // Universal link for Phantom (works better than deep links)
+          // This will open our app in Phantom's browser
+          const appUrl = encodeURIComponent(window.location.href);
+          const universalLink = `https://phantom.app/ul/browse/${appUrl}`;
+          
+          // Track if we've redirected
+          let hasRedirected = false;
+          
+          // Set timeout for fallback to app store
+          const appStoreTimeout = setTimeout(() => {
+            if (!hasRedirected) {
+              hasRedirected = true;
+              window.location.href = appStoreLink;
+            }
+          }, 2000);
+          
+          // Before navigating away, clear the timeout
+          window.addEventListener('beforeunload', () => {
+            clearTimeout(appStoreTimeout);
+          });
+          
+          // Try universal link first (this works better cross-platform)
+          window.location.href = universalLink;
+        } else {
+          // Desktop - open website
+          window.open('https://phantom.com/', '_blank');
+        }
       }
       // Add more wallets if needed in future
     };
