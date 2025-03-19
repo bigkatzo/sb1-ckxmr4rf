@@ -206,8 +206,9 @@
   margin-left: 12px;
 }
 
-/* Make Phantom wallet button stand out */
-.wallet-adapter-button[data-id="phantom"] {
+/* Make Phantom wallet button stand out and add target class */
+.wallet-adapter-button[data-id="phantom"],
+.wallet-adapter-button-phantom {
   background: linear-gradient(135deg, rgba(83, 75, 177, 0.9) 0%, rgba(85, 27, 249, 0.9) 100%);
   border: 1px solid rgba(139, 92, 246, 0.3);
   box-shadow: 0 4px 12px rgba(85, 27, 249, 0.2);

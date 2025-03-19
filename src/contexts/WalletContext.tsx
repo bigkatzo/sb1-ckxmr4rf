@@ -156,52 +156,32 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     // Function to handle redirection to wallet websites or mobile apps
     const handleWalletNotFound = (event: WalletNotFoundEvent) => {
       const walletName = event.walletName;
-      console.log(`Wallet not found: ${walletName}`);
       
       if (walletName === 'phantom') {
-        // More robust mobile detection including tablets
-        const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        console.log(`Device detected as: ${isMobile ? 'mobile' : 'desktop'}`);
+        // Mobile detection
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         
         if (isMobile) {
           // iOS detection
           const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-          console.log(`iOS device: ${isIOS}`);
           
           // App store links
           const appStoreLink = isIOS 
             ? 'https://apps.apple.com/us/app/phantom-solana-wallet/id1598432977'  // iOS App Store
             : 'https://play.google.com/store/apps/details?id=app.phantom'; // Google Play
           
-          // For Phantom browser, the format needs to be different
-          // The proper format is phantom.app/ul/v1/browse?url=...
-          const appUrl = encodeURIComponent(window.location.href);
-          const universalLink = `https://phantom.app/ul/v1/browse?url=${appUrl}`;
-          console.log(`Attempting to open Phantom via: ${universalLink}`);
-          
-          // Track if we've redirected
-          let hasRedirected = false;
-          
-          // Set timeout for fallback to app store
-          const appStoreTimeout = setTimeout(() => {
-            if (!hasRedirected) {
-              hasRedirected = true;
-              console.log(`Fallback to app store: ${appStoreLink}`);
-              window.location.href = appStoreLink;
-            }
-          }, 2500); // Extended timeout for slower devices
-          
-          // Before navigating away, clear the timeout
-          window.addEventListener('beforeunload', () => {
-            clearTimeout(appStoreTimeout);
-          });
-          
-          // Try universal link
-          window.location.href = universalLink;
+          // On mobile, directly go to app store - simpler and more reliable
+          window.location.href = appStoreLink;
         } else {
-          // Desktop - open website
-          console.log('Opening Phantom website');
-          window.open('https://phantom.com/', '_blank');
+          // Desktop - open website in new tab (more reliable than same window)
+          const newWindow = window.open('https://phantom.com/', '_blank');
+          // Ensure the window opened successfully
+          if (newWindow) {
+            newWindow.focus();
+          } else {
+            // If popup blocked, try to open in same window as fallback
+            window.location.href = 'https://phantom.com/';
+          }
         }
       }
       // Add more wallets if needed in future
@@ -210,47 +190,46 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     // Add the event listener
     window.addEventListener('wallet-not-found', handleWalletNotFound as EventListener);
 
-    // If using the Phantom adapter, listen for clicks and check if Phantom exists
-    const checkForPhantomWallet = () => {
-      const phantomButtons = document.querySelectorAll('.wallet-adapter-button[data-id="phantom"]');
-      phantomButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-          // Properly detect if Phantom exists
-          const hasPhantomWallet = window.phantom && window.phantom.solana && window.phantom.solana.isPhantom;
-          
-          if (!hasPhantomWallet) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Dispatch custom event
-            const walletNotFoundEvent = new Event('wallet-not-found') as WalletNotFoundEvent;
-            walletNotFoundEvent.walletName = 'phantom';
-            window.dispatchEvent(walletNotFoundEvent);
-            
-            return false;
-          }
-        });
-      });
-    };
-
-    // Add a mutation observer to detect when wallet buttons are added to the DOM
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === 'childList' && mutation.addedNodes.length) {
-          setTimeout(checkForPhantomWallet, 100);
+    // This is a more reliable way to intercept the wallet adapter button clicks
+    const interceptPhantomButtonClicks = (e: MouseEvent) => {
+      // Find if the click was on a Phantom button or its child elements
+      const path = e.composedPath();
+      let phantomButton = null;
+      
+      for (const element of path) {
+        if (
+          element instanceof HTMLElement && 
+          (
+            (element.classList.contains('wallet-adapter-button') && element.getAttribute('data-id') === 'phantom') ||
+            element.classList.contains('wallet-adapter-button-phantom')
+          )
+        ) {
+          phantomButton = element;
+          break;
         }
       }
-    });
+      
+      // If we found a phantom button and the wallet is not installed
+      if (phantomButton && !window.phantom?.solana) {
+        // Prevent default action
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Dispatch custom event
+        const walletNotFoundEvent = new Event('wallet-not-found') as WalletNotFoundEvent;
+        walletNotFoundEvent.walletName = 'phantom';
+        window.dispatchEvent(walletNotFoundEvent);
+        
+        return false;
+      }
+    };
 
-    // Start observing the document body for added nodes
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // Initial check
-    setTimeout(checkForPhantomWallet, 1000);
+    // Add a global click handler (more reliable than trying to find buttons)
+    document.addEventListener('click', interceptPhantomButtonClicks, true);
 
     return () => {
       window.removeEventListener('wallet-not-found', handleWalletNotFound as EventListener);
-      observer.disconnect();
+      document.removeEventListener('click', interceptPhantomButtonClicks, true);
     };
   }, []);
   
