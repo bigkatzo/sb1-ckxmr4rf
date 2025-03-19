@@ -62,10 +62,10 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       timestamp: Date.now()
     };
     setNotifications(prev => [...prev, notification]);
-    // Auto-dismiss after 5 seconds
+    // Auto-dismiss after 3 seconds
     setTimeout(() => {
       dismissNotification(notification.id);
-    }, 5000);
+    }, 3000);
   }, []);
 
   const dismissNotification = useCallback((id: string) => {
