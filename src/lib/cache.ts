@@ -55,6 +55,33 @@ export class CacheManager {
   delete(key: string): void {
     this.cache.delete(key);
   }
+
+  /**
+   * Delete all cache entries that start with the given prefix
+   * @param prefix The prefix to match against cache keys
+   */
+  invalidateByPrefix(prefix: string): void {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Get all cache keys that start with the given prefix
+   * @param prefix The prefix to match against cache keys
+   * @returns Array of matching cache keys
+   */
+  getKeysByPrefix(prefix: string): string[] {
+    const matchingKeys: string[] = [];
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) {
+        matchingKeys.push(key);
+      }
+    }
+    return matchingKeys;
+  }
 }
 
 // Export a singleton instance

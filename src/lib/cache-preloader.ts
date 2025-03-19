@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import { cacheManager } from './cache';
-import { normalizeStorageUrl } from './storage';
 
 /**
  * Preloads critical data into the cache for faster initial page load
