@@ -1,8 +1,8 @@
-import { Check, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle, Info } from 'lucide-react';
 
 interface WalletNotification {
   id: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'info';
   message: string;
   timestamp: number;
 }
@@ -22,13 +22,16 @@ export function WalletNotifications({ notifications, onDismiss }: WalletNotifica
           key={notification.id}
           className={`
             flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg backdrop-blur-sm
-            ${notification.type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'}
+            ${notification.type === 'success' ? 'bg-green-500/90' : 
+              notification.type === 'info' ? 'bg-gray-500/90' : 'bg-red-500/90'}
             transition-all duration-200
           `}
         >
           <div className="flex-shrink-0">
             {notification.type === 'success' ? (
               <Check className="h-4 w-4" />
+            ) : notification.type === 'info' ? (
+              <Info className="h-4 w-4" />
             ) : (
               <AlertCircle className="h-4 w-4" />
             )}
