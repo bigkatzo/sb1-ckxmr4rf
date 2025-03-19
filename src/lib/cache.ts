@@ -699,7 +699,7 @@ export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
       cacheManager.invalidateKey(key);
     })
     .subscribe();
-
+    
   // Return cleanup function
   return () => {
     channel.unsubscribe();
