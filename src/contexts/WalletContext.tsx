@@ -23,6 +23,18 @@ interface WalletNotification {
   timestamp: number;
 }
 
+// Define WalletNotFoundEvent interface for type safety
+interface WalletNotFoundEvent extends Event {
+  walletName?: string;
+}
+
+// Custom event creator for wallet not found events
+const createWalletNotFoundEvent = (walletName: string): WalletNotFoundEvent => {
+  const event = new Event('wallet-not-found') as WalletNotFoundEvent;
+  event.walletName = walletName;
+  return event;
+};
+
 interface WalletContextType {
   isConnected: boolean;
   walletAddress: string | null;
@@ -158,8 +170,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const walletName = event.walletName;
       
       if (walletName === 'phantom') {
-        // Mobile detection
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        // Mobile detection with comprehensive device support
+        const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         if (isMobile) {
           // iOS detection
@@ -170,8 +182,50 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             ? 'https://apps.apple.com/us/app/phantom-solana-wallet/id1598432977'  // iOS App Store
             : 'https://play.google.com/store/apps/details?id=app.phantom'; // Google Play
           
-          // On mobile, directly go to app store - simpler and more reliable
-          window.location.href = appStoreLink;
+          // Universal link for Phantom with the correct format
+          const appUrl = encodeURIComponent(window.location.href);
+          const universalLink = `https://phantom.app/ul/browse/${appUrl}`;
+          const alternativeLink = `phantom://browse?url=${appUrl}`;
+          
+          // Track if we've redirected
+          let hasRedirected = false;
+          
+          // Set timeout for fallback to app store
+          const appStoreTimeout = setTimeout(() => {
+            if (!hasRedirected) {
+              hasRedirected = true;
+              window.location.href = appStoreLink;
+            }
+          }, 2500); // Extended timeout for slower devices
+          
+          // Before navigating away, clear the timeout
+          window.addEventListener('beforeunload', () => {
+            clearTimeout(appStoreTimeout);
+          });
+          
+          // Try universal link first
+          try {
+            window.location.href = universalLink;
+            
+            // Set a secondary timeout for the alternative method
+            setTimeout(() => {
+              if (!hasRedirected) {
+                try {
+                  window.location.href = alternativeLink;
+                } catch (e) {
+                  // If there's an error with the alternative link, 
+                  // the app store fallback will still trigger
+                }
+              }
+            }, 1000);
+          } catch (e) {
+            // If there's an error with the universal link, try the alternative immediately
+            try {
+              window.location.href = alternativeLink;
+            } catch (innerError) {
+              // If both fail, the app store fallback will still trigger
+            }
+          }
         } else {
           // Desktop - open website in new tab (more reliable than same window)
           const newWindow = window.open('https://phantom.com/', '_blank');
@@ -216,8 +270,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         e.stopPropagation();
         
         // Dispatch custom event
-        const walletNotFoundEvent = new Event('wallet-not-found') as WalletNotFoundEvent;
-        walletNotFoundEvent.walletName = 'phantom';
+        const walletNotFoundEvent = createWalletNotFoundEvent('phantom');
         window.dispatchEvent(walletNotFoundEvent);
         
         return false;
