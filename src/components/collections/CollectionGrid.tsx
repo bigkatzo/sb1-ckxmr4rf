@@ -1,8 +1,6 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CollectionCard } from './CollectionCard';
 import { useCollections } from '../../hooks/useCollections';
-import { createCategoryIndicesFromProducts } from '../../utils/category-mapping';
 import { CategoryGridSkeleton } from '../ui/Skeletons';
 
 interface CollectionGridProps {

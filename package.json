@@ -30,7 +30,9 @@
     "buffer": "^6.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "idb": "^7.1.1",
     "lucide-react": "0.344.0",
+    "lodash": "^4.17.21",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-dropzone": "14.2.3",
@@ -39,12 +41,13 @@
     "react-toastify": "^10.0.6",
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.2",
-    "uuid": "9.0.1"
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/react": "18.2.48",
     "@types/react-dom": "18.2.18",
-    "@types/uuid": "9.0.7",
+    "@types/uuid": "^9.0.1",
+    "@types/lodash": "^4.14.195",
     "@vitejs/plugin-react": "4.2.1",
     "autoprefixer": "10.4.17",
     "eslint": "8.56.0",
