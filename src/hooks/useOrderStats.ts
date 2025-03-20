@@ -324,9 +324,6 @@ export function useOrderStats(
     cleanupFnsRef.current.forEach(cleanup => cleanup());
     cleanupFnsRef.current = [];
     
-    // Get current priority
-    const priority = subscriptionPriorities.get(productId) || initialPriority;
-    
     // Check if channel already exists
     const channelKey = `realtime:public_order_counts:filtered:product_id=eq.${productId}`;
     let channel = activeChannels.get(channelKey);
@@ -400,7 +397,7 @@ export function useOrderStats(
         startPolling(); // Fallback to polling on setup error
       }
     }
-  }, [productId, handleRealtimeUpdate, startPolling, initialPriority]);
+  }, [productId, handleRealtimeUpdate, startPolling]);
 
   useEffect(() => {
     isMountedRef.current = true;
