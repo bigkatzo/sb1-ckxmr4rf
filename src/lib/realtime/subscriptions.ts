@@ -6,6 +6,7 @@ const activeChannels = new Map<string, {
   channel: RealtimeChannel;
   lastActivity: number;
   subscribers: number;
+  retryCount: number;
 }>();
 
 // Global health check to monitor Supabase realtime connection
@@ -24,6 +25,8 @@ const pollingCollections = new Set<string>();
 // Add a maximum limit for connection attempts
 const MAX_CONNECTION_ATTEMPTS = 10;
 const CONNECTION_ATTEMPT_BACKOFF = 5000; // Base backoff time in ms
+const INITIAL_CONNECTION_TIMEOUT = 10000;
+const TRANSPORT_INIT_DELAY = 3000;
 
 // Add a counter for resubscription attempts per channel
 const channelResubscribeAttempts = new Map<string, number>();
@@ -67,28 +70,49 @@ function rateLog(key: string, level: 'log' | 'warn' | 'error', message: string) 
   }
 }
 
+// Helper to ensure transport is initialized
+async function ensureTransportInitialized(): Promise<boolean> {
+  const realtimeClient = supabase.realtime as any;
+  
+  if (!realtimeClient) {
+    console.warn('Realtime client not available');
+    return false;
+  }
+
+  if (realtimeClient.transport?.connectionState === 'open') {
+    return true;
+  }
+
+  try {
+    // Disconnect if there's a stale transport
+    if (realtimeClient.transport) {
+      await realtimeClient.disconnect();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Initialize connection with timeout
+    await Promise.race([
+      realtimeClient.connect(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), INITIAL_CONNECTION_TIMEOUT)
+      )
+    ]);
+
+    // Wait for transport to be fully initialized
+    await new Promise(resolve => setTimeout(resolve, TRANSPORT_INIT_DELAY));
+
+    return realtimeClient.transport?.connectionState === 'open';
+  } catch (error) {
+    console.error('Failed to initialize transport:', error);
+    return false;
+  }
+}
+
 // Check initial connection health and try to establish connection
 async function checkInitialConnectionHealth(): Promise<boolean> {
   if (isInitialConnectionEstablished) return isRealtimeHealthy;
   
   try {
-    const realtimeClient = (supabase.realtime as any);
-    if (!realtimeClient) {
-      rateLog(
-        'realtime_client_unavailable',
-        'warn',
-        'Realtime client not available for initial connection check'
-      );
-      return false;
-    }
-    
-    // If we already have a transport that's open, we're good
-    if (realtimeClient.transport?.connectionState === 'open') {
-      isInitialConnectionEstablished = true;
-      isRealtimeHealthy = true;
-      return true;
-    }
-    
     // Check if we've exceeded the maximum number of attempts
     if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
       rateLog(
@@ -96,7 +120,6 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
         'log',
         `Maximum connection attempts (${MAX_CONNECTION_ATTEMPTS}) reached. Giving up and falling back to polling.`
       );
-      // Don't keep trying after max attempts
       return false;
     }
     
@@ -107,56 +130,45 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
       return false;
     }
     
-    // Try to establish connection if not already connected
-    if (!realtimeClient.transport || realtimeClient.transport.connectionState !== 'open') {
-      lastConnectionAttempt = now;
-      connectionInitAttempts++;
-      
-      rateLog(
-        'connection_attempt',
-        'log',
-        `Attempting to establish initial realtime connection (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`
-      );
-      
-      if (typeof realtimeClient.connect === 'function') {
-        await realtimeClient.connect();
-        
-        // Wait for connection to establish
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Check if connection succeeded
-        if (realtimeClient.transport?.connectionState === 'open') {
-          console.log('Successfully established initial realtime connection');
-          isInitialConnectionEstablished = true;
-          isRealtimeHealthy = true;
-          return true;
-        } else {
-          rateLog(
-            'connection_failed',
-            'warn',
-            `Failed to establish initial connection, transport state: ${realtimeClient.transport?.connectionState || 'none'}`
-          );
-          
-          // Add more details about next attempt
-          if (connectionInitAttempts < MAX_CONNECTION_ATTEMPTS) {
-            const nextBackoff = calculateBackoff(connectionInitAttempts);
-            rateLog(
-              'connection_retry_info',
-              'log',
-              `Will retry in approximately ${Math.round(nextBackoff/1000)} seconds (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`
-            );
-          } else {
-            rateLog(
-              'max_connection_attempts_reached',
-              'log',
-              `Maximum connection attempts reached. Will use polling for all subscriptions.`
-            );
-          }
-          return false;
-        }
-      }
-    }
+    lastConnectionAttempt = now;
+    connectionInitAttempts++;
     
+    rateLog(
+      'connection_attempt',
+      'log',
+      `Attempting to establish initial realtime connection (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`
+    );
+
+    const success = await ensureTransportInitialized();
+    
+    if (success) {
+      console.log('Successfully established initial realtime connection');
+      isInitialConnectionEstablished = true;
+      isRealtimeHealthy = true;
+      return true;
+    }
+
+    rateLog(
+      'connection_failed',
+      'warn',
+      `Failed to establish initial connection, transport state: ${(supabase.realtime as any)?.transport?.connectionState || 'none'}`
+    );
+    
+    // Add more details about next attempt
+    if (connectionInitAttempts < MAX_CONNECTION_ATTEMPTS) {
+      const nextBackoff = calculateBackoff(connectionInitAttempts);
+      rateLog(
+        'connection_retry_info',
+        'log',
+        `Will retry in approximately ${Math.round(nextBackoff/1000)} seconds (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`
+      );
+    } else {
+      rateLog(
+        'max_connection_attempts_reached',
+        'log',
+        `Maximum connection attempts reached. Will use polling for all subscriptions.`
+      );
+    }
     return false;
   } catch (err) {
     console.error('Error establishing initial realtime connection:', err);
@@ -515,48 +527,32 @@ startHealthCheck();
  */
 export function createRobustChannel<T = any>(
   channelName: string,
-  config: Record<string, any> = { broadcast: { self: true } },
+  config: {
+    broadcast?: { self?: boolean; ack?: boolean };
+    presence?: { key?: string };
+    private?: boolean;
+  } = { broadcast: { self: true } },
   maxReconnectAttempts = 5
 ): { 
   channel: RealtimeChannel; 
   subscribe: (callback?: (data: T) => void) => { unsubscribe: () => void };
 } {
-  // Normalize channel name (remove any retry suffixes)
-  const baseName = channelName.split('_retry_')[0];
-  
-  // First check if we already have this channel by base name
-  let existingChannel: { 
-    channel: RealtimeChannel; 
-    lastActivity: number; 
-    subscribers: number 
-  } | undefined;
-  
-  // Look for any channel with the same base name
-  for (const [key, value] of activeChannels.entries()) {
-    if (key === baseName || key.startsWith(`${baseName}_retry_`)) {
-      existingChannel = value;
-      break;
-    }
+  // Remove any existing channel
+  const existing = activeChannels.get(channelName);
+  if (existing) {
+    existing.channel.unsubscribe();
+    activeChannels.delete(channelName);
   }
+
+  // Create channel with proper RealtimeChannelOptions structure
+  let channel = supabase.channel(channelName, { config });
   
-  // Use existing channel if available, or create a new one
-  let channel: RealtimeChannel;
-  
-  if (existingChannel) {
-    channel = existingChannel.channel;
-    existingChannel.subscribers++;
-    existingChannel.lastActivity = Date.now();
-    console.log(`Reusing existing channel: ${baseName} (${existingChannel.subscribers} subscribers)`);
-  } else {
-    // Create new channel with base name
-    channel = supabase.channel(baseName, { config });
-    activeChannels.set(baseName, {
-      channel,
-      lastActivity: Date.now(),
-      subscribers: 1
-    });
-    console.log(`Created new channel: ${baseName}`);
-  }
+  activeChannels.set(channelName, {
+    channel,
+    lastActivity: Date.now(),
+    subscribers: 0,
+    retryCount: 0
+  });
   
   let reconnectAttempts = 0;
   let reconnectTimer: any = null;
@@ -570,7 +566,7 @@ export function createRobustChannel<T = any>(
       try {
         // Don't try to subscribe if already subscribed
         if (isCurrentlySubscribed) {
-          console.warn(`Channel ${baseName} is already subscribed, skipping duplicate subscription`);
+          console.warn(`Channel ${channelName} is already subscribed, skipping duplicate subscription`);
           return;
         }
         
@@ -578,7 +574,7 @@ export function createRobustChannel<T = any>(
         isCurrentlySubscribed = false;
         
         subscription = channel.subscribe((status) => {
-          console.log(`Channel status for ${baseName}: ${status}`);
+          console.log(`Channel status for ${channelName}: ${status}`);
           
           if (status === 'SUBSCRIBED') {
             // Reset reconnect attempts on successful connection
@@ -588,7 +584,7 @@ export function createRobustChannel<T = any>(
             if (callback) callback({ status, connected: true } as any);
           } 
           else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-            console.warn(`Subscription closed or error for ${baseName}, reconnecting... (attempt ${reconnectAttempts+1}/${maxReconnectAttempts})`);
+            console.warn(`Subscription closed or error for ${channelName}, reconnecting... (attempt ${reconnectAttempts+1}/${maxReconnectAttempts})`);
             isCurrentlySubscribed = false;
             
             // Only attempt to reconnect if under the maximum attempts
@@ -613,13 +609,13 @@ export function createRobustChannel<T = any>(
                       }
                       
                       // Create a new channel instance with a unique name
-                      const newChannelName = `${baseName}_retry_${reconnectAttempts}_${Date.now()}`;
+                      const newChannelName = `${channelName}_retry_${reconnectAttempts}_${Date.now()}`;
                       console.log(`Creating new channel instance: ${newChannelName}`);
                       
                       const newChannel = supabase.channel(newChannelName, { config });
                       
                       // Update the channel reference in our tracking
-                      const channelInfo = activeChannels.get(baseName);
+                      const channelInfo = activeChannels.get(channelName);
                       if (channelInfo) {
                         channelInfo.channel = newChannel;
                         channelInfo.lastActivity = Date.now();
@@ -631,11 +627,11 @@ export function createRobustChannel<T = any>(
                       // Try subscribing with the new channel
                       wrappedSubscribe();
                     } catch (err) {
-                      console.error(`Error creating new channel for ${baseName}:`, err);
+                      console.error(`Error creating new channel for ${channelName}:`, err);
                     }
                   } else {
                     // Global connection issue, wait for health check to recover
-                    console.log(`Not reconnecting ${baseName} due to unhealthy connection. Will retry when connection is restored.`);
+                    console.log(`Not reconnecting ${channelName} due to unhealthy connection. Will retry when connection is restored.`);
                     
                     // Still callback to enable fallback behaviors
                     if (reconnectAttempts >= maxReconnectAttempts && callback) {
@@ -646,7 +642,7 @@ export function createRobustChannel<T = any>(
                     }
                   }
                 } catch (err) {
-                  console.error(`Error reconnecting channel ${baseName}:`, err);
+                  console.error(`Error reconnecting channel ${channelName}:`, err);
                   
                   // If we hit an error during reconnection, increment attempts and try again
                   if (reconnectAttempts < maxReconnectAttempts) {
@@ -661,7 +657,7 @@ export function createRobustChannel<T = any>(
                 }
               }, delay);
             } else {
-              console.error(`Maximum reconnection attempts (${maxReconnectAttempts}) reached for ${baseName}`);
+              console.error(`Maximum reconnection attempts (${maxReconnectAttempts}) reached for ${channelName}`);
               if (callback) callback({ 
                 status: 'MAX_RETRIES_EXCEEDED', 
                 connected: false 
@@ -670,7 +666,7 @@ export function createRobustChannel<T = any>(
           }
         });
       } catch (err) {
-        console.error(`Error subscribing to ${baseName}:`, err);
+        console.error(`Error subscribing to ${channelName}:`, err);
         if (callback) callback({ 
           status: 'SUBSCRIPTION_ERROR', 
           connected: false,
@@ -685,7 +681,7 @@ export function createRobustChannel<T = any>(
     return {
       unsubscribe: () => {
         try {
-          const channelInfo = activeChannels.get(baseName);
+          const channelInfo = activeChannels.get(channelName);
           
           if (channelInfo) {
             // Decrement subscribers count
@@ -693,16 +689,16 @@ export function createRobustChannel<T = any>(
             
             // If this was the last subscriber, clean up
             if (channelInfo.subscribers <= 0) {
-              console.log(`Removing channel ${baseName} - no more subscribers`);
+              console.log(`Removing channel ${channelName} - no more subscribers`);
               try {
                 channelInfo.channel.unsubscribe();
               } catch (err) {
                 // Ignore unsubscribe errors
-                console.warn(`Error unsubscribing from ${baseName}:`, err);
+                console.warn(`Error unsubscribing from ${channelName}:`, err);
               }
-              activeChannels.delete(baseName);
+              activeChannels.delete(channelName);
             } else {
-              console.log(`Channel ${baseName} still has ${channelInfo.subscribers} subscribers`);
+              console.log(`Channel ${channelName} still has ${channelInfo.subscribers} subscribers`);
             }
           }
           
@@ -711,7 +707,7 @@ export function createRobustChannel<T = any>(
             clearTimeout(reconnectTimer);
           }
         } catch (err) {
-          console.error(`Error unsubscribing from ${baseName}:`, err);
+          console.error(`Error unsubscribing from ${channelName}:`, err);
         }
       }
     };
