@@ -49,12 +49,6 @@ function updateSubscriptionPriority(collectionId: string, priority: number) {
   }
 }
 
-// Use useRef for per-user admin status caching
-const adminCacheRef = useRef(globalAdminCache);
-
-// Track active channels to prevent duplicate subscriptions
-const channelsRef = useRef(globalChannels);
-
 export function useMerchantCollections(options: {
   initialPriority?: number;
   deferLoad?: boolean;
@@ -65,15 +59,18 @@ export function useMerchantCollections(options: {
     deferLoad = false
   } = options;
 
+  // Move useRef hooks inside the component
+  const adminCacheRef = useRef(globalAdminCache);
+  const channelsRef = useRef(globalChannels);
+  const isFetchingRef = useRef(false);
+  const cleanupFnsRef = useRef<Array<() => void>>([]);
+  const isMountedRef = useRef(false);
+
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(!deferLoad);
   const [error, setError] = useState<string | null>(null);
   const [changingAccessId, setChangingAccessId] = useState<string | null>(null);
   
-  const isFetchingRef = useRef(false);
-  const cleanupFnsRef = useRef<Array<() => void>>([]);
-  const isMountedRef = useRef(false);
-
   const checkAdminStatus = useCallback(async (userId: string) => {
     // Return cached value if still valid
     if (adminCacheRef.current[userId] && 
