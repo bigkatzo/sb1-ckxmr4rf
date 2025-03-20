@@ -21,7 +21,6 @@ import { preloadNFTVerifier } from './utils/nft-verification';
 import 'react-toastify/dist/ReactToastify.css';
 import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
-import { RealtimeStatus } from './components/ui/RealtimeStatus';
 
 // Validate environment variables at startup
 validateEnvironmentVariables();
@@ -82,22 +81,6 @@ function AppContent() {
     };
   }, []);
 
-  const handleTestRealtime = async () => {
-    try {
-      console.log('Running Supabase realtime diagnostics...');
-      
-      // Import dynamically to avoid loading in production
-      const { runRealtimeDiagnostics } = await import('./utils/realtime-diagnostics');
-      
-      // Run diagnostics with auto-fix enabled
-      await runRealtimeDiagnostics(true);
-      
-      console.log('Diagnostics complete. Check console for results.');
-    } catch (error) {
-      console.error('Failed to run diagnostics:', error);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
       <ScrollBehavior />
@@ -112,7 +95,6 @@ function AppContent() {
         <TransactionStatusWrapper />
         <NotificationsWrapper />
       </div>
-      <RealtimeStatus />
       <ToastContainer
         position="bottom-right"
         theme="dark"
@@ -126,22 +108,6 @@ function AppContent() {
         className="z-[99999] max-w-[90vw] sm:max-w-md"
         style={{ zIndex: 99999 }}
       />
-      <button 
-        onClick={handleTestRealtime}
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          padding: '10px',
-          background: '#4CAF50',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer'
-        }}
-      >
-        Test Realtime
-      </button>
     </div>
   );
 }

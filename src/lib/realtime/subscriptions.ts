@@ -392,7 +392,13 @@ async function triggerGlobalReconnect() {
           console.error('Global reconnect failed, falling back to polling');
           // Mark all channels for polling fallback
           activeChannels.forEach((info, name) => {
-            console.log(`Channel ${name} will use polling fallback after failed reconnect`);
+            rateLog(
+              `channel_polling_fallback_${name}`,
+              'log',
+              `Channel ${name} will use polling fallback after failed reconnect`
+            );
+            // Update last activity on the channel
+            info.lastActivity = Date.now();
           });
         }
       }
@@ -1033,7 +1039,7 @@ export function subscribeToSharedTableChanges<T = any>(
 function createPollingFallback(
   collectionId: string,
   table: string,
-  filter: Record<string, any>,
+  _filter: Record<string, any>,
   onUpdate: () => void
 ): { unsubscribe: () => void } {
   // Check if we're already polling this collection
