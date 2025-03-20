@@ -4,8 +4,7 @@ import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import { 
-  subscribeToSharedTableChanges, 
-  isRealtimeConnectionHealthy
+  subscribeToFilteredChanges
 } from '../lib/realtime/subscriptions';
 
 interface OrderStats {
@@ -220,7 +219,7 @@ export function useOrderStats(productId: string) {
     cleanupFnsRef.current = [];
     
     // Subscribe to order counts updates
-    const orderCountsSubscription = subscribeToSharedTableChanges(
+    const orderCountsSubscription = subscribeToFilteredChanges(
       'public_order_counts',
       { product_id: productId },
       (payload: any) => {
@@ -252,17 +251,16 @@ export function useOrderStats(productId: string) {
     );
     
     // Keep track of cleanup functions
-    cleanupFnsRef.current.push(
-      orderCountsSubscription.unsubscribe
-    );
+    cleanupFnsRef.current.push(orderCountsSubscription);
     
     // Setup monitoring for connection issues
     const setupConnectionMonitoring = () => {
-      // Check global health flag
+      // Check connection status using Supabase's built-in method
       const checkHealth = () => {
         try {
-          // Use our improved connection health check function
-          const isHealthy = isRealtimeConnectionHealthy();
+          const channels = supabase.getChannels();
+          const isHealthy = channels.length > 0 && 
+            channels.some(channel => channel.state === 'joined');
           
           if (!isHealthy && !pollingProducts.has(productId)) {
             console.log(`Connection unhealthy for ${productId}, switching to polling`);
