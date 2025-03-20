@@ -10,6 +10,9 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 // Cache admin status for 5 minutes
 const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
 
+// Debounce duration for realtime updates (500ms)
+const REALTIME_DEBOUNCE_DURATION = 500;
+
 // Priority levels for subscriptions
 const SUBSCRIPTION_PRIORITY = {
   HIGH: 2,   // Active merchant view
@@ -65,6 +68,7 @@ export function useMerchantCollections(options: {
   const isFetchingRef = useRef(false);
   const cleanupFnsRef = useRef<Array<() => void>>([]);
   const isMountedRef = useRef(false);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout>();
 
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(!deferLoad);
@@ -241,6 +245,15 @@ export function useMerchantCollections(options: {
     }
   }, [fetchCollections]);
 
+  const debouncedFetch = useCallback(() => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+    fetchTimeoutRef.current = setTimeout(() => {
+      fetchCollections();
+    }, REALTIME_DEBOUNCE_DURATION);
+  }, [fetchCollections]);
+
   const setupSubscriptions = () => {
     // Check if we've exceeded subscription attempts
     const attempts = subscriptionAttempts.get('merchant_collections') || 0;
@@ -251,14 +264,19 @@ export function useMerchantCollections(options: {
     subscriptionAttempts.set('merchant_collections', attempts + 1);
 
     // Clean up any existing subscriptions first
-    if (channelsRef.current.collections) {
-      channelsRef.current.collections.unsubscribe();
-    }
-    if (channelsRef.current.access) {
-      channelsRef.current.access.unsubscribe();
-    }
-    cleanupFnsRef.current.forEach(cleanup => cleanup());
-    cleanupFnsRef.current = [];
+    const cleanupExistingSubscriptions = () => {
+      if (channelsRef.current.collections) {
+        channelsRef.current.collections.unsubscribe();
+        channelsRef.current.collections = undefined;
+      }
+      if (channelsRef.current.access) {
+        channelsRef.current.access.unsubscribe();
+        channelsRef.current.access = undefined;
+      }
+    };
+
+    cleanupExistingSubscriptions();
+    cleanupFnsRef.current = []; // Reset cleanup functions
 
     // Set up realtime subscription for collections
     const collectionsChannel = supabase.channel('collections_changes');
@@ -274,7 +292,7 @@ export function useMerchantCollections(options: {
         },
         () => {
           updateAccessTime();
-          fetchCollections();
+          debouncedFetch();
         }
       )
       .subscribe((status) => {
@@ -298,7 +316,7 @@ export function useMerchantCollections(options: {
         },
         () => {
           updateAccessTime();
-          fetchCollections();
+          debouncedFetch();
         }
       )
       .subscribe((status) => {
@@ -345,21 +363,14 @@ export function useMerchantCollections(options: {
     };
 
     const healthCheckCleanup = setupConnectionMonitoring();
-    cleanupFnsRef.current.push(healthCheckCleanup);
 
-    // Store cleanup function
+    // Main cleanup function that will be called on unmount
     const cleanup = () => {
       console.log('Cleaning up merchant collections subscriptions');
-      if (channelsRef.current.collections) {
-        channelsRef.current.collections.unsubscribe();
-        channelsRef.current.collections = undefined;
+      cleanupExistingSubscriptions();
+      if (healthCheckCleanup) {
+        healthCheckCleanup();
       }
-      if (channelsRef.current.access) {
-        channelsRef.current.access.unsubscribe();
-        channelsRef.current.access = undefined;
-      }
-      cleanupFnsRef.current.forEach(fn => fn());
-      cleanupFnsRef.current = [];
       activeSubscriptions.delete('merchant_collections');
       subscriptionAttempts.delete('merchant_collections');
     };
@@ -371,7 +382,8 @@ export function useMerchantCollections(options: {
       lastAccessed: Date.now()
     });
 
-    cleanupFnsRef.current.push(cleanup);
+    // Store cleanup function for useEffect
+    cleanupFnsRef.current = [cleanup];
   };
 
   useEffect(() => {
@@ -400,7 +412,7 @@ export function useMerchantCollections(options: {
       );
 
       observer.observe(options.elementRef.current);
-      return () => observer.disconnect();
+      cleanupFnsRef.current.push(() => observer.disconnect());
     }
 
     // Initial fetch if not deferred or if high priority
@@ -411,16 +423,13 @@ export function useMerchantCollections(options: {
 
     return () => {
       isMountedRef.current = false;
-      // Clean up subscriptions
-      if (channelsRef.current.collections) {
-        channelsRef.current.collections.unsubscribe();
-        channelsRef.current.collections = undefined;
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
       }
-      if (channelsRef.current.access) {
-        channelsRef.current.access.unsubscribe();
-        channelsRef.current.access = undefined;
-      }
-      cleanupFnsRef.current.forEach(fn => fn());
+      // Execute all cleanup functions
+      cleanupFnsRef.current.forEach(cleanup => {
+        if (cleanup) cleanup();
+      });
       cleanupFnsRef.current = [];
     };
   }, [fetchCollections, initialPriority, deferLoad, updateAccessTime, collections, loading]);
