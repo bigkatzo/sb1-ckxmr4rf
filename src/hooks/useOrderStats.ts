@@ -16,9 +16,15 @@ interface OrderStats {
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff delays
 const DEBOUNCE_WAIT = 500; // 500ms debounce for real-time updates
 
-// Throttle the number of active order subscriptions
-// This limits the number of concurrent realtime subscriptions
-const MAX_CONCURRENT_SUBSCRIPTIONS = 3; // Limit concurrent subscriptions
+// Priority levels for subscriptions
+const SUBSCRIPTION_PRIORITY = {
+  HIGH: 2,   // Visible in viewport
+  MEDIUM: 1, // Near viewport
+  LOW: 0     // Out of viewport
+} as const;
+
+// Increase max concurrent subscriptions since we're using priorities
+const MAX_CONCURRENT_SUBSCRIPTIONS = 8; // Increased from 5
 
 // Global subscription tracking
 const activeSubscriptions = new Map<string, {
@@ -29,6 +35,23 @@ const activeSubscriptions = new Map<string, {
 
 // Track which product IDs are currently using polling
 const pollingProducts = new Set<string>();
+
+// Track subscription attempts to prevent duplicates
+const subscriptionAttempts = new Map<string, number>();
+const MAX_SUBSCRIPTION_ATTEMPTS = 3;
+
+// Track subscription priorities
+const subscriptionPriorities = new Map<string, number>();
+
+// Function to update subscription priority
+function updateSubscriptionPriority(productId: string, priority: number) {
+  subscriptionPriorities.set(productId, priority);
+  const subscription = activeSubscriptions.get(productId);
+  if (subscription) {
+    subscription.priority = priority;
+    prioritizeSubscriptions();
+  }
+}
 
 // Get current active subscription count
 function getActiveSubscriptionCount() {
@@ -64,17 +87,60 @@ function prioritizeSubscriptions() {
   });
 }
 
-export function useOrderStats(productId: string) {
+export function useOrderStats(
+  productId: string,
+  options: {
+    initialPriority?: number;
+    deferLoad?: boolean;
+  } = {}
+) {
+  const { 
+    initialPriority = SUBSCRIPTION_PRIORITY.LOW,
+    deferLoad = false
+  } = options;
+
   const [stats, setStats] = useState<OrderStats>({
     currentOrders: 0,
-    loading: true,
+    loading: !deferLoad, // Don't show loading if deferred
     error: null
   });
   const isFetchingRef = useRef(false);
   const pollingIntervalRef = useRef<any>(null);
-  const mountTimeRef = useRef<number>(Date.now());
-  const priorityRef = useRef<number>(0);
   const cleanupFnsRef = useRef<Array<() => void>>([]);
+
+  // Track if the component is mounted and visible
+  const isMountedRef = useRef(false);
+  const isVisibleRef = useRef(false);
+
+  // Update priority when visibility changes
+  const updatePriority = useCallback((isVisible: boolean) => {
+    isVisibleRef.current = isVisible;
+    const newPriority = isVisible ? 
+      SUBSCRIPTION_PRIORITY.HIGH : 
+      SUBSCRIPTION_PRIORITY.LOW;
+    
+    updateSubscriptionPriority(productId, newPriority);
+  }, [productId]);
+
+  // Setup intersection observer for visibility tracking
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+
+    const element = document.querySelector(`[data-product-id="${productId}"]`);
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          updatePriority(entry.isIntersecting);
+        });
+      },
+      { rootMargin: '100px' }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [productId, updatePriority]);
 
   // Update last accessed time for this product
   const updateAccessTime = useCallback(() => {
@@ -214,11 +280,23 @@ export function useOrderStats(productId: string) {
   const setupSubscriptions = useCallback(() => {
     console.log(`Setting up subscriptions for ${productId}`);
     
+    // Check if we've exceeded subscription attempts
+    const attempts = subscriptionAttempts.get(productId) || 0;
+    if (attempts >= MAX_SUBSCRIPTION_ATTEMPTS) {
+      console.log(`Max subscription attempts reached for ${productId}, using polling`);
+      startPolling();
+      return;
+    }
+    subscriptionAttempts.set(productId, attempts + 1);
+    
     // Clean up any existing subscriptions
     cleanupFnsRef.current.forEach(cleanup => cleanup());
     cleanupFnsRef.current = [];
     
-    // Subscribe to order counts updates
+    // Get current priority
+    const priority = subscriptionPriorities.get(productId) || initialPriority;
+    
+    // Subscribe to order counts updates with priority
     const orderCountsSubscription = subscribeToFilteredChanges(
       'public_order_counts',
       { product_id: productId },
@@ -227,7 +305,6 @@ export function useOrderStats(productId: string) {
         console.log('Order count update detected:', productId, payload);
         
         if (payload.new?.total_orders !== undefined) {
-          // Direct update from the order counts view
           const orderCount = payload.new.total_orders || 0;
           
           // Update cache with new options format
@@ -246,15 +323,25 @@ export function useOrderStats(productId: string) {
             loading: false,
             error: null
           });
+          
+          // Reset subscription attempts on successful update
+          subscriptionAttempts.set(productId, 0);
         }
       }
     );
     
     // Keep track of cleanup functions
-    cleanupFnsRef.current.push(orderCountsSubscription);
+    if (typeof orderCountsSubscription === 'function') {
+      cleanupFnsRef.current.push(orderCountsSubscription);
+    } else if (typeof orderCountsSubscription.unsubscribe === 'function') {
+      cleanupFnsRef.current.push(() => orderCountsSubscription.unsubscribe());
+    }
     
-    // Setup monitoring for connection issues
+    // Setup monitoring for connection issues with increased check interval
     const setupConnectionMonitoring = () => {
+      let unhealthyCount = 0;
+      const MAX_UNHEALTHY_COUNT = 3;
+      
       // Check connection status using Supabase's built-in method
       const checkHealth = () => {
         try {
@@ -262,9 +349,16 @@ export function useOrderStats(productId: string) {
           const isHealthy = channels.length > 0 && 
             channels.some(channel => channel.state === 'joined');
           
-          if (!isHealthy && !pollingProducts.has(productId)) {
-            console.log(`Connection unhealthy for ${productId}, switching to polling`);
-            startPolling();
+          if (!isHealthy) {
+            unhealthyCount++;
+            console.log(`Connection check failed for ${productId} (${unhealthyCount}/${MAX_UNHEALTHY_COUNT})`);
+            
+            if (unhealthyCount >= MAX_UNHEALTHY_COUNT && !pollingProducts.has(productId)) {
+              console.log(`Connection consistently unhealthy for ${productId}, switching to polling`);
+              startPolling();
+            }
+          } else {
+            unhealthyCount = 0;
           }
         } catch (err) {
           console.error('Error checking health:', err);
@@ -274,8 +368,8 @@ export function useOrderStats(productId: string) {
       // Initial check
       checkHealth();
       
-      // Set up periodic check
-      const healthCheckInterval = setInterval(checkHealth, 30000);
+      // Set up periodic check with increased interval
+      const healthCheckInterval = setInterval(checkHealth, 45000); // 45 seconds
       
       // Cleanup function
       return () => clearInterval(healthCheckInterval);
@@ -290,12 +384,14 @@ export function useOrderStats(productId: string) {
       cleanupFnsRef.current.forEach(fn => fn());
       cleanupFnsRef.current = [];
       activeSubscriptions.delete(productId);
+      // Reset subscription attempts on cleanup
+      subscriptionAttempts.delete(productId);
     };
     
     // Store in the global subscription registry
     activeSubscriptions.set(productId, {
       cleanup,
-      priority: priorityRef.current,
+      priority: priority,
       lastAccessed: Date.now()
     });
     
@@ -303,45 +399,54 @@ export function useOrderStats(productId: string) {
     pollingProducts.delete(productId);
     
     return cleanup;
-  }, [productId, debouncedFetch, updateAccessTime, startPolling]);
+  }, [productId, initialPriority, debouncedFetch, updateAccessTime, startPolling]);
 
   useEffect(() => {
-    let cleanupFn: (() => void) | null = null;
+    isMountedRef.current = true;
     
-    // Set mount time for subscription priority
-    mountTimeRef.current = Date.now();
-    
-    // Initial fetch
-    fetchOrderStats();
+    // Set initial priority
+    subscriptionPriorities.set(productId, initialPriority);
 
-    // Attempt to setup realtime or polling
+    // If deferred loading, wait for visibility
+    if (deferLoad && initialPriority === SUBSCRIPTION_PRIORITY.LOW) {
+      // Only fetch data when visible
+      if (isVisibleRef.current) {
+        fetchOrderStats();
+      }
+    } else {
+      // Normal immediate loading
+      fetchOrderStats();
+    }
+
+    // Setup connection based on priority
     const setupConnection = () => {
-      // Check if we should use polling
       const shouldUsePolling = 
-        pollingProducts.has(productId) || // Already using polling
-        getActiveSubscriptionCount() >= MAX_CONCURRENT_SUBSCRIPTIONS; // Too many subscriptions
+        pollingProducts.has(productId) || 
+        (getActiveSubscriptionCount() >= MAX_CONCURRENT_SUBSCRIPTIONS && 
+         (subscriptionPriorities.get(productId) || 0) <= SUBSCRIPTION_PRIORITY.LOW);
       
       if (shouldUsePolling) {
         console.log(`Using polling for ${productId} (${getActiveSubscriptionCount()}/${MAX_CONCURRENT_SUBSCRIPTIONS} active subscriptions)`);
         startPolling();
       } else {
-        // Use realtime subscription
-        cleanupFn = setupSubscriptions();
+        const result = setupSubscriptions();
+        const cleanupFn = result || null;
         
-        // After adding this subscription, check if we need to prioritize
-        prioritizeSubscriptions();
+        if (cleanupFn) {
+          prioritizeSubscriptions();
+        }
       }
     };
 
     // Setup connection strategy
     setupConnection();
 
-    // Return cleanup function
     return () => {
+      isMountedRef.current = false;
+      subscriptionPriorities.delete(productId);
       // Remove from active subscriptions
-      if (cleanupFn) {
-        cleanupFn();
-      }
+      cleanupFnsRef.current.forEach(fn => fn());
+      cleanupFnsRef.current = [];
       
       // Clear polling
       if (pollingIntervalRef.current) {
@@ -355,7 +460,7 @@ export function useOrderStats(productId: string) {
       // Cancel any pending debounced fetches
       debouncedFetch.cancel();
     };
-  }, [productId, fetchOrderStats, debouncedFetch, startPolling, setupSubscriptions]);
+  }, [productId, initialPriority, deferLoad, fetchOrderStats, setupSubscriptions]);
 
   return stats;
 }

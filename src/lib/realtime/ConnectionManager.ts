@@ -9,14 +9,20 @@ export type ConnectionState = {
 
 export class ConnectionManager {
   private static instance: ConnectionManager;
-  private healthCheckInterval: number = 15000; // 15 seconds
-  private maxReconnectAttempts: number = 10;
+  private healthCheckInterval: number = 30000;
+  private maxReconnectAttempts: number = 5;
   private reconnectAttempts: number = 0;
   private intervalId?: NodeJS.Timeout;
-  private connectionTimeout: number = 10000; // 10 seconds timeout
-  private backoffDelay: number = 5000; // Base delay for exponential backoff
-  private transportInitDelay: number = 1000; // Add delay before transport init
+  private backoffDelay: number = 2000;
+  private transportInitDelay: number = 500;
   private isInitializingTransport = false;
+  private reconnectTimeout?: NodeJS.Timeout;
+  private isHealthCheckStarted = false;
+  private deferredChannels = new Map<string, {
+    name: string,
+    config: RealtimeChannelOptions,
+    priority: number
+  }>();
   
   private state$ = new BehaviorSubject<ConnectionState>({
     status: 'connecting',
@@ -24,13 +30,11 @@ export class ConnectionManager {
     error: null
   });
 
-  private activeChannels = new Map<string, RealtimeChannel>();
+  private channels: Map<string, RealtimeChannel> = new Map();
   private channelConfigs = new Map<string, RealtimeChannelOptions>();
   
   private constructor(private supabase: SupabaseClient) {
-    this.initializeConnection().then(() => {
-      this.startHealthCheck();
-    });
+    // Don't initialize connection immediately
   }
 
   static getInstance(supabase: SupabaseClient): ConnectionManager {
@@ -41,6 +45,25 @@ export class ConnectionManager {
   }
 
   /**
+   * Initialize the connection manager with deferred loading
+   */
+  public async initialize(options: {
+    immediate?: boolean;
+    startHealthCheck?: boolean;
+  } = {}) {
+    const { immediate = false, startHealthCheck = false } = options;
+
+    if (immediate) {
+      await this.initializeConnection();
+    }
+
+    if (startHealthCheck && !this.isHealthCheckStarted) {
+      this.startHealthCheck();
+      this.isHealthCheckStarted = true;
+    }
+  }
+
+  /**
    * Get an observable of the connection state
    */
   public getState() {
@@ -48,13 +71,43 @@ export class ConnectionManager {
   }
 
   /**
-   * Create a new channel with automatic recovery
+   * Create a new channel with priority-based initialization
    */
-  public createChannel(channelName: string, config: RealtimeChannelOptions = { config: {} }): RealtimeChannel {
-    // Remove any existing channel with the same name
+  public createChannel(
+    channelName: string, 
+    config: RealtimeChannelOptions = { config: {} },
+    priority: number = 0
+  ): RealtimeChannel {
+    // For high-priority channels, create immediately
+    if (priority > 0) {
+      return this.createChannelImmediate(channelName, config);
+    }
+
+    // For low-priority channels, defer creation
+    this.deferredChannels.set(channelName, {
+      name: channelName,
+      config,
+      priority
+    });
+
+    // Return a placeholder channel that will be initialized when needed
+    const deferredChannel = this.supabase.channel(channelName, config);
+    this.channels.set(channelName, deferredChannel);
+    
+    return deferredChannel;
+  }
+
+  /**
+   * Create a channel immediately without deferring
+   */
+  private createChannelImmediate(
+    channelName: string,
+    config: RealtimeChannelOptions
+  ): RealtimeChannel {
+    // Remove any existing channel
     this.removeChannel(channelName);
 
-    // Store the config for reconnection
+    // Store config for reconnection
     this.channelConfigs.set(channelName, config);
 
     const channel = this.supabase.channel(channelName, config);
@@ -64,23 +117,40 @@ export class ConnectionManager {
       
       if (status === 'SUBSCRIBED') {
         this.reconnectAttempts = 0;
+        this.deferredChannels.delete(channelName); // Channel is now active
       } else if (status === 'CHANNEL_ERROR') {
-        this.handleChannelError(channelName, channel);
+        this.handleChannelError(channel);
       }
     });
 
-    this.activeChannels.set(channelName, channel);
+    this.channels.set(channelName, channel);
     return channel;
+  }
+
+  /**
+   * Initialize deferred channels based on priority
+   */
+  public async initializeDeferredChannels(minPriority: number = 0) {
+    // Sort channels by priority
+    const sortedChannels = Array.from(this.deferredChannels.entries())
+      .sort((a, b) => b[1].priority - a[1].priority)
+      .filter(([_, config]) => config.priority >= minPriority);
+
+    // Initialize channels in sequence with delay
+    for (const [name, config] of sortedChannels) {
+      await new Promise(resolve => setTimeout(resolve, 100)); // Stagger initialization
+      this.createChannelImmediate(name, config.config);
+    }
   }
 
   /**
    * Remove a channel and clean up its resources
    */
   public removeChannel(channelName: string) {
-    const existingChannel = this.activeChannels.get(channelName);
+    const existingChannel = this.channels.get(channelName);
     if (existingChannel) {
       existingChannel.unsubscribe();
-      this.activeChannels.delete(channelName);
+      this.channels.delete(channelName);
       this.channelConfigs.delete(channelName);
     }
   }
@@ -97,7 +167,7 @@ export class ConnectionManager {
       // Only resubscribe channels if connection is successful
       if (this.state$.value.status === 'connected') {
         // Resubscribe all channels
-        this.activeChannels.forEach((_, name) => {
+        this.channels.forEach((_, name) => {
           const config = this.channelConfigs.get(name) || { config: {} };
           this.createChannel(name, config);
         });
@@ -176,8 +246,11 @@ export class ConnectionManager {
   }
 
   private startHealthCheck() {
+    if (this.isHealthCheckStarted) return;
+    
     this.checkHealth();
     this.intervalId = setInterval(() => this.checkHealth(), this.healthCheckInterval);
+    this.isHealthCheckStarted = true;
   }
 
   private async checkHealth() {
@@ -186,15 +259,19 @@ export class ConnectionManager {
       const transport = realtimeClient?.transport;
       const isConnected = transport?.connectionState === 'open';
       
+      // Add additional health checks
+      const isHealthy = isConnected && this.channels.size > 0 && 
+        Array.from(this.channels.values()).some(channel => channel.state === 'joined');
+      
       // Update state based on current connection status
       this.updateState({
-        status: isConnected ? 'connected' : 'disconnected',
+        status: isHealthy ? 'connected' : 'disconnected',
         lastHealthCheck: Date.now(),
         error: null
       });
 
       // If disconnected but was previously connected, attempt recovery
-      if (!isConnected && this.state$.value.status === 'connected') {
+      if (!isHealthy && this.state$.value.status === 'connected') {
         await this.handleDisconnection();
       }
 
@@ -224,30 +301,44 @@ export class ConnectionManager {
   private async handleDisconnection() {
     console.debug('Connection lost, attempting to recover...');
     
+    // Clear any existing reconnect timeout
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+    
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       this.updateState({ status: 'connecting' });
       
-      const delay = this.calculateBackoff();
+      const delay = Math.min(this.backoffDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
       console.log(`Attempting reconnection in ${Math.round(delay/1000)} seconds...`);
       
-      await new Promise(resolve => setTimeout(resolve, delay));
-      await this.reconnectAll();
+      this.reconnectTimeout = setTimeout(async () => {
+        try {
+          await this.reconnectAll();
+          // Reset attempts on successful reconnection
+          if (this.state$.value.status === 'connected') {
+            this.reconnectAttempts = 0;
+          }
+        } catch (error) {
+          console.error('Reconnection attempt failed:', error);
+        }
+      }, delay);
     } else {
       this.updateState({
         status: 'disconnected',
         error: new Error('Max reconnection attempts reached')
       });
+      // Notify all channels to switch to polling
+      this.notifyListeners('max_retries_reached');
     }
   }
 
-  private handleChannelError(channelName: string, _channel: RealtimeChannel) {
-    console.warn(`Channel ${channelName} encountered an error`);
-    
-    // Remove and recreate the channel with stored config
-    this.removeChannel(channelName);
-    const config = this.channelConfigs.get(channelName) || { config: {} };
-    this.createChannel(channelName, config);
+  private handleChannelError(channel: RealtimeChannel) {
+    return () => {
+      console.error(`Channel error for ${channel.topic}`);
+      this.removeChannel(channel.topic);
+    };
   }
 
   private handleReconnectError(error: Error) {
@@ -270,9 +361,11 @@ export class ConnectionManager {
     if (this.intervalId) {
       clearInterval(this.intervalId);
     }
-    this.activeChannels.forEach(channel => channel.unsubscribe());
-    this.activeChannels.clear();
+    this.channels.forEach(channel => channel.unsubscribe());
+    this.channels.clear();
     this.channelConfigs.clear();
+    this.deferredChannels.clear();
+    this.isHealthCheckStarted = false;
   }
 
   private handleConnectionError(error: Error): void {
@@ -296,6 +389,19 @@ export class ConnectionManager {
   }
 
   private notifyListeners(event: string, data?: any) {
-    // Implementation of notifyListeners method
+    // Emit event to any registered listeners
+    switch (event) {
+      case 'connected':
+        console.log('Connection established');
+        break;
+      case 'error':
+        console.error('Connection error:', data);
+        break;
+      case 'max_retries_reached':
+        console.warn('Max reconnection attempts reached');
+        break;
+      default:
+        console.debug('Connection event:', event, data);
+    }
   }
 } 

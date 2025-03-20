@@ -1,11 +1,83 @@
-import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
+import { ConnectionManager } from './ConnectionManager';
 
 export type DatabaseChanges = {
   [key: string]: any;
 };
 
 export type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*';
+
+export type Unsubscribable = {
+  unsubscribe: () => void;
+};
+
+/**
+ * Check if the Supabase Realtime connection is healthy
+ */
+export function isRealtimeConnectionHealthy(): boolean {
+  const channels = supabase.getChannels();
+  return channels.some(channel => channel.state === 'joined');
+}
+
+/**
+ * Setup realtime health monitoring
+ * This function sets up listeners for connection state changes
+ * and notifies when the connection state changes
+ */
+export function setupRealtimeHealth(options: {
+  onHealthChange?: (isHealthy: boolean) => void;
+} = {}): Unsubscribable {
+  const { onHealthChange } = options;
+  let lastHealthState = isRealtimeConnectionHealthy();
+  
+  // Initial health state notification
+  onHealthChange?.(lastHealthState);
+  
+  // Listen to Supabase's built-in connection events
+  const channel = supabase.channel('health_monitor')
+    .on('system', { event: 'disconnect' }, () => {
+      if (lastHealthState) {
+        console.warn('Realtime connection lost');
+        lastHealthState = false;
+        onHealthChange?.(false);
+      }
+    })
+    .on('system', { event: 'reconnected' }, () => {
+      if (!lastHealthState) {
+        console.log('Realtime connection restored');
+        lastHealthState = true;
+        onHealthChange?.(true);
+      }
+    })
+    .on('system', { event: 'connected' }, () => {
+      if (!lastHealthState) {
+        console.log('Realtime connection established');
+        lastHealthState = true;
+        onHealthChange?.(true);
+      }
+    })
+    .subscribe();
+
+  return {
+    unsubscribe: () => {
+      channel.unsubscribe();
+      supabase.removeChannel(channel);
+    }
+  };
+}
+
+/**
+ * Subscribe to changes on a shared table with filtering
+ */
+export function subscribeToSharedTableChanges<T extends DatabaseChanges>(
+  tableName: string,
+  filter: { [key: string]: any },
+  callback: (payload: RealtimePostgresChangesPayload<T>) => void,
+  event: RealtimeEvent = '*'
+): Unsubscribable {
+  return subscribeToFilteredChanges(tableName, filter, callback, event);
+}
 
 /**
  * Subscribe to changes on a specific table
@@ -14,24 +86,26 @@ export function subscribeToChanges<T extends DatabaseChanges>(
   tableName: string,
   callback: (payload: RealtimePostgresChangesPayload<T>) => void,
   event: RealtimeEvent = '*'
-): () => void {
+): Unsubscribable {
   const channel = supabase.channel(`realtime:${tableName}:changes`);
 
   channel
     .on(
-      'postgres_changes' as 'postgres_changes',
+      'postgres_changes',
       {
         event,
-        schema: 'public',
+      schema: 'public',
         table: tableName
       },
       callback
     )
     .subscribe();
 
-  return () => {
-    channel.unsubscribe();
-    supabase.removeChannel(channel);
+  return {
+    unsubscribe: () => {
+      channel.unsubscribe();
+      supabase.removeChannel(channel);
+    }
   };
 }
 
@@ -43,16 +117,26 @@ export function subscribeToFilteredChanges<T extends DatabaseChanges>(
   filter: { [key: string]: string },
   callback: (payload: RealtimePostgresChangesPayload<T>) => void,
   event: RealtimeEvent = '*'
-): () => void {
+): Unsubscribable {
   const filterString = Object.entries(filter)
     .map(([key, value]) => `${key}=eq.${value}`)
     .join(',');
 
-  const channel = supabase.channel(`realtime:${tableName}:filtered:${filterString}`);
+  const channelName = `realtime:${tableName}:filtered:${filterString}`;
+  const manager = ConnectionManager.getInstance(supabase);
+  
+  // Create channel with priority based on the table
+  // Order stats and product data get higher priority
+  const priority = tableName.includes('order') || tableName.includes('product') ? 2 : 0;
+  const channel = manager.createChannel(channelName, {
+    config: {
+      broadcast: { self: true }
+    }
+  }, priority);
 
   channel
     .on(
-      'postgres_changes' as 'postgres_changes',
+      'postgres_changes',
       {
         event,
         schema: 'public',
@@ -63,9 +147,11 @@ export function subscribeToFilteredChanges<T extends DatabaseChanges>(
     )
     .subscribe();
 
-  return () => {
-    channel.unsubscribe();
-    supabase.removeChannel(channel);
+  return {
+    unsubscribe: () => {
+      channel.unsubscribe();
+      manager.removeChannel(channelName);
+    }
   };
 }
 
@@ -74,7 +160,7 @@ export function subscribeToCollection(
   collectionId: string,
   callback: (payload: RealtimePostgresChangesPayload<any>) => void,
   event?: RealtimeEvent
-) {
+): Unsubscribable {
   return subscribeToFilteredChanges(
     'collections',
     { id: collectionId },
@@ -87,7 +173,7 @@ export function subscribeToCollectionProducts(
   collectionId: string,
   callback: (payload: RealtimePostgresChangesPayload<any>) => void,
   event?: RealtimeEvent
-) {
+): Unsubscribable {
   return subscribeToFilteredChanges(
     'collection_products',
     { collection_id: collectionId },
@@ -100,7 +186,7 @@ export function subscribeToCollectionCategories(
   collectionId: string,
   callback: (payload: RealtimePostgresChangesPayload<any>) => void,
   event?: RealtimeEvent
-) {
+): Unsubscribable {
   return subscribeToFilteredChanges(
     'collection_categories',
     { collection_id: collectionId },
@@ -114,7 +200,7 @@ export function subscribeToCollectionCategories(
  * 
  * ```typescript
  * useEffect(() => {
- *   const unsubscribe = subscribeToCollectionProducts(
+ *   const subscription = subscribeToCollectionProducts(
  *     collectionId,
  *     (payload) => {
  *       console.log('Product updated:', payload);
@@ -122,7 +208,7 @@ export function subscribeToCollectionCategories(
  *     'UPDATE' // Only listen for updates
  *   );
  * 
- *   return () => unsubscribe(); // Properly cleanup subscription and channel
+ *   return () => subscription.unsubscribe(); // Properly cleanup subscription and channel
  * }, [collectionId]);
  * ```
  */

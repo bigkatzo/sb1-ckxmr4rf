@@ -9,12 +9,12 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   realtime: {
     params: {
-      eventsPerSecond: 1, // Even more conservative to reduce rate limiting
-      heartbeatIntervalMs: 30000, // Standard heartbeat interval
+      eventsPerSecond: 2, // Increased from 1 to 2 for better responsiveness
+      heartbeatIntervalMs: 45000, // Increased from 30s to 45s to reduce overhead
       fastConnectOptions: {
-        ackTimeout: 30000, // Substantially increase timeout for initial connection acknowledgements
-        retries: 10, // Keep retry attempts high
-        timeout: 30000 // Explicitly set higher initial connection timeout
+        ackTimeout: 45000, // Increased from 30s to 45s
+        retries: 5, // Reduced from 10 to 5 for faster fallback
+        timeout: 45000 // Increased from 30s to 45s
       }
     }
   },
@@ -23,14 +23,25 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
     autoRefreshToken: true
   },
   global: {
-    // Add global error handling
+    // Add global error handling with retry logic
     fetch: async (url, options) => {
-      try {
-        return await fetch(url, options);
-      } catch (error) {
-        console.error('Supabase fetch error:', error);
-        throw error;
+      const maxRetries = 3;
+      let lastError;
+      
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          return await fetch(url, options);
+        } catch (error) {
+          lastError = error;
+          if (i < maxRetries - 1) {
+            // Add exponential backoff
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+          }
+        }
       }
+      
+      console.error('Supabase fetch error after retries:', lastError);
+      throw lastError;
     }
   }
 });
