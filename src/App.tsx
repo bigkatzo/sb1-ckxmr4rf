@@ -145,6 +145,12 @@ function AppContent() {
 }
 
 export function App() {
+  // Initialize realtime debugger when app mounts
+  useEffect(() => {
+    exposeRealtimeDebugger();
+    console.log('Supabase realtime debugger initialized. Try window.debugRealtime() in the console.');
+  }, []);
+
   return (
     <ErrorBoundary>
       <WalletProvider>

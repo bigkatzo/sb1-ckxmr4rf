@@ -130,4 +130,38 @@ export function exposeRealtimeDebugger(): void {
   console.log('Realtime debugger exposed. Run window.debugRealtime() to debug realtime connections.');
   console.log('Run window.debugRealtime(true) to attempt automatic fixes.');
   console.log('Run window.debugRealtime.cleanupSubscriptions() to clean up stale subscriptions.');
+  
+  // Log a simple copy-pastable cleanup function for immediate use without relying on window.debugRealtime
+  console.log('\nIf you need to cleanup subscriptions directly, copy and paste this function into the console:');
+  console.log(`
+function cleanupSupabaseChannels() {
+  try {
+    const supabase = window.supabase || window.Supabase;
+    if (!supabase || !supabase.getChannels) {
+      console.error("Couldn't access Supabase - please refresh the page");
+      return false;
+    }
+    
+    const channels = supabase.getChannels();
+    console.log(\`Found \${channels.length} channels\`);
+    
+    channels.forEach(channel => {
+      try {
+        console.log(\`Closing channel: \${channel.topic}\`);
+        channel.unsubscribe();
+      } catch (e) {
+        console.error(\`Failed to close \${channel.topic}\`, e);
+      }
+    });
+    
+    return \`Closed \${channels.length} channels. Please refresh the page.\`;
+  } catch (e) {
+    console.error("Error in cleanup:", e);
+    return false;
+  }
+}
+
+// Run it
+cleanupSupabaseChannels();
+  `);
 } 
