@@ -25,6 +25,39 @@ const pollingCollections = new Set<string>();
 const MAX_CONNECTION_ATTEMPTS = 5;
 const CONNECTION_ATTEMPT_BACKOFF = 5000; // Base backoff time in ms
 
+// Add a counter for resubscription attempts per channel
+const channelResubscribeAttempts = new Map<string, number>();
+const MAX_CHANNEL_RESUBSCRIBE_ATTEMPTS = 3;
+const CHANNEL_RESUBSCRIBE_RESET_INTERVAL = 60000; // 1 minute
+const CHANNEL_RESUBSCRIBE_DELAY = 3000; // 3 seconds
+
+// Add a log rate limiter to reduce console noise
+const logRateLimiter = new Map<string, number>();
+const LOG_RATE_LIMIT_INTERVAL = 10000; // 10 seconds
+
+// Rate-limited console logging function
+function rateLog(key: string, level: 'log' | 'warn' | 'error', message: string) {
+  const now = Date.now();
+  const lastLogTime = logRateLimiter.get(key) || 0;
+  
+  // If we've logged this message recently, don't log again
+  if (now - lastLogTime < LOG_RATE_LIMIT_INTERVAL) {
+    return;
+  }
+  
+  // Update last log time
+  logRateLimiter.set(key, now);
+  
+  // Log with appropriate level
+  if (level === 'warn') {
+    console.warn(message);
+  } else if (level === 'error') {
+    console.error(message);
+  } else {
+    console.log(message);
+  }
+}
+
 // Check initial connection health and try to establish connection
 async function checkInitialConnectionHealth(): Promise<boolean> {
   if (isInitialConnectionEstablished) return isRealtimeHealthy;
@@ -32,7 +65,11 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
   try {
     const realtimeClient = (supabase.realtime as any);
     if (!realtimeClient) {
-      console.warn('Realtime client not available for initial connection check');
+      rateLog(
+        'realtime_client_unavailable',
+        'warn',
+        'Realtime client not available for initial connection check'
+      );
       return false;
     }
     
@@ -45,7 +82,11 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
     
     // Check if we've exceeded the maximum number of attempts
     if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
-      console.log(`Maximum connection attempts (${MAX_CONNECTION_ATTEMPTS}) reached. Giving up and falling back to polling.`);
+      rateLog(
+        'max_connection_attempts',
+        'log',
+        `Maximum connection attempts (${MAX_CONNECTION_ATTEMPTS}) reached. Giving up and falling back to polling.`
+      );
       // Don't keep trying after max attempts
       return false;
     }
@@ -62,7 +103,11 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
       lastConnectionAttempt = now;
       connectionInitAttempts++;
       
-      console.log(`Attempting to establish initial realtime connection (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
+      rateLog(
+        'connection_attempt',
+        'log',
+        `Attempting to establish initial realtime connection (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`
+      );
       
       if (typeof realtimeClient.connect === 'function') {
         await realtimeClient.connect();
@@ -77,13 +122,26 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
           isRealtimeHealthy = true;
           return true;
         } else {
-          console.warn(`Failed to establish initial connection, transport state: ${realtimeClient.transport?.connectionState || 'none'}`);
+          rateLog(
+            'connection_failed',
+            'warn',
+            `Failed to establish initial connection, transport state: ${realtimeClient.transport?.connectionState || 'none'}`
+          );
+          
           // Add more details about next attempt
           if (connectionInitAttempts < MAX_CONNECTION_ATTEMPTS) {
             const nextBackoff = Math.min(30000, CONNECTION_ATTEMPT_BACKOFF * Math.pow(1.5, connectionInitAttempts));
-            console.log(`Will retry in approximately ${Math.round(nextBackoff/1000)} seconds (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
+            rateLog(
+              'connection_retry_info',
+              'log',
+              `Will retry in approximately ${Math.round(nextBackoff/1000)} seconds (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`
+            );
           } else {
-            console.log(`Maximum connection attempts reached. Will use polling for all subscriptions.`);
+            rateLog(
+              'max_connection_attempts_reached',
+              'log',
+              `Maximum connection attempts reached. Will use polling for all subscriptions.`
+            );
           }
           return false;
         }
@@ -780,6 +838,27 @@ export function setupRealtimeDebugger() {
 // Initialize debugger
 setupRealtimeDebugger();
 
+// Add this helper function to manage resubscription attempts
+function trackResubscriptionAttempt(channelKey: string): boolean {
+  // Get current attempt count
+  const currentAttempts = channelResubscribeAttempts.get(channelKey) || 0;
+  
+  // Increment and store
+  const newAttempts = currentAttempts + 1;
+  channelResubscribeAttempts.set(channelKey, newAttempts);
+  
+  // Schedule cleanup
+  if (newAttempts === 1) {
+    setTimeout(() => {
+      // Reset counter after interval
+      channelResubscribeAttempts.delete(channelKey);
+    }, CHANNEL_RESUBSCRIBE_RESET_INTERVAL);
+  }
+  
+  // Return whether to continue with resubscription
+  return newAttempts <= MAX_CHANNEL_RESUBSCRIBE_ATTEMPTS;
+}
+
 export function subscribeToSharedTableChanges<T = any>(
   table: string,
   filter: Record<string, any>,
@@ -846,7 +925,11 @@ export function subscribeToSharedTableChanges<T = any>(
         channelInfo.isSubscribed = status === 'SUBSCRIBED';
         
         if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.warn(`Shared channel ${channelKey} closed or errored, will resubscribe on next use`);
+          rateLog(
+            `${channelKey}_closed`,
+            'warn',
+            `Shared channel ${channelKey} closed or errored, will resubscribe on next use`
+          );
           channelInfo.isSubscribed = false;
           
           // Try to resubscribe once after a short delay
@@ -855,35 +938,57 @@ export function subscribeToSharedTableChanges<T = any>(
               if (sharedChannels.has(channelKey) && !sharedChannels.get(channelKey)!.isSubscribed) {
                 const currentInfo = sharedChannels.get(channelKey)!;
                 if (!currentInfo.subscribing) {
-                  console.log(`Attempting to resubscribe to ${channelKey} after closure`);
-                  currentInfo.subscribing = true;
-                  
-                  // Create a new channel instance instead of reusing the existing one
-                  const newChannel = supabase.channel(channelKey + '_reconnect_' + Date.now(), { 
-                    config: { broadcast: { self: true } } 
-                  });
-                  
-                  // Re-add all the event handlers from the original channel
-                  // For postgres_changes handlers
-                  const pgHandlers = (currentInfo.channel as any)._listeners?.postgres_changes || [];
-                  for (const handler of pgHandlers) {
-                    newChannel.on('postgres_changes', handler.filter, handler.callback);
-                  }
-                  
-                  // Update channel reference
-                  currentInfo.channel = newChannel;
-                  
-                  // Try to subscribe with the new channel
-                  newChannel.subscribe((resubStatus) => {
-                    currentInfo.subscribing = false;
-                    currentInfo.isSubscribed = resubStatus === 'SUBSCRIBED';
+                  // Check if we've attempted too many resubscriptions
+                  if (trackResubscriptionAttempt(channelKey)) {
+                    rateLog(
+                      `${channelKey}_resubscribe_attempt`,
+                      'log',
+                      `Attempting to resubscribe to ${channelKey} after closure (attempt ${channelResubscribeAttempts.get(channelKey)}/${MAX_CHANNEL_RESUBSCRIBE_ATTEMPTS})`
+                    );
+                    currentInfo.subscribing = true;
                     
-                    if (resubStatus !== 'SUBSCRIBED') {
-                      console.warn(`Failed to resubscribe to ${channelKey}, will keep using polling`);
-                    } else {
-                      console.log(`Successfully resubscribed to ${channelKey}`);
+                    // Create a new channel instance instead of reusing the existing one
+                    const newChannel = supabase.channel(channelKey + '_reconnect_' + Date.now(), { 
+                      config: { broadcast: { self: true } } 
+                    });
+                    
+                    // Re-add all the event handlers from the original channel
+                    // For postgres_changes handlers
+                    const pgHandlers = (currentInfo.channel as any)._listeners?.postgres_changes || [];
+                    for (const handler of pgHandlers) {
+                      newChannel.on('postgres_changes', handler.filter, handler.callback);
                     }
-                  });
+                    
+                    // Update channel reference
+                    currentInfo.channel = newChannel;
+                    
+                    // Try to subscribe with the new channel
+                    newChannel.subscribe((resubStatus) => {
+                      currentInfo.subscribing = false;
+                      currentInfo.isSubscribed = resubStatus === 'SUBSCRIBED';
+                      
+                      if (resubStatus !== 'SUBSCRIBED') {
+                        rateLog(
+                          `${channelKey}_resubscribe_failed`,
+                          'warn',
+                          `Failed to resubscribe to ${channelKey}, will keep using polling`
+                        );
+                      } else {
+                        console.log(`Successfully resubscribed to ${channelKey}`);
+                        // Reset the attempt counter on success
+                        channelResubscribeAttempts.delete(channelKey);
+                      }
+                    });
+                  } else {
+                    rateLog(
+                      `${channelKey}_resubscribe_max`,
+                      'log',
+                      `Maximum resubscription attempts for ${channelKey} reached, falling back to polling`
+                    );
+                    // Force all handlers to use polling by setting channel as permanently closed
+                    currentInfo.isSubscribed = false;
+                    currentInfo.subscribing = false;
+                  }
                 }
               }
             } catch (err) {
@@ -893,7 +998,7 @@ export function subscribeToSharedTableChanges<T = any>(
                 info.subscribing = false;
               }
             }
-          }, 3000);
+          }, CHANNEL_RESUBSCRIBE_DELAY);
         }
       });
     } catch (err) {
@@ -924,7 +1029,7 @@ export function subscribeToSharedTableChanges<T = any>(
   };
 }
 
-// Create a simple polling implementation for collections when realtime is unavailable
+// Update the polling logging to use rate limiting
 function createPollingFallback(
   collectionId: string,
   table: string,
@@ -935,9 +1040,17 @@ function createPollingFallback(
   const pollingKey = `${table}_${collectionId}`;
   
   if (pollingCollections.has(pollingKey)) {
-    console.log(`Already polling ${table} for ${collectionId}, reusing existing polling`);
+    rateLog(
+      `polling_reuse_${pollingKey}`, 
+      'log',
+      `Already polling ${table} for ${collectionId}, reusing existing polling`
+    );
   } else {
-    console.log(`Using polling for ${collectionId} (${activeChannels.size} active subscriptions)`);
+    rateLog(
+      `polling_start_${pollingKey}`,
+      'log',
+      `Using polling for ${collectionId} (${activeChannels.size} active subscriptions)`
+    );
     pollingCollections.add(pollingKey);
   }
   
@@ -965,7 +1078,11 @@ export function subscribeToCollectionProducts(
   // First check if realtime is available
   const isHealthy = isRealtimeConnectionHealthy();
   if (!isHealthy) {
-    console.log(`Connection unhealthy for ${collectionId}, switching to polling immediately`);
+    rateLog(
+      `connection_unhealthy_${collectionId}_products`,
+      'log',
+      `Connection unhealthy for ${collectionId}, switching to polling immediately`
+    );
     return createPollingFallback(collectionId, 'products', { collection_id: collectionId }, onUpdate);
   }
   
@@ -987,7 +1104,11 @@ export function subscribeToCollectionCategories(
   // First check if realtime is available
   const isHealthy = isRealtimeConnectionHealthy();
   if (!isHealthy) {
-    console.log(`Connection unhealthy for ${collectionId}, switching to polling immediately`);
+    rateLog(
+      `connection_unhealthy_${collectionId}_categories`,
+      'log',
+      `Connection unhealthy for ${collectionId}, switching to polling immediately`
+    );
     return createPollingFallback(collectionId, 'categories', { collection_id: collectionId }, onUpdate);
   }
   
@@ -1010,7 +1131,11 @@ export function subscribeToCollection(
   // First check if realtime is available
   const isHealthy = isRealtimeConnectionHealthy();
   if (!isHealthy) {
-    console.log(`Connection unhealthy for ${collectionId}, switching to polling immediately`);
+    rateLog(
+      `connection_unhealthy_${collectionId}`,
+      'log',
+      `Connection unhealthy for ${collectionId}, switching to polling immediately`
+    );
     return createPollingFallback(collectionId, 'collections', { id: collectionId }, onUpdate);
   }
   
