@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
+import { createRobustChannel } from '../lib/realtime/subscriptions';
 
 interface OrderStats {
   currentOrders: number;
@@ -20,6 +21,7 @@ export function useOrderStats(productId: string) {
     error: null
   });
   const isFetchingRef = useRef(false);
+  const pollingIntervalRef = useRef<any>(null);
 
   const fetchOrderStats = useCallback(async (attempt = 0) => {
     try {
@@ -125,78 +127,109 @@ export function useOrderStats(productId: string) {
     [fetchOrderStats]
   );
 
+  // Start polling as a fallback if realtime fails
+  const startPolling = useCallback(() => {
+    // Clear any existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    
+    console.log(`Starting polling fallback for order stats for ${productId}`);
+    pollingIntervalRef.current = setInterval(() => {
+      console.log(`Polling for order stats for ${productId}`);
+      fetchOrderStats();
+    }, 30000); // Poll every 30 seconds
+  }, [productId, fetchOrderStats]);
+
   useEffect(() => {
     let mounted = true;
-    let subscription: ReturnType<typeof supabase.channel> | null = null;
+    let cleanup: (() => void) | null = null;
 
     // Initial fetch
     if (mounted) {
       fetchOrderStats();
     }
 
-    // Set up realtime subscription with reconnection logic
+    // Set up realtime subscription with robust reconnection logic
     const setupSubscription = () => {
-      console.log(`Setting up subscription for orders_${productId}`);
+      console.log(`Setting up robust subscription for orders_${productId}`);
       
-      // Subscribe to both orders table and the public_order_counts view
-      subscription = supabase.channel(`orders_${productId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'orders',
-            filter: `product_id=eq.${productId}`
-          },
-          (payload) => {
-            console.log('Order change detected:', payload);
-            if (mounted) {
-              // For INSERT/DELETE use debounced fetch
-              debouncedFetch();
-            }
+      // Create a robust channel for orders table
+      const { channel, subscribe } = createRobustChannel(
+        `orders_${productId}`,
+        { broadcast: { self: true } },
+        5 // Max reconnect attempts
+      );
+      
+      // Listen for orders table changes
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `product_id=eq.${productId}`
+        },
+        (payload) => {
+          console.log('Order change detected:', payload);
+          if (mounted) {
+            // For INSERT/DELETE use debounced fetch
+            debouncedFetch();
           }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'public_order_counts',
-            filter: `product_id=eq.${productId}`
-          },
-          (payload) => {
-            console.log('Order count update detected:', payload);
-            if (mounted && payload.new?.total_orders !== undefined) {
-              // Direct update from the order counts view
-              const orderCount = payload.new.total_orders || 0;
-              
-              // Update cache with new options format
-              cacheManager.set(
-                `order_stats:${productId}`, 
-                orderCount,
-                CACHE_DURATIONS.REALTIME.TTL,
-                { staleTime: CACHE_DURATIONS.REALTIME.STALE }
-              ).catch(err => {
-                console.error('Failed to update cache:', err);
-              });
-              
-              // Update state directly
-              setStats({
-                currentOrders: orderCount,
-                loading: false,
-                error: null
-              });
-            }
+        }
+      );
+      
+      // Listen for order counts view changes
+      channel.on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'public_order_counts',
+          filter: `product_id=eq.${productId}`
+        },
+        (payload) => {
+          console.log('Order count update detected:', payload);
+          if (mounted && payload.new?.total_orders !== undefined) {
+            // Direct update from the order counts view
+            const orderCount = payload.new.total_orders || 0;
+            
+            // Update cache with new options format
+            cacheManager.set(
+              `order_stats:${productId}`, 
+              orderCount,
+              CACHE_DURATIONS.REALTIME.TTL,
+              { staleTime: CACHE_DURATIONS.REALTIME.STALE }
+            ).catch(err => {
+              console.error('Failed to update cache:', err);
+            });
+            
+            // Update state directly
+            setStats({
+              currentOrders: orderCount,
+              loading: false,
+              error: null
+            });
           }
-        )
-        .subscribe((status) => {
-          console.log(`Order subscription status for ${productId}:`, status);
-          if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-            console.warn(`Subscription closed or error for ${productId}, reconnecting...`);
-            // Attempt to reconnect after a delay
-            setTimeout(setupSubscription, 2000);
-          }
-        });
+        }
+      );
+      
+      // Subscribe with connection status callback
+      const subscription = subscribe((status) => {
+        if (status.status === 'MAX_RETRIES_EXCEEDED') {
+          console.warn(`Max retries exceeded for ${productId}, falling back to polling`);
+          startPolling();
+        }
+      });
+      
+      // Create the cleanup function
+      cleanup = () => {
+        console.log(`Cleaning up subscription for orders_${productId}`);
+        subscription.unsubscribe();
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+      };
     };
 
     setupSubscription();
@@ -204,13 +237,13 @@ export function useOrderStats(productId: string) {
     // Cleanup
     return () => {
       mounted = false;
-      if (subscription) {
-        subscription.unsubscribe();
+      if (cleanup) {
+        cleanup();
       }
       // Cancel any pending debounced fetches
       debouncedFetch.cancel();
     };
-  }, [productId, fetchOrderStats, debouncedFetch]);
+  }, [productId, fetchOrderStats, debouncedFetch, startPolling]);
 
   return stats;
 }

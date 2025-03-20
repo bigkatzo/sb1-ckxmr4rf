@@ -87,6 +87,14 @@ export async function checkRealtimeConnection(): Promise<{
       };
     }
 
+    // Collect information about the current Supabase client
+    const realtimeInfo = {
+      // Access realtime properties safely with type casting
+      url: (supabase.realtime as any)?.url,
+      config: (supabase.realtime as any)?.config,
+      status: (supabase.realtime as any)?.transport?.connectionState || 'unknown'
+    };
+
     // Create a temporary channel to test realtime
     const channel = supabase.channel('connection-test', {
       config: { broadcast: { self: true } }
@@ -104,7 +112,10 @@ export async function checkRealtimeConnection(): Promise<{
         cleanup();
         resolve({
           status: 'timeout',
-          details: { message: 'Connection timed out after 5 seconds' }
+          details: { 
+            message: 'Connection timed out after 5 seconds',
+            realtimeInfo
+          }
         });
       }, 5000);
       
@@ -121,21 +132,33 @@ export async function checkRealtimeConnection(): Promise<{
             status: 'connected',
             details: {
               supabaseUrl,
-              channelTopic: channel.topic
+              channelTopic: channel.topic,
+              realtimeInfo
             }
           });
         } else if (status === 'CHANNEL_ERROR') {
           cleanup();
           resolve({
             status: 'error',
-            details: { message: 'Channel error', channelStatus: status }
+            details: { 
+              message: 'Channel error', 
+              channelStatus: status,
+              realtimeInfo
+            }
           });
         } else if (status === 'TIMED_OUT') {
           cleanup();
           resolve({
             status: 'timeout',
-            details: { message: 'Channel timed out', channelStatus: status }
+            details: { 
+              message: 'Channel timed out', 
+              channelStatus: status,
+              realtimeInfo
+            }
           });
+        } else {
+          // Log other statuses for debugging
+          console.log(`Test channel status: ${status}`);
         }
       });
     });
@@ -146,6 +169,123 @@ export async function checkRealtimeConnection(): Promise<{
     return {
       status: 'error',
       details: { message: 'Connection check error', error: errorMessage }
+    };
+  }
+}
+
+// Create a utility function to diagnose and fix common realtime issues
+export async function diagnoseRealtimeIssues(): Promise<{
+  status: string;
+  issues: string[];
+  recommendations: string[];
+}> {
+  try {
+    const issues: string[] = [];
+    const recommendations: string[] = [];
+    let status = 'healthy';
+
+    // Check basic connectivity
+    const connectionResult = await checkRealtimeConnection();
+    
+    if (connectionResult.status !== 'connected') {
+      status = 'issues_detected';
+      issues.push(`Realtime connection test failed: ${connectionResult.status}`);
+      recommendations.push('Check if realtime is enabled in your Supabase project settings');
+      recommendations.push('Verify your Supabase URL and anon key are correct');
+    }
+    
+    // Check client configuration
+    if (!supabase.realtime) {
+      status = 'issues_detected';
+      issues.push('Realtime client not properly initialized');
+      recommendations.push('Ensure your Supabase client version is up to date');
+    }
+    
+    // Check for excessive connections - safely access channels
+    const activeChannels = Object.keys(supabase.getChannels?.() || {}).length;
+    if (activeChannels > 10) {
+      status = 'issues_detected';
+      issues.push(`High number of active channels: ${activeChannels}`);
+      recommendations.push('Consider consolidating realtime subscriptions');
+      recommendations.push('Ensure channels are properly unsubscribed when components unmount');
+    }
+    
+    // If no issues detected
+    if (issues.length === 0) {
+      recommendations.push('Realtime appears to be configured correctly');
+    }
+    
+    return {
+      status,
+      issues,
+      recommendations
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      issues: ['Error while diagnosing realtime connection'],
+      recommendations: ['Check browser console for detailed error information']
+    };
+  }
+}
+
+/**
+ * Utility function to test and fix Supabase realtime connections
+ * Returns diagnostics and attempts to fix common issues
+ */
+export async function testAndFixRealtimeConnection(): Promise<{
+  status: string;
+  diagnostics: Record<string, any>;
+  fixAttempted: boolean;
+  fixResult?: string;
+}> {
+  try {
+    // Run diagnostics
+    const diagnostics = await diagnoseRealtimeIssues();
+    let fixAttempted = false;
+    let fixResult = '';
+    
+    // If issues detected, try to fix them
+    if (diagnostics.status === 'issues_detected') {
+      fixAttempted = true;
+      
+      try {
+        // 1. First try to reconnect the realtime client
+        console.log('Attempting to fix realtime connection issues...');
+        
+        // Force reconnect the realtime client if possible
+        if ((supabase.realtime as any)?.connect) {
+          (supabase.realtime as any).connect();
+          fixResult = 'Attempted to reconnect the realtime client';
+        }
+        
+        // 2. Close any stale channels
+        const channels = supabase.getChannels?.() || [];
+        for (const channel of channels) {
+          if ((channel as any)?.state === 'closed' || (channel as any)?.state === 'errored') {
+            channel.unsubscribe();
+            fixResult += '\nClosed stale channel: ' + channel.topic;
+          }
+        }
+      } catch (fixError) {
+        fixResult = `Fix attempt failed: ${fixError instanceof Error ? fixError.message : String(fixError)}`;
+      }
+    }
+    
+    return {
+      status: diagnostics.status,
+      diagnostics,
+      fixAttempted,
+      fixResult: fixAttempted ? fixResult : undefined
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      diagnostics: {
+        issues: ['Error running realtime diagnostics'],
+        recommendations: ['Check browser console for detailed error information']
+      },
+      fixAttempted: false
     };
   }
 }

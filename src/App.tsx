@@ -20,6 +20,7 @@ import { supabase } from './lib/supabase';
 import { preloadNFTVerifier } from './utils/nft-verification';
 import 'react-toastify/dist/ReactToastify.css';
 import { setupServiceWorker } from './lib/service-worker';
+import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
 
 // Validate environment variables at startup
 validateEnvironmentVariables();
@@ -69,6 +70,11 @@ function AppContent() {
     // Preload NFT verifier after a delay
     preloadNFTVerifier();
     
+    // Expose realtime debugging utilities in development
+    if (import.meta.env.DEV) {
+      exposeRealtimeDebugger();
+    }
+    
     return () => {
       cleanupPreloader();
       cleanup();
@@ -77,58 +83,17 @@ function AppContent() {
 
   const handleTestRealtime = async () => {
     try {
-      console.log('Testing Supabase realtime connection...');
+      console.log('Running Supabase realtime diagnostics...');
       
-      // Log connection info
-      console.log('URL:', import.meta.env.VITE_SUPABASE_URL);
+      // Import dynamically to avoid loading in production
+      const { runRealtimeDiagnostics } = await import('./utils/realtime-diagnostics');
       
-      // Create a test channel with detailed logging
-      const channel = supabase.channel('test-broadcast', {
-        config: {
-          broadcast: { self: true },
-          presence: { key: '' },
-        }
-      });
+      // Run diagnostics with auto-fix enabled
+      await runRealtimeDiagnostics(true);
       
-      // Track connection events
-      let connected = false;
-      let errors: any[] = [];
-      
-      // Handle channel state
-      channel.on('broadcast', { event: 'test' }, (payload) => {
-        console.log('Received broadcast message:', payload);
-      });
-      
-      // Subscribe with state tracking
-      channel.subscribe((status) => {
-        console.log(`Channel status: ${status}`);
-        if (status === 'SUBSCRIBED') {
-          connected = true;
-          // Send a test message
-          channel.send({
-            type: 'broadcast',
-            event: 'test',
-            payload: { message: 'Testing channel' }
-          });
-        } else if (status === 'CHANNEL_ERROR') {
-          errors.push({ type: 'subscription', status });
-        }
-      });
-      
-      // Set a timeout to report results
-      setTimeout(() => {
-        if (connected) {
-          console.log('✅ Realtime connection successful');
-        } else {
-          console.error('❌ Failed to establish realtime connection');
-          console.error('Errors:', errors);
-        }
-        
-        // Clean up the channel
-        channel.unsubscribe();
-      }, 5000);
+      console.log('Diagnostics complete. Check console for results.');
     } catch (error) {
-      console.error('Failed to test realtime:', error);
+      console.error('Failed to run diagnostics:', error);
     }
   };
 
