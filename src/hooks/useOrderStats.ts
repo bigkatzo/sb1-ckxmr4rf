@@ -25,7 +25,11 @@ export function useOrderStats(productId: string) {
     try {
       // Check cache first
       const cacheKey = `order_stats:${productId}`;
-      const { value: cachedValue, needsRevalidation } = cacheManager.get<number>(cacheKey);
+      
+      // Updated to use async cache API
+      const cacheResult = await cacheManager.get<number>(cacheKey);
+      const cachedValue = cacheResult.value;
+      const needsRevalidation = cacheResult.needsRevalidation;
       
       if (cachedValue !== null) {
         setStats({
@@ -36,7 +40,7 @@ export function useOrderStats(productId: string) {
         
         // If stale, revalidate in background
         if (needsRevalidation && !isFetchingRef.current) {
-          revalidateOrderStats();
+          await fetchFreshOrderStats(false);
         }
         
         return;
@@ -69,18 +73,19 @@ export function useOrderStats(productId: string) {
     }
   }, [productId]);
 
-  const fetchFreshOrderStats = useCallback(async () => {
+  const fetchFreshOrderStats = useCallback(async (updateLoadingState = true) => {
     if (isFetchingRef.current) return;
     
     isFetchingRef.current = true;
-    const cacheKey = `order_stats:${productId}`;
     
     try {
-      setStats(prev => ({
-        ...prev,
-        loading: true,
-        error: null
-      }));
+      if (updateLoadingState) {
+        setStats(prev => ({
+          ...prev,
+          loading: true,
+          error: null
+        }));
+      }
       
       const { data, error } = await supabase
         .from('public_order_counts')
@@ -92,12 +97,12 @@ export function useOrderStats(productId: string) {
 
       const orderCount = data?.total_orders || 0;
 
-      // Update cache with REALTIME durations
-      cacheManager.set(
-        cacheKey, 
+      // Update cache with REALTIME durations - new options format
+      await cacheManager.set(
+        `order_stats:${productId}`, 
         orderCount, 
-        CACHE_DURATIONS.REALTIME.TTL, 
-        CACHE_DURATIONS.REALTIME.STALE
+        CACHE_DURATIONS.REALTIME.TTL,
+        { staleTime: CACHE_DURATIONS.REALTIME.STALE }
       );
 
       setStats({
@@ -111,21 +116,6 @@ export function useOrderStats(productId: string) {
       isFetchingRef.current = false;
     }
   }, [productId]);
-
-  const revalidateOrderStats = useCallback(() => {
-    if (isFetchingRef.current) return;
-    
-    const cacheKey = `order_stats:${productId}`;
-    cacheManager.markRevalidating(cacheKey);
-    
-    fetchFreshOrderStats()
-      .catch(err => {
-        console.error('Error revalidating order stats:', err);
-      })
-      .finally(() => {
-        cacheManager.unmarkRevalidating(cacheKey);
-      });
-  }, [productId, fetchFreshOrderStats]);
 
   // Debounced version of fetchOrderStats for real-time updates
   const debouncedFetch = useCallback(
@@ -146,6 +136,9 @@ export function useOrderStats(productId: string) {
 
     // Set up realtime subscription with reconnection logic
     const setupSubscription = () => {
+      console.log(`Setting up subscription for orders_${productId}`);
+      
+      // Subscribe to both orders table and the public_order_counts view
       subscription = supabase.channel(`orders_${productId}`)
         .on(
           'postgres_changes',
@@ -155,15 +148,51 @@ export function useOrderStats(productId: string) {
             table: 'orders',
             filter: `product_id=eq.${productId}`
           },
-          () => {
+          (payload) => {
+            console.log('Order change detected:', payload);
             if (mounted) {
-              // Use debounced fetch for real-time updates
+              // For INSERT/DELETE use debounced fetch
               debouncedFetch();
             }
           }
         )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'public_order_counts',
+            filter: `product_id=eq.${productId}`
+          },
+          (payload) => {
+            console.log('Order count update detected:', payload);
+            if (mounted && payload.new?.total_orders !== undefined) {
+              // Direct update from the order counts view
+              const orderCount = payload.new.total_orders || 0;
+              
+              // Update cache with new options format
+              cacheManager.set(
+                `order_stats:${productId}`, 
+                orderCount,
+                CACHE_DURATIONS.REALTIME.TTL,
+                { staleTime: CACHE_DURATIONS.REALTIME.STALE }
+              ).catch(err => {
+                console.error('Failed to update cache:', err);
+              });
+              
+              // Update state directly
+              setStats({
+                currentOrders: orderCount,
+                loading: false,
+                error: null
+              });
+            }
+          }
+        )
         .subscribe((status) => {
+          console.log(`Order subscription status for ${productId}:`, status);
           if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            console.warn(`Subscription closed or error for ${productId}, reconnecting...`);
             // Attempt to reconnect after a delay
             setTimeout(setupSubscription, 2000);
           }

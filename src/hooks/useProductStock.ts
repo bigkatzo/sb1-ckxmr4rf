@@ -28,48 +28,45 @@ export function useProductStock(productId: string) {
       if (isFetchingRef.current) return;
       
       const cacheKey = `product_stock:${productId}`;
-      const { value: cachedStock, needsRevalidation } = cacheManager.get<number | null>(cacheKey);
-      
-      // Use cached data if available
-      if (cachedStock !== null) {
-        if (mounted) {
-          setStockData({
-            stock: cachedStock,
-            loading: false,
-            error: null
-          });
-        }
-        
-        // If stale, revalidate in background
-        if (needsRevalidation && !isFetchingRef.current) {
-          revalidateStock();
-        }
-        
-        return;
-      }
-      
-      // No cache hit, fetch fresh data
-      await fetchFreshStock();
-    }
-    
-    async function revalidateStock() {
-      if (isFetchingRef.current) return;
-      
-      isFetchingRef.current = true;
-      const cacheKey = `product_stock:${productId}`;
-      cacheManager.markRevalidating(cacheKey);
       
       try {
-        await fetchFreshStock(false);
+        // Updated to use async cache API
+        const cacheResult = await cacheManager.get<number | null>(cacheKey);
+        const cachedStock = cacheResult.value;
+        const needsRevalidation = cacheResult.needsRevalidation;
+      
+        // Use cached data if available
+        if (cachedStock !== null) {
+          if (mounted) {
+            setStockData({
+              stock: cachedStock,
+              loading: false,
+              error: null
+            });
+          }
+          
+          // If stale, revalidate in background
+          if (needsRevalidation && !isFetchingRef.current) {
+            await fetchFreshStock(false);
+          }
+          
+          return;
+        }
+      
+        // No cache hit, fetch fresh data
+        await fetchFreshStock();
       } catch (err) {
-        console.error('Error revalidating product stock:', err);
-      } finally {
-        isFetchingRef.current = false;
-        cacheManager.unmarkRevalidating(cacheKey);
+        console.error('Cache error:', err);
+        // If cache fails, try direct fetch
+        await fetchFreshStock();
       }
     }
     
     async function fetchFreshStock(updateLoadingState = true) {
+      if (isFetchingRef.current) return;
+      
+      isFetchingRef.current = true;
+      
       try {
         if (updateLoadingState && mounted) {
           setStockData(prev => ({
@@ -88,14 +85,13 @@ export function useProductStock(productId: string) {
         if (error) throw error;
         
         const currentStock = data?.quantity;
-        const cacheKey = `product_stock:${productId}`;
         
-        // Very short TTL for stock data
-        cacheManager.set(
-          cacheKey, 
+        // Very short TTL for stock data - updated to use new signature
+        await cacheManager.set(
+          `product_stock:${productId}`, 
           currentStock, 
-          CACHE_DURATIONS.REALTIME.TTL, 
-          CACHE_DURATIONS.REALTIME.STALE
+          CACHE_DURATIONS.REALTIME.TTL,
+          { staleTime: CACHE_DURATIONS.REALTIME.STALE }
         );
         
         if (mounted) {
@@ -114,10 +110,15 @@ export function useProductStock(productId: string) {
             error: err instanceof Error ? err.message : 'Failed to fetch stock'
           });
         }
+      } finally {
+        isFetchingRef.current = false;
       }
     }
     
-    fetchStock();
+    // Run initial fetch
+    fetchStock().catch(err => {
+      console.error('Initial stock fetch error:', err);
+    });
     
     // Set up realtime subscription for stock updates
     const subscription = supabase.channel(`product_stock_${productId}`)
@@ -130,15 +131,20 @@ export function useProductStock(productId: string) {
           filter: `id=eq.${productId}`
         },
         (payload) => {
+          console.log(`Product stock update received for ${productId}:`, payload);
+          
           if (mounted && payload.new?.quantity !== undefined) {
-            // Update cache
-            const cacheKey = `product_stock:${productId}`;
+            console.log('Stock quantity changed, updating state:', payload.new.quantity);
+            
+            // Update cache with new signature
             cacheManager.set(
-              cacheKey, 
+              `product_stock:${productId}`, 
               payload.new.quantity, 
-              CACHE_DURATIONS.REALTIME.TTL, 
-              CACHE_DURATIONS.REALTIME.STALE
-            );
+              CACHE_DURATIONS.REALTIME.TTL,
+              { staleTime: CACHE_DURATIONS.REALTIME.STALE }
+            ).catch(err => {
+              console.error('Error updating stock cache:', err);
+            });
             
             // Update state
             setStockData({
@@ -149,7 +155,12 @@ export function useProductStock(productId: string) {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Stock subscription status for ${productId}:`, status);
+        if (status === 'CHANNEL_ERROR') {
+          console.warn(`Stock subscription error for ${productId}, will try to reconnect`);
+        }
+      });
       
     return () => {
       mounted = false;
