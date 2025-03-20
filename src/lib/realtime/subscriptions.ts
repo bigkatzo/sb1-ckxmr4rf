@@ -16,9 +16,14 @@ let connectionInitAttempts = 0;
 let heartbeatInterval: any = null;
 let isReconnecting = false;
 let lastConnectionAttempt = 0;
+let realtimeGivenUp = false;  // Flag to track if we've given up on realtime completely
 
 // Add a tracking set for collections already being polled to reduce duplicate logs
 const pollingCollections = new Set<string>();
+
+// Add a maximum limit for connection attempts
+const MAX_CONNECTION_ATTEMPTS = 5;
+const CONNECTION_ATTEMPT_BACKOFF = 5000; // Base backoff time in ms
 
 // Check initial connection health and try to establish connection
 async function checkInitialConnectionHealth(): Promise<boolean> {
@@ -38,9 +43,17 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
       return true;
     }
     
-    // Avoid too frequent connection attempts
+    // Check if we've exceeded the maximum number of attempts
+    if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
+      console.log(`Maximum connection attempts (${MAX_CONNECTION_ATTEMPTS}) reached. Giving up and falling back to polling.`);
+      // Don't keep trying after max attempts
+      return false;
+    }
+    
+    // Avoid too frequent connection attempts with exponential backoff
     const now = Date.now();
-    if (now - lastConnectionAttempt < 5000 && connectionInitAttempts > 0) {
+    const backoffTime = Math.min(30000, CONNECTION_ATTEMPT_BACKOFF * Math.pow(1.5, connectionInitAttempts));
+    if (now - lastConnectionAttempt < backoffTime && connectionInitAttempts > 0) {
       return false;
     }
     
@@ -49,7 +62,7 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
       lastConnectionAttempt = now;
       connectionInitAttempts++;
       
-      console.log(`Attempting to establish initial realtime connection (attempt ${connectionInitAttempts})`);
+      console.log(`Attempting to establish initial realtime connection (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
       
       if (typeof realtimeClient.connect === 'function') {
         await realtimeClient.connect();
@@ -65,6 +78,13 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
           return true;
         } else {
           console.warn(`Failed to establish initial connection, transport state: ${realtimeClient.transport?.connectionState || 'none'}`);
+          // Add more details about next attempt
+          if (connectionInitAttempts < MAX_CONNECTION_ATTEMPTS) {
+            const nextBackoff = Math.min(30000, CONNECTION_ATTEMPT_BACKOFF * Math.pow(1.5, connectionInitAttempts));
+            console.log(`Will retry in approximately ${Math.round(nextBackoff/1000)} seconds (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
+          } else {
+            console.log(`Maximum connection attempts reached. Will use polling for all subscriptions.`);
+          }
           return false;
         }
       }
@@ -87,37 +107,82 @@ function startHealthCheck() {
       console.log('Initial realtime connection established successfully');
     } else {
       console.warn('Could not establish initial realtime connection, will keep trying');
+      
+      // Give up immediately if connection initialization fails and max attempts reached
+      if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
+        realtimeGivenUp = true;
+        console.log('Initial connection attempts failed. All subscriptions will use polling.');
+      }
     }
   });
   
-  // Set up heartbeat to keep connections alive
-  if (!heartbeatInterval) {
-    heartbeatInterval = setInterval(() => {
-      try {
-        // Access the realtime client
-        const realtimeClient = (supabase.realtime as any);
-        if (realtimeClient?.transport?.connectionState === 'open') {
-          // Send a ping message to keep connection alive
-          realtimeClient.send({
-            topic: 'phoenix',
-            event: 'heartbeat',
-            payload: {},
-            ref: Date.now().toString()
-          });
+  // Set up heartbeat to keep connections alive - only if we haven't given up on realtime
+  const setupHeartbeat = () => {
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+    }
+    
+    // Only set up heartbeat if we haven't given up on realtime
+    if (!realtimeGivenUp) {
+      heartbeatInterval = setInterval(() => {
+        try {
+          // Access the realtime client
+          const realtimeClient = (supabase.realtime as any);
+          if (realtimeClient?.transport?.connectionState === 'open') {
+            // Send a ping message to keep connection alive
+            realtimeClient.send({
+              topic: 'phoenix',
+              event: 'heartbeat',
+              payload: {},
+              ref: Date.now().toString()
+            });
+          }
+        } catch (err) {
+          console.error('Error sending heartbeat:', err);
         }
-      } catch (err) {
-        console.error('Error sending heartbeat:', err);
-      }
-    }, 29000); // Just under 30 seconds (common idle timeout)
-  }
+      }, 29000); // Just under 30 seconds (common idle timeout)
+    }
+  };
+  
+  setupHeartbeat();
   
   healthCheckInterval = setInterval(async () => {
     try {
+      // If we've given up on realtime, use a longer interval for checks
+      if (realtimeGivenUp) {
+        // Reduce the frequency of health checks when we've given up
+        clearInterval(healthCheckInterval);
+        healthCheckInterval = setInterval(async () => {
+          console.log('Periodic check for realtime availability (reduced frequency)');
+          const transport = (supabase.realtime as any)?.transport;
+          isRealtimeHealthy = transport && transport.connectionState === 'open';
+          
+          if (isRealtimeHealthy) {
+            // Realtime is back! Reset the given up flag and restore normal interval
+            realtimeGivenUp = false;
+            console.log('Realtime appears to be available again, resuming normal operation');
+            
+            clearInterval(healthCheckInterval);
+            startHealthCheck();
+          }
+        }, 60000); // Check once per minute instead
+        return;
+      }
+      
       // If we're not established yet, try to establish the initial connection
-      if (!isInitialConnectionEstablished) {
+      if (!isInitialConnectionEstablished && !realtimeGivenUp) {
         const success = await checkInitialConnectionHealth();
         if (success) {
           console.log('Realtime connection established during health check');
+        } else if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
+          // We've hit max attempts, give up on realtime
+          realtimeGivenUp = true;
+          console.log('Maximum connection attempts reached during health check. Switching to polling mode.');
+          
+          // Switch to reduced frequency health checks
+          clearInterval(healthCheckInterval);
+          startHealthCheck();
+          return;
         }
       }
       
@@ -137,6 +202,8 @@ function startHealthCheck() {
         // If we recovered, trigger global recovery
         if (isRealtimeHealthy && !wasHealthy) {
           console.log('Connection recovered, reconnecting all channels');
+          // Reset given up flag if we recover
+          realtimeGivenUp = false;
           // Wait a bit before reconnecting all channels
           setTimeout(reconnectAllChannels, 2000);
         }
@@ -155,12 +222,22 @@ function startHealthCheck() {
 
 // Export a function to check if realtime is healthy
 export function isRealtimeConnectionHealthy(): boolean {
+  // If we've given up on realtime, always report as unhealthy
+  if (realtimeGivenUp) {
+    return false;
+  }
   return isRealtimeHealthy && isInitialConnectionEstablished;
 }
 
 // Force a global reconnect of the Supabase realtime client
 async function triggerGlobalReconnect() {
   if (isReconnecting) return;
+  
+  // Don't attempt reconnect if we've given up on realtime
+  if (realtimeGivenUp) {
+    console.log('Not attempting global reconnect - realtime system is in polling-only mode');
+    return;
+  }
   
   try {
     isReconnecting = true;
@@ -171,6 +248,12 @@ async function triggerGlobalReconnect() {
       console.error('Realtime client not available for reconnection');
       isRealtimeHealthy = false;
       isReconnecting = false;
+      
+      // If we've tried max attempts, give up on realtime entirely
+      if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
+        realtimeGivenUp = true;
+        console.log('Maximum connection attempts reached during reconnect. All subscriptions will use polling.');
+      }
       return;
     }
     
@@ -191,6 +274,12 @@ async function triggerGlobalReconnect() {
             console.error('Failed to initialize realtime transport');
             isRealtimeHealthy = false;
             isReconnecting = false;
+            
+            // If we've tried max attempts, give up on realtime entirely
+            if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
+              realtimeGivenUp = true;
+              console.log('Maximum connection attempts reached during reconnect. All subscriptions will use polling.');
+            }
             return;
           }
         } else {
@@ -198,12 +287,24 @@ async function triggerGlobalReconnect() {
           console.error('No connect method available on realtime client');
           isRealtimeHealthy = false;
           isReconnecting = false;
+          
+          // If we've tried max attempts, give up on realtime entirely
+          if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
+            realtimeGivenUp = true;
+            console.log('Maximum connection attempts reached during reconnect. All subscriptions will use polling.');
+          }
           return;
         }
       } catch (err) {
         console.error('Error initializing realtime connection:', err);
         isRealtimeHealthy = false;
         isReconnecting = false;
+        
+        // If we've tried max attempts, give up on realtime entirely
+        if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
+          realtimeGivenUp = true;
+          console.log('Maximum connection attempts reached during reconnect. All subscriptions will use polling.');
+        }
         return;
       }
     }
