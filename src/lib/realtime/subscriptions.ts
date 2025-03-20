@@ -363,20 +363,32 @@ export function createRobustChannel<T = any>(
   // Add subscription wrapper with reconnection logic
   const subscribe = (callback?: (data: T) => void) => {
     let subscription: RealtimeChannel;
+    let isCurrentlySubscribed = false;
     
     const wrappedSubscribe = () => {
       try {
+        // Don't try to subscribe if already subscribed
+        if (isCurrentlySubscribed) {
+          console.warn(`Channel ${baseName} is already subscribed, skipping duplicate subscription`);
+          return;
+        }
+        
+        // Reset subscription state when making a new subscription attempt
+        isCurrentlySubscribed = false;
+        
         subscription = channel.subscribe((status) => {
           console.log(`Channel status for ${baseName}: ${status}`);
           
           if (status === 'SUBSCRIBED') {
             // Reset reconnect attempts on successful connection
             reconnectAttempts = 0;
+            isCurrentlySubscribed = true;
             
             if (callback) callback({ status, connected: true } as any);
           } 
           else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
             console.warn(`Subscription closed or error for ${baseName}, reconnecting... (attempt ${reconnectAttempts+1}/${maxReconnectAttempts})`);
+            isCurrentlySubscribed = false;
             
             // Only attempt to reconnect if under the maximum attempts
             if (reconnectAttempts < maxReconnectAttempts) {
@@ -392,14 +404,34 @@ export function createRobustChannel<T = any>(
                   // Don't create new channel instances, just retry the existing one
                   if (isRealtimeHealthy) {
                     try {
-                      // Safely unsubscribe
-                      subscription.unsubscribe();
+                      // Safely unsubscribe from the old channel
+                      try {
+                        subscription.unsubscribe();
+                      } catch (err) {
+                        // Ignore unsubscribe errors
+                      }
+                      
+                      // Create a new channel instance with a unique name
+                      const newChannelName = `${baseName}_retry_${reconnectAttempts}_${Date.now()}`;
+                      console.log(`Creating new channel instance: ${newChannelName}`);
+                      
+                      const newChannel = supabase.channel(newChannelName, { config });
+                      
+                      // Update the channel reference in our tracking
+                      const channelInfo = activeChannels.get(baseName);
+                      if (channelInfo) {
+                        channelInfo.channel = newChannel;
+                        channelInfo.lastActivity = Date.now();
+                      }
+                      
+                      // Update our local reference
+                      channel = newChannel;
+                      
+                      // Try subscribing with the new channel
+                      wrappedSubscribe();
                     } catch (err) {
-                      // Ignore unsubscribe errors
+                      console.error(`Error creating new channel for ${baseName}:`, err);
                     }
-                    
-                    // Just try resubscribing to the same channel
-                    wrappedSubscribe();
                   } else {
                     // Global connection issue, wait for health check to recover
                     console.log(`Not reconnecting ${baseName} due to unhealthy connection. Will retry when connection is restored.`);
@@ -722,8 +754,23 @@ export function subscribeToSharedTableChanges<T = any>(
                   console.log(`Attempting to resubscribe to ${channelKey} after closure`);
                   currentInfo.subscribing = true;
                   
-                  // Try to resubscribe
-                  currentInfo.channel.subscribe((resubStatus) => {
+                  // Create a new channel instance instead of reusing the existing one
+                  const newChannel = supabase.channel(channelKey + '_reconnect_' + Date.now(), { 
+                    config: { broadcast: { self: true } } 
+                  });
+                  
+                  // Re-add all the event handlers from the original channel
+                  // For postgres_changes handlers
+                  const pgHandlers = (currentInfo.channel as any)._listeners?.postgres_changes || [];
+                  for (const handler of pgHandlers) {
+                    newChannel.on('postgres_changes', handler.filter, handler.callback);
+                  }
+                  
+                  // Update channel reference
+                  currentInfo.channel = newChannel;
+                  
+                  // Try to subscribe with the new channel
+                  newChannel.subscribe((resubStatus) => {
                     currentInfo.subscribing = false;
                     currentInfo.isSubscribed = resubStatus === 'SUBSCRIBED';
                     
