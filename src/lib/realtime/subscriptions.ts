@@ -1,5 +1,6 @@
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
+import { ConnectionManager } from './ConnectionManager';
 
 export type DatabaseChanges = {
   [key: string]: any;
@@ -121,7 +122,17 @@ export function subscribeToFilteredChanges<T extends DatabaseChanges>(
     .map(([key, value]) => `${key}=eq.${value}`)
     .join(',');
 
-  const channel = supabase.channel(`realtime:${tableName}:filtered:${filterString}`);
+  const channelName = `realtime:${tableName}:filtered:${filterString}`;
+  const manager = ConnectionManager.getInstance(supabase);
+  
+  // Create channel with priority based on the table
+  // Order stats and product data get higher priority
+  const priority = tableName.includes('order') || tableName.includes('product') ? 2 : 0;
+  const channel = manager.createChannel(channelName, {
+    config: {
+      broadcast: { self: true }
+    }
+  }, priority);
 
   channel
     .on(
@@ -139,7 +150,7 @@ export function subscribeToFilteredChanges<T extends DatabaseChanges>(
   return {
     unsubscribe: () => {
       channel.unsubscribe();
-      supabase.removeChannel(channel);
+      manager.removeChannel(channelName);
     }
   };
 }
