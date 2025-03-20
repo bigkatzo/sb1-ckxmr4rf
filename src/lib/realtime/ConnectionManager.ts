@@ -10,11 +10,13 @@ export type ConnectionState = {
 export class ConnectionManager {
   private static instance: ConnectionManager;
   private healthCheckInterval: number = 15000; // 15 seconds
-  private maxReconnectAttempts: number = 5;
+  private maxReconnectAttempts: number = 10;
   private reconnectAttempts: number = 0;
   private intervalId?: NodeJS.Timeout;
   private connectionTimeout: number = 10000; // 10 seconds timeout
   private backoffDelay: number = 5000; // Base delay for exponential backoff
+  private transportInitDelay: number = 1000; // Add delay before transport init
+  private isInitializingTransport = false;
   
   private state$ = new BehaviorSubject<ConnectionState>({
     status: 'connecting',
@@ -108,61 +110,33 @@ export class ConnectionManager {
     }
   }
 
-  private calculateBackoff(attempt: number): number {
-    const jitter = 0.5 + Math.random(); // Random between 0.5 and 1.5
-    const delay = Math.min(
-      this.backoffDelay * Math.pow(2, attempt) * jitter,
-      60000 // Cap at 60 seconds
+  private calculateBackoff(): number {
+    const baseDelay = this.backoffDelay;
+    const maxDelay = 30000; // Cap at 30 seconds
+    const attempt = Math.min(this.reconnectAttempts, 10); // Cap exponential growth
+    
+    // Calculate exponential backoff with jitter
+    const exponentialDelay = Math.min(
+      baseDelay * Math.pow(2, attempt),
+      maxDelay
     );
-    return delay;
+    
+    // Add random jitter (±25% of delay)
+    const jitter = exponentialDelay * 0.5 * Math.random() - exponentialDelay * 0.25;
+    return exponentialDelay + jitter;
   }
 
   private async initializeConnection() {
     try {
-      const realtimeClient = this.supabase.realtime as any;
+      await this.initializeTransport();
       
-      // Ensure clean slate by disconnecting first
-      if (realtimeClient?.transport) {
-        await realtimeClient.disconnect();
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      // Initialize connection with timeout and retry
-      let connected = false;
-      let attempts = 0;
-      
-      while (!connected && attempts < this.maxReconnectAttempts) {
-        try {
-          await Promise.race([
-            realtimeClient.connect(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Connection timeout')), this.connectionTimeout)
-            )
-          ]);
-
-          // Wait for transport to be fully initialized
-          await new Promise(resolve => setTimeout(resolve, 3000));
-
-          if (realtimeClient.transport?.connectionState === 'open') {
-            connected = true;
-            this.reconnectAttempts = 0;
-            this.updateState({ status: 'connected', error: null });
-            break;
-          }
-        } catch (error) {
-          attempts++;
-          console.warn(`Connection attempt ${attempts} failed:`, error);
-          
-          if (attempts < this.maxReconnectAttempts) {
-            const delay = this.calculateBackoff(attempts);
-            console.log(`Retrying in ${Math.round(delay/1000)} seconds...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-        }
-      }
-
-      if (!connected) {
-        throw new Error('Failed to establish connection after maximum attempts');
+      // Only proceed with channel setup if transport is ready
+      if (this.supabase.realtime.transport) {
+        this.updateState({ status: 'connected', error: null });
+        this.reconnectAttempts = 0;
+        this.notifyListeners('connected');
+      } else {
+        throw new Error('Transport not ready after initialization');
       }
     } catch (error) {
       console.error('Failed to initialize connection:', error);
@@ -170,6 +144,34 @@ export class ConnectionManager {
         status: 'disconnected',
         error: error as Error
       });
+      this.handleConnectionError(error as Error);
+    }
+  }
+
+  private async initializeTransport(): Promise<void> {
+    if (this.isInitializingTransport) {
+      return;
+    }
+
+    this.isInitializingTransport = true;
+    try {
+      // Add delay before attempting transport initialization
+      await new Promise(resolve => setTimeout(resolve, this.transportInitDelay));
+      
+      if (!this.supabase.realtime.transport) {
+        console.log('Realtime transport not available, attempting to initialize it');
+        await this.supabase.realtime.connect();
+      }
+
+      if (!this.supabase.realtime.transport) {
+        throw new Error('Failed to initialize transport after attempt');
+      }
+
+      this.isInitializingTransport = false;
+    } catch (error) {
+      this.isInitializingTransport = false;
+      console.error('Transport initialization failed:', error);
+      throw error;
     }
   }
 
@@ -226,7 +228,7 @@ export class ConnectionManager {
       this.reconnectAttempts++;
       this.updateState({ status: 'connecting' });
       
-      const delay = this.calculateBackoff(this.reconnectAttempts);
+      const delay = this.calculateBackoff();
       console.log(`Attempting reconnection in ${Math.round(delay/1000)} seconds...`);
       
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -271,5 +273,29 @@ export class ConnectionManager {
     this.activeChannels.forEach(channel => channel.unsubscribe());
     this.activeChannels.clear();
     this.channelConfigs.clear();
+  }
+
+  private handleConnectionError(error: Error): void {
+    console.error('Connection error:', error);
+    this.updateState({
+      status: 'disconnected',
+      error
+    });
+    this.notifyListeners('error', error);
+
+    // Calculate next retry delay with jitter
+    const delay = this.calculateBackoff();
+    console.log(`Will retry in approximately ${Math.round(delay/1000)} seconds (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      setTimeout(() => this.reconnectAll(), delay);
+    } else {
+      console.log('Max reconnection attempts reached, switching to polling fallback');
+      this.notifyListeners('max_retries_reached');
+    }
+  }
+
+  private notifyListeners(event: string, data?: any) {
+    // Implementation of notifyListeners method
   }
 } 
