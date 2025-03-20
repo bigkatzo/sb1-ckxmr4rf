@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
-import { createRobustChannel } from '../lib/realtime/subscriptions';
+import { createRobustChannel, subscribeToSharedTableChanges } from '../lib/realtime/subscriptions';
 
 interface OrderStats {
   currentOrders: number;
@@ -72,6 +72,7 @@ export function useOrderStats(productId: string) {
   const pollingIntervalRef = useRef<any>(null);
   const mountTimeRef = useRef<number>(Date.now());
   const priorityRef = useRef<number>(0);
+  const cleanupFnsRef = useRef<Array<() => void>>([]);
 
   // Update last accessed time for this product
   const updateAccessTime = useCallback(() => {
@@ -207,46 +208,33 @@ export function useOrderStats(productId: string) {
     }, 30000); // Poll every 30 seconds
   }, [productId, fetchOrderStats]);
 
-  // Setup realtime subscription
-  const setupRealtimeSubscription = useCallback(() => {
-    console.log(`Setting up robust subscription for orders_${productId}`);
+  // Setup subscriptions using shared channel approach
+  const setupSubscriptions = useCallback(() => {
+    console.log(`Setting up subscriptions for ${productId}`);
     
-    // Create a robust channel for orders table
-    const { channel, subscribe } = createRobustChannel(
-      `orders_${productId}`,
-      { broadcast: { self: true } },
-      5 // Max reconnect attempts
-    );
+    // Clean up any existing subscriptions
+    cleanupFnsRef.current.forEach(cleanup => cleanup());
+    cleanupFnsRef.current = [];
     
-    // Listen for orders table changes
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'orders',
-        filter: `product_id=eq.${productId}`
-      },
-      (payload) => {
+    // First try to use the shared orders table channel
+    const ordersSubscription = subscribeToSharedTableChanges(
+      'orders',
+      { product_id: productId },
+      () => {
         updateAccessTime();
-        console.log('Order change detected:', payload);
-        // For INSERT/DELETE use debounced fetch
+        console.log('Order change detected for', productId);
         debouncedFetch();
       }
     );
     
-    // Listen for order counts view changes
-    channel.on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'public_order_counts',
-        filter: `product_id=eq.${productId}`
-      },
-      (payload) => {
+    // Then subscribe to order counts updates
+    const orderCountsSubscription = subscribeToSharedTableChanges(
+      'public_order_counts',
+      { product_id: productId },
+      (payload: any) => {
         updateAccessTime();
-        console.log('Order count update detected:', payload);
+        console.log('Order count update detected:', productId, payload);
+        
         if (payload.new?.total_orders !== undefined) {
           // Direct update from the order counts view
           const orderCount = payload.new.total_orders || 0;
@@ -271,28 +259,53 @@ export function useOrderStats(productId: string) {
       }
     );
     
-    // Subscribe with connection status callback
-    const subscription = subscribe((status) => {
-      if (status.status === 'MAX_RETRIES_EXCEEDED') {
-        console.warn(`Max retries exceeded for ${productId}, falling back to polling`);
-        startPolling();
-      }
-    });
+    // Keep track of cleanup functions
+    cleanupFnsRef.current.push(
+      ordersSubscription.unsubscribe,
+      orderCountsSubscription.unsubscribe
+    );
     
-    // Store cleanup function for this subscription
-    const cleanup = () => {
-      console.log(`Cleaning up subscription for orders_${productId}`);
-      subscription.unsubscribe();
-      activeSubscriptions.delete(productId);
+    // Setup monitoring for connection issues
+    const setupConnectionMonitoring = () => {
+      // Check global health flag
+      const checkHealth = () => {
+        try {
+          // Access global health flag
+          const isHealthy = (window as any).__supabaseRealtimeHealth !== undefined
+            ? (window as any).__supabaseRealtimeHealth
+            : (supabase.realtime as any)?.transport?.connectionState === 'open';
+          
+          if (!isHealthy && !pollingProducts.has(productId)) {
+            console.log(`Connection unhealthy for ${productId}, switching to polling`);
+            startPolling();
+          }
+        } catch (err) {
+          console.error('Error checking health:', err);
+        }
+      };
       
-      // Only clear polling if we're completely cleaning up
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
+      // Initial check
+      checkHealth();
+      
+      // Set up periodic check
+      const healthCheckInterval = setInterval(checkHealth, 30000);
+      
+      // Cleanup function
+      return () => clearInterval(healthCheckInterval);
     };
     
-    // Store subscription info
+    const healthCheckCleanup = setupConnectionMonitoring();
+    cleanupFnsRef.current.push(healthCheckCleanup);
+    
+    // Store overall cleanup function in activeSubscriptions
+    const cleanup = () => {
+      console.log(`Cleaning up subscriptions for ${productId}`);
+      cleanupFnsRef.current.forEach(fn => fn());
+      cleanupFnsRef.current = [];
+      activeSubscriptions.delete(productId);
+    };
+    
+    // Store in the global subscription registry
     activeSubscriptions.set(productId, {
       cleanup,
       priority: priorityRef.current,
@@ -327,7 +340,7 @@ export function useOrderStats(productId: string) {
         startPolling();
       } else {
         // Use realtime subscription
-        cleanupFn = setupRealtimeSubscription();
+        cleanupFn = setupSubscriptions();
         
         // After adding this subscription, check if we need to prioritize
         prioritizeSubscriptions();
@@ -358,7 +371,7 @@ export function useOrderStats(productId: string) {
       // Cancel any pending debounced fetches
       debouncedFetch.cancel();
     };
-  }, [productId, fetchOrderStats, debouncedFetch, startPolling, setupRealtimeSubscription]);
+  }, [productId, fetchOrderStats, debouncedFetch, startPolling, setupSubscriptions]);
 
   return stats;
 }
