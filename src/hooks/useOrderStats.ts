@@ -3,9 +3,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
-import { 
-  subscribeToFilteredChanges
-} from '../lib/realtime/subscriptions';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface OrderStats {
   currentOrders: number;
@@ -42,6 +40,9 @@ const MAX_SUBSCRIPTION_ATTEMPTS = 3;
 
 // Track subscription priorities
 const subscriptionPriorities = new Map<string, number>();
+
+// Track active channels to prevent duplicate subscriptions
+const activeChannels = new Map<string, RealtimeChannel>();
 
 // Function to update subscription priority
 function updateSubscriptionPriority(productId: string, priority: number) {
@@ -296,46 +297,89 @@ export function useOrderStats(
     // Get current priority
     const priority = subscriptionPriorities.get(productId) || initialPriority;
     
+    // Check if channel already exists
+    const channelKey = `realtime:public_order_counts:filtered:product_id=eq.${productId}`;
+    let channel = activeChannels.get(channelKey);
+    
+    // If channel exists but is in error state, remove it
+    if (channel?.state === 'errored') {
+      supabase.removeChannel(channel);
+      activeChannels.delete(channelKey);
+      channel = undefined;
+    }
+    
+    // Create new channel if needed
+    if (!channel) {
+      channel = supabase.channel(channelKey);
+      activeChannels.set(channelKey, channel);
+    }
+    
     // Subscribe to order counts updates with priority
-    const orderCountsSubscription = subscribeToFilteredChanges(
-      'public_order_counts',
-      { product_id: productId },
-      (payload: any) => {
-        updateAccessTime();
-        console.log('Order count update detected:', productId, payload);
-        
-        if (payload.new?.total_orders !== undefined) {
-          const orderCount = payload.new.total_orders || 0;
+    channel
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'public_order_counts',
+          filter: `product_id=eq.${productId}`
+        },
+        (payload: any) => {
+          updateAccessTime();
+          console.log('Order count update detected:', productId, payload);
           
-          // Update cache with new options format
-          cacheManager.set(
-            `order_stats:${productId}`, 
-            orderCount,
-            CACHE_DURATIONS.REALTIME.TTL,
-            { staleTime: CACHE_DURATIONS.REALTIME.STALE }
-          ).catch(err => {
-            console.error('Failed to update cache:', err);
-          });
-          
-          // Update state directly
-          setStats({
-            currentOrders: orderCount,
-            loading: false,
-            error: null
-          });
-          
-          // Reset subscription attempts on successful update
-          subscriptionAttempts.set(productId, 0);
+          if (payload.new?.total_orders !== undefined) {
+            const orderCount = payload.new.total_orders || 0;
+            
+            // Update cache with new options format
+            cacheManager.set(
+              `order_stats:${productId}`, 
+              orderCount,
+              CACHE_DURATIONS.REALTIME.TTL,
+              { staleTime: CACHE_DURATIONS.REALTIME.STALE }
+            ).catch(err => {
+              console.error('Failed to update cache:', err);
+            });
+            
+            // Update state directly
+            setStats({
+              currentOrders: orderCount,
+              loading: false,
+              error: null
+            });
+            
+            // Reset subscription attempts on successful update
+            subscriptionAttempts.set(productId, 0);
+          }
         }
-      }
-    );
+      )
+      .subscribe((status: string) => {
+        console.log(`Channel ${channelKey} status:`, status);
+        if (status === 'SUBSCRIBED') {
+          // Reset attempts on successful subscription
+          subscriptionAttempts.set(productId, 0);
+        } else if (status === 'CHANNEL_ERROR') {
+          // Remove errored channel
+          activeChannels.delete(channelKey);
+          // Increment attempt count
+          const currentAttempts = subscriptionAttempts.get(productId) || 0;
+          subscriptionAttempts.set(productId, currentAttempts + 1);
+          // Switch to polling if max attempts reached
+          if (currentAttempts + 1 >= MAX_SUBSCRIPTION_ATTEMPTS) {
+            startPolling();
+          }
+        }
+      });
     
     // Keep track of cleanup functions
-    if (typeof orderCountsSubscription === 'function') {
-      cleanupFnsRef.current.push(orderCountsSubscription);
-    } else if (typeof orderCountsSubscription.unsubscribe === 'function') {
-      cleanupFnsRef.current.push(() => orderCountsSubscription.unsubscribe());
-    }
+    const cleanup = () => {
+      if (channel) {
+        channel.unsubscribe();
+        supabase.removeChannel(channel);
+        activeChannels.delete(channelKey);
+      }
+    };
+    cleanupFnsRef.current.push(cleanup);
     
     // Setup monitoring for connection issues with increased check interval
     const setupConnectionMonitoring = () => {
@@ -347,7 +391,7 @@ export function useOrderStats(
         try {
           const channels = supabase.getChannels();
           const isHealthy = channels.length > 0 && 
-            channels.some(channel => channel.state === 'joined');
+            channels.some(ch => ch.state === 'joined');
           
           if (!isHealthy) {
             unhealthyCount++;
@@ -379,7 +423,7 @@ export function useOrderStats(
     cleanupFnsRef.current.push(healthCheckCleanup);
     
     // Store overall cleanup function in activeSubscriptions
-    const cleanup = () => {
+    const finalCleanup = () => {
       console.log(`Cleaning up subscriptions for ${productId}`);
       cleanupFnsRef.current.forEach(fn => fn());
       cleanupFnsRef.current = [];
@@ -390,7 +434,7 @@ export function useOrderStats(
     
     // Store in the global subscription registry
     activeSubscriptions.set(productId, {
-      cleanup,
+      cleanup: finalCleanup,
       priority: priority,
       lastAccessed: Date.now()
     });
@@ -398,7 +442,7 @@ export function useOrderStats(
     // Clear from polling products if we've switched to subscription
     pollingProducts.delete(productId);
     
-    return cleanup;
+    return finalCleanup;
   }, [productId, initialPriority, debouncedFetch, updateAccessTime, startPolling]);
 
   useEffect(() => {
