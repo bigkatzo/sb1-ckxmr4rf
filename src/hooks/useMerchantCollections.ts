@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { isRealtimeConnectionHealthy } from '../lib/realtime/subscriptions';
 import { normalizeStorageUrl } from '../lib/storage';
 import type { Collection, AccessType } from '../types/collections';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 // Cache admin status for 5 minutes
 const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
@@ -41,6 +42,12 @@ function updateSubscriptionPriority(collectionId: string, priority: number) {
 
 // Use useRef for per-user admin status caching
 const adminCacheRef = useRef<{ [key: string]: { isAdmin: boolean; timestamp: number } }>({});
+
+// Track active channels to prevent duplicate subscriptions
+const channelsRef = useRef<{
+  collections?: RealtimeChannel;
+  access?: RealtimeChannel;
+}>({});
 
 export function useMerchantCollections(options: {
   initialPriority?: number;
@@ -231,6 +238,139 @@ export function useMerchantCollections(options: {
     }
   }, [fetchCollections]);
 
+  const setupSubscriptions = () => {
+    // Check if we've exceeded subscription attempts
+    const attempts = subscriptionAttempts.get('merchant_collections') || 0;
+    if (attempts >= MAX_SUBSCRIPTION_ATTEMPTS) {
+      console.log('Max subscription attempts reached for merchant collections');
+      return;
+    }
+    subscriptionAttempts.set('merchant_collections', attempts + 1);
+
+    // Clean up any existing subscriptions first
+    if (channelsRef.current.collections) {
+      channelsRef.current.collections.unsubscribe();
+    }
+    if (channelsRef.current.access) {
+      channelsRef.current.access.unsubscribe();
+    }
+    cleanupFnsRef.current.forEach(cleanup => cleanup());
+    cleanupFnsRef.current = [];
+
+    // Set up realtime subscription for collections
+    const collectionsChannel = supabase.channel('collections_changes');
+    channelsRef.current.collections = collectionsChannel;
+
+    collectionsChannel
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'collections'
+        },
+        () => {
+          updateAccessTime();
+          fetchCollections();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Collections subscription status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('Collections subscription error, will try to reconnect');
+        }
+      });
+
+    // Set up realtime subscription for collection_access
+    const accessChannel = supabase.channel('access_changes');
+    channelsRef.current.access = accessChannel;
+
+    accessChannel
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'collection_access'
+        },
+        () => {
+          updateAccessTime();
+          fetchCollections();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Access subscription status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('Access subscription error, will try to reconnect');
+        }
+      });
+
+    // Setup monitoring for connection issues
+    const setupConnectionMonitoring = () => {
+      let unhealthyCount = 0;
+      const MAX_UNHEALTHY_COUNT = 3;
+      
+      // Check global health flag
+      const checkHealth = () => {
+        try {
+          const isHealthy = isRealtimeConnectionHealthy();
+          
+          if (!isHealthy) {
+            unhealthyCount++;
+            console.log(`Connection check failed for merchant collections (${unhealthyCount}/${MAX_UNHEALTHY_COUNT})`);
+            
+            if (unhealthyCount >= MAX_UNHEALTHY_COUNT) {
+              console.log('Connection consistently unhealthy for merchant collections');
+              // For collections, we just refetch periodically instead of polling
+              fetchCollections();
+            }
+          } else {
+            unhealthyCount = 0;
+          }
+        } catch (err) {
+          console.error('Error checking health:', err);
+        }
+      };
+      
+      // Initial check
+      checkHealth();
+      
+      // Set up periodic check
+      const healthCheckInterval = setInterval(checkHealth, 45000); // 45 seconds
+      
+      return () => clearInterval(healthCheckInterval);
+    };
+
+    const healthCheckCleanup = setupConnectionMonitoring();
+    cleanupFnsRef.current.push(healthCheckCleanup);
+
+    // Store cleanup function
+    const cleanup = () => {
+      console.log('Cleaning up merchant collections subscriptions');
+      if (channelsRef.current.collections) {
+        channelsRef.current.collections.unsubscribe();
+        channelsRef.current.collections = undefined;
+      }
+      if (channelsRef.current.access) {
+        channelsRef.current.access.unsubscribe();
+        channelsRef.current.access = undefined;
+      }
+      cleanupFnsRef.current.forEach(fn => fn());
+      cleanupFnsRef.current = [];
+      activeSubscriptions.delete('merchant_collections');
+      subscriptionAttempts.delete('merchant_collections');
+    };
+
+    // Store in global subscription registry
+    activeSubscriptions.set('merchant_collections', {
+      cleanup,
+      priority: initialPriority,
+      lastAccessed: Date.now()
+    });
+
+    cleanupFnsRef.current.push(cleanup);
+  };
+
   useEffect(() => {
     isMountedRef.current = true;
     
@@ -263,131 +403,20 @@ export function useMerchantCollections(options: {
     // Initial fetch if not deferred or if high priority
     if (!deferLoad || initialPriority === SUBSCRIPTION_PRIORITY.HIGH) {
       fetchCollections();
-    }
-
-    // Setup realtime subscriptions with priority-based loading
-    const setupSubscriptions = () => {
-      // Check if we've exceeded subscription attempts
-      const attempts = subscriptionAttempts.get('merchant_collections') || 0;
-      if (attempts >= MAX_SUBSCRIPTION_ATTEMPTS) {
-        console.log('Max subscription attempts reached for merchant collections');
-        return;
-      }
-      subscriptionAttempts.set('merchant_collections', attempts + 1);
-
-      // Clean up any existing subscriptions
-      cleanupFnsRef.current.forEach(cleanup => cleanup());
-      cleanupFnsRef.current = [];
-
-      // Set up realtime subscription for both collections and collection_access
-      const collectionsChannel = supabase.channel('collections_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'collections'
-          },
-          () => {
-            updateAccessTime();
-            fetchCollections();
-          }
-        )
-        .subscribe((status) => {
-          console.log('Collections subscription status:', status);
-          if (status === 'CHANNEL_ERROR') {
-            console.warn('Collections subscription error, will try to reconnect');
-          }
-        });
-
-      const accessChannel = supabase.channel('access_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'collection_access'
-          },
-          () => {
-            updateAccessTime();
-            fetchCollections();
-          }
-        )
-        .subscribe((status) => {
-          console.log('Access subscription status:', status);
-          if (status === 'CHANNEL_ERROR') {
-            console.warn('Access subscription error, will try to reconnect');
-          }
-        });
-
-      // Setup monitoring for connection issues
-      const setupConnectionMonitoring = () => {
-        let unhealthyCount = 0;
-        const MAX_UNHEALTHY_COUNT = 3;
-        
-        // Check global health flag
-        const checkHealth = () => {
-          try {
-            const isHealthy = isRealtimeConnectionHealthy();
-            
-            if (!isHealthy) {
-              unhealthyCount++;
-              console.log(`Connection check failed for merchant collections (${unhealthyCount}/${MAX_UNHEALTHY_COUNT})`);
-              
-              if (unhealthyCount >= MAX_UNHEALTHY_COUNT) {
-                console.log('Connection consistently unhealthy for merchant collections');
-                // For collections, we just refetch periodically instead of polling
-                fetchCollections();
-              }
-            } else {
-              unhealthyCount = 0;
-            }
-          } catch (err) {
-            console.error('Error checking health:', err);
-          }
-        };
-        
-        // Initial check
-        checkHealth();
-        
-        // Set up periodic check
-        const healthCheckInterval = setInterval(checkHealth, 45000); // 45 seconds
-        
-        return () => clearInterval(healthCheckInterval);
-      };
-
-      const healthCheckCleanup = setupConnectionMonitoring();
-      cleanupFnsRef.current.push(healthCheckCleanup);
-
-      // Store cleanup function
-      const cleanup = () => {
-        console.log('Cleaning up merchant collections subscriptions');
-        collectionsChannel.unsubscribe();
-        accessChannel.unsubscribe();
-        cleanupFnsRef.current.forEach(fn => fn());
-        cleanupFnsRef.current = [];
-        activeSubscriptions.delete('merchant_collections');
-        subscriptionAttempts.delete('merchant_collections');
-      };
-
-      // Store in global subscription registry
-      activeSubscriptions.set('merchant_collections', {
-        cleanup,
-        priority: initialPriority,
-        lastAccessed: Date.now()
-      });
-
-      cleanupFnsRef.current.push(cleanup);
-    };
-
-    // Setup subscriptions if not deferred or if high priority
-    if (!deferLoad || initialPriority === SUBSCRIPTION_PRIORITY.HIGH) {
       setupSubscriptions();
     }
 
     return () => {
       isMountedRef.current = false;
       // Clean up subscriptions
+      if (channelsRef.current.collections) {
+        channelsRef.current.collections.unsubscribe();
+        channelsRef.current.collections = undefined;
+      }
+      if (channelsRef.current.access) {
+        channelsRef.current.access.unsubscribe();
+        channelsRef.current.access = undefined;
+      }
       cleanupFnsRef.current.forEach(fn => fn());
       cleanupFnsRef.current = [];
     };
