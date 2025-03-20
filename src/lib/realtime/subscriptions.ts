@@ -362,7 +362,159 @@ export function createRobustChannel<T = any>(
 // Shared channel for specific tables
 // This pattern reduces the number of connections by sharing a channel for a table
 // and filtering based on IDs in the handler
-const sharedChannels = new Map<string, RealtimeChannel>();
+const sharedChannels = new Map<string, {
+  channel: RealtimeChannel;
+  isSubscribed: boolean;
+  subscribing: boolean;
+  handlers: Set<string>;
+}>();
+
+/**
+ * Debug utility for Supabase realtime connections
+ */
+export function setupRealtimeDebugger() {
+  if (typeof window !== 'undefined') {
+    // Attach debugger to window
+    (window as any).debugRealtime = function(autoFix = false) {
+      try {
+        console.log('==== Supabase Realtime Debug Info ====');
+        
+        // Get realtime client
+        const realtimeClient = (supabase.realtime as any);
+        if (!realtimeClient) {
+          console.error('Realtime client not available');
+          return;
+        }
+        
+        // Check WebSocket connection
+        const transport = realtimeClient.transport;
+        const connectionState = transport?.connectionState || 'unknown';
+        console.log(`Connection state: ${connectionState}`);
+        
+        // Check active channels
+        const activeChannelCount = activeChannels.size;
+        console.log(`Active channels: ${activeChannelCount}`);
+        activeChannels.forEach((info, name) => {
+          console.log(`- ${name}: ${info.subscribers} subscribers`);
+        });
+        
+        // Check shared channels
+        const sharedChannelCount = sharedChannels.size;
+        console.log(`Shared channels: ${sharedChannelCount}`);
+        sharedChannels.forEach((info, name) => {
+          console.log(`- ${name}: ${info.handlers.size} handlers, subscribed: ${info.isSubscribed}`);
+        });
+        
+        // Overall health status
+        console.log(`Global health status: ${isRealtimeHealthy ? 'HEALTHY' : 'UNHEALTHY'}`);
+        
+        // Try to get official Supabase channels
+        let supabaseChannels: any[] = [];
+        if (realtimeClient.getChannels) {
+          supabaseChannels = realtimeClient.getChannels();
+          console.log(`Supabase reports ${supabaseChannels.length} channels`);
+          
+          // List all channels
+          supabaseChannels.forEach((channel: any) => {
+            console.log(`- ${channel.topic} (${channel.state})`);
+          });
+        }
+        
+        // Auto-fix functionality
+        if (autoFix) {
+          console.log('Attempting automatic fixes...');
+          
+          // Disconnect and reconnect if connection is unhealthy
+          if (!isRealtimeHealthy) {
+            console.log('Connection is unhealthy, triggering global reconnect');
+            triggerGlobalReconnect();
+          }
+          
+          // Clean up any duplicate or stale channels
+          if (supabaseChannels.length > 0) {
+            const closedOrErrorChannels = supabaseChannels.filter(
+              (channel: any) => channel.state === 'closed' || channel.state === 'errored'
+            );
+            
+            if (closedOrErrorChannels.length > 0) {
+              console.log(`Cleaning up ${closedOrErrorChannels.length} closed/errored channels`);
+              closedOrErrorChannels.forEach((channel: any) => {
+                try {
+                  console.log(`Unsubscribing from ${channel.topic}`);
+                  channel.unsubscribe();
+                } catch (err) {
+                  console.error(`Failed to unsubscribe from ${channel.topic}:`, err);
+                }
+              });
+            }
+          }
+        }
+        
+        // Expose cleanup method
+        (window as any).debugRealtime.cleanupSubscriptions = function() {
+          try {
+            console.log('Cleaning up all subscriptions...');
+            
+            // Clean up all channels from our tracking
+            console.log(`Cleaning ${activeChannels.size} active channels`);
+            activeChannels.forEach((info, name) => {
+              try {
+                info.channel.unsubscribe();
+              } catch (err) {
+                console.warn(`Error unsubscribing from ${name}:`, err);
+              }
+            });
+            activeChannels.clear();
+            
+            // Clean up shared channels
+            console.log(`Cleaning ${sharedChannels.size} shared channels`);
+            sharedChannels.forEach((info, name) => {
+              try {
+                info.channel.unsubscribe();
+              } catch (err) {
+                console.warn(`Error unsubscribing from ${name}:`, err);
+              }
+            });
+            sharedChannels.clear();
+            
+            // Try to clean up Supabase's internal channels
+            const realtimeClient = (supabase.realtime as any);
+            if (realtimeClient?.getChannels) {
+              const channels = realtimeClient.getChannels();
+              console.log(`Cleaning ${channels.length} Supabase internal channels`);
+              
+              channels.forEach((channel: any) => {
+                try {
+                  channel.unsubscribe();
+                } catch (err) {
+                  console.warn(`Error unsubscribing from ${channel.topic}:`, err);
+                }
+              });
+            }
+            
+            console.log('Cleanup complete. Recommend page refresh.');
+            return true;
+          } catch (err) {
+            console.error('Error during cleanup:', err);
+            return false;
+          }
+        };
+        
+        return 'Debug complete. Run window.debugRealtime(true) to attempt automatic fixes.';
+      } catch (err) {
+        console.error('Error in realtime debugger:', err);
+        return false;
+      }
+    };
+    
+    console.log('Realtime debugger exposed. Run window.debugRealtime() to debug realtime connections.');
+    console.log('Run window.debugRealtime(true) to attempt automatic fixes.');
+    console.log('Run window.debugRealtime.cleanupSubscriptions() to clean up stale subscriptions.');
+  }
+}
+
+// Initialize debugger
+setupRealtimeDebugger();
 
 export function subscribeToSharedTableChanges<T = any>(
   table: string,
@@ -371,16 +523,28 @@ export function subscribeToSharedTableChanges<T = any>(
 ): { unsubscribe: () => void } {
   const channelKey = `shared_${table}`;
   
+  // Create unique handler ID
+  const handlerId = `${table}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  
   // Create or reuse a shared channel
   if (!sharedChannels.has(channelKey)) {
     sharedChannels.set(
       channelKey, 
-      supabase.channel(channelKey, { config: { broadcast: { self: true } } })
+      {
+        channel: supabase.channel(channelKey, { config: { broadcast: { self: true } } }),
+        isSubscribed: false,
+        subscribing: false,
+        handlers: new Set([handlerId])
+      }
     );
+  } else {
+    // Add handler to existing channel
+    const existing = sharedChannels.get(channelKey)!;
+    existing.handlers.add(handlerId);
   }
   
-  const channel = sharedChannels.get(channelKey)!;
-  let isSubscribed = false;
+  const channelInfo = sharedChannels.get(channelKey)!;
+  const channel = channelInfo.channel;
   
   // Subscribe to postgres changes
   channel.on(
@@ -407,28 +571,44 @@ export function subscribeToSharedTableChanges<T = any>(
     }
   );
   
-  // Subscribe once if not already subscribed
-  if (!isSubscribed) {
-    channel.subscribe((status) => {
-      isSubscribed = status === 'SUBSCRIBED';
-    });
+  // Subscribe once if not already subscribed and not in the process of subscribing
+  if (!channelInfo.isSubscribed && !channelInfo.subscribing) {
+    try {
+      // Mark as subscribing to prevent concurrent subscribe calls
+      channelInfo.subscribing = true;
+      
+      channel.subscribe((status) => {
+        channelInfo.subscribing = false;
+        channelInfo.isSubscribed = status === 'SUBSCRIBED';
+        
+        if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.warn(`Shared channel ${channelKey} closed or errored, will resubscribe on next use`);
+          channelInfo.isSubscribed = false;
+        }
+      });
+    } catch (err) {
+      console.error(`Error subscribing to shared channel ${channelKey}:`, err);
+      channelInfo.subscribing = false;
+    }
   }
   
   // Return unsubscribe method
   return {
     unsubscribe: () => {
-      // Remove just this handler, not the whole channel
-      try {
-        // Use removeChannel if off method is not available
-        const realtimeClient = (supabase.realtime as any);
-        if (realtimeClient?.removeChannel) {
-          realtimeClient.removeChannel(channel);
-        } else {
-          // Fallback to unsubscribe
-          channel.unsubscribe();
+      // Remove handler from set
+      const channelInfo = sharedChannels.get(channelKey);
+      if (channelInfo) {
+        channelInfo.handlers.delete(handlerId);
+        
+        // If no more handlers, unsubscribe and remove channel
+        if (channelInfo.handlers.size === 0) {
+          try {
+            channelInfo.channel.unsubscribe();
+          } catch (err) {
+            console.warn(`Error unsubscribing from shared channel ${channelKey}:`, err);
+          }
+          sharedChannels.delete(channelKey);
         }
-      } catch (err) {
-        console.error(`Error removing handler for ${table}:`, err);
       }
     }
   };

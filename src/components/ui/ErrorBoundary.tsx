@@ -21,14 +21,16 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('Error caught by boundary:', error, info);
     
     // Handle wallet-specific errors
-    if (error.message.includes('wallet_not_found')) {
-      this.setState({
-        error: new Error('Wallet not found. Please make sure you have a Solana wallet installed.')
-      });
-    } else if (error.message.includes('user_rejected')) {
-      this.setState({
-        error: new Error('Connection request was rejected. Please try again.')
-      });
+    if (error && error.message && typeof error.message === 'string') {
+      if (error.message.includes('wallet_not_found')) {
+        this.setState({
+          error: new Error('Wallet not found. Please make sure you have a Solana wallet installed.')
+        });
+      } else if (error.message.includes('user_rejected')) {
+        this.setState({
+          error: new Error('Connection request was rejected. Please try again.')
+        });
+      }
     }
   }
 
