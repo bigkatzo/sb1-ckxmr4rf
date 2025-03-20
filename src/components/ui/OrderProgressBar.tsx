@@ -2,6 +2,7 @@ import React from 'react';
 import { useOrderStats } from '../../hooks/useOrderStats';
 import { OrderProgressBarSkeleton } from './Skeletons';
 import { Infinity } from 'lucide-react';
+import { RealtimeStatusIndicator } from './RealtimeStatusIndicator';
 
 interface OrderProgressBarProps {
   productId: string;
@@ -112,6 +113,11 @@ export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock }: 
             )}
           </span>
         </div>
+      </div>
+      
+      {/* Realtime status indicator in bottom right - very small with mild padding */}
+      <div className="flex justify-end">
+        <RealtimeStatusIndicator compact className="scale-75 p-0.5" />
       </div>
     </div>
   );
