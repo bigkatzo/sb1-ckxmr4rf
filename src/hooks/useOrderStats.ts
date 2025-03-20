@@ -16,40 +16,50 @@ const DEBOUNCE_WAIT = 500; // 500ms debounce for real-time updates
 
 // Throttle the number of active order subscriptions
 // This limits the number of concurrent realtime subscriptions
-let ACTIVE_SUBSCRIPTIONS = 0;
-const MAX_CONCURRENT_SUBSCRIPTIONS = 3; // Reduced from 5 to 3 to ensure stable connections
+const MAX_CONCURRENT_SUBSCRIPTIONS = 3; // Limit concurrent subscriptions
 
-// Add global subscription queue
-const subscriptionQueue: string[] = [];
-let processingQueue = false;
+// Global subscription tracking
+const activeSubscriptions = new Map<string, {
+  cleanup: () => void,
+  priority: number,
+  lastAccessed: number
+}>();
 
-// Process the next item in the subscription queue
-async function processSubscriptionQueue() {
-  if (processingQueue || subscriptionQueue.length === 0) return;
-  
-  processingQueue = true;
-  
-  // Wait until we have an available subscription slot
-  while (ACTIVE_SUBSCRIPTIONS >= MAX_CONCURRENT_SUBSCRIPTIONS && subscriptionQueue.length > 0) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+// Track which product IDs are currently using polling
+const pollingProducts = new Set<string>();
+
+// Get current active subscription count
+function getActiveSubscriptionCount() {
+  return activeSubscriptions.size;
+}
+
+// Prioritize which subscriptions to keep active
+function prioritizeSubscriptions() {
+  if (getActiveSubscriptionCount() <= MAX_CONCURRENT_SUBSCRIPTIONS) {
+    return;
   }
   
-  // Process the next item if queue isn't empty
-  if (subscriptionQueue.length > 0) {
-    const productId = subscriptionQueue.shift();
-    if (productId) {
-      // This just marks that we've processed this ID - the actual subscription
-      // will happen in the useOrderStats hook for this product
-      console.log(`Processing subscription for ${productId} (${ACTIVE_SUBSCRIPTIONS}/${MAX_CONCURRENT_SUBSCRIPTIONS})`);
-    }
-  }
+  // Sort by priority and last accessed time
+  const entries = Array.from(activeSubscriptions.entries())
+    .sort((a, b) => {
+      // First by priority (higher is better)
+      if (b[1].priority !== a[1].priority) {
+        return b[1].priority - a[1].priority;
+      }
+      // Then by last accessed (more recent is better)
+      return b[1].lastAccessed - a[1].lastAccessed;
+    });
   
-  processingQueue = false;
+  // Keep only MAX_CONCURRENT_SUBSCRIPTIONS active
+  const toRemove = entries.slice(MAX_CONCURRENT_SUBSCRIPTIONS);
   
-  // Continue processing if there are more items
-  if (subscriptionQueue.length > 0) {
-    processSubscriptionQueue();
-  }
+  // Convert removed subscriptions to polling
+  toRemove.forEach(([productId, { cleanup }]) => {
+    console.log(`Converting subscription to polling for ${productId}`);
+    cleanup(); // Run cleanup function
+    activeSubscriptions.delete(productId);
+    pollingProducts.add(productId);
+  });
 }
 
 export function useOrderStats(productId: string) {
@@ -60,8 +70,24 @@ export function useOrderStats(productId: string) {
   });
   const isFetchingRef = useRef(false);
   const pollingIntervalRef = useRef<any>(null);
+  const mountTimeRef = useRef<number>(Date.now());
+  const priorityRef = useRef<number>(0);
 
+  // Update last accessed time for this product
+  const updateAccessTime = useCallback(() => {
+    const subscription = activeSubscriptions.get(productId);
+    if (subscription) {
+      activeSubscriptions.set(productId, {
+        ...subscription,
+        lastAccessed: Date.now()
+      });
+    }
+  }, [productId]);
+
+  // Fetch order stats from the database
   const fetchOrderStats = useCallback(async (attempt = 0) => {
+    updateAccessTime();
+    
     try {
       // Check cache first
       const cacheKey = `order_stats:${productId}`;
@@ -111,7 +137,7 @@ export function useOrderStats(productId: string) {
         });
       }
     }
-  }, [productId]);
+  }, [productId, updateAccessTime]);
 
   const fetchFreshOrderStats = useCallback(async (updateLoadingState = true) => {
     if (isFetchingRef.current) return;
@@ -172,135 +198,167 @@ export function useOrderStats(productId: string) {
       clearInterval(pollingIntervalRef.current);
     }
     
+    // Mark this product as using polling
+    pollingProducts.add(productId);
+    
     console.log(`Starting polling fallback for order stats for ${productId}`);
     pollingIntervalRef.current = setInterval(() => {
-      console.log(`Polling for order stats for ${productId}`);
       fetchOrderStats();
     }, 30000); // Poll every 30 seconds
   }, [productId, fetchOrderStats]);
 
+  // Setup realtime subscription
+  const setupRealtimeSubscription = useCallback(() => {
+    console.log(`Setting up robust subscription for orders_${productId}`);
+    
+    // Create a robust channel for orders table
+    const { channel, subscribe } = createRobustChannel(
+      `orders_${productId}`,
+      { broadcast: { self: true } },
+      5 // Max reconnect attempts
+    );
+    
+    // Listen for orders table changes
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        filter: `product_id=eq.${productId}`
+      },
+      (payload) => {
+        updateAccessTime();
+        console.log('Order change detected:', payload);
+        // For INSERT/DELETE use debounced fetch
+        debouncedFetch();
+      }
+    );
+    
+    // Listen for order counts view changes
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'public_order_counts',
+        filter: `product_id=eq.${productId}`
+      },
+      (payload) => {
+        updateAccessTime();
+        console.log('Order count update detected:', payload);
+        if (payload.new?.total_orders !== undefined) {
+          // Direct update from the order counts view
+          const orderCount = payload.new.total_orders || 0;
+          
+          // Update cache with new options format
+          cacheManager.set(
+            `order_stats:${productId}`, 
+            orderCount,
+            CACHE_DURATIONS.REALTIME.TTL,
+            { staleTime: CACHE_DURATIONS.REALTIME.STALE }
+          ).catch(err => {
+            console.error('Failed to update cache:', err);
+          });
+          
+          // Update state directly
+          setStats({
+            currentOrders: orderCount,
+            loading: false,
+            error: null
+          });
+        }
+      }
+    );
+    
+    // Subscribe with connection status callback
+    const subscription = subscribe((status) => {
+      if (status.status === 'MAX_RETRIES_EXCEEDED') {
+        console.warn(`Max retries exceeded for ${productId}, falling back to polling`);
+        startPolling();
+      }
+    });
+    
+    // Store cleanup function for this subscription
+    const cleanup = () => {
+      console.log(`Cleaning up subscription for orders_${productId}`);
+      subscription.unsubscribe();
+      activeSubscriptions.delete(productId);
+      
+      // Only clear polling if we're completely cleaning up
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+    
+    // Store subscription info
+    activeSubscriptions.set(productId, {
+      cleanup,
+      priority: priorityRef.current,
+      lastAccessed: Date.now()
+    });
+    
+    // Clear from polling products if we've switched to subscription
+    pollingProducts.delete(productId);
+    
+    return cleanup;
+  }, [productId, debouncedFetch, updateAccessTime, startPolling]);
+
   useEffect(() => {
     let mounted = true;
-    let cleanup: (() => void) | null = null;
+    let cleanupFn: (() => void) | null = null;
     
-    // Increment subscription counter when mounting
-    ACTIVE_SUBSCRIPTIONS++;
-    console.log(`Active subscriptions: ${ACTIVE_SUBSCRIPTIONS}/${MAX_CONCURRENT_SUBSCRIPTIONS}`);
-
+    // Set mount time for subscription priority
+    mountTimeRef.current = Date.now();
+    
     // Initial fetch
-    if (mounted) {
-      fetchOrderStats();
-    }
+    fetchOrderStats();
 
-    // Check if we have too many subscriptions
-    if (ACTIVE_SUBSCRIPTIONS > MAX_CONCURRENT_SUBSCRIPTIONS) {
-      console.log(`Too many active subscriptions (${ACTIVE_SUBSCRIPTIONS}/${MAX_CONCURRENT_SUBSCRIPTIONS}), using polling for ${productId}`);
-      // Fall back to polling for this item
-      startPolling();
-    } else {
-      // Set up realtime subscription with robust reconnection logic
-      const setupSubscription = () => {
-        console.log(`Setting up robust subscription for orders_${productId}`);
+    // Attempt to setup realtime or polling
+    const setupConnection = () => {
+      // Check if we should use polling
+      const shouldUsePolling = 
+        pollingProducts.has(productId) || // Already using polling
+        getActiveSubscriptionCount() >= MAX_CONCURRENT_SUBSCRIPTIONS; // Too many subscriptions
+      
+      if (shouldUsePolling) {
+        console.log(`Using polling for ${productId} (${getActiveSubscriptionCount()}/${MAX_CONCURRENT_SUBSCRIPTIONS} active subscriptions)`);
+        startPolling();
+      } else {
+        // Use realtime subscription
+        cleanupFn = setupRealtimeSubscription();
         
-        // Create a robust channel for orders table
-        const { channel, subscribe } = createRobustChannel(
-          `orders_${productId}`,
-          { broadcast: { self: true } },
-          5 // Max reconnect attempts
-        );
-        
-        // Listen for orders table changes
-        channel.on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'orders',
-            filter: `product_id=eq.${productId}`
-          },
-          (payload) => {
-            console.log('Order change detected:', payload);
-            if (mounted) {
-              // For INSERT/DELETE use debounced fetch
-              debouncedFetch();
-            }
-          }
-        );
-        
-        // Listen for order counts view changes
-        channel.on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'public_order_counts',
-            filter: `product_id=eq.${productId}`
-          },
-          (payload) => {
-            console.log('Order count update detected:', payload);
-            if (mounted && payload.new?.total_orders !== undefined) {
-              // Direct update from the order counts view
-              const orderCount = payload.new.total_orders || 0;
-              
-              // Update cache with new options format
-              cacheManager.set(
-                `order_stats:${productId}`, 
-                orderCount,
-                CACHE_DURATIONS.REALTIME.TTL,
-                { staleTime: CACHE_DURATIONS.REALTIME.STALE }
-              ).catch(err => {
-                console.error('Failed to update cache:', err);
-              });
-              
-              // Update state directly
-              setStats({
-                currentOrders: orderCount,
-                loading: false,
-                error: null
-              });
-            }
-          }
-        );
-        
-        // Subscribe with connection status callback
-        const subscription = subscribe((status) => {
-          if (status.status === 'MAX_RETRIES_EXCEEDED') {
-            console.warn(`Max retries exceeded for ${productId}, falling back to polling`);
-            startPolling();
-          }
-        });
-        
-        // Create the cleanup function
-        cleanup = () => {
-          console.log(`Cleaning up subscription for orders_${productId}`);
-          subscription.unsubscribe();
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-          }
-        };
-      };
+        // After adding this subscription, check if we need to prioritize
+        prioritizeSubscriptions();
+      }
+    };
 
-      setupSubscription();
-    }
+    // Setup connection strategy
+    setupConnection();
 
     // Return cleanup function
     return () => {
       mounted = false;
-      if (cleanup) {
-        cleanup();
+      
+      // Remove from active subscriptions
+      if (cleanupFn) {
+        cleanupFn();
       }
       
-      // Decrement subscription counter when unmounting
-      ACTIVE_SUBSCRIPTIONS--;
-      console.log(`Active subscriptions after cleanup: ${ACTIVE_SUBSCRIPTIONS}/${MAX_CONCURRENT_SUBSCRIPTIONS}`);
+      // Clear polling
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
       
-      // Process queue after cleanup in case we now have room for another subscription
-      processSubscriptionQueue();
+      // Remove from polling products
+      pollingProducts.delete(productId);
       
       // Cancel any pending debounced fetches
       debouncedFetch.cancel();
     };
-  }, [productId, fetchOrderStats, debouncedFetch, startPolling]);
+  }, [productId, fetchOrderStats, debouncedFetch, startPolling, setupRealtimeSubscription]);
 
   return stats;
 }
