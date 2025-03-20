@@ -9,13 +9,28 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   realtime: {
     params: {
-      eventsPerSecond: 5, // Lower to reduce rate limiting
-      heartbeatIntervalMs: 15000 // Increase heartbeat interval
+      eventsPerSecond: 3, // Reduce rate limiting by lowering events per second
+      heartbeatIntervalMs: 25000, // Increase heartbeat interval to reduce network traffic
+      fastConnectOptions: {
+        ackTimeout: 12000, // Increase timeout for connection acknowledgements
+        retries: 5 // Increase connection retry attempts
+      }
     }
   },
   auth: {
     persistSession: true,
     autoRefreshToken: true
+  },
+  global: {
+    // Add global error handling
+    fetch: async (url, options) => {
+      try {
+        return await fetch(url, options);
+      } catch (error) {
+        console.error('Supabase fetch error:', error);
+        throw error;
+      }
+    }
   }
 });
 

@@ -17,7 +17,7 @@ const DEBOUNCE_WAIT = 500; // 500ms debounce for real-time updates
 // Throttle the number of active order subscriptions
 // This limits the number of concurrent realtime subscriptions
 let ACTIVE_SUBSCRIPTIONS = 0;
-const MAX_CONCURRENT_SUBSCRIPTIONS = 5;
+const MAX_CONCURRENT_SUBSCRIPTIONS = 3; // Reduced from 5 to 3 to ensure stable connections
 
 // Add global subscription queue
 const subscriptionQueue: string[] = [];

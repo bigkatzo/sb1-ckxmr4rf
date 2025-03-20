@@ -21,6 +21,7 @@ import { preloadNFTVerifier } from './utils/nft-verification';
 import 'react-toastify/dist/ReactToastify.css';
 import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
+import { RealtimeStatus } from './components/ui/RealtimeStatus';
 
 // Validate environment variables at startup
 validateEnvironmentVariables();
@@ -111,6 +112,7 @@ function AppContent() {
         <TransactionStatusWrapper />
         <NotificationsWrapper />
       </div>
+      <RealtimeStatus />
       <ToastContainer
         position="bottom-right"
         theme="dark"
