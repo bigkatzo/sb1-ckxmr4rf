@@ -1,201 +1,121 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { normalizeStorageUrl } from '../lib/storage';
+import { handleError } from '../lib/error-handling';
+import { toast } from 'react-toastify';
 import type { Order } from '../types/orders';
+import { useMerchantDashboard, SUBSCRIPTION_TYPES, POLLING_INTERVALS } from './useMerchantDashboard';
 
-// Cache admin status for 5 minutes
-const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
-
-interface RawOrder {
-  id: string;
-  order_number: string;
-  product_id: string | null;
-  product_name: string;
-  product_sku: string | null;
-  product_image_url: string | null;
-  product_images: string[] | null;
-  product_variants: { name: string; value: string }[];
-  product_variant_prices: Record<string, number>;
-  collection_id: string;
-  collection_name: string;
-  collection_owner_id: string | null;
-  category_name: string | null;
-  category_description: string | null;
-  category_type: string | null;
-  wallet_address: string;
-  transaction_signature: string;
-  shipping_address: any;
-  contact_info: any;
-  status: Order['status'];
-  amount_sol: number;
-  created_at: string;
-  updated_at: string;
-  variant_selections: { name: string; value: string }[];
-  access_type: 'view' | 'edit' | 'owner' | 'admin' | null;
-  product_snapshot?: {
-    images?: string[];
-  };
+interface UseMerchantOrdersOptions {
+  initialPriority?: number;
+  deferLoad?: boolean;
+  elementRef?: React.RefObject<HTMLDivElement>;
 }
 
-export function useMerchantOrders() {
+export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  
-  // Use useRef for per-user admin status caching
-  const adminCacheRef = useRef<{ [key: string]: { isAdmin: boolean; timestamp: number } }>({});
-
-  const checkAdminStatus = useCallback(async (userId: string) => {
-    // Return cached value if still valid
-    if (adminCacheRef.current[userId] && 
-        Date.now() - adminCacheRef.current[userId].timestamp < ADMIN_CACHE_DURATION) {
-      return adminCacheRef.current[userId].isAdmin;
-    }
-
-    try {
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', userId)
-        .single();
-
-      if (profileError) throw profileError;
-
-      const isAdmin = profile?.role === 'admin';
-      
-      // Cache the result per user
-      adminCacheRef.current[userId] = {
-        isAdmin,
-        timestamp: Date.now()
-      };
-
-      return isAdmin;
-    } catch (err) {
-      console.error('Error checking admin status:', err);
-      return false;
-    }
-  }, []);
+  const isFetchingRef = useRef(false);
 
   const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
+    try {
       // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         throw authError || new Error('Not authenticated');
       }
 
-      // Check admin status
-      const adminStatus = await checkAdminStatus(user.id);
-      setIsAdmin(adminStatus);
+      // Get user's collections
+      const { data: collections, error: collectionsError } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('user_id', user.id);
 
-      const { data: rawOrders, error: fetchError } = await supabase
-        .from('merchant_orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+      if (collectionsError) throw collectionsError;
 
-      if (fetchError) throw fetchError;
+      // Get collections user has access to
+      const { data: accessibleCollections, error: accessError } = await supabase
+        .from('collection_access')
+        .select('collection_id')
+        .eq('user_id', user.id);
 
-      // Transform raw orders into the expected format
-      const transformedOrders: Order[] = (rawOrders || []).map((order: RawOrder) => {
-        // Get the image URL from either direct field, product images, or snapshot
-        const imageUrl = order.product_image_url || 
-          (order.product_images?.[0] ? normalizeStorageUrl(order.product_images[0]) : null) ||
-          (order.product_snapshot?.images?.[0] ? normalizeStorageUrl(order.product_snapshot.images[0]) : '');
+      if (accessError) throw accessError;
 
-        return {
-          id: order.id,
-          order_number: order.order_number,
-          status: order.status,
-          createdAt: order.created_at,
-          updatedAt: order.updated_at,
-          product_id: order.product_id || '',
-          collection_id: order.collection_id,
-          product_name: order.product_name,
-          product_sku: order.product_sku || '',
-          product_image_url: imageUrl,
-          collection_name: order.collection_name,
-          amountSol: order.amount_sol,
-          category_name: order.category_name || undefined,
-          shippingAddress: order.shipping_address,
-          contactInfo: order.contact_info,
-          walletAddress: order.wallet_address,
-          transactionSignature: order.transaction_signature,
-          access_type: order.access_type || 'view',
-          order_variants: order.variant_selections || []
-        };
-      });
+      // Combine collection IDs
+      const collectionIds = [
+        ...(collections?.map(c => c.id) || []),
+        ...(accessibleCollections?.map(c => c.collection_id) || [])
+      ];
 
-      setOrders(transformedOrders);
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      setError(err instanceof Error ? err : new Error('Failed to fetch orders'));
-    } finally {
-      setLoading(false);
-    }
-  }, [checkAdminStatus]);
-
-  useEffect(() => {
-    fetchOrders();
-
-    // Set up realtime subscription
-    const channel = supabase.channel('merchant_orders')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'merchant_orders'
-        },
-        () => {
-          fetchOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [fetchOrders]);
-
-  const updateOrderStatus = useCallback(async (orderId: string, status: Order['status']) => {
-    try {
-      // First, check if user has edit access to the order's collection
-      const { data: orderData, error: orderError } = await supabase
-        .from('merchant_orders')
-        .select('collection_id, access_type')
-        .eq('id', orderId)
-        .single();
-
-      if (orderError) throw orderError;
-      if (!orderData) throw new Error('Order not found');
-
-      // Only allow status update if user has proper access
-      if (orderData.access_type !== 'edit' && 
-          orderData.access_type !== 'owner' && 
-          !isAdmin) {
-        throw new Error('You do not have permission to update this order');
+      if (!collectionIds.length) {
+        setOrders([]);
+        return;
       }
 
-      const { error } = await supabase
+      // Get orders for all collections
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .update({ status })
-        .eq('id', orderId);
+        .select(`
+          *,
+          products:order_products (
+            *,
+            product:products (
+              *,
+              collection:collections (name)
+            )
+          )
+        `)
+        .in('collection_id', collectionIds)
+        .order('created_at', { ascending: false });
+
+      if (ordersError) throw ordersError;
+
+      setOrders(ordersData || []);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      const errorMessage = handleError(err);
+      toast.error(`Failed to load orders: ${errorMessage}`);
+      setOrders([]);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, []);
+
+  // Use realtime for orders with a backup polling strategy
+  const { loading, error, refresh } = useMerchantDashboard({
+    ...options,
+    tables: ['orders', 'order_status'], // Only subscribe to critical tables
+    subscriptionId: 'merchant_orders',
+    onDataChange: fetchOrders,
+    type: SUBSCRIPTION_TYPES.REALTIME, // Use realtime for immediate order updates
+    pollingInterval: POLLING_INTERVALS.ORDERS // Fallback polling every 30s
+  });
+
+  const updateOrderStatus = useCallback(async (orderId: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('order_status')
+        .upsert({
+          order_id: orderId,
+          status
+        });
 
       if (error) throw error;
+      toast.success('Order status updated successfully');
     } catch (err) {
       console.error('Error updating order status:', err);
+      const errorMessage = handleError(err);
+      toast.error(`Failed to update order status: ${errorMessage}`);
       throw err;
     }
-  }, [isAdmin]);
+  }, []);
 
   return {
     orders,
     loading,
     error,
-    refreshOrders: fetchOrders,
-    updateOrderStatus
+    updateOrderStatus,
+    refresh
   };
 }
