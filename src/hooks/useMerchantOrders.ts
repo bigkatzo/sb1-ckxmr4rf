@@ -147,7 +147,7 @@ export function useMerchantOrders() {
         {
           event: '*',
           schema: 'public',
-          table: 'orders'
+          table: 'merchant_orders'
         },
         () => {
           fetchOrders();

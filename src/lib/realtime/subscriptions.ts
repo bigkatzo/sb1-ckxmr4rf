@@ -1126,12 +1126,12 @@ export function subscribeToCollectionProducts(
       'log',
       `Connection unhealthy for ${collectionId}, switching to polling immediately`
     );
-    return createPollingFallback(collectionId, 'products', { collection_id: collectionId }, onUpdate);
+    return createPollingFallback(collectionId, 'public_products', { collection_id: collectionId }, onUpdate);
   }
   
   // If realtime is healthy, proceed with subscription
   return subscribeToSharedTableChanges(
-    'products',
+    'public_products',
     { collection_id: collectionId },
     () => {
       console.log('Collection products updated:', collectionId);
@@ -1152,12 +1152,12 @@ export function subscribeToCollectionCategories(
       'log',
       `Connection unhealthy for ${collectionId}, switching to polling immediately`
     );
-    return createPollingFallback(collectionId, 'categories', { collection_id: collectionId }, onUpdate);
+    return createPollingFallback(collectionId, 'public_categories', { collection_id: collectionId }, onUpdate);
   }
   
   // If realtime is healthy, proceed with subscription
   return subscribeToSharedTableChanges(
-    'categories',
+    'public_categories',
     { collection_id: collectionId },
     () => {
       console.log('Collection categories updated:', collectionId);
@@ -1179,12 +1179,12 @@ export function subscribeToCollection(
       'log',
       `Connection unhealthy for ${collectionId}, switching to polling immediately`
     );
-    return createPollingFallback(collectionId, 'collections', { id: collectionId }, onUpdate);
+    return createPollingFallback(collectionId, 'public_collections', { id: collectionId }, onUpdate);
   }
   
   // If realtime is healthy, proceed with subscription
   return subscribeToSharedTableChanges(
-    'collections',
+    'public_collections',
     { id: collectionId },
     () => {
       console.log('Collection updated:', collectionId);

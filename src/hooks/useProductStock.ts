@@ -127,7 +127,7 @@ export function useProductStock(productId: string) {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'products',
+          table: 'public_products',
           filter: `id=eq.${productId}`
         },
         (payload) => {

@@ -69,7 +69,7 @@ export function useOrders() {
         {
           event: '*',
           schema: 'public',
-          table: 'orders',
+          table: 'user_orders',
           filter: `wallet_address=eq.${walletAddress}`
         },
         () => {

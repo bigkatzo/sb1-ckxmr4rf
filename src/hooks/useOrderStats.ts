@@ -219,18 +219,7 @@ export function useOrderStats(productId: string) {
     cleanupFnsRef.current.forEach(cleanup => cleanup());
     cleanupFnsRef.current = [];
     
-    // First try to use the shared orders table channel
-    const ordersSubscription = subscribeToSharedTableChanges(
-      'orders',
-      { product_id: productId },
-      () => {
-        updateAccessTime();
-        console.log('Order change detected for', productId);
-        debouncedFetch();
-      }
-    );
-    
-    // Then subscribe to order counts updates
+    // Subscribe to order counts updates
     const orderCountsSubscription = subscribeToSharedTableChanges(
       'public_order_counts',
       { product_id: productId },
@@ -264,7 +253,6 @@ export function useOrderStats(productId: string) {
     
     // Keep track of cleanup functions
     cleanupFnsRef.current.push(
-      ordersSubscription.unsubscribe,
       orderCountsSubscription.unsubscribe
     );
     
