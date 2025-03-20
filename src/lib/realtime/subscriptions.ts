@@ -170,6 +170,9 @@ function startHealthCheck() {
       if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
         realtimeGivenUp = true;
         console.log('Initial connection attempts failed. All subscriptions will use polling.');
+        
+        // Notify existing collections to switch to polling
+        switchAllToPolling();
       }
     }
   });
@@ -211,7 +214,11 @@ function startHealthCheck() {
         // Reduce the frequency of health checks when we've given up
         clearInterval(healthCheckInterval);
         healthCheckInterval = setInterval(async () => {
-          console.log('Periodic check for realtime availability (reduced frequency)');
+          rateLog(
+            'periodic_check_reduced',
+            'log',
+            'Periodic check for realtime availability (reduced frequency)'
+          );
           const transport = (supabase.realtime as any)?.transport;
           isRealtimeHealthy = transport && transport.connectionState === 'open';
           
@@ -236,6 +243,9 @@ function startHealthCheck() {
           // We've hit max attempts, give up on realtime
           realtimeGivenUp = true;
           console.log('Maximum connection attempts reached during health check. Switching to polling mode.');
+          
+          // Switch all active subscriptions to polling
+          switchAllToPolling();
           
           // Switch to reduced frequency health checks
           clearInterval(healthCheckInterval);
@@ -322,7 +332,13 @@ async function triggerGlobalReconnect() {
       // Try to initialize a new connection
       try {
         if (typeof realtimeClient.connect === 'function') {
-          await realtimeClient.connect();
+          await Promise.race([
+            realtimeClient.connect(),
+            // Add a timeout to prevent hanging if connect never resolves
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Connection attempt timed out')), 5000)
+            )
+          ]);
           
           // Wait a bit for the connection to establish
           await new Promise(resolve => setTimeout(resolve, 3000));
@@ -331,13 +347,17 @@ async function triggerGlobalReconnect() {
           if (!realtimeClient.transport) {
             console.error('Failed to initialize realtime transport');
             isRealtimeHealthy = false;
-            isReconnecting = false;
+            
+            // Increment connection attempt counter
+            connectionInitAttempts++;
             
             // If we've tried max attempts, give up on realtime entirely
             if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
               realtimeGivenUp = true;
               console.log('Maximum connection attempts reached during reconnect. All subscriptions will use polling.');
             }
+            
+            isReconnecting = false;
             return;
           }
         } else {
@@ -356,13 +376,17 @@ async function triggerGlobalReconnect() {
       } catch (err) {
         console.error('Error initializing realtime connection:', err);
         isRealtimeHealthy = false;
-        isReconnecting = false;
+        
+        // Increment connection attempt counter on failure
+        connectionInitAttempts++;
         
         // If we've tried max attempts, give up on realtime entirely
         if (connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
           realtimeGivenUp = true;
           console.log('Maximum connection attempts reached during reconnect. All subscriptions will use polling.');
         }
+        
+        isReconnecting = false;
         return;
       }
     }
@@ -1070,7 +1094,11 @@ function createPollingFallback(
   // Return cleanup function
   return {
     unsubscribe: () => {
-      console.log(`Stopping polling for ${collectionId}`);
+      rateLog(
+        `polling_stop_${pollingKey}`,
+        'log',
+        `Stopping polling for ${collectionId}`
+      );
       clearInterval(intervalId);
       pollingCollections.delete(pollingKey);
     }
@@ -1154,4 +1182,20 @@ export function subscribeToCollection(
       onUpdate();
     }
   );
+}
+
+// Helper function to switch all active collections to polling
+function switchAllToPolling() {
+  console.log('Switching all collections to polling mode due to persistent connection issues');
+  
+  // Mark all shared channels as not subscribed to force polling on next use
+  sharedChannels.forEach((info, key) => {
+    info.isSubscribed = false;
+    info.subscribing = false;
+    rateLog(
+      `force_polling_${key}`,
+      'log',
+      `Force switched ${key} to polling mode due to persistent connection issues`
+    );
+  });
 }
