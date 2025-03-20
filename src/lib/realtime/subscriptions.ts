@@ -20,6 +20,47 @@ export function isRealtimeConnectionHealthy(): boolean {
 }
 
 /**
+ * Setup realtime health monitoring
+ * This function sets up a periodic check of the realtime connection
+ * and attempts to reconnect if the connection is lost
+ */
+export function setupRealtimeHealth(options: {
+  checkInterval?: number;
+  onHealthChange?: (isHealthy: boolean) => void;
+} = {}): Unsubscribable {
+  const {
+    checkInterval = 30000, // Default to 30 seconds
+    onHealthChange
+  } = options;
+
+  let lastHealthState = isRealtimeConnectionHealthy();
+  onHealthChange?.(lastHealthState);
+
+  const intervalId = setInterval(() => {
+    const isHealthy = isRealtimeConnectionHealthy();
+    
+    // Only notify if health state has changed
+    if (isHealthy !== lastHealthState) {
+      lastHealthState = isHealthy;
+      onHealthChange?.(isHealthy);
+
+      // If connection is unhealthy, try to reconnect
+      if (!isHealthy) {
+        console.warn('Realtime connection is unhealthy, attempting to reconnect...');
+        supabase.removeAllChannels();
+        supabase.realtime.connect();
+      }
+    }
+  }, checkInterval);
+
+  return {
+    unsubscribe: () => {
+      clearInterval(intervalId);
+    }
+  };
+}
+
+/**
  * Subscribe to changes on a shared table with filtering
  */
 export function subscribeToSharedTableChanges<T extends DatabaseChanges>(
