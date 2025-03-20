@@ -18,7 +18,7 @@ import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 
 interface WalletNotification {
   id: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'info';
   message: string;
   timestamp: number;
 }
@@ -54,7 +54,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<Error | null>(null);
   const [notifications, setNotifications] = useState<WalletNotification[]>([]);
 
-  const addNotification = useCallback((type: 'success' | 'error', message: string) => {
+  const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
     const notification: WalletNotification = {
       id: crypto.randomUUID(),
       type,
@@ -96,7 +96,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       await nativeDisconnect();
-      addNotification('success', 'Wallet disconnected');
+      addNotification('info', 'Wallet disconnected');
     } catch (error) {
       console.error('Disconnect error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to disconnect wallet';
