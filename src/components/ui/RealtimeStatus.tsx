@@ -1,87 +1,107 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { isRealtimeConnectionHealthy } from '../../lib/realtime/subscriptions';
+import { Button } from './Button';
 
-type RealtimeStatus = 'connected' | 'connecting' | 'disconnected';
+type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 
 export function RealtimeStatus() {
-  const [status, setStatus] = useState<RealtimeStatus>('connecting');
-  const [showRefreshButton, setShowRefreshButton] = useState(false);
+  const [status, setStatus] = useState<ConnectionStatus>('connecting');
 
   useEffect(() => {
-    // Function to check realtime connection status
-    const checkRealtimeStatus = () => {
+    // Check current status immediately
+    checkStatus();
+
+    // Set up regular status check
+    const intervalId = setInterval(checkStatus, 10000);
+    
+    return () => clearInterval(intervalId);
+    
+    function checkStatus() {
       try {
-        // Access realtime transport if available
-        const transport = (supabase.realtime as any)?.transport;
+        // Get client with safer type assertion
+        const realtimeClient = (supabase.realtime as any);
         
-        if (!transport) {
-          setStatus('disconnected');
-          setShowRefreshButton(true);
+        // First check our more accurate connection health
+        if (isRealtimeConnectionHealthy()) {
+          setStatus('connected');
           return;
         }
         
-        const connectionState = transport.connectionState;
-        
-        if (connectionState === 'open') {
+        // Fallback to transport check if needed
+        if (realtimeClient?.transport?.connectionState === 'open') {
           setStatus('connected');
-          setShowRefreshButton(false);
-        } else if (connectionState === 'connecting') {
+        } else if (realtimeClient?.transport?.connectionState === 'connecting') {
           setStatus('connecting');
-          setShowRefreshButton(false);
         } else {
+          // Any other state or undefined is considered disconnected
           setStatus('disconnected');
-          setShowRefreshButton(true);
         }
-      } catch (err) {
-        console.error('Error checking realtime status:', err);
+      } catch (error) {
+        console.error('Error checking realtime status:', error);
         setStatus('disconnected');
-        setShowRefreshButton(true);
       }
-    };
-    
-    // Check status immediately
-    checkRealtimeStatus();
-    
-    // Set up interval to check status
-    const interval = setInterval(checkRealtimeStatus, 10000);
-    
-    // Clean up interval
-    return () => clearInterval(interval);
+    }
   }, []);
-  
-  // Function to refresh the page
+
   const handleRefresh = () => {
-    window.location.reload();
+    // When disconnected, reload page to re-establish connection
+    if (status === 'disconnected') {
+      window.location.reload();
+    }
   };
-  
+
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center space-x-2 bg-gray-800 rounded-full px-3 py-1 text-xs text-white shadow-lg">
-      <div className="flex items-center">
+    <div className="fixed right-4 top-20 z-50 flex items-center gap-2 bg-background/80 p-2 rounded shadow-sm">
+      <div className="flex items-center gap-2">
         <div 
-          className={`w-2 h-2 rounded-full mr-1 ${
-            status === 'connected' ? 'bg-green-500' :
-            status === 'connecting' ? 'bg-yellow-500' :
-            'bg-red-500'
+          className={`w-3 h-3 rounded-full ${
+            status === 'connected' 
+              ? 'bg-green-500' 
+              : status === 'connecting' 
+                ? 'bg-yellow-500' 
+                : 'bg-red-500'
           }`}
         />
-        <span>
-          {status === 'connected' ? 'Live' :
-           status === 'connecting' ? 'Connecting...' :
-           'Offline'}
+        <span className="text-xs font-medium">
+          {status === 'connected' 
+            ? 'Realtime: Connected' 
+            : status === 'connecting' 
+              ? 'Realtime: Connecting' 
+              : 'Realtime: Disconnected'}
         </span>
       </div>
-      
-      {showRefreshButton && (
-        <>
-          <div className="h-4 w-px bg-gray-600" />
-          <button 
-            onClick={handleRefresh}
-            className="text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            Refresh
-          </button>
-        </>
+      {status === 'disconnected' && (
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-6 w-6 rounded-full" 
+          onClick={handleRefresh}
+          title="Refresh page"
+        >
+          <RefreshIcon className="h-3 w-3" />
+        </Button>
       )}
     </div>
+  );
+}
+
+function RefreshIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M21 2v6h-6" />
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+      <path d="M3 22v-6h6" />
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+    </svg>
   );
 } 

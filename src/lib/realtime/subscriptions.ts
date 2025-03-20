@@ -11,12 +11,81 @@ const activeChannels = new Map<string, {
 // Global health check to monitor Supabase realtime connection
 let healthCheckInterval: any = null;
 let isRealtimeHealthy = true;
+let isInitialConnectionEstablished = false;
+let connectionInitAttempts = 0;
 let heartbeatInterval: any = null;
 let isReconnecting = false;
+let lastConnectionAttempt = 0;
+
+// Check initial connection health and try to establish connection
+async function checkInitialConnectionHealth(): Promise<boolean> {
+  if (isInitialConnectionEstablished) return isRealtimeHealthy;
+  
+  try {
+    const realtimeClient = (supabase.realtime as any);
+    if (!realtimeClient) {
+      console.warn('Realtime client not available for initial connection check');
+      return false;
+    }
+    
+    // If we already have a transport that's open, we're good
+    if (realtimeClient.transport?.connectionState === 'open') {
+      isInitialConnectionEstablished = true;
+      isRealtimeHealthy = true;
+      return true;
+    }
+    
+    // Avoid too frequent connection attempts
+    const now = Date.now();
+    if (now - lastConnectionAttempt < 5000 && connectionInitAttempts > 0) {
+      return false;
+    }
+    
+    // Try to establish connection if not already connected
+    if (!realtimeClient.transport || realtimeClient.transport.connectionState !== 'open') {
+      lastConnectionAttempt = now;
+      connectionInitAttempts++;
+      
+      console.log(`Attempting to establish initial realtime connection (attempt ${connectionInitAttempts})`);
+      
+      if (typeof realtimeClient.connect === 'function') {
+        await realtimeClient.connect();
+        
+        // Wait for connection to establish
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Check if connection succeeded
+        if (realtimeClient.transport?.connectionState === 'open') {
+          console.log('Successfully established initial realtime connection');
+          isInitialConnectionEstablished = true;
+          isRealtimeHealthy = true;
+          return true;
+        } else {
+          console.warn(`Failed to establish initial connection, transport state: ${realtimeClient.transport?.connectionState || 'none'}`);
+          return false;
+        }
+      }
+    }
+    
+    return false;
+  } catch (err) {
+    console.error('Error establishing initial realtime connection:', err);
+    return false;
+  }
+}
 
 // Start global health monitoring
 function startHealthCheck() {
   if (healthCheckInterval) return;
+  
+  // Try to establish initial connection
+  checkInitialConnectionHealth().then(success => {
+    if (success) {
+      console.log('Initial realtime connection established successfully');
+    } else {
+      console.warn('Could not establish initial realtime connection, will keep trying');
+    }
+  });
   
   // Set up heartbeat to keep connections alive
   if (!heartbeatInterval) {
@@ -39,8 +108,16 @@ function startHealthCheck() {
     }, 29000); // Just under 30 seconds (common idle timeout)
   }
   
-  healthCheckInterval = setInterval(() => {
+  healthCheckInterval = setInterval(async () => {
     try {
+      // If we're not established yet, try to establish the initial connection
+      if (!isInitialConnectionEstablished) {
+        const success = await checkInitialConnectionHealth();
+        if (success) {
+          console.log('Realtime connection established during health check');
+        }
+      }
+      
       const transport = (supabase.realtime as any)?.transport;
       const wasHealthy = isRealtimeHealthy;
       
@@ -73,6 +150,11 @@ function startHealthCheck() {
   }, 15000);
 }
 
+// Export a function to check if realtime is healthy
+export function isRealtimeConnectionHealthy(): boolean {
+  return isRealtimeHealthy && isInitialConnectionEstablished;
+}
+
 // Force a global reconnect of the Supabase realtime client
 async function triggerGlobalReconnect() {
   if (isReconnecting) return;
@@ -82,6 +164,47 @@ async function triggerGlobalReconnect() {
     console.log('Triggering global reconnect of Supabase realtime client');
     
     const realtimeClient = (supabase.realtime as any);
+    if (!realtimeClient) {
+      console.error('Realtime client not available for reconnection');
+      isRealtimeHealthy = false;
+      isReconnecting = false;
+      return;
+    }
+    
+    // Safety check for transport
+    if (!realtimeClient.transport) {
+      console.warn('Realtime transport not available, attempting to initialize it');
+      
+      // Try to initialize a new connection
+      try {
+        if (typeof realtimeClient.connect === 'function') {
+          await realtimeClient.connect();
+          
+          // Wait a bit for the connection to establish
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          // Check if we got a transport now
+          if (!realtimeClient.transport) {
+            console.error('Failed to initialize realtime transport');
+            isRealtimeHealthy = false;
+            isReconnecting = false;
+            return;
+          }
+        } else {
+          // No connect method, can't reconnect
+          console.error('No connect method available on realtime client');
+          isRealtimeHealthy = false;
+          isReconnecting = false;
+          return;
+        }
+      } catch (err) {
+        console.error('Error initializing realtime connection:', err);
+        isRealtimeHealthy = false;
+        isReconnecting = false;
+        return;
+      }
+    }
+    
     if (realtimeClient?.disconnect) {
       // Disconnect the client
       await realtimeClient.disconnect();
@@ -104,12 +227,17 @@ async function triggerGlobalReconnect() {
           console.log('Global reconnect successful');
           setTimeout(reconnectAllChannels, 1000);
         } else {
-          console.error('Global reconnect failed');
+          console.error('Global reconnect failed, falling back to polling');
+          // Mark all channels for polling fallback
+          activeChannels.forEach((info, name) => {
+            console.log(`Channel ${name} will use polling fallback after failed reconnect`);
+          });
         }
       }
     }
   } catch (err) {
     console.error('Error during global reconnect:', err);
+    isRealtimeHealthy = false;
   } finally {
     isReconnecting = false;
   }
@@ -584,6 +712,37 @@ export function subscribeToSharedTableChanges<T = any>(
         if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
           console.warn(`Shared channel ${channelKey} closed or errored, will resubscribe on next use`);
           channelInfo.isSubscribed = false;
+          
+          // Try to resubscribe once after a short delay
+          setTimeout(() => {
+            try {
+              if (sharedChannels.has(channelKey) && !sharedChannels.get(channelKey)!.isSubscribed) {
+                const currentInfo = sharedChannels.get(channelKey)!;
+                if (!currentInfo.subscribing) {
+                  console.log(`Attempting to resubscribe to ${channelKey} after closure`);
+                  currentInfo.subscribing = true;
+                  
+                  // Try to resubscribe
+                  currentInfo.channel.subscribe((resubStatus) => {
+                    currentInfo.subscribing = false;
+                    currentInfo.isSubscribed = resubStatus === 'SUBSCRIBED';
+                    
+                    if (resubStatus !== 'SUBSCRIBED') {
+                      console.warn(`Failed to resubscribe to ${channelKey}, will keep using polling`);
+                    } else {
+                      console.log(`Successfully resubscribed to ${channelKey}`);
+                    }
+                  });
+                }
+              }
+            } catch (err) {
+              console.error(`Error resubscribing to ${channelKey}:`, err);
+              const info = sharedChannels.get(channelKey);
+              if (info) {
+                info.subscribing = false;
+              }
+            }
+          }, 3000);
         }
       });
     } catch (err) {
@@ -614,24 +773,43 @@ export function subscribeToSharedTableChanges<T = any>(
   };
 }
 
-export function subscribeToCollection(
+// Create a simple polling implementation for collections when realtime is unavailable
+function createPollingFallback(
   collectionId: string,
+  table: string,
+  filter: Record<string, any>,
   onUpdate: () => void
 ): { unsubscribe: () => void } {
-  return subscribeToSharedTableChanges(
-    'collections',
-    { id: collectionId },
-    () => {
-      console.log('Collection updated:', collectionId);
-      onUpdate();
+  console.log(`Using polling for ${collectionId} (${activeChannels.size} active subscriptions)`);
+  
+  // Set up polling interval
+  const POLL_INTERVAL = 10000; // 10 seconds
+  const intervalId = setInterval(() => {
+    // Call the handler to refresh data
+    onUpdate();
+  }, POLL_INTERVAL);
+  
+  // Return cleanup function
+  return {
+    unsubscribe: () => {
+      console.log(`Stopping polling for ${collectionId}`);
+      clearInterval(intervalId);
     }
-  );
+  };
 }
 
 export function subscribeToCollectionProducts(
   collectionId: string,
   onUpdate: () => void
 ): { unsubscribe: () => void } {
+  // First check if realtime is available
+  const isHealthy = isRealtimeConnectionHealthy();
+  if (!isHealthy) {
+    console.log(`Connection unhealthy for ${collectionId}, switching to polling immediately`);
+    return createPollingFallback(collectionId, 'products', { collection_id: collectionId }, onUpdate);
+  }
+  
+  // If realtime is healthy, proceed with subscription
   return subscribeToSharedTableChanges(
     'products',
     { collection_id: collectionId },
@@ -646,11 +824,42 @@ export function subscribeToCollectionCategories(
   collectionId: string,
   onUpdate: () => void
 ): { unsubscribe: () => void } {
+  // First check if realtime is available
+  const isHealthy = isRealtimeConnectionHealthy();
+  if (!isHealthy) {
+    console.log(`Connection unhealthy for ${collectionId}, switching to polling immediately`);
+    return createPollingFallback(collectionId, 'categories', { collection_id: collectionId }, onUpdate);
+  }
+  
+  // If realtime is healthy, proceed with subscription
   return subscribeToSharedTableChanges(
     'categories',
     { collection_id: collectionId },
     () => {
       console.log('Collection categories updated:', collectionId);
+      onUpdate();
+    }
+  );
+}
+
+// Update the collection subscription to use the polling fallback
+export function subscribeToCollection(
+  collectionId: string,
+  onUpdate: () => void
+): { unsubscribe: () => void } {
+  // First check if realtime is available
+  const isHealthy = isRealtimeConnectionHealthy();
+  if (!isHealthy) {
+    console.log(`Connection unhealthy for ${collectionId}, switching to polling immediately`);
+    return createPollingFallback(collectionId, 'collections', { id: collectionId }, onUpdate);
+  }
+  
+  // If realtime is healthy, proceed with subscription
+  return subscribeToSharedTableChanges(
+    'collections',
+    { id: collectionId },
+    () => {
+      console.log('Collection updated:', collectionId);
       onUpdate();
     }
   );
