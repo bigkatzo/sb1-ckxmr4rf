@@ -1,5 +1,14 @@
 import { RealtimeChannel, SupabaseClient, RealtimeChannelOptions } from '@supabase/supabase-js';
 import { BehaviorSubject } from 'rxjs';
+import { MessageBatcher, BatchedMessage } from './MessageBatcher';
+import { PayloadCompressor } from './PayloadCompressor';
+import { RateLimiter } from './RateLimiter';
+import { logger } from './logger';
+
+interface CompressedPayload<T> {
+  compressed: boolean;
+  data: T | Uint8Array;
+}
 
 export type ConnectionState = {
   status: 'connected' | 'connecting' | 'disconnected';
@@ -33,8 +42,14 @@ export class ConnectionManager {
   private channels: Map<string, RealtimeChannel> = new Map();
   private channelConfigs = new Map<string, RealtimeChannelOptions>();
   
+  private messageBatcher: MessageBatcher;
+  private payloadCompressor: PayloadCompressor;
+  private rateLimiter: RateLimiter;
+  
   private constructor(private supabase: SupabaseClient) {
-    // Don't initialize connection immediately
+    this.messageBatcher = MessageBatcher.getInstance();
+    this.payloadCompressor = PayloadCompressor.getInstance();
+    this.rateLimiter = RateLimiter.getInstance();
   }
 
   static getInstance(supabase: SupabaseClient): ConnectionManager {
@@ -73,11 +88,14 @@ export class ConnectionManager {
   /**
    * Create a new channel with priority-based initialization
    */
-  public createChannel(
+  public async createChannel(
     channelName: string, 
     config: RealtimeChannelOptions = { config: {} },
     priority: number = 0
-  ): RealtimeChannel {
+  ): Promise<RealtimeChannel> {
+    // Apply rate limiting
+    await this.rateLimiter.waitForToken(channelName, 'subscription');
+
     // For high-priority channels, create immediately
     if (priority > 0) {
       return this.createChannelImmediate(channelName, config);
@@ -90,7 +108,10 @@ export class ConnectionManager {
       priority
     });
 
-    // Return a placeholder channel that will be initialized when needed
+    // Setup message batching for this channel
+    this.setupMessageBatching(channelName);
+
+    // Return a placeholder channel
     const deferredChannel = this.supabase.channel(channelName, config);
     this.channels.set(channelName, deferredChannel);
     
@@ -112,16 +133,20 @@ export class ConnectionManager {
 
     const channel = this.supabase.channel(channelName, config);
 
-    channel.subscribe((status: string) => {
-      console.debug(`Channel ${channelName} status:`, status);
-      
-      if (status === 'SUBSCRIBED') {
-        this.reconnectAttempts = 0;
-        this.deferredChannels.delete(channelName); // Channel is now active
-      } else if (status === 'CHANNEL_ERROR') {
-        this.handleChannelError(channel);
-      }
-    });
+    channel
+      .on('broadcast', { event: 'batch' }, (payload) => {
+        this.handleMessage(channelName, payload);
+      })
+      .subscribe((status: string) => {
+        console.debug(`Channel ${channelName} status:`, status);
+        
+        if (status === 'SUBSCRIBED') {
+          this.reconnectAttempts = 0;
+          this.deferredChannels.delete(channelName); // Channel is now active
+        } else if (status === 'CHANNEL_ERROR') {
+          this.handleChannelError(channel);
+        }
+      });
 
     this.channels.set(channelName, channel);
     return channel;
@@ -402,6 +427,60 @@ export class ConnectionManager {
         break;
       default:
         console.debug('Connection event:', event, data);
+    }
+  }
+
+  private setupMessageBatching(channelName: string): void {
+    // Subscribe to batched messages
+    this.messageBatcher.subscribe(channelName, async (messages) => {
+      try {
+        // Check if payload needs compression
+        const payload: CompressedPayload<{ messages: BatchedMessage[] }> = {
+          compressed: false,
+          data: { messages }
+        };
+
+        if (this.payloadCompressor.shouldCompress(payload.data)) {
+          const compressed = await this.payloadCompressor.compressAsync(payload.data);
+          payload.compressed = true;
+          payload.data = compressed;
+        }
+
+        // Send the payload through the channel
+        const channel = this.channels.get(channelName);
+        if (channel) {
+          await this.rateLimiter.waitForToken(channelName);
+          channel.send({
+            type: 'broadcast',
+            event: 'batch',
+            payload
+          });
+        }
+      } catch (error) {
+        logger.error('Error processing batched messages', {
+          context: { channelName, error }
+        });
+      }
+    });
+  }
+
+  private async handleMessage(channelName: string, message: any): Promise<void> {
+    try {
+      // Check if message is compressed
+      if (message.compressed) {
+        message.data = await this.payloadCompressor.decompressAsync(message.data);
+      }
+
+      // Add to batch queue
+      this.messageBatcher.addMessage(channelName, {
+        table: message.table,
+        operation: message.type,
+        payload: message.payload
+      });
+    } catch (error) {
+      logger.error('Error handling message', {
+        context: { channelName, error }
+      });
     }
   }
 } 
