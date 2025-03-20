@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
-import { createRobustChannel, subscribeToSharedTableChanges } from '../lib/realtime/subscriptions';
+import { subscribeToSharedTableChanges } from '../lib/realtime/subscriptions';
 
 interface OrderStats {
   currentOrders: number;
@@ -319,7 +319,6 @@ export function useOrderStats(productId: string) {
   }, [productId, debouncedFetch, updateAccessTime, startPolling]);
 
   useEffect(() => {
-    let mounted = true;
     let cleanupFn: (() => void) | null = null;
     
     // Set mount time for subscription priority
@@ -352,8 +351,6 @@ export function useOrderStats(productId: string) {
 
     // Return cleanup function
     return () => {
-      mounted = false;
-      
       // Remove from active subscriptions
       if (cleanupFn) {
         cleanupFn();

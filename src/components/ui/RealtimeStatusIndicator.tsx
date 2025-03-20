@@ -19,6 +19,11 @@ export function RealtimeStatusIndicator({
   const consecutiveErrorsRef = useRef<number>(0);
 
   useEffect(() => {
+    // Store health state globally for sharing between components
+    if ((window as any).__supabaseRealtimeHealth === undefined) {
+      (window as any).__supabaseRealtimeHealth = true;
+    }
+    
     // Function to check realtime connection status
     const checkRealtimeStatus = () => {
       try {
@@ -36,7 +41,11 @@ export function RealtimeStatusIndicator({
         
         const connectionState = transport.connectionState;
         
-        if (connectionState === 'open') {
+        // Update global health status
+        const isHealthy = connectionState === 'open';
+        (window as any).__supabaseRealtimeHealth = isHealthy;
+        
+        if (isHealthy) {
           setStatus('connected');
           consecutiveErrorsRef.current = 0;
         } else if (connectionState === 'connecting') {
@@ -57,6 +66,7 @@ export function RealtimeStatusIndicator({
     
     const handleConnectionIssue = () => {
       consecutiveErrorsRef.current++;
+      (window as any).__supabaseRealtimeHealth = false;
       
       if (consecutiveErrorsRef.current > 3) {
         setStatus('disconnected');
@@ -92,6 +102,9 @@ export function RealtimeStatusIndicator({
               
               // Reset counter after reconnect attempt
               consecutiveErrorsRef.current = 0;
+              
+              // Check status after a brief delay
+              setTimeout(checkRealtimeStatus, 2000);
             }
           }, 2000);
         }

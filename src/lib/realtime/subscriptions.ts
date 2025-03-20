@@ -231,12 +231,9 @@ export function createRobustChannel<T = any>(
   
   let reconnectAttempts = 0;
   let reconnectTimer: any = null;
-  let isSubscribed = false;
-  let currentCallback: ((data: T) => void) | undefined = undefined;
   
   // Add subscription wrapper with reconnection logic
   const subscribe = (callback?: (data: T) => void) => {
-    currentCallback = callback;
     let subscription: RealtimeChannel;
     
     const wrappedSubscribe = () => {
@@ -247,12 +244,10 @@ export function createRobustChannel<T = any>(
           if (status === 'SUBSCRIBED') {
             // Reset reconnect attempts on successful connection
             reconnectAttempts = 0;
-            isSubscribed = true;
             
             if (callback) callback({ status, connected: true } as any);
           } 
           else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-            isSubscribed = false;
             console.warn(`Subscription closed or error for ${baseName}, reconnecting... (attempt ${reconnectAttempts+1}/${maxReconnectAttempts})`);
             
             // Only attempt to reconnect if under the maximum attempts
@@ -386,9 +381,6 @@ export function subscribeToSharedTableChanges<T = any>(
   
   const channel = sharedChannels.get(channelKey)!;
   let isSubscribed = false;
-  
-  // Create unique event handler ID
-  const handlerId = `${table}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   
   // Subscribe to postgres changes
   channel.on(
