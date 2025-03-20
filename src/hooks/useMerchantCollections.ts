@@ -31,6 +31,15 @@ const MAX_SUBSCRIPTION_ATTEMPTS = 3;
 // Track subscription priorities
 const subscriptionPriorities = new Map<string, number>();
 
+// Global admin status cache
+const globalAdminCache: { [key: string]: { isAdmin: boolean; timestamp: number } } = {};
+
+// Track active channels to prevent duplicate subscriptions
+const globalChannels: {
+  collections?: RealtimeChannel;
+  access?: RealtimeChannel;
+} = {};
+
 // Function to update subscription priority
 function updateSubscriptionPriority(collectionId: string, priority: number) {
   subscriptionPriorities.set(collectionId, priority);
@@ -41,13 +50,10 @@ function updateSubscriptionPriority(collectionId: string, priority: number) {
 }
 
 // Use useRef for per-user admin status caching
-const adminCacheRef = useRef<{ [key: string]: { isAdmin: boolean; timestamp: number } }>({});
+const adminCacheRef = useRef(globalAdminCache);
 
 // Track active channels to prevent duplicate subscriptions
-const channelsRef = useRef<{
-  collections?: RealtimeChannel;
-  access?: RealtimeChannel;
-}>({});
+const channelsRef = useRef(globalChannels);
 
 export function useMerchantCollections(options: {
   initialPriority?: number;
