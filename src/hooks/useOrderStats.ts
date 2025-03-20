@@ -277,6 +277,36 @@ export function useOrderStats(
     }, 30000); // Poll every 30 seconds
   }, [productId, fetchOrderStats]);
 
+  // Add handleRealtimeUpdate function
+  const handleRealtimeUpdate = useCallback((payload: any) => {
+    updateAccessTime();
+    console.log('Order count update detected:', productId, payload);
+    
+    if (payload.new?.total_orders !== undefined) {
+      const orderCount = payload.new.total_orders || 0;
+      
+      // Update cache with new options format
+      void cacheManager.set(
+        `order_stats:${productId}`, 
+        orderCount,
+        CACHE_DURATIONS.REALTIME.TTL,
+        { staleTime: CACHE_DURATIONS.REALTIME.STALE }
+      ).catch(err => {
+        console.error('Failed to update cache:', err);
+      });
+      
+      // Update state directly
+      setStats({
+        currentOrders: orderCount,
+        loading: false,
+        error: null
+      });
+      
+      // Reset subscription attempts on successful update
+      subscriptionAttempts.set(productId, 0);
+    }
+  }, [productId, updateAccessTime]);
+
   // Setup subscriptions using shared channel approach
   const setupSubscriptions = useCallback(() => {
     console.log(`Setting up subscriptions for ${productId}`);
@@ -301,149 +331,76 @@ export function useOrderStats(
     const channelKey = `realtime:public_order_counts:filtered:product_id=eq.${productId}`;
     let channel = activeChannels.get(channelKey);
     
-    // If channel exists but is in error state, remove it
-    if (channel?.state === 'errored') {
-      supabase.removeChannel(channel);
+    // If channel exists but is in error state or closed, remove it
+    if (channel?.state === 'errored' || channel?.state === 'closed') {
+      try {
+        channel.unsubscribe();
+        if (channel) { // Type guard for undefined
+          supabase.removeChannel(channel);
+        }
+      } catch (e) {
+        console.warn(`Error cleaning up channel ${channelKey}:`, e);
+      }
       activeChannels.delete(channelKey);
       channel = undefined;
     }
     
-    // Create new channel if needed
+    // Only create new channel if one doesn't exist or previous was removed
     if (!channel) {
-      channel = supabase.channel(channelKey);
-      activeChannels.set(channelKey, channel);
-    }
-    
-    // Subscribe to order counts updates with priority
-    channel
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'public_order_counts',
-          filter: `product_id=eq.${productId}`
-        },
-        (payload: any) => {
-          updateAccessTime();
-          console.log('Order count update detected:', productId, payload);
-          
-          if (payload.new?.total_orders !== undefined) {
-            const orderCount = payload.new.total_orders || 0;
-            
-            // Update cache with new options format
-            cacheManager.set(
-              `order_stats:${productId}`, 
-              orderCount,
-              CACHE_DURATIONS.REALTIME.TTL,
-              { staleTime: CACHE_DURATIONS.REALTIME.STALE }
-            ).catch(err => {
-              console.error('Failed to update cache:', err);
-            });
-            
-            // Update state directly
-            setStats({
-              currentOrders: orderCount,
-              loading: false,
-              error: null
-            });
-            
-            // Reset subscription attempts on successful update
-            subscriptionAttempts.set(productId, 0);
+      try {
+        channel = supabase.channel(channelKey, {
+          config: {
+            broadcast: { self: true }
           }
-        }
-      )
-      .subscribe((status: string) => {
-        console.log(`Channel ${channelKey} status:`, status);
-        if (status === 'SUBSCRIBED') {
-          // Reset attempts on successful subscription
-          subscriptionAttempts.set(productId, 0);
-        } else if (status === 'CHANNEL_ERROR') {
-          // Remove errored channel
-          activeChannels.delete(channelKey);
-          // Increment attempt count
-          const currentAttempts = subscriptionAttempts.get(productId) || 0;
-          subscriptionAttempts.set(productId, currentAttempts + 1);
-          // Switch to polling if max attempts reached
-          if (currentAttempts + 1 >= MAX_SUBSCRIPTION_ATTEMPTS) {
-            startPolling();
-          }
-        }
-      });
-    
-    // Keep track of cleanup functions
-    const cleanup = () => {
-      if (channel) {
-        channel.unsubscribe();
-        supabase.removeChannel(channel);
-        activeChannels.delete(channelKey);
-      }
-    };
-    cleanupFnsRef.current.push(cleanup);
-    
-    // Setup monitoring for connection issues with increased check interval
-    const setupConnectionMonitoring = () => {
-      let unhealthyCount = 0;
-      const MAX_UNHEALTHY_COUNT = 3;
-      
-      // Check connection status using Supabase's built-in method
-      const checkHealth = () => {
-        try {
-          const channels = supabase.getChannels();
-          const isHealthy = channels.length > 0 && 
-            channels.some(ch => ch.state === 'joined');
-          
-          if (!isHealthy) {
-            unhealthyCount++;
-            console.log(`Connection check failed for ${productId} (${unhealthyCount}/${MAX_UNHEALTHY_COUNT})`);
-            
-            if (unhealthyCount >= MAX_UNHEALTHY_COUNT && !pollingProducts.has(productId)) {
-              console.log(`Connection consistently unhealthy for ${productId}, switching to polling`);
-              startPolling();
+        });
+        
+        // Add subscription before storing the channel
+        channel
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'order_counts',
+              filter: `product_id=eq.${productId}`
+            },
+            (payload) => {
+              handleRealtimeUpdate(payload);
             }
-          } else {
-            unhealthyCount = 0;
+          )
+          .subscribe((status) => {
+            console.log(`Channel ${channelKey} status:`, status);
+            if (status === 'SUBSCRIBED') {
+              subscriptionAttempts.delete(productId); // Reset attempts on successful subscription
+            } else if (status === 'CHANNEL_ERROR') {
+              console.warn(`Channel error for ${channelKey}, attempt ${attempts + 1}/${MAX_SUBSCRIPTION_ATTEMPTS}`);
+              if (attempts + 1 >= MAX_SUBSCRIPTION_ATTEMPTS) {
+                console.log(`Falling back to polling for ${productId}`);
+                startPolling();
+              }
+            }
+          });
+          
+        activeChannels.set(channelKey, channel);
+        
+        // Add cleanup function
+        cleanupFnsRef.current.push(() => {
+          try {
+            if (channel) { // Type guard for undefined
+              channel.unsubscribe();
+              supabase.removeChannel(channel);
+            }
+            activeChannels.delete(channelKey);
+          } catch (e) {
+            console.warn(`Error during cleanup for ${channelKey}:`, e);
           }
-        } catch (err) {
-          console.error('Error checking health:', err);
-        }
-      };
-      
-      // Initial check
-      checkHealth();
-      
-      // Set up periodic check with increased interval
-      const healthCheckInterval = setInterval(checkHealth, 45000); // 45 seconds
-      
-      // Cleanup function
-      return () => clearInterval(healthCheckInterval);
-    };
-    
-    const healthCheckCleanup = setupConnectionMonitoring();
-    cleanupFnsRef.current.push(healthCheckCleanup);
-    
-    // Store overall cleanup function in activeSubscriptions
-    const finalCleanup = () => {
-      console.log(`Cleaning up subscriptions for ${productId}`);
-      cleanupFnsRef.current.forEach(fn => fn());
-      cleanupFnsRef.current = [];
-      activeSubscriptions.delete(productId);
-      // Reset subscription attempts on cleanup
-      subscriptionAttempts.delete(productId);
-    };
-    
-    // Store in the global subscription registry
-    activeSubscriptions.set(productId, {
-      cleanup: finalCleanup,
-      priority: priority,
-      lastAccessed: Date.now()
-    });
-    
-    // Clear from polling products if we've switched to subscription
-    pollingProducts.delete(productId);
-    
-    return finalCleanup;
-  }, [productId, initialPriority, debouncedFetch, updateAccessTime, startPolling]);
+        });
+      } catch (error) {
+        console.error(`Error setting up channel ${channelKey}:`, error);
+        startPolling(); // Fallback to polling on setup error
+      }
+    }
+  }, [productId, handleRealtimeUpdate, startPolling, initialPriority]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -473,12 +430,8 @@ export function useOrderStats(
         console.log(`Using polling for ${productId} (${getActiveSubscriptionCount()}/${MAX_CONCURRENT_SUBSCRIPTIONS} active subscriptions)`);
         startPolling();
       } else {
-        const result = setupSubscriptions();
-        const cleanupFn = result || null;
-        
-        if (cleanupFn) {
-          prioritizeSubscriptions();
-        }
+        setupSubscriptions();
+        prioritizeSubscriptions();
       }
     };
 
