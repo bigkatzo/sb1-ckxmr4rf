@@ -17,6 +17,9 @@ let heartbeatInterval: any = null;
 let isReconnecting = false;
 let lastConnectionAttempt = 0;
 
+// Add a tracking set for collections already being polled to reduce duplicate logs
+const pollingCollections = new Set<string>();
+
 // Check initial connection health and try to establish connection
 async function checkInitialConnectionHealth(): Promise<boolean> {
   if (isInitialConnectionEstablished) return isRealtimeHealthy;
@@ -827,7 +830,15 @@ function createPollingFallback(
   filter: Record<string, any>,
   onUpdate: () => void
 ): { unsubscribe: () => void } {
-  console.log(`Using polling for ${collectionId} (${activeChannels.size} active subscriptions)`);
+  // Check if we're already polling this collection
+  const pollingKey = `${table}_${collectionId}`;
+  
+  if (pollingCollections.has(pollingKey)) {
+    console.log(`Already polling ${table} for ${collectionId}, reusing existing polling`);
+  } else {
+    console.log(`Using polling for ${collectionId} (${activeChannels.size} active subscriptions)`);
+    pollingCollections.add(pollingKey);
+  }
   
   // Set up polling interval
   const POLL_INTERVAL = 10000; // 10 seconds
@@ -841,6 +852,7 @@ function createPollingFallback(
     unsubscribe: () => {
       console.log(`Stopping polling for ${collectionId}`);
       clearInterval(intervalId);
+      pollingCollections.delete(pollingKey);
     }
   };
 }

@@ -3,7 +3,10 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
-import { subscribeToSharedTableChanges } from '../lib/realtime/subscriptions';
+import { 
+  subscribeToSharedTableChanges, 
+  isRealtimeConnectionHealthy
+} from '../lib/realtime/subscriptions';
 
 interface OrderStats {
   currentOrders: number;
@@ -270,10 +273,8 @@ export function useOrderStats(productId: string) {
       // Check global health flag
       const checkHealth = () => {
         try {
-          // Access global health flag
-          const isHealthy = (window as any).__supabaseRealtimeHealth !== undefined
-            ? (window as any).__supabaseRealtimeHealth
-            : (supabase.realtime as any)?.transport?.connectionState === 'open';
+          // Use our improved connection health check function
+          const isHealthy = isRealtimeConnectionHealthy();
           
           if (!isHealthy && !pollingProducts.has(productId)) {
             console.log(`Connection unhealthy for ${productId}, switching to polling`);
