@@ -14,6 +14,44 @@ interface OrderStats {
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff delays
 const DEBOUNCE_WAIT = 500; // 500ms debounce for real-time updates
 
+// Throttle the number of active order subscriptions
+// This limits the number of concurrent realtime subscriptions
+let ACTIVE_SUBSCRIPTIONS = 0;
+const MAX_CONCURRENT_SUBSCRIPTIONS = 5;
+
+// Add global subscription queue
+const subscriptionQueue: string[] = [];
+let processingQueue = false;
+
+// Process the next item in the subscription queue
+async function processSubscriptionQueue() {
+  if (processingQueue || subscriptionQueue.length === 0) return;
+  
+  processingQueue = true;
+  
+  // Wait until we have an available subscription slot
+  while (ACTIVE_SUBSCRIPTIONS >= MAX_CONCURRENT_SUBSCRIPTIONS && subscriptionQueue.length > 0) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  
+  // Process the next item if queue isn't empty
+  if (subscriptionQueue.length > 0) {
+    const productId = subscriptionQueue.shift();
+    if (productId) {
+      // This just marks that we've processed this ID - the actual subscription
+      // will happen in the useOrderStats hook for this product
+      console.log(`Processing subscription for ${productId} (${ACTIVE_SUBSCRIPTIONS}/${MAX_CONCURRENT_SUBSCRIPTIONS})`);
+    }
+  }
+  
+  processingQueue = false;
+  
+  // Continue processing if there are more items
+  if (subscriptionQueue.length > 0) {
+    processSubscriptionQueue();
+  }
+}
+
 export function useOrderStats(productId: string) {
   const [stats, setStats] = useState<OrderStats>({
     currentOrders: 0,
@@ -144,102 +182,121 @@ export function useOrderStats(productId: string) {
   useEffect(() => {
     let mounted = true;
     let cleanup: (() => void) | null = null;
+    
+    // Increment subscription counter when mounting
+    ACTIVE_SUBSCRIPTIONS++;
+    console.log(`Active subscriptions: ${ACTIVE_SUBSCRIPTIONS}/${MAX_CONCURRENT_SUBSCRIPTIONS}`);
 
     // Initial fetch
     if (mounted) {
       fetchOrderStats();
     }
 
-    // Set up realtime subscription with robust reconnection logic
-    const setupSubscription = () => {
-      console.log(`Setting up robust subscription for orders_${productId}`);
-      
-      // Create a robust channel for orders table
-      const { channel, subscribe } = createRobustChannel(
-        `orders_${productId}`,
-        { broadcast: { self: true } },
-        5 // Max reconnect attempts
-      );
-      
-      // Listen for orders table changes
-      channel.on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: `product_id=eq.${productId}`
-        },
-        (payload) => {
-          console.log('Order change detected:', payload);
-          if (mounted) {
-            // For INSERT/DELETE use debounced fetch
-            debouncedFetch();
+    // Check if we have too many subscriptions
+    if (ACTIVE_SUBSCRIPTIONS > MAX_CONCURRENT_SUBSCRIPTIONS) {
+      console.log(`Too many active subscriptions (${ACTIVE_SUBSCRIPTIONS}/${MAX_CONCURRENT_SUBSCRIPTIONS}), using polling for ${productId}`);
+      // Fall back to polling for this item
+      startPolling();
+    } else {
+      // Set up realtime subscription with robust reconnection logic
+      const setupSubscription = () => {
+        console.log(`Setting up robust subscription for orders_${productId}`);
+        
+        // Create a robust channel for orders table
+        const { channel, subscribe } = createRobustChannel(
+          `orders_${productId}`,
+          { broadcast: { self: true } },
+          5 // Max reconnect attempts
+        );
+        
+        // Listen for orders table changes
+        channel.on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'orders',
+            filter: `product_id=eq.${productId}`
+          },
+          (payload) => {
+            console.log('Order change detected:', payload);
+            if (mounted) {
+              // For INSERT/DELETE use debounced fetch
+              debouncedFetch();
+            }
           }
-        }
-      );
-      
-      // Listen for order counts view changes
-      channel.on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'public_order_counts',
-          filter: `product_id=eq.${productId}`
-        },
-        (payload) => {
-          console.log('Order count update detected:', payload);
-          if (mounted && payload.new?.total_orders !== undefined) {
-            // Direct update from the order counts view
-            const orderCount = payload.new.total_orders || 0;
-            
-            // Update cache with new options format
-            cacheManager.set(
-              `order_stats:${productId}`, 
-              orderCount,
-              CACHE_DURATIONS.REALTIME.TTL,
-              { staleTime: CACHE_DURATIONS.REALTIME.STALE }
-            ).catch(err => {
-              console.error('Failed to update cache:', err);
-            });
-            
-            // Update state directly
-            setStats({
-              currentOrders: orderCount,
-              loading: false,
-              error: null
-            });
+        );
+        
+        // Listen for order counts view changes
+        channel.on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'public_order_counts',
+            filter: `product_id=eq.${productId}`
+          },
+          (payload) => {
+            console.log('Order count update detected:', payload);
+            if (mounted && payload.new?.total_orders !== undefined) {
+              // Direct update from the order counts view
+              const orderCount = payload.new.total_orders || 0;
+              
+              // Update cache with new options format
+              cacheManager.set(
+                `order_stats:${productId}`, 
+                orderCount,
+                CACHE_DURATIONS.REALTIME.TTL,
+                { staleTime: CACHE_DURATIONS.REALTIME.STALE }
+              ).catch(err => {
+                console.error('Failed to update cache:', err);
+              });
+              
+              // Update state directly
+              setStats({
+                currentOrders: orderCount,
+                loading: false,
+                error: null
+              });
+            }
           }
-        }
-      );
-      
-      // Subscribe with connection status callback
-      const subscription = subscribe((status) => {
-        if (status.status === 'MAX_RETRIES_EXCEEDED') {
-          console.warn(`Max retries exceeded for ${productId}, falling back to polling`);
-          startPolling();
-        }
-      });
-      
-      // Create the cleanup function
-      cleanup = () => {
-        console.log(`Cleaning up subscription for orders_${productId}`);
-        subscription.unsubscribe();
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-        }
+        );
+        
+        // Subscribe with connection status callback
+        const subscription = subscribe((status) => {
+          if (status.status === 'MAX_RETRIES_EXCEEDED') {
+            console.warn(`Max retries exceeded for ${productId}, falling back to polling`);
+            startPolling();
+          }
+        });
+        
+        // Create the cleanup function
+        cleanup = () => {
+          console.log(`Cleaning up subscription for orders_${productId}`);
+          subscription.unsubscribe();
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+          }
+        };
       };
-    };
 
-    setupSubscription();
+      setupSubscription();
+    }
 
-    // Cleanup
+    // Return cleanup function
     return () => {
       mounted = false;
       if (cleanup) {
         cleanup();
       }
+      
+      // Decrement subscription counter when unmounting
+      ACTIVE_SUBSCRIPTIONS--;
+      console.log(`Active subscriptions after cleanup: ${ACTIVE_SUBSCRIPTIONS}/${MAX_CONCURRENT_SUBSCRIPTIONS}`);
+      
+      // Process queue after cleanup in case we now have room for another subscription
+      processSubscriptionQueue();
+      
       // Cancel any pending debounced fetches
       debouncedFetch.cancel();
     };

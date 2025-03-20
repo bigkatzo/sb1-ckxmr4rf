@@ -5,8 +5,19 @@ import type { Database } from './database.types';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Regular client for normal operations
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+// Regular client for normal operations with optimized realtime settings
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+  realtime: {
+    params: {
+      eventsPerSecond: 5, // Lower to reduce rate limiting
+      heartbeatIntervalMs: 15000 // Increase heartbeat interval
+    }
+  },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true
+  }
+});
 
 /**
  * Generic retry function for any async operation
