@@ -1,6 +1,9 @@
-import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
 import { ConnectionManager } from './ConnectionManager';
+import { SubscriptionManager } from './SubscriptionManager';
+import { CircuitBreaker } from './CircuitBreaker';
+import { logger } from './logger';
 
 export type DatabaseChanges = {
   [key: string]: any;
@@ -10,6 +13,13 @@ export type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*';
 
 export type Unsubscribable = {
   unsubscribe: () => void;
+};
+
+// Create circuit breakers for different subscription types
+const circuitBreakers = {
+  orders: new CircuitBreaker('orders', { maxFailures: 5, resetTimeout: 60000 }),
+  products: new CircuitBreaker('products', { maxFailures: 3, resetTimeout: 30000 }),
+  collections: new CircuitBreaker('collections', { maxFailures: 3, resetTimeout: 45000 })
 };
 
 /**
@@ -22,8 +32,6 @@ export function isRealtimeConnectionHealthy(): boolean {
 
 /**
  * Setup realtime health monitoring
- * This function sets up listeners for connection state changes
- * and notifies when the connection state changes
  */
 export function setupRealtimeHealth(options: {
   onHealthChange?: (isHealthy: boolean) => void;
@@ -31,137 +39,142 @@ export function setupRealtimeHealth(options: {
   const { onHealthChange } = options;
   let lastHealthState = isRealtimeConnectionHealthy();
   
-  // Initial health state notification
   onHealthChange?.(lastHealthState);
   
-  // Listen to Supabase's built-in connection events
   const channel = supabase.channel('health_monitor')
     .on('system', { event: 'disconnect' }, () => {
       if (lastHealthState) {
-        console.warn('Realtime connection lost');
+        logger.warn('Realtime connection lost');
         lastHealthState = false;
         onHealthChange?.(false);
       }
     })
     .on('system', { event: 'reconnected' }, () => {
       if (!lastHealthState) {
-        console.log('Realtime connection restored');
+        logger.info('Realtime connection restored');
         lastHealthState = true;
         onHealthChange?.(true);
       }
     })
     .on('system', { event: 'connected' }, () => {
       if (!lastHealthState) {
-        console.log('Realtime connection established');
+        logger.info('Realtime connection established');
         lastHealthState = true;
         onHealthChange?.(true);
       }
     })
     .subscribe();
 
-  return {
+  const unsubscribable: Unsubscribable = {
     unsubscribe: () => {
       channel.unsubscribe();
       supabase.removeChannel(channel);
     }
   };
-}
 
-/**
- * Subscribe to changes on a shared table with filtering
- */
-export function subscribeToSharedTableChanges<T extends DatabaseChanges>(
-  tableName: string,
-  filter: { [key: string]: any },
-  callback: (payload: RealtimePostgresChangesPayload<T>) => void,
-  event: RealtimeEvent = '*'
-): Unsubscribable {
-  return subscribeToFilteredChanges(tableName, filter, callback, event);
-}
-
-/**
- * Subscribe to changes on a specific table
- */
-export function subscribeToChanges<T extends DatabaseChanges>(
-  tableName: string,
-  callback: (payload: RealtimePostgresChangesPayload<T>) => void,
-  event: RealtimeEvent = '*'
-): Unsubscribable {
-  const channel = supabase.channel(`realtime:${tableName}:changes`);
-
-  channel
-    .on(
-      'postgres_changes',
-      {
-        event,
-      schema: 'public',
-        table: tableName
-      },
-      callback
-    )
-    .subscribe();
-
-  return {
-    unsubscribe: () => {
-      channel.unsubscribe();
-      supabase.removeChannel(channel);
-    }
-  };
+  return unsubscribable;
 }
 
 /**
  * Subscribe to changes on a specific table with a filter
  */
-export function subscribeToFilteredChanges<T extends DatabaseChanges>(
+export async function subscribeToFilteredChanges<T extends DatabaseChanges>(
   tableName: string,
   filter: { [key: string]: string },
   callback: (payload: RealtimePostgresChangesPayload<T>) => void,
   event: RealtimeEvent = '*'
-): Unsubscribable {
+): Promise<Unsubscribable> {
   const filterString = Object.entries(filter)
     .map(([key, value]) => `${key}=eq.${value}`)
     .join(',');
 
   const channelName = `realtime:${tableName}:filtered:${filterString}`;
   const manager = ConnectionManager.getInstance(supabase);
+  const subscriptionManager = SubscriptionManager.getInstance();
   
-  // Create channel with priority based on the table
-  // Order stats and product data get higher priority
+  // Determine circuit breaker and priority
+  const circuitBreaker = tableName.includes('order') ? circuitBreakers.orders :
+                        tableName.includes('product') ? circuitBreakers.products :
+                        tableName.includes('collection') ? circuitBreakers.collections :
+                        null;
+  
   const priority = tableName.includes('order') || tableName.includes('product') ? 2 : 0;
-  const channel = manager.createChannel(channelName, {
-    config: {
-      broadcast: { self: true }
-    }
-  }, priority);
 
-  channel
-    .on(
-      'postgres_changes',
-      {
-        event,
-        schema: 'public',
-        table: tableName,
-        filter: filterString
+  try {
+    // Create channel with error handling
+    let channel: RealtimeChannel | null = null;
+    
+    if (circuitBreaker) {
+      channel = await circuitBreaker.execute<RealtimeChannel>(() => 
+        Promise.resolve(manager.createChannel(channelName, {
+          config: { broadcast: { self: true } }
+        }, priority))
+      );
+    } else {
+      channel = manager.createChannel(channelName, {
+        config: { broadcast: { self: true } }
+      }, priority);
+    }
+
+    if (!channel) {
+      logger.error(`Failed to create channel for ${channelName}`);
+      return { unsubscribe: () => {} };
+    }
+
+    channel
+      .on(
+        'postgres_changes',
+        {
+          event,
+          schema: 'public',
+          table: tableName,
+          filter: filterString
+        },
+        callback
+      )
+      .subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          logger.debug(`Channel ${channelName} subscribed`, { samplingRate: 0.1 });
+        } else if (status === 'CHANNEL_ERROR') {
+          logger.warn(`Channel error for ${channelName}`);
+          subscriptionManager.markError(channelName);
+        }
+      });
+
+    // Register with subscription manager
+    subscriptionManager.registerSubscription(
+      channelName,
+      () => {
+        channel?.unsubscribe();
+        manager.removeChannel(channelName);
       },
-      callback
-    )
-    .subscribe();
+      priority
+    );
 
-  return {
-    unsubscribe: () => {
-      channel.unsubscribe();
-      manager.removeChannel(channelName);
-    }
-  };
+    const unsubscribable: Unsubscribable = {
+      unsubscribe: () => {
+        channel?.unsubscribe();
+        manager.removeChannel(channelName);
+        // No need to remove from subscription manager as it will be cleaned up automatically
+      }
+    };
+
+    return unsubscribable;
+  } catch (error) {
+    logger.error(`Failed to setup subscription for ${channelName}`, {
+      context: { error }
+    });
+    return { unsubscribe: () => {} };
+  }
 }
 
-// Collection-specific subscriptions
-export function subscribeToCollection(
+// Collection-specific subscriptions with circuit breaker protection
+export async function subscribeToCollection(
   collectionId: string,
   callback: (payload: RealtimePostgresChangesPayload<any>) => void,
   event?: RealtimeEvent
-): Unsubscribable {
-  return subscribeToFilteredChanges(
+): Promise<Unsubscribable> {
+  return await subscribeToFilteredChanges(
     'collections',
     { id: collectionId },
     callback,
@@ -169,12 +182,12 @@ export function subscribeToCollection(
   );
 }
 
-export function subscribeToCollectionProducts(
+export async function subscribeToCollectionProducts(
   collectionId: string,
   callback: (payload: RealtimePostgresChangesPayload<any>) => void,
   event?: RealtimeEvent
-): Unsubscribable {
-  return subscribeToFilteredChanges(
+): Promise<Unsubscribable> {
+  return await subscribeToFilteredChanges(
     'collection_products',
     { collection_id: collectionId },
     callback,
@@ -182,12 +195,21 @@ export function subscribeToCollectionProducts(
   );
 }
 
-export function subscribeToCollectionCategories(
+export async function subscribeToSharedTableChanges<T extends DatabaseChanges>(
+  tableName: string,
+  filter: { [key: string]: any },
+  callback: (payload: RealtimePostgresChangesPayload<T>) => void,
+  event: RealtimeEvent = '*'
+): Promise<Unsubscribable> {
+  return await subscribeToFilteredChanges(tableName, filter, callback, event);
+}
+
+export async function subscribeToCollectionCategories(
   collectionId: string,
   callback: (payload: RealtimePostgresChangesPayload<any>) => void,
   event?: RealtimeEvent
-): Unsubscribable {
-  return subscribeToFilteredChanges(
+): Promise<Unsubscribable> {
+  return await subscribeToFilteredChanges(
     'collection_categories',
     { collection_id: collectionId },
     callback,
