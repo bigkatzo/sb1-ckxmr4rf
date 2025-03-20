@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 interface ProductPriceData {
   basePrice: number | null;
@@ -9,6 +10,23 @@ interface ProductPriceData {
   priceModifierAfterMin: number | null;
   loading: boolean;
   error: string | null;
+}
+
+interface ProductPriceRecord {
+  id: string;
+  price: number;
+  variant_prices: Record<string, number> | null;
+  price_modifier_before_min: number | null;
+  price_modifier_after_min: number | null;
+}
+
+function isPriceRecord(obj: any): obj is Partial<ProductPriceRecord> {
+  return obj && (
+    'price' in obj ||
+    'variant_prices' in obj ||
+    'price_modifier_before_min' in obj ||
+    'price_modifier_after_min' in obj
+  );
 }
 
 /**
@@ -136,29 +154,35 @@ export function useProductPrice(productId: string) {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'public_products',
           filter: `id=eq.${productId}`
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<ProductPriceRecord>) => {
           console.log(`Product price update received for ${productId}:`, payload);
           if (!mounted) return;
           
+          const newData = isPriceRecord(payload.new) ? payload.new : {};
+          const oldData = isPriceRecord(payload.old) ? payload.old : {};
+          
           // Check if any price-related fields changed
           const priceChanged = 
-            payload.new?.price !== payload.old?.price ||
-            JSON.stringify(payload.new?.variant_prices) !== JSON.stringify(payload.old?.variant_prices) ||
-            payload.new?.price_modifier_before_min !== payload.old?.price_modifier_before_min ||
-            payload.new?.price_modifier_after_min !== payload.old?.price_modifier_after_min;
-            
+            'price' in newData !== 'price' in oldData ||
+            ('price' in newData && 'price' in oldData && newData.price !== oldData.price) ||
+            JSON.stringify(newData.variant_prices) !== JSON.stringify(oldData.variant_prices) ||
+            newData.price_modifier_before_min !== oldData.price_modifier_before_min ||
+            newData.price_modifier_after_min !== oldData.price_modifier_after_min;
+
           if (priceChanged) {
             console.log('Price-related fields changed, updating state');
-            const priceInfo = {
-              basePrice: payload.new?.price || null,
-              variantPrices: payload.new?.variant_prices || null,
-              priceModifierBeforeMin: payload.new?.price_modifier_before_min || null,
-              priceModifierAfterMin: payload.new?.price_modifier_after_min || null,
+            const priceInfo: ProductPriceData = {
+              loading: false,
+              error: null,
+              basePrice: newData?.price ?? null,
+              variantPrices: newData?.variant_prices ?? null,
+              priceModifierBeforeMin: newData?.price_modifier_before_min ?? null,
+              priceModifierAfterMin: newData?.price_modifier_after_min ?? null,
             };
             
             // Update cache with new signature

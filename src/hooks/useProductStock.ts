@@ -1,11 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 interface ProductStockData {
   stock: number | null;
   loading: boolean;
   error: string | null;
+}
+
+interface ProductStockRecord {
+  id: string;
+  quantity: number;
+}
+
+function isStockRecord(obj: any): obj is Partial<ProductStockRecord> {
+  return obj && 'quantity' in obj;
 }
 
 /**
@@ -125,21 +135,22 @@ export function useProductStock(productId: string) {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'public_products',
           filter: `id=eq.${productId}`
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<ProductStockRecord>) => {
           console.log(`Product stock update received for ${productId}:`, payload);
           
-          if (mounted && payload.new?.quantity !== undefined) {
-            console.log('Stock quantity changed, updating state:', payload.new.quantity);
+          const newData = isStockRecord(payload.new) ? payload.new : null;
+          if (mounted && newData?.quantity !== undefined) {
+            console.log('Stock quantity changed, updating state:', newData.quantity);
             
             // Update cache with new signature
             cacheManager.set(
               `product_stock:${productId}`, 
-              payload.new.quantity, 
+              newData.quantity, 
               CACHE_DURATIONS.REALTIME.TTL,
               { staleTime: CACHE_DURATIONS.REALTIME.STALE }
             ).catch(err => {
@@ -148,7 +159,7 @@ export function useProductStock(productId: string) {
             
             // Update state
             setStockData({
-              stock: payload.new.quantity,
+              stock: newData.quantity,
               loading: false,
               error: null
             });

@@ -13,7 +13,7 @@ export class ConnectionManager {
   private maxReconnectAttempts: number = 10;
   private reconnectAttempts: number = 0;
   private intervalId?: NodeJS.Timeout;
-  private connectionTimeout: number = 10000; // 10 seconds timeout
+  // const connectionTimeout = 1000 * 60; // 60 seconds
   private backoffDelay: number = 5000; // Base delay for exponential backoff
   private transportInitDelay: number = 1000; // Add delay before transport init
   private isInitializingTransport = false;
@@ -24,7 +24,7 @@ export class ConnectionManager {
     error: null
   });
 
-  private activeChannels = new Map<string, RealtimeChannel>();
+  private channels: Map<string, RealtimeChannel> = new Map();
   private channelConfigs = new Map<string, RealtimeChannelOptions>();
   
   private constructor(private supabase: SupabaseClient) {
@@ -65,11 +65,11 @@ export class ConnectionManager {
       if (status === 'SUBSCRIBED') {
         this.reconnectAttempts = 0;
       } else if (status === 'CHANNEL_ERROR') {
-        this.handleChannelError(channelName, channel);
+        this.handleChannelError(channel);
       }
     });
 
-    this.activeChannels.set(channelName, channel);
+    this.channels.set(channelName, channel);
     return channel;
   }
 
@@ -77,10 +77,10 @@ export class ConnectionManager {
    * Remove a channel and clean up its resources
    */
   public removeChannel(channelName: string) {
-    const existingChannel = this.activeChannels.get(channelName);
+    const existingChannel = this.channels.get(channelName);
     if (existingChannel) {
       existingChannel.unsubscribe();
-      this.activeChannels.delete(channelName);
+      this.channels.delete(channelName);
       this.channelConfigs.delete(channelName);
     }
   }
@@ -97,7 +97,7 @@ export class ConnectionManager {
       // Only resubscribe channels if connection is successful
       if (this.state$.value.status === 'connected') {
         // Resubscribe all channels
-        this.activeChannels.forEach((_, name) => {
+        this.channels.forEach((_, name) => {
           const config = this.channelConfigs.get(name) || { config: {} };
           this.createChannel(name, config);
         });
@@ -241,13 +241,11 @@ export class ConnectionManager {
     }
   }
 
-  private handleChannelError(channelName: string, _channel: RealtimeChannel) {
-    console.warn(`Channel ${channelName} encountered an error`);
-    
-    // Remove and recreate the channel with stored config
-    this.removeChannel(channelName);
-    const config = this.channelConfigs.get(channelName) || { config: {} };
-    this.createChannel(channelName, config);
+  private handleChannelError(channel: RealtimeChannel) {
+    return () => {
+      console.error(`Channel error for ${channel.topic}`);
+      this.removeChannel(channel.topic);
+    };
   }
 
   private handleReconnectError(error: Error) {
@@ -270,8 +268,8 @@ export class ConnectionManager {
     if (this.intervalId) {
       clearInterval(this.intervalId);
     }
-    this.activeChannels.forEach(channel => channel.unsubscribe());
-    this.activeChannels.clear();
+    this.channels.forEach(channel => channel.unsubscribe());
+    this.channels.clear();
     this.channelConfigs.clear();
   }
 
@@ -296,6 +294,19 @@ export class ConnectionManager {
   }
 
   private notifyListeners(event: string, data?: any) {
-    // Implementation of notifyListeners method
+    // Emit event to any registered listeners
+    switch (event) {
+      case 'connected':
+        console.log('Connection established');
+        break;
+      case 'error':
+        console.error('Connection error:', data);
+        break;
+      case 'max_retries_reached':
+        console.warn('Max reconnection attempts reached');
+        break;
+      default:
+        console.debug('Connection event:', event, data);
+    }
   }
 } 
