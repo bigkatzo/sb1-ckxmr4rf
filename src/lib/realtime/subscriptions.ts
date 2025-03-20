@@ -22,18 +22,27 @@ let realtimeGivenUp = false;  // Flag to track if we've given up on realtime com
 const pollingCollections = new Set<string>();
 
 // Add a maximum limit for connection attempts
-const MAX_CONNECTION_ATTEMPTS = 5;
+const MAX_CONNECTION_ATTEMPTS = 10;
 const CONNECTION_ATTEMPT_BACKOFF = 5000; // Base backoff time in ms
 
 // Add a counter for resubscription attempts per channel
 const channelResubscribeAttempts = new Map<string, number>();
-const MAX_CHANNEL_RESUBSCRIBE_ATTEMPTS = 3;
-const CHANNEL_RESUBSCRIBE_RESET_INTERVAL = 60000; // 1 minute
+const MAX_CHANNEL_RESUBSCRIBE_ATTEMPTS = 5;
+const CHANNEL_RESUBSCRIBE_RESET_INTERVAL = 120000; // 2 minutes
 const CHANNEL_RESUBSCRIBE_DELAY = 3000; // 3 seconds
 
 // Add a log rate limiter to reduce console noise
 const logRateLimiter = new Map<string, number>();
 const LOG_RATE_LIMIT_INTERVAL = 10000; // 10 seconds
+
+// Helper to calculate exponential backoff with jitter
+function calculateBackoff(attempt: number, baseDelay: number = CONNECTION_ATTEMPT_BACKOFF): number {
+  // Exponential backoff: baseDelay * 2^attempt
+  const expBackoff = baseDelay * Math.pow(2, attempt); 
+  // Add jitter: random value between 0.5 and 1.5 of the backoff
+  const jitter = 0.5 + Math.random();
+  return Math.min(expBackoff * jitter, 60000); // Cap at 60 seconds
+}
 
 // Rate-limited console logging function
 function rateLog(key: string, level: 'log' | 'warn' | 'error', message: string) {
@@ -93,7 +102,7 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
     
     // Avoid too frequent connection attempts with exponential backoff
     const now = Date.now();
-    const backoffTime = Math.min(30000, CONNECTION_ATTEMPT_BACKOFF * Math.pow(1.5, connectionInitAttempts));
+    const backoffTime = calculateBackoff(connectionInitAttempts);
     if (now - lastConnectionAttempt < backoffTime && connectionInitAttempts > 0) {
       return false;
     }
@@ -130,7 +139,7 @@ async function checkInitialConnectionHealth(): Promise<boolean> {
           
           // Add more details about next attempt
           if (connectionInitAttempts < MAX_CONNECTION_ATTEMPTS) {
-            const nextBackoff = Math.min(30000, CONNECTION_ATTEMPT_BACKOFF * Math.pow(1.5, connectionInitAttempts));
+            const nextBackoff = calculateBackoff(connectionInitAttempts);
             rateLog(
               'connection_retry_info',
               'log',
@@ -590,7 +599,7 @@ export function createRobustChannel<T = any>(
               if (reconnectTimer) clearTimeout(reconnectTimer);
               
               // Exponential backoff for reconnection
-              const delay = 2000 * Math.pow(1.5, reconnectAttempts);
+              const delay = calculateBackoff(reconnectAttempts);
               reconnectTimer = setTimeout(() => {
                 try {
                   // Don't create new channel instances, just retry the existing one
@@ -1198,4 +1207,211 @@ function switchAllToPolling() {
       `Force switched ${key} to polling mode due to persistent connection issues`
     );
   });
+}
+
+// Start monitoring the health of the Supabase realtime connection
+export function setupRealtimeHealth() {
+  if (typeof window === 'undefined' || healthCheckInterval) return;
+  
+  // First attempt to establish initial connection
+  setTimeout(() => {
+    checkAndInitializeConnection();
+  }, 2000);
+  
+  // Then set up regular health checks
+  healthCheckInterval = setInterval(() => {
+    checkConnectionHealth();
+  }, 20000); // Check every 20 seconds
+  
+  // Add a heartbeat to keep WebSocket alive in some environments
+  heartbeatInterval = setInterval(() => {
+    if (isRealtimeHealthy) {
+      sendHeartbeat();
+    }
+  }, 45000); // Every 45 seconds, send a heartbeat if connection is healthy
+  
+  // Add window focus listener to trigger reconnection when tab becomes active
+  window.addEventListener('focus', () => {
+    // If connection was unhealthy, try to reconnect when user returns to tab
+    if (!isRealtimeHealthy && !isReconnecting) {
+      rateLog('reconnect_on_focus', 'log', 'Window regained focus, attempting to reconnect to realtime');
+      triggerGlobalReconnect();
+    }
+  });
+}
+
+// Function to check and initialize connection
+async function checkAndInitializeConnection() {
+  // Don't attempt if we've already given up
+  if (realtimeGivenUp) return;
+  
+  // Check if a connection exists and is healthy
+  const realtimeClient = (supabase.realtime as any);
+  if (!realtimeClient) return;
+  
+  const transport = realtimeClient.transport;
+  if (transport && transport.connectionState === 'open') {
+    // Connection exists and is open
+    isInitialConnectionEstablished = true;
+    isRealtimeHealthy = true;
+    return;
+  }
+  
+  // No connection or not open, try to establish one
+  if (!isReconnecting) {
+    tryEstablishInitialConnection();
+  }
+}
+
+// Function to check the health of the realtime connection
+function checkConnectionHealth() {
+  // Don't check if we've given up on realtime
+  if (realtimeGivenUp) return;
+  
+  const realtimeClient = (supabase.realtime as any);
+  if (!realtimeClient) {
+    isRealtimeHealthy = false;
+    return;
+  }
+  
+  const transport = realtimeClient.transport;
+  const connectionState = transport?.connectionState;
+  
+  // If connection state is open, mark as healthy
+  if (connectionState === 'open') {
+    if (!isRealtimeHealthy) {
+      rateLog('connection_status_change', 'log', 'Realtime connection health changed: HEALTHY');
+    }
+    isRealtimeHealthy = true;
+    return;
+  }
+  
+  // Connection is not open, mark as unhealthy
+  if (isRealtimeHealthy) {
+    rateLog('connection_status_change', 'log', 'Realtime connection health changed: UNHEALTHY');
+    rateLog('connection_lost', 'warn', 'Connection lost, attempting global reconnect');
+    isRealtimeHealthy = false;
+    
+    // Attempt to reconnect
+    triggerGlobalReconnect();
+  }
+}
+
+// Send a lightweight heartbeat through an existing channel to keep connection alive
+function sendHeartbeat() {
+  try {
+    const realtimeClient = (supabase.realtime as any);
+    if (!realtimeClient || !realtimeClient.transport || realtimeClient.transport.connectionState !== 'open') {
+      return;
+    }
+    
+    // Find any active channel to use for heartbeat
+    const channels = supabase.getChannels();
+    if (channels.length > 0) {
+      // Just use first channel for heartbeat
+      const channel = channels[0];
+      if (channel && channel.state === 'joined') {
+        // Use the presence API to send a lightweight heartbeat
+        if (typeof channel.send === 'function') {
+          channel.send({
+            type: 'presence',
+            event: 'heartbeat',
+            payload: {}
+          });
+        }
+      }
+    }
+  } catch (err) {
+    // Ignore heartbeat errors
+  }
+}
+
+// Function to try establishing initial realtime connection
+async function tryEstablishInitialConnection() {
+  // Don't attempt if we're already reconnecting, have given up, or reached max attempts
+  if (isReconnecting || realtimeGivenUp || connectionInitAttempts >= MAX_CONNECTION_ATTEMPTS) {
+    return;
+  }
+  
+  // Mark last attempt time
+  lastConnectionAttempt = Date.now();
+  connectionInitAttempts++;
+  
+  try {
+    rateLog(
+      'connection_attempt',
+      'log',
+      `Attempting to establish initial realtime connection (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`
+    );
+    
+    isReconnecting = true;
+    const realtimeClient = (supabase.realtime as any);
+    
+    if (!realtimeClient) {
+      throw new Error('Realtime client not available');
+    }
+    
+    // Force create a connection using low-level API if available
+    if (realtimeClient._closeAndConnect && typeof realtimeClient._closeAndConnect === 'function') {
+      try {
+        // Use internal method to close any existing connection and create a new one
+        await realtimeClient._closeAndConnect();
+      } catch (err) {
+        console.warn('Low-level connection attempt failed, falling back to standard connect');
+      }
+    }
+    
+    // Try to connect with timeout protection
+    await Promise.race([
+      realtimeClient.connect(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timed out')), 25000)
+      )
+    ]);
+    
+    // Short delay to ensure stability
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Check if connection was successful
+    if (realtimeClient.transport?.connectionState === 'open') {
+      isInitialConnectionEstablished = true;
+      isRealtimeHealthy = true;
+      rateLog('connection_success', 'log', 'Successfully established initial realtime connection');
+      
+      // Create a test channel to verify two-way communication
+      const testChannel = supabase.channel('connection-test-' + Date.now(), {
+        config: { broadcast: { self: true } }
+      });
+      
+      testChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          rateLog('connection_verified', 'log', 'Connection verified with test channel subscription');
+          // Unsubscribe after success to clean up
+          setTimeout(() => testChannel.unsubscribe(), 2000);
+        }
+      });
+    } else {
+      throw new Error(`Failed to establish initial connection, transport state: ${realtimeClient.transport?.connectionState || 'none'}`);
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    rateLog('connection_error', 'error', errorMessage);
+    
+    // If we haven't reached max attempts, schedule next attempt with backoff
+    if (connectionInitAttempts < MAX_CONNECTION_ATTEMPTS) {
+      const backoffTime = calculateBackoff(connectionInitAttempts);
+      rateLog('retry_scheduled', 'log', `Will retry in approximately ${Math.round(backoffTime / 1000)} seconds (attempt ${connectionInitAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
+      
+      setTimeout(() => {
+        isReconnecting = false;
+        tryEstablishInitialConnection();
+      }, backoffTime);
+    } else {
+      // Max attempts reached, give up on realtime
+      rateLog('max_attempts', 'warn', 'Maximum connection attempts reached. Will use polling for all subscriptions.');
+      realtimeGivenUp = true;
+    }
+  } finally {
+    isReconnecting = false;
+  }
 }

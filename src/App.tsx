@@ -21,6 +21,7 @@ import { preloadNFTVerifier } from './utils/nft-verification';
 import 'react-toastify/dist/ReactToastify.css';
 import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
+import { setupRealtimeHealth } from './lib/realtime/subscriptions';
 
 // Validate environment variables at startup
 validateEnvironmentVariables();
@@ -75,6 +76,9 @@ function AppContent() {
       exposeRealtimeDebugger();
     }
     
+    // Set up realtime health
+    setupRealtimeHealth();
+    
     return () => {
       cleanupPreloader();
       cleanup();
@@ -115,6 +119,17 @@ function AppContent() {
 export function App() {
   // Initialize realtime debugger when app mounts
   useEffect(() => {
+    // Force immediate connection to Supabase realtime
+    try {
+      const realtimeClient = (supabase.realtime as any);
+      if (realtimeClient && typeof realtimeClient.connect === 'function') {
+        console.log('Forcing initial Supabase realtime connection...');
+        realtimeClient.connect();
+      }
+    } catch (err) {
+      console.error('Error establishing initial Supabase connection:', err);
+    }
+    
     exposeRealtimeDebugger();
     console.log('Supabase realtime debugger initialized. Try window.debugRealtime() in the console.');
   }, []);

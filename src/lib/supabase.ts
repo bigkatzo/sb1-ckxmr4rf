@@ -9,11 +9,12 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   realtime: {
     params: {
-      eventsPerSecond: 3, // Reduce rate limiting by lowering events per second
-      heartbeatIntervalMs: 25000, // Increase heartbeat interval to reduce network traffic
+      eventsPerSecond: 1, // Even more conservative to reduce rate limiting
+      heartbeatIntervalMs: 30000, // Standard heartbeat interval
       fastConnectOptions: {
-        ackTimeout: 12000, // Increase timeout for connection acknowledgements
-        retries: 5 // Increase connection retry attempts
+        ackTimeout: 30000, // Substantially increase timeout for initial connection acknowledgements
+        retries: 10, // Keep retry attempts high
+        timeout: 30000 // Explicitly set higher initial connection timeout
       }
     }
   },
