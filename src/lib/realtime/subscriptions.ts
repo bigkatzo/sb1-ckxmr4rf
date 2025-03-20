@@ -21,41 +21,47 @@ export function isRealtimeConnectionHealthy(): boolean {
 
 /**
  * Setup realtime health monitoring
- * This function sets up a periodic check of the realtime connection
- * and attempts to reconnect if the connection is lost
+ * This function sets up listeners for connection state changes
+ * and notifies when the connection state changes
  */
 export function setupRealtimeHealth(options: {
-  checkInterval?: number;
   onHealthChange?: (isHealthy: boolean) => void;
 } = {}): Unsubscribable {
-  const {
-    checkInterval = 30000, // Default to 30 seconds
-    onHealthChange
-  } = options;
-
+  const { onHealthChange } = options;
   let lastHealthState = isRealtimeConnectionHealthy();
+  
+  // Initial health state notification
   onHealthChange?.(lastHealthState);
-
-  const intervalId = setInterval(() => {
-    const isHealthy = isRealtimeConnectionHealthy();
-    
-    // Only notify if health state has changed
-    if (isHealthy !== lastHealthState) {
-      lastHealthState = isHealthy;
-      onHealthChange?.(isHealthy);
-
-      // If connection is unhealthy, try to reconnect
-      if (!isHealthy) {
-        console.warn('Realtime connection is unhealthy, attempting to reconnect...');
-        supabase.removeAllChannels();
-        supabase.realtime.connect();
+  
+  // Listen to Supabase's built-in connection events
+  const channel = supabase.channel('health_monitor')
+    .on('system', { event: 'disconnect' }, () => {
+      if (lastHealthState) {
+        console.warn('Realtime connection lost');
+        lastHealthState = false;
+        onHealthChange?.(false);
       }
-    }
-  }, checkInterval);
+    })
+    .on('system', { event: 'reconnected' }, () => {
+      if (!lastHealthState) {
+        console.log('Realtime connection restored');
+        lastHealthState = true;
+        onHealthChange?.(true);
+      }
+    })
+    .on('system', { event: 'connected' }, () => {
+      if (!lastHealthState) {
+        console.log('Realtime connection established');
+        lastHealthState = true;
+        onHealthChange?.(true);
+      }
+    })
+    .subscribe();
 
   return {
     unsubscribe: () => {
-      clearInterval(intervalId);
+      channel.unsubscribe();
+      supabase.removeChannel(channel);
     }
   };
 }
@@ -69,8 +75,7 @@ export function subscribeToSharedTableChanges<T extends DatabaseChanges>(
   callback: (payload: RealtimePostgresChangesPayload<T>) => void,
   event: RealtimeEvent = '*'
 ): Unsubscribable {
-  const unsubscribe = subscribeToFilteredChanges(tableName, filter, callback, event);
-  return unsubscribe;
+  return subscribeToFilteredChanges(tableName, filter, callback, event);
 }
 
 /**
