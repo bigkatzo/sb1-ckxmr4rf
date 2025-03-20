@@ -15,7 +15,7 @@ import { ToastContainer } from 'react-toastify';
 import { validateEnvironmentVariables } from './utils/env-validation';
 import { ScrollBehavior } from './components/ui/ScrollBehavior';
 import { setupCachePreloader } from './lib/cache-preloader';
-import { setupRealtimeInvalidation, testRealtimeUpdates } from './lib/cache';
+import { setupRealtimeInvalidation } from './lib/cache';
 import { supabase } from './lib/supabase';
 import { preloadNFTVerifier } from './utils/nft-verification';
 import 'react-toastify/dist/ReactToastify.css';
@@ -77,11 +77,56 @@ function AppContent() {
 
   const handleTestRealtime = async () => {
     try {
-      const cleanup = await testRealtimeUpdates(supabase);
-      // Cleanup after 30 seconds
+      console.log('Testing Supabase realtime connection...');
+      
+      // Log connection info
+      console.log('URL:', import.meta.env.VITE_SUPABASE_URL);
+      
+      // Create a test channel with detailed logging
+      const channel = supabase.channel('test-broadcast', {
+        config: {
+          broadcast: { self: true },
+          presence: { key: '' },
+        }
+      });
+      
+      // Track connection events
+      let connected = false;
+      let errors: any[] = [];
+      
+      // Handle channel state
+      channel.on('broadcast', { event: 'test' }, (payload) => {
+        console.log('Received broadcast message:', payload);
+      });
+      
+      // Subscribe with state tracking
+      channel.subscribe((status) => {
+        console.log(`Channel status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          connected = true;
+          // Send a test message
+          channel.send({
+            type: 'broadcast',
+            event: 'test',
+            payload: { message: 'Testing channel' }
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          errors.push({ type: 'subscription', status });
+        }
+      });
+      
+      // Set a timeout to report results
       setTimeout(() => {
-        cleanup();
-      }, 30000);
+        if (connected) {
+          console.log('✅ Realtime connection successful');
+        } else {
+          console.error('❌ Failed to establish realtime connection');
+          console.error('Errors:', errors);
+        }
+        
+        // Clean up the channel
+        channel.unsubscribe();
+      }, 5000);
     } catch (error) {
       console.error('Failed to test realtime:', error);
     }

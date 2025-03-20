@@ -164,6 +164,10 @@ export class EnhancedCacheManager {
     try {
       // Validate and normalize the WebSocket URL
       let wsUrl = url;
+      
+      // Log the WebSocket URL for troubleshooting
+      console.log('Initializing WebSocket with URL:', wsUrl);
+      
       if (!wsUrl.startsWith('ws:') && !wsUrl.startsWith('wss:')) {
         if (wsUrl.startsWith('http:')) {
           wsUrl = `ws:${wsUrl.substring(5)}`;
@@ -174,10 +178,20 @@ export class EnhancedCacheManager {
         }
       }
       
+      // Further normalize the URL if needed
+      if (!wsUrl.includes('/realtime/v1/websocket')) {
+        wsUrl = wsUrl.endsWith('/') 
+          ? `${wsUrl}realtime/v1/websocket` 
+          : `${wsUrl}/realtime/v1/websocket`;
+      }
+      
+      console.log('Normalized WebSocket URL:', wsUrl);
+      
+      // Create the WebSocket with error handling
       this.websocket = new WebSocket(wsUrl);
       
       this.websocket.onopen = () => {
-        console.log('Cache invalidation WebSocket connected');
+        console.log('Cache invalidation WebSocket connected successfully');
       };
       
       this.websocket.onmessage = (event) => {
@@ -694,27 +708,32 @@ export const cacheManager = new EnhancedCacheManager({
 });
 
 export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
-  // Initialize WebSocket connection for real-time cache invalidation
-  const cacheManager = new EnhancedCacheManager({
-    websocketUrl: supabase.realtime && supabase.realtime.url 
-      ? supabase.realtime.url.startsWith('ws')
-        ? `${supabase.realtime.url}/realtime/v1/websocket`
-        : supabase.realtime.url.startsWith('http')
-          ? `wss://${supabase.realtime.url.replace(/^https?:\/\//, '')}/realtime/v1/websocket`
-          : `wss://${supabase.realtime.url}/realtime/v1/websocket`
-      : `wss://${import.meta.env.VITE_SUPABASE_URL.replace(/^https?:\/\//, '')}/realtime/v1/websocket`,
-    enableMetrics: true,
-    enablePrefetch: true
-  });
-
-  // Listen for database changes
-  const channel = supabase.channel('cache-invalidation')
-    .on('postgres_changes', { event: '*', schema: 'public' }, (payload: any) => {
+  // Skip redundant WebSocket connection - we will use Supabase channels directly
+  // This avoids duplicate connections that might conflict
+  
+  // Listen for database changes using Supabase's built-in realtime
+  const channel = supabase.channel('cache-invalidation', {
+    config: {
+      broadcast: { self: true },
+      presence: { key: '' },
+    }
+  })
+  .on('postgres_changes', { event: '*', schema: 'public' }, (payload: any) => {
+    try {
       const { table, record } = payload;
       const key = `${table}:${record.id}`;
-      cacheManager.invalidateKey(key);
-    })
-    .subscribe();
+      console.log('Realtime update received for:', key);
+      // Use global cacheManager instead of creating a new one
+      if (typeof cacheManager.invalidateKey === 'function') {
+        cacheManager.invalidateKey(key);
+      }
+    } catch (err) {
+      console.error('Error processing realtime update:', err);
+    }
+  })
+  .subscribe((status: string) => {
+    console.log('Realtime subscription status:', status);
+  });
     
   // Return cleanup function
   return () => {
@@ -727,27 +746,41 @@ export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
  */
 export const testRealtimeUpdates = async (supabase: any): Promise<() => void> => {
   try {
-    // Subscribe to changes
+    // Log connection details for diagnostics
+    console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+    console.log('Realtime config:', {
+      url: supabase.realtime?.url,
+      eventsPerSecond: supabase.realtime?.eventsPerSecond,
+      params: supabase.realtime?.params,
+    });
+
+    // Subscribe to changes with detailed status logging
     console.log('Setting up real-time test subscription...');
     
-    const channel = supabase.channel('test-channel')
-      .on('postgres_changes',
-        { event: '*', schema: 'public' },
-        (payload: any) => {
-          console.log('Received real-time update:', payload);
-        }
-      )
-      .subscribe((status: string) => {
-        console.log('Subscription status:', status);
-      });
+    const channel = supabase.channel('test-channel', {
+      config: {
+        broadcast: { self: true },
+        presence: { key: '' },
+      }
+    })
+    .on('postgres_changes', 
+      { event: '*', schema: 'public' },
+      (payload: any) => {
+        console.log('Received real-time update:', payload);
+      }
+    )
+    .subscribe((status: string) => {
+      console.log('Subscription status:', status);
+    });
 
-    // Test connection
-    const response = await supabase
-      .from('your_table')
-      .select('*')
-      .limit(1);
+    // Verify connection is working
+    channel.send({
+      type: 'broadcast',
+      event: 'test',
+      payload: { message: 'Testing realtime connection' }
+    });
 
-    console.log('Test query response:', response);
+    console.log('Test channel setup complete, listening for updates');
 
     return () => {
       console.log('Cleaning up test subscription...');

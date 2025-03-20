@@ -1,7 +1,5 @@
-import { supabase } from '../lib/supabase';
+import { supabase, retry } from '../lib/supabase';
 import { uploadProductImages } from './products/upload';
-import { withRetry } from '../lib/supabase';
-import type { PostgrestResponse } from '@supabase/supabase-js';
 
 export async function createProduct(collectionId: string, data: FormData) {
   try {
@@ -150,29 +148,29 @@ export async function updateProduct(id: string, data: FormData) {
 export async function deleteProduct(id: string) {
   try {
     // First verify the product exists and user has access
-    const { data: product, error: verifyError } = (await withRetry(() =>
-      supabase
+    const { data: product, error: verifyError } = await retry(async () =>
+      await supabase
         .from('products')
         .select('id, collection_id')
         .eq('id', id)
         .single()
-    )) as PostgrestResponse<any>;
+    );
 
     if (verifyError || !product) {
       throw new Error('Product not found or access denied');
     }
 
     // Delete the product
-    const { error: deleteError } = (await withRetry(() =>
-      supabase
+    const { error: deleteError } = await retry(async () => 
+      await supabase
         .from('products')
         .delete()
         .eq('id', id)
-    )) as PostgrestResponse<any>;
+    );
 
     if (deleteError) throw deleteError;
   } catch (error) {
     console.error('Error deleting product:', error);
-    throw error instanceof Error ? error : new Error('Failed to delete product');
+    throw error;
   }
 }

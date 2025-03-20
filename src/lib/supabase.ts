@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import type { PostgrestResponse, PostgrestBuilder } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
 // Required environment variables - keep VITE_ prefix for these
@@ -9,17 +8,19 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // Regular client for normal operations
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
-// Retry function for Supabase operations
-export async function withRetry<T>(
-  operation: () => PostgrestBuilder<T>,
+/**
+ * Generic retry function for any async operation
+ */
+export async function retry<T>(
+  operation: () => Promise<T>,
   maxRetries = 3,
   delay = 1000
-): Promise<PostgrestResponse<T>> {
-  let lastError;
+): Promise<T> {
+  let lastError: unknown;
+  
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const result = await operation();
-      return result as PostgrestResponse<T>;
+      return await operation();
     } catch (error) {
       lastError = error;
       if (i < maxRetries - 1) {
@@ -27,6 +28,7 @@ export async function withRetry<T>(
       }
     }
   }
+  
   throw lastError;
 }
 
@@ -45,7 +47,7 @@ export async function checkConnection(): Promise<boolean> {
 export async function safeQuery<T>(
   operation: () => Promise<T>
 ): Promise<T> {
-  return withRetry(async () => {
+  return retry(async () => {
     const connected = await checkConnection();
     if (!connected) {
       throw new Error('Database connection failed');
@@ -68,4 +70,82 @@ export async function adminQuery<T>(
   // Execute the operation using the regular client
   // The database RPC functions will handle admin permissions
   return safeQuery(() => operation(supabase));
+}
+
+// Add diagnostic function for realtime connection
+export async function checkRealtimeConnection(): Promise<{
+  status: string;
+  details: Record<string, any>;
+}> {
+  try {
+    // Check basic connection first
+    const connectionOk = await checkConnection();
+    if (!connectionOk) {
+      return {
+        status: 'error',
+        details: { message: 'Database connection failed' }
+      };
+    }
+
+    // Create a temporary channel to test realtime
+    const channel = supabase.channel('connection-test', {
+      config: { broadcast: { self: true } }
+    });
+
+    // Set up a promise to track connection status
+    const connectionPromise = new Promise<{
+      status: string;
+      details: Record<string, any>;
+    }>((resolve) => {
+      let timeout: any = null;
+      
+      // Set timeout for connection
+      timeout = setTimeout(() => {
+        cleanup();
+        resolve({
+          status: 'timeout',
+          details: { message: 'Connection timed out after 5 seconds' }
+        });
+      }, 5000);
+      
+      const cleanup = () => {
+        clearTimeout(timeout);
+        channel.unsubscribe();
+      };
+
+      // Handle successful connection
+      channel.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          cleanup();
+          resolve({
+            status: 'connected',
+            details: {
+              supabaseUrl,
+              channelTopic: channel.topic
+            }
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          cleanup();
+          resolve({
+            status: 'error',
+            details: { message: 'Channel error', channelStatus: status }
+          });
+        } else if (status === 'TIMED_OUT') {
+          cleanup();
+          resolve({
+            status: 'timeout',
+            details: { message: 'Channel timed out', channelStatus: status }
+          });
+        }
+      });
+    });
+
+    return connectionPromise;
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      status: 'error',
+      details: { message: 'Connection check error', error: errorMessage }
+    };
+  }
 }
