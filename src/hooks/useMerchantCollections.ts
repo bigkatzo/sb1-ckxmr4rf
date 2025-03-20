@@ -69,6 +69,7 @@ export function useMerchantCollections(options: {
   const cleanupFnsRef = useRef<Array<() => void>>([]);
   const isMountedRef = useRef(false);
   const fetchTimeoutRef = useRef<NodeJS.Timeout>();
+  const isSubscribedRef = useRef(false);
 
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(!deferLoad);
@@ -254,7 +255,12 @@ export function useMerchantCollections(options: {
     }, REALTIME_DEBOUNCE_DURATION);
   }, [fetchCollections]);
 
-  const setupSubscriptions = () => {
+  const setupSubscriptions = useCallback(() => {
+    // Don't setup if already subscribed
+    if (isSubscribedRef.current) {
+      return;
+    }
+
     // Check if we've exceeded subscription attempts
     const attempts = subscriptionAttempts.get('merchant_collections') || 0;
     if (attempts >= MAX_SUBSCRIPTION_ATTEMPTS) {
@@ -296,9 +302,16 @@ export function useMerchantCollections(options: {
         }
       )
       .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          isSubscribedRef.current = true;
+        }
         console.log('Collections subscription status:', status);
         if (status === 'CHANNEL_ERROR') {
           console.warn('Collections subscription error, will try to reconnect');
+          isSubscribedRef.current = false;
+        }
+        if (status === 'CLOSED') {
+          isSubscribedRef.current = false;
         }
       });
 
@@ -323,6 +336,7 @@ export function useMerchantCollections(options: {
         console.log('Access subscription status:', status);
         if (status === 'CHANNEL_ERROR') {
           console.warn('Access subscription error, will try to reconnect');
+          isSubscribedRef.current = false;
         }
       });
 
@@ -366,6 +380,7 @@ export function useMerchantCollections(options: {
 
     // Main cleanup function that will be called on unmount
     const cleanup = () => {
+      if (!isMountedRef.current) return; // Don't cleanup if already unmounted
       console.log('Cleaning up merchant collections subscriptions');
       cleanupExistingSubscriptions();
       if (healthCheckCleanup) {
@@ -373,6 +388,7 @@ export function useMerchantCollections(options: {
       }
       activeSubscriptions.delete('merchant_collections');
       subscriptionAttempts.delete('merchant_collections');
+      isSubscribedRef.current = false;
     };
 
     // Store in global subscription registry
@@ -384,7 +400,7 @@ export function useMerchantCollections(options: {
 
     // Store cleanup function for useEffect
     cleanupFnsRef.current = [cleanup];
-  };
+  }, [debouncedFetch, initialPriority, updateAccessTime]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -422,17 +438,21 @@ export function useMerchantCollections(options: {
     }
 
     return () => {
-      isMountedRef.current = false;
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-      // Execute all cleanup functions
-      cleanupFnsRef.current.forEach(cleanup => {
-        if (cleanup) cleanup();
-      });
-      cleanupFnsRef.current = [];
+      const cleanup = () => {
+        isMountedRef.current = false;
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current);
+        }
+        // Execute all cleanup functions
+        cleanupFnsRef.current.forEach(cleanup => {
+          if (cleanup) cleanup();
+        });
+        cleanupFnsRef.current = [];
+        isSubscribedRef.current = false;
+      };
+      cleanup();
     };
-  }, [fetchCollections, initialPriority, deferLoad, updateAccessTime, collections, loading]);
+  }, [fetchCollections, initialPriority, deferLoad, setupSubscriptions, collections, loading]);
 
   return { 
     collections,
