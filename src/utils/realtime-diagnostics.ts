@@ -1,6 +1,59 @@
 import { checkRealtimeConnection, diagnoseRealtimeIssues, testAndFixRealtimeConnection } from '../lib/supabase';
 
 /**
+ * Clean up stale subscriptions to resolve the "subscribe can only be called once" error
+ */
+export async function cleanupStaleSubscriptions(): Promise<string> {
+  console.group('🧹 Cleaning up stale Supabase subscriptions');
+  
+  try {
+    // Access the Supabase global from window for debugging
+    // @ts-ignore - accessing window.supabase for debugging
+    const supabaseGlobal = window.supabase || window.Supabase;
+    let countClosed = 0;
+    
+    if (!supabaseGlobal) {
+      console.log('Could not access Supabase global - manual cleanup might be required');
+      return 'Could not access Supabase global - try refreshing the page';
+    }
+    
+    // Try to access active channels from Supabase global
+    const channels = supabaseGlobal.getChannels?.() || [];
+    
+    if (channels.length === 0) {
+      console.log('No active channels found');
+      return 'No active channels found that need cleanup';
+    }
+    
+    console.log(`Found ${channels.length} active channels`);
+    
+    // Close all channels to start fresh
+    for (const channel of channels) {
+      try {
+        if (channel && typeof channel.unsubscribe === 'function') {
+          console.log(`Closing channel: ${channel.topic}`);
+          channel.unsubscribe();
+          countClosed++;
+        } else {
+          console.warn(`Unable to close channel - missing unsubscribe method: ${channel.topic}`);
+        }
+      } catch (err) {
+        console.error(`Error closing channel ${channel.topic}:`, err);
+      }
+    }
+    
+    const result = `Closed ${countClosed} stale channels. Refresh the page to complete cleanup.`;
+    console.log(result);
+    return result;
+  } catch (error) {
+    console.error('Error cleaning up subscriptions:', error);
+    return 'Error cleaning up subscriptions. Try refreshing the page.';
+  } finally {
+    console.groupEnd();
+  }
+}
+
+/**
  * Run diagnostics on Supabase realtime connection and report results
  * Use this to debug realtime connection issues in the console
  */
@@ -34,6 +87,12 @@ export async function runRealtimeDiagnostics(autoFix = false): Promise<void> {
       console.log(`${i + 1}. ${rec}`);
     });
     
+    // Check for duplicate subscription errors
+    if (diagnostics.issues.some(issue => issue.includes('active channels'))) {
+      console.log('\n⚠️ Multiple active channels detected - may cause "subscribe can only be called once" errors');
+      console.log('To fix: Run window.debugRealtime.cleanupSubscriptions() to clean up stale subscriptions');
+    }
+    
     // Auto-fix if requested
     if (autoFix && diagnostics.status === 'issues_detected') {
       console.log('\n🔧 Attempting to fix issues automatically...');
@@ -63,6 +122,12 @@ export function exposeRealtimeDebugger(): void {
     return 'Diagnostics complete. Check console logs for details.';
   };
   
+  // Add cleanup function
+  (window as any).debugRealtime.cleanupSubscriptions = async () => {
+    return cleanupStaleSubscriptions();
+  };
+  
   console.log('Realtime debugger exposed. Run window.debugRealtime() to debug realtime connections.');
   console.log('Run window.debugRealtime(true) to attempt automatic fixes.');
+  console.log('Run window.debugRealtime.cleanupSubscriptions() to clean up stale subscriptions.');
 } 

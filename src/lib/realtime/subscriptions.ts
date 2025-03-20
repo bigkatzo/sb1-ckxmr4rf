@@ -15,8 +15,8 @@ export function createRobustChannel<T = any>(
   let reconnectAttempts = 0;
   let reconnectTimer: any = null;
   
-  // Create channel with the given name and config
-  const channel = supabase.channel(channelName, { config });
+  // Create initial channel
+  let channel = supabase.channel(channelName, { config });
   
   // Add subscription wrapper with reconnection logic
   const subscribe = (callback?: (data: T) => void) => {
@@ -42,9 +42,30 @@ export function createRobustChannel<T = any>(
             // Exponential backoff for reconnection
             const delay = 2000 * Math.pow(1.5, reconnectAttempts);
             reconnectTimer = setTimeout(() => {
-              // Unsubscribe and resubscribe
-              channel.unsubscribe();
-              wrappedSubscribe();
+              try {
+                // Unsubscribe from the old channel
+                channel.unsubscribe();
+                
+                // Create a completely new channel instance with the same name
+                // This is critical to avoid the "subscribe can only be called once" error
+                channel = supabase.channel(`${channelName}_retry_${reconnectAttempts}`, { config });
+                
+                // Subscribe to the new channel
+                wrappedSubscribe();
+              } catch (err) {
+                console.error(`Error reconnecting channel ${channelName}:`, err);
+                
+                // If we hit an error during reconnection, increment attempts and try again
+                if (reconnectAttempts < maxReconnectAttempts) {
+                  setTimeout(() => wrappedSubscribe(), delay);
+                } else {
+                  if (callback) callback({ 
+                    status: 'MAX_RETRIES_EXCEEDED', 
+                    connected: false,
+                    error: String(err)
+                  } as any);
+                }
+              }
             }, delay);
           } else {
             console.error(`Maximum reconnection attempts (${maxReconnectAttempts}) reached for ${channelName}`);
