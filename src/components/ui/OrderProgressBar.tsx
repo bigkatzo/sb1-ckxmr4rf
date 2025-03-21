@@ -7,10 +7,11 @@ interface OrderProgressBarProps {
   productId: string;
   minimumOrderQuantity: number;
   maxStock: number | null;
+  isMainView?: boolean;
 }
 
-export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock }: OrderProgressBarProps) {
-  const { currentOrders, loading } = useOrderStats(productId);
+export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock, isMainView = false }: OrderProgressBarProps) {
+  const { currentOrders, loading } = useOrderStats(productId, { isMainView });
   const isUnlimited = maxStock === null;
 
   // Memoize calculations

@@ -541,6 +541,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     productId={product.id}
                     minimumOrderQuantity={product.minimumOrderQuantity || 50}
                     maxStock={product.stock}
+                    isMainView={true}
                   />
 
                   {product.category && (
