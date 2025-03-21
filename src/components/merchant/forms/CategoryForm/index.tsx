@@ -1,101 +1,76 @@
-import React, { useState } from 'react';
-import { ModalForm } from '../../../ui/Modal/ModalForm';
-import { CategoryRules } from './CategoryRules';
-import type { CategoryFormData, CategoryRule } from './types';
-import { toast } from 'react-toastify';
+import { useState } from 'react';
+import { Button } from '../../../ui/Button';
+import { Input } from '../../../ui/Input';
+import { TextArea } from '../../../ui/TextArea';
+import { Select } from '../../../ui/Select';
+import { getCategoryTypeInfo } from '../../../collections/CategoryTypeInfo';
+import type { Category } from '../../../../types/categories';
+import type { CategoryFormData } from './types';
 
 interface CategoryFormProps {
-  onClose: () => void;
+  initialData?: Category;
   onSubmit: (data: FormData) => void;
-  initialData?: CategoryFormData;
+  onClose: () => void;
 }
 
-export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormProps) {
-  const [rules, setRules] = useState<CategoryRule[]>(
-    initialData?.eligibilityRules?.rules || []
-  );
+export function CategoryForm({ initialData, onSubmit, onClose }: CategoryFormProps) {
+  const [formData, setFormData] = useState<CategoryFormData>({
+    name: initialData?.name || '',
+    description: initialData?.description || '',
+    type: initialData?.type || 'product',
+    visible: initialData?.visible ?? true,
+    order: initialData?.order ?? 0
+  });
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    try {
-      const formData = new FormData(e.currentTarget);
-      
-      // Validate required fields
-      const name = formData.get('name');
-      const description = formData.get('description');
-      
-      if (!name || !description) {
-        toast.error('Please fill in all required fields');
-        return;
+    const data = new window.FormData();
+    Object.entries(formData).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        data.append(key, value.toString());
       }
-
-      // Validate rules format
-      const validRules = rules.every(rule => 
-        rule.type && 
-        rule.value && 
-        (rule.type !== 'token' || (typeof rule.quantity === 'number' && rule.quantity > 0))
-      );
-
-      if (rules.length > 0 && !validRules) {
-        toast.error('Please ensure all rules are properly filled out');
-        return;
-      }
-
-      // Ensure rules are properly formatted
-      formData.set('rules', JSON.stringify(rules));
-      
-      // Log the data being submitted
-      console.log('Submitting form data:', {
-        name: formData.get('name'),
-        description: formData.get('description'),
-        rules: JSON.parse(formData.get('rules') as string)
-      });
-
-      onSubmit(formData);
-    } catch (error) {
-      console.error('Form submission error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to submit form');
-    }
+    });
+    onSubmit(data);
   };
 
+  const categoryTypes = getCategoryTypeInfo('en');
+
   return (
-    <ModalForm
-      isOpen={true}
-      onClose={onClose}
-      onSubmit={handleSubmit}
-      title={initialData ? 'Edit Category' : 'New Category'}
-      submitLabel={initialData ? 'Update Category' : 'Create Category'}
-      className="sm:min-w-[600px] sm:max-w-2xl"
-    >
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="name" className="block text-sm font-medium mb-2">
-          Category Name
-        </label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          defaultValue={initialData?.name}
+        <Input
+          label="Name"
+          value={formData.name}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
           required
-          className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
-
       <div>
-        <label htmlFor="description" className="block text-sm font-medium mb-2">
-          Description
-        </label>
-        <textarea
-          id="description"
-          name="description"
-          defaultValue={initialData?.description}
+        <TextArea
+          label="Description"
+          value={formData.description}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
           required
-          rows={4}
-          className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
-
-      <CategoryRules rules={rules} onChange={setRules} />
-    </ModalForm>
+      <div>
+        <Select
+          label="Type"
+          value={formData.type}
+          onChange={(value: string) => setFormData({ ...formData, type: value })}
+          options={Object.entries(categoryTypes).map(([value, { label }]) => ({
+            value,
+            label
+          }))}
+          required
+        />
+      </div>
+      <div className="flex justify-end space-x-2">
+        <Button type="button" variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit">Save</Button>
+      </div>
+    </form>
   );
 }

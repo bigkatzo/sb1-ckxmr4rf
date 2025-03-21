@@ -1,7 +1,8 @@
 import { supabase, retry } from '../lib/supabase';
 import { uploadProductImages } from './products/upload';
+import type { Product } from '../types/variants';
 
-export async function createProduct(collectionId: string, data: FormData) {
+export async function createProduct(collectionId: string, data: FormData): Promise<Product> {
   try {
     // Upload images first
     const images: string[] = [];
@@ -36,9 +37,9 @@ export async function createProduct(collectionId: string, data: FormData) {
       throw new Error('Invalid price value');
     }
 
-    const { error } = await supabase
+    const { data: product, error } = await supabase
       .from('products')
-      .insert({
+      .insert([{
         name,
         description: data.get('description'),
         price,
@@ -52,18 +53,19 @@ export async function createProduct(collectionId: string, data: FormData) {
         price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
         price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
         visible: data.get('visible') === 'true'
-      });
+      }])
+      .select('*')
+      .single();
 
     if (error) throw error;
-
-    return { success: true };
+    return product;
   } catch (error) {
     console.error('Error creating product:', error);
     throw error;
   }
 }
 
-export async function updateProduct(id: string, data: FormData) {
+export async function updateProduct(id: string, data: FormData): Promise<Product> {
   try {
     if (!id) {
       throw new Error('Product ID is required for update');
@@ -131,21 +133,22 @@ export async function updateProduct(id: string, data: FormData) {
     updateData.price_modifier_after_min = data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null;
     updateData.visible = data.get('visible') === 'true';
 
-    const { error } = await supabase
+    const { data: product, error } = await supabase
       .from('products')
       .update(updateData)
-      .eq('id', id);
+      .eq('id', id)
+      .select('*')
+      .single();
 
     if (error) throw error;
-
-    return { success: true };
+    return product;
   } catch (error) {
     console.error('Error updating product:', error);
     throw error;
   }
 }
 
-export async function deleteProduct(id: string) {
+export async function deleteProduct(id: string): Promise<boolean> {
   try {
     // First verify the product exists and user has access
     const { data: product, error: verifyError } = await retry(async () =>
@@ -169,6 +172,7 @@ export async function deleteProduct(id: string) {
     );
 
     if (deleteError) throw deleteError;
+    return true;
   } catch (error) {
     console.error('Error deleting product:', error);
     throw error;

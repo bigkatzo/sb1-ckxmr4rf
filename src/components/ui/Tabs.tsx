@@ -1,32 +1,31 @@
-import React from 'react';
-
-interface Tab {
-  id: string;
-  label: string;
+interface TabsProps<T extends string = string> {
+  tabs: Array<{ id: T; label: string }>;
+  activeTab: T;
+  onChange: (id: T) => void;
+  onHover?: (id: T) => void;
 }
 
-interface TabsProps {
-  tabs: Tab[];
-  activeId: string;
-  onChange: (id: string) => void;
-}
-
-export function Tabs({ tabs, activeId, onChange }: TabsProps) {
+export function Tabs<T extends string = string>({ tabs, activeTab, onChange, onHover }: TabsProps<T>) {
   return (
-    <div className="flex overflow-x-auto scrollbar-hide -mb-px">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onChange(tab.id)}
-          className={`flex-shrink-0 border-b-2 px-3 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
-            activeId === tab.id
-              ? 'border-purple-500 text-purple-500'
-              : 'border-transparent text-gray-400 hover:border-gray-700 hover:text-gray-300'
-          }`}
-        >
-          {tab.label}
-        </button>
-      ))}
+    <div className="border-b border-gray-700">
+      <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            onMouseEnter={() => onHover?.(tab.id)}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === tab.id
+                ? 'border-purple-500 text-purple-500'
+                : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+              }
+            `}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

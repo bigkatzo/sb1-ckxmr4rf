@@ -1,9 +1,9 @@
 import { type ButtonHTMLAttributes, forwardRef } from 'react';
-import { Loading, LoadingType } from './LoadingStates';
 import { cn } from '../../utils/cn';
+import { Spinner } from './Spinner';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'link';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'link' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   loadingText?: string;
@@ -26,7 +26,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
     secondary: 'bg-gray-800 text-white hover:bg-gray-700',
     outline: 'border border-gray-700 hover:bg-gray-800',
     ghost: 'hover:bg-gray-800',
-    link: 'underline-offset-4 hover:underline text-purple-500'
+    link: 'underline-offset-4 hover:underline text-purple-500',
+    danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500'
   };
 
   const sizes = {
@@ -51,7 +52,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
         <>
           <span className="opacity-0">{children}</span>
           <span className="absolute inset-0 flex items-center justify-center gap-2">
-            <Loading type={LoadingType.ACTION} />
+            <Spinner className="h-4 w-4" />
             {loadingText && <span>{loadingText}</span>}
           </span>
         </>

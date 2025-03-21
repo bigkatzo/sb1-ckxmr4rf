@@ -1,26 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { ProductForm } from '../../components/merchant/forms/ProductForm/index';
 import { ProductListItem } from '../../components/merchant/ProductListItem';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
 import { useProducts } from '../../hooks/useProducts';
+import { useOptimisticUpdate } from '../../hooks/useOptimisticUpdate';
 import { createProduct, updateProduct, deleteProduct } from '../../services/products';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import { createCategoryIndices } from '../../utils/category-mapping';
+import type { Product } from '../../types/variants';
 
 export function ProductsTab() {
   const [showForm, setShowForm] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<string>('');
-  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { collections, loading: collectionsLoading } = useMerchantCollections();
   const { categories } = useCategories(selectedCollection);
-  const { products, loading: productsLoading, error: productsError, refreshProducts } = useProducts(selectedCollection, undefined, true);
+  const { 
+    products: initialProducts, 
+    loading: productsLoading, 
+    error: productsError,
+    refreshProducts
+  } = useProducts(selectedCollection, undefined, true);
+
+  const {
+    items: products,
+    addItem,
+    updateItem,
+    removeItem,
+    revertUpdate
+  } = useOptimisticUpdate<Product>(initialProducts);
+
+  // Update products when initialProducts changes
+  useEffect(() => {
+    revertUpdate(initialProducts);
+  }, [initialProducts, revertUpdate]);
 
   // Create category indices mapping
   const categoryIndices = createCategoryIndices(categories);
@@ -28,49 +48,70 @@ export function ProductsTab() {
   const handleSubmit = async (data: FormData) => {
     try {
       if (editingProduct) {
-        await updateProduct(editingProduct.id, data);
-        toast.success('Product updated successfully');
+        // Optimistically update the product
+        const optimisticProduct = {
+          ...editingProduct,
+          name: data.get('name') as string,
+          description: data.get('description') as string,
+          // Add other fields as needed
+        };
+        updateItem(editingProduct.id, optimisticProduct);
+
+        const updatedProduct = await updateProduct(editingProduct.id, data);
+        if (updatedProduct) {
+          updateItem(editingProduct.id, updatedProduct);
+          toast.success('Product updated successfully');
+        }
       } else {
-        data.append('collection', selectedCollection);
-        await createProduct(selectedCollection, data);
-        toast.success('Product created successfully');
+        // Create a temporary ID for optimistic update
+        const tempId = `temp-${Date.now()}`;
+        const optimisticProduct = {
+          id: tempId,
+          name: data.get('name') as string,
+          description: data.get('description') as string,
+          // Add other required fields
+        } as Product;
+        addItem(optimisticProduct);
+
+        const newProduct = await createProduct(selectedCollection, data);
+        if (newProduct) {
+          // Remove temp product and add the real one
+          removeItem(tempId);
+          addItem(newProduct);
+          toast.success('Product created successfully');
+        }
       }
       setShowForm(false);
-      setEditingProduct(null);
-      refreshProducts();
+      setEditingProduct(undefined);
     } catch (error) {
       console.error('Error with product:', error);
-      let errorMessage = 'Error saving product';
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        console.error('Error details:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-      } else if (typeof error === 'object' && error !== null) {
-        console.error('Detailed error object:', error);
-      }
-      
-      toast.error(errorMessage);
+      toast.error('Failed to save product');
+      // Revert to initial state on error
+      revertUpdate(initialProducts);
     }
   };
 
-  const handleDelete = async () => {
-    if (!deletingId) return;
-    
+  const handleDelete = async (id: string) => {
+    const originalProducts = [...products];
     try {
-      await deleteProduct(deletingId);
-      toast.success('Product deleted successfully');
-      refreshProducts();
+      // Optimistically remove the product
+      removeItem(id);
+      
+      const success = await deleteProduct(id);
+      if (success) {
+        setShowConfirmDialog(false);
+        setDeletingId(null);
+        toast.success('Product deleted successfully');
+      } else {
+        // Revert if delete failed
+        revertUpdate(originalProducts);
+        toast.error('Failed to delete product');
+      }
     } catch (error) {
       console.error('Error deleting product:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error deleting product';
-      toast.error(errorMessage);
-    } finally {
-      setShowConfirmDialog(false);
-      setDeletingId(null);
+      toast.error('Failed to delete product');
+      // Revert on error
+      revertUpdate(originalProducts);
     }
   };
 
@@ -114,7 +155,7 @@ export function ProductsTab() {
           ) && (
             <button
               onClick={() => {
-                setEditingProduct(null);
+                setEditingProduct(undefined);
                 setShowForm(true);
               }}
               className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
@@ -174,7 +215,7 @@ export function ProductsTab() {
           initialData={editingProduct}
           onClose={() => {
             setShowForm(false);
-            setEditingProduct(null);
+            setEditingProduct(undefined);
           }}
           onSubmit={handleSubmit}
         />
@@ -190,7 +231,7 @@ export function ProductsTab() {
           title="Delete Product"
           description="Are you sure you want to delete this product? This action cannot be undone."
           confirmLabel="Delete"
-          onConfirm={handleDelete}
+          onConfirm={() => handleDelete(deletingId)}
         />
       )}
     </div>

@@ -1,20 +1,16 @@
-import { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
-import { Loading, LoadingType } from './LoadingStates';
+import React, { useState } from 'react';
+import { RotateCw } from 'lucide-react';
 
-interface RefreshButtonProps {
-  onRefresh: () => Promise<void>;
-  className?: string;
+interface RefreshButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  onRefresh: () => void | Promise<void>;
 }
 
-export function RefreshButton({ onRefresh, className = '' }: RefreshButtonProps) {
+export function RefreshButton({ onRefresh, className = '', ...props }: RefreshButtonProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
-    if (!onRefresh || isRefreshing) return;
-    
-    setIsRefreshing(true);
     try {
+      setIsRefreshing(true);
       await onRefresh();
     } finally {
       setIsRefreshing(false);
@@ -25,16 +21,10 @@ export function RefreshButton({ onRefresh, className = '' }: RefreshButtonProps)
     <button
       onClick={handleRefresh}
       disabled={isRefreshing}
-      className={`p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-all ${
-        isRefreshing ? 'opacity-50' : ''
-      } ${className}`}
-      title="Refresh"
+      className={`p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-gray-400 ${className}`}
+      {...props}
     >
-      {isRefreshing ? (
-        <Loading type={LoadingType.ACTION} />
-      ) : (
-        <RefreshCw className="h-4 w-4" />
-      )}
+      <RotateCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
     </button>
   );
 }

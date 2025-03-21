@@ -1,4 +1,4 @@
-import type { Product } from './index';
+export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface ShippingAddress {
   address: string;
@@ -16,8 +16,6 @@ export interface OrderVariant {
   name: string;
   value: string;
 }
-
-export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface Order {
   id: string;
@@ -38,8 +36,11 @@ export interface Order {
   walletAddress: string;
   transactionSignature: string;
   access_type?: 'admin' | 'owner' | 'edit' | 'view';
-  product?: Product;
   order_variants?: OrderVariant[];
+  payment_status: 'pending' | 'paid' | 'failed';
+  shipping_status: 'pending' | 'shipped' | 'delivered';
+  tracking_number?: string;
+  notes?: string;
 }
 
 // Type for the public order counts view
