@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
-import type { Product } from '../types';
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
+import type { Product } from '../types/index';
 
 export function useProduct(collectionSlug?: string, productSlug?: string) {
   const [product, setProduct] = useState<Product | null>(null);
@@ -10,10 +11,61 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function fetchProduct() {
       if (!collectionSlug || !productSlug) return;
 
       try {
+        // First try to get from cache
+        const cacheKey = `product:${collectionSlug}:${productSlug}`;
+        const { value: cachedProduct, needsRevalidation } = await cacheManager.get<Product>(cacheKey);
+
+        // Use cached data if available
+        if (cachedProduct) {
+          if (isMounted) {
+            setProduct(cachedProduct);
+            setLoading(false);
+          }
+
+          // If stale, revalidate in background
+          if (needsRevalidation) {
+            revalidateProduct();
+          }
+          return;
+        }
+
+        // No cache hit, fetch fresh data
+        await fetchFreshProduct();
+      } catch (err) {
+        console.error('Error fetching product:', err);
+        if (isMounted) {
+          setError(handleError(err));
+          setProduct(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    async function revalidateProduct() {
+      try {
+        await fetchFreshProduct(false);
+      } catch (err) {
+        console.error('Error revalidating product:', err);
+      }
+    }
+
+    async function fetchFreshProduct(updateLoadingState = true) {
+      if (!collectionSlug || !productSlug) return;
+
+      try {
+        if (updateLoadingState && isMounted) {
+          setLoading(true);
+        }
+
         const { data, error } = await supabase
           .from('public_products')
           .select('*')
@@ -47,17 +99,42 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           priceModifierAfterMin: data.price_modifier_after_min ?? null
         };
 
-        setProduct(transformedProduct);
-        setError(null);
+        // Cache the product data
+        const cacheKey = `product:${collectionSlug}:${productSlug}`;
+        await cacheManager.set(
+          cacheKey, 
+          transformedProduct, 
+          CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+          {
+            persist: true,
+            priority: 1,
+            staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+          }
+        );
+
+        if (isMounted) {
+          setProduct(transformedProduct);
+          setError(null);
+          if (updateLoadingState) {
+            setLoading(false);
+          }
+        }
       } catch (err) {
-        console.error('Error fetching product:', err);
-        setError(handleError(err));
-      } finally {
-        setLoading(false);
+        console.error('Error fetching fresh product:', err);
+        if (isMounted && updateLoadingState) {
+          setError(handleError(err));
+          setProduct(null);
+          setLoading(false);
+        }
+        throw err;
       }
     }
 
     fetchProduct();
+
+    return () => {
+      isMounted = false;
+    };
   }, [collectionSlug, productSlug]);
 
   return { product, loading, error };
