@@ -1,26 +1,47 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError, isValidId } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
 import type { Product } from '../types/variants';
+import { toast } from 'react-toastify';
 
-export function useProducts(collectionId?: string, categoryId?: string, isMerchant: boolean = false) {
+type ProductUpdate = Product | Product[] | ((prev: Product[]) => Product[]);
+
+export function useProducts(collectionId?: string, categoryId?: string, isMerchant: boolean = false, deferLoad = false) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+  const isFetchingRef = useRef(false);
+
+  // Update product in state
+  const updateProductInState = useCallback((updatedProduct: ProductUpdate) => {
+    setProducts(prev => {
+      if (typeof updatedProduct === 'function') {
+        return updatedProduct(prev);
+      }
+      
+      if (Array.isArray(updatedProduct)) {
+        return updatedProduct;
+      }
+
+      return prev.map(product => 
+        product.id === updatedProduct.id ? updatedProduct : product
+      );
+    });
+  }, []);
 
   const fetchProducts = useCallback(async () => {
+    if (!collectionId || isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
     setError(null);
     setProducts([]);
-
-    if (!collectionId) {
-      setLoading(false);
-      return;
-    }
 
     if (!isValidId(collectionId) || (categoryId && !isValidId(categoryId))) {
       setError('Invalid identifier format');
       setLoading(false);
+      isFetchingRef.current = false;
       return;
     }
 
@@ -75,23 +96,40 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
         visible: product.visible ?? true
       }));
 
-      setProducts(transformedProducts);
+      if (isMountedRef.current) {
+        setProducts(transformedProducts);
+        setError(null);
+      }
     } catch (err) {
       console.error('Error fetching products:', err);
-      setError(handleError(err));
+      const errorMessage = handleError(err);
+      if (isMountedRef.current) {
+        setError(errorMessage);
+        toast.error(`Failed to load products: ${errorMessage}`);
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+      isFetchingRef.current = false;
     }
   }, [collectionId, categoryId, isMerchant]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    if (!deferLoad) {
+      fetchProducts();
+    }
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchProducts, deferLoad]);
 
   return { 
     products, 
     loading, 
     error,
-    refreshProducts: fetchProducts
+    refreshProducts: fetchProducts,
+    updateProductInState
   };
 }

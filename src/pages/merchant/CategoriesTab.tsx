@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, EyeOff } from 'lucide-react';
 import { CategoryForm } from '../../components/merchant/forms/CategoryForm';
+import type { CategoryFormData } from '../../components/merchant/forms/CategoryForm/types';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
+import { useCategoryOptimisticUpdate } from '../../hooks/useCategoryOptimisticUpdate';
 import { createCategory, updateCategory, deleteCategory } from '../../services/categories';
 import { EditButton } from '../../components/ui/EditButton';
 import { DeleteButton } from '../../components/ui/DeleteButton';
@@ -11,42 +13,154 @@ import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import { CategoryDiamond } from '../../components/collections/CategoryDiamond';
 import { getCategoryTypeInfo } from '../../components/collections/CategoryTypeInfo';
+import type { Category } from '../../types/categories';
+
+// Add a function to transform the category data
+const transformCategory = (category: Category | undefined) => {
+  if (!category) return undefined;
+  
+  return {
+    ...category,
+    eligibilityRules: {
+      groups: category.eligibilityRules.groups.map(group => ({
+        ...group,
+        operator: group.operator.toUpperCase() as "AND" | "OR" // Transform operator to uppercase
+      }))
+    }
+  };
+};
 
 export function CategoriesTab() {
   const [showForm, setShowForm] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<string>('');
-  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | undefined>();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { collections, loading: collectionsLoading, refreshCollections } = useMerchantCollections();
-  const { categories, loading: categoriesLoading, refreshCategories } = useCategories(selectedCollection);
+  const { collections, loading: collectionsLoading } = useMerchantCollections();
+  const { categories: initialCategories, loading: categoriesLoading } = useCategories(selectedCollection);
+  const {
+    categories,
+    addCategory,
+    updateCategory: updateCategoryInState,
+    removeCategory,
+    revertCategories,
+    toggleVisibility
+  } = useCategoryOptimisticUpdate(initialCategories);
 
-  const handleRefreshAll = async () => {
-    await Promise.all([refreshCategories(), refreshCollections()]);
+  // Update categories when initialCategories changes
+  useEffect(() => {
+    revertCategories(initialCategories);
+  }, [initialCategories, revertCategories]);
+
+  const handleSubmit = (data: FormData) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    (async () => {
+      try {
+        if (editingCategory) {
+          // Optimistically update the category
+          const formData: CategoryFormData = {
+            name: data.get('name') as string,
+            description: data.get('description') as string,
+            type: data.get('type') as string,
+            visible: data.get('visible') === 'true',
+            order: parseInt(data.get('order') as string, 10)
+          };
+
+          const optimisticCategory = {
+            ...editingCategory,
+            ...formData
+          };
+          updateCategoryInState(editingCategory.id, optimisticCategory);
+
+          const updatedCategory = await updateCategory(editingCategory.id, data);
+          if (updatedCategory) {
+            updateCategoryInState(editingCategory.id, updatedCategory);
+            toast.success('Category updated successfully');
+          }
+        } else {
+          if (!selectedCollection) {
+            toast.error('Please select a collection first');
+            return;
+          }
+
+          const formData: CategoryFormData = {
+            name: data.get('name') as string,
+            description: data.get('description') as string,
+            type: data.get('type') as string,
+            visible: true,
+            order: categories.length
+          };
+
+          // Create a temporary ID for optimistic update
+          const tempId = `temp-${Date.now()}`;
+          const optimisticCategory = {
+            id: tempId,
+            ...formData,
+            collection_id: selectedCollection,
+            eligibilityRules: {
+              groups: []
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          } as Category;
+          addCategory(optimisticCategory);
+
+          const newCategory = await createCategory(selectedCollection, data);
+          if (newCategory) {
+            // Remove temp category and add the real one
+            removeCategory(tempId);
+            addCategory(newCategory);
+            toast.success('Category created successfully');
+          }
+        }
+        setShowForm(false);
+        setEditingCategory(undefined);
+      } catch (error) {
+        console.error('Error with category:', error);
+        toast.error('Failed to save category');
+        // Revert to initial state on error
+        revertCategories(initialCategories);
+      } finally {
+        setIsSubmitting(false);
+      }
+    })();
   };
 
-  const handleSubmit = async (data: FormData) => {
+  const handleDelete = async (id: string) => {
+    const originalCategories = [...categories];
     try {
-      if (!selectedCollection) {
-        toast.error('Please select a collection first');
-        return;
-      }
+      // Optimistically remove the category
+      removeCategory(id);
 
-      if (editingCategory) {
-        await updateCategory(editingCategory.id, data);
-        toast.success('Category updated successfully');
-      } else {
-        await createCategory(data, selectedCollection);
-        toast.success('Category created successfully');
-      }
-      setShowForm(false);
-      setEditingCategory(null);
-      refreshCategories();
+      await deleteCategory(id);
+      setShowConfirmDialog(false);
+      setDeletingId(null);
+      toast.success('Category deleted successfully');
     } catch (error) {
-      console.error('Error with category:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save category';
-      toast.error(errorMessage);
+      console.error('Error deleting category:', error);
+      toast.error('Failed to delete category');
+      // Revert on error
+      revertCategories(originalCategories);
+    }
+  };
+
+  const handleToggleVisibility = async (id: string, visible: boolean) => {
+    // Optimistically update visibility
+    toggleVisibility(id, !visible);
+
+    try {
+      const formData = new window.FormData();
+      formData.append('visible', (!visible).toString());
+      await updateCategory(id, formData);
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+      toast.error('Failed to update visibility');
+      // Revert on error
+      toggleVisibility(id, visible);
     }
   };
 
@@ -65,7 +179,7 @@ export function CategoriesTab() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-base sm:text-lg font-semibold">Categories</h2>
-            <RefreshButton onRefresh={handleRefreshAll} className="scale-90" />
+            <RefreshButton onRefresh={() => revertCategories(initialCategories)} className="scale-90" />
           </div>
         </div>
 
@@ -90,7 +204,7 @@ export function CategoriesTab() {
           ) && (
             <button
               onClick={() => {
-                setEditingCategory(null);
+                setEditingCategory(undefined);
                 setShowForm(true);
               }}
               className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
@@ -117,64 +231,59 @@ export function CategoriesTab() {
         </div>
       ) : (
         <div className="space-y-3">
-          {categories.map((category, index) => {
+          {categories.map((category) => {
             const collection = collections.find(c => c.id === selectedCollection);
             const canEdit = collection && (collection.isOwner || collection.accessType === 'edit');
+            const typeInfo = getCategoryTypeInfo(category.type);
             
             return (
-              <div key={category.id} className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-                    <CategoryDiamond 
-                      type={category.type}
-                      index={index}
-                      selected
-                      size="lg"
+              <div
+                key={category.id}
+                className="flex items-center gap-3 bg-gray-900 rounded-lg p-3"
+              >
+                <CategoryDiamond type={category.type} selected={true} index={0} className="flex-shrink-0" />
+                
+                <div className="flex-grow min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-white truncate">
+                      {category.name}
+                    </h3>
+                    {!category.visible && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-medium">
+                        <EyeOff className="h-2.5 w-2.5" />
+                        Hidden
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 line-clamp-1">
+                    {category.description || typeInfo.label}
+                  </p>
+                </div>
+
+                {canEdit && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleToggleVisibility(category.id, category.visible)}
+                      className="p-1 text-gray-400 hover:text-white transition-colors"
+                    >
+                      <EyeOff className="h-4 w-4" />
+                    </button>
+                    <EditButton 
+                      onClick={() => {
+                        setEditingCategory(category);
+                        setShowForm(true);
+                      }}
+                      className="scale-90"
+                    />
+                    <DeleteButton 
+                      onClick={() => {
+                        setDeletingId(category.id);
+                        setShowConfirmDialog(true);
+                      }}
+                      className="scale-90"
                     />
                   </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-xs sm:text-sm truncate">{category.name}</h3>
-                          {category.visible === false && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
-                              <EyeOff className="h-3 w-3" />
-                              Hidden
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
-                          {category.description}
-                        </p>
-                        <div className="mt-2">
-                          {(() => {
-                            const typeInfo = getCategoryTypeInfo(category.type, category.eligibilityRules?.groups || []);
-                            return (
-                              <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
-                                {typeInfo.icon}
-                                <span className="font-medium">{typeInfo.label}</span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      {canEdit && (
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <EditButton onClick={() => {
-                            setEditingCategory(category);
-                            setShowForm(true);
-                          }} className="scale-75 sm:scale-90" />
-                          <DeleteButton onClick={() => {
-                            setDeletingId(category.id);
-                            setShowConfirmDialog(true);
-                          }} className="scale-75 sm:scale-90" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             );
           })}
@@ -183,10 +292,10 @@ export function CategoriesTab() {
 
       {showForm && selectedCollection && (
         <CategoryForm
-          initialData={editingCategory}
+          initialData={transformCategory(editingCategory)}
           onClose={() => {
             setShowForm(false);
-            setEditingCategory(null);
+            setEditingCategory(undefined);
           }}
           onSubmit={handleSubmit}
         />
@@ -200,21 +309,9 @@ export function CategoriesTab() {
             setDeletingId(null);
           }}
           title="Delete Category"
-          description="Are you sure you want to delete this category? All products in this category will also be deleted. This action cannot be undone."
+          description="Are you sure you want to delete this category? This action cannot be undone."
           confirmLabel="Delete"
-          onConfirm={async () => {
-            try {
-              await deleteCategory(deletingId);
-              refreshCategories();
-              toast.success('Category deleted successfully');
-            } catch (error) {
-              console.error('Error deleting category:', error);
-              toast.error('Failed to delete category');
-            } finally {
-              setShowConfirmDialog(false);
-              setDeletingId(null);
-            }
-          }}
+          onConfirm={() => handleDelete(deletingId)}
         />
       )}
     </div>

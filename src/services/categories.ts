@@ -1,25 +1,24 @@
 import { supabase } from '../lib/supabase';
+import type { Category } from '../types/categories';
 
-export async function createCategory(data: FormData, collectionId: string) {
+function getFormValue(data: FormData, key: string): string | null {
+  const value = data.get(key);
+  return value instanceof File ? null : value;
+}
+
+export async function createCategory(collectionId: string, data: FormData): Promise<Category | null> {
   try {
-    const name = data.get('name');
-    const description = data.get('description');
-    const groups = JSON.parse(data.get('groups') as string || '[]');
-    const visible = data.get('visible') === 'true';
-    
-    const categoryData = {
-      collection_id: collectionId,
-      name,
-      description,
-      type: groups.length > 0 ? 'rules-based' : 'blank',
-      eligibility_rules: { groups },
-      visible
-    };
-
     const { data: category, error } = await supabase
       .from('categories')
-      .insert(categoryData)
-      .select('*, eligibility_rules')
+      .insert({
+        collection_id: collectionId,
+        name: getFormValue(data, 'name'),
+        description: getFormValue(data, 'description'),
+        type: getFormValue(data, 'type'),
+        visible: getFormValue(data, 'visible') === 'true',
+        order: parseInt(getFormValue(data, 'order') || '0', 10)
+      })
+      .select()
       .single();
 
     if (error) throw error;
@@ -30,24 +29,28 @@ export async function createCategory(data: FormData, collectionId: string) {
   }
 }
 
-export async function updateCategory(id: string, data: FormData) {
+export async function updateCategory(id: string, data: FormData): Promise<Category | null> {
   try {
-    const groups = JSON.parse(data.get('groups') as string || '[]');
-    const visible = data.get('visible') === 'true';
+    const updates: Record<string, any> = {};
     
-    const categoryData = {
-      name: data.get('name'),
-      description: data.get('description'),
-      type: groups.length > 0 ? 'rules-based' : 'blank',
-      eligibility_rules: { groups },
-      visible
-    };
+    // Only include fields that are present in the FormData
+    for (const [key, value] of data.entries()) {
+      if (value instanceof File) continue;
+      
+      if (key === 'visible') {
+        updates[key] = value === 'true';
+      } else if (key === 'order') {
+        updates[key] = parseInt(value, 10);
+      } else {
+        updates[key] = value;
+      }
+    }
 
     const { data: category, error } = await supabase
       .from('categories')
-      .update(categoryData)
+      .update(updates)
       .eq('id', id)
-      .select('*, eligibility_rules')
+      .select()
       .single();
 
     if (error) throw error;
@@ -58,7 +61,7 @@ export async function updateCategory(id: string, data: FormData) {
   }
 }
 
-export async function deleteCategory(id: string) {
+export async function deleteCategory(id: string): Promise<void> {
   try {
     const { error } = await supabase
       .from('categories')

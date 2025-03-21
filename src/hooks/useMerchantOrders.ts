@@ -14,63 +14,26 @@ interface UseMerchantOrdersOptions {
 export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
   const [orders, setOrders] = useState<Order[]>([]);
   const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef<number>(0);
+  const FETCH_COOLDOWN = 2000; // 2 seconds cooldown between fetches
 
   const fetchOrders = useCallback(async () => {
-    if (isFetchingRef.current) return;
+    const now = Date.now();
+    if (isFetchingRef.current || now - lastFetchTimeRef.current < FETCH_COOLDOWN) {
+      return;
+    }
+
     isFetchingRef.current = true;
+    lastFetchTimeRef.current = now;
 
     try {
-      // Get current user
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        throw authError || new Error('Not authenticated');
-      }
-
-      // Get user's collections
-      const { data: collections, error: collectionsError } = await supabase
-        .from('collections')
-        .select('id')
-        .eq('user_id', user.id);
-
-      if (collectionsError) throw collectionsError;
-
-      // Get collections user has access to
-      const { data: accessibleCollections, error: accessError } = await supabase
-        .from('collection_access')
-        .select('collection_id')
-        .eq('user_id', user.id);
-
-      if (accessError) throw accessError;
-
-      // Combine collection IDs
-      const collectionIds = [
-        ...(collections?.map(c => c.id) || []),
-        ...(accessibleCollections?.map(c => c.collection_id) || [])
-      ];
-
-      if (!collectionIds.length) {
-        setOrders([]);
-        return;
-      }
-
-      // Get orders for all collections
+      // Get orders directly from merchant_orders view
       const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          products:order_products (
-            *,
-            product:products (
-              *,
-              collection:collections (name)
-            )
-          )
-        `)
-        .in('collection_id', collectionIds)
+        .from('merchant_orders')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
-
       setOrders(ordersData || []);
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -82,34 +45,34 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
     }
   }, []);
 
-  // Use realtime for orders with a backup polling strategy
+  // Use realtime for orders with optimized subscription handling
   const { loading, error, refresh } = useMerchantDashboard({
     ...options,
-    tables: ['orders', 'order_status'], // Only subscribe to critical tables
+    tables: ['orders'], // Only subscribe to orders table
     subscriptionId: 'merchant_orders',
     onDataChange: fetchOrders,
-    type: SUBSCRIPTION_TYPES.REALTIME, // Use realtime for immediate order updates
-    pollingInterval: POLLING_INTERVALS.ORDERS // Fallback polling every 30s
+    type: SUBSCRIPTION_TYPES.REALTIME,
+    pollingInterval: POLLING_INTERVALS.ORDERS,
+    maxRetries: 3 // Limit retry attempts
   });
 
   const updateOrderStatus = useCallback(async (orderId: string, status: string) => {
     try {
-      const { error } = await supabase
-        .from('order_status')
-        .upsert({
-          order_id: orderId,
-          status
-        });
+      const { error } = await supabase.rpc('update_order_status', {
+        p_order_id: orderId,
+        p_status: status
+      });
 
       if (error) throw error;
       toast.success('Order status updated successfully');
+      await fetchOrders(); // Refresh orders after update
     } catch (err) {
       console.error('Error updating order status:', err);
       const errorMessage = handleError(err);
       toast.error(`Failed to update order status: ${errorMessage}`);
       throw err;
     }
-  }, []);
+  }, [fetchOrders]);
 
   return {
     orders,

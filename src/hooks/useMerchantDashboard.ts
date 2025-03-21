@@ -59,6 +59,7 @@ interface UseMerchantDashboardOptions {
   onDataChange?: () => Promise<void>;
   type?: typeof SUBSCRIPTION_TYPES[keyof typeof SUBSCRIPTION_TYPES];
   pollingInterval?: number;
+  maxRetries?: number;
 }
 
 export function useMerchantDashboard(options: UseMerchantDashboardOptions) {

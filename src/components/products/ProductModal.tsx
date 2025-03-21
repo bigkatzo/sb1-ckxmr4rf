@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, TouchEvent as ReactTouchEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, Clock, Ban } from 'lucide-react';
 import { CategoryDescription } from '../collections/CategoryDescription';
@@ -79,15 +79,8 @@ function ProductBuyButton({
 }
 
 export function ProductModal({ product, onClose, categoryIndex, loading = false }: ProductModalProps) {
-  // If loading, show skeleton
-  if (loading) {
-    return <ProductModalSkeleton />;
-  }
-  
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-  const modalRef = useRef<HTMLDivElement>(null);
-  const images = product.images?.length ? product.images : [product.imageUrl];
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -95,7 +88,16 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   const [dragStartTime, setDragStartTime] = useState(0);
   const [dragVelocity, setDragVelocity] = useState(0);
   const [scrollDirection, setScrollDirection] = useState<'horizontal' | 'vertical' | null>(null);
+  
+  const modalRef = useRef<HTMLDivElement>(null);
   const isAnimating = useRef(false);
+  const touchEndHandlerRef = useRef<() => void>();
+  
+  const images = useMemo(() => 
+    product.images?.length ? product.images : [product.imageUrl]
+  , [product.images, product.imageUrl]);
+
+  const hasVariants = !!product.variants && product.variants.length > 0;
   
   // Required minimum swipe distance in pixels
   const minSwipeDistance = 50;
@@ -103,88 +105,26 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   const velocityThreshold = 0.5;
   // Angle threshold for determining vertical vs horizontal movement (in degrees)
   const angleThreshold = 30;
-  
-  // Safe check for variants
-  const hasVariants = !!product.variants && product.variants.length > 0;
 
-  useEffect(() => {
-    // Remove the body scroll lock since we want to allow scrolling
-    // We'll handle touch events specifically in the image container
-    return () => {};
-  }, []);
-
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
-
-  // Add handler for browser back button
-  useEffect(() => {
-    const handlePopState = () => {
-      onClose();
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [onClose]);
-
-  const handleOptionChange = (variantId: string, value: string) => {
-    setSelectedOptions(prev => ({
-      ...prev,
-      [variantId]: value
-    }));
-  };
-
-  // Touch handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (isAnimating.current) return;
-    
-    const touch = e.targetTouches[0];
-    setTouchStart({ x: touch.clientX, y: touch.clientY });
-    setTouchEnd(null);
-    setIsDragging(true);
+  const nextImage = useCallback(() => {
+    if (selectedImageIndex < images.length - 1) {
+      setSelectedImageIndex(prev => prev + 1);
+    }
     setDragOffset(0);
-    setDragStartTime(Date.now());
-    setScrollDirection(null);
-    isAnimating.current = false;
-  };
+    setTimeout(() => {
+      isAnimating.current = false;
+    }, 300);
+  }, [selectedImageIndex, images.length]);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStart || !isDragging) return;
-    
-    const touch = e.targetTouches[0];
-    const touchDeltaX = touch.clientX - touchStart.x;
-    const touchDeltaY = touch.clientY - touchStart.y;
-    
-    // Calculate angle of movement
-    const angle = Math.abs(Math.atan2(touchDeltaY, touchDeltaX) * 180 / Math.PI);
-    
-    // Determine scroll direction if not already set
-    if (!scrollDirection) {
-      if (angle > 90 - angleThreshold && angle < 90 + angleThreshold) {
-        setScrollDirection('vertical');
-      } else {
-        setScrollDirection('horizontal');
-      }
+  const prevImage = useCallback(() => {
+    if (selectedImageIndex > 0) {
+      setSelectedImageIndex(prev => prev - 1);
     }
-    
-    // Only handle horizontal scrolling if that's the determined direction
-    if (scrollDirection === 'horizontal') {
-      e.preventDefault();
-      
-      // Add resistance at the edges with smoother transition
-      if ((selectedImageIndex === 0 && touchDeltaX > 0) || 
-          (selectedImageIndex === images.length - 1 && touchDeltaX < 0)) {
-        setDragOffset(touchDeltaX * 0.2); // Reduced resistance for smoother feel
-      } else {
-        setDragOffset(touchDeltaX * 0.8); // Add slight resistance for smoother movement
-      }
-      
-      setTouchEnd(touch.clientX);
-    }
-  };
+    setDragOffset(0);
+    setTimeout(() => {
+      isAnimating.current = false;
+    }, 300);
+  }, [selectedImageIndex]);
 
   const handleTouchEnd = useCallback(() => {
     if (!touchStart || !touchEnd || !isDragging) return;
@@ -217,10 +157,42 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     setTouchEnd(null);
     setIsDragging(false);
     setScrollDirection(null);
-  }, [touchStart, touchEnd, dragStartTime, isDragging, images.length, scrollDirection]);
+  }, [touchStart, touchEnd, dragStartTime, isDragging, scrollDirection, nextImage, prevImage, minSwipeDistance, velocityThreshold]);
 
-  // Mouse drag handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Store the touch end handler in a ref to break circular dependency
+  touchEndHandlerRef.current = handleTouchEnd;
+
+  const handleOptionChange = useCallback((variantId: string, value: string) => {
+    setSelectedOptions(prev => ({
+      ...prev,
+      [variantId]: value
+    }));
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!touchStart || !isDragging) return;
+    
+    e.preventDefault();
+    
+    const diff = e.clientX - touchStart.x;
+    
+    if ((selectedImageIndex === 0 && diff > 0) || 
+        (selectedImageIndex === images.length - 1 && diff < 0)) {
+      setDragOffset(diff * 0.2);
+    } else {
+      setDragOffset(diff * 0.8);
+    }
+    
+    setTouchEnd(e.clientX);
+  }, [touchStart, isDragging, selectedImageIndex, images.length]);
+
+  const handleMouseUp = useCallback(() => {
+    touchEndHandlerRef.current?.();
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  }, [handleMouseMove]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (isAnimating.current) return;
     
     setTouchStart({ x: e.clientX, y: e.clientY });
@@ -236,106 +208,95 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     
     // Prevent default to avoid text selection during drag
     e.preventDefault();
-  };
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!touchStart || !isDragging) return;
-    
-    // Prevent default to ensure smooth dragging
-    e.preventDefault();
-    
-    const diff = e.clientX - touchStart.x;
-    
-    // Add resistance at the edges
-    if ((selectedImageIndex === 0 && diff > 0) || 
-        (selectedImageIndex === images.length - 1 && diff < 0)) {
-      setDragOffset(diff * 0.3); // Apply resistance
-    } else {
-      setDragOffset(diff);
-    }
-  }, [isDragging, selectedImageIndex, images.length, touchStart]);
-
-  const handleMouseUp = useCallback((e: MouseEvent) => {
-    if (!touchStart || !isDragging) return;
-    
-    const distance = e.clientX - touchStart.x;
-    const isLeftSwipe = distance < -minSwipeDistance;
-    const isRightSwipe = distance > minSwipeDistance;
-    
-    // Calculate velocity for momentum scrolling
-    const endTime = Date.now();
-    const duration = endTime - dragStartTime;
-    const velocity = Math.abs(distance) / duration;
-    setDragVelocity(velocity);
-    
-    isAnimating.current = true;
-    
-    if (isLeftSwipe || (velocity > velocityThreshold && distance < 0)) {
-      nextImage();
-    } else if (isRightSwipe || (velocity > velocityThreshold && distance > 0)) {
-      prevImage();
-    } else {
-      // Snap back to current slide if swipe wasn't strong enough
-      setDragOffset(0);
-      setTimeout(() => {
-        isAnimating.current = false;
-      }, 50);
-    }
-    
-    setTouchStart(null);
-    setTouchEnd(null);
-    setIsDragging(false);
-    
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  }, [isDragging, dragStartTime, images.length, touchStart]);
-
-  // Cleanup mouse events on unmount
-  useEffect(() => {
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
   }, [handleMouseMove, handleMouseUp]);
 
-  // Initialize touch event listeners
+  const handleTouchStart = useCallback((e: ReactTouchEvent<HTMLDivElement> | TouchEvent) => {
+    if (isAnimating.current) return;
+    
+    const touch = ('targetTouches' in e && e.targetTouches[0]) || ('touches' in e && e.touches[0]);
+    if (!touch) return;
+    
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
+    setTouchEnd(null);
+    setIsDragging(true);
+    setDragOffset(0);
+    setDragStartTime(Date.now());
+    setScrollDirection(null);
+    isAnimating.current = false;
+  }, []);
+
+  const handleTouchMove = useCallback((e: ReactTouchEvent<HTMLDivElement> | TouchEvent) => {
+    if (!touchStart || !isDragging) return;
+    
+    const touch = ('targetTouches' in e && e.targetTouches[0]) || ('touches' in e && e.touches[0]);
+    if (!touch) return;
+    
+    const touchDeltaX = touch.clientX - touchStart.x;
+    const touchDeltaY = touch.clientY - touchStart.y;
+    
+    // Calculate angle of movement
+    const angle = Math.abs(Math.atan2(touchDeltaY, touchDeltaX) * 180 / Math.PI);
+    
+    // Determine scroll direction if not already set
+    if (!scrollDirection) {
+      if (angle > 90 - angleThreshold && angle < 90 + angleThreshold) {
+        setScrollDirection('vertical');
+      } else {
+        setScrollDirection('horizontal');
+      }
+    }
+    
+    // Only handle horizontal scrolling if that's the determined direction
+    if (scrollDirection === 'horizontal') {
+      e.preventDefault();
+      
+      // Add resistance at the edges with smoother transition
+      if ((selectedImageIndex === 0 && touchDeltaX > 0) || 
+          (selectedImageIndex === images.length - 1 && touchDeltaX < 0)) {
+        setDragOffset(touchDeltaX * 0.2);
+      } else {
+        setDragOffset(touchDeltaX * 0.8);
+      }
+      
+      setTouchEnd(touch.clientX);
+    }
+  }, [touchStart, isDragging, scrollDirection, selectedImageIndex, images.length, angleThreshold]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      onClose();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [onClose]);
+
   useEffect(() => {
     const imageContainer = modalRef.current?.querySelector('.image-container');
     if (imageContainer) {
       const passiveListener = { passive: false };
-      imageContainer.addEventListener('touchstart', handleTouchStart as unknown as EventListener, passiveListener);
-      imageContainer.addEventListener('touchmove', handleTouchMove as unknown as EventListener, passiveListener);
-      imageContainer.addEventListener('touchend', handleTouchEnd as unknown as EventListener);
-      imageContainer.addEventListener('touchcancel', handleTouchEnd as unknown as EventListener);
+      imageContainer.addEventListener('touchstart', handleTouchStart as EventListener, passiveListener);
+      imageContainer.addEventListener('touchmove', handleTouchMove as EventListener, passiveListener);
+      imageContainer.addEventListener('touchend', touchEndHandlerRef.current as EventListener);
+      imageContainer.addEventListener('touchcancel', touchEndHandlerRef.current as EventListener);
     }
     
     return () => {
       if (imageContainer) {
-        imageContainer.removeEventListener('touchstart', handleTouchStart as unknown as EventListener);
-        imageContainer.removeEventListener('touchmove', handleTouchMove as unknown as EventListener);
-        imageContainer.removeEventListener('touchend', handleTouchEnd as unknown as EventListener);
-        imageContainer.removeEventListener('touchcancel', handleTouchEnd as unknown as EventListener);
+        imageContainer.removeEventListener('touchstart', handleTouchStart as EventListener);
+        imageContainer.removeEventListener('touchmove', handleTouchMove as EventListener);
+        imageContainer.removeEventListener('touchend', touchEndHandlerRef.current as EventListener);
+        imageContainer.removeEventListener('touchcancel', touchEndHandlerRef.current as EventListener);
       }
     };
-  }, [handleTouchEnd]);
-
-  const nextImage = () => {
-    isAnimating.current = true;
-    setSelectedImageIndex((prev) => (prev + 1) % images.length);
-    setDragOffset(0);
-    setTimeout(() => {
-      isAnimating.current = false;
-    }, 50);
-  };
-
-  const prevImage = () => {
-    isAnimating.current = true;
-    setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
-    setDragOffset(0);
-    setTimeout(() => {
-      isAnimating.current = false;
-    }, 50);
-  };
+  }, [handleTouchStart, handleTouchMove]);
 
   // Calculate transition speed based on velocity for momentum effect
   const transitionDuration = isDragging ? 0 : (dragVelocity > velocityThreshold ? 250 : 400);
@@ -379,6 +340,11 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
       }
     }
   }, [selectedImageIndex, images]);
+
+  // If loading, show skeleton
+  if (loading) {
+    return <ProductModalSkeleton />;
+  }
 
   return (
     <div 

@@ -1,16 +1,40 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs } from '../../components/ui/Tabs';
 import { Settings } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 
-// Lazy load tab components
-const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
-const CategoriesTab = lazy(() => import('./CategoriesTab').then(module => ({ default: module.CategoriesTab })));
-const CollectionsTab = lazy(() => import('./CollectionsTab').then(module => ({ default: module.CollectionsTab })));
-const OrdersTab = lazy(() => import('./OrdersTab').then(module => ({ default: module.OrdersTab })));
-const TransactionsTab = lazy(() => import('../../components/merchant/TransactionsTab').then(module => ({ default: module.TransactionsTab })));
+// Lazy load tab components with prefetch
+const ProductsTab = lazy(() => {
+  const prefetch = import('./ProductsTab');
+  prefetch.catch(() => {});
+  return prefetch.then(module => ({ default: module.ProductsTab }));
+});
+
+const CategoriesTab = lazy(() => {
+  const prefetch = import('./CategoriesTab');
+  prefetch.catch(() => {});
+  return prefetch.then(module => ({ default: module.CategoriesTab }));
+});
+
+const CollectionsTab = lazy(() => {
+  const prefetch = import('./CollectionsTab');
+  prefetch.catch(() => {});
+  return prefetch.then(module => ({ default: module.CollectionsTab }));
+});
+
+const OrdersTab = lazy(() => {
+  const prefetch = import('./OrdersTab');
+  prefetch.catch(() => {});
+  return prefetch.then(module => ({ default: module.OrdersTab }));
+});
+
+const TransactionsTab = lazy(() => {
+  const prefetch = import('../../components/merchant/TransactionsTab');
+  prefetch.catch(() => {});
+  return prefetch.then(module => ({ default: module.TransactionsTab }));
+});
 
 // Loading component for lazy-loaded tabs
 const TabLoader = () => (
@@ -25,15 +49,52 @@ const merchantTabs = [
   { id: 'categories', label: 'Categories' },
   { id: 'products', label: 'Products' },
   { id: 'orders', label: 'Orders' }
-];
+] as const;
+
+type TabId = typeof merchantTabs[number]['id'] | 'transactions';
+
+interface Tab {
+  id: TabId;
+  label: string;
+}
 
 export function DashboardPage() {
-  const [activeTab, setActiveTab] = React.useState('collections');
+  const [activeTab, setActiveTab] = React.useState<TabId>(() => {
+    // Load active tab from localStorage
+    const savedTab = localStorage.getItem('merchantDashboardTab');
+    return (savedTab as TabId) || 'collections';
+  });
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
   const [hasCollectionAccess, setHasCollectionAccess] = React.useState(false);
   const navigate = useNavigate();
 
-  React.useEffect(() => {
+  // Save active tab to localStorage
+  useEffect(() => {
+    localStorage.setItem('merchantDashboardTab', activeTab);
+  }, [activeTab]);
+
+  // Prefetch next tab when hovering over tab button
+  const prefetchTab = (tabId: TabId) => {
+    switch (tabId) {
+      case 'collections':
+        import('./CollectionsTab').catch(() => {});
+        break;
+      case 'categories':
+        import('./CategoriesTab').catch(() => {});
+        break;
+      case 'products':
+        import('./ProductsTab').catch(() => {});
+        break;
+      case 'orders':
+        import('./OrdersTab').catch(() => {});
+        break;
+      case 'transactions':
+        import('../../components/merchant/TransactionsTab').catch(() => {});
+        break;
+    }
+  };
+
+  useEffect(() => {
     async function checkPermissions() {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -72,15 +133,21 @@ export function DashboardPage() {
   }, []);
 
   // Get available tabs based on user role
-  const availableTabs = React.useMemo(() => {
+  const availableTabs = React.useMemo<Tab[]>(() => {
+    const baseTabs: Tab[] = merchantTabs.map(tab => ({ ...tab, id: tab.id }));
     if (isAdmin) {
-      return [...merchantTabs, { id: 'transactions', label: 'Transactions' }];
+      return [...baseTabs, { id: 'transactions', label: 'Transactions' }];
     }
-    return merchantTabs;
+    return baseTabs;
   }, [isAdmin]);
 
+  // Handle tab change
+  const handleTabChange = (id: string) => {
+    setActiveTab(id as TabId);
+  };
+
   // Show empty state message when no collections exist
-  const renderTabContent = (tabId: string) => {
+  const renderTabContent = (tabId: TabId) => {
     const NoAccessMessage = () => (
       <div className="flex flex-col items-center justify-center h-[400px] text-center">
         <h3 className="text-lg font-medium text-gray-300 mb-2">No Collection Access</h3>
@@ -127,7 +194,12 @@ export function DashboardPage() {
 
       <div className="border-b border-gray-800 -mx-4 sm:-mx-6 lg:-mx-8">
         <div className="px-4 sm:px-6 lg:px-8 overflow-x-auto">
-          <Tabs tabs={availableTabs} activeId={activeTab} onChange={setActiveTab} />
+          <Tabs<TabId>
+            tabs={availableTabs}
+            activeTab={activeTab}
+            onChange={handleTabChange}
+            onHover={(id: TabId) => prefetchTab(id)}
+          />
         </div>
       </div>
 

@@ -8,19 +8,19 @@ import { Tabs } from '../../components/ui/Tabs';
 import { toast } from 'react-toastify';
 import { ArrowLeft } from 'lucide-react';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
+import { CollectionAccess } from '../../components/admin/CollectionAccess';
 
-const tabs = [
-  { id: 'users', label: 'Users' },
-  { id: 'wallets', label: 'Wallets' }
-];
-
-function AdminDashboard() {
+export default function AdminDashboard() {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  if (!session || !session.user) {
+    return <Navigate to="/merchant/login" />;
+  }
 
   React.useEffect(() => {
     async function checkAdmin() {
@@ -94,6 +94,12 @@ function AdminDashboard() {
     return <Navigate to="/merchant/dashboard" replace />;
   }
 
+  const tabs = [
+    { id: 'users', label: 'Users' },
+    { id: 'collections', label: 'Collections' },
+    { id: 'wallets', label: 'Wallets' },
+  ];
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
@@ -112,15 +118,16 @@ function AdminDashboard() {
       <div className="mb-6">
         <Tabs
           tabs={tabs}
-          activeId={activeTab}
+          activeTab={activeTab}
           onChange={setActiveTab}
         />
       </div>
 
-      {activeTab === 'users' && <UserManagement />}
-      {activeTab === 'wallets' && <WalletManagement />}
+      <div className="mt-8">
+        {activeTab === 'users' && <UserManagement />}
+        {activeTab === 'collections' && <CollectionAccess userId={session.user.id} />}
+        {activeTab === 'wallets' && <WalletManagement />}
+      </div>
     </div>
   );
 }
-
-export default AdminDashboard;
