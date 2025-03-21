@@ -1,4 +1,5 @@
-import type { ProductVariant, VariantPricing } from './variants';
+import type { Product } from './products';
+export type { Product };
 
 export interface CategoryColorSet {
   base: string;
@@ -43,32 +44,6 @@ export interface Category {
   };
 }
 
-export interface Product {
-  id: string;
-  sku: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  images?: string[];
-  categoryId: string;
-  category?: Category;
-  collectionId: string;
-  collectionName?: string;
-  collectionSlug?: string;
-  collectionLaunchDate?: Date;
-  collectionSaleEnded?: boolean;
-  slug: string;
-  stock: number | null;
-  minimumOrderQuantity: number;
-  variants?: ProductVariant[];
-  variantPrices?: VariantPricing;
-  salesCount?: number;
-  priceModifierBeforeMin?: number | null;
-  priceModifierAfterMin?: number | null;
-  visible?: boolean;
-}
-
 export interface SearchResult {
   id: string;
   name: string;
@@ -81,3 +56,10 @@ export interface WhitelistVerificationResult {
   isValid: boolean;
   error?: string;
 }
+
+export type { Order } from './orders';
+
+// Re-export all types from supabase
+export * from './supabase';
+export * from './users';
+export * from './wallets';
