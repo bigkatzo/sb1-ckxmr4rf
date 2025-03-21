@@ -24,31 +24,31 @@ export function useCollection(slug: string) {
         return;
       }
 
-      const cacheKey = `collection:${slug}`;
-      const { value: cachedCollection, needsRevalidation } = cacheManager.get<Collection>(cacheKey);
-      
-      // Use cached data if available
-      if (cachedCollection) {
-        if (isMounted) {
-          setCollection(cachedCollection);
-          setLoading(false);
-        }
-        
-        // If stale, revalidate in background
-        if (needsRevalidation && !isFetchingRef.current) {
-          revalidateCollection(cacheKey);
-        }
-        
-        return;
-      }
-      
-      // No cache hit, fetch fresh data
-      if (isMounted) {
-        setLoading(true);
-      }
-      
       try {
-        await fetchFreshCollection(cacheKey);
+        // First try to get from cache
+        const cacheKey = `collection:${slug}`;
+        const { value: cachedCollection, needsRevalidation } = await cacheManager.get<Collection>(cacheKey);
+        
+        // Use cached data if available
+        if (cachedCollection) {
+          if (isMounted) {
+            setCollection(cachedCollection);
+            setLoading(false);
+          }
+          
+          // If stale, revalidate in background
+          if (needsRevalidation && !isFetchingRef.current) {
+            revalidateCollection();
+          }
+          return;
+        }
+        
+        // No cache hit, fetch fresh data
+        if (isMounted) {
+          setLoading(true);
+        }
+        
+        await fetchFreshCollection();
       } catch (err) {
         console.error('Error fetching collection:', err);
         if (isMounted) {
@@ -62,23 +62,21 @@ export function useCollection(slug: string) {
       }
     }
     
-    async function revalidateCollection(cacheKey: string) {
+    async function revalidateCollection() {
       if (isFetchingRef.current) return;
       
       isFetchingRef.current = true;
-      cacheManager.markRevalidating(cacheKey);
       
       try {
-        await fetchFreshCollection(cacheKey, false);
+        await fetchFreshCollection(false);
       } catch (err) {
         console.error('Error revalidating collection:', err);
       } finally {
         isFetchingRef.current = false;
-        cacheManager.unmarkRevalidating(cacheKey);
       }
     }
     
-    async function fetchFreshCollection(cacheKey: string, updateLoadingState = true) {
+    async function fetchFreshCollection(updateLoadingState = true) {
       try {
         if (updateLoadingState && isMounted) {
           setLoading(true);
@@ -115,12 +113,8 @@ export function useCollection(slug: string) {
           id: collectionData.id,
           name: collectionData.name,
           description: collectionData.description,
-          image_url: collectionData.image_url || '',
           imageUrl: collectionData.image_url ? normalizeStorageUrl(collectionData.image_url) : '',
           slug: collectionData.slug,
-          user_id: collectionData.user_id || '',
-          isOwner: false,
-          owner_username: null,
           categories: (categoriesResponse.data || []).map(category => ({
             id: category.id,
             name: category.name,
@@ -134,16 +128,16 @@ export function useCollection(slug: string) {
         };
         
         // Cache static collection data with long TTL
-        cacheManager.set(
+        await cacheManager.set(
           `collection_static:${collectionData.id}`, 
           collectionStatic, 
-          CACHE_DURATIONS.STATIC.TTL, 
-          CACHE_DURATIONS.STATIC.STALE
+          CACHE_DURATIONS.STATIC.TTL,
+          { staleTime: CACHE_DURATIONS.STATIC.STALE }
         );
-        
-        // Transform products with separate static and dynamic data
-        const products = (productsResponse.data || []).map(product => {
-          // Static product data (doesn't change often)
+
+        // Transform and cache products
+        const products = await Promise.all((productsResponse.data || []).map(async product => {
+          // Static product data
           const productStatic = {
             id: product.id,
             sku: product.sku,
@@ -162,39 +156,39 @@ export function useCollection(slug: string) {
                 groups: product.category_eligibility_rules?.groups || []
               }
             } : undefined,
-            collectionId: collectionData.id,
-            collectionName: collectionData.name,
-            collectionSlug: collectionData.slug,
+            collectionId: product.collection_id,
+            collectionName: product.collection_name,
+            collectionSlug: product.collection_slug,
             slug: product.slug || '',
             variants: product.variants || [],
           };
-          
-          // Dynamic product data (changes frequently)
+
+          // Cache static product data
+          await cacheManager.set(
+            `product_static:${product.id}`, 
+            productStatic, 
+            CACHE_DURATIONS.STATIC.TTL,
+            { staleTime: CACHE_DURATIONS.STATIC.STALE }
+          );
+
+          // Dynamic product data
           const productDynamic = {
             price: product.price,
             stock: product.quantity,
             minimumOrderQuantity: product.minimum_order_quantity || 50,
             variantPrices: product.variant_prices || {},
             priceModifierBeforeMin: product.price_modifier_before_min ?? null,
-            priceModifierAfterMin: product.price_modifier_after_min ?? null,
+            priceModifierAfterMin: product.price_modifier_after_min ?? null
           };
-          
-          // Cache static product data with long TTL
-          cacheManager.set(
-            `product_static:${product.id}`, 
-            productStatic, 
-            CACHE_DURATIONS.STATIC.TTL, 
-            CACHE_DURATIONS.STATIC.STALE
-          );
-          
-          // Cache dynamic product data with short TTL
-          cacheManager.set(
+
+          // Cache dynamic product data
+          await cacheManager.set(
             `product_dynamic:${product.id}`, 
             productDynamic, 
-            CACHE_DURATIONS.REALTIME.TTL, 
-            CACHE_DURATIONS.REALTIME.STALE
+            CACHE_DURATIONS.REALTIME.TTL,
+            { staleTime: CACHE_DURATIONS.REALTIME.STALE }
           );
-          
+
           // Return combined product
           return {
             ...productStatic,
@@ -202,40 +196,61 @@ export function useCollection(slug: string) {
             collectionLaunchDate: new Date(collectionData.launch_date),
             collectionSaleEnded: collectionData.sale_ended,
           };
-        });
-        
+        }));
+
         // Dynamic collection data
         const collectionDynamic = {
-          launch_date: collectionData.launch_date,
           launchDate: new Date(collectionData.launch_date),
           featured: collectionData.featured,
           visible: collectionData.visible,
-          sale_ended: collectionData.sale_ended,
           saleEnded: collectionData.sale_ended,
-          accessType: null // Public collections don't have access type
         };
-        
-        // Cache dynamic collection data with medium TTL
-        cacheManager.set(
+
+        // Cache dynamic collection data
+        await cacheManager.set(
           `collection_dynamic:${collectionData.id}`, 
           collectionDynamic, 
-          CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
-          CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+          CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+          { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
         );
 
         // Combine everything for the complete collection
         const transformedCollection: Collection = {
-          ...collectionStatic,
-          ...collectionDynamic,
-          products
+          id: collectionData.id,
+          name: collectionData.name,
+          description: collectionData.description,
+          image_url: collectionData.image_url || '',
+          imageUrl: collectionData.image_url ? normalizeStorageUrl(collectionData.image_url) : '',
+          launch_date: collectionData.launch_date,
+          launchDate: new Date(collectionData.launch_date),
+          featured: collectionData.featured || false,
+          visible: collectionData.visible ?? true,
+          sale_ended: collectionData.sale_ended ?? false,
+          saleEnded: collectionData.sale_ended ?? false,
+          slug: collectionData.slug,
+          user_id: collectionData.user_id || '',
+          categories: (categoriesResponse.data || []).map(category => ({
+            id: category.id,
+            name: category.name,
+            description: category.description,
+            type: category.type,
+            visible: category.visible ?? true,
+            eligibilityRules: {
+              groups: category.eligibility_rules?.groups || []
+            }
+          })),
+          products,
+          accessType: null,
+          isOwner: false,
+          owner_username: null
         };
 
         // Cache the complete collection
-        cacheManager.set(
-          cacheKey, 
+        await cacheManager.set(
+          `collection:${slug}`, 
           transformedCollection, 
-          CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
-          CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+          CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+          { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
         );
 
         if (isMounted) {
