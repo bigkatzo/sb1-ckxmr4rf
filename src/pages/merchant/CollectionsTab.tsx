@@ -20,7 +20,7 @@ export function CollectionsTab() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMerchant, setIsMerchant] = useState(false);
 
-  const { collections, loading: collectionsLoading, refreshCollections } = useMerchantCollections();
+  const { collections, loading: collectionsLoading, refetch } = useMerchantCollections();
 
   useEffect(() => {
     async function checkUserRole() {
@@ -50,7 +50,7 @@ export function CollectionsTab() {
       }
       setShowForm(false);
       setEditingCollection(null);
-      refreshCollections();
+      refetch();
     } catch (error) {
       console.error('Error with collection:', error);
       toast.error('Failed to save collection');
@@ -59,10 +59,11 @@ export function CollectionsTab() {
 
   const handleToggleFeatured = async (id: string, featured: boolean) => {
     try {
-      await toggleFeatured(id, !featured);
-      refreshCollections();
+      await toggleFeatured(id, featured);
+      refetch();
     } catch (error) {
       console.error('Error toggling featured status:', error);
+      toast.error('Failed to toggle featured status');
     }
   };
 
@@ -81,7 +82,7 @@ export function CollectionsTab() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold">Collections</h2>
-            <RefreshButton onRefresh={refreshCollections} />
+            <RefreshButton onRefresh={refetch} />
           </div>
           {isMerchant && (
             <button
@@ -237,7 +238,7 @@ export function CollectionsTab() {
           onConfirm={async () => {
             try {
               await deleteCollection(deletingId);
-              refreshCollections();
+              refetch();
               toast.success('Collection deleted successfully');
             } catch (error) {
               console.error('Error deleting collection:', error);

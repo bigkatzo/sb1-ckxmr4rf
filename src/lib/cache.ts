@@ -721,6 +721,10 @@ export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
   .on('postgres_changes', { event: '*', schema: 'public' }, (payload: any) => {
     try {
       const { table, record } = payload;
+      if (!table || !record || !record.id) {
+        console.warn('Invalid realtime payload:', payload);
+        return;
+      }
       const key = `${table}:${record.id}`;
       console.log('Realtime update received for:', key);
       // Use global cacheManager instead of creating a new one
