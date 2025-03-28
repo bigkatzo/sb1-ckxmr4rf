@@ -59,7 +59,7 @@ export function CollectionsTab() {
 
   const handleToggleFeatured = async (id: string, featured: boolean) => {
     try {
-      await toggleFeatured(id, featured);
+      await toggleFeatured(id, !featured);
       refetch();
     } catch (error) {
       console.error('Error toggling featured status:', error);
