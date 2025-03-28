@@ -2,74 +2,28 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { toast } from 'react-toastify';
-import { isRealtimeConnectionHealthy } from '../lib/realtime/subscriptions';
 import { normalizeStorageUrl } from '../lib/storage';
 import type { Collection, AccessType } from '../types/collections';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 // Cache admin status for 5 minutes
 const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
 
-// Debounce duration for realtime updates (500ms)
-const REALTIME_DEBOUNCE_DURATION = 500;
-
-// Priority levels for subscriptions
-const SUBSCRIPTION_PRIORITY = {
-  HIGH: 2,   // Active merchant view
-  MEDIUM: 1, // Background merchant view
-  LOW: 0     // Inactive view
-} as const;
-
-// Global subscription tracking
-const activeSubscriptions = new Map<string, {
-  cleanup: () => void,
-  priority: number,
-  lastAccessed: number
-}>();
-
-// Track subscription attempts to prevent duplicates
-const subscriptionAttempts = new Map<string, number>();
-const MAX_SUBSCRIPTION_ATTEMPTS = 3;
-
-// Track subscription priorities
-const subscriptionPriorities = new Map<string, number>();
-
 // Global admin status cache
 const globalAdminCache: { [key: string]: { isAdmin: boolean; timestamp: number } } = {};
 
-// Track active channels to prevent duplicate subscriptions
-const globalChannels: {
-  collections?: RealtimeChannel;
-  access?: RealtimeChannel;
-} = {};
-
-// Function to update subscription priority
-function updateSubscriptionPriority(collectionId: string, priority: number) {
-  subscriptionPriorities.set(collectionId, priority);
-  const subscription = activeSubscriptions.get(collectionId);
-  if (subscription) {
-    subscription.priority = priority;
-  }
-}
-
 export function useMerchantCollections(options: {
-  initialPriority?: number;
   deferLoad?: boolean;
   elementRef?: React.RefObject<HTMLDivElement>;
 } = {}) {
   const { 
-    initialPriority = SUBSCRIPTION_PRIORITY.LOW,
     deferLoad = false
   } = options;
 
   // Move useRef hooks inside the component
   const adminCacheRef = useRef(globalAdminCache);
-  const channelsRef = useRef(globalChannels);
   const isFetchingRef = useRef(false);
-  const cleanupFnsRef = useRef<Array<() => void>>([]);
   const isMountedRef = useRef(false);
   const fetchTimeoutRef = useRef<NodeJS.Timeout>();
-  const isSubscribedRef = useRef(false);
 
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(!deferLoad);
@@ -107,21 +61,9 @@ export function useMerchantCollections(options: {
     }
   }, []);
 
-  // Update last accessed time
-  const updateAccessTime = useCallback(() => {
-    const subscription = activeSubscriptions.get('merchant_collections');
-    if (subscription) {
-      activeSubscriptions.set('merchant_collections', {
-        ...subscription,
-        lastAccessed: Date.now()
-      });
-    }
-  }, []);
-
   const fetchCollections = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
-    updateAccessTime();
 
     try {
       setError(null);
@@ -208,7 +150,7 @@ export function useMerchantCollections(options: {
       isFetchingRef.current = false;
       setLoading(false);
     }
-  }, [checkAdminStatus, updateAccessTime]);
+  }, [checkAdminStatus]);
 
   const updateCollectionAccess = useCallback(async (collectionId: string, userId: string, accessType: AccessType | null) => {
     try {
@@ -246,213 +188,22 @@ export function useMerchantCollections(options: {
     }
   }, [fetchCollections]);
 
-  const debouncedFetch = useCallback(() => {
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-    }
-    fetchTimeoutRef.current = setTimeout(() => {
-      fetchCollections();
-    }, REALTIME_DEBOUNCE_DURATION);
-  }, [fetchCollections]);
-
-  const setupSubscriptions = useCallback(() => {
-    // Don't setup if already subscribed
-    if (isSubscribedRef.current) {
-      return;
-    }
-
-    // Check if we've exceeded subscription attempts
-    const attempts = subscriptionAttempts.get('merchant_collections') || 0;
-    if (attempts >= MAX_SUBSCRIPTION_ATTEMPTS) {
-      console.log('Max subscription attempts reached for merchant collections');
-      return;
-    }
-    subscriptionAttempts.set('merchant_collections', attempts + 1);
-
-    // Clean up any existing subscriptions first
-    const cleanupExistingSubscriptions = () => {
-      if (channelsRef.current.collections) {
-        channelsRef.current.collections.unsubscribe();
-        channelsRef.current.collections = undefined;
-      }
-      if (channelsRef.current.access) {
-        channelsRef.current.access.unsubscribe();
-        channelsRef.current.access = undefined;
-      }
-    };
-
-    cleanupExistingSubscriptions();
-    cleanupFnsRef.current = []; // Reset cleanup functions
-
-    // Set up realtime subscription for collections
-    const collectionsChannel = supabase.channel('collections_changes');
-    channelsRef.current.collections = collectionsChannel;
-
-    collectionsChannel
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'collections'
-        },
-        () => {
-          updateAccessTime();
-          debouncedFetch();
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          isSubscribedRef.current = true;
-        }
-        console.log('Collections subscription status:', status);
-        if (status === 'CHANNEL_ERROR') {
-          console.warn('Collections subscription error, will try to reconnect');
-          isSubscribedRef.current = false;
-        }
-        if (status === 'CLOSED') {
-          isSubscribedRef.current = false;
-        }
-      });
-
-    // Set up realtime subscription for collection_access
-    const accessChannel = supabase.channel('access_changes');
-    channelsRef.current.access = accessChannel;
-
-    accessChannel
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'collection_access'
-        },
-        () => {
-          updateAccessTime();
-          debouncedFetch();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Access subscription status:', status);
-        if (status === 'CHANNEL_ERROR') {
-          console.warn('Access subscription error, will try to reconnect');
-          isSubscribedRef.current = false;
-        }
-      });
-
-    // Setup monitoring for connection issues
-    const setupConnectionMonitoring = () => {
-      let unhealthyCount = 0;
-      const MAX_UNHEALTHY_COUNT = 3;
-      
-      // Check global health flag
-      const checkHealth = () => {
-        try {
-          const isHealthy = isRealtimeConnectionHealthy();
-          
-          if (!isHealthy) {
-            unhealthyCount++;
-            console.log(`Connection check failed for merchant collections (${unhealthyCount}/${MAX_UNHEALTHY_COUNT})`);
-            
-            if (unhealthyCount >= MAX_UNHEALTHY_COUNT) {
-              console.log('Connection consistently unhealthy for merchant collections');
-              // For collections, we just refetch periodically instead of polling
-              fetchCollections();
-            }
-          } else {
-            unhealthyCount = 0;
-          }
-        } catch (err) {
-          console.error('Error checking health:', err);
-        }
-      };
-      
-      // Initial check
-      checkHealth();
-      
-      // Set up periodic check
-      const healthCheckInterval = setInterval(checkHealth, 45000); // 45 seconds
-      
-      return () => clearInterval(healthCheckInterval);
-    };
-
-    const healthCheckCleanup = setupConnectionMonitoring();
-
-    // Main cleanup function that will be called on unmount
-    const cleanup = () => {
-      if (!isMountedRef.current) return; // Don't cleanup if already unmounted
-      console.log('Cleaning up merchant collections subscriptions');
-      cleanupExistingSubscriptions();
-      if (healthCheckCleanup) {
-        healthCheckCleanup();
-      }
-      activeSubscriptions.delete('merchant_collections');
-      subscriptionAttempts.delete('merchant_collections');
-      isSubscribedRef.current = false;
-    };
-
-    // Store in global subscription registry
-    activeSubscriptions.set('merchant_collections', {
-      cleanup,
-      priority: initialPriority,
-      lastAccessed: Date.now()
-    });
-
-    // Store cleanup function for useEffect
-    cleanupFnsRef.current = [cleanup];
-  }, [debouncedFetch, initialPriority, updateAccessTime]);
-
+  // Initial fetch if not deferred
   useEffect(() => {
     isMountedRef.current = true;
     
-    // Set initial priority
-    subscriptionPriorities.set('merchant_collections', initialPriority);
-
-    // Setup visibility tracking if element ref is provided
-    if (options.elementRef?.current) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach(entry => {
-            const newPriority = entry.isIntersecting ? 
-              SUBSCRIPTION_PRIORITY.HIGH : 
-              SUBSCRIPTION_PRIORITY.LOW;
-            updateSubscriptionPriority('merchant_collections', newPriority);
-            
-            // Fetch immediately if becoming visible and no data
-            if (entry.isIntersecting && !collections && !loading) {
-              fetchCollections();
-            }
-          });
-        },
-        { rootMargin: '100px' }
-      );
-
-      observer.observe(options.elementRef.current);
-      cleanupFnsRef.current.push(() => observer.disconnect());
-    }
-
-    // Initial fetch if not deferred or if high priority
-    if (!deferLoad || initialPriority === SUBSCRIPTION_PRIORITY.HIGH) {
+    // Initial fetch if not deferred
+    if (!deferLoad) {
       fetchCollections();
-      setupSubscriptions();
     }
 
     return () => {
-      const cleanup = () => {
-        isMountedRef.current = false;
-        if (fetchTimeoutRef.current) {
-          clearTimeout(fetchTimeoutRef.current);
-        }
-        // Execute all cleanup functions
-        cleanupFnsRef.current.forEach(cleanup => {
-          if (cleanup) cleanup();
-        });
-        cleanupFnsRef.current = [];
-        isSubscribedRef.current = false;
-      };
-      cleanup();
+      isMountedRef.current = false;
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
     };
-  }, [fetchCollections, initialPriority, deferLoad, setupSubscriptions, collections, loading]);
+  }, [fetchCollections, deferLoad]);
 
   return { 
     collections,

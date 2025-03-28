@@ -82,14 +82,14 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
     }
   }, []);
 
-  // Use realtime for orders with a backup polling strategy
+  // Use polling for orders instead of realtime
   const { loading, error, refresh } = useMerchantDashboard({
     ...options,
-    tables: ['orders', 'order_status'], // Only subscribe to critical tables
+    tables: ['orders', 'order_status'],
     subscriptionId: 'merchant_orders',
     onDataChange: fetchOrders,
-    type: SUBSCRIPTION_TYPES.REALTIME, // Use realtime for immediate order updates
-    pollingInterval: POLLING_INTERVALS.ORDERS // Fallback polling every 30s
+    type: SUBSCRIPTION_TYPES.POLLING, // Switch to polling
+    pollingInterval: POLLING_INTERVALS.ORDERS // Poll every 30s
   });
 
   const updateOrderStatus = useCallback(async (orderId: string, status: string) => {

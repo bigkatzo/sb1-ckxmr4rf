@@ -50,23 +50,13 @@ export function TransactionsTab() {
   React.useEffect(() => {
     fetchTransactions();
 
-    // Set up realtime subscription for transaction updates
-    const channel = supabase.channel('transaction_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transaction_logs'
-        },
-        () => {
-          fetchTransactions();
-        }
-      )
-      .subscribe();
+    // Set up polling for transaction updates
+    const interval = setInterval(() => {
+      fetchTransactions();
+    }, 30000); // Poll every 30 seconds
 
     return () => {
-      channel.unsubscribe();
+      clearInterval(interval);
     };
   }, []);
 
