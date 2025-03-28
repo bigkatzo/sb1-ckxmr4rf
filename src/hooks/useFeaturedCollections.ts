@@ -3,6 +3,18 @@ import { supabase } from '../lib/supabase';
 import { normalizeStorageUrl } from '../lib/storage';
 import type { Collection } from '../types';
 
+type DbCollection = {
+  id: string;
+  name: string;
+  description: string;
+  image_url: string | null;
+  launch_date: string;
+  featured: boolean;
+  visible: boolean;
+  sale_ended: boolean;
+  slug: string;
+};
+
 export function useFeaturedCollections() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +32,7 @@ export function useFeaturedCollections() {
 
         if (error) throw error;
 
-        const transformedCollections = (data || []).map(collection => ({
+        const transformedCollections = (data || []).map((collection: DbCollection) => ({
           id: collection.id,
           name: collection.name,
           description: collection.description,
