@@ -22,6 +22,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
 import { setupRealtimeHealth } from './lib/realtime/subscriptions';
+import { useAuth } from './contexts/AuthContext';
 
 // Validate environment variables at startup
 validateEnvironmentVariables();
@@ -46,6 +47,12 @@ function TransactionStatusWrapper() {
 
 function NotificationsWrapper() {
   const { notifications, dismissNotification } = useWallet();
+  const { loading } = useAuth();
+
+  if (loading) {
+    return null;
+  }
+
   return (
     <WalletNotifications 
       notifications={notifications} 
@@ -136,15 +143,15 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <WalletProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <WalletProvider>
           <CollectionProvider>
             <ModalProvider>
               <AppContent />
             </ModalProvider>
           </CollectionProvider>
-        </AuthProvider>
-      </WalletProvider>
+        </WalletProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
