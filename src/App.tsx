@@ -89,6 +89,7 @@ function AppContent() {
     <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
       <ScrollBehavior />
       <Navbar />
+      <NotificationsWrapper />
       <main className="flex-1 pt-16">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 w-full">
           <Outlet />
@@ -97,7 +98,6 @@ function AppContent() {
       <Footer />
       <div className="fixed bottom-0 right-0 z-[9999] p-4 space-y-4 max-w-full">
         <TransactionStatusWrapper />
-        <NotificationsWrapper />
       </div>
       <ToastContainer
         position="bottom-right"
