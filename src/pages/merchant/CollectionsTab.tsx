@@ -60,6 +60,7 @@ export function CollectionsTab() {
   const handleToggleFeatured = async (id: string, featured: boolean) => {
     try {
       await toggleFeatured(id, !featured);
+      toast.success(`Collection ${!featured ? 'featured' : 'unfeatured'} successfully`);
       refetch();
     } catch (error) {
       console.error('Error toggling featured status:', error);
