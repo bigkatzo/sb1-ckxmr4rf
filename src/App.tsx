@@ -97,7 +97,9 @@ function AppContent() {
       <ScrollBehavior />
       <Navbar />
       <main className="flex-1 pt-16">
-        <NotificationsWrapper />
+        <div className="relative">
+          <NotificationsWrapper />
+        </div>
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 w-full">
           <Outlet />
         </div>

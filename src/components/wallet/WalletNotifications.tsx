@@ -16,7 +16,7 @@ export function WalletNotifications({ notifications, onDismiss }: WalletNotifica
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 max-w-[280px] sm:max-w-md w-auto z-[9999] space-y-2">
+    <div className="absolute right-4 max-w-[280px] sm:max-w-md w-auto z-[60] space-y-2">
       {notifications.map((notification) => (
         <div
           key={notification.id}
