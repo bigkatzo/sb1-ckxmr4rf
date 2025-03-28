@@ -19,11 +19,15 @@ export function CategoriesTab() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const { collections, loading: collectionsLoading, refreshCollections } = useMerchantCollections();
+  const { collections, loading: collectionsLoading, refetch } = useMerchantCollections();
   const { categories, loading: categoriesLoading, refreshCategories } = useCategories(selectedCollection);
 
   const handleRefreshAll = async () => {
-    await Promise.all([refreshCategories(), refreshCollections()]);
+    const refreshPromises = [refetch()];
+    if (selectedCollection) {
+      refreshPromises.push(refreshCategories());
+    }
+    await Promise.all(refreshPromises);
   };
 
   const handleSubmit = async (data: FormData) => {

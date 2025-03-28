@@ -720,12 +720,20 @@ export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
   })
   .on('postgres_changes', { event: '*', schema: 'public' }, (payload: any) => {
     try {
-      const { table, record } = payload;
-      if (!table || !record || !record.id) {
-        console.warn('Invalid realtime payload:', payload);
+      const { table, new: record, old: oldRecord } = payload;
+      const recordId = record?.id || oldRecord?.id;
+      
+      if (!recordId) {
+        console.warn('Invalid realtime payload - missing record ID:', payload);
         return;
       }
-      const key = `${table}:${record.id}`;
+
+      if (!table) {
+        console.warn('Invalid realtime payload - missing table:', payload);
+        return;
+      }
+      
+      const key = `${table}:${recordId}`;
       console.log('Realtime update received for:', key);
       // Use global cacheManager instead of creating a new one
       if (typeof cacheManager.invalidateKey === 'function') {
