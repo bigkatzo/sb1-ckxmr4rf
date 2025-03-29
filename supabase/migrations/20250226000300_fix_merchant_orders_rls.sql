@@ -1,10 +1,6 @@
 -- Start transaction
 BEGIN;
 
--- Add order_number column if it doesn't exist
-ALTER TABLE orders
-ADD COLUMN IF NOT EXISTS order_number text UNIQUE;
-
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "merchant_orders_update" ON merchant_orders;
 DROP POLICY IF EXISTS "merchant_orders_view" ON merchant_orders;
@@ -15,12 +11,27 @@ DROP VIEW IF EXISTS merchant_orders;
 -- Recreate the view with security checks built in
 CREATE OR REPLACE VIEW merchant_orders AS
 SELECT 
-  o.*,
+  o.id,
+  o.order_number,
+  o.created_at,
+  o.updated_at,
+  o.status,
+  o.amount_sol,
+  o.wallet_address,
+  o.transaction_signature,
+  o.shipping_address,
+  o.contact_info,
+  o.variant_selections,
+  o.product_id,
+  o.collection_id,
+  o.product_snapshot,  -- Important for historical record
+  o.collection_snapshot,  -- Important for historical record
   p.name as product_name,
   p.sku as product_sku,
   p.images[1] as product_image_url,
   p.variants as product_variants,
   p.variant_prices as product_variant_prices,
+  p.category_id,  -- Added category_id
   c.name as collection_name,
   c.user_id as collection_owner_id,
   cat.name as category_name,

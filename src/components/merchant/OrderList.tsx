@@ -59,15 +59,31 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const [showAnalytics, setShowAnalytics] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
+  // Function to check if user has permission to edit order status
+  const canEditOrderStatus = (order: Order): boolean => {
+    if (!order.access_type) return false;
+    return ['admin', 'owner', 'edit'].includes(order.access_type);
+  };
+  
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     if (!onStatusUpdate) return;
+    
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // Check if user has permission to edit order status
+    if (!canEditOrderStatus(order)) {
+      toast.error('You do not have permission to update this order');
+      return;
+    }
     
     try {
       setUpdatingOrderId(orderId);
       await onStatusUpdate(orderId, status);
+      toast.success('Order status updated successfully');
     } catch (error) {
       console.error('Failed to update order status:', error);
-      toast.error('You do not have permission to update this order');
+      toast.error('Failed to update order status');
     } finally {
       setUpdatingOrderId(null);
     }
