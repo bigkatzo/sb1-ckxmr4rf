@@ -149,49 +149,80 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
 
     // Fallback: Direct insert if the function call fails
     console.log('Falling back to direct insert method');
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .insert([{
-        product_id: data.productId,
-        collection_id: data.collectionId,
-        variant_selections: data.variant_selections || [],
-        shipping_address: data.shippingInfo.shipping_address,
-        contact_info: data.shippingInfo.contact_info,
-        transaction_signature: data.transactionId,
-        wallet_address: data.walletAddress,
-        status: 'draft',
-        amount_sol: data.amountSol
-      }])
-      .select();
-
-    if (error) {
-      console.error('Error creating order via direct insert:', error);
-      throw error;
-    }
-    
-    if (!orders || orders.length === 0) {
-      throw new Error('No order data returned from insert operation');
-    }
-
-    // Update order with transaction details using the proper function
     try {
-      const { error: updateError } = await supabase.rpc('update_order_transaction', {
-        p_order_id: orders[0].id,
-        p_transaction_signature: data.transactionId,
-        p_amount_sol: data.amountSol
-      });
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .insert([{
+          product_id: data.productId,
+          collection_id: data.collectionId,
+          variant_selections: data.variant_selections || [],
+          shipping_address: data.shippingInfo.shipping_address,
+          contact_info: data.shippingInfo.contact_info,
+          wallet_address: data.walletAddress,
+          status: 'draft'  // Start in draft state
+        }])
+        .select();
 
-      if (updateError) {
-        console.error('Error updating order transaction:', updateError);
+      if (error) {
+        console.error('Error creating order via direct insert:', error);
+        throw error;
+      }
+      
+      if (!orders || orders.length === 0) {
+        throw new Error('No order data returned from insert operation');
+      }
+
+      // Update order with transaction details using the proper function
+      try {
+        const { error: updateError } = await supabase.rpc('update_order_transaction', {
+          p_order_id: orders[0].id,
+          p_transaction_signature: data.transactionId,
+          p_amount_sol: data.amountSol
+        });
+
+        if (updateError) {
+          console.error('Error updating order transaction:', updateError);
+          throw updateError;
+        }
+
+        // Fetch the updated order
+        const { data: updatedOrders, error: fetchError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orders[0].id)
+          .single();
+
+        if (fetchError) {
+          console.error('Error fetching updated order:', fetchError);
+          throw fetchError;
+        }
+
+        if (!updatedOrders) {
+          throw new Error('Updated order not found');
+        }
+
+        console.log('Order created successfully via direct insert');
+        return updatedOrders;
+      } catch (updateError) {
+        // If transaction update fails, cancel the order
+        try {
+          const { error: cancelError } = await supabase.rpc('cancel_order', {
+            p_order_id: orders[0].id
+          });
+
+          if (cancelError) {
+            console.error('Error cancelling order after transaction update failure:', cancelError);
+          }
+        } catch (cancelError) {
+          console.error('Exception cancelling order:', cancelError);
+        }
+
         throw updateError;
       }
-    } catch (updateError) {
-      console.error('Exception updating order transaction:', updateError);
-      throw updateError;
+    } catch (error) {
+      console.error('Order creation failed:', error);
+      throw error;
     }
-
-    console.log('Order created successfully via direct insert');
-    return orders[0];
   } catch (error) {
     console.error(`Order creation attempt ${attempt + 1} failed:`, error);
     
