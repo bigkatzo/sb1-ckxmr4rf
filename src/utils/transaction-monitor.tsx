@@ -195,27 +195,37 @@ export async function monitorTransaction(
               .from('orders')
               .select('id, status')
               .eq('transaction_signature', signature)
-              .in('status', ['pending_payment', 'confirmed'])
-              .single();
+              .in('status', ['pending_payment', 'confirmed']);
 
             if (orderError) {
               console.error('Failed to get order for transaction:', orderError);
               // Continue since transaction was confirmed
-            } else if (orders) {
-              if (orders.status === 'confirmed') {
-                console.log('Order is already confirmed:', orders.id);
+            } else if (orders && orders.length > 0) {
+              // Handle case where there might be multiple orders (shouldn't happen, but let's be safe)
+              const order = orders[0];
+              if (order.status === 'confirmed') {
+                console.log('Order is already confirmed:', order.id);
               } else {
                 // Update order with transaction confirmation
                 try {
                   const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-                    p_order_id: orders.id
+                    p_order_id: order.id
                   });
 
                   if (confirmError) {
                     console.error('Failed to confirm order transaction:', confirmError);
-                    // Continue since transaction was confirmed
+                    // If the error is because the order is already confirmed, that's okay
+                    if (confirmError.message.includes('not in pending_payment status')) {
+                      console.log('Order may have been confirmed through another process');
+                    } else {
+                      // For other errors, we should notify the user
+                      toast.warning(
+                        'Payment confirmed, but there was an issue updating the order. Please contact support.',
+                        { autoClose: false }
+                      );
+                    }
                   } else {
-                    console.log('Order confirmed successfully:', orders.id);
+                    console.log('Order confirmed successfully:', order.id);
                   }
                 } catch (confirmError) {
                   console.error('Error confirming order transaction:', confirmError);
