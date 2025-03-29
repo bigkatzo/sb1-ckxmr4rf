@@ -38,7 +38,7 @@ export function useOrders() {
         collection_id: order.collection_id,
         product_name: order.product_name,
         product_sku: order.product_sku || '',
-        product_image_url: order.product_images?.[0] || '',
+        product_image_url: order.product_image_url || '',
         collection_name: order.collection_name,
         amountSol: order.amount_sol,
         category_name: order.category_name || undefined,
@@ -46,7 +46,9 @@ export function useOrders() {
         contactInfo: order.contact_info,
         walletAddress: order.wallet_address,
         transactionSignature: order.transaction_signature,
-        order_variants: order.order_variants || []
+        order_variants: order.order_variants || [],
+        product_variants: order.product_variants || [],
+        product_variant_prices: order.product_variant_prices || {}
       }));
 
       setOrders(transformedOrders);
