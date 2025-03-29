@@ -44,7 +44,7 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
       // Transform the data to match the Order type
       const transformedOrders: Order[] = (ordersData || []).map(order => ({
         id: order.id,
-        order_number: order.order_number, // Use the actual order_number from DB
+        order_number: order.order_number,
         collection_id: order.collection_id || '',
         product_id: order.product_id || '',
         walletAddress: order.wallet_address,
@@ -88,7 +88,7 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
   }, [fetchOrders, options.deferLoad]);
 
   // Use polling for orders instead of realtime
-  const { refresh } = useMerchantDashboard({
+  useMerchantDashboard({
     ...options,
     tables: ['orders'],
     subscriptionId: 'merchant_orders',
@@ -116,11 +116,22 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
     }
   }, [fetchOrders]);
 
+  // Expose fetchOrders as refreshOrders for consistency
+  const refreshOrders = useCallback(async () => {
+    try {
+      await fetchOrders();
+      toast.success('Orders refreshed successfully');
+    } catch (err) {
+      console.error('Error refreshing orders:', err);
+      toast.error('Failed to refresh orders');
+    }
+  }, [fetchOrders]);
+
   return {
     orders,
     loading: isLoading,
     error,
     updateOrderStatus,
-    refresh
+    refreshOrders
   };
 }

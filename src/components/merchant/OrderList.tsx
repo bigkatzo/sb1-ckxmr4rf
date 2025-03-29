@@ -10,8 +10,7 @@ import {
   Twitter,
   Calendar,
   Download,
-  BarChart3,
-  RefreshCw
+  BarChart3
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
@@ -57,8 +56,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const [endDate, setEndDate] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   // Function to check if user has permission to edit order status
   const canEditOrderStatus = (order: Order): boolean => {
     if (!order.access_type) return false;
@@ -383,20 +381,6 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
     );
   };
 
-  const refreshOrders = async () => {
-    setIsRefreshing(true);
-    try {
-      // Implement the logic to refresh orders
-      // This is a placeholder and should be replaced with the actual implementation
-      console.log('Refreshing orders');
-    } catch (error) {
-      console.error('Error refreshing orders:', error);
-      toast.error('Failed to refresh orders');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* Header with Filters and Actions */}
@@ -479,19 +463,6 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
           >
             <Download className="h-4 w-4" />
             Export to CSV
-          </Button>
-
-          {/* Refresh Button */}
-          <Button
-            onClick={() => void refreshOrders()}
-            disabled={isRefreshing}
-            variant="ghost"
-            size="sm"
-            isLoading={isRefreshing}
-            loadingText="Refreshing..."
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
           </Button>
         </div>
       </div>
