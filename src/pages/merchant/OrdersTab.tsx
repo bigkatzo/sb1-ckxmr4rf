@@ -81,7 +81,7 @@ export function OrdersTab() {
           (order.contactInfo?.value && order.contactInfo.value.toLowerCase().includes(searchLower)) ||
           // Wallet and transaction
           order.walletAddress.toLowerCase().includes(searchLower) ||
-          order.transactionSignature.toLowerCase().includes(searchLower) ||
+          (order.transactionSignature && order.transactionSignature.toLowerCase().includes(searchLower)) ||
           // Shipping address
           (order.shippingAddress?.address && order.shippingAddress.address.toLowerCase().includes(searchLower)) ||
           (order.shippingAddress?.city && order.shippingAddress.city.toLowerCase().includes(searchLower)) ||
