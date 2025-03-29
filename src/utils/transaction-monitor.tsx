@@ -1,7 +1,7 @@
 import { SOLANA_CONNECTION } from '../config/solana';
 import { toast } from 'react-toastify';
 import { supabase } from '../lib/supabase';
-import { LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 
 interface TransactionStatus {
   processing: boolean;
@@ -68,9 +68,6 @@ async function verifyTransactionDetails(
         error: 'Could not identify transfer details' 
       };
     }
-
-    // Calculate actual amount (absolute value of sender's change minus fees)
-    const amount = Math.abs(sender.change) - Math.abs(recipient.change);
     
     const details = {
       amount: recipient.change,
