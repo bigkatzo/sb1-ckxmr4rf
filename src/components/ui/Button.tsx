@@ -2,8 +2,16 @@ import { type ButtonHTMLAttributes, forwardRef } from 'react';
 import { Loading, LoadingType } from './LoadingStates';
 import { cn } from '../../utils/cn';
 
+export type ButtonVariant = 
+  | 'primary'
+  | 'secondary'
+  | 'outline'
+  | 'ghost'
+  | 'link'
+  | 'destructive';
+
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'link';
+  variant?: ButtonVariant;
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   loadingText?: string;
@@ -22,11 +30,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:pointer-events-none disabled:opacity-50';
   
   const variants = {
-    primary: 'bg-purple-600 text-white hover:bg-purple-700',
-    secondary: 'bg-gray-800 text-white hover:bg-gray-700',
-    outline: 'border border-gray-700 hover:bg-gray-800',
-    ghost: 'hover:bg-gray-800',
-    link: 'underline-offset-4 hover:underline text-purple-500'
+    primary: 'bg-purple-600 hover:bg-purple-700 text-white',
+    secondary: 'bg-gray-800 hover:bg-gray-700 text-gray-200',
+    outline: 'border border-gray-700 hover:bg-gray-800 text-gray-200',
+    ghost: 'hover:bg-gray-800 text-gray-200',
+    link: 'text-purple-400 hover:text-purple-300 p-0',
+    destructive: 'bg-red-600 hover:bg-red-700 text-white'
   };
 
   const sizes = {
