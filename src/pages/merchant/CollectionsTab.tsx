@@ -142,7 +142,7 @@ export function CollectionsTab() {
                               </span>
                             )}
                             {collection.saleEnded && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
                                 <Ban className="h-3 w-3" />
                                 Sale Ended
                               </span>
