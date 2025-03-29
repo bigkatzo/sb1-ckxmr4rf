@@ -3,6 +3,9 @@ import { toast } from 'react-toastify';
 import { supabase } from '../lib/supabase';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 
+// Keep track of processed signatures to prevent duplicate processing
+const processedSignatures = new Set<string>();
+
 interface TransactionStatus {
   processing: boolean;
   success: boolean;
@@ -117,6 +120,13 @@ export async function monitorTransaction(
   onStatusUpdate: (status: TransactionStatus) => void,
   expectedDetails?: TransactionDetails
 ): Promise<boolean> {
+  // Prevent duplicate processing
+  if (processedSignatures.has(signature)) {
+    console.log('Transaction already processed:', signature);
+    return true;
+  }
+  processedSignatures.add(signature);
+
   let attempts = 0;
   const toastId = toast.loading('Processing transaction...');
 
@@ -216,7 +226,7 @@ export async function monitorTransaction(
                     console.error('Failed to confirm order transaction:', confirmError);
                     // If the error is because the order is already confirmed, that's okay
                     if (confirmError.message.includes('not in pending_payment status')) {
-                      console.log('Order may have been confirmed through another process');
+                      console.log('Order is already confirmed through another process');
                     } else {
                       // For other errors, we should notify the user
                       toast.warning(
@@ -236,21 +246,20 @@ export async function monitorTransaction(
               }
             } else {
               console.log('No order found for transaction, will attempt creation');
-            }
-            
-            // Log a transaction for order creation monitoring
-            try {
-              const { error: logError } = await supabase.rpc('log_order_creation_attempt', {
-                p_signature: signature
-              });
-              
-              if (logError) {
-                console.warn('Failed to log order creation attempt:', logError);
-              } else {
-                console.log('Order creation attempt logged successfully');
+              // Only log creation attempt if no order exists
+              try {
+                const { error: logError } = await supabase.rpc('log_order_creation_attempt', {
+                  p_signature: signature
+                });
+                
+                if (logError) {
+                  console.warn('Failed to log order creation attempt:', logError);
+                } else {
+                  console.log('Order creation attempt logged successfully');
+                }
+              } catch (logError) {
+                console.warn('Exception logging order creation attempt:', logError);
               }
-            } catch (logError) {
-              console.warn('Exception logging order creation attempt:', logError);
             }
           } catch (updateError) {
             console.error('Failed to update transaction status:', updateError);
