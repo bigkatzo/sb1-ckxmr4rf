@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExternalLink, RefreshCw, AlertCircle, Mail, Ban, Link, Clock } from 'lucide-react';
+import { ExternalLink, RefreshCw, AlertCircle, Ban, Link, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { RefreshButton } from '../ui/RefreshButton';
 import { formatDistanceToNow } from 'date-fns';
