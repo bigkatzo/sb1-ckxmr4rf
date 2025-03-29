@@ -188,6 +188,23 @@ export async function monitorTransaction(
             });
             console.log('Transaction status updated to confirmed');
             
+            // Update order with verified transaction details
+            try {
+              const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
+                p_transaction_id: signature,
+                p_status: 'confirmed',
+                p_verified_details: verification.details
+              });
+
+              if (confirmError) {
+                console.error('Failed to confirm order payment:', confirmError);
+                // Continue since transaction was confirmed
+              }
+            } catch (confirmError) {
+              console.error('Error confirming order payment:', confirmError);
+              // Continue since transaction was confirmed
+            }
+            
             // Log a transaction for order creation monitoring
             try {
               const { error: logError } = await supabase.rpc('log_order_creation_attempt', {
