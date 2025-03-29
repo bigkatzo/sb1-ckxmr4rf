@@ -60,8 +60,13 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
         console.error('Error checking for existing orders:', existingOrderError);
         // Continue with order creation even if check fails
       } else if (existingOrders && existingOrders.length > 0) {
-        console.log('Order already exists for this transaction, returning existing order');
+        console.log('Order already exists for this transaction:', {
+          orderId: existingOrders[0].id,
+          status: existingOrders[0].status
+        });
         return existingOrders[0];
+      } else {
+        console.log('No existing order found, proceeding with creation');
       }
     } catch (checkError) {
       console.error('Exception checking for existing order:', checkError);
@@ -73,15 +78,20 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
       console.log('Verifying transaction amount from transaction logs');
       const { data: txLogs, error: txLogError } = await supabase
         .from('transaction_logs')
-        .select('amount')
+        .select('amount, status')
         .eq('signature', data.transactionId);
 
       if (txLogError) {
         console.warn('Could not verify transaction amount from logs:', txLogError);
-      } else if (txLogs && txLogs.length > 0 && txLogs[0].amount) {
-        // Use the actual transaction amount from the logs
-        console.log(`Using verified transaction amount: ${txLogs[0].amount} SOL (provided: ${data.amountSol} SOL)`);
-        data.amountSol = txLogs[0].amount;
+      } else if (txLogs && txLogs.length > 0) {
+        if (txLogs[0].amount) {
+          // Use the actual transaction amount from the logs
+          console.log(`Using verified transaction amount: ${txLogs[0].amount} SOL (provided: ${data.amountSol} SOL)`);
+          data.amountSol = txLogs[0].amount;
+        }
+        console.log('Transaction log status:', txLogs[0].status);
+      } else {
+        console.log('No transaction log found, using provided amount');
       }
     } catch (verifyError) {
       console.warn('Error verifying transaction amount:', verifyError);
@@ -107,6 +117,8 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
       }
 
       if (orderId) {
+        console.log('Order created successfully, updating with transaction details:', orderId);
+        
         // Update order with transaction details
         try {
           const { error: updateError } = await supabase.rpc('update_order_transaction', {
@@ -119,106 +131,36 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
             console.error('Error updating order transaction:', updateError);
             throw updateError;
           }
+          
+          console.log('Order transaction details updated successfully');
+
+          // Fetch the created order
+          const { data: createdOrders, error: fetchError } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', orderId);
+
+          if (fetchError) {
+            console.error('Error fetching created order:', fetchError);
+            throw fetchError;
+          }
+
+          if (!createdOrders || createdOrders.length === 0) {
+            throw new Error('Order was created but could not be retrieved');
+          }
+
+          console.log('Order creation completed successfully:', {
+            orderId: createdOrders[0].id,
+            status: createdOrders[0].status
+          });
+          return createdOrders[0];
         } catch (updateError) {
           console.error('Exception updating order transaction:', updateError);
           throw updateError;
         }
-
-        // Fetch the created order
-        const { data: createdOrders, error: fetchError } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId);
-
-        if (fetchError) {
-          console.error('Error fetching created order:', fetchError);
-          throw fetchError;
-        }
-
-        if (!createdOrders || createdOrders.length === 0) {
-          throw new Error('Order was created but could not be retrieved');
-        }
-
-        console.log('Order created successfully using database function');
-        return createdOrders[0];
-      }
-    } catch (functionError) {
-      console.warn('Failed to create order using database function, falling back to direct insert:', functionError);
-      // Continue to fallback method
-    }
-
-    // Fallback: Direct insert if the function call fails
-    console.log('Falling back to direct insert method');
-    try {
-      const { data: orders, error } = await supabase
-        .from('orders')
-        .insert([{
-          product_id: data.productId,
-          collection_id: data.collectionId,
-          variant_selections: data.variant_selections || [],
-          shipping_address: data.shippingInfo.shipping_address,
-          contact_info: data.shippingInfo.contact_info,
-          wallet_address: data.walletAddress,
-          status: 'draft'  // Start in draft state
-        }])
-        .select();
-
-      if (error) {
-        console.error('Error creating order via direct insert:', error);
-        throw error;
       }
       
-      if (!orders || orders.length === 0) {
-        throw new Error('No order data returned from insert operation');
-      }
-
-      // Update order with transaction details using the proper function
-      try {
-        const { error: updateError } = await supabase.rpc('update_order_transaction', {
-          p_order_id: orders[0].id,
-          p_transaction_signature: data.transactionId,
-          p_amount_sol: data.amountSol
-        });
-
-        if (updateError) {
-          console.error('Error updating order transaction:', updateError);
-          throw updateError;
-        }
-
-        // Fetch the updated order
-        const { data: updatedOrders, error: fetchError } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orders[0].id)
-          .single();
-
-        if (fetchError) {
-          console.error('Error fetching updated order:', fetchError);
-          throw fetchError;
-        }
-
-        if (!updatedOrders) {
-          throw new Error('Updated order not found');
-        }
-
-        console.log('Order created successfully via direct insert');
-        return updatedOrders;
-      } catch (updateError) {
-        // If transaction update fails, cancel the order
-        try {
-          const { error: cancelError } = await supabase.rpc('cancel_order', {
-            p_order_id: orders[0].id
-          });
-
-          if (cancelError) {
-            console.error('Error cancelling order after transaction update failure:', cancelError);
-          }
-        } catch (cancelError) {
-          console.error('Exception cancelling order:', cancelError);
-        }
-
-        throw updateError;
-      }
+      throw new Error('Failed to create order: No order ID returned');
     } catch (error) {
       console.error('Order creation failed:', error);
       throw error;
