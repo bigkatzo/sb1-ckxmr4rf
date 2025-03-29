@@ -291,15 +291,19 @@ export function OrdersPage() {
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-400">Transaction:</span>
-                          <a
-                            href={`https://solscan.io/tx/${order.transactionSignature}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
-                          >
-                            {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
+                          {order.transactionSignature ? (
+                            <a
+                              href={`https://solscan.io/tx/${order.transactionSignature}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                            >
+                              {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-500">Pending</span>
+                          )}
                         </div>
                       </div>
                     </div>
