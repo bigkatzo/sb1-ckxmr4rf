@@ -30,7 +30,7 @@ DROP FUNCTION IF EXISTS confirm_order_payment(TEXT, TEXT, JSONB);
 
 -- Create new confirm_order_payment function with a different name to avoid conflicts
 CREATE OR REPLACE FUNCTION confirm_order_payment_with_details(
-  p_transaction_id TEXT,
+  p_transaction_signature TEXT,
   p_status TEXT,
   p_verified_details JSONB DEFAULT NULL
 )
@@ -41,31 +41,16 @@ BEGIN
     RAISE EXCEPTION 'Invalid transaction status: %', p_status;
   END IF;
 
-  -- Update order status and verified details
+  -- Update order status
   UPDATE orders
   SET 
-    transaction_status = p_status,
     status = CASE 
       WHEN p_status = 'confirmed' THEN 'confirmed'
       WHEN p_status = 'failed' THEN 'cancelled'
       ELSE status
     END,
-    verified_amount = CASE 
-      WHEN p_status = 'confirmed' AND p_verified_details IS NOT NULL 
-      THEN (p_verified_details->>'amount')::numeric 
-      ELSE NULL 
-    END,
-    verified_buyer_address = CASE 
-      WHEN p_status = 'confirmed' AND p_verified_details IS NOT NULL 
-      THEN p_verified_details->>'buyer' 
-      ELSE NULL 
-    END,
-    verified_at = CASE 
-      WHEN p_status = 'confirmed' THEN now() 
-      ELSE NULL 
-    END,
     updated_at = now()
-  WHERE transaction_signature = p_transaction_id
+  WHERE transaction_signature = p_transaction_signature
   AND status = 'pending_payment';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
