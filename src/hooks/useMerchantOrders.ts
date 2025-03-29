@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { toast } from 'react-toastify';
@@ -13,11 +13,13 @@ interface UseMerchantOrdersOptions {
 
 export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(!options.deferLoad);
   const isFetchingRef = useRef(false);
 
   const fetchOrders = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
+    setIsLoading(true);
 
     try {
       // Fetch orders directly from merchant_orders view
@@ -59,11 +61,19 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
       setOrders([]);
     } finally {
       isFetchingRef.current = false;
+      setIsLoading(false);
     }
   }, []);
 
+  // Fetch orders on mount unless deferred
+  useEffect(() => {
+    if (!options.deferLoad) {
+      fetchOrders();
+    }
+  }, [fetchOrders, options.deferLoad]);
+
   // Use polling for orders instead of realtime
-  const { loading, error, refresh } = useMerchantDashboard({
+  const { error, refresh } = useMerchantDashboard({
     ...options,
     tables: ['orders'],
     subscriptionId: 'merchant_orders',
@@ -93,7 +103,7 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
 
   return {
     orders,
-    loading,
+    loading: isLoading,
     error,
     updateOrderStatus,
     refresh
