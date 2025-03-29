@@ -231,7 +231,9 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
 
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
-      case 'pending':
+      case 'draft':
+        return <Clock className="h-4 w-4" />;
+      case 'pending_payment':
         return <Clock className="h-4 w-4" />;
       case 'confirmed':
         return <Package className="h-4 w-4" />;
@@ -246,7 +248,9 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
-      case 'pending':
+      case 'draft':
+        return 'text-gray-400 bg-gray-500/10 hover:bg-gray-500/20';
+      case 'pending_payment':
         return 'text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20';
       case 'confirmed':
         return 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20';
@@ -372,7 +376,8 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
         className={`appearance-none cursor-pointer rounded px-2 py-1 pr-8 text-xs font-medium transition-colors relative ${getStatusColor(order.status)}`}
         style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em' }}
       >
-        <option value="pending">Pending</option>
+        <option value="draft">Draft</option>
+        <option value="pending_payment">Pending Payment</option>
         <option value="confirmed">Confirmed</option>
         <option value="shipped">Shipped</option>
         <option value="delivered">Delivered</option>

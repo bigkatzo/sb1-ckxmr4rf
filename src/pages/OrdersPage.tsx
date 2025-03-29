@@ -31,7 +31,9 @@ export function OrdersPage() {
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
-      case 'pending':
+      case 'draft':
+        return <Clock className="h-4 w-4 text-gray-400" />;
+      case 'pending_payment':
         return <Clock className="h-4 w-4 text-yellow-400" />;
       case 'confirmed':
         return <Package className="h-4 w-4 text-blue-400" />;
@@ -46,7 +48,9 @@ export function OrdersPage() {
 
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
-      case 'pending':
+      case 'draft':
+        return 'bg-gray-500/10 text-gray-400';
+      case 'pending_payment':
         return 'bg-yellow-500/10 text-yellow-500';
       case 'confirmed':
         return 'bg-blue-500/10 text-blue-400';

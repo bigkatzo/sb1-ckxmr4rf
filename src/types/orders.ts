@@ -15,7 +15,7 @@ export interface OrderVariant {
   value: string;
 }
 
-export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderStatus = 'draft' | 'pending_payment' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface Order {
   id: string;
