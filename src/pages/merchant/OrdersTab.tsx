@@ -70,17 +70,17 @@ export function OrdersTab() {
         const searchLower = searchQuery.toLowerCase();
         return (
           // Order details
-          order.order_number.toLowerCase().includes(searchLower) ||
-          order.id.toLowerCase().includes(searchLower) ||
+          (order.order_number && order.order_number.toLowerCase().includes(searchLower)) ||
+          (order.id && order.id.toLowerCase().includes(searchLower)) ||
           // Product details
-          order.product_name.toLowerCase().includes(searchLower) ||
+          (order.product_name && order.product_name.toLowerCase().includes(searchLower)) ||
           (order.product_sku && order.product_sku.toLowerCase().includes(searchLower)) ||
           // Collection
-          order.collection_name.toLowerCase().includes(searchLower) ||
+          (order.collection_name && order.collection_name.toLowerCase().includes(searchLower)) ||
           // Contact info
           (order.contactInfo?.value && order.contactInfo.value.toLowerCase().includes(searchLower)) ||
           // Wallet and transaction
-          order.walletAddress.toLowerCase().includes(searchLower) ||
+          (order.walletAddress && order.walletAddress.toLowerCase().includes(searchLower)) ||
           (order.transactionSignature && order.transactionSignature.toLowerCase().includes(searchLower)) ||
           // Shipping address
           (order.shippingAddress?.address && order.shippingAddress.address.toLowerCase().includes(searchLower)) ||
