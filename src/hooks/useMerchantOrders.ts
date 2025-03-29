@@ -11,9 +11,14 @@ interface UseMerchantOrdersOptions {
   elementRef?: React.RefObject<HTMLDivElement>;
 }
 
+interface OrderError extends Error {
+  message: string;
+}
+
 export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(!options.deferLoad);
+  const [error, setError] = useState<OrderError | null>(null);
   const isFetchingRef = useRef(false);
   const isInitialLoadRef = useRef(!options.deferLoad);
 
@@ -39,7 +44,7 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
       // Transform the data to match the Order type
       const transformedOrders: Order[] = (ordersData || []).map(order => ({
         id: order.id,
-        order_number: order.id.slice(0, 8).toUpperCase(), // Generate a short order number from the UUID
+        order_number: order.order_number, // Use the actual order_number from DB
         collection_id: order.collection_id || '',
         product_id: order.product_id || '',
         walletAddress: order.wallet_address,
@@ -54,22 +59,24 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
         product_sku: order.product_sku || '',
         product_image_url: order.product_image_url || '',
         collection_name: order.collection_name || '',
+        category_name: order.category_name || '',
+        category_description: order.category_description || '',
+        category_type: order.category_type || '',
         access_type: order.access_type,
-        order_variants: order.variant_selections || []
+        order_variants: order.variant_selections || [],
+        product_variants: order.product_variants || [],
+        product_variant_prices: order.product_variant_prices || []
       }));
 
       setOrders(transformedOrders);
+      setError(null);
     } catch (err) {
       console.error('Error fetching orders:', err);
-      const errorMessage = handleError(err);
-      toast.error(`Failed to load orders: ${errorMessage}`);
-      setOrders([]);
+      setError(err as OrderError);
     } finally {
+      setIsLoading(false);
       isFetchingRef.current = false;
-      if (isInitialLoadRef.current) {
-        setIsLoading(false);
-        isInitialLoadRef.current = false;
-      }
+      isInitialLoadRef.current = false;
     }
   }, []);
 
@@ -81,7 +88,7 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
   }, [fetchOrders, options.deferLoad]);
 
   // Use polling for orders instead of realtime
-  const { error, refresh } = useMerchantDashboard({
+  const { error: pollingError, refresh } = useMerchantDashboard({
     ...options,
     tables: ['orders'],
     subscriptionId: 'merchant_orders',

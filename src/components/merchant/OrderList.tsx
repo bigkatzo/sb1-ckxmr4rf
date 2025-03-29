@@ -324,23 +324,14 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   };
 
   const getProductInfo = (order: Order) => {
-    // Use direct fields first, then fall back to snapshots
-    const name = order.product_name;
-    const imageUrl = order.product_image_url || '';
-    const sku = order.product_sku;
-    const collectionName = order.collection_name;
-    const categoryName = order.category_name;
-    const variants = order.product?.variants || [];
-    const variantPrices = order.product?.variantPrices || {};
-
     return {
-      name,
-      imageUrl,
-      sku,
-      collectionName,
-      categoryName,
-      variants,
-      variantPrices
+      name: order.product_name,
+      sku: order.product_sku,
+      imageUrl: order.product_image_url,
+      collectionName: order.collection_name,
+      categoryName: order.category_name,
+      variants: order.order_variants,
+      variantPrices: order.product_variant_prices
     };
   };
 
@@ -566,124 +557,98 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                 </div>
               </div>
 
-              <div className="divide-y divide-gray-800">
-                {/* Product Section */}
-                <div className="p-4">
-                  <div className="flex gap-4">
-                    {/* Product Image */}
-                    <div className="relative h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
-                      {productInfo.imageUrl ? (
-                        <OptimizedImage
-                          src={productInfo.imageUrl}
-                          alt={productInfo.name}
-                          width={160}
-                          height={160}
-                          quality={75}
-                          className="object-cover w-full h-full"
-                          sizes="80px"
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center">
-                          <ImageIcon className="h-6 w-6 text-gray-600" />
-                        </div>
-                      )}
-                    </div>
+              <div className="p-4">
+                <div className="flex items-start gap-4">
+                  {/* Product Image */}
+                  <div className="relative h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
+                    {productInfo.imageUrl ? (
+                      <OptimizedImage
+                        src={productInfo.imageUrl}
+                        alt={productInfo.name}
+                        width={160}
+                        height={160}
+                        quality={75}
+                        className="object-cover w-full h-full"
+                        sizes="80px"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <ImageIcon className="h-6 w-6 text-gray-600" />
+                      </div>
+                    )}
+                  </div>
 
-                    <div className="flex-1 min-w-0">
-                      {/* Product Info */}
-                      <div className="space-y-2">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium text-sm sm:text-base text-white">{productInfo.name}</h3>
-                            {productInfo.collectionName && (
-                              <span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full text-xs">
-                                {productInfo.collectionName}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs">
-                            {productInfo.sku && (
-                              <span className="text-gray-500 font-mono">#{productInfo.sku}</span>
-                            )}
-                            {typeof order.amountSol === 'number' && (
-                              <span className="font-medium text-purple-400">{order.amountSol} SOL</span>
-                            )}
-                          </div>
+                  <div className="flex-1 min-w-0">
+                    {/* Order Header */}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-sm truncate">{productInfo.name}</h3>
+                          {productInfo.collectionName && (
+                            <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full shrink-0">
+                              {productInfo.collectionName}
+                            </span>
+                          )}
                         </div>
-                        
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {productInfo.sku && (
+                          <p className="text-xs text-gray-400">SKU: {productInfo.sku}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
                           {productInfo.categoryName && (
-                            <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
+                            <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
                               {productInfo.categoryName}
                             </span>
                           )}
-                          {order.order_variants && order.order_variants.length > 0 && (
-                            <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
-                              {order.order_variants.map((v: { name: string; value: string }) => `${v.name}: ${v.value}`).join(', ')}
+                          {productInfo.variants && productInfo.variants.length > 0 && (
+                            <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
+                              {productInfo.variants.map(v => `${v.name}: ${v.value}`).join(', ')}
                             </span>
                           )}
                         </div>
+                        <p className="text-gray-400 text-xs mt-2">
+                          Amount: {order.amountSol} SOL
+                        </p>
                       </div>
                     </div>
-                  </div>
-                </div>
-                
-                {/* Order Details */}
-                {(order.shippingAddress || order.contactInfo || order.walletAddress) && (
-                  <div className="px-4 py-3">
-                    {/* Shipping & Contact Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+
+                    {/* Order Details */}
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
                       {/* Shipping Info */}
                       {order.shippingAddress && (
-                        <div className="space-y-1.5 col-span-1">
-                          <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Shipping Address</h4>
+                        <div>
+                          <h4 className="text-xs font-medium text-gray-400 mb-2">Shipping Address</h4>
                           {formatShippingAddress(order.shippingAddress)}
                         </div>
                       )}
                       
                       {/* Contact Info */}
                       {order.contactInfo && (
-                        <div className="space-y-1.5 col-span-1">
-                          <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Contact</h4>
+                        <div>
+                          <h4 className="text-xs font-medium text-gray-400 mb-2">Contact</h4>
                           {formatContactInfo(order.contactInfo)}
                         </div>
                       )}
-                      
-                      {/* Transaction Links */}
-                      {order.walletAddress && (
-                        <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                          <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">Transaction</h4>
-                          <div className="space-y-1 text-xs">
-                            <div className="flex items-center gap-1">
-                              <span className="text-gray-500">Wallet:</span>
-                              <a 
-                                href={`https://solscan.io/account/${order.walletAddress}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
-                              >
-                                {order.walletAddress.slice(0, 4)}...{order.walletAddress.slice(-4)}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-gray-500">Tx:</span>
-                              <a 
-                                href={`https://solscan.io/tx/${order.transactionSignature}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
-                              >
-                                {order.transactionSignature.slice(0, 4)}...{order.transactionSignature.slice(-4)}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </div>
-                          </div>
+                    </div>
+
+                    {/* Transaction Info */}
+                    <div className="mt-4 pt-4 border-t border-gray-800">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400">Transaction:</span>
+                          <a
+                            href={`https://solscan.io/tx/${order.transactionSignature}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                          >
+                            {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           );

@@ -22,24 +22,33 @@ export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'c
 export interface Order {
   id: string;
   order_number: string;
+  collection_id: string;
+  product_id: string;
+  walletAddress: string;
+  transactionSignature: string;
+  shippingAddress: any;
+  contactInfo: any;
   status: OrderStatus;
+  amountSol: number;
   createdAt: string;
   updatedAt: string;
-  product_id: string;
-  collection_id: string;
   product_name: string;
   product_sku: string;
   product_image_url: string;
   collection_name: string;
-  amountSol: number;
   category_name?: string;
-  shippingAddress?: ShippingAddress;
-  contactInfo?: ContactInfo;
-  walletAddress: string;
-  transactionSignature: string;
-  access_type?: 'admin' | 'owner' | 'edit' | 'view';
-  product?: Product;
-  order_variants?: OrderVariant[];
+  category_description?: string;
+  category_type?: string;
+  access_type?: string;
+  order_variants: Array<{
+    name: string;
+    value: string;
+  }>;
+  product_variants: Array<{
+    name: string;
+    options: string[];
+  }>;
+  product_variant_prices: Record<string, number>;
 }
 
 // Type for the public order counts view
