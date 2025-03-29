@@ -292,9 +292,10 @@ export function TokenVerificationModal({
 
       // Update order with transaction signature
       try {
-        const { error: updateError } = await supabase.rpc('initiate_order_payment', {
+        const { error: updateError } = await supabase.rpc('update_order_transaction', {
           p_order_id: orderId,
-          p_transaction_id: signature
+          p_transaction_signature: signature,
+          p_amount_sol: finalPrice
         });
 
         if (updateError) throw updateError;
@@ -323,17 +324,16 @@ export function TokenVerificationModal({
 
       // Update order status
       try {
-        const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
-          p_transaction_signature: signature,
-          p_status: 'confirmed'
+        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+          p_order_id: orderId
         });
 
         if (confirmError) {
-          console.error('Failed to confirm order payment:', confirmError);
+          console.error('Failed to confirm order transaction:', confirmError);
           // Continue since transaction was confirmed
         }
       } catch (err) {
-        console.error('Error confirming order payment:', err);
+        console.error('Error confirming order transaction:', err);
         // Continue since transaction was confirmed
       }
 

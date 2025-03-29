@@ -190,20 +190,32 @@ export async function monitorTransaction(
             });
             console.log('Transaction status updated to confirmed');
             
-            // Update order with transaction confirmation
-            try {
-              const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
-                p_transaction_signature: signature,
-                p_status: 'confirmed'
-              });
+            // Get order ID for the transaction
+            const { data: orders, error: orderError } = await supabase
+              .from('orders')
+              .select('id')
+              .eq('transaction_signature', signature)
+              .eq('status', 'pending_payment')
+              .single();
 
-              if (confirmError) {
-                console.error('Failed to confirm order payment:', confirmError);
+            if (orderError) {
+              console.error('Failed to get order for transaction:', orderError);
+              // Continue since transaction was confirmed
+            } else if (orders) {
+              // Update order with transaction confirmation
+              try {
+                const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+                  p_order_id: orders.id
+                });
+
+                if (confirmError) {
+                  console.error('Failed to confirm order transaction:', confirmError);
+                  // Continue since transaction was confirmed
+                }
+              } catch (confirmError) {
+                console.error('Error confirming order transaction:', confirmError);
                 // Continue since transaction was confirmed
               }
-            } catch (confirmError) {
-              console.error('Error confirming order payment:', confirmError);
-              // Continue since transaction was confirmed
             }
             
             // Log a transaction for order creation monitoring

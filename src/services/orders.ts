@@ -98,7 +98,6 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
           shipping_address: data.shippingInfo.shipping_address,
           contact_info: data.shippingInfo.contact_info
         },
-        p_transaction_id: data.transactionId,
         p_wallet_address: data.walletAddress
       });
 
@@ -108,6 +107,23 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
       }
 
       if (orderId) {
+        // Update order with transaction details
+        try {
+          const { error: updateError } = await supabase.rpc('update_order_transaction', {
+            p_order_id: orderId,
+            p_transaction_signature: data.transactionId,
+            p_amount_sol: data.amountSol
+          });
+
+          if (updateError) {
+            console.error('Error updating order transaction:', updateError);
+            throw updateError;
+          }
+        } catch (updateError) {
+          console.error('Exception updating order transaction:', updateError);
+          throw updateError;
+        }
+
         // Fetch the created order
         const { data: createdOrders, error: fetchError } = await supabase
           .from('orders')
@@ -123,22 +139,8 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
           throw new Error('Order was created but could not be retrieved');
         }
 
-        // Update the order with the verified amount
-        try {
-          const { error: updateError } = await supabase
-            .from('orders')
-            .update({ amount_sol: data.amountSol })
-            .eq('id', orderId);
-
-          if (updateError) {
-            console.warn('Could not update order with verified amount:', updateError);
-          }
-        } catch (updateError) {
-          console.warn('Exception updating order amount:', updateError);
-        }
-
         console.log('Order created successfully using database function');
-        return { ...createdOrders[0], amount_sol: data.amountSol };
+        return createdOrders[0];
       }
     } catch (functionError) {
       console.warn('Failed to create order using database function, falling back to direct insert:', functionError);
@@ -157,7 +159,7 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
         contact_info: data.shippingInfo.contact_info,
         transaction_signature: data.transactionId,
         wallet_address: data.walletAddress,
-        status: 'pending',
+        status: 'draft',
         amount_sol: data.amountSol
       }])
       .select();
@@ -169,6 +171,23 @@ export async function createOrder(data: CreateOrderData, attempt = 0): Promise<O
     
     if (!orders || orders.length === 0) {
       throw new Error('No order data returned from insert operation');
+    }
+
+    // Update order with transaction details using the proper function
+    try {
+      const { error: updateError } = await supabase.rpc('update_order_transaction', {
+        p_order_id: orders[0].id,
+        p_transaction_signature: data.transactionId,
+        p_amount_sol: data.amountSol
+      });
+
+      if (updateError) {
+        console.error('Error updating order transaction:', updateError);
+        throw updateError;
+      }
+    } catch (updateError) {
+      console.error('Exception updating order transaction:', updateError);
+      throw updateError;
     }
 
     console.log('Order created successfully via direct insert');
