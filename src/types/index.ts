@@ -81,3 +81,5 @@ export interface WhitelistVerificationResult {
   isValid: boolean;
   error?: string;
 }
+
+export type { TransactionStatus } from './transactions';

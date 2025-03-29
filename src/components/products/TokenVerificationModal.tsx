@@ -4,7 +4,6 @@ import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
 import { verifyWhitelistAccess } from '../../utils/whitelist-verification';
 import { usePayment } from '../../hooks/usePayment';
-import { createOrder } from '../../services/orders';
 import { toast } from 'react-toastify';
 import { toastService } from '../../services/toast';
 import type { Product } from '../../types/variants';
@@ -13,6 +12,8 @@ import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { supabase } from '../../lib/supabase';
 import { verifyNFTHolding } from '../../utils/nft-verification';
+import { monitorTransaction } from '../../utils/transaction-monitor';
+import type { TransactionStatus } from '../../types/transactions';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -75,8 +76,16 @@ export function TokenVerificationModal({
   const { modifiedPrice } = useModifiedPrice({ product, selectedOptions });
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   
-  // Add new state for progress steps
+  // Update progress steps to reflect new flow
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
+    { 
+      label: 'Order Creation',
+      status: 'pending',
+      details: {
+        success: 'Order created successfully',
+        error: 'Failed to create order'
+      }
+    },
     { 
       label: 'Payment Processing',
       status: 'pending',
@@ -91,14 +100,6 @@ export function TokenVerificationModal({
       details: {
         success: 'Transaction finalized on-chain',
         error: 'Transaction verification failed'
-      }
-    },
-    { 
-      label: 'Order Creation',
-      status: 'pending',
-      details: {
-        success: 'Order successfully created',
-        error: 'Failed to create order'
       }
     }
   ]);
@@ -217,27 +218,6 @@ export function TokenVerificationModal({
       // Reset all steps to pending
       setProgressSteps(steps => steps.map(step => ({ ...step, status: 'pending' as const })));
       
-      // Start payment processing
-      updateProgressStep(0, 'processing', 'Initiating payment on Solana network...');
-      
-      // Process payment with modified price
-      const { success, signature } = await processPayment(finalPrice, product.collectionId);
-      
-      if (!success || !signature) {
-        updateProgressStep(0, 'error', 'Payment failed');
-        throw new Error('Payment failed');
-      }
-      
-      // Payment successful
-      updateProgressStep(0, 'completed');
-      
-      // Start transaction confirmation
-      updateProgressStep(1, 'processing', 'Waiting for transaction confirmation...');
-      
-      // Wait for transaction confirmation (assuming it's handled in processPayment)
-      // If you need additional confirmation logic, add it here
-      updateProgressStep(1, 'completed');
-
       // Format shipping address
       const formattedShippingInfo = {
         shipping_address: {
@@ -266,67 +246,98 @@ export function TokenVerificationModal({
         : [];
 
       // Start order creation
-      updateProgressStep(2, 'processing', 'Creating your order...');
+      updateProgressStep(0, 'processing', 'Creating your order...');
 
       // Create order record with retries
-      let orderError;
+      let orderId;
       for (let i = 0; i < 3; i++) {
         try {
-          await createOrder({
-            productId: product.id,
-            collectionId: product.collectionId,
-            variant_selections: formattedVariantSelections,
-            shippingInfo: formattedShippingInfo,
-            transactionId: signature,
-            walletAddress,
-            amountSol: finalPrice
+          const { data: order, error } = await supabase.rpc('create_order', {
+            p_product_id: product.id,
+            p_variants: formattedVariantSelections,
+            p_shipping_info: formattedShippingInfo,
+            p_wallet_address: walletAddress
           });
-          orderError = null;
-          updateProgressStep(2, 'completed');
+
+          if (error) throw error;
+          orderId = order;
+          updateProgressStep(0, 'completed');
           break;
         } catch (err) {
           console.error(`Order creation attempt ${i + 1} failed:`, err);
-          orderError = err;
           if (i < 2) {
-            updateProgressStep(2, 'processing', `Retrying order creation (attempt ${i + 2} of 3)...`);
+            updateProgressStep(0, 'processing', `Retrying order creation (attempt ${i + 2} of 3)...`);
             await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
           } else {
-            updateProgressStep(2, 'error', 'Failed to create order');
+            updateProgressStep(0, 'error', 'Failed to create order');
+            throw err;
           }
         }
       }
 
-      if (orderError) {
-        // If order creation failed but payment succeeded, mark the transaction as 'order_failed'
-        console.error('All order creation attempts failed:', orderError);
-        
-        try {
-          // Update transaction status to 'order_failed'
-          const { error: updateError } = await supabase.rpc('update_transaction_status', {
-            p_signature: signature,
-            p_status: 'order_failed',
-            p_error_message: orderError instanceof Error ? orderError.message : 'Order creation failed'
-          });
-          
-          if (updateError) {
-            console.error('Failed to update transaction status to order_failed:', updateError);
-          } else {
-            console.log('Transaction status updated to order_failed');
-          }
-        } catch (updateErr) {
-          console.error('Exception updating transaction status:', updateErr);
-        }
-        
-        toast.warning(
-          'Your payment was successful, but we had trouble creating your order. Our team has been notified and will contact you soon.',
-          { autoClose: false }
-        );
-        
-        // Still consider this a success from the user's perspective since payment went through
-        toastService.showOrderSuccess();
-        onSuccess();
-        return;
+      if (!orderId) {
+        throw new Error('Failed to create order');
       }
+      
+      // Start payment processing
+      updateProgressStep(1, 'processing', 'Initiating payment on Solana network...');
+      
+      // Process payment with modified price
+      const { success, signature } = await processPayment(finalPrice, product.collectionId);
+      
+      if (!success || !signature) {
+        updateProgressStep(1, 'error', 'Payment failed');
+        throw new Error('Payment failed');
+      }
+
+      // Update order with transaction signature
+      try {
+        const { error: updateError } = await supabase.rpc('initiate_order_payment', {
+          p_order_id: orderId,
+          p_transaction_id: signature
+        });
+
+        if (updateError) throw updateError;
+      } catch (err) {
+        console.error('Failed to update order with transaction:', err);
+        // Continue since payment was successful
+      }
+      
+      // Payment successful
+      updateProgressStep(1, 'completed');
+      
+      // Start transaction confirmation
+      updateProgressStep(2, 'processing', 'Waiting for transaction confirmation...');
+      
+      // Wait for transaction confirmation
+      const confirmed = await monitorTransaction(signature, (status: TransactionStatus) => {
+        if (status.error) {
+          updateProgressStep(2, 'error', status.error);
+        }
+      });
+
+      if (!confirmed) {
+        updateProgressStep(2, 'error', 'Transaction verification failed');
+        throw new Error('Transaction verification failed');
+      }
+
+      // Update order status
+      try {
+        const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
+          p_transaction_id: signature,
+          p_status: 'confirmed'
+        });
+
+        if (confirmError) {
+          console.error('Failed to confirm order payment:', confirmError);
+          // Continue since transaction was confirmed
+        }
+      } catch (err) {
+        console.error('Error confirming order payment:', err);
+        // Continue since transaction was confirmed
+      }
+
+      updateProgressStep(2, 'completed');
 
       // All steps completed successfully
       toastService.showOrderSuccess();
