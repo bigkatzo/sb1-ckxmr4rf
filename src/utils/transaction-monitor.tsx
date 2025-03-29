@@ -203,9 +203,9 @@ export async function monitorTransaction(
             } else if (orders && orders.length > 0) {
               // Handle case where there might be multiple orders (shouldn't happen, but let's be safe)
               const order = orders[0];
-              if (order.status === 'confirmed') {
-                console.log('Order is already confirmed:', order.id);
-              } else {
+              
+              // Only attempt to confirm if the order is in pending_payment status
+              if (order.status === 'pending_payment') {
                 // Update order with transaction confirmation
                 try {
                   const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
@@ -231,6 +231,8 @@ export async function monitorTransaction(
                   console.error('Error confirming order transaction:', confirmError);
                   // Continue since transaction was confirmed
                 }
+              } else {
+                console.log('Order is already confirmed:', order.id);
               }
             } else {
               console.log('No order found for transaction, will attempt creation');
