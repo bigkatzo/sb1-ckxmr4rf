@@ -1,5 +1,3 @@
-import type { Product } from './index';
-
 export interface ShippingAddress {
   address: string;
   city: string;

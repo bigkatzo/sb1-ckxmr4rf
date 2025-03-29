@@ -88,7 +88,7 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
   }, [fetchOrders, options.deferLoad]);
 
   // Use polling for orders instead of realtime
-  const { error: pollingError, refresh } = useMerchantDashboard({
+  const { refresh } = useMerchantDashboard({
     ...options,
     tables: ['orders'],
     subscriptionId: 'merchant_orders',
