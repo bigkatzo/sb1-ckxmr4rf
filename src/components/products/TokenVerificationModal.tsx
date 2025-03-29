@@ -324,7 +324,7 @@ export function TokenVerificationModal({
       // Update order status
       try {
         const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
-          p_transaction_id: signature,
+          p_transaction_signature: signature,
           p_status: 'confirmed'
         });
 

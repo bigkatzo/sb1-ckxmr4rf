@@ -188,12 +188,11 @@ export async function monitorTransaction(
             });
             console.log('Transaction status updated to confirmed');
             
-            // Update order with verified transaction details
+            // Update order with transaction confirmation
             try {
-              const { error: confirmError } = await supabase.rpc('confirm_order_payment_with_details', {
+              const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
                 p_transaction_signature: signature,
-                p_status: 'confirmed',
-                p_verified_details: verification.details
+                p_status: 'confirmed'
               });
 
               if (confirmError) {
