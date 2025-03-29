@@ -97,9 +97,9 @@ export function ProductListItem({
               )}
             </div>
             
-            <div className="flex items-center gap-1">
-              {onEdit && <EditButton onClick={handleEditClick} />}
-              {onDelete && <DeleteButton onClick={handleDeleteClick} />}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onEdit && <EditButton onClick={handleEditClick} className="scale-90" />}
+              {onDelete && <DeleteButton onClick={handleDeleteClick} className="scale-90" />}
             </div>
           </div>
           
