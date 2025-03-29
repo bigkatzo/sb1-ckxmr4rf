@@ -15,11 +15,16 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(!options.deferLoad);
   const isFetchingRef = useRef(false);
+  const isInitialLoadRef = useRef(!options.deferLoad);
 
   const fetchOrders = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
-    setIsLoading(true);
+
+    // Only show loading state on initial load
+    if (isInitialLoadRef.current) {
+      setIsLoading(true);
+    }
 
     try {
       // Fetch orders directly from merchant_orders view
@@ -61,7 +66,10 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
       setOrders([]);
     } finally {
       isFetchingRef.current = false;
-      setIsLoading(false);
+      if (isInitialLoadRef.current) {
+        setIsLoading(false);
+        isInitialLoadRef.current = false;
+      }
     }
   }, []);
 
