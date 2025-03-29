@@ -368,6 +368,15 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
       );
     }
 
+    // Only show allowed status options based on current status
+    const allowedStatuses = ['confirmed', 'shipped', 'delivered', 'cancelled'];
+    
+    // If the order is already in draft or pending_payment, allow it to stay there
+    // but don't allow changing to these statuses
+    if (order.status === 'draft' || order.status === 'pending_payment') {
+      allowedStatuses.unshift(order.status);
+    }
+
     return (
       <select
         value={order.status}
@@ -376,12 +385,11 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
         className={`appearance-none cursor-pointer rounded px-2 py-1 pr-8 text-xs font-medium transition-colors relative ${getStatusColor(order.status)}`}
         style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em' }}
       >
-        <option value="draft">Draft</option>
-        <option value="pending_payment">Pending Payment</option>
-        <option value="confirmed">Confirmed</option>
-        <option value="shipped">Shipped</option>
-        <option value="delivered">Delivered</option>
-        <option value="cancelled">Cancelled</option>
+        {allowedStatuses.map(status => (
+          <option key={status} value={status}>
+            {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+          </option>
+        ))}
       </select>
     );
   };

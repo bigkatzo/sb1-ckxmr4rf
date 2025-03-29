@@ -14,6 +14,7 @@ export function OrdersTab() {
   const { collections } = useMerchantCollections();
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<OrderStatus | ''>('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Extract unique products from filtered orders
@@ -52,7 +53,7 @@ export function OrdersTab() {
     }
   };
 
-  // Filter orders based on selected collection and product
+  // Filter orders based on selected collection, product, and status
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
       // Filter by collection if selected
@@ -62,6 +63,11 @@ export function OrdersTab() {
 
       // Filter by product if selected
       if (selectedProduct && order.product_id !== selectedProduct) {
+        return false;
+      }
+
+      // Filter by status if selected
+      if (selectedStatus && order.status !== selectedStatus) {
         return false;
       }
 
@@ -92,7 +98,7 @@ export function OrdersTab() {
 
       return true;
     });
-  }, [orders, selectedCollection, selectedProduct, searchQuery]);
+  }, [orders, selectedCollection, selectedProduct, selectedStatus, searchQuery]);
 
   if (loading) {
     return <Loading type={LoadingType.PAGE} text="Loading orders..." />;
@@ -123,9 +129,11 @@ export function OrdersTab() {
           products={products}
           selectedCollection={selectedCollection}
           selectedProduct={selectedProduct}
+          selectedStatus={selectedStatus}
           searchQuery={searchQuery}
           onCollectionChange={handleCollectionChange}
           onProductChange={setSelectedProduct}
+          onStatusChange={setSelectedStatus}
           onSearchChange={setSearchQuery}
         />
       </div>

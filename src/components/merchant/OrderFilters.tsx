@@ -1,13 +1,16 @@
 import { Search } from 'lucide-react';
+import type { OrderStatus } from '../../types/orders';
 
 interface OrderFiltersProps {
   collections: Array<{ id: string; name: string }>;
   products: Array<{ id: string; name: string }>;
   selectedCollection: string;
   selectedProduct: string;
+  selectedStatus: OrderStatus | '';
   searchQuery: string;
   onCollectionChange: (id: string) => void;
   onProductChange: (id: string) => void;
+  onStatusChange: (status: OrderStatus | '') => void;
   onSearchChange: (query: string) => void;
 }
 
@@ -16,9 +19,11 @@ export function OrderFilters({
   products,
   selectedCollection,
   selectedProduct,
+  selectedStatus,
   searchQuery,
   onCollectionChange,
   onProductChange,
+  onStatusChange,
   onSearchChange
 }: OrderFiltersProps) {
   return (
@@ -35,12 +40,12 @@ export function OrderFilters({
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 sm:w-[320px]">
+      <div className="flex flex-col sm:flex-row gap-2 sm:w-[480px]">
         {/* Collection Filter */}
         <select
           value={selectedCollection}
           onChange={(e) => onCollectionChange(e.target.value)}
-          className="w-full sm:w-1/2 bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full sm:w-1/3 bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           <option value="">All Collections</option>
           {collections.map((collection) => (
@@ -54,7 +59,7 @@ export function OrderFilters({
         <select
           value={selectedProduct}
           onChange={(e) => onProductChange(e.target.value)}
-          className="w-full sm:w-1/2 bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full sm:w-1/3 bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           <option value="">All Products</option>
           {products.map((product) => (
@@ -62,6 +67,21 @@ export function OrderFilters({
               {product.name}
             </option>
           ))}
+        </select>
+
+        {/* Status Filter */}
+        <select
+          value={selectedStatus}
+          onChange={(e) => onStatusChange(e.target.value as OrderStatus | '')}
+          className="w-full sm:w-1/3 bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          <option value="">All Statuses</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="draft">Draft</option>
+          <option value="pending_payment">Pending Payment</option>
         </select>
       </div>
     </div>
