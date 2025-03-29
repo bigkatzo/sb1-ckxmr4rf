@@ -154,8 +154,10 @@ export async function monitorTransaction(
               await supabase.rpc('update_transaction_status', {
                 p_signature: signature,
                 p_status: 'failed',
-                p_error_message: errorMessage,
-                p_details: verification.details
+                p_details: {
+                  error: errorMessage,
+                  verification: verification.details
+                }
               });
               console.log('Transaction status updated to failed:', errorMessage);
             } catch (updateError) {
@@ -280,7 +282,9 @@ export async function monitorTransaction(
         await supabase.rpc('update_transaction_status', {
           p_signature: signature,
           p_status: 'failed',
-          p_error_message: error instanceof Error ? error.message : 'Unknown error'
+          p_details: {
+            error: error instanceof Error ? error.message : 'Unknown error'
+          }
         });
 
         if (attempts === MAX_RETRIES - 1) {

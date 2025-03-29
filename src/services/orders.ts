@@ -221,7 +221,8 @@ export async function updateTransactionStatus(
       const { error } = await supabase
         .rpc('update_transaction_status', {
           p_signature: transactionId,
-          p_status: status
+          p_status: status,
+          p_details: null
         });
 
       if (error) {
