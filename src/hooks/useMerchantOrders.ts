@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { toast } from 'react-toastify';
-import type { Order } from '../types/orders';
+import type { Order, OrderStatus } from '../types/orders';
 import { useMerchantDashboard, SUBSCRIPTION_TYPES, POLLING_INTERVALS } from './useMerchantDashboard';
 
 interface UseMerchantOrdersOptions {
@@ -20,58 +20,38 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
     isFetchingRef.current = true;
 
     try {
-      // Get current user
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        throw authError || new Error('Not authenticated');
-      }
-
-      // Get user's collections
-      const { data: collections, error: collectionsError } = await supabase
-        .from('collections')
-        .select('id')
-        .eq('user_id', user.id);
-
-      if (collectionsError) throw collectionsError;
-
-      // Get collections user has access to
-      const { data: accessibleCollections, error: accessError } = await supabase
-        .from('collection_access')
-        .select('collection_id')
-        .eq('user_id', user.id);
-
-      if (accessError) throw accessError;
-
-      // Combine collection IDs
-      const collectionIds = [
-        ...(collections?.map(c => c.id) || []),
-        ...(accessibleCollections?.map(c => c.collection_id) || [])
-      ];
-
-      if (!collectionIds.length) {
-        setOrders([]);
-        return;
-      }
-
-      // Get orders for all collections
+      // Fetch orders directly from merchant_orders view
+      // This view handles all access control through RLS
       const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          products:order_products (
-            *,
-            product:products (
-              *,
-              collection:collections (name)
-            )
-          )
-        `)
-        .in('collection_id', collectionIds)
+        .from('merchant_orders')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
 
-      setOrders(ordersData || []);
+      // Transform the data to match the Order type
+      const transformedOrders: Order[] = (ordersData || []).map(order => ({
+        id: order.id,
+        order_number: order.id.slice(0, 8).toUpperCase(), // Generate a short order number from the UUID
+        collection_id: order.collection_id || '',
+        product_id: order.product_id || '',
+        walletAddress: order.wallet_address,
+        transactionSignature: order.transaction_signature,
+        shippingAddress: order.shipping_address,
+        contactInfo: order.contact_info,
+        status: order.status as OrderStatus,
+        amountSol: order.amount_sol,
+        createdAt: order.created_at,
+        updatedAt: order.updated_at,
+        product_name: order.product_name || '',
+        product_sku: order.product_sku || '',
+        product_image_url: order.product_image_url || '',
+        collection_name: order.collection_name || '',
+        access_type: order.access_type,
+        order_variants: order.variant_selections || []
+      }));
+
+      setOrders(transformedOrders);
     } catch (err) {
       console.error('Error fetching orders:', err);
       const errorMessage = handleError(err);
@@ -85,31 +65,31 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
   // Use polling for orders instead of realtime
   const { loading, error, refresh } = useMerchantDashboard({
     ...options,
-    tables: ['orders', 'order_status'],
+    tables: ['orders'],
     subscriptionId: 'merchant_orders',
     onDataChange: fetchOrders,
-    type: SUBSCRIPTION_TYPES.POLLING, // Switch to polling
-    pollingInterval: POLLING_INTERVALS.ORDERS // Poll every 30s
+    type: SUBSCRIPTION_TYPES.POLLING,
+    pollingInterval: POLLING_INTERVALS.ORDERS
   });
 
-  const updateOrderStatus = useCallback(async (orderId: string, status: string) => {
+  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
     try {
       const { error } = await supabase
-        .from('order_status')
-        .upsert({
-          order_id: orderId,
-          status
-        });
+        .from('orders')
+        .update({ status })
+        .eq('id', orderId);
 
       if (error) throw error;
       toast.success('Order status updated successfully');
+      // Refresh orders after status update
+      await fetchOrders();
     } catch (err) {
       console.error('Error updating order status:', err);
       const errorMessage = handleError(err);
       toast.error(`Failed to update order status: ${errorMessage}`);
       throw err;
     }
-  }, []);
+  }, [fetchOrders]);
 
   return {
     orders,
