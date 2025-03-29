@@ -1,6 +1,7 @@
 import { SOLANA_CONNECTION } from '../config/solana';
 import { toast } from 'react-toastify';
 import { supabase } from '../lib/supabase';
+import { LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from '@solana/web3.js';
 
 interface TransactionStatus {
   processing: boolean;
@@ -10,12 +11,114 @@ interface TransactionStatus {
   paymentConfirmed?: boolean;
 }
 
+interface TransactionDetails {
+  amount: number;
+  buyer: string;
+  recipient: string;
+}
+
+interface Transfer {
+  address: string;
+  change: number;
+}
+
 const MAX_RETRIES = 30;
 const INITIAL_DELAY = 1000;
 
+async function verifyTransactionDetails(
+  signature: string,
+  expectedDetails?: TransactionDetails
+): Promise<{ isValid: boolean; error?: string; details?: TransactionDetails }> {
+  try {
+    const tx = await SOLANA_CONNECTION.getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      commitment: 'finalized'
+    });
+
+    if (!tx || !tx.meta || tx.meta.err) {
+      return { 
+        isValid: false, 
+        error: tx?.meta?.err ? `Transaction failed: ${tx.meta.err}` : 'Transaction not found' 
+      };
+    }
+
+    // Get pre and post balances
+    const preBalances = tx.meta.preBalances;
+    const postBalances = tx.meta.postBalances;
+    
+    // Get accounts involved in the transaction
+    const accounts = tx.transaction.message.getAccountKeys().keySegments().flat();
+    
+    // Find the transfer by looking at balance changes
+    const transfers: Transfer[] = accounts.map((account: PublicKey, index: number) => {
+      const balanceChange = (postBalances[index] - preBalances[index]) / LAMPORTS_PER_SOL;
+      return {
+        address: account.toBase58(),
+        change: balanceChange
+      };
+    });
+
+    // Find the recipient (positive balance change) and sender (negative balance change)
+    const recipient = transfers.find((t: Transfer) => t.change > 0);
+    const sender = transfers.find((t: Transfer) => t.change < 0);
+
+    if (!recipient || !sender) {
+      return { 
+        isValid: false, 
+        error: 'Could not identify transfer details' 
+      };
+    }
+
+    // Calculate actual amount (absolute value of sender's change minus fees)
+    const amount = Math.abs(sender.change) - Math.abs(recipient.change);
+    
+    const details = {
+      amount: recipient.change,
+      buyer: sender.address,
+      recipient: recipient.address
+    };
+
+    // If we have expected details, verify them
+    if (expectedDetails) {
+      if (Math.abs(details.amount - expectedDetails.amount) > 0.00001) { // Allow small rounding differences
+        return {
+          isValid: false,
+          error: `Amount mismatch: expected ${expectedDetails.amount} SOL, got ${details.amount} SOL`,
+          details
+        };
+      }
+
+      if (details.buyer.toLowerCase() !== expectedDetails.buyer.toLowerCase()) {
+        return {
+          isValid: false,
+          error: `Buyer mismatch: expected ${expectedDetails.buyer}, got ${details.buyer}`,
+          details
+        };
+      }
+
+      if (details.recipient.toLowerCase() !== expectedDetails.recipient.toLowerCase()) {
+        return {
+          isValid: false,
+          error: `Recipient mismatch: expected ${expectedDetails.recipient}, got ${details.recipient}`,
+          details
+        };
+      }
+    }
+
+    return { isValid: true, details };
+  } catch (error) {
+    console.error('Error verifying transaction:', error);
+    return { 
+      isValid: false, 
+      error: error instanceof Error ? error.message : 'Failed to verify transaction' 
+    };
+  }
+}
+
 export async function monitorTransaction(
   signature: string,
-  onStatusUpdate: (status: TransactionStatus) => void
+  onStatusUpdate: (status: TransactionStatus) => void,
+  expectedDetails?: TransactionDetails
 ): Promise<boolean> {
   let attempts = 0;
   const toastId = toast.loading('Processing transaction...');
@@ -34,7 +137,7 @@ export async function monitorTransaction(
 
     while (attempts < MAX_RETRIES) {
       try {
-        // Use SOLANA_CONNECTION instead of direct Alchemy RPC
+        // Check transaction status
         const statuses = await SOLANA_CONNECTION.getSignatureStatuses([signature], {
           searchTransactionHistory: true
         });
@@ -43,17 +146,21 @@ export async function monitorTransaction(
         console.log(`Status check ${attempts + 1}:`, status);
 
         if (status?.confirmationStatus === 'finalized') {
-          if (status.err) {
-            const errorMessage = 'Transaction failed on chain';
+          // Verify transaction details
+          const verification = await verifyTransactionDetails(signature, expectedDetails);
+
+          if (!verification.isValid) {
+            const errorMessage = verification.error || 'Transaction verification failed';
             
             // Update transaction log with failure
             try {
               await supabase.rpc('update_transaction_status', {
                 p_signature: signature,
                 p_status: 'failed',
-                p_error_message: errorMessage
+                p_error_message: errorMessage,
+                p_details: verification.details
               });
-              console.log('Transaction status updated to failed');
+              console.log('Transaction status updated to failed:', errorMessage);
             } catch (updateError) {
               console.error('Failed to update transaction status:', updateError);
             }
@@ -64,43 +171,23 @@ export async function monitorTransaction(
               isLoading: false,
               autoClose: 5000
             });
+
             onStatusUpdate({
               processing: false,
               success: false,
               error: errorMessage,
               signature
             });
+
             return false;
-          }
-
-          const txInfo = await SOLANA_CONNECTION.getTransaction(signature, {
-            maxSupportedTransactionVersion: 0,
-            commitment: 'finalized'
-          });
-
-          if (!txInfo || txInfo.meta?.err) {
-            const errorMessage = 'Transaction verification failed';
-            
-            // Update transaction log with failure
-            try {
-              await supabase.rpc('update_transaction_status', {
-                p_signature: signature,
-                p_status: 'failed',
-                p_error_message: errorMessage
-              });
-              console.log('Transaction status updated to failed (verification failed)');
-            } catch (updateError) {
-              console.error('Failed to update transaction status:', updateError);
-            }
-
-            throw new Error(errorMessage);
           }
 
           // Update transaction log with success
           try {
             await supabase.rpc('update_transaction_status', {
               p_signature: signature,
-              p_status: 'confirmed'
+              p_status: 'confirmed',
+              p_details: verification.details
             });
             console.log('Transaction status updated to confirmed');
             
@@ -111,20 +198,15 @@ export async function monitorTransaction(
               });
               
               if (logError) {
-                // This is expected if the function doesn't exist yet
-                console.warn('Failed to log order creation attempt (function may not exist yet):', logError);
+                console.warn('Failed to log order creation attempt:', logError);
               } else {
                 console.log('Order creation attempt logged successfully');
               }
             } catch (logError) {
-              // This is expected if the function doesn't exist yet
               console.warn('Exception logging order creation attempt:', logError);
             }
           } catch (updateError) {
-            console.error('Failed to update transaction status to confirmed:', updateError);
-            
-            // Even if we can't update the status, the payment was successful
-            // We should mark this as a special case where payment succeeded but order might not be created
+            console.error('Failed to update transaction status:', updateError);
             toast.warning(
               'Payment confirmed, but there was an issue recording it. Please contact support with your transaction ID.',
               { autoClose: false }
@@ -138,7 +220,6 @@ export async function monitorTransaction(
               signature
             });
             
-            // Still return true since payment was successful
             return true;
           }
 
@@ -203,50 +284,39 @@ export async function monitorTransaction(
     }
 
     const timeoutError = 'Transaction confirmation timed out';
-    
-    // Update transaction log with timeout
-    await supabase.rpc('update_transaction_status', {
-      p_signature: signature,
-      p_status: 'failed',
-      p_error_message: timeoutError
-    });
-
     toast.update(toastId, {
       render: timeoutError,
       type: 'error',
       isLoading: false,
       autoClose: 5000
     });
+
     onStatusUpdate({
       processing: false,
       success: false,
       error: timeoutError,
       signature
     });
+
     return false;
   } catch (error) {
     console.error('Transaction monitoring error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to monitor transaction';
     
-    // Update transaction log with error
-    await supabase.rpc('update_transaction_status', {
-      p_signature: signature,
-      p_status: 'failed',
-      p_error_message: errorMessage
-    });
-
     toast.update(toastId, {
       render: errorMessage,
       type: 'error',
       isLoading: false,
       autoClose: 5000
     });
+
     onStatusUpdate({
       processing: false,
       success: false,
       error: errorMessage,
       signature
     });
+
     return false;
   }
 }
