@@ -227,10 +227,9 @@ export function TokenVerificationModal({
       };
 
       // Format variant selections for database
-      const formattedVariantSelections = Object.entries(selectedOptions).map(([key, value]) => ({
-        option_name: key,
-        selected_value: value
-      }));
+      const formattedVariantSelections = Object.keys(selectedOptions).length > 0
+        ? selectedOptions
+        : null;
 
       // Create order
       updateProgressStep(0, 'processing', 'Creating your order...');
