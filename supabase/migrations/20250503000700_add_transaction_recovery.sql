@@ -73,6 +73,32 @@ begin
   
   union all
   
+  -- Recent orders in pending_payment without a transaction (failed/rejected)
+  select
+    o.id::uuid,
+    'rejected_payment'::transaction_anomaly_type as type,
+    o.id as order_id,
+    o.order_number,
+    o.status as order_status,
+    o.transaction_signature,
+    null as transaction_status,
+    null as amount_sol,
+    o.amount_sol as expected_amount_sol,
+    o.wallet_address as buyer_address,
+    p.name as product_name,
+    p.sku as product_sku,
+    'Payment was rejected or failed' as error_message,
+    0 as retry_count,
+    o.created_at,
+    o.updated_at
+  from orders o
+  left join products p on o.product_id = p.id
+  where o.status = 'pending_payment'
+    and o.transaction_signature is null
+    and o.created_at > now() - interval '24 hours' -- Only exclude very old orders
+  
+  union all
+  
   -- Rejected payments (transactions rejected by user)
   select
     coalesce(o.id, t.id)::uuid,
@@ -94,12 +120,8 @@ begin
   from orders o
   left join transactions t on t.signature = o.transaction_signature
   left join products p on o.product_id = p.id
-  where (
-    -- Show orders in pending_payment with rejected transactions
-    (o.status = 'pending_payment' and t.status->>'error' = 'Transaction rejected by user')
-    -- Also show orders in pending_payment with null transaction (recently rejected)
-    or (o.status = 'pending_payment' and o.transaction_signature is null)
-  )
+  where o.status = 'pending_payment'
+    and t.status->>'error' = 'Transaction rejected by user'
   
   union all
   
@@ -157,7 +179,7 @@ begin
   
   union all
   
-  -- Orders stuck in pending_payment
+  -- Orders in pending_payment with transaction
   select
     o.id::uuid,
     'pending_timeout'::transaction_anomaly_type as type,
@@ -171,14 +193,20 @@ begin
     o.wallet_address as buyer_address,
     p.name as product_name,
     p.sku as product_sku,
-    'Order stuck in pending_payment status' as error_message,
+    'Payment initiated but not completed' as error_message,
     0 as retry_count,
     o.created_at,
     o.updated_at
   from orders o
   left join products p on o.product_id = p.id
   where o.status = 'pending_payment'
-    and o.updated_at < now() - interval '1 hour'
+    and o.transaction_signature is not null
+    and o.created_at > now() - interval '24 hours'
+    and not exists (
+      select 1 from transactions t
+      where t.signature = o.transaction_signature
+      and t.status->>'error' = 'Transaction rejected by user'
+    )
   
   union all
   
