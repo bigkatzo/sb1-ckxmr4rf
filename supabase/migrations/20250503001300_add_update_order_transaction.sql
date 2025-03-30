@@ -12,7 +12,10 @@ BEGIN
   -- Update order with transaction details and set status to pending_payment
   UPDATE orders
   SET 
-    transaction_signature = p_transaction_signature,
+    transaction_signature = CASE 
+      WHEN p_transaction_signature = 'rejected' THEN NULL -- Don't store 'rejected' as signature
+      ELSE p_transaction_signature
+    END,
     amount_sol = p_amount_sol,
     status = 'pending_payment',
     updated_at = now()

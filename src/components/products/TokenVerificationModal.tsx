@@ -277,6 +277,22 @@ export function TokenVerificationModal({
       
       if (!success || !txSignature) {
         updateProgressStep(1, 'error', 'Payment failed');
+        
+        // Update order to pending_payment status even if payment fails
+        try {
+          const { error: updateError } = await supabase.rpc('update_order_transaction', {
+            p_order_id: orderId,
+            p_transaction_signature: 'rejected', // Use a special value for rejected transactions
+            p_amount_sol: finalPrice
+          });
+
+          if (updateError) {
+            console.error('Failed to update order status:', updateError);
+          }
+        } catch (err) {
+          console.error('Error updating order status:', err);
+        }
+        
         throw new Error('Payment failed');
       }
 
