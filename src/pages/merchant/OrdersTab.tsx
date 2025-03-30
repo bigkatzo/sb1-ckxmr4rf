@@ -46,7 +46,6 @@ export function OrdersTab() {
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     try {
       await updateOrderStatus(orderId, status);
-      toast.success('Order status updated successfully');
     } catch (error) {
       console.error('Error updating order status:', error);
       toast.error('Failed to update order status');
