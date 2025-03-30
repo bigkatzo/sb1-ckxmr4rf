@@ -39,13 +39,13 @@ export function OrderSuccessView({
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4 bg-black/80 backdrop-blur-lg"
+      className="fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4 bg-black/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
         initial={{ y: 20 }}
         animate={{ y: 0 }}
-        className="relative w-full max-w-md bg-gradient-to-br from-purple-900/90 via-indigo-900/90 to-blue-900/90 rounded-xl p-4 sm:p-6 overflow-hidden"
+        className="relative w-full max-w-md sm:max-w-lg bg-gradient-to-br from-purple-900/90 via-indigo-900/90 to-blue-900/90 rounded-xl p-4 sm:p-6 overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Close button */}
