@@ -59,24 +59,19 @@ export function OrderSuccessView({
 
   const handleShare = async () => {
     try {
+      // First, preload the image
+      if (productImage) {
+        await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(null);
+          img.onerror = () => reject(new Error('Failed to load product image'));
+          img.src = productImage;
+        });
+      }
+
       const shareableElement = document.getElementById('shareable-success');
       if (!shareableElement) {
         throw new Error('Could not find shareable element');
-      }
-
-      // Wait for images to load if there's a product image
-      if (productImage) {
-        const img = shareableElement.querySelector('img');
-        if (img) {
-          await new Promise((resolve) => {
-            if (img.complete) {
-              resolve(null);
-            } else {
-              img.onload = () => resolve(null);
-              img.onerror = () => resolve(null);
-            }
-          });
-        }
       }
 
       // Additional wait to ensure styles are applied
@@ -87,7 +82,8 @@ export function OrderSuccessView({
         backgroundColor: 'transparent',
         style: {
           transform: 'none'
-        }
+        },
+        pixelRatio: 2 // Higher quality for retina displays
       });
 
       // Create a blob from the data URL
@@ -251,8 +247,8 @@ export function OrderSuccessView({
         </motion.div>
       </motion.div>
       
-      {/* Shareable view positioned off-screen */}
-      <div className="fixed left-[-9999px] top-0">
+      {/* Shareable view positioned off-screen but still rendered */}
+      <div className="fixed left-[-9999px] top-0" style={{ width: '600px', height: '400px' }}>
         <ShareableView productImage={productImage} collectionName={collectionName} />
       </div>
     </>
