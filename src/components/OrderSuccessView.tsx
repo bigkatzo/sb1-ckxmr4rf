@@ -76,13 +76,16 @@ const ShareableView = ({ productImage, collectionName }: { productImage?: string
       }}>
         Find awesome products on Store.fun
       </p>
-      
-      <div style={{
-        fontSize: '14px',
-        color: 'rgba(255, 255, 255, 0.7)'
-      }}>
-        store.fun
-      </div>
+
+      <img 
+        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA8CAYAAAAjW/WRAAAACXBIWXMAAAsSAAALEgHS3X78AAAAAXNSR0IArs4c6QAAAaFJREFUeF7t1bERgEAMBDHov+inASDY9ETuwPLvcJ9zzuUjQOBV4BaIl0HgW0AgXgeBHwGBeB4EBOINEGgC/iDNzdSIgEBGDm3NJiCQ5mZqREAgI4e2ZhMQSHMzNSIgkJFDW7MJCKS5mRoREMjIoa3ZBATS3EyNCAhk5NDWbAICaW6mRgQEMnJoazYBgTQ3UyMCAhk5tDWbgECam6kRAYGMHNqaTUAgzc3UiIBARg5tzSYgkOZmakRAICOHtmYTEEhzMzUiIJCRQ1uzCQikuZkaERDIyKGt2QQE0txMjQgIZOTQ1mwCAmlupkYEBDJyaGs2AYE0N1MjAgIZObQ1m4BAmpupEQGBjBzamk1AIM3N1IiAQEYObc0mIJDmZmpEQCAjh7ZmExBIczM1IiCQkUNbswkIpLmZGhEQyMihrdkEBNLcTI0ICGTk0NZsAgJpbqZGBAQycmhrNgGBNDdTIwICGTm0NZuAQJqbqREBgYwc2ppNQCDNzdSIgEBGDm3NJiCQ5mZqREAgI4e2ZhMQSHMzNSIgkJFDW7MJCKS5mRoReAAequ9Nc0j8bgAAAABJRU5ErkJggg=="
+        alt="Store.fun Logo"
+        style={{
+          width: '200px',
+          height: 'auto',
+          marginBottom: '24px'
+        }}
+      />
     </div>
   );
 };
