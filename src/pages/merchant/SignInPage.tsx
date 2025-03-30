@@ -46,26 +46,26 @@ export function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="mx-auto h-12 w-12 text-purple-600">
-            <ShoppingBag className="h-12 w-12" />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <div className="w-full max-w-sm sm:max-w-md space-y-6 sm:space-y-8">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-purple-600 transition-transform hover:scale-110">
+            <ShoppingBag className="h-full w-full" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-4 sm:mt-6 text-2xl sm:text-3xl font-extrabold text-gray-900">
             Sign in to Merchant Dashboard
           </h2>
         </div>
         
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="flex">
+            <div className="rounded-md bg-red-50 p-3 sm:p-4 animate-fadeIn">
+              <div className="flex items-start sm:items-center">
                 <div className="flex-shrink-0">
-                  <AlertCircle className="h-5 w-5 text-red-400" />
+                  <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-400" />
                 </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
+                <div className="ml-2 sm:ml-3">
+                  <h3 className="text-xs sm:text-sm font-medium text-red-800">{error}</h3>
                 </div>
               </div>
             </div>
@@ -80,7 +80,7 @@ export function SignInPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 sm:py-2.5 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 text-sm sm:text-base transition-colors"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -96,7 +96,7 @@ export function SignInPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 sm:py-2.5 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 text-sm sm:text-base transition-colors"
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -108,30 +108,30 @@ export function SignInPage() {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
+                    <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 hover:text-gray-600 transition-colors" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
+                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 hover:text-gray-600 transition-colors" />
                   )}
                 </button>
               </div>
             </div>
           </div>
 
-          <div>
+          <div className="pt-2">
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+              className="group relative w-full flex justify-center py-2.5 sm:py-3 px-4 border border-transparent text-sm sm:text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]"
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
 
-          <div className="text-center">
+          <div className="text-center pt-2">
             <button
               type="button"
               onClick={() => navigate('/merchant/register')}
-              className="text-sm text-purple-600 hover:text-purple-500"
+              className="text-xs sm:text-sm text-purple-600 hover:text-purple-500 transition-colors focus:outline-none focus:underline"
             >
               Don't have an account? Register here
             </button>
