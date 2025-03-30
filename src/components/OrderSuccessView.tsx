@@ -61,143 +61,67 @@ export function OrderSuccessView({
 
   const handleShare = async () => {
     try {
-      // Create a temporary div for rendering
-      const tempDiv = document.createElement('div');
-      document.body.appendChild(tempDiv);
-      
-      // Render the ShareableView temporarily
-      const shareableView = document.createElement('div');
-      shareableView.id = 'shareable-success';
-      shareableView.style.cssText = `
-        position: absolute;
-        left: -9999px;
-        width: 600px;
-        height: 400px;
-        background: linear-gradient(to bottom right, #4c1d95, #1e40af);
-        border-radius: 12px;
-        padding: 24px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-family: system-ui, -apple-system, sans-serif;
-      `;
+      const shareableElement = document.getElementById('shareable-success');
+      if (!shareableElement) {
+        throw new Error('Could not find shareable element');
+      }
 
-      // Create the content with inline styles
-      shareableView.innerHTML = `
-        <div style="
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(45deg, transparent, rgba(168, 85, 247, 0.1), transparent);
-          transform: rotate(12deg) translateY(-50%);
-        "></div>
-        <div style="
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(45deg, transparent, rgba(59, 130, 246, 0.1), transparent);
-          transform: rotate(-12deg) translateY(50%);
-        "></div>
-        ${collectionImage ? `
-          <img 
-            src="${collectionImage}" 
-            alt="Collection" 
-            style="
-              width: 96px;
-              height: 96px;
-              border-radius: 8px;
-              margin-bottom: 24px;
-              object-fit: cover;
-            "
-          />
-        ` : ''}
-        <h2 style="
-          font-size: 30px;
-          font-weight: bold;
-          margin-bottom: 16px;
-          text-align: center;
-          color: white;
-        ">
-          Just got my ${collectionName} merch! 📦
-        </h2>
-        <p style="
-          font-size: 18px;
-          margin-bottom: 24px;
-          text-align: center;
-          color: rgba(255, 255, 255, 0.9);
-        ">
-          Find awesome products on Store.fun
-        </p>
-        <div style="
-          font-size: 14px;
-          color: rgba(255, 255, 255, 0.7);
-        ">
-          store.fun
-        </div>
-      `;
-      
-      document.body.appendChild(shareableView);
-
-      // Wait for images to load
+      // Wait for images to load if there's a collection image
       if (collectionImage) {
-        await new Promise((resolve) => {
-          const img = shareableView.querySelector('img');
-          if (img) {
+        const img = shareableElement.querySelector('img');
+        if (img) {
+          await new Promise((resolve) => {
             if (img.complete) {
               resolve(null);
             } else {
               img.onload = () => resolve(null);
               img.onerror = () => resolve(null);
             }
-          } else {
-            resolve(null);
-          }
-        });
+          });
+        }
       }
 
       // Additional wait to ensure styles are applied
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      try {
-        const dataUrl = await toPng(shareableView, {
-          quality: 0.95,
-          backgroundColor: 'transparent'
-        });
-
-        // Create a blob from the data URL
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        const file = new File([blob], 'nft-success.png', { type: 'image/png' });
-
-        // Format collection slug for cashtag (remove spaces and dashes)
-        const cashtag = collectionSlug.replace(/[\s-]/g, '');
-        const collectionUrl = `https://store.fun/${collectionSlug}`;
-        const shareText = `Just got my ${collectionName} merch on @storedotfun! 📦 ${collectionUrl} get yours $${cashtag}`;
-
-        // Check if we're on mobile using userAgent
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-        // Use Web Share API only on mobile
-        if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-          const shareData = {
-            title: shareText,
-            text: shareText,
-            url: collectionUrl,
-            files: [file],
-            preferredApplications: ['com.twitter.android', 'twitter', 'com.twitter.android.lite', 'com.twitter.iphone']
-          };
-          await navigator.share(shareData);
-        } else {
-          // On desktop, always use Twitter intent
-          const tweetText = encodeURIComponent(shareText);
-          window.open(
-            `https://twitter.com/intent/tweet?text=${tweetText}`,
-            '_blank'
-          );
+      const dataUrl = await toPng(shareableElement, {
+        quality: 0.95,
+        backgroundColor: 'transparent',
+        style: {
+          transform: 'none'
         }
-      } finally {
-        // Clean up
-        document.body.removeChild(shareableView);
+      });
+
+      // Create a blob from the data URL
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], 'nft-success.png', { type: 'image/png' });
+
+      // Format collection slug for cashtag (remove spaces and dashes)
+      const cashtag = collectionSlug.replace(/[\s-]/g, '');
+      const collectionUrl = `https://store.fun/${collectionSlug}`;
+      const shareText = `Just got my ${collectionName} merch on @storedotfun! 📦 ${collectionUrl} get yours $${cashtag}`;
+
+      // Check if we're on mobile using userAgent
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      // Use Web Share API only on mobile
+      if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+        const shareData = {
+          title: shareText,
+          text: shareText,
+          url: collectionUrl,
+          files: [file],
+          preferredApplications: ['com.twitter.android', 'twitter', 'com.twitter.android.lite', 'com.twitter.iphone']
+        };
+        await navigator.share(shareData);
+      } else {
+        // On desktop, always use Twitter intent
+        const tweetText = encodeURIComponent(shareText);
+        window.open(
+          `https://twitter.com/intent/tweet?text=${tweetText}`,
+          '_blank'
+        );
       }
     } catch (error) {
       console.error('Error sharing:', error);
@@ -329,8 +253,8 @@ export function OrderSuccessView({
         </motion.div>
       </motion.div>
       
-      {/* Hidden shareable view (only used for generating image) */}
-      <div className="hidden">
+      {/* Shareable view positioned off-screen */}
+      <div className="fixed left-[-9999px] top-0">
         <ShareableView collectionImage={collectionImage} collectionName={collectionName} />
       </div>
     </>
