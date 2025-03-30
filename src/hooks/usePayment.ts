@@ -41,14 +41,12 @@ export function usePayment() {
 
     try {
       setStatus({ processing: true, success: false, error: null });
-      toast.info('Creating payment transaction...', { autoClose: 2000 });
 
       // Create transaction with collection ID
       const transaction = await createSolanaPayment(amount, walletAddress, collectionId);
 
       // Sign and send transaction
       const signature = await signAndSendTransaction(transaction);
-      toast.info('Transaction sent! Confirming...', { autoClose: 3000 });
 
       // Monitor transaction status
       const success = await monitorTransaction(signature, async (status) => {
@@ -56,12 +54,6 @@ export function usePayment() {
         
         if (status.success) {
           await updateTransactionStatus(signature, 'confirmed');
-          toast.success('Payment successful!', {
-            autoClose: 5000,
-            onClick: () => {
-              window.open(`https://solscan.io/tx/${signature}`, '_blank');
-            }
-          });
         } else if (status.error) {
           await updateTransactionStatus(signature, 'failed');
           toast.error(status.error, { autoClose: 5000 });
