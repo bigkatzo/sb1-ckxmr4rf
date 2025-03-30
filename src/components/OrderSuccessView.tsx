@@ -68,35 +68,95 @@ export function OrderSuccessView({
       // Render the ShareableView temporarily
       const shareableView = document.createElement('div');
       shareableView.id = 'shareable-success';
-      shareableView.style.position = 'absolute';
-      shareableView.style.left = '-9999px';
-      shareableView.style.width = '600px';
-      shareableView.style.height = '400px';
+      shareableView.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        width: 600px;
+        height: 400px;
+        background: linear-gradient(to bottom right, #4c1d95, #1e40af);
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-family: system-ui, -apple-system, sans-serif;
+      `;
+
+      // Create the content with inline styles
       shareableView.innerHTML = `
-        <div class="w-[600px] h-[400px] bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
-          ${collectionImage ? `
-            <img 
-              src="${collectionImage}" 
-              alt="Collection" 
-              class="w-24 h-24 rounded-lg mb-6 object-cover"
-            />
-          ` : ''}
-          <h2 class="text-3xl font-bold text-white mb-4 text-center">
-            Just got my ${collectionName} merch! 📦
-          </h2>
-          <p class="text-lg text-white/90 text-center mb-6">
-            Find awesome products on Store.fun
-          </p>
-          <div class="text-white/70 text-sm">
-            store.fun
-          </div>
+        <div style="
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(45deg, transparent, rgba(168, 85, 247, 0.1), transparent);
+          transform: rotate(12deg) translateY(-50%);
+        "></div>
+        <div style="
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(45deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+          transform: rotate(-12deg) translateY(50%);
+        "></div>
+        ${collectionImage ? `
+          <img 
+            src="${collectionImage}" 
+            alt="Collection" 
+            style="
+              width: 96px;
+              height: 96px;
+              border-radius: 8px;
+              margin-bottom: 24px;
+              object-fit: cover;
+            "
+          />
+        ` : ''}
+        <h2 style="
+          font-size: 30px;
+          font-weight: bold;
+          margin-bottom: 16px;
+          text-align: center;
+          color: white;
+        ">
+          Just got my ${collectionName} merch! 📦
+        </h2>
+        <p style="
+          font-size: 18px;
+          margin-bottom: 24px;
+          text-align: center;
+          color: rgba(255, 255, 255, 0.9);
+        ">
+          Find awesome products on Store.fun
+        </p>
+        <div style="
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.7);
+        ">
+          store.fun
         </div>
       `;
       
       document.body.appendChild(shareableView);
 
       // Wait for images to load
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (collectionImage) {
+        await new Promise((resolve) => {
+          const img = shareableView.querySelector('img');
+          if (img) {
+            if (img.complete) {
+              resolve(null);
+            } else {
+              img.onload = () => resolve(null);
+              img.onerror = () => resolve(null);
+            }
+          } else {
+            resolve(null);
+          }
+        });
+      }
+
+      // Additional wait to ensure styles are applied
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       try {
         const dataUrl = await toPng(shareableView, {
@@ -114,18 +174,21 @@ export function OrderSuccessView({
         const collectionUrl = `https://store.fun/${collectionSlug}`;
         const shareText = `Just got my ${collectionName} merch on @storedotfun! 📦 ${collectionUrl} get yours $${cashtag}`;
 
-        const shareData = {
-          title: shareText,
-          text: shareText,
-          url: collectionUrl,
-          files: [file]
-        };
+        // Check if we're on mobile using userAgent
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        // Try Web Share API first
-        if (navigator.canShare && navigator.canShare(shareData)) {
+        // Use Web Share API only on mobile
+        if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+          const shareData = {
+            title: shareText,
+            text: shareText,
+            url: collectionUrl,
+            files: [file],
+            preferredApplications: ['com.twitter.android', 'twitter', 'com.twitter.android.lite', 'com.twitter.iphone']
+          };
           await navigator.share(shareData);
         } else {
-          // Fallback to just text and link sharing
+          // On desktop, always use Twitter intent
           const tweetText = encodeURIComponent(shareText);
           window.open(
             `https://twitter.com/intent/tweet?text=${tweetText}`,
