@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { ShoppingBag, ExternalLink, Share2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 interface OrderSuccessViewProps {
   productName: string;
