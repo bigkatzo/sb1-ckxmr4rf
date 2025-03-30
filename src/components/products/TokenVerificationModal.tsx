@@ -339,21 +339,20 @@ export function TokenVerificationModal({
         throw orderError;
       }
 
-      // Set order details and show success view
+      // Show toast notification
+      toastService.showOrderSuccess();
+      
+      // Wait 1 second to show the completed progress state
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Then transition to success view
       setOrderDetails({
         orderNumber: orderData.order_number,
         transactionSignature: signature
       });
       setShowSuccessView(true);
-
-      // Show toast notification as well
-      toastService.showOrderSuccess();
       
-      // Short delay to show the completed state before transitioning
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Call onSuccess after showing the success view
-      onSuccess();
+      // Success view will remain until user navigates away or closes it
     } catch (error) {
       console.error('Order error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
@@ -452,6 +451,7 @@ export function TokenVerificationModal({
           productImage={product.imageUrl}
           orderNumber={orderDetails.orderNumber}
           transactionSignature={orderDetails.transactionSignature}
+          onClose={onSuccess}
         />
       ) : (
         <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">

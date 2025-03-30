@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { ShoppingBag, ExternalLink, Share2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface OrderSuccessViewProps {
   productName: string;
@@ -9,6 +9,7 @@ interface OrderSuccessViewProps {
   productImage: string;
   orderNumber: string;
   transactionSignature: string;
+  onClose: () => void;
 }
 
 export function OrderSuccessView({
@@ -17,13 +18,21 @@ export function OrderSuccessView({
   collectionSlug,
   productImage,
   orderNumber,
-  transactionSignature
+  transactionSignature,
+  onClose
 }: OrderSuccessViewProps) {
+  const navigate = useNavigate();
+
   const handleShare = () => {
     const text = encodeURIComponent(
       `I just got my ${collectionName} swag on @storedotfun https://store.fun/c/${collectionSlug}`
     );
     window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+  };
+
+  const handleNavigation = (path: string) => {
+    onClose();
+    navigate(path);
   };
 
   return (
@@ -110,18 +119,18 @@ export function OrderSuccessView({
           </div>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
-            <Link
-              to="/orders"
+            <button
+              onClick={() => handleNavigation('/orders')}
               className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
             >
               See My Orders
-            </Link>
-            <Link
-              to="/"
+            </button>
+            <button
+              onClick={() => handleNavigation('/')}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
               Continue Shopping
-            </Link>
+            </button>
             <button
               onClick={handleShare}
               className="px-6 py-2 bg-[#1DA1F2] hover:bg-[#1a8cd8] text-white rounded-lg transition-colors flex items-center justify-center gap-2"
