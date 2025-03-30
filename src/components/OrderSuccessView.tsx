@@ -48,9 +48,9 @@ const ShareableView = ({ productImage, collectionName }: { productImage?: string
           src={productImage} 
           alt="Product" 
           style={{
-            width: '96px',
-            height: '96px',
-            borderRadius: '8px',
+            width: '192px',
+            height: '192px',
+            borderRadius: '12px',
             marginBottom: '24px',
             objectFit: 'cover'
           }}
