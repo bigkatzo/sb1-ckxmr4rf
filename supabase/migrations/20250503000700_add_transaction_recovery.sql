@@ -1,3 +1,12 @@
+-- Drop existing objects if they exist
+do $$ begin
+  drop type if exists transaction_anomaly_type cascade;
+  drop function if exists get_transaction_anomalies cascade;
+  drop function if exists cancel_abandoned_order cascade;
+  drop function if exists match_transaction_to_order cascade;
+exception when others then null;
+end $$;
+
 -- Create a type for transaction anomalies
 create type transaction_anomaly_type as enum (
   'failed_payment',          -- Payment transaction failed
@@ -66,7 +75,7 @@ begin
   
   -- Rejected payments (transactions rejected by user)
   select
-    t.id::uuid,
+    coalesce(o.id, t.id)::uuid,
     'rejected_payment'::transaction_anomaly_type as type,
     o.id as order_id,
     o.order_number,
@@ -75,17 +84,22 @@ begin
     t.status as transaction_status,
     t.amount_sol,
     o.amount_sol as expected_amount_sol,
-    t.buyer_address,
+    coalesce(t.buyer_address, o.wallet_address) as buyer_address,
     p.name as product_name,
     p.sku as product_sku,
     'Transaction was rejected by the user' as error_message,
     t.retry_count,
-    t.created_at,
-    t.updated_at
-  from transactions t
-  left join orders o on o.transaction_signature = t.signature
+    coalesce(t.created_at, o.created_at) as created_at,
+    coalesce(t.updated_at, o.updated_at) as updated_at
+  from orders o
+  left join transactions t on t.signature = o.transaction_signature
   left join products p on o.product_id = p.id
-  where t.status->>'error' = 'Transaction rejected by user'
+  where (
+    -- Show orders in pending_payment with rejected transactions
+    (o.status = 'pending_payment' and t.status->>'error' = 'Transaction rejected by user')
+    -- Also show orders in pending_payment with null transaction (recently rejected)
+    or (o.status = 'pending_payment' and o.transaction_signature is null)
+  )
   
   union all
   
