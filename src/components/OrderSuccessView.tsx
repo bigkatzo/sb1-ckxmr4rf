@@ -139,6 +139,14 @@ export function OrderSuccessView({
 
   return (
     <>
+      {/* Hidden shareable view for image generation */}
+      <div className="fixed left-[-9999px] top-0">
+        <ShareableView
+          productImage={productImage}
+          collectionName={collectionName}
+        />
+      </div>
+
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -258,11 +266,6 @@ export function OrderSuccessView({
           </motion.div>
         </motion.div>
       </motion.div>
-      
-      {/* Shareable view positioned off-screen */}
-      <div className="fixed left-[-9999px] top-0">
-        <ShareableView productImage={productImage} collectionName={collectionName} />
-      </div>
     </>
   );
 } 
