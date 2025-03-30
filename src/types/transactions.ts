@@ -1,5 +1,6 @@
 export type TransactionAnomalyType = 
   | 'failed_payment'          // Payment transaction failed
+  | 'rejected_payment'        // Payment was rejected by user
   | 'orphaned_transaction'    // Successful transaction but no order created
   | 'abandoned_order'         // Order created but no payment attempted
   | 'pending_timeout'         // Order stuck in pending_payment for too long

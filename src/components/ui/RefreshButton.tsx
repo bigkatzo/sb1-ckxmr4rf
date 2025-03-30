@@ -1,40 +1,22 @@
-import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { Loading, LoadingType } from './LoadingStates';
+import { Button } from './Button';
 
-interface RefreshButtonProps {
-  onRefresh: () => Promise<void>;
+export interface RefreshButtonProps {
+  onRefresh: () => void;
   className?: string;
+  loading?: boolean;
 }
 
-export function RefreshButton({ onRefresh, className = '' }: RefreshButtonProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    if (!onRefresh || isRefreshing) return;
-    
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
+export function RefreshButton({ onRefresh, className = '', loading = false }: RefreshButtonProps) {
   return (
-    <button
-      onClick={handleRefresh}
-      disabled={isRefreshing}
-      className={`p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-all ${
-        isRefreshing ? 'opacity-50' : ''
-      } ${className}`}
-      title="Refresh"
+    <Button
+      onClick={onRefresh}
+      size="sm"
+      variant="ghost"
+      className={`${className} ${loading ? 'animate-spin' : ''}`}
+      disabled={loading}
     >
-      {isRefreshing ? (
-        <Loading type={LoadingType.ACTION} />
-      ) : (
-        <RefreshCw className="h-4 w-4" />
-      )}
-    </button>
+      <RefreshCw className="h-4 w-4" />
+    </Button>
   );
 }

@@ -7,6 +7,7 @@ create type transaction_anomaly_type as enum (
   'mismatched_amount',       -- Transaction amount doesn't match order amount
   'multiple_transactions',   -- Multiple transactions for same order
   'multiple_orders',         -- Multiple orders for same transaction
+  'rejected_payment',        -- Payment was rejected by user
   'unknown'                 -- Other anomalies
 );
 
@@ -59,6 +60,32 @@ begin
   left join orders o on o.transaction_signature = t.signature
   left join products p on o.product_id = p.id
   where t.status->>'error' is not null
+    and t.status->>'error' != 'Transaction rejected by user'
+  
+  union all
+  
+  -- Rejected payments (transactions rejected by user)
+  select
+    t.id::uuid,
+    'rejected_payment'::transaction_anomaly_type as type,
+    o.id as order_id,
+    o.order_number,
+    o.status as order_status,
+    t.signature as transaction_signature,
+    t.status as transaction_status,
+    t.amount_sol,
+    o.amount_sol as expected_amount_sol,
+    t.buyer_address,
+    p.name as product_name,
+    p.sku as product_sku,
+    'Transaction was rejected by the user' as error_message,
+    t.retry_count,
+    t.created_at,
+    t.updated_at
+  from transactions t
+  left join orders o on o.transaction_signature = t.signature
+  left join products p on o.product_id = p.id
+  where t.status->>'error' = 'Transaction rejected by user'
   
   union all
   
@@ -138,6 +165,62 @@ begin
   left join products p on o.product_id = p.id
   where o.status = 'pending_payment'
     and o.updated_at < now() - interval '1 hour'
+  
+  union all
+  
+  -- Multiple transactions for same order
+  select
+    o.id::uuid,
+    'multiple_transactions'::transaction_anomaly_type as type,
+    o.id as order_id,
+    o.order_number,
+    o.status as order_status,
+    o.transaction_signature,
+    null as transaction_status,
+    null as amount_sol,
+    o.amount_sol as expected_amount_sol,
+    o.wallet_address as buyer_address,
+    p.name as product_name,
+    p.sku as product_sku,
+    'Multiple transactions found for this order' as error_message,
+    0 as retry_count,
+    o.created_at,
+    o.updated_at
+  from orders o
+  left join products p on o.product_id = p.id
+  where exists (
+    select 1 from transactions t
+    where t.buyer_address = o.wallet_address
+    and t.amount_sol = o.amount_sol
+    and t.created_at between o.created_at - interval '1 hour' and o.created_at + interval '1 hour'
+    group by t.buyer_address, t.amount_sol
+    having count(*) > 1
+  )
+  
+  union all
+  
+  -- Mismatched amounts
+  select
+    o.id::uuid,
+    'mismatched_amount'::transaction_anomaly_type as type,
+    o.id as order_id,
+    o.order_number,
+    o.status as order_status,
+    o.transaction_signature,
+    t.status as transaction_status,
+    t.amount_sol,
+    o.amount_sol as expected_amount_sol,
+    o.wallet_address as buyer_address,
+    p.name as product_name,
+    p.sku as product_sku,
+    format('Amount mismatch: expected %s SOL, got %s SOL', o.amount_sol, t.amount_sol) as error_message,
+    0 as retry_count,
+    o.created_at,
+    o.updated_at
+  from orders o
+  join transactions t on t.signature = o.transaction_signature
+  left join products p on o.product_id = p.id
+  where t.amount_sol != o.amount_sol
   
   order by created_at desc
   limit p_limit
