@@ -447,11 +447,12 @@ export function TokenVerificationModal({
         <OrderSuccessView
           productName={product.name}
           collectionName={product.collectionName || 'Unknown Collection'}
-          collectionSlug={product.collectionSlug || ''}
           productImage={product.imageUrl}
           orderNumber={orderDetails.orderNumber}
           transactionSignature={orderDetails.transactionSignature}
           onClose={onSuccess}
+          collectionImage={product.imageUrl}
+          collectionSlug={product.collectionSlug || ''}
         />
       ) : (
         <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
