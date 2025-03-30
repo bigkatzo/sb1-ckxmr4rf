@@ -451,7 +451,6 @@ export function TokenVerificationModal({
           orderNumber={orderDetails.orderNumber}
           transactionSignature={orderDetails.transactionSignature}
           onClose={onSuccess}
-          collectionImage={product.imageUrl}
           collectionSlug={product.collectionSlug || ''}
         />
       ) : (
