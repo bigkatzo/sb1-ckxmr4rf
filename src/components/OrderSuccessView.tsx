@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toPng } from 'html-to-image';
 
 // Shareable version without sensitive info
-const ShareableView = ({ collectionImage, collectionName }: { collectionImage?: string, collectionName: string }) => {
+const ShareableView = ({ productImage, collectionName }: { productImage?: string, collectionName: string }) => {
   return (
     <div id="shareable-success" className="w-[600px] h-[400px] bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
       {/* Holographic overlays */}
@@ -13,10 +13,10 @@ const ShareableView = ({ collectionImage, collectionName }: { collectionImage?: 
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/10 to-transparent -rotate-12 transform translate-y-[50%]" />
       </motion.div>
       
-      {collectionImage && (
+      {productImage && (
         <img 
-          src={collectionImage} 
-          alt="NFT Collection" 
+          src={productImage} 
+          alt="Product" 
           className="w-24 h-24 rounded-lg mb-6 object-cover"
         />
       )}
@@ -66,8 +66,8 @@ export function OrderSuccessView({
         throw new Error('Could not find shareable element');
       }
 
-      // Wait for images to load if there's a collection image
-      if (collectionImage) {
+      // Wait for images to load if there's a product image
+      if (productImage) {
         const img = shareableElement.querySelector('img');
         if (img) {
           await new Promise((resolve) => {
@@ -255,7 +255,7 @@ export function OrderSuccessView({
       
       {/* Shareable view positioned off-screen */}
       <div className="fixed left-[-9999px] top-0">
-        <ShareableView collectionImage={collectionImage} collectionName={collectionName} />
+        <ShareableView productImage={productImage} collectionName={collectionName} />
       </div>
     </>
   );
