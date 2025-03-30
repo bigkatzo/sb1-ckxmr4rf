@@ -29,8 +29,12 @@ const ShareableView = ({ productImage, collectionName }: { productImage?: string
         Find awesome products on Store.fun
       </p>
       
-      <div className="text-white/70 text-sm">
-        store.fun
+      <div className="flex flex-col items-center gap-2">
+        <img 
+          src="/logo.svg" 
+          alt="Store.fun"
+          className="h-6 w-auto"
+        />
       </div>
     </div>
   );
