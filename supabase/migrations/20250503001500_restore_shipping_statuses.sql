@@ -94,13 +94,15 @@ BEGIN
   END IF;
 
   -- Define valid transitions
+  -- Payment-related transitions (strict)
   IF (OLD.status = 'draft' AND NEW.status = 'pending_payment') OR
      (OLD.status = 'pending_payment' AND NEW.status = 'confirmed') OR
-     (OLD.status = 'confirmed' AND NEW.status = 'shipped') OR
-     (OLD.status = 'shipped' AND NEW.status = 'delivered') OR
      (OLD.status = 'pending_payment' AND NEW.status = 'cancelled') OR
      (OLD.status = 'draft' AND NEW.status = 'cancelled') OR
-     (OLD.status = 'confirmed' AND NEW.status = 'cancelled') THEN
+     -- Post-payment transitions (flexible)
+     (OLD.status = 'confirmed' AND NEW.status IN ('shipped', 'delivered', 'cancelled')) OR
+     (OLD.status = 'shipped' AND NEW.status IN ('confirmed', 'delivered', 'cancelled')) OR
+     (OLD.status = 'delivered' AND NEW.status IN ('cancelled', 'shipped', 'confirmed')) THEN
     RETURN NEW;
   END IF;
 

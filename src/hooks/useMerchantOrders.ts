@@ -105,7 +105,6 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
         .eq('id', orderId);
 
       if (error) throw error;
-      toast.success('Order status updated successfully');
       // Refresh orders after status update
       await fetchOrders();
     } catch (err) {
