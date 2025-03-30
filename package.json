@@ -37,6 +37,7 @@
     "buffer": "^6.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "framer-motion": "^11.0.8",
     "idb": "^7.1.1",
     "lodash": "^4.17.21",
     "lucide-react": "0.344.0",

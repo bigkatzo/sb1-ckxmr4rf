@@ -14,6 +14,7 @@ import { supabase } from '../../lib/supabase';
 import { verifyNFTHolding } from '../../utils/nft-verification';
 import { monitorTransaction } from '../../utils/transaction-monitor';
 import type { TransactionStatus } from '../../types/transactions';
+import { OrderSuccessView } from '../OrderSuccessView';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -75,6 +76,11 @@ export function TokenVerificationModal({
   const [submitting, setSubmitting] = useState(false);
   const { modifiedPrice } = useModifiedPrice({ product, selectedOptions });
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
+  const [showSuccessView, setShowSuccessView] = useState(false);
+  const [orderDetails, setOrderDetails] = useState<{
+    orderNumber: string;
+    transactionSignature: string;
+  } | null>(null);
   
   // Update progress steps to reflect new flow
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
@@ -198,27 +204,15 @@ export function TokenVerificationModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!verificationResult?.isValid || 
-        !shippingInfo.address || 
-        !shippingInfo.city || 
-        !shippingInfo.country || 
-        !shippingInfo.zip || 
-        !shippingInfo.contactValue ||
-        !walletAddress) {
-      return;
-    }
+    if (!walletAddress) return;
+
+    let orderId: string | null = null;
+    let signature: string | null = null;
 
     try {
       setSubmitting(true);
-      
-      // Save shipping info to localStorage
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfo));
-      
-      // Reset all steps to pending
-      setProgressSteps(steps => steps.map(step => ({ ...step, status: 'pending' as const })));
-      
-      // Format shipping address
+
+      // Format shipping info for database
       const formattedShippingInfo = {
         shipping_address: {
           address: shippingInfo.address,
@@ -232,24 +226,16 @@ export function TokenVerificationModal({
         }
       };
 
-      // Format variant selections
-      const formattedVariantSelections = product.variants && product.variants.length > 0
-        ? Object.entries(selectedOptions)
-            .filter(([_, value]) => value)
-            .map(([id, value]) => {
-              const variant = product.variants?.find(v => v.id === id);
-              return {
-                name: variant?.name || '',
-                value
-              };
-            })
-        : [];
+      // Format variant selections for database
+      const formattedVariantSelections = Object.entries(selectedOptions).map(([key, value]) => ({
+        option_name: key,
+        selected_value: value
+      }));
 
-      // Start order creation
+      // Create order
       updateProgressStep(0, 'processing', 'Creating your order...');
 
-      // Create order record with retries
-      let orderId;
+      // Retry order creation up to 3 times
       for (let i = 0; i < 3; i++) {
         try {
           const { data: order, error } = await supabase.rpc('create_order', {
@@ -283,12 +269,14 @@ export function TokenVerificationModal({
       updateProgressStep(1, 'processing', 'Initiating payment on Solana network...');
       
       // Process payment with modified price
-      const { success, signature } = await processPayment(finalPrice, product.collectionId);
+      const { success, signature: txSignature } = await processPayment(finalPrice, product.collectionId);
       
-      if (!success || !signature) {
+      if (!success || !txSignature) {
         updateProgressStep(1, 'error', 'Payment failed');
         throw new Error('Payment failed');
       }
+
+      signature = txSignature;
 
       // Update order with transaction signature
       try {
@@ -339,11 +327,32 @@ export function TokenVerificationModal({
 
       updateProgressStep(2, 'completed');
 
-      // All steps completed successfully
+      // Get order number
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .select('order_number')
+        .eq('id', orderId)
+        .single();
+
+      if (orderError) {
+        console.error('Error fetching order number:', orderError);
+        throw orderError;
+      }
+
+      // Set order details and show success view
+      setOrderDetails({
+        orderNumber: orderData.order_number,
+        transactionSignature: signature
+      });
+      setShowSuccessView(true);
+
+      // Show toast notification as well
       toastService.showOrderSuccess();
       
-      // Short delay to show the completed state before closing
+      // Short delay to show the completed state before transitioning
       await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Call onSuccess after showing the success view
       onSuccess();
     } catch (error) {
       console.error('Order error:', error);
@@ -434,204 +443,215 @@ export function TokenVerificationModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-xl w-full max-w-md">
-        <div className="p-4 sm:p-6 border-b border-gray-800 flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-white">Complete Your Purchase</h2>
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
+      {showSuccessView && orderDetails ? (
+        <OrderSuccessView
+          productName={product.name}
+          collectionName={product.collectionName || 'Unknown Collection'}
+          collectionSlug={product.collectionSlug || ''}
+          productImage={product.imageUrl}
+          orderNumber={orderDetails.orderNumber}
+          transactionSignature={orderDetails.transactionSignature}
+        />
+      ) : (
+        <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
+          <div className="p-4 sm:p-6 border-b border-gray-800 flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-white">Complete Your Purchase</h2>
+            <button
+              onClick={onClose}
+              disabled={submitting}
+              className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
-        <div className="p-4 sm:p-6 space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto">
-          {/* Verification Status */}
-          {product.category?.eligibilityRules?.groups?.length ? (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
-              {verifying ? (
-                <>
-                  <Loading type={LoadingType.ACTION} text="Verifying eligibility..." />
-                </>
-              ) : verificationResult?.isValid ? (
-                <>
-                  <CheckCircle2 className="h-5 w-5 text-green-400" />
-                  <span className="text-gray-100">You are eligible to purchase this item!</span>
-                </>
-              ) : (
-                <>
-                  <div className="w-full flex flex-col items-center gap-3 py-2">
-                    <AlertTriangle className="h-10 w-10 text-red-500" />
-                    <div className="text-center">
-                      <p className="text-red-500 font-semibold text-lg">Access Denied</p>
-                      {verificationResult?.error && (
-                        <p className="text-gray-400 text-sm mt-1">{verificationResult.error}</p>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
-              <CheckCircle2 className="h-5 w-5 text-green-400" />
-              <span className="text-gray-100">This item is available to all collectors!</span>
-            </div>
-          )}
-
-          {/* Show either the shipping form or progress indicator */}
-          {(!product.category?.eligibilityRules?.groups?.length || verificationResult?.isValid) && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {submitting ? (
-                <>
-                  <ProgressIndicator />
-                  <div className="pt-4 border-t border-gray-800">
-                    <button
-                      type="submit"
-                      disabled
-                      className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      <span>Processing...</span>
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-200 mb-2">
-                        Street Address
-                      </label>
-                      <input
-                        type="text"
-                        value={shippingInfo.address}
-                        onChange={(e) => setShippingInfo(prev => ({
-                          ...prev,
-                          address: e.target.value
-                        }))}
-                        required
-                        disabled={submitting}
-                        className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        placeholder="Enter your street address"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-200 mb-2">
-                          City
-                        </label>
-                        <input
-                          type="text"
-                          value={shippingInfo.city}
-                          onChange={(e) => setShippingInfo(prev => ({
-                            ...prev,
-                            city: e.target.value
-                          }))}
-                          required
-                          disabled={submitting}
-                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          placeholder="City"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-200 mb-2">
-                          ZIP / Postal Code
-                        </label>
-                        <input
-                          type="text"
-                          value={shippingInfo.zip}
-                          onChange={(e) => setShippingInfo(prev => ({
-                            ...prev,
-                            zip: e.target.value
-                          }))}
-                          required
-                          disabled={submitting}
-                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          placeholder="ZIP code"
-                        />
+          <div className="p-4 sm:p-6 space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto">
+            {/* Verification Status */}
+            {product.category?.eligibilityRules?.groups?.length ? (
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
+                {verifying ? (
+                  <>
+                    <Loading type={LoadingType.ACTION} text="Verifying eligibility..." />
+                  </>
+                ) : verificationResult?.isValid ? (
+                  <>
+                    <CheckCircle2 className="h-5 w-5 text-green-400" />
+                    <span className="text-gray-100">You are eligible to purchase this item!</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-full flex flex-col items-center gap-3 py-2">
+                      <AlertTriangle className="h-10 w-10 text-red-500" />
+                      <div className="text-center">
+                        <p className="text-red-500 font-semibold text-lg">Access Denied</p>
+                        {verificationResult?.error && (
+                          <p className="text-gray-400 text-sm mt-1">{verificationResult.error}</p>
+                        )}
                       </div>
                     </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
+                <CheckCircle2 className="h-5 w-5 text-green-400" />
+                <span className="text-gray-100">This item is available to all collectors!</span>
+              </div>
+            )}
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-200 mb-2">
-                        Country
-                      </label>
-                      <input
-                        type="text"
-                        value={shippingInfo.country}
-                        onChange={(e) => setShippingInfo(prev => ({
-                          ...prev,
-                          country: e.target.value
-                        }))}
-                        required
-                        disabled={submitting}
-                        className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        placeholder="Country"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">
-                      Contact Method
-                    </label>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <select
-                        value={shippingInfo.contactMethod}
-                        onChange={(e) => setShippingInfo(prev => ({
-                          ...prev,
-                          contactMethod: e.target.value,
-                          contactValue: '' // Reset value when changing method
-                        }))}
-                        className="w-full sm:w-auto bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        disabled={submitting}
+            {/* Show either the shipping form or progress indicator */}
+            {(!product.category?.eligibilityRules?.groups?.length || verificationResult?.isValid) && (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {submitting ? (
+                  <>
+                    <ProgressIndicator />
+                    <div className="pt-4 border-t border-gray-800">
+                      <button
+                        type="submit"
+                        disabled
+                        className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
-                        <option value="telegram">Telegram</option>
-                        <option value="email">Email</option>
-                        <option value="x">X (Twitter)</option>
-                      </select>
-                      <div className="flex-1 min-w-0">
+                        <span>Processing...</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
+                          Street Address
+                        </label>
                         <input
-                          type={shippingInfo.contactMethod === 'email' ? 'email' : 'text'}
-                          value={shippingInfo.contactValue}
+                          type="text"
+                          value={shippingInfo.address}
                           onChange={(e) => setShippingInfo(prev => ({
                             ...prev,
-                            contactValue: e.target.value
+                            address: e.target.value
                           }))}
                           required
                           disabled={submitting}
-                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 truncate disabled:opacity-50 disabled:cursor-not-allowed"
-                          placeholder={
-                            shippingInfo.contactMethod === 'telegram' ? '@username' :
-                            shippingInfo.contactMethod === 'email' ? 'email@example.com' :
-                            '@handle'
-                          }
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="Enter your street address"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-200 mb-2">
+                            City
+                          </label>
+                          <input
+                            type="text"
+                            value={shippingInfo.city}
+                            onChange={(e) => setShippingInfo(prev => ({
+                              ...prev,
+                              city: e.target.value
+                            }))}
+                            required
+                            disabled={submitting}
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            placeholder="City"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-200 mb-2">
+                            ZIP / Postal Code
+                          </label>
+                          <input
+                            type="text"
+                            value={shippingInfo.zip}
+                            onChange={(e) => setShippingInfo(prev => ({
+                              ...prev,
+                              zip: e.target.value
+                            }))}
+                            required
+                            disabled={submitting}
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            placeholder="ZIP code"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
+                          Country
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingInfo.country}
+                          onChange={(e) => setShippingInfo(prev => ({
+                            ...prev,
+                            country: e.target.value
+                          }))}
+                          required
+                          disabled={submitting}
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="Country"
                         />
                       </div>
                     </div>
-                  </div>
 
-                  <div className="pt-4 border-t border-gray-800">
-                    <button
-                      type="submit"
-                      disabled={submitting || !verificationResult?.isValid || 
-                        !shippingInfo.address || !shippingInfo.city || 
-                        !shippingInfo.country || !shippingInfo.zip || 
-                        !shippingInfo.contactValue}
-                      className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </form>
-          )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">
+                        Contact Method
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <select
+                          value={shippingInfo.contactMethod}
+                          onChange={(e) => setShippingInfo(prev => ({
+                            ...prev,
+                            contactMethod: e.target.value,
+                            contactValue: '' // Reset value when changing method
+                          }))}
+                          className="w-full sm:w-auto bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          disabled={submitting}
+                        >
+                          <option value="telegram">Telegram</option>
+                          <option value="email">Email</option>
+                          <option value="x">X (Twitter)</option>
+                        </select>
+                        <div className="flex-1 min-w-0">
+                          <input
+                            type={shippingInfo.contactMethod === 'email' ? 'email' : 'text'}
+                            value={shippingInfo.contactValue}
+                            onChange={(e) => setShippingInfo(prev => ({
+                              ...prev,
+                              contactValue: e.target.value
+                            }))}
+                            required
+                            disabled={submitting}
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 truncate disabled:opacity-50 disabled:cursor-not-allowed"
+                            placeholder={
+                              shippingInfo.contactMethod === 'telegram' ? '@username' :
+                              shippingInfo.contactMethod === 'email' ? 'email@example.com' :
+                              '@handle'
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-800">
+                      <button
+                        type="submit"
+                        disabled={submitting || !verificationResult?.isValid || 
+                          !shippingInfo.address || !shippingInfo.city || 
+                          !shippingInfo.country || !shippingInfo.zip || 
+                          !shippingInfo.contactValue}
+                        className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </form>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
