@@ -47,7 +47,6 @@ interface OrderSuccessViewProps {
   orderNumber: string;
   transactionSignature: string;
   onClose: () => void;
-  collectionImage?: string;
   collectionSlug: string;
 }
 
@@ -58,7 +57,6 @@ export function OrderSuccessView({
   orderNumber,
   transactionSignature,
   onClose,
-  collectionImage,
   collectionSlug
 }: OrderSuccessViewProps) {
   const navigate = useNavigate();
