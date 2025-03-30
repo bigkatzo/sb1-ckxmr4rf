@@ -227,10 +227,14 @@ export function TokenVerificationModal({
       };
 
       // Format variant selections for database
-      const formattedVariantSelections = Object.entries(selectedOptions).map(([key, value]) => ({
-        name: key,
-        value: value
-      }));
+      const formattedVariantSelections = Object.entries(selectedOptions).map(([variantId, value]) => {
+        // Find the variant name from product.variants
+        const variant = product.variants?.find(v => v.id === variantId);
+        return {
+          name: variant?.name || variantId, // Use actual variant name, fallback to ID if not found
+          value: value
+        };
+      });
 
       // Create order
       updateProgressStep(0, 'processing', 'Creating your order...');
