@@ -29,12 +29,8 @@ const ShareableView = ({ productImage, collectionName }: { productImage?: string
         Find awesome products on Store.fun
       </p>
       
-      <div className="flex flex-col items-center gap-2">
-        <img 
-          src="/logo.svg" 
-          alt="Store.fun"
-          className="h-6 w-auto"
-        />
+      <div className="text-white/70 text-sm">
+        store.fun
       </div>
     </div>
   );
@@ -48,7 +44,6 @@ interface OrderSuccessViewProps {
   transactionSignature: string;
   onClose: () => void;
   collectionSlug: string;
-  isNested?: boolean;
 }
 
 export function OrderSuccessView({
@@ -58,8 +53,7 @@ export function OrderSuccessView({
   orderNumber,
   transactionSignature,
   onClose,
-  collectionSlug,
-  isNested = false
+  collectionSlug
 }: OrderSuccessViewProps) {
   const navigate = useNavigate();
 
@@ -139,18 +133,10 @@ export function OrderSuccessView({
 
   return (
     <>
-      {/* Hidden shareable view for image generation */}
-      <div className="fixed left-[-9999px] top-0">
-        <ShareableView
-          productImage={productImage}
-          collectionName={collectionName}
-        />
-      </div>
-
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4 ${!isNested ? 'bg-black/30 backdrop-blur-[2px]' : ''}`}
+        className="fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
@@ -169,10 +155,8 @@ export function OrderSuccessView({
           </button>
 
           {/* Holographic effect overlays - with pointer-events-none */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-transparent to-blue-500/10" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(120,0,255,0.1),transparent_70%)]" />
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-transparent to-blue-500/10 pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(120,0,255,0.1),transparent_70%)] pointer-events-none" />
           
           {/* Success animation */}
           <motion.div
@@ -266,6 +250,11 @@ export function OrderSuccessView({
           </motion.div>
         </motion.div>
       </motion.div>
+      
+      {/* Shareable view positioned off-screen */}
+      <div className="fixed left-[-9999px] top-0">
+        <ShareableView productImage={productImage} collectionName={collectionName} />
+      </div>
     </>
   );
 } 

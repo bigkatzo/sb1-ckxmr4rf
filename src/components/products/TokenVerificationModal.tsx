@@ -19,6 +19,7 @@ import { OrderSuccessView } from '../OrderSuccessView';
 interface TokenVerificationModalProps {
   product: Product;
   onClose: () => void;
+  onSuccess: () => void;
   selectedOptions?: Record<string, string>;
 }
 
@@ -65,7 +66,8 @@ async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ 
 
 export function TokenVerificationModal({ 
   product, 
-  onClose,
+  onClose, 
+  onSuccess,
   selectedOptions = {}
 }: TokenVerificationModalProps) {
   const { walletAddress } = useWallet();
@@ -225,9 +227,10 @@ export function TokenVerificationModal({
       };
 
       // Format variant selections for database
-      const formattedVariantSelections = Object.keys(selectedOptions).length > 0
-        ? selectedOptions
-        : null;
+      const formattedVariantSelections = Object.entries(selectedOptions).map(([key, value]) => ({
+        option_name: key,
+        selected_value: value
+      }));
 
       // Create order
       updateProgressStep(0, 'processing', 'Creating your order...');
@@ -447,9 +450,8 @@ export function TokenVerificationModal({
           productImage={product.imageUrl}
           orderNumber={orderDetails.orderNumber}
           transactionSignature={orderDetails.transactionSignature}
-          onClose={onClose}
+          onClose={onSuccess}
           collectionSlug={product.collectionSlug || ''}
-          isNested={true}
         />
       ) : (
         <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
