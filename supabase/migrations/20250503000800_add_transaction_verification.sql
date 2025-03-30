@@ -80,19 +80,17 @@ begin
     where id = p_order_id
     and status = 'pending_payment';
   else
-    -- If verification failed after max retries, mark order as cancelled
-    update orders
+    -- Just log the verification failure in transactions table
+    update transactions
     set
-      status = 'cancelled',
+      status = jsonb_build_object(
+        'success', false,
+        'error', v_error,
+        'verified_at', now()
+      ),
+      retry_count = retry_count + 1,
       updated_at = now()
-    where id = p_order_id
-    and status = 'pending_payment'
-    and exists (
-      select 1
-      from transactions t
-      where t.signature = p_signature
-      and (t.retry_count >= 3 or t.status->>'error' = 'Transaction not found')
-    );
+    where signature = p_signature;
   end if;
 
   return v_status;

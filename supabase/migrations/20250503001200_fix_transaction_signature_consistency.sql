@@ -39,8 +39,7 @@ BEGIN
   SET 
     status = CASE 
       WHEN p_status = 'confirmed' THEN 'confirmed'
-      WHEN p_status = 'failed' THEN 'cancelled'
-      ELSE status
+      ELSE status -- Keep current status if not confirmed
     END,
     updated_at = now()
   WHERE transaction_signature = p_transaction_signature
@@ -49,7 +48,7 @@ BEGIN
 
   -- Set appropriate message
   IF p_status = 'failed' THEN
-    v_message := 'Transaction failed. Please try again with a new transaction.';
+    v_message := 'Transaction failed. Order remains in pending_payment status for merchant review.';
   ELSE
     v_message := 'Order confirmed successfully.';
   END IF;

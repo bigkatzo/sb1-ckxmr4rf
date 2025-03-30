@@ -291,72 +291,78 @@ export function TokenVerificationModal({
         });
 
         if (updateError) throw updateError;
-      } catch (err) {
-        console.error('Failed to update order with transaction:', err);
-        // Continue since payment was successful
-      }
-      
-      // Payment successful
-      updateProgressStep(1, 'completed');
-      
-      // Start transaction confirmation
-      updateProgressStep(2, 'processing', 'Waiting for transaction confirmation...');
-      
-      // Wait for transaction confirmation
-      const confirmed = await monitorTransaction(signature, (status: TransactionStatus) => {
-        if (status.error) {
-          updateProgressStep(2, 'error', status.error);
-        }
-      });
-
-      if (!confirmed) {
-        updateProgressStep(2, 'error', 'Transaction verification failed');
-        throw new Error('Transaction verification failed');
-      }
-
-      // Update order status
-      try {
-        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-          p_order_id: orderId
+        
+        // Payment initiated successfully
+        updateProgressStep(1, 'completed');
+        
+        // Start transaction confirmation
+        updateProgressStep(2, 'processing', 'Waiting for transaction confirmation...');
+        
+        // Wait for transaction confirmation
+        const confirmed = await monitorTransaction(signature, (status: TransactionStatus) => {
+          if (status.error) {
+            updateProgressStep(2, 'error', status.error);
+          }
         });
 
-        if (confirmError) {
-          console.error('Failed to confirm order transaction:', confirmError);
-          // Continue since transaction was confirmed
+        if (!confirmed) {
+          updateProgressStep(2, 'error', 'Transaction verification failed. Order will remain in pending_payment status for merchant review.');
+          // Don't throw error here, let the merchant handle it
+          setShowSuccessView(true); // Show success view since order is created
+          return;
         }
-      } catch (err) {
-        console.error('Error confirming order transaction:', err);
-        // Continue since transaction was confirmed
+
+        // Update order status to confirmed
+        try {
+          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+            p_order_id: orderId
+          });
+
+          if (confirmError) {
+            console.error('Failed to confirm order transaction:', confirmError);
+            updateProgressStep(2, 'error', 'Transaction confirmed but failed to update order status. Please contact support.');
+            return;
+          }
+        } catch (err) {
+          console.error('Error confirming order transaction:', err);
+          updateProgressStep(2, 'error', 'Transaction confirmed but failed to update order status. Please contact support.');
+          return;
+        }
+
+        updateProgressStep(2, 'completed');
+
+        // Get order number
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .select('order_number')
+          .eq('id', orderId)
+          .single();
+
+        if (orderError) {
+          console.error('Error fetching order number:', orderError);
+          throw orderError;
+        }
+
+        // Show toast notification
+        toastService.showOrderSuccess();
+        
+        // Wait 1 second to show the completed progress state
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Then transition to success view
+        setOrderDetails({
+          orderNumber: orderData.order_number,
+          transactionSignature: signature
+        });
+        setShowSuccessView(true);
+      } catch (error) {
+        console.error('Order error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
+        toast.error(errorMessage, {
+          autoClose: false
+        });
+        setSubmitting(false);
       }
-
-      updateProgressStep(2, 'completed');
-
-      // Get order number
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select('order_number')
-        .eq('id', orderId)
-        .single();
-
-      if (orderError) {
-        console.error('Error fetching order number:', orderError);
-        throw orderError;
-      }
-
-      // Show toast notification
-      toastService.showOrderSuccess();
-      
-      // Wait 1 second to show the completed progress state
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Then transition to success view
-      setOrderDetails({
-        orderNumber: orderData.order_number,
-        transactionSignature: signature
-      });
-      setShowSuccessView(true);
-      
-      // Success view will remain until user navigates away or closes it
     } catch (error) {
       console.error('Order error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
