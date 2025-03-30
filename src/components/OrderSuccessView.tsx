@@ -48,6 +48,7 @@ interface OrderSuccessViewProps {
   transactionSignature: string;
   onClose: () => void;
   collectionSlug: string;
+  isNested?: boolean;
 }
 
 export function OrderSuccessView({
@@ -57,7 +58,8 @@ export function OrderSuccessView({
   orderNumber,
   transactionSignature,
   onClose,
-  collectionSlug
+  collectionSlug,
+  isNested = false
 }: OrderSuccessViewProps) {
   const navigate = useNavigate();
 
@@ -140,7 +142,7 @@ export function OrderSuccessView({
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4 bg-black/50 backdrop-blur-sm"
+        className={`fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4 ${!isNested ? 'bg-black/30 backdrop-blur-[2px]' : ''}`}
         onClick={onClose}
       >
         <motion.div
@@ -159,8 +161,10 @@ export function OrderSuccessView({
           </button>
 
           {/* Holographic effect overlays - with pointer-events-none */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-transparent to-blue-500/10 pointer-events-none" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(120,0,255,0.1),transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-transparent to-blue-500/10" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(120,0,255,0.1),transparent_70%)]" />
+          </div>
           
           {/* Success animation */}
           <motion.div

@@ -19,7 +19,6 @@ import { OrderSuccessView } from '../OrderSuccessView';
 interface TokenVerificationModalProps {
   product: Product;
   onClose: () => void;
-  onSuccess: () => void;
   selectedOptions?: Record<string, string>;
 }
 
@@ -66,8 +65,7 @@ async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ 
 
 export function TokenVerificationModal({ 
   product, 
-  onClose, 
-  onSuccess,
+  onClose,
   selectedOptions = {}
 }: TokenVerificationModalProps) {
   const { walletAddress } = useWallet();
@@ -449,8 +447,9 @@ export function TokenVerificationModal({
           productImage={product.imageUrl}
           orderNumber={orderDetails.orderNumber}
           transactionSignature={orderDetails.transactionSignature}
-          onClose={onSuccess}
+          onClose={onClose}
           collectionSlug={product.collectionSlug || ''}
+          isNested={true}
         />
       ) : (
         <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
