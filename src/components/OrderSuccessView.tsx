@@ -61,43 +61,80 @@ export function OrderSuccessView({
 
   const handleShare = async () => {
     try {
-      const shareableElement = document.getElementById('shareable-success');
-      if (!shareableElement) {
-        throw new Error('Could not find shareable element');
-      }
+      // Create a temporary div for rendering
+      const tempDiv = document.createElement('div');
+      document.body.appendChild(tempDiv);
+      
+      // Render the ShareableView temporarily
+      const shareableView = document.createElement('div');
+      shareableView.id = 'shareable-success';
+      shareableView.style.position = 'absolute';
+      shareableView.style.left = '-9999px';
+      shareableView.style.width = '600px';
+      shareableView.style.height = '400px';
+      shareableView.innerHTML = `
+        <div class="w-[600px] h-[400px] bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
+          ${collectionImage ? `
+            <img 
+              src="${collectionImage}" 
+              alt="Collection" 
+              class="w-24 h-24 rounded-lg mb-6 object-cover"
+            />
+          ` : ''}
+          <h2 class="text-3xl font-bold text-white mb-4 text-center">
+            Just got my ${collectionName} merch! 📦
+          </h2>
+          <p class="text-lg text-white/90 text-center mb-6">
+            Find awesome products on Store.fun
+          </p>
+          <div class="text-white/70 text-sm">
+            store.fun
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(shareableView);
 
-      const dataUrl = await toPng(shareableElement, {
-        quality: 0.95,
-        backgroundColor: 'transparent'
-      });
+      // Wait for images to load
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Create a blob from the data URL
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const file = new File([blob], 'nft-success.png', { type: 'image/png' });
+      try {
+        const dataUrl = await toPng(shareableView, {
+          quality: 0.95,
+          backgroundColor: 'transparent'
+        });
 
-      // Format collection slug for cashtag (remove spaces and dashes)
-      const cashtag = collectionSlug.replace(/[\s-]/g, '');
-      const collectionUrl = `https://store.fun/${collectionSlug}`;
-      const shareText = `Just got my ${collectionName} merch on @storedotfun! 📦 ${collectionUrl} get yours $${cashtag}`;
+        // Create a blob from the data URL
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], 'nft-success.png', { type: 'image/png' });
 
-      const shareData = {
-        title: shareText,
-        text: shareText,
-        url: collectionUrl,
-        files: [file]
-      };
+        // Format collection slug for cashtag (remove spaces and dashes)
+        const cashtag = collectionSlug.replace(/[\s-]/g, '');
+        const collectionUrl = `https://store.fun/${collectionSlug}`;
+        const shareText = `Just got my ${collectionName} merch on @storedotfun! 📦 ${collectionUrl} get yours $${cashtag}`;
 
-      // Try Web Share API first
-      if (navigator.canShare && navigator.canShare(shareData)) {
-        await navigator.share(shareData);
-      } else {
-        // Fallback to just text and link sharing
-        const tweetText = encodeURIComponent(shareText);
-        window.open(
-          `https://twitter.com/intent/tweet?text=${tweetText}`,
-          '_blank'
-        );
+        const shareData = {
+          title: shareText,
+          text: shareText,
+          url: collectionUrl,
+          files: [file]
+        };
+
+        // Try Web Share API first
+        if (navigator.canShare && navigator.canShare(shareData)) {
+          await navigator.share(shareData);
+        } else {
+          // Fallback to just text and link sharing
+          const tweetText = encodeURIComponent(shareText);
+          window.open(
+            `https://twitter.com/intent/tweet?text=${tweetText}`,
+            '_blank'
+          );
+        }
+      } finally {
+        // Clean up
+        document.body.removeChild(shareableView);
       }
     } catch (error) {
       console.error('Error sharing:', error);
