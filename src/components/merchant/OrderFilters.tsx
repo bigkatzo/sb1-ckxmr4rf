@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react';
+import { useState } from 'react';
 import type { OrderStatus } from '../../types/orders';
 
 interface OrderFiltersProps {
@@ -26,12 +27,22 @@ export function OrderFilters({
   onStatusChange,
   onSearchChange
 }: OrderFiltersProps) {
+  const [openDropdown, setOpenDropdown] = useState<'status' | 'collection' | 'product' | null>(null);
+
   const handleStatusChange = (status: OrderStatus) => {
     if (selectedStatuses.includes(status)) {
       onStatusChange(selectedStatuses.filter(s => s !== status));
     } else {
       onStatusChange([...selectedStatuses, status]);
     }
+  };
+
+  const handleCollectionChange = (collectionId: string) => {
+    onCollectionChange(collectionId === selectedCollection ? '' : collectionId);
+  };
+
+  const handleProductChange = (productId: string) => {
+    onProductChange(productId === selectedProduct ? '' : productId);
   };
 
   const statuses: OrderStatus[] = ['confirmed', 'shipped', 'delivered', 'cancelled', 'draft', 'pending_payment'];
@@ -52,52 +63,92 @@ export function OrderFilters({
 
       <div className="flex flex-col sm:flex-row gap-2 sm:w-[480px]">
         {/* Collection Filter */}
-        <select
-          value={selectedCollection}
-          onChange={(e) => onCollectionChange(e.target.value)}
-          className="w-full sm:w-1/3 bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="">All Collections</option>
-          {collections.map((collection) => (
-            <option key={collection.id} value={collection.id}>
-              {collection.name}
-            </option>
-          ))}
-        </select>
+        <div className="w-full sm:w-1/3 relative">
+          <button
+            onClick={() => setOpenDropdown(openDropdown === 'collection' ? null : 'collection')}
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
+          >
+            {selectedCollection ? collections.find(c => c.id === selectedCollection)?.name : 'All Collections'}
+          </button>
+          {openDropdown === 'collection' && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
+              <label
+                className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+              >
+                <input
+                  type="radio"
+                  checked={!selectedCollection}
+                  onChange={() => handleCollectionChange('')}
+                  className="mr-2 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                />
+                <span className="text-xs sm:text-sm">All Collections</span>
+              </label>
+              {collections.map((collection) => (
+                <label
+                  key={collection.id}
+                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    checked={selectedCollection === collection.id}
+                    onChange={() => handleCollectionChange(collection.id)}
+                    className="mr-2 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                  />
+                  <span className="text-xs sm:text-sm">{collection.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Product Filter */}
-        <select
-          value={selectedProduct}
-          onChange={(e) => onProductChange(e.target.value)}
-          className="w-full sm:w-1/3 bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="">All Products</option>
-          {products.map((product) => (
-            <option key={product.id} value={product.id}>
-              {product.name}
-            </option>
-          ))}
-        </select>
+        <div className="w-full sm:w-1/3 relative">
+          <button
+            onClick={() => setOpenDropdown(openDropdown === 'product' ? null : 'product')}
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
+          >
+            {selectedProduct ? products.find(p => p.id === selectedProduct)?.name : 'All Products'}
+          </button>
+          {openDropdown === 'product' && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
+              <label
+                className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+              >
+                <input
+                  type="radio"
+                  checked={!selectedProduct}
+                  onChange={() => handleProductChange('')}
+                  className="mr-2 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                />
+                <span className="text-xs sm:text-sm">All Products</span>
+              </label>
+              {products.map((product) => (
+                <label
+                  key={product.id}
+                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    checked={selectedProduct === product.id}
+                    onChange={() => handleProductChange(product.id)}
+                    className="mr-2 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                  />
+                  <span className="text-xs sm:text-sm">{product.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Status Filter */}
-        <div className="w-full sm:w-1/3">
-          <div className="relative">
-            <div className="bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer">
-              <div className="flex flex-wrap gap-1">
-                {selectedStatuses.length === 0 ? (
-                  <span className="text-gray-400">All Statuses</span>
-                ) : (
-                  selectedStatuses.map((status) => (
-                    <span
-                      key={status}
-                      className="bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full text-xs"
-                    >
-                      {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
+        <div className="w-full sm:w-1/3 relative">
+          <button
+            onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
+          >
+            {selectedStatuses.length === 0 ? 'All Statuses' : `${selectedStatuses.length} Selected`}
+          </button>
+          {openDropdown === 'status' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
               {statuses.map((status) => (
                 <label
@@ -116,7 +167,7 @@ export function OrderFilters({
                 </label>
               ))}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
