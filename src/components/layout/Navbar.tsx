@@ -113,16 +113,16 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full bg-black/95 backdrop-blur-sm text-white z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center">
             <Link to="/" className="flex items-center">
               <Logo />
             </Link>
-            <div className="w-[120px] flex items-center">
+            <div className="hidden md:block ml-4">
               <button
                 onClick={() => setIsHowItWorksOpen(true)}
-                className="text-gray-400 hover:font-bold transition-all hidden md:block"
+                className="text-gray-400 hover:font-bold transition-all whitespace-nowrap"
               >
-                [how it works]
+                How it Works
               </button>
             </div>
           </div>
@@ -159,6 +159,13 @@ export default function Navbar() {
               {isMenuOpen ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
+
+          {/* Mobile Menu */}
+          {isMenuOpen && (
+            <div className="md:hidden absolute right-0 top-14 w-48 bg-gray-900 rounded-bl-lg border-l border-b border-gray-800 z-50">
+              <MenuContent />
+            </div>
+          )}
         </div>
 
         {/* Mobile Search */}
@@ -175,18 +182,11 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div className="md:hidden absolute right-0 top-14 w-48 bg-gray-900 rounded-bl-lg border-l border-b border-gray-800 z-50">
-            <MenuContent />
-          </div>
+        {/* How it Works Modal */}
+        {isHowItWorksOpen && (
+          <HowItWorksModal onClose={() => setIsHowItWorksOpen(false)} />
         )}
       </div>
-
-      {/* How it Works Modal */}
-      {isHowItWorksOpen && (
-        <HowItWorksModal onClose={() => setIsHowItWorksOpen(false)} />
-      )}
     </nav>
   );
 }
