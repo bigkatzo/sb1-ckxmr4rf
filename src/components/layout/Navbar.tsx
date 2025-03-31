@@ -113,13 +113,14 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full bg-black/95 backdrop-blur-sm text-white z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <div className="flex items-center">
+          {/* Logo and How it Works */}
+          <div className="flex items-center min-w-[120px] sm:min-w-[200px] md:min-w-[250px]">
             <Link to="/" className="flex items-center relative">
               <Logo />
-              <div className="hidden md:block absolute left-[120px] min-w-[120px]">
+              <div className="hidden md:block absolute left-[120px]">
                 <button
                   onClick={openHowItWorks}
-                  className="text-gray-400 hover:font-bold transition-all hidden md:block whitespace-nowrap"
+                  className="text-gray-400 hover:font-bold transition-all whitespace-nowrap"
                 >
                   [how it works]
                 </button>
@@ -128,12 +129,12 @@ export default function Navbar() {
           </div>
 
           {/* Desktop Search */}
-          <div className="hidden md:block flex-1 max-w-xl px-8">
+          <div className="hidden md:block flex-1 max-w-xl px-4 lg:px-8">
             <SearchBar />
           </div>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center gap-4 min-w-[120px] sm:min-w-[140px] justify-end">
             <WalletButton />
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -144,7 +145,7 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Actions */}
-          <div className="flex md:hidden items-center space-x-2">
+          <div className="flex md:hidden items-center gap-2">
             <button
               onClick={() => setIsSearchOpen(!isSearchOpen)}
               className="p-2 text-gray-400 hover:text-white"
