@@ -326,7 +326,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                     <Toggle
                       checked={visible}
                       onCheckedChange={setVisible}
-                      label="Collection Visibility"
+                      label="Show in storefront"
                     />
                     <p className="text-xs text-gray-400 ml-11">
                       When disabled, this collection will be hidden from the homepage and search results

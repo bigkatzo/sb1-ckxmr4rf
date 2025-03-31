@@ -194,7 +194,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                     <Toggle
                       checked={visible}
                       onCheckedChange={setVisible}
-                      label="Category Visibility"
+                      label="Show in storefront"
                     />
                     <p className="text-xs text-gray-400 ml-11">
                       When disabled, this category will be hidden from the storefront
