@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { ProductForm } from '../../components/merchant/forms/ProductForm/ProductForm';
+import { ProductForm } from '../../components/merchant/forms/ProductForm/index';
 import { ProductListItem } from '../../components/merchant/ProductListItem';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
@@ -17,6 +17,7 @@ export function ProductsTab() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
 
   const { collections, loading: collectionsLoading } = useMerchantCollections();
   const { categories } = useCategories(selectedCollection);
@@ -27,6 +28,7 @@ export function ProductsTab() {
 
   const handleSubmit = async (data: FormData) => {
     try {
+      setFormLoading(true);
       if (editingProduct) {
         await updateProduct(editingProduct.id, data);
         toast.success('Product updated successfully');
@@ -54,6 +56,9 @@ export function ProductsTab() {
       }
       
       toast.error(errorMessage);
+      throw error; // Re-throw to let the form handle the error state
+    } finally {
+      setFormLoading(false);
     }
   };
 
@@ -177,6 +182,7 @@ export function ProductsTab() {
             setEditingProduct(null);
           }}
           onSubmit={handleSubmit}
+          isLoading={formLoading}
         />
       )}
 
