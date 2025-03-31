@@ -16,19 +16,19 @@ export function HowItWorksModal() {
     >
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={closeHowItWorks} />
 
-      <div className="min-h-screen w-full flex items-start justify-center p-0 sm:p-4 sm:items-center">
-        <div className="relative bg-gray-900 w-full min-h-screen sm:min-h-0 sm:h-auto sm:max-h-[90vh] sm:w-[600px] sm:max-w-2xl sm:rounded-xl overflow-hidden">
-          <div className="absolute top-4 right-4 z-10">
+      <div className="min-h-screen w-full flex items-center justify-center p-4">
+        <div className="relative bg-gray-900 w-full max-w-sm rounded-xl overflow-hidden">
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
             <button
               onClick={closeHowItWorks}
               className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
               aria-label="Close modal"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
             <div>
               <h2 id="modal-title" className="text-lg sm:text-xl font-bold text-white">How it Works</h2>
             </div>
