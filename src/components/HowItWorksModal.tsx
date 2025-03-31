@@ -28,17 +28,17 @@ export function HowItWorksModal() {
             </button>
           </div>
 
-          <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
+          <div className="p-4 sm:p-5 space-y-4 sm:space-y-5 text-center">
             <div>
               <h2 id="modal-title" className="text-lg sm:text-xl font-bold text-white">How it Works</h2>
             </div>
 
-            <div className="space-y-3 text-sm sm:text-base text-gray-300">
-              <p>
+            <div className="space-y-3 text-sm sm:text-base">
+              <p className="text-white">
                 Shop exclusive merch on store.fun with features like bonding curves, whitelists, token & NFT-gating, and more.
               </p>
 
-              <div className="space-y-2">
+              <div className="space-y-2 text-white">
                 <p><span className="font-semibold">Step 1:</span> Find a product you like.</p>
                 <p><span className="font-semibold">Step 2:</span> Connect your wallet and check for eligibility.</p>
                 <p><span className="font-semibold">Step 3:</span> Buy early to score the best price.</p>
