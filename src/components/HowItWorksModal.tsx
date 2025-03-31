@@ -39,8 +39,8 @@ export function HowItWorksModal() {
               </p>
 
               <div className="space-y-2">
-                <p><span className="font-semibold">Step 1:</span> Browse limited-edition drops, and find a product you like.</p>
-                <p><span className="font-semibold">Step 2:</span> Connect your wallet and check for eligibility for exclusive items.</p>
+                <p><span className="font-semibold">Step 1:</span> Find a product you like.</p>
+                <p><span className="font-semibold">Step 2:</span> Connect your wallet and check for eligibility.</p>
                 <p><span className="font-semibold">Step 3:</span> Buy early to score the best price.</p>
                 <p><span className="font-semibold">Step 4:</span> Pay with SOL and submit your order.</p>
               </div>
@@ -53,7 +53,7 @@ export function HowItWorksModal() {
             <div className="mt-4 sm:mt-5 space-y-3">
               <button
                 onClick={closeHowItWorks}
-                className="w-full bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
               >
                 I'm ready to shop
               </button>
