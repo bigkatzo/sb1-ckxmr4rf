@@ -113,52 +113,56 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full bg-black/95 backdrop-blur-sm text-white z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          {/* Logo and How it Works */}
-          <div className="flex items-center min-w-[120px] sm:min-w-[200px] md:min-w-[250px]">
-            <Link to="/" className="flex items-center relative">
+          <div className="flex items-center gap-6">
+            <Link to="/" className="flex-shrink-0">
               <Logo />
-              <div className="hidden md:block absolute left-[120px]">
-                <button
-                  onClick={openHowItWorks}
-                  className="text-gray-400 hover:font-bold transition-all whitespace-nowrap"
-                >
-                  [how it works]
-                </button>
-              </div>
             </Link>
+            <div className="hidden md:block">
+              <button
+                onClick={openHowItWorks}
+                className="text-gray-400 hover:font-bold transition-all whitespace-nowrap"
+              >
+                [how it works]
+              </button>
+            </div>
           </div>
 
           {/* Desktop Search */}
-          <div className="hidden md:block flex-1 max-w-xl px-4 lg:px-8">
-            <SearchBar />
+          <div className="hidden md:block flex-1 mx-8">
+            <div className="max-w-xl mx-auto">
+              <SearchBar />
+            </div>
           </div>
 
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center gap-4 min-w-[120px] sm:min-w-[140px] justify-end">
-            <WalletButton />
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800/50 transition-colors relative"
-            >
-              {isMenuOpen ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
+          {/* Right section */}
+          <div className="flex items-center">
+            {/* Desktop Actions */}
+            <div className="hidden md:flex items-center gap-4">
+              <WalletButton />
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800/50 transition-colors"
+              >
+                {isMenuOpen ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
 
-          {/* Mobile Actions */}
-          <div className="flex md:hidden items-center gap-2">
-            <button
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
-              className="p-2 text-gray-400 hover:text-white"
-            >
-              <Search className="h-5 w-5" />
-            </button>
-            <WalletButton />
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 text-gray-400 hover:text-white"
-            >
-              {isMenuOpen ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+            {/* Mobile Actions */}
+            <div className="flex md:hidden items-center gap-2">
+              <button
+                onClick={() => setIsSearchOpen(!isSearchOpen)}
+                className="p-2 text-gray-400 hover:text-white"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+              <WalletButton />
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-2 text-gray-400 hover:text-white"
+              >
+                {isMenuOpen ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
           </div>
 
           {/* Mobile Menu */}
