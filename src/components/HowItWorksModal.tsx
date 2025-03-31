@@ -9,14 +9,14 @@ export function HowItWorksModal() {
 
   return (
     <div 
-      className="fixed inset-0 z-40 overflow-y-auto overscroll-contain" 
+      className="fixed inset-0 z-40" 
       aria-modal="true" 
       role="dialog"
       aria-labelledby="modal-title"
     >
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={closeHowItWorks} />
 
-      <div className="min-h-screen w-full flex items-center justify-center p-4">
+      <div className="fixed inset-0 flex items-center justify-center p-4">
         <div className="relative bg-gray-900 w-full max-w-md rounded-xl overflow-hidden">
           <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
             <button
