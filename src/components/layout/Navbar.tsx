@@ -117,10 +117,10 @@ export default function Navbar() {
             <Link to="/" className="flex items-center">
               <Logo />
             </Link>
-            <div className="w-[120px] relative">
+            <div className="w-[120px] flex items-center">
               <button
                 onClick={() => setIsHowItWorksOpen(true)}
-                className="absolute inset-0 text-gray-400 hover:font-bold transition-all hidden md:block"
+                className="text-gray-400 hover:font-bold transition-all hidden md:block"
               >
                 [how it works]
               </button>
