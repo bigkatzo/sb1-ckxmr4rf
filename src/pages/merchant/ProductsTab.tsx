@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { ProductForm } from '../../components/merchant/forms/ProductForm/index';
+import { ProductForm } from '../../components/merchant/forms/ProductForm/ProductForm';
 import { ProductListItem } from '../../components/merchant/ProductListItem';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
