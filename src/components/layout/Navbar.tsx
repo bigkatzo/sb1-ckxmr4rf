@@ -4,13 +4,25 @@ import { Search, Menu, X as XIcon, Package, Twitter, Mail, Send } from 'lucide-r
 import { SearchBar } from '../search/SearchBar';
 import { Logo } from '../ui/Logo';
 import { WalletButton } from '../wallet/WalletButton';
+import { HowItWorksModal } from '../HowItWorksModal';
+
+type MenuItem = {
+  label: string;
+  icon?: React.ReactNode;
+  onClick?: () => void;
+} & (
+  | { to: string; external?: false }
+  | { href: string; external: true }
+);
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     { to: '/orders', icon: <Package className="h-3.5 w-3.5" />, label: 'Orders' },
+    { to: '#', label: 'How it Works', onClick: () => setIsHowItWorksOpen(true) },
     { to: '/terms', label: 'Terms of Use' },
     { to: '/privacy', label: 'Privacy Policy' },
     { 
@@ -54,6 +66,18 @@ export default function Navbar() {
               {item.icon}
               <span>{item.label}</span>
             </a>
+          ) : item.onClick ? (
+            <button
+              key={item.label}
+              onClick={() => {
+                item.onClick?.();
+                setIsMenuOpen(false);
+              }}
+              className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-[13px] text-gray-400 hover:text-white hover:bg-gray-800"
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
           ) : (
             <Link
               key={item.label}
@@ -89,10 +113,16 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full bg-black/95 backdrop-blur-sm text-white z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <div className="flex items-center">
+          <div className="flex items-center space-x-6">
             <Link to="/" className="flex items-center">
               <Logo />
             </Link>
+            <button
+              onClick={() => setIsHowItWorksOpen(true)}
+              className="text-gray-400 hover:font-bold hidden md:block"
+            >
+              [how it works]
+            </button>
           </div>
 
           {/* Desktop Search */}
@@ -150,6 +180,11 @@ export default function Navbar() {
           </div>
         )}
       </div>
+
+      {/* How it Works Modal */}
+      {isHowItWorksOpen && (
+        <HowItWorksModal onClose={() => setIsHowItWorksOpen(false)} />
+      )}
     </nav>
   );
 }
