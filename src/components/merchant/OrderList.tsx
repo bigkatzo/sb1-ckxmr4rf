@@ -251,7 +251,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
       case 'draft':
         return 'text-gray-400 bg-gray-500/10 hover:bg-gray-500/20';
       case 'pending_payment':
-        return 'text-orange-500 bg-orange-500/10 hover:bg-orange-500/20 font-medium';
+        return 'text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 font-medium';
       case 'confirmed':
         return 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20';
       case 'shipped':
