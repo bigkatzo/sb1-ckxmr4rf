@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import type { OrderStatus } from '../../types/orders';
 
@@ -74,9 +74,10 @@ export function OrderFilters({
         <div className="w-full sm:w-1/3 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'collection' ? null : 'collection')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left flex items-center justify-between"
           >
-            {selectedCollections.length === 0 ? 'Collection' : `Collection (${selectedCollections.length})`}
+            <span>{selectedCollections.length === 0 ? 'Collection' : `Collection (${selectedCollections.length})`}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'collection' ? 'rotate-180' : ''}`} />
           </button>
           {openDropdown === 'collection' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
@@ -102,9 +103,10 @@ export function OrderFilters({
         <div className="w-full sm:w-1/3 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'product' ? null : 'product')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left flex items-center justify-between"
           >
-            {selectedProducts.length === 0 ? 'Product' : `Product (${selectedProducts.length})`}
+            <span>{selectedProducts.length === 0 ? 'Product' : `Product (${selectedProducts.length})`}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'product' ? 'rotate-180' : ''}`} />
           </button>
           {openDropdown === 'product' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
@@ -130,9 +132,10 @@ export function OrderFilters({
         <div className="w-full sm:w-1/3 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left flex items-center justify-between"
           >
-            {selectedStatuses.length === 0 ? 'Status' : `Status (${selectedStatuses.length})`}
+            <span>{selectedStatuses.length === 0 ? 'Status' : `Status (${selectedStatuses.length})`}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'status' ? 'rotate-180' : ''}`} />
           </button>
           {openDropdown === 'status' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
