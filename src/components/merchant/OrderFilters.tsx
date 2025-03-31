@@ -6,11 +6,11 @@ interface OrderFiltersProps {
   products: Array<{ id: string; name: string }>;
   selectedCollection: string;
   selectedProduct: string;
-  selectedStatus: OrderStatus | '';
+  selectedStatuses: OrderStatus[];
   searchQuery: string;
   onCollectionChange: (id: string) => void;
   onProductChange: (id: string) => void;
-  onStatusChange: (status: OrderStatus | '') => void;
+  onStatusChange: (statuses: OrderStatus[]) => void;
   onSearchChange: (query: string) => void;
 }
 
@@ -19,13 +19,23 @@ export function OrderFilters({
   products,
   selectedCollection,
   selectedProduct,
-  selectedStatus,
+  selectedStatuses,
   searchQuery,
   onCollectionChange,
   onProductChange,
   onStatusChange,
   onSearchChange
 }: OrderFiltersProps) {
+  const handleStatusChange = (status: OrderStatus) => {
+    if (selectedStatuses.includes(status)) {
+      onStatusChange(selectedStatuses.filter(s => s !== status));
+    } else {
+      onStatusChange([...selectedStatuses, status]);
+    }
+  };
+
+  const statuses: OrderStatus[] = ['confirmed', 'shipped', 'delivered', 'cancelled', 'draft', 'pending_payment'];
+
   return (
     <div className="flex flex-col sm:flex-row gap-2">
       {/* Search Box */}
@@ -70,19 +80,44 @@ export function OrderFilters({
         </select>
 
         {/* Status Filter */}
-        <select
-          value={selectedStatus}
-          onChange={(e) => onStatusChange(e.target.value as OrderStatus | '')}
-          className="w-full sm:w-1/3 bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="">All Statuses</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="draft">Draft</option>
-          <option value="pending_payment">Pending Payment</option>
-        </select>
+        <div className="w-full sm:w-1/3">
+          <div className="relative">
+            <div className="bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer">
+              <div className="flex flex-wrap gap-1">
+                {selectedStatuses.length === 0 ? (
+                  <span className="text-gray-400">All Statuses</span>
+                ) : (
+                  selectedStatuses.map((status) => (
+                    <span
+                      key={status}
+                      className="bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full text-xs"
+                    >
+                      {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
+              {statuses.map((status) => (
+                <label
+                  key={status}
+                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.includes(status)}
+                    onChange={() => handleStatusChange(status)}
+                    className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                  />
+                  <span className="text-xs sm:text-sm">
+                    {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

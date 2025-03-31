@@ -14,7 +14,7 @@ export function OrdersTab() {
   const { collections } = useMerchantCollections();
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<OrderStatus | ''>('');
+  const [selectedStatuses, setSelectedStatuses] = useState<OrderStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Extract unique products from filtered orders
@@ -52,7 +52,7 @@ export function OrdersTab() {
     }
   };
 
-  // Filter orders based on selected collection, product, and status
+  // Filter orders based on selected collection, product, and statuses
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
       // Filter by collection if selected
@@ -65,8 +65,8 @@ export function OrdersTab() {
         return false;
       }
 
-      // Filter by status if selected
-      if (selectedStatus && order.status !== selectedStatus) {
+      // Filter by statuses if any are selected
+      if (selectedStatuses.length > 0 && !selectedStatuses.includes(order.status)) {
         return false;
       }
 
@@ -97,7 +97,7 @@ export function OrdersTab() {
 
       return true;
     });
-  }, [orders, selectedCollection, selectedProduct, selectedStatus, searchQuery]);
+  }, [orders, selectedCollection, selectedProduct, selectedStatuses, searchQuery]);
 
   if (loading) {
     return <Loading type={LoadingType.PAGE} text="Loading orders..." />;
@@ -128,11 +128,11 @@ export function OrdersTab() {
           products={products}
           selectedCollection={selectedCollection}
           selectedProduct={selectedProduct}
-          selectedStatus={selectedStatus}
+          selectedStatuses={selectedStatuses}
           searchQuery={searchQuery}
           onCollectionChange={handleCollectionChange}
           onProductChange={setSelectedProduct}
-          onStatusChange={setSelectedStatus}
+          onStatusChange={setSelectedStatuses}
           onSearchChange={setSearchQuery}
         />
       </div>
