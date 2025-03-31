@@ -40,3 +40,6 @@ debug.json
 *.pem
 *.key
 credentials.json
+
+# Supabase
+supabase/.temp/
