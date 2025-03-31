@@ -1,16 +1,11 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-
 interface HowItWorksModalProps {
   onClose: () => void;
 }
 
 export function HowItWorksModal({ onClose }: HowItWorksModalProps) {
-  const navigate = useNavigate();
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-lg p-8 max-w-2xl w-full mx-4 relative">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-gray-900 rounded-lg p-8 w-full max-w-2xl mx-4 relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
@@ -41,10 +36,7 @@ export function HowItWorksModal({ onClose }: HowItWorksModalProps) {
 
         <div className="mt-8 space-y-4">
           <button
-            onClick={() => {
-              onClose();
-              navigate('/collections');
-            }}
+            onClick={onClose}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors"
           >
             I'm ready to shop

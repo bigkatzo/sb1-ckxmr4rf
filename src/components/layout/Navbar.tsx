@@ -117,12 +117,14 @@ export default function Navbar() {
             <Link to="/" className="flex items-center">
               <Logo />
             </Link>
-            <button
-              onClick={() => setIsHowItWorksOpen(true)}
-              className="text-gray-400 hover:font-bold hidden md:block"
-            >
-              [how it works]
-            </button>
+            <div className="w-[120px] relative">
+              <button
+                onClick={() => setIsHowItWorksOpen(true)}
+                className="absolute inset-0 text-gray-400 hover:font-bold transition-all hidden md:block"
+              >
+                [how it works]
+              </button>
+            </div>
           </div>
 
           {/* Desktop Search */}
