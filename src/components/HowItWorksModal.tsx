@@ -17,7 +17,7 @@ export function HowItWorksModal() {
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={closeHowItWorks} />
 
       <div className="min-h-screen w-full flex items-center justify-center p-4">
-        <div className="relative bg-gray-900 w-full max-w-sm rounded-xl overflow-hidden">
+        <div className="relative bg-gray-900 w-full max-w-[440px] rounded-xl overflow-hidden">
           <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
             <button
               onClick={closeHowItWorks}
@@ -28,37 +28,37 @@ export function HowItWorksModal() {
             </button>
           </div>
 
-          <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
+          <div className="p-4 sm:p-5 space-y-4">
             <div>
-              <h2 id="modal-title" className="text-lg sm:text-xl font-bold text-white">How it Works</h2>
+              <h2 id="modal-title" className="text-lg font-bold text-white">How it Works</h2>
             </div>
 
-            <div className="space-y-3 text-sm sm:text-base text-gray-300">
+            <div className="space-y-3 text-sm text-gray-300">
               <p>
                 Shop exclusive merch on store.fun with features like bonding curves, whitelists, token & NFT-gating, and more.
               </p>
 
               <div className="space-y-2">
-                <p><span className="font-semibold">Step 1:</span> Find a product you like.</p>
-                <p><span className="font-semibold">Step 2:</span> Connect your wallet and check for eligibility.</p>
+                <p><span className="font-semibold">Step 1:</span> Browse limited-edition drops, and find a product you like.</p>
+                <p><span className="font-semibold">Step 2:</span> Connect your wallet and check for eligibility for exclusive items.</p>
                 <p><span className="font-semibold">Step 3:</span> Buy early to score the best price.</p>
                 <p><span className="font-semibold">Step 4:</span> Pay with SOL and submit your order.</p>
               </div>
 
-              <p className="text-xs sm:text-sm text-gray-400">
+              <p className="text-xs text-gray-400">
                 All orders include FREE worldwide shipping (estimated 15-20 days) and a quality guarantee.
               </p>
             </div>
 
-            <div className="mt-4 sm:mt-5 space-y-3">
+            <div className="mt-4 space-y-3">
               <button
                 onClick={closeHowItWorks}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
               >
                 I'm ready to shop
               </button>
 
-              <div className="flex flex-wrap justify-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-400">
+              <div className="flex flex-wrap justify-center gap-2 text-xs text-gray-400">
                 <Link
                   to="/privacy"
                   className="hover:text-white transition-colors"
