@@ -5,12 +5,12 @@ import type { OrderStatus } from '../../types/orders';
 interface OrderFiltersProps {
   collections: Array<{ id: string; name: string }>;
   products: Array<{ id: string; name: string }>;
-  selectedCollection: string;
-  selectedProduct: string;
+  selectedCollections: string[];
+  selectedProducts: string[];
   selectedStatuses: OrderStatus[];
   searchQuery: string;
-  onCollectionChange: (id: string) => void;
-  onProductChange: (id: string) => void;
+  onCollectionChange: (ids: string[]) => void;
+  onProductChange: (ids: string[]) => void;
   onStatusChange: (statuses: OrderStatus[]) => void;
   onSearchChange: (query: string) => void;
 }
@@ -18,8 +18,8 @@ interface OrderFiltersProps {
 export function OrderFilters({
   collections,
   products,
-  selectedCollection,
-  selectedProduct,
+  selectedCollections,
+  selectedProducts,
   selectedStatuses,
   searchQuery,
   onCollectionChange,
@@ -38,11 +38,19 @@ export function OrderFilters({
   };
 
   const handleCollectionChange = (collectionId: string) => {
-    onCollectionChange(collectionId === selectedCollection ? '' : collectionId);
+    if (selectedCollections.includes(collectionId)) {
+      onCollectionChange(selectedCollections.filter(id => id !== collectionId));
+    } else {
+      onCollectionChange([...selectedCollections, collectionId]);
+    }
   };
 
   const handleProductChange = (productId: string) => {
-    onProductChange(productId === selectedProduct ? '' : productId);
+    if (selectedProducts.includes(productId)) {
+      onProductChange(selectedProducts.filter(id => id !== productId));
+    } else {
+      onProductChange([...selectedProducts, productId]);
+    }
   };
 
   const statuses: OrderStatus[] = ['confirmed', 'shipped', 'delivered', 'cancelled', 'draft', 'pending_payment'];
@@ -68,31 +76,20 @@ export function OrderFilters({
             onClick={() => setOpenDropdown(openDropdown === 'collection' ? null : 'collection')}
             className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
           >
-            {selectedCollection ? collections.find(c => c.id === selectedCollection)?.name : 'All Collections'}
+            {selectedCollections.length === 0 ? 'Collection' : `Collection (${selectedCollections.length})`}
           </button>
           {openDropdown === 'collection' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
-              <label
-                className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  checked={!selectedCollection}
-                  onChange={() => handleCollectionChange('')}
-                  className="mr-2 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
-                />
-                <span className="text-xs sm:text-sm">All Collections</span>
-              </label>
               {collections.map((collection) => (
                 <label
                   key={collection.id}
                   className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
                 >
                   <input
-                    type="radio"
-                    checked={selectedCollection === collection.id}
+                    type="checkbox"
+                    checked={selectedCollections.includes(collection.id)}
                     onChange={() => handleCollectionChange(collection.id)}
-                    className="mr-2 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
                   />
                   <span className="text-xs sm:text-sm">{collection.name}</span>
                 </label>
@@ -107,31 +104,20 @@ export function OrderFilters({
             onClick={() => setOpenDropdown(openDropdown === 'product' ? null : 'product')}
             className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
           >
-            {selectedProduct ? products.find(p => p.id === selectedProduct)?.name : 'All Products'}
+            {selectedProducts.length === 0 ? 'Product' : `Product (${selectedProducts.length})`}
           </button>
           {openDropdown === 'product' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
-              <label
-                className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  checked={!selectedProduct}
-                  onChange={() => handleProductChange('')}
-                  className="mr-2 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
-                />
-                <span className="text-xs sm:text-sm">All Products</span>
-              </label>
               {products.map((product) => (
                 <label
                   key={product.id}
                   className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
                 >
                   <input
-                    type="radio"
-                    checked={selectedProduct === product.id}
+                    type="checkbox"
+                    checked={selectedProducts.includes(product.id)}
                     onChange={() => handleProductChange(product.id)}
-                    className="mr-2 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
                   />
                   <span className="text-xs sm:text-sm">{product.name}</span>
                 </label>
@@ -146,7 +132,7 @@ export function OrderFilters({
             onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
             className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
           >
-            {selectedStatuses.length === 0 ? 'All Statuses' : `${selectedStatuses.length} Selected`}
+            {selectedStatuses.length === 0 ? 'Status' : `Status (${selectedStatuses.length})`}
           </button>
           {openDropdown === 'status' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">

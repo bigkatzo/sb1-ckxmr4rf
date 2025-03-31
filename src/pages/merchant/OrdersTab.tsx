@@ -12,8 +12,8 @@ import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 export function OrdersTab() {
   const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
   const { collections } = useMerchantCollections();
-  const [selectedCollection, setSelectedCollection] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState('');
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<OrderStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -25,8 +25,8 @@ export function OrdersTab() {
       // Skip if no product id
       if (!order?.product_id) return;
       
-      // Only add products if no collection is selected or if they belong to the selected collection
-      if (!selectedCollection || order.collection_id === selectedCollection) {
+      // Only add products if no collections are selected or if they belong to one of the selected collections
+      if (selectedCollections.length === 0 || selectedCollections.includes(order.collection_id)) {
         productsMap.set(order.product_id, {
           id: order.product_id,
           name: order.product_name
@@ -35,13 +35,7 @@ export function OrdersTab() {
     });
 
     return Array.from(productsMap.values());
-  }, [orders, selectedCollection]);
-
-  // Reset product selection when collection changes
-  const handleCollectionChange = (collectionId: string) => {
-    setSelectedCollection(collectionId);
-    setSelectedProduct(''); // Reset product selection
-  };
+  }, [orders, selectedCollections]);
 
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     try {
@@ -52,16 +46,16 @@ export function OrdersTab() {
     }
   };
 
-  // Filter orders based on selected collection, product, and statuses
+  // Filter orders based on selected collections, products, and statuses
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
-      // Filter by collection if selected
-      if (selectedCollection && order.collection_id !== selectedCollection) {
+      // Filter by collections if any are selected
+      if (selectedCollections.length > 0 && !selectedCollections.includes(order.collection_id)) {
         return false;
       }
 
-      // Filter by product if selected
-      if (selectedProduct && order.product_id !== selectedProduct) {
+      // Filter by products if any are selected
+      if (selectedProducts.length > 0 && !selectedProducts.includes(order.product_id)) {
         return false;
       }
 
@@ -97,7 +91,7 @@ export function OrdersTab() {
 
       return true;
     });
-  }, [orders, selectedCollection, selectedProduct, selectedStatuses, searchQuery]);
+  }, [orders, selectedCollections, selectedProducts, selectedStatuses, searchQuery]);
 
   if (loading) {
     return <Loading type={LoadingType.PAGE} text="Loading orders..." />;
@@ -126,12 +120,12 @@ export function OrdersTab() {
         <OrderFilters
           collections={collections}
           products={products}
-          selectedCollection={selectedCollection}
-          selectedProduct={selectedProduct}
+          selectedCollections={selectedCollections}
+          selectedProducts={selectedProducts}
           selectedStatuses={selectedStatuses}
           searchQuery={searchQuery}
-          onCollectionChange={handleCollectionChange}
-          onProductChange={setSelectedProduct}
+          onCollectionChange={setSelectedCollections}
+          onProductChange={setSelectedProducts}
           onStatusChange={setSelectedStatuses}
           onSearchChange={setSearchQuery}
         />
