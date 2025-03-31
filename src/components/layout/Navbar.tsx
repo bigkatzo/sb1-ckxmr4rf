@@ -116,10 +116,10 @@ export default function Navbar() {
           <div className="flex items-center">
             <Link to="/" className="flex items-center relative">
               <Logo />
-              <div className="hidden md:block absolute left-[120px]">
+              <div className="hidden md:block absolute left-[120px] min-w-[120px]">
                 <button
                   onClick={openHowItWorks}
-                  className="text-gray-400 hover:font-bold transition-all hidden md:block"
+                  className="text-gray-400 hover:font-bold transition-all hidden md:block whitespace-nowrap"
                 >
                   [how it works]
                 </button>
