@@ -30,6 +30,8 @@ interface ShippingInfo {
   zip: string;
   contactMethod: string;
   contactValue: string;
+  fullName: string;
+  phoneNumber: string;
 }
 
 const STORAGE_KEY = 'lastShippingInfo';
@@ -134,7 +136,9 @@ export function TokenVerificationModal({
       country: '',
       zip: '',
       contactMethod: 'telegram',
-      contactValue: ''
+      contactValue: '',
+      fullName: '',
+      phoneNumber: ''
     };
   });
 
@@ -222,7 +226,9 @@ export function TokenVerificationModal({
         },
         contact_info: {
           method: shippingInfo.contactMethod,
-          value: shippingInfo.contactValue
+          value: shippingInfo.contactValue,
+          fullName: shippingInfo.fullName,
+          phoneNumber: shippingInfo.phoneNumber
         }
       };
 
@@ -617,6 +623,42 @@ export function TokenVerificationModal({
                           placeholder="Country"
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingInfo.fullName}
+                          onChange={(e) => setShippingInfo(prev => ({
+                            ...prev,
+                            fullName: e.target.value
+                          }))}
+                          required
+                          disabled={submitting}
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="Enter your full name"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
+                          Phone Number
+                        </label>
+                        <input
+                          type="tel"
+                          value={shippingInfo.phoneNumber}
+                          onChange={(e) => setShippingInfo(prev => ({
+                            ...prev,
+                            phoneNumber: e.target.value
+                          }))}
+                          required
+                          disabled={submitting}
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="+1234567890"
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -665,7 +707,8 @@ export function TokenVerificationModal({
                         disabled={submitting || !verificationResult?.isValid || 
                           !shippingInfo.address || !shippingInfo.city || 
                           !shippingInfo.country || !shippingInfo.zip || 
-                          !shippingInfo.contactValue}
+                          !shippingInfo.contactValue || !shippingInfo.fullName ||
+                          !shippingInfo.phoneNumber}
                         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                         <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>

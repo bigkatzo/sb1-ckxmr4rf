@@ -169,7 +169,12 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
       const formatContactInfoCSV = (contact: any): string => {
         if (!contact || !contact.method || !contact.value) return '';
         try {
-          return `${contact.method}: ${contact.value}`;
+          const parts = [
+            `${contact.method}: ${contact.value}`,
+            contact.fullName ? `Name: ${contact.fullName}` : null,
+            contact.phoneNumber ? `Phone: ${contact.phoneNumber}` : null
+          ].filter(Boolean);
+          return parts.join(' | ');
         } catch (err) {
           console.warn('Error formatting contact info:', err);
           return '';
@@ -265,7 +270,7 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
 
   const formatContactInfo = (contactInfo: any) => {
     if (!contactInfo || !contactInfo.method || !contactInfo.value) return null;
-    const { method, value } = contactInfo;
+    const { method, value, fullName, phoneNumber } = contactInfo;
     
     const getContactInfo = () => {
       const cleanValue = typeof value === 'string' && value.startsWith('@') 
@@ -309,19 +314,31 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
     return (
       <div className="flex flex-col gap-1">
         <span className="text-xs text-gray-400">{label}</span>
-        <div className="flex items-center gap-2">
-          {icon}
-          {url ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-purple-400 hover:text-purple-300 transition-colors"
-            >
-              {display}
-            </a>
-          ) : (
-            <span className="text-gray-300">{display}</span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            {icon}
+            {url ? (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                {display}
+              </a>
+            ) : (
+              <span className="text-gray-300">{display}</span>
+            )}
+          </div>
+          {fullName && (
+            <div className="text-sm text-gray-300">
+              <span className="text-gray-400">Name:</span> {fullName}
+            </div>
+          )}
+          {phoneNumber && (
+            <div className="text-sm text-gray-300">
+              <span className="text-gray-400">Phone:</span> {phoneNumber}
+            </div>
           )}
         </div>
       </div>
