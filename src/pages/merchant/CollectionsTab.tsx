@@ -20,7 +20,7 @@ export function CollectionsTab() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMerchant, setIsMerchant] = useState(false);
 
-  const { collections, loading: collectionsLoading, refetch } = useMerchantCollections();
+  const { collections, loading: collectionsLoading, refreshing, refetch } = useMerchantCollections();
 
   useEffect(() => {
     async function checkUserRole() {
@@ -83,7 +83,7 @@ export function CollectionsTab() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold">Collections</h2>
-            <RefreshButton onRefresh={refetch} />
+            <RefreshButton onRefresh={refetch} loading={refreshing} />
           </div>
           {isMerchant && (
             <button

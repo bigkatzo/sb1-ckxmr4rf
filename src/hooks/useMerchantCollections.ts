@@ -27,6 +27,7 @@ export function useMerchantCollections(options: {
 
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(!deferLoad);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [changingAccessId, setChangingAccessId] = useState<string | null>(null);
   
@@ -61,11 +62,16 @@ export function useMerchantCollections(options: {
     }
   }, []);
 
-  const fetchCollections = useCallback(async () => {
+  const fetchCollections = useCallback(async (isRefresh = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
 
     try {
+      if (!isRefresh) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       setError(null);
 
       // Get current user
@@ -136,19 +142,18 @@ export function useMerchantCollections(options: {
 
       if (isMountedRef.current) {
         setCollections(transformedCollections);
-        setLoading(false);
       }
     } catch (err) {
       console.error('Error fetching collections:', err);
       const errorMessage = handleError(err);
       if (isMountedRef.current) {
         setError(errorMessage);
-        toast.error(`Failed to load collections: ${errorMessage}`);
         setCollections([]);
       }
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
+      setRefreshing(false);
     }
   }, [checkAdminStatus]);
 
@@ -194,7 +199,7 @@ export function useMerchantCollections(options: {
     
     // Initial fetch if not deferred
     if (!deferLoad) {
-      fetchCollections();
+      fetchCollections(false);
     }
 
     return () => {
@@ -208,8 +213,9 @@ export function useMerchantCollections(options: {
   return { 
     collections,
     loading,
+    refreshing,
     error,
-    refetch: fetchCollections,
+    refetch: () => fetchCollections(true),
     changingAccessId,
     updateCollectionAccess
   };
