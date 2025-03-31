@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { ProductBasicInfo } from './ProductBasicInfo';
 import { ProductImages } from './ProductImages';
 import { ProductVariants } from './ProductVariants';
@@ -38,6 +38,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
   const [variantPrices, setVariantPrices] = useState<VariantPricing>(initialData?.variantPrices || {});
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visible, setVisible] = useState(initialData?.visible === undefined ? true : initialData.visible);
   const [formData, setFormData] = useState<ProductFormData>({
@@ -55,6 +56,10 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if (loading || uploading) return;
+    
     setLoading(true);
     setError(null);
 
@@ -63,7 +68,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
 
       // Add basic product info
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null && key !== 'visible') {  // Skip visible since we handle it separately
+        if (value !== null && key !== 'visible') {
           data.append(key, value.toString());
         }
       });
@@ -72,6 +77,10 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       data.append('visible', visible.toString());
 
       // Add images to form data
+      if (images.length > 0) {
+        setUploading(true);
+      }
+      
       images.forEach((file, index) => {
         data.append(`image${index}`, file);
       });
@@ -93,6 +102,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       setError(error instanceof Error ? error.message : 'Failed to save product. Please try again.');
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -203,17 +213,21 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                  disabled={loading || uploading}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   form="product-form"
                   type="submit"
-                  disabled={loading || isLoading}
-                  className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white"
+                  disabled={loading || uploading || isLoading}
+                  className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
                 >
-                  {loading ? 'Saving...' : initialData ? 'Save Changes' : 'Create Product'}
+                  {(loading || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {loading ? 'Saving...' : 
+                   uploading ? 'Uploading...' : 
+                   initialData ? 'Save Changes' : 'Create Product'}
                 </button>
               </div>
             </div>
