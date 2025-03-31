@@ -108,9 +108,12 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   const hasVariants = !!product.variants && product.variants.length > 0;
 
   useEffect(() => {
-    // Remove the body scroll lock since we want to allow scrolling
-    // We'll handle touch events specifically in the image container
-    return () => {};
+    // Lock body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+    return () => {
+      // Unlock body scroll when modal is closed
+      document.body.style.overflow = 'unset';
+    };
   }, []);
 
   useEffect(() => {
