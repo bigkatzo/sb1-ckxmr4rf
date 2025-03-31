@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
 import { WalletProvider } from './contexts/WalletContext';
 import { ModalProvider } from './contexts/ModalContext';
+import { HowItWorksProvider, useHowItWorks } from './contexts/HowItWorksContext';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import Navbar from './components/layout/Navbar';
 import { Footer } from './components/layout/Footer';
@@ -18,6 +19,7 @@ import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
 import { supabase } from './lib/supabase';
 import { preloadNFTVerifier } from './utils/nft-verification';
+import { HowItWorksModal } from './components/HowItWorksModal';
 import 'react-toastify/dist/ReactToastify.css';
 import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
@@ -62,6 +64,8 @@ function NotificationsWrapper() {
 }
 
 function AppContent() {
+  const { isOpen: isHowItWorksOpen, close: closeHowItWorks } = useHowItWorks();
+  
   // Initialize cache system
   useEffect(() => {
     // Set up cache preloader
@@ -119,6 +123,9 @@ function AppContent() {
         className="z-[99999] max-w-[90vw] sm:max-w-md"
         style={{ zIndex: 99999 }}
       />
+      {isHowItWorksOpen && (
+        <HowItWorksModal onClose={closeHowItWorks} />
+      )}
     </div>
   );
 }
@@ -147,7 +154,9 @@ export function App() {
         <WalletProvider>
           <CollectionProvider>
             <ModalProvider>
-              <AppContent />
+              <HowItWorksProvider>
+                <AppContent />
+              </HowItWorksProvider>
             </ModalProvider>
           </CollectionProvider>
         </WalletProvider>

@@ -4,7 +4,7 @@ import { Search, Menu, X as XIcon, Package, Twitter, Mail, Send } from 'lucide-r
 import { SearchBar } from '../search/SearchBar';
 import { Logo } from '../ui/Logo';
 import { WalletButton } from '../wallet/WalletButton';
-import { HowItWorksModal } from '../HowItWorksModal';
+import { useHowItWorks } from '../../contexts/HowItWorksContext';
 
 type MenuItem = {
   label: string;
@@ -18,11 +18,11 @@ type MenuItem = {
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
+  const { open: openHowItWorks } = useHowItWorks();
 
   const menuItems: MenuItem[] = [
     { to: '/orders', icon: <Package className="h-3.5 w-3.5" />, label: 'Orders' },
-    { to: '#', label: 'How it Works', onClick: () => setIsHowItWorksOpen(true) },
+    { to: '#', label: 'How it Works', onClick: openHowItWorks },
     { to: '/terms', label: 'Terms of Use' },
     { to: '/privacy', label: 'Privacy Policy' },
     { 
@@ -114,17 +114,17 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
           <div className="flex items-center">
-            <Link to="/" className="flex items-center">
+            <Link to="/" className="flex items-center relative">
               <Logo />
+              <div className="hidden md:block absolute left-[120px]">
+                <button
+                  onClick={openHowItWorks}
+                  className="text-gray-400 hover:font-bold transition-all whitespace-nowrap"
+                >
+                  [how it works]
+                </button>
+              </div>
             </Link>
-            <div className="hidden md:block ml-4">
-              <button
-                onClick={() => setIsHowItWorksOpen(true)}
-                className="text-gray-400 hover:font-bold transition-all whitespace-nowrap"
-              >
-                How it Works
-              </button>
-            </div>
           </div>
 
           {/* Desktop Search */}
@@ -180,11 +180,6 @@ export default function Navbar() {
           <div className="absolute right-4 top-14 w-56 mt-2 bg-gray-900 rounded-lg shadow-lg border border-gray-800 overflow-hidden z-50 hidden md:block">
             <MenuContent />
           </div>
-        )}
-
-        {/* How it Works Modal */}
-        {isHowItWorksOpen && (
-          <HowItWorksModal onClose={() => setIsHowItWorksOpen(false)} />
         )}
       </div>
     </nav>

@@ -7,7 +7,7 @@ interface HowItWorksModalProps {
 export function HowItWorksModal({ onClose }: HowItWorksModalProps) {
   return (
     <div 
-      className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain" 
+      className="fixed inset-0 z-40 overflow-y-auto overscroll-contain" 
       aria-modal="true" 
       role="dialog"
       aria-labelledby="modal-title"
