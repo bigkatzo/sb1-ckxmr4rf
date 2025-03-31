@@ -311,6 +311,11 @@ self.addEventListener('fetch', (event) => {
   
   // Special handling for Supabase storage URLs
   if (isSupabaseStorageUrl(url)) {
+    // Bypass service worker for POST requests to storage
+    if (event.request.method === 'POST') {
+      event.respondWith(fetch(event.request));
+      return;
+    }
     event.respondWith(handleSupabaseStorageRequest(event.request));
     return;
   }

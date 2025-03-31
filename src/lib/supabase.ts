@@ -9,33 +9,69 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   realtime: {
     params: {
-      eventsPerSecond: 2, // Increased from 1 to 2 for better responsiveness
-      heartbeatIntervalMs: 45000, // Increased from 30s to 45s to reduce overhead
+      eventsPerSecond: 2,
+      heartbeatIntervalMs: 45000,
       fastConnectOptions: {
-        ackTimeout: 45000, // Increased from 30s to 45s
-        retries: 5, // Reduced from 10 to 5 for faster fallback
-        timeout: 45000 // Increased from 30s to 45s
+        ackTimeout: 45000,
+        retries: 5,
+        timeout: 45000
       }
     }
   },
   auth: {
     persistSession: true,
-    autoRefreshToken: true
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: localStorage
   },
   global: {
+    headers: {
+      'X-Client-Info': 'storedot-web'
+    },
     // Add global error handling with retry logic
-    fetch: async (url, options) => {
+    fetch: async (url, options = {}) => {
       const maxRetries = 3;
       let lastError;
       
       for (let i = 0; i < maxRetries; i++) {
         try {
-          return await fetch(url, options);
+          // Add retry attempt header for debugging
+          const headers = new Headers(options.headers || {});
+          if (i > 0) {
+            headers.set('X-Retry-Attempt', i.toString());
+          }
+          
+          const response = await fetch(url, {
+            ...options,
+            headers
+          });
+
+          // Handle rate limiting
+          if (response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After');
+            await new Promise(resolve => 
+              setTimeout(resolve, (parseInt(retryAfter || '5') * 1000))
+            );
+            continue;
+          }
+
+          // Handle auth errors
+          if (response.status === 401) {
+            // Try to refresh the token
+            const { error: refreshError } = await supabase.auth.refreshSession();
+            if (!refreshError) {
+              continue; // Retry with new token
+            }
+          }
+
+          return response;
         } catch (error) {
           lastError = error;
           if (i < maxRetries - 1) {
             // Add exponential backoff
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+            await new Promise(resolve => 
+              setTimeout(resolve, Math.pow(2, i) * 1000)
+            );
           }
         }
       }
