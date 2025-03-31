@@ -15,6 +15,7 @@ import { verifyNFTHolding } from '../../utils/nft-verification';
 import { monitorTransaction } from '../../utils/transaction-monitor';
 import type { TransactionStatus } from '../../types/transactions';
 import { OrderSuccessView } from '../OrderSuccessView';
+import { validatePhoneNumber } from '../../lib/validation';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -83,6 +84,7 @@ export function TokenVerificationModal({
     orderNumber: string;
     transactionSignature: string;
   } | null>(null);
+  const [phoneError, setPhoneError] = useState<string>('');
   
   // Update progress steps to reflect new flow
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
@@ -395,6 +397,17 @@ export function TokenVerificationModal({
     }
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setShippingInfo(prev => ({
+      ...prev,
+      phoneNumber: value
+    }));
+    
+    const validation = validatePhoneNumber(value);
+    setPhoneError(validation.error || '');
+  };
+
   // Add progress indicator component
   const ProgressIndicator = () => (
     <div className="space-y-6 p-6 bg-gray-800/50 rounded-lg">
@@ -649,15 +662,17 @@ export function TokenVerificationModal({
                         <input
                           type="tel"
                           value={shippingInfo.phoneNumber}
-                          onChange={(e) => setShippingInfo(prev => ({
-                            ...prev,
-                            phoneNumber: e.target.value
-                          }))}
+                          onChange={handlePhoneChange}
                           required
                           disabled={submitting}
-                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={`w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            phoneError ? 'border-red-500' : ''
+                          }`}
                           placeholder="+1234567890"
                         />
+                        {phoneError && (
+                          <p className="mt-1 text-sm text-red-500">{phoneError}</p>
+                        )}
                       </div>
                     </div>
 
@@ -708,7 +723,7 @@ export function TokenVerificationModal({
                           !shippingInfo.address || !shippingInfo.city || 
                           !shippingInfo.country || !shippingInfo.zip || 
                           !shippingInfo.contactValue || !shippingInfo.fullName ||
-                          !shippingInfo.phoneNumber}
+                          !shippingInfo.phoneNumber || !!phoneError}
                         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                         <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>
