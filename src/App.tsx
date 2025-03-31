@@ -65,7 +65,7 @@ function NotificationsWrapper() {
 }
 
 function AppContent() {
-  const { isOpen: isHowItWorksOpen, close: closeHowItWorks } = useHowItWorks();
+  const { isOpen } = useHowItWorks();
   
   // Initialize cache system
   useEffect(() => {
@@ -99,7 +99,7 @@ function AppContent() {
 
   // Add effect to handle body scroll
   React.useEffect(() => {
-    if (isHowItWorksOpen) {
+    if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -109,7 +109,7 @@ function AppContent() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isHowItWorksOpen]);
+  }, [isOpen]);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
@@ -138,9 +138,7 @@ function AppContent() {
         className="z-[99999] max-w-[90vw] sm:max-w-md"
         style={{ zIndex: 99999 }}
       />
-      {isHowItWorksOpen && (
-        <HowItWorksModal onClose={closeHowItWorks} />
-      )}
+      <HowItWorksModal />
     </div>
   );
 }

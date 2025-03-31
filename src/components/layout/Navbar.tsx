@@ -18,7 +18,7 @@ type MenuItem = {
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const { open: openHowItWorks } = useHowItWorks();
+  const { openHowItWorks } = useHowItWorks();
 
   const menuItems: MenuItem[] = [
     { to: '/orders', icon: <Package className="h-3.5 w-3.5" />, label: 'Orders' },
@@ -119,7 +119,7 @@ export default function Navbar() {
               <div className="hidden md:block absolute left-[120px]">
                 <button
                   onClick={openHowItWorks}
-                  className="text-gray-400 hover:font-bold transition-all whitespace-nowrap"
+                  className="text-gray-400 hover:font-bold transition-all hidden md:block"
                 >
                   [how it works]
                 </button>
