@@ -136,7 +136,7 @@ export function OrdersPage() {
           <span>Telegram</span>
         </a>
         <a
-          href="mailto:store@dotfunenterprises.fun"
+          href="mailto:support@store.fun"
           className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300"
         >
           <Mail className="h-3.5 w-3.5" />

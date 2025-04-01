@@ -1,4 +1,3 @@
-import React from 'react';
 import { LegalPage } from '../../components/legal/LegalPage';
 
 export function TermsPage() {
@@ -45,7 +44,7 @@ export function TermsPage() {
       <section>
         <h2 className="text-xl font-semibold mb-4">5. Contact</h2>
         <p className="text-gray-300">
-          For any questions regarding these Terms, please contact us at terms@merchdotfun.com
+          For any questions regarding these Terms, please contact us at support@store.fun
         </p>
       </section>
     </LegalPage>

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Twitter, Send, Mail } from 'lucide-react';
 import { Logo } from '../ui/Logo';
@@ -16,7 +15,7 @@ export function Footer() {
       icon: <Send className="h-3.5 w-3.5" />
     },
     { 
-      href: 'mailto:store@dotfunenterprises.fun',
+      href: 'mailto:support@store.fun',
       label: 'Email',
       icon: <Mail className="h-3.5 w-3.5" />
     }

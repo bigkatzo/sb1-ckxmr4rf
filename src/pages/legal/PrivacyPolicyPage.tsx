@@ -1,4 +1,3 @@
-import React from 'react';
 import { LegalPage } from '../../components/legal/LegalPage';
 
 export function PrivacyPolicyPage() {
@@ -39,7 +38,7 @@ export function PrivacyPolicyPage() {
       <section>
         <h2 className="text-xl font-semibold mb-4">Contact Us</h2>
         <p className="text-gray-300">
-          If you have any questions about this Privacy Policy, please contact us at privacy@merchdotfun.com
+          If you have any questions about this Privacy Policy, please contact us at support@store.fun
         </p>
       </section>
     </LegalPage>
