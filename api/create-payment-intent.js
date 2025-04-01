@@ -12,27 +12,29 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+export const handler = async (event, context) => {
+  // Handle CORS preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers: {
+        'Access-Control-Allow-Credentials': true,
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
+        'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version',
+      },
+    };
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Method not allowed' }),
+    };
   }
 
   try {
-    const { amount, productName, shippingInfo, productId, variants } = JSON.parse(req.body);
+    const { amount, productName, shippingInfo, productId, variants } = JSON.parse(event.body);
 
     // Create a payment intent
     const paymentIntent = await stripe.paymentIntents.create({
@@ -75,16 +77,30 @@ export default async function handler(req, res) {
       throw updateError;
     }
 
-    return res.status(200).json({
-      clientSecret: paymentIntent.client_secret,
-      orderId: orderId,
-      paymentIntentId: paymentIntent.id,
-    });
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        clientSecret: paymentIntent.client_secret,
+        orderId: orderId,
+        paymentIntentId: paymentIntent.id,
+      }),
+    };
   } catch (err) {
     console.error('Error creating payment intent:', err);
-    return res.status(500).json({ 
-      error: 'Failed to create payment intent',
-      details: err.message
-    });
+    return {
+      statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        error: 'Failed to create payment intent',
+        details: err.message
+      }),
+    };
   }
 } 
