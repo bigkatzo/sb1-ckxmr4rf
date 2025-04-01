@@ -14,7 +14,14 @@ import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from 'react-error-boundary';
 
 // Initialize Stripe (you'll need to replace with your publishable key)
-const STRIPE_KEY = process.env.VITE_STRIPE_PUBLISHABLE_KEY;
+console.log('Environment check:', {
+  envKeys: Object.keys(process.env).filter(key => key.startsWith('VITE_')),
+  stripeKey: process.env.VITE_STRIPE_PUBLISHABLE_KEY,
+  nodeEnv: process.env.NODE_ENV,
+  mode: import.meta.env.MODE,
+});
+
+const STRIPE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 console.log('Stripe initialization:', {
   keyExists: !!STRIPE_KEY,
   keyLength: STRIPE_KEY?.length,
