@@ -23,6 +23,7 @@ export default function Navbar() {
   const menuItems: MenuItem[] = [
     { to: '/orders', icon: <Package className="h-3.5 w-3.5" />, label: 'Orders' },
     { to: '#', label: 'How it Works', onClick: openHowItWorks },
+    { to: '/returns-faq', label: 'Returns & FAQ' },
     { to: '/terms', label: 'Terms of Use' },
     { to: '/privacy', label: 'Privacy Policy' },
     { 

@@ -50,9 +50,15 @@ export function Footer() {
               >
                 Terms of Use
               </Link>
-              <a
-                href="https://t.me/storedotfun"
-                target="_blank"
+              <Link 
+                to="/returns-faq" 
+                className="text-[10px] sm:text-xs hover:text-purple-400 transition-colors"
+              >
+                Returns & FAQ
+              </Link>
+              <a 
+                href="https://t.me/storedotfun" 
+                target="_blank" 
                 rel="noopener noreferrer"
                 className="text-[10px] sm:text-xs hover:text-purple-400 transition-colors"
               >
