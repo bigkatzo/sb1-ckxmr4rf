@@ -13,7 +13,11 @@ import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 
 // Initialize Stripe (you'll need to replace with your publishable key)
-const stripePromise = loadStripe(process.env.VITE_STRIPE_PUBLISHABLE_KEY!);
+console.log('Initializing Stripe with key:', process.env.VITE_STRIPE_PUBLISHABLE_KEY ? 'present' : 'missing');
+const stripePromise = loadStripe(process.env.VITE_STRIPE_PUBLISHABLE_KEY!).catch(err => {
+  console.error('Failed to initialize Stripe:', err);
+  return null;
+});
 
 interface StripePaymentModalProps {
   onClose: () => void;
@@ -150,11 +154,20 @@ export function StripePaymentModal({
     // Don't create a new order if we already have one or are in the process
     if (!solPrice || !shippingInfo?.address || isCreatingOrder || clientSecret) return;
     
-    const amount = solAmount * solPrice; // No need for null check since we verified above
+    const amount = solAmount * solPrice;
 
     async function createPaymentIntent() {
       setIsCreatingOrder(true);
       try {
+        console.log('Creating payment intent with:', {
+          amount,
+          productName,
+          productId,
+          variants,
+          walletAddress,
+          shippingInfo
+        });
+
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
           method: 'POST',
           headers: {
@@ -183,12 +196,26 @@ export function StripePaymentModal({
           }),
         });
 
-        const data = await response.json();
+        const responseText = await response.text();
+        console.log('Response from server:', responseText);
+
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error('Failed to parse response:', e);
+          throw new Error(`Invalid response from server: ${responseText}`);
+        }
 
         if (!response.ok) {
           throw new Error(data.error || 'Failed to create payment intent');
         }
 
+        if (!data.clientSecret) {
+          throw new Error('No client secret received from server');
+        }
+
+        console.log('Setting client secret and order ID');
         setClientSecret(data.clientSecret);
         setOrderId(data.orderId);
       } catch (err) {
@@ -200,7 +227,7 @@ export function StripePaymentModal({
     }
 
     createPaymentIntent();
-  }, [solPrice, shippingInfo?.address, isCreatingOrder, clientSecret]); // Add clientSecret to dependencies
+  }, [solPrice, shippingInfo?.address, isCreatingOrder, clientSecret]);
 
   if (priceLoading) {
     return (
@@ -243,10 +270,34 @@ export function StripePaymentModal({
           {error ? (
             <div className="text-red-500 p-4 text-center">
               {error}
+              <button
+                onClick={() => {
+                  setError(null);
+                  setClientSecret(null);
+                  setOrderId(null);
+                }}
+                className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium"
+              >
+                Try Again
+              </button>
             </div>
           ) : !clientSecret || !orderId ? (
             <div className="flex items-center justify-center p-8">
               <Loading type={LoadingType.ACTION} text="Initializing payment..." />
+            </div>
+          ) : !stripePromise ? (
+            <div className="text-red-500 p-4 text-center">
+              Failed to initialize Stripe. Please check your configuration.
+              <button
+                onClick={() => {
+                  setError(null);
+                  setClientSecret(null);
+                  setOrderId(null);
+                }}
+                className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium block w-full"
+              >
+                Try Again
+              </button>
             </div>
           ) : (
             <Elements 
