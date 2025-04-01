@@ -23,7 +23,7 @@ export function ReturnsAndFAQPage() {
             <li>Early supporters get better prices as the curve starts lower</li>
             <li>Each design has a Minimum Order Quantity (MOQ) that must be reached</li>
             <li>Once MOQ is reached, production begins for all orders</li>
-            <li>If MOQ isn't reached, all payments are automatically refunded</li>
+            <li>If MOQ isn't reached, all payments are refunded 24hrs after the drop ends</li>
           </ul>
         </div>
       )
@@ -56,7 +56,7 @@ export function ReturnsAndFAQPage() {
             <li>Free worldwide shipping is included with every order</li>
             <li>Standard delivery time is 15-20 days*</li>
             <li>All items are made to order with care</li>
-            <li>Tracking information will be provided once available</li>
+            <li>Tracking information will be provided and updated once available</li>
             <li>Orders are processed and shipped as quickly as possible</li>
           </ul>
         </div>
