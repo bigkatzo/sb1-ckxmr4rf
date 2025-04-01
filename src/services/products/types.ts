@@ -14,6 +14,11 @@ export interface ProductData {
   variant_prices: Record<string, number>;
   slug: string;
   visible: boolean;
+  notes?: {
+    shipping?: string;
+    quality?: string;
+    returns?: string;
+  };
 }
 
 export interface ProductUpdateData extends Omit<ProductData, 'id' | 'collection_id'> {

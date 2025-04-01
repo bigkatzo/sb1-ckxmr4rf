@@ -1,5 +1,5 @@
-import type { Collection, Category, Product } from '../../types/index';
-import type { ProductVariant } from '../../types/variants';
+import type { Collection, Category } from '../../types/index';
+import type { Product, ProductVariant } from '../../types/variants';
 import { normalizeStorageUrl } from '../storage';
 
 export function transformCollection(dbCollection: any): Collection {
@@ -52,6 +52,7 @@ export function transformProduct(dbProduct: any): Product {
     variantPrices: dbProduct.variant_prices || {},
     priceModifierBeforeMin: dbProduct.price_modifier_before_min ?? null,
     priceModifierAfterMin: dbProduct.price_modifier_after_min ?? null,
-    visible: dbProduct.visible ?? true
+    visible: dbProduct.visible ?? true,
+    notes: dbProduct.notes || undefined
   };
 }

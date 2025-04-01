@@ -8,6 +8,7 @@ import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { ProductModalSkeleton } from '../ui/Skeletons';
+import { ProductNotes } from './ProductNotes';
 import type { Product as BaseProduct } from '../../types/variants';
 import { preloadImages } from '../../utils/ImagePreloader';
 
@@ -15,6 +16,11 @@ import { preloadImages } from '../../utils/ImagePreloader';
 interface Product extends BaseProduct {
   collectionLaunchDate?: Date;
   collectionSaleEnded?: boolean;
+  notes?: {
+    shipping?: string;
+    quality?: string;
+    returns?: string;
+  };
 }
 
 interface ProductModalProps {
@@ -558,6 +564,8 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                       </div>
                     </div>
                   )}
+
+                  <ProductNotes notes={product.notes} />
                 </div>
               </div>
 

@@ -36,6 +36,11 @@ export interface Product {
   visible: boolean;
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
+  notes?: {
+    shipping?: string;
+    quality?: string;
+    returns?: string;
+  };
 }
 
 export interface ProductVariantFormData {

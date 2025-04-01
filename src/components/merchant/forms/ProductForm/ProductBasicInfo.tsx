@@ -16,6 +16,11 @@ interface ProductBasicInfoProps {
     minimumOrderQuantity?: number;
     priceModifierBeforeMin?: number | null;
     priceModifierAfterMin?: number | null;
+    notes?: {
+      shipping?: string;
+      quality?: string;
+      returns?: string;
+    };
   };
   onChange: (data: Partial<{
     name: string;
@@ -27,6 +32,11 @@ interface ProductBasicInfoProps {
     minimumOrderQuantity: number;
     priceModifierBeforeMin: number | null;
     priceModifierAfterMin: number | null;
+    notes: {
+      shipping?: string;
+      quality?: string;
+      returns?: string;
+    };
   }>) => void;
 }
 
@@ -34,46 +44,58 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const [name, setName] = useState(initialData?.name || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [price, setPrice] = useState(initialData?.price || 0);
-  const [stock, setStock] = useState<string>(initialData?.stock?.toString() || '');
+  const [stock, setStock] = useState<number | null>(initialData?.stock ?? null);
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
-  const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
-  const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<string>(
-    initialData?.priceModifierBeforeMin?.toString() || ''
-  );
-  const [priceModifierAfterMin, setPriceModifierAfterMin] = useState<string>(
-    initialData?.priceModifierAfterMin?.toString() || ''
-  );
   const [sku] = useState(initialData?.sku || '');
+  const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
+  const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<number | null>(initialData?.priceModifierBeforeMin ?? null);
+  const [priceModifierAfterMin, setPriceModifierAfterMin] = useState<number | null>(initialData?.priceModifierAfterMin ?? null);
+  const [notes, setNotes] = useState({
+    shipping: initialData?.notes?.shipping || '',
+    quality: initialData?.notes?.quality || '',
+    returns: initialData?.notes?.returns || ''
+  });
 
   // Update local state when initialData changes
   React.useEffect(() => {
     setName(initialData?.name || '');
     setDescription(initialData?.description || '');
     setPrice(initialData?.price || 0);
-    setStock(initialData?.stock?.toString() || '');
+    setStock(initialData?.stock ?? null);
     setCategoryId(initialData?.categoryId || '');
     setMinimumOrderQuantity(initialData?.minimumOrderQuantity || 50);
-    setPriceModifierBeforeMin(initialData?.priceModifierBeforeMin?.toString() || '');
-    setPriceModifierAfterMin(initialData?.priceModifierAfterMin?.toString() || '');
+    setPriceModifierBeforeMin(initialData?.priceModifierBeforeMin ?? null);
+    setPriceModifierAfterMin(initialData?.priceModifierAfterMin ?? null);
+    setNotes({
+      shipping: initialData?.notes?.shipping || '',
+      quality: initialData?.notes?.quality || '',
+      returns: initialData?.notes?.returns || ''
+    });
   }, [initialData]);
 
   const handleStockChange = (value: string) => {
-    setStock(value);
+    setStock(value === '' ? null : parseInt(value, 10));
     onChange({ stock: value === '' ? null : parseInt(value, 10) });
   };
 
   const handlePriceModifierBeforeMinChange = (value: string) => {
-    setPriceModifierBeforeMin(value);
+    setPriceModifierBeforeMin(value === '' ? null : parseFloat(value));
     onChange({ priceModifierBeforeMin: value === '' ? null : parseFloat(value) });
   };
 
   const handlePriceModifierAfterMinChange = (value: string) => {
-    setPriceModifierAfterMin(value);
+    setPriceModifierAfterMin(value === '' ? null : parseFloat(value));
     onChange({ priceModifierAfterMin: value === '' ? null : parseFloat(value) });
   };
 
+  const handleNotesChange = (field: keyof typeof notes, value: string) => {
+    const newNotes = { ...notes, [field]: value };
+    setNotes(newNotes);
+    onChange({ notes: newNotes });
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <label htmlFor="sku" className="block text-sm font-medium text-white">
           SKU
@@ -180,7 +202,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           min="-1"
           max="1"
           step="0.01"
-          value={priceModifierBeforeMin}
+          value={priceModifierBeforeMin === null ? '' : priceModifierBeforeMin.toString()}
           onChange={(e) => handlePriceModifierBeforeMinChange(e.target.value)}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="e.g. -0.2 for 20% discount"
@@ -200,7 +222,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           name="priceModifierAfterMin"
           min="0"
           step="0.01"
-          value={priceModifierAfterMin}
+          value={priceModifierAfterMin === null ? '' : priceModifierAfterMin.toString()}
           onChange={(e) => handlePriceModifierAfterMinChange(e.target.value)}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="e.g. 2 for up to 200% increase"
@@ -219,7 +241,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           id="stock"
           name="stock"
           min="0"
-          value={stock}
+          value={stock === null ? '' : stock.toString()}
           onChange={(e) => handleStockChange(e.target.value)}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="Leave empty for unlimited stock"
@@ -242,6 +264,55 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           }}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-white mb-2">
+          Product Notes
+        </label>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="shippingNote" className="block text-sm text-gray-400 mb-1">
+              Shipping Note
+            </label>
+            <input
+              type="text"
+              id="shippingNote"
+              value={notes.shipping}
+              onChange={(e) => handleNotesChange('shipping', e.target.value)}
+              placeholder="e.g. Free Shipping Worldwide included (15-20 days*)"
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="qualityNote" className="block text-sm text-gray-400 mb-1">
+              Quality Guarantee Note
+            </label>
+            <input
+              type="text"
+              id="qualityNote"
+              value={notes.quality}
+              onChange={(e) => handleNotesChange('quality', e.target.value)}
+              placeholder="e.g. Quality is guaranteed. If there is a print error or visible quality issue, we'll replace or refund it."
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="returnsNote" className="block text-sm text-gray-400 mb-1">
+              Returns Policy Note
+            </label>
+            <input
+              type="text"
+              id="returnsNote"
+              value={notes.returns}
+              onChange={(e) => handleNotesChange('returns', e.target.value)}
+              placeholder="e.g. Because the products are made to order, we do not accept general returns or sizing-related returns."
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
