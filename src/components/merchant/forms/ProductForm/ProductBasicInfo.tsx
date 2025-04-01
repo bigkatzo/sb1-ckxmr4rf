@@ -52,12 +52,12 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
   const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<number | null>(initialData?.priceModifierBeforeMin ?? null);
   const [priceModifierAfterMin, setPriceModifierAfterMin] = useState<number | null>(initialData?.priceModifierAfterMin ?? null);
-  const [notes, setNotes] = useState({
+  const [notes] = useState({
     shipping: initialData?.notes?.shipping || '',
     quality: initialData?.notes?.quality || '',
     returns: initialData?.notes?.returns || ''
   });
-  const [freeNotes, setFreeNotes] = useState(initialData?.freeNotes || '');
+  const [freeNotes] = useState(initialData?.freeNotes || '');
 
   // Update local state when initialData changes
   React.useEffect(() => {
@@ -69,12 +69,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
     setMinimumOrderQuantity(initialData?.minimumOrderQuantity || 50);
     setPriceModifierBeforeMin(initialData?.priceModifierBeforeMin ?? null);
     setPriceModifierAfterMin(initialData?.priceModifierAfterMin ?? null);
-    setNotes({
-      shipping: initialData?.notes?.shipping || '',
-      quality: initialData?.notes?.quality || '',
-      returns: initialData?.notes?.returns || ''
-    });
-    setFreeNotes(initialData?.freeNotes || '');
   }, [initialData]);
 
   const handleStockChange = (value: string) => {
@@ -90,12 +84,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const handlePriceModifierAfterMinChange = (value: string) => {
     setPriceModifierAfterMin(value === '' ? null : parseFloat(value));
     onChange({ priceModifierAfterMin: value === '' ? null : parseFloat(value) });
-  };
-
-  const handleNotesChange = (field: keyof typeof notes, value: string) => {
-    const newNotes = { ...notes, [field]: value };
-    setNotes(newNotes);
-    onChange({ notes: newNotes });
   };
 
   return (
@@ -121,7 +109,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-white">
-          Name
+          Product Name
         </label>
         <input
           type="text"
@@ -143,12 +131,12 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         <textarea
           id="description"
           name="description"
-          rows={3}
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);
             onChange({ description: e.target.value });
           }}
+          rows={4}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
@@ -268,72 +256,6 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           }}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-white mb-2">
-          Product Notes
-        </label>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="shippingNote" className="block text-sm text-gray-400 mb-1">
-              Shipping Note
-            </label>
-            <input
-              type="text"
-              id="shippingNote"
-              value={notes.shipping}
-              onChange={(e) => handleNotesChange('shipping', e.target.value)}
-              placeholder="e.g. Free Shipping Worldwide included (15-20 days*)"
-              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="qualityNote" className="block text-sm text-gray-400 mb-1">
-              Quality Guarantee Note
-            </label>
-            <input
-              type="text"
-              id="qualityNote"
-              value={notes.quality}
-              onChange={(e) => handleNotesChange('quality', e.target.value)}
-              placeholder="e.g. Quality is guaranteed. If there is a print error or visible quality issue, we'll replace or refund it."
-              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="returnsNote" className="block text-sm text-gray-400 mb-1">
-              Returns Policy Note
-            </label>
-            <input
-              type="text"
-              id="returnsNote"
-              value={notes.returns}
-              onChange={(e) => handleNotesChange('returns', e.target.value)}
-              placeholder="e.g. Because the products are made to order, we do not accept general returns or sizing-related returns."
-              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="freeNotes" className="block text-sm text-gray-400 mb-1">
-              Additional Notes
-            </label>
-            <textarea
-              id="freeNotes"
-              value={freeNotes}
-              onChange={(e) => {
-                setFreeNotes(e.target.value);
-                onChange({ freeNotes: e.target.value });
-              }}
-              placeholder="Add any additional notes or information about the product..."
-              rows={3}
-              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
       </div>
     </div>
   );

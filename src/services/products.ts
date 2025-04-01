@@ -65,77 +65,28 @@ export async function createProduct(collectionId: string, data: FormData) {
 
 export async function updateProduct(id: string, data: FormData) {
   try {
-    if (!id) {
-      throw new Error('Product ID is required for update');
-    }
-
-    const updateData: any = {};
-
-    // Handle current images
-    try {
-      const currentImages = JSON.parse(data.get('currentImages') as string || '[]');
-      const removedImages = JSON.parse(data.get('removedImages') as string || '[]');
-      const images = [...currentImages.filter((img: string) => !removedImages.includes(img))];
-
-      // Handle new images
-      for (let i = 0; data.get(`image${i}`); i++) {
-        const imageFile = data.get(`image${i}`) as File;
-        if (imageFile instanceof File) {
-          const imageUrls = await uploadProductImages([imageFile]);
-          images.push(...imageUrls);
-        }
-      }
-      updateData.images = images;
-    } catch (error) {
-      console.error('Error processing images:', error);
-      throw new Error('Failed to process product images');
-    }
-
-    // Parse variant data
-    try {
-      const variants = JSON.parse(data.get('variants') as string || '[]');
-      const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
-      updateData.variants = variants;
-      updateData.variant_prices = variantPrices;
-    } catch (error) {
-      console.error('Error processing variant data:', error);
-      throw new Error('Failed to process variant data');
-    }
-
-    // Get category ID
+    const price = parseFloat(data.get('price') as string) || 0;
+    const quantity = data.get('stock') ? parseInt(data.get('stock') as string, 10) : null;
     const categoryId = data.get('categoryId');
-    if (!categoryId) {
-      throw new Error('Category is required');
-    }
 
-    // Process other fields
-    const name = data.get('name');
-    if (!name) {
-      throw new Error('Product name is required');
-    }
-
-    const stockValue = data.get('stock') as string;
-    const quantity = stockValue === '' ? null : parseInt(stockValue, 10);
-    const price = parseFloat(data.get('price') as string);
-    if (isNaN(price)) {
-      throw new Error('Invalid price value');
-    }
-
-    updateData.name = name;
-    updateData.description = data.get('description') as string;
-    updateData.price = price;
-    updateData.quantity = quantity;
-    updateData.category_id = categoryId as string;
-    updateData.minimum_order_quantity = parseInt(data.get('minimumOrderQuantity') as string, 10) || 50;
-    updateData.visible = data.get('visible') === 'true';
-    updateData.price_modifier_before_min = data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null;
-    updateData.price_modifier_after_min = data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null;
-    updateData.notes = {
-      shipping: data.get('notes.shipping') as string || undefined,
-      quality: data.get('notes.quality') as string || undefined,
-      returns: data.get('notes.returns') as string || undefined
+    const updateData: any = {
+      name: data.get('name') as string,
+      description: data.get('description') as string,
+      price: price,
+      quantity: quantity,
+      category_id: categoryId as string,
+      minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
+      visible: data.get('visible') === 'true',
+      price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
+      price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
+      // Temporarily ignoring notes and free notes until RLS is fixed
+      // notes: {
+      //   shipping: data.get('notes.shipping') as string || undefined,
+      //   quality: data.get('notes.quality') as string || undefined,
+      //   returns: data.get('notes.returns') as string || undefined
+      // },
+      // free_notes: data.get('freeNotes') as string || undefined,
     };
-    updateData.free_notes = data.get('freeNotes') as string || undefined;
 
     const { error } = await supabase
       .from('products')

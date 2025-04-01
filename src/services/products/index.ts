@@ -52,11 +52,12 @@ export async function createProduct(data: FormData) {
       variant_prices: variantPrices,
       slug: generateSlug(name, true),
       visible: data.get('visible') === 'true',
-      notes: {
-        shipping: data.get('notes.shipping') as string || undefined,
-        quality: data.get('notes.quality') as string || undefined,
-        returns: data.get('notes.returns') as string || undefined
-      }
+      // Temporarily ignoring notes and free notes until RLS is fixed
+      // notes: {
+      //   shipping: data.get('notes.shipping') as string || undefined,
+      //   quality: data.get('notes.quality') as string || undefined,
+      //   returns: data.get('notes.returns') as string || undefined
+      // }
     };
 
     const { data: product, error } = await supabase
