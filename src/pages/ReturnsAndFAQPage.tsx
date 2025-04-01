@@ -12,52 +12,69 @@ export function ReturnsAndFAQPage() {
 
   const tabs: TabContent[] = [
     {
-      title: "Bonding Curve & Dynamic Pricing",
+      title: "Bonding Curve, Dynamic Pricing & MOQ",
       content: (
         <div className="space-y-4">
           <p className="text-gray-300">
-            Our platform uses a bonding curve system for dynamic pricing, which means:
+            Understanding our pricing system:
           </p>
           <ul className="list-disc pl-6 space-y-2 text-gray-300">
-            <li>Prices automatically adjust based on supply and demand</li>
-            <li>As more items are sold, prices increase gradually</li>
-            <li>This creates a fair and transparent pricing mechanism</li>
-            <li>Prices are updated in real-time on the platform</li>
-            <li>All transactions are recorded on the Solana blockchain</li>
+            <li>Prices are determined by a bonding curve - they adjust based on demand and supply</li>
+            <li>Early supporters get better prices as the curve starts lower</li>
+            <li>Each design has a Minimum Order Quantity (MOQ) that must be reached</li>
+            <li>Once MOQ is reached, production begins for all orders</li>
+            <li>If MOQ isn't reached, all payments are automatically refunded</li>
           </ul>
         </div>
       )
     },
     {
-      title: "Token & NFT-gate, and Whitelist Access",
+      title: "Token & NFT-gate and Whitelist",
       content: (
         <div className="space-y-4">
           <p className="text-gray-300">
-            Our platform supports various access control mechanisms:
+            Special access and privileges:
           </p>
           <ul className="list-disc pl-6 space-y-2 text-gray-300">
-            <li>Token-gated access for holders of specific tokens</li>
-            <li>NFT-gated access for holders of specific NFTs</li>
-            <li>Whitelist access for pre-approved addresses</li>
-            <li>Multiple tokens/NFTs can be required for access</li>
-            <li>Real-time verification of token/NFT ownership</li>
+            <li>Some products are exclusively available to specific token or NFT holders</li>
+            <li>Whitelisted addresses get early access to new drops</li>
+            <li>Token holders may receive special pricing or benefits</li>
+            <li>NFT ownership is verified in real-time through the Solana blockchain</li>
+            <li>Join our Discord to learn about whitelist opportunities</li>
           </ul>
         </div>
       )
     },
     {
-      title: "Returns & Cancellations",
+      title: "Shipping Policy",
       content: (
         <div className="space-y-4">
           <p className="text-gray-300">
-            Our returns and cancellation policy:
+            Our shipping information:
           </p>
           <ul className="list-disc pl-6 space-y-2 text-gray-300">
-            <li>Orders can be cancelled before payment is confirmed</li>
-            <li>Once payment is confirmed, returns are handled on a case-by-case basis</li>
-            <li>Digital items are non-refundable once delivered</li>
-            <li>Physical items can be returned within 30 days of receipt</li>
-            <li>Return shipping costs are the responsibility of the buyer unless the item is defective</li>
+            <li>Free worldwide shipping is included with every order</li>
+            <li>Standard delivery time is 15-20 days*</li>
+            <li>All items are made to order with care</li>
+            <li>Tracking information will be provided once available</li>
+            <li>Orders are processed and shipped as quickly as possible</li>
+          </ul>
+        </div>
+      )
+    },
+    {
+      title: "Returns & Refunds",
+      content: (
+        <div className="space-y-4">
+          <p className="text-gray-300">
+            Our returns and refund policy:
+          </p>
+          <ul className="list-disc pl-6 space-y-2 text-gray-300">
+            <li>Due to the made-to-order nature of our products, we do not accept general returns</li>
+            <li>Size-related returns are not accepted - please check measurements carefully before ordering</li>
+            <li>If there is a print error or visible quality issue, we'll replace the item or provide a refund</li>
+            <li>Quality issues must be reported with photos for verification</li>
+            <li>Replacement or refund will be processed once quality issues are confirmed</li>
           </ul>
         </div>
       )
@@ -70,28 +87,11 @@ export function ReturnsAndFAQPage() {
             We stand behind the quality of our products:
           </p>
           <ul className="list-disc pl-6 space-y-2 text-gray-300">
-            <li>All products are verified before listing</li>
-            <li>Physical items are inspected before shipping</li>
-            <li>Digital items are verified for authenticity</li>
-            <li>Defective items are replaced at no cost</li>
-            <li>Quality issues are resolved within 48 hours</li>
-          </ul>
-        </div>
-      )
-    },
-    {
-      title: "Shipping",
-      content: (
-        <div className="space-y-4">
-          <p className="text-gray-300">
-            Our shipping policies:
-          </p>
-          <ul className="list-disc pl-6 space-y-2 text-gray-300">
-            <li>Physical items are shipped within 2-3 business days</li>
-            <li>Digital items are delivered immediately after payment confirmation</li>
-            <li>Shipping costs are calculated at checkout</li>
-            <li>Tracking information is provided for physical items</li>
-            <li>International shipping is available for most items</li>
+            <li>All products are carefully inspected before shipping</li>
+            <li>Quality is guaranteed for all items</li>
+            <li>Any print errors or quality issues will be addressed promptly</li>
+            <li>Replacement items will be shipped free of charge if quality issues are confirmed</li>
+            <li>Our customer service team is here to help with any quality concerns</li>
           </ul>
         </div>
       )
@@ -104,7 +104,7 @@ export function ReturnsAndFAQPage() {
             Our payment system:
           </p>
           <ul className="list-disc pl-6 space-y-2 text-gray-300">
-            <li>All payments are processed through the Solana blockchain</li>
+            <li>All payments are processed securely through the Solana blockchain</li>
             <li>Prices are denominated in SOL</li>
             <li>Transaction fees are the responsibility of the buyer</li>
             <li>Payments are confirmed in real-time</li>
