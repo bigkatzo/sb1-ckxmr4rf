@@ -67,21 +67,24 @@ function StripeCheckoutForm({
         throw new Error(errorData.error || 'Failed to create payment intent');
       }
 
-      const { clientSecret, orderId } = await response.json();
+      const { clientSecret, orderId, paymentIntentId } = await response.json();
 
       const result = await stripe.confirmPayment({
         elements,
         clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/payment-confirmation`,
-        },
+        redirect: 'if_required',
       });
 
       if (result.error) {
         setError(result.error.message || 'Payment failed');
+      } else if (result.paymentIntent?.status === 'succeeded') {
+        // Payment successful without redirect
+        onSuccess(orderId, paymentIntentId);
       } else {
-        // Payment successful
-        onSuccess(orderId, clientSecret.split('_secret_')[0]);
+        // Payment requires additional actions (like 3D Secure)
+        // The webhook will handle the success case
+        // We'll show a loading state here
+        setProcessing(true);
       }
     } catch (err) {
       setError('Payment failed. Please try again.');

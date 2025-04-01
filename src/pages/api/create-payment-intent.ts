@@ -61,6 +61,7 @@ export default async function handler(
     return res.status(200).json({
       clientSecret: paymentIntent.client_secret,
       orderId: orderId,
+      paymentIntentId: paymentIntent.id,
     });
   } catch (err) {
     console.error('Error creating payment intent:', err);
