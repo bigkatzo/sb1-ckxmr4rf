@@ -80,7 +80,7 @@ exports.handler = async (event, context) => {
       p_product_id: productId,
       p_variants: variants || [],
       p_shipping_info: parsedShippingInfo,
-      p_wallet_address: walletAddress, // Use the connected wallet address
+      p_wallet_address: walletAddress || 'stripe' // Use connected wallet or fallback to 'stripe'
     });
 
     if (orderError) {
