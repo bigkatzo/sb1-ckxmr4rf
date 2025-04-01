@@ -13,11 +13,16 @@ import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 
 // Initialize Stripe (you'll need to replace with your publishable key)
-console.log('Initializing Stripe with key:', process.env.VITE_STRIPE_PUBLISHABLE_KEY ? 'present' : 'missing');
-const stripePromise = loadStripe(process.env.VITE_STRIPE_PUBLISHABLE_KEY!).catch(err => {
-  console.error('Failed to initialize Stripe:', err);
-  return null;
-});
+const STRIPE_KEY = process.env.VITE_STRIPE_PUBLISHABLE_KEY;
+console.log('Stripe key status:', STRIPE_KEY ? 'present' : 'missing');
+
+// Only initialize Stripe if we have a key
+const stripePromise = STRIPE_KEY 
+  ? loadStripe(STRIPE_KEY).catch(err => {
+      console.error('Failed to initialize Stripe:', err);
+      return null;
+    })
+  : Promise.resolve(null);
 
 interface StripePaymentModalProps {
   onClose: () => void;
@@ -285,18 +290,25 @@ export function StripePaymentModal({
             <div className="flex items-center justify-center p-8">
               <Loading type={LoadingType.ACTION} text="Initializing payment..." />
             </div>
+          ) : !STRIPE_KEY ? (
+            <div className="text-red-500 p-4 text-center">
+              <div className="mb-2">Stripe configuration is missing. Please check your environment variables.</div>
+              <div className="text-sm text-gray-400">Contact support if this issue persists.</div>
+            </div>
           ) : !stripePromise ? (
             <div className="text-red-500 p-4 text-center">
-              Failed to initialize Stripe. Please check your configuration.
+              <div className="mb-2">Failed to initialize payment provider.</div>
+              <div className="text-sm text-gray-400 mb-4">Please try refreshing the page.</div>
               <button
                 onClick={() => {
                   setError(null);
                   setClientSecret(null);
                   setOrderId(null);
+                  window.location.reload();
                 }}
                 className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium block w-full"
               >
-                Try Again
+                Refresh Page
               </button>
             </div>
           ) : (
