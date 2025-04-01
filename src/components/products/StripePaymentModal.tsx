@@ -9,6 +9,7 @@ import {
 } from '@stripe/react-stripe-js';
 import { useSolanaPrice } from '../../utils/price-conversion';
 import { Loading, LoadingType } from '../ui/LoadingStates';
+import { API_ENDPOINTS } from '../../config/api';
 
 // Initialize Stripe (you'll need to replace with your publishable key)
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -146,7 +147,7 @@ export function StripePaymentModal({
       try {
         if (!solPrice) return;
 
-        const response = await fetch('/api/create-payment-intent', {
+        const response = await fetch(API_ENDPOINTS.createPaymentIntent, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
