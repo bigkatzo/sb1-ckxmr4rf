@@ -65,10 +65,10 @@ export function usePayment() {
       console.error('Payment error:', error);
       
       let errorMessage = 'Payment failed';
-      if (error instanceof Error) {
+      if (error instanceof Error && error.message) {
         if (error.message.includes('Insufficient balance')) {
           const match = error.message.match(/Required: ([\d.]+) SOL/);
-          const requiredAmount = match ? match[1] : null;
+          const requiredAmount = match?.[1];
           errorMessage = requiredAmount 
             ? `Insufficient balance. Required: ${requiredAmount} SOL (including fees)`
             : 'Insufficient balance in your wallet';
@@ -84,7 +84,7 @@ export function usePayment() {
         processing: false,
         success: false,
         error: errorMessage,
-        signature: error instanceof Error && error.message.includes('signature:') 
+        signature: error instanceof Error && error.message?.includes('signature:') 
           ? error.message.split('signature:')[1].trim()
           : undefined
       });

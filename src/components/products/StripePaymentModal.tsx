@@ -25,12 +25,11 @@ interface StripePaymentModalProps {
 
 function StripeCheckoutForm({ 
   solAmount, 
-  onSuccess, 
-  productName,
-  productId,
-  shippingInfo,
-  variants 
-}: Omit<StripePaymentModalProps, 'onClose'>) {
+  onSuccess
+}: {
+  solAmount: number;
+  onSuccess: (paymentIntentId: string) => void;
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = React.useState<string | null>(null);
@@ -47,39 +46,15 @@ function StripeCheckoutForm({
     setProcessing(true);
 
     try {
-      // Create payment intent on your backend
-      const response = await fetch('/api/create-payment-intent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: solAmount * solPrice, // Convert SOL to USD
-          productName,
-          productId,
-          variants,
-          shippingInfo,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create payment intent');
-      }
-
-      const { clientSecret, orderId, paymentIntentId } = await response.json();
-
       const result = await stripe.confirmPayment({
         elements,
-        clientSecret,
         redirect: 'if_required',
       });
 
       if (result.error) {
         setError(result.error.message || 'Payment failed');
       } else if (result.paymentIntent?.status === 'succeeded') {
-        // Payment successful without redirect
-        onSuccess(orderId, paymentIntentId);
+        onSuccess(result.paymentIntent.id);
       } else {
         // Payment requires additional actions (like 3D Secure)
         // The webhook will handle the success case
@@ -161,6 +136,71 @@ export function StripePaymentModal({
   shippingInfo,
   variants,
 }: StripePaymentModalProps) {
+  const [clientSecret, setClientSecret] = React.useState<string | null>(null);
+  const [orderId, setOrderId] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
+
+  React.useEffect(() => {
+    async function createPaymentIntent() {
+      try {
+        if (!solPrice) return;
+
+        const response = await fetch('/api/create-payment-intent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: solAmount * solPrice,
+            productName,
+            productId,
+            variants,
+            shippingInfo,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create payment intent');
+        }
+
+        const { clientSecret, orderId: responseOrderId } = await response.json();
+        setClientSecret(clientSecret);
+        setOrderId(responseOrderId);
+      } catch (err) {
+        console.error('Error creating payment intent:', err);
+        setError(err instanceof Error ? err.message : 'Failed to initialize payment');
+      }
+    }
+
+    createPaymentIntent();
+  }, [solAmount, solPrice, productName, productId, variants, shippingInfo]);
+
+  if (priceLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
+        <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
+          <div className="flex items-center justify-center p-8">
+            <Loading type={LoadingType.ACTION} text="Loading price data..." />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (priceError || !solPrice) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
+        <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
+          <div className="text-red-500 p-4 text-center">
+            Failed to load price data. Please try again later.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
       <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
@@ -175,16 +215,37 @@ export function StripePaymentModal({
         </div>
 
         <div className="p-4 sm:p-6">
-          <Elements stripe={stripePromise}>
-            <StripeCheckoutForm
-              solAmount={solAmount}
-              onSuccess={onSuccess}
-              productName={productName}
-              productId={productId}
-              shippingInfo={shippingInfo}
-              variants={variants}
-            />
-          </Elements>
+          {error ? (
+            <div className="text-red-500 p-4 text-center">
+              {error}
+            </div>
+          ) : !clientSecret || !orderId ? (
+            <div className="flex items-center justify-center p-8">
+              <Loading type={LoadingType.ACTION} text="Initializing payment..." />
+            </div>
+          ) : (
+            <Elements 
+              stripe={stripePromise} 
+              options={{
+                clientSecret,
+                appearance: {
+                  theme: 'night',
+                  variables: {
+                    colorPrimary: '#9333ea',
+                    colorBackground: '#111827',
+                    colorText: '#ffffff',
+                    colorDanger: '#ef4444',
+                    fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+                  },
+                },
+              }}
+            >
+              <StripeCheckoutForm
+                solAmount={solAmount}
+                onSuccess={(paymentIntentId) => onSuccess(orderId, paymentIntentId)}
+              />
+            </Elements>
+          )}
         </div>
       </div>
     </div>
