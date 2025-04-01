@@ -69,23 +69,22 @@ export function usePayment() {
 
       if (error && typeof error === 'object') {
         if (error instanceof Error) {
-          const errorMsg = error.message;
-          if (errorMsg) {
-            if (errorMsg.includes('Insufficient balance')) {
-              const match = errorMsg.match(/Required: ([\d.]+) SOL/);
-              const requiredAmount = match?.[1];
-              errorMessage = requiredAmount 
-                ? `Insufficient balance. Required: ${requiredAmount} SOL (including fees)`
-                : 'Insufficient balance in your wallet';
-            } else if (errorMsg.includes('User rejected')) {
-              errorMessage = 'Transaction was rejected';
-            } else {
-              errorMessage = errorMsg;
-            }
+          const errorMsg = error.message || '';
+          
+          if (errorMsg.includes('Insufficient balance')) {
+            const match = errorMsg.match(/Required: ([\d.]+) SOL/);
+            const requiredAmount = match?.[1];
+            errorMessage = requiredAmount 
+              ? `Insufficient balance. Required: ${requiredAmount} SOL (including fees)`
+              : 'Insufficient balance in your wallet';
+          } else if (errorMsg.includes('User rejected')) {
+            errorMessage = 'Transaction was rejected';
+          } else {
+            errorMessage = errorMsg || 'Payment failed';
           }
           
           // Check for signature in error message
-          if (errorMsg?.includes('signature:')) {
+          if (errorMsg.includes('signature:')) {
             signature = errorMsg.split('signature:')[1].trim();
           }
         } else if ('message' in error && typeof error.message === 'string') {
