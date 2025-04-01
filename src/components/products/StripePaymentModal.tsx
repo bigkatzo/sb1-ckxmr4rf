@@ -12,7 +12,7 @@ import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 
 // Initialize Stripe (you'll need to replace with your publishable key)
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+const stripePromise = loadStripe(process.env.VITE_STRIPE_PUBLISHABLE_KEY!);
 
 interface StripePaymentModalProps {
   onClose: () => void;
