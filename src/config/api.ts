@@ -1,8 +1,8 @@
 // API base URL
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://store.fun';
 
-// API endpoints
+// API endpoints - using relative paths for same-origin requests
 export const API_ENDPOINTS = {
-  createPaymentIntent: `${API_BASE_URL}/api/create-payment-intent`,
-  stripeWebhook: `${API_BASE_URL}/api/stripe-webhook`,
+  createPaymentIntent: '/api/create-payment-intent',
+  stripeWebhook: '/api/stripe-webhook',
 } as const; 
