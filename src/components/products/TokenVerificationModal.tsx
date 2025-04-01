@@ -146,6 +146,11 @@ export function TokenVerificationModal({
     };
   });
 
+  // Save shipping info to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfo));
+  }, [shippingInfo]);
+
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
