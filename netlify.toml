@@ -1,9 +1,38 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  functions = "api"
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Redirects
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = true
+  priority = 100
+
+[[redirects]]
+  from = "/service-worker.js"
+  to = "/service-worker.js"
+  status = 200
+  force = true
+  priority = 90
+
+[[redirects]]
+  from = "/assets/*"
+  to = "/assets/:splat"
+  status = 200
+  priority = 80
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true
+  priority = 50
 
 # Service Worker - ensure correct MIME type and prevent transformations
 [[headers]]
@@ -166,23 +195,4 @@
   for = "/api/version"
   [headers.values]
     Cache-Control = "no-store, no-cache, must-revalidate"
-    Pragma = "no-cache"
-
-# Redirects
-[[redirects]]
-  from = "/service-worker.js"
-  to = "/service-worker.js"
-  status = 200
-  force = true
-  priority = 100
-
-[[redirects]]
-  from = "/assets/*"
-  to = "/assets/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  force = true 
+    Pragma = "no-cache" 
