@@ -55,18 +55,18 @@ exports.handler = async (event, context) => {
 
     // Handle the event
     switch (stripeEvent.type) {
-      case 'payment_intent.processing': {
+      case 'payment_intent.created': {
         const paymentIntent = stripeEvent.data.object;
-        console.log('Processing payment:', paymentIntent.id);
+        console.log('Payment intent created:', paymentIntent.id);
         
-        // Update order status to processing
+        // Update order status to pending_payment
         const { error } = await supabase.rpc('update_stripe_payment_status', {
           p_payment_id: paymentIntent.id,
-          p_status: 'processing'
+          p_status: 'pending_payment'
         });
 
         if (error) {
-          console.error('Error updating processing status:', error);
+          console.error('Error updating to pending_payment status:', error);
           throw error;
         }
         break;
@@ -105,24 +105,8 @@ exports.handler = async (event, context) => {
         break;
       }
 
-      case 'payment_intent.payment_failed': {
-        const paymentIntent = stripeEvent.data.object;
-        console.log('Payment failed:', paymentIntent.id);
-        
-        // Update order status to cancelled
-        const { error } = await supabase.rpc('update_stripe_payment_status', {
-          p_payment_id: paymentIntent.id,
-          p_status: 'cancelled'
-        });
-
-        if (error) {
-          console.error('Error updating failed status:', error);
-          throw error;
-        }
-        break;
-      }
-
       default:
+        // Log any other events but don't change order status
         console.log('Unhandled event type:', stripeEvent.type);
     }
 

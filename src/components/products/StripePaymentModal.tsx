@@ -113,7 +113,7 @@ function StripeCheckoutForm({
 
       <button
         type="submit"
-        disabled={!stripe || processing}
+        disabled={processing}
         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
       >
         {processing ? (
