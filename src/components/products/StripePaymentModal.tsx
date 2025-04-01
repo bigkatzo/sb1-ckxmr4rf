@@ -13,18 +13,38 @@ import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from 'react-error-boundary';
 
-// Initialize Stripe (you'll need to replace with your publishable key)
-console.log('Environment check:', {
-  envKeys: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')),
-  stripeKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY,
-  mode: import.meta.env.MODE
-});
+// Initialize Stripe with proper error handling
+const stripePromise = (() => {
+  const key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+  if (!key) {
+    console.error('Stripe publishable key is missing from environment variables');
+    return null;
+  }
+  return loadStripe(key).catch(err => {
+    console.error('Failed to initialize Stripe:', err);
+    return null;
+  });
+})();
 
-const STRIPE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-console.log('Loaded Stripe key:', STRIPE_KEY);
+// Type definitions for better type safety
+interface ShippingAddress {
+  address: string;
+  city: string;
+  country: string;
+  zip: string;
+}
 
-// Initialize Stripe directly
-const stripePromise = STRIPE_KEY ? loadStripe(STRIPE_KEY) : null;
+interface ContactInfo {
+  method: string;
+  value: string;
+  fullName: string;
+  phoneNumber?: string;
+}
+
+interface ShippingInfo {
+  shipping_address: ShippingAddress;
+  contact_info: ContactInfo;
+}
 
 interface StripePaymentModalProps {
   onClose: () => void;
@@ -32,9 +52,14 @@ interface StripePaymentModalProps {
   solAmount: number;
   productName: string;
   productId: string;
-  shippingInfo: any; // Replace with your shipping info type
-  variants?: any[];
+  shippingInfo: ShippingInfo;
+  variants?: Array<{
+    name: string;
+    value: string;
+  }>;
 }
+
+type PaymentStatus = 'idle' | 'processing' | 'requires_action' | 'succeeded' | 'error';
 
 function StripeCheckoutForm({ 
   solAmount, 
@@ -46,66 +71,59 @@ function StripeCheckoutForm({
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = React.useState<string | null>(null);
-  const [processing, setProcessing] = React.useState(false);
+  const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>('idle');
   const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
+  const submitButtonRef = React.useRef<HTMLButtonElement>(null);
 
-  // Log stripe and elements availability
-  React.useEffect(() => {
-    console.log('Stripe form state:', {
-      stripeAvailable: !!stripe,
-      elementsAvailable: !!elements
-    });
-  }, [stripe, elements]);
-
-  const handleSubmit = async (event: React.FormEvent) => {
+  // Debounced submit handler to prevent multiple rapid clicks
+  const handleSubmit = React.useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
-    console.log('Submit clicked, checking prerequisites:', {
-      stripe: !!stripe,
-      elements: !!elements,
-      solPrice: !!solPrice
-    });
 
-    if (!stripe || !elements || !solPrice) {
-      console.log('Missing required objects for payment');
+    if (!stripe || !elements || !solPrice || paymentStatus === 'processing') {
       return;
     }
 
-    setProcessing(true);
-
+    setPaymentStatus('processing');
     try {
-      console.log('Confirming payment...');
       const result = await stripe.confirmPayment({
         elements,
         redirect: 'if_required',
       });
 
       if (result.error) {
-        console.error('Payment error:', result.error);
         setError(result.error.message || 'Payment failed');
-      } else if (result.paymentIntent?.status === 'succeeded') {
-        console.log('Payment succeeded:', result.paymentIntent.id);
-        onSuccess(result.paymentIntent.id);
-      } else {
-        console.log('Payment requires additional actions:', result.paymentIntent?.status);
-        // Payment requires additional actions (like 3D Secure)
-        // The webhook will handle the success case
-        // We'll show a loading state here
-        setProcessing(true);
+        setPaymentStatus('error');
+      } else if (result.paymentIntent) {
+        switch (result.paymentIntent.status) {
+          case 'succeeded':
+            setPaymentStatus('succeeded');
+            onSuccess(result.paymentIntent.id);
+            break;
+          case 'processing':
+            setPaymentStatus('processing');
+            break;
+          case 'requires_payment_method':
+            setError('Your payment was not successful, please try again.');
+            setPaymentStatus('error');
+            break;
+          case 'requires_action':
+            setPaymentStatus('requires_action');
+            break;
+          default:
+            setError('Something went wrong.');
+            setPaymentStatus('error');
+            break;
+        }
       }
     } catch (err) {
-      console.error('Payment submission error:', err);
-      setError('Payment failed. Please try again.');
-    } finally {
-      setProcessing(false);
+      console.error('Payment error:', err);
+      setError('An unexpected error occurred. Please try again.');
+      setPaymentStatus('error');
     }
-  };
+  }, [stripe, elements, solPrice, paymentStatus, onSuccess]);
 
   if (priceLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loading type={LoadingType.ACTION} text="Loading price data..." />
-      </div>
-    );
+    return <Loading type={LoadingType.ACTION} text="Loading price data..." />;
   }
 
   if (priceError || !solPrice) {
@@ -117,6 +135,7 @@ function StripeCheckoutForm({
   }
 
   const usdAmount = (solAmount * solPrice).toFixed(2);
+  const isProcessing = paymentStatus === 'processing' || paymentStatus === 'requires_action';
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -141,19 +160,37 @@ function StripeCheckoutForm({
       )}
 
       <button
+        ref={submitButtonRef}
         type="submit"
-        disabled={processing}
+        disabled={isProcessing}
         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
       >
-        {processing ? (
+        {isProcessing ? (
           <>
             <Loading type={LoadingType.ACTION} />
-            <span>Processing...</span>
+            <span>
+              {paymentStatus === 'requires_action' 
+                ? 'Waiting for confirmation...' 
+                : 'Processing payment...'}
+            </span>
           </>
         ) : (
           <span>Pay ${usdAmount}</span>
         )}
       </button>
+
+      {paymentStatus === 'requires_action' && (
+        <div className="text-sm text-gray-400 text-center mt-2">
+          Please complete the additional authentication steps in the popup window.
+          <button
+            type="button"
+            onClick={() => setPaymentStatus('idle')}
+            className="block w-full mt-2 text-purple-400 hover:text-purple-300"
+          >
+            Cancel Payment
+          </button>
+        </div>
+      )}
     </form>
   );
 }
@@ -174,25 +211,15 @@ export function StripePaymentModal({
   const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
   const { walletAddress } = useWallet();
 
-  // Create payment intent when the modal opens and shipping info is available
+  // Create payment intent with proper dependency tracking
   React.useEffect(() => {
-    // Don't create a new order if we already have one or are in the process
-    if (!solPrice || !shippingInfo?.address || isCreatingOrder || clientSecret) return;
+    if (!solPrice || !shippingInfo?.shipping_address || isCreatingOrder || clientSecret) return;
     
     const amount = solAmount * solPrice;
 
     async function createPaymentIntent() {
       setIsCreatingOrder(true);
       try {
-        console.log('Creating payment intent with:', {
-          amount,
-          productName,
-          productId,
-          variants,
-          walletAddress,
-          shippingInfo
-        });
-
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
           method: 'POST',
           headers: {
@@ -204,32 +231,21 @@ export function StripePaymentModal({
             productId,
             variants,
             walletAddress,
-            shippingInfo: {
-              shipping_address: {
-                address: shippingInfo.address,
-                city: shippingInfo.city,
-                country: shippingInfo.country,
-                zip: shippingInfo.zip
-              },
-              contact_info: {
-                method: shippingInfo.contactMethod,
-                value: shippingInfo.contactValue,
-                fullName: shippingInfo.fullName,
-                phoneNumber: shippingInfo.phoneNumber
-              }
-            },
+            shippingInfo,
           }),
         });
 
-        const responseText = await response.text();
-        console.log('Response from server:', responseText);
-
         let data;
         try {
-          data = JSON.parse(responseText);
-        } catch (e) {
-          console.error('Failed to parse response:', e);
-          throw new Error(`Invalid response from server: ${responseText}`);
+          const responseText = await response.text();
+          try {
+            data = JSON.parse(responseText);
+          } catch (e) {
+            throw new Error(`Invalid JSON response from server: ${responseText}`);
+          }
+        } catch (err) {
+          console.error('Network or parsing error:', err);
+          throw new Error('Failed to connect to payment server');
         }
 
         if (!response.ok) {
@@ -240,7 +256,6 @@ export function StripePaymentModal({
           throw new Error('No client secret received from server');
         }
 
-        console.log('Setting client secret and order ID');
         setClientSecret(data.clientSecret);
         setOrderId(data.orderId);
       } catch (err) {
@@ -252,31 +267,17 @@ export function StripePaymentModal({
     }
 
     createPaymentIntent();
-  }, [solPrice, shippingInfo?.address, isCreatingOrder, clientSecret]);
-
-  if (priceLoading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
-        <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
-          <div className="flex items-center justify-center p-8">
-            <Loading type={LoadingType.ACTION} text="Loading price data..." />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (priceError || !solPrice) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
-        <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
-          <div className="text-red-500 p-4 text-center">
-            Failed to load price data. Please try again later.
-          </div>
-        </div>
-      </div>
-    );
-  }
+  }, [
+    solPrice, 
+    shippingInfo?.shipping_address, 
+    isCreatingOrder, 
+    clientSecret,
+    solAmount,
+    productName,
+    productId,
+    variants,
+    walletAddress
+  ]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
@@ -310,22 +311,12 @@ export function StripePaymentModal({
             <div className="flex items-center justify-center p-8">
               <Loading type={LoadingType.ACTION} text="Initializing payment..." />
             </div>
-          ) : !STRIPE_KEY ? (
-            <div className="text-red-500 p-4 text-center">
-              <div className="mb-2">Stripe configuration is missing. Please check your environment variables.</div>
-              <div className="text-sm text-gray-400">Contact support if this issue persists.</div>
-            </div>
           ) : !stripePromise ? (
             <div className="text-red-500 p-4 text-center">
               <div className="mb-2">Failed to initialize payment provider.</div>
               <div className="text-sm text-gray-400 mb-4">Please try refreshing the page.</div>
               <button
-                onClick={() => {
-                  setError(null);
-                  setClientSecret(null);
-                  setOrderId(null);
-                  window.location.reload();
-                }}
+                onClick={() => window.location.reload()}
                 className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium block w-full"
               >
                 Refresh Page
