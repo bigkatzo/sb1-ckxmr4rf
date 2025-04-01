@@ -539,7 +539,20 @@ export function TokenVerificationModal({
           solAmount={finalPrice}
           productName={product.name}
           productId={product.id}
-          shippingInfo={shippingInfo}
+          shippingInfo={{
+            shipping_address: {
+              address: shippingInfo.address,
+              city: shippingInfo.city,
+              country: shippingInfo.country,
+              zip: shippingInfo.zip,
+            },
+            contact_info: {
+              method: shippingInfo.contactMethod,
+              value: shippingInfo.contactValue,
+              fullName: shippingInfo.fullName,
+              phoneNumber: shippingInfo.phoneNumber,
+            }
+          }}
           variants={Object.entries(selectedOptions).map(([variantId, value]) => {
             // Find the variant name from product.variants
             const variant = product.variants?.find(v => v.id === variantId);

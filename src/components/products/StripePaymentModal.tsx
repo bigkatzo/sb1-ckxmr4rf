@@ -208,7 +208,7 @@ export function StripePaymentModal({
   const [orderId, setOrderId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isCreatingOrder, setIsCreatingOrder] = React.useState(false);
-  const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
+  const { price: solPrice } = useSolanaPrice();
   const { walletAddress } = useWallet();
 
   // Create payment intent with proper dependency tracking
@@ -220,10 +220,18 @@ export function StripePaymentModal({
     async function createPaymentIntent() {
       setIsCreatingOrder(true);
       try {
+        console.log('Creating payment intent:', {
+          endpoint: `${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`,
+          amount,
+          productName,
+          productId
+        });
+
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
           body: JSON.stringify({
             amount,
@@ -235,24 +243,42 @@ export function StripePaymentModal({
           }),
         });
 
+        console.log('Payment intent response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+
         let data;
+        let responseText;
         try {
-          const responseText = await response.text();
+          responseText = await response.text();
+          console.log('Response text:', responseText);
+          
           try {
             data = JSON.parse(responseText);
           } catch (e) {
+            console.error('JSON parse error:', e);
             throw new Error(`Invalid JSON response from server: ${responseText}`);
           }
         } catch (err) {
           console.error('Network or parsing error:', err);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
+          }
           throw new Error('Failed to connect to payment server');
         }
 
         if (!response.ok) {
-          throw new Error(data.error || 'Failed to create payment intent');
+          console.error('Response not OK:', {
+            status: response.status,
+            data
+          });
+          throw new Error(data.error || `Failed to create payment intent (${response.status})`);
         }
 
         if (!data.clientSecret) {
+          console.error('Missing client secret in response:', data);
           throw new Error('No client secret received from server');
         }
 
