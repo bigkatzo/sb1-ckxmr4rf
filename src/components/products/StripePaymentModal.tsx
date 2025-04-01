@@ -10,6 +10,7 @@ import {
 import { useSolanaPrice } from '../../utils/price-conversion';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
+import { useWallet } from '../../contexts/WalletContext';
 
 // Initialize Stripe (you'll need to replace with your publishable key)
 const stripePromise = loadStripe(process.env.VITE_STRIPE_PUBLISHABLE_KEY!);
@@ -141,6 +142,7 @@ export function StripePaymentModal({
   const [orderId, setOrderId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
+  const { walletAddress } = useWallet();
 
   React.useEffect(() => {
     async function createPaymentIntent() {
@@ -157,6 +159,7 @@ export function StripePaymentModal({
             productName,
             productId,
             variants,
+            walletAddress,
             shippingInfo: {
               shipping_address: {
                 address: shippingInfo.address,
@@ -200,7 +203,7 @@ export function StripePaymentModal({
     }
 
     createPaymentIntent();
-  }, [solAmount, solPrice, productName, productId, variants, shippingInfo]);
+  }, [solAmount, solPrice, productName, productId, variants, shippingInfo, walletAddress]);
 
   if (priceLoading) {
     return (

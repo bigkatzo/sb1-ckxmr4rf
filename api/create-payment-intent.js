@@ -45,7 +45,7 @@ exports.handler = async (event, context) => {
 
   try {
     console.log('Parsing request body...');
-    const { amount, productName, shippingInfo, productId, variants } = JSON.parse(event.body);
+    const { amount, productName, shippingInfo, productId, variants, walletAddress } = JSON.parse(event.body);
     console.log('Request data:', { 
       amount, 
       productName, 
@@ -80,7 +80,7 @@ exports.handler = async (event, context) => {
       p_product_id: productId,
       p_variants: variants || [],
       p_shipping_info: parsedShippingInfo,
-      p_wallet_address: 'stripe', // Use 'stripe' as wallet address for Stripe payments
+      p_wallet_address: walletAddress, // Use the connected wallet address
     });
 
     if (orderError) {
