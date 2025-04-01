@@ -157,7 +157,20 @@ export function StripePaymentModal({
             productName,
             productId,
             variants,
-            shippingInfo,
+            shippingInfo: {
+              shipping_address: {
+                address: shippingInfo.address,
+                city: shippingInfo.city,
+                country: shippingInfo.country,
+                zip: shippingInfo.zip
+              },
+              contact_info: {
+                method: shippingInfo.contactMethod,
+                value: shippingInfo.contactValue,
+                fullName: shippingInfo.fullName,
+                phoneNumber: shippingInfo.phoneNumber
+              }
+            },
           }),
         });
 

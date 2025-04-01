@@ -51,8 +51,11 @@ exports.handler = async (event, context) => {
       productName, 
       productId, 
       variants: !!variants,
-      shippingInfo: JSON.stringify(shippingInfo, null, 2)
+      shippingInfo
     });
+
+    // Ensure shippingInfo is properly formatted
+    const parsedShippingInfo = typeof shippingInfo === 'string' ? JSON.parse(shippingInfo) : shippingInfo;
 
     // Create a payment intent
     console.log('Creating Stripe payment intent...');
@@ -64,9 +67,9 @@ exports.handler = async (event, context) => {
       },
       metadata: {
         productName,
-        customerName: shippingInfo.fullName,
-        shippingAddress: JSON.stringify(shippingInfo.shipping_address),
-        contactInfo: JSON.stringify(shippingInfo.contact_info),
+        customerName: parsedShippingInfo.contact_info.fullName,
+        shippingAddress: JSON.stringify(parsedShippingInfo.shipping_address),
+        contactInfo: JSON.stringify(parsedShippingInfo.contact_info),
       },
     });
     console.log('Payment intent created:', paymentIntent.id);
@@ -76,7 +79,7 @@ exports.handler = async (event, context) => {
     const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
       p_product_id: productId,
       p_variants: variants || [],
-      p_shipping_info: shippingInfo,
+      p_shipping_info: parsedShippingInfo,
       p_wallet_address: 'stripe', // Use 'stripe' as wallet address for Stripe payments
     });
 
