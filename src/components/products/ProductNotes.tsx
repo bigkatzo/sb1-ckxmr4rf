@@ -1,4 +1,5 @@
 import { Package, ShieldCheck, Ban, Info } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface ProductNotesProps {
   notes?: {
@@ -49,6 +50,12 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
             <p className="text-sm text-gray-300 whitespace-pre-wrap">{freeNotes}</p>
           </div>
         )}
+
+        <div className="text-center pt-2">
+          <Link to="/returns-and-faq" className="text-sm text-purple-400 hover:text-purple-300 transition-colors">
+            View Returns & FAQ
+          </Link>
+        </div>
       </div>
     </div>
   );
