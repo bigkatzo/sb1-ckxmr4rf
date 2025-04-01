@@ -1,8 +1,8 @@
-// API base URL
-export const API_BASE_URL = process.env.VITE_API_URL || '/.netlify/functions';
+// API base URL - using custom domain
+export const API_BASE_URL = process.env.VITE_API_URL || 'https://store.fun';
 
 // API endpoints - using Netlify Functions paths
 export const API_ENDPOINTS = {
-  createPaymentIntent: '/create-payment-intent',
-  stripeWebhook: '/stripe-webhook',
+  createPaymentIntent: '/.netlify/functions/create-payment-intent',
+  stripeWebhook: '/.netlify/functions/stripe-webhook',
 } as const; 
