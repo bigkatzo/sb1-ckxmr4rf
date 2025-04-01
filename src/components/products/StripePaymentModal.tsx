@@ -15,29 +15,16 @@ import { ErrorBoundary } from 'react-error-boundary';
 
 // Initialize Stripe (you'll need to replace with your publishable key)
 console.log('Environment check:', {
-  envKeys: Object.keys(process.env).filter(key => key.startsWith('VITE_')),
-  stripeKey: process.env.VITE_STRIPE_PUBLISHABLE_KEY,
-  nodeEnv: process.env.NODE_ENV,
-  mode: import.meta.env.MODE,
+  envKeys: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')),
+  stripeKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY,
+  mode: import.meta.env.MODE
 });
 
 const STRIPE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-console.log('Stripe initialization:', {
-  keyExists: !!STRIPE_KEY,
-  keyLength: STRIPE_KEY?.length,
-  keyPrefix: STRIPE_KEY?.substring(0, 7)
-});
+console.log('Loaded Stripe key:', STRIPE_KEY);
 
-// Only initialize Stripe if we have a key
-const stripePromise = STRIPE_KEY 
-  ? loadStripe(STRIPE_KEY).then(stripe => {
-      console.log('Stripe loaded successfully:', !!stripe);
-      return stripe;
-    }).catch(err => {
-      console.error('Failed to initialize Stripe:', err);
-      return null;
-    })
-  : Promise.resolve(null);
+// Initialize Stripe directly
+const stripePromise = STRIPE_KEY ? loadStripe(STRIPE_KEY) : null;
 
 interface StripePaymentModalProps {
   onClose: () => void;
