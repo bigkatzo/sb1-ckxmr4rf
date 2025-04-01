@@ -20,6 +20,7 @@ interface ProductFormData {
   priceModifierBeforeMin: number | null;
   priceModifierAfterMin: number | null;
   visible: boolean;
+  notes?: Record<string, string>;
 }
 
 export interface ProductFormProps {
@@ -75,6 +76,15 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       
       // Add visibility state
       data.append('visible', visible.toString());
+
+      // Add notes if they exist
+      if (formData.notes) {
+        Object.entries(formData.notes).forEach(([key, value]) => {
+          if (value) {
+            data.append(`notes.${key}`, value);
+          }
+        });
+      }
 
       // Add images to form data
       if (images.length > 0) {

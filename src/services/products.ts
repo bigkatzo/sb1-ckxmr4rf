@@ -122,14 +122,19 @@ export async function updateProduct(id: string, data: FormData) {
     }
 
     updateData.name = name;
-    updateData.description = data.get('description');
+    updateData.description = data.get('description') as string;
     updateData.price = price;
     updateData.quantity = quantity;
-    updateData.category_id = categoryId;
+    updateData.category_id = categoryId as string;
     updateData.minimum_order_quantity = parseInt(data.get('minimumOrderQuantity') as string, 10) || 50;
+    updateData.visible = data.get('visible') === 'true';
     updateData.price_modifier_before_min = data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null;
     updateData.price_modifier_after_min = data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null;
-    updateData.visible = data.get('visible') === 'true';
+    updateData.notes = {
+      shipping: data.get('notes.shipping') as string || undefined,
+      quality: data.get('notes.quality') as string || undefined,
+      returns: data.get('notes.returns') as string || undefined
+    };
 
     const { error } = await supabase
       .from('products')
