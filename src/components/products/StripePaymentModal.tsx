@@ -141,14 +141,16 @@ export function StripePaymentModal({
   const [clientSecret, setClientSecret] = React.useState<string | null>(null);
   const [orderId, setOrderId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [isCreatingOrder, setIsCreatingOrder] = React.useState(false);
   const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
   const { walletAddress } = useWallet();
 
   React.useEffect(() => {
     async function createPaymentIntent() {
-      try {
-        if (!solPrice) return;
+      if (!solPrice || isCreatingOrder) return;
 
+      setIsCreatingOrder(true);
+      try {
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
           method: 'POST',
           headers: {
@@ -199,11 +201,13 @@ export function StripePaymentModal({
       } catch (err) {
         console.error('Error creating payment intent:', err);
         setError(err instanceof Error ? err.message : 'Failed to initialize payment');
+      } finally {
+        setIsCreatingOrder(false);
       }
     }
 
     createPaymentIntent();
-  }, [solAmount, solPrice, productName, productId, variants, shippingInfo, walletAddress]);
+  }, [solPrice]);
 
   if (priceLoading) {
     return (

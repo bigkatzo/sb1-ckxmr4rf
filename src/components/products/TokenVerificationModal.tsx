@@ -148,6 +148,7 @@ export function TokenVerificationModal({
 
   // Save shipping info to localStorage whenever it changes
   useEffect(() => {
+    console.log('Shipping info updated:', shippingInfo);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfo));
   }, [shippingInfo]);
 
@@ -248,7 +249,7 @@ export function TokenVerificationModal({
         // Find the variant name from product.variants
         const variant = product.variants?.find(v => v.id === variantId);
         return {
-          name: variant?.name || variantId, // Use actual variant name, fallback to ID if not found
+          name: variant?.name || variantId, // Use variant name, fallback to variant ID
           value: value
         };
       });
@@ -539,7 +540,14 @@ export function TokenVerificationModal({
           productName={product.name}
           productId={product.id}
           shippingInfo={shippingInfo}
-          variants={Object.entries(selectedOptions).map(([name, value]) => ({ name, value }))}
+          variants={Object.entries(selectedOptions).map(([variantId, value]) => {
+            // Find the variant name from product.variants
+            const variant = product.variants?.find(v => v.id === variantId);
+            return {
+              name: variant?.name || variantId, // Use variant name, fallback to variant ID
+              value
+            };
+          })}
         />
       ) : (
         <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
@@ -560,22 +568,23 @@ export function TokenVerificationModal({
               <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
                 {verifying ? (
                   <>
-                    <Loading type={LoadingType.ACTION} text="Verifying eligibility..." />
+                    <Loading type={LoadingType.ACTION} text="Verifying Solana wallet eligibility..." />
                   </>
                 ) : verificationResult?.isValid ? (
                   <>
                     <CheckCircle2 className="h-5 w-5 text-green-400" />
-                    <span className="text-gray-100">You are eligible to purchase this item!</span>
+                    <span className="text-gray-100">Your wallet is eligible to purchase with Solana!</span>
                   </>
                 ) : (
                   <>
                     <div className="w-full flex flex-col items-center gap-3 py-2">
                       <AlertTriangle className="h-10 w-10 text-red-500" />
                       <div className="text-center">
-                        <p className="text-red-500 font-semibold text-lg">Access Denied</p>
+                        <p className="text-red-500 font-semibold text-lg">Solana Payment Not Available</p>
                         {verificationResult?.error && (
                           <p className="text-gray-400 text-sm mt-1">{verificationResult.error}</p>
                         )}
+                        <p className="text-gray-400 text-sm mt-2">You can still purchase with credit card below.</p>
                       </div>
                     </div>
                   </>
@@ -584,7 +593,7 @@ export function TokenVerificationModal({
             ) : (
               <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
                 <CheckCircle2 className="h-5 w-5 text-green-400" />
-                <span className="text-gray-100">This item is available to all collectors!</span>
+                <span className="text-gray-100">This item is available to all payment methods!</span>
               </div>
             )}
 
@@ -760,6 +769,7 @@ export function TokenVerificationModal({
                     </div>
 
                     <div className="pt-4 border-t border-gray-800">
+                      {/* Solana Payment Button - requires wallet verification */}
                       <button
                         type="submit"
                         disabled={submitting || !verificationResult?.isValid || 
@@ -773,6 +783,7 @@ export function TokenVerificationModal({
                       </button>
 
                       <div className="mt-4 text-center">
+                        {/* Credit Card Button - only requires shipping info */}
                         <button
                           type="button"
                           onClick={() => setShowStripeModal(true)}
