@@ -16,6 +16,7 @@ import { monitorTransaction } from '../../utils/transaction-monitor';
 import type { TransactionStatus } from '../../types/transactions';
 import { OrderSuccessView } from '../OrderSuccessView';
 import { validatePhoneNumber } from '../../lib/validation';
+import { StripePaymentModal } from './StripePaymentModal';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -85,6 +86,7 @@ export function TokenVerificationModal({
     transactionSignature: string;
   } | null>(null);
   const [phoneError, setPhoneError] = useState<string>('');
+  const [showStripeModal, setShowStripeModal] = useState(false);
   
   // Update progress steps to reflect new flow
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
@@ -408,6 +410,30 @@ export function TokenVerificationModal({
     setPhoneError(validation.error || '');
   };
 
+  const handleStripeSuccess = async (orderId: string, paymentIntentId: string) => {
+    // Get order number
+    const { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .select('order_number')
+      .eq('id', orderId)
+      .single();
+
+    if (orderError) {
+      console.error('Error fetching order number:', orderError);
+      toast.error('Payment successful but failed to fetch order details');
+      return;
+    }
+
+    // Show success view with order details
+    setOrderDetails({
+      orderNumber: orderData.order_number,
+      transactionSignature: paymentIntentId
+    });
+    setShowStripeModal(false);
+    setShowSuccessView(true);
+    toastService.showOrderSuccess();
+  };
+
   // Add progress indicator component
   const ProgressIndicator = () => (
     <div className="space-y-6 p-6 bg-gray-800/50 rounded-lg">
@@ -497,6 +523,16 @@ export function TokenVerificationModal({
           transactionSignature={orderDetails.transactionSignature}
           onClose={onSuccess}
           collectionSlug={product.collectionSlug || ''}
+        />
+      ) : showStripeModal ? (
+        <StripePaymentModal
+          onClose={() => setShowStripeModal(false)}
+          onSuccess={handleStripeSuccess}
+          solAmount={finalPrice}
+          productName={product.name}
+          productId={product.id}
+          shippingInfo={shippingInfo}
+          variants={Object.entries(selectedOptions).map(([name, value]) => ({ name, value }))}
         />
       ) : (
         <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
@@ -726,8 +762,23 @@ export function TokenVerificationModal({
                           !shippingInfo.phoneNumber || !!phoneError}
                         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
-                        <span>Proceed to Payment ({finalPrice.toFixed(2)} SOL)</span>
+                        <span>Pay with Solana ({finalPrice.toFixed(2)} SOL)</span>
                       </button>
+
+                      <div className="mt-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setShowStripeModal(true)}
+                          disabled={submitting || !verificationResult?.isValid || 
+                            !shippingInfo.address || !shippingInfo.city || 
+                            !shippingInfo.country || !shippingInfo.zip || 
+                            !shippingInfo.contactValue || !shippingInfo.fullName ||
+                            !shippingInfo.phoneNumber || !!phoneError}
+                          className="text-purple-400 hover:text-purple-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Pay with Credit Card
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
