@@ -11,14 +11,22 @@ import { useSolanaPrice } from '../../utils/price-conversion';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
+import { ErrorBoundary } from 'react-error-boundary';
 
 // Initialize Stripe (you'll need to replace with your publishable key)
 const STRIPE_KEY = process.env.VITE_STRIPE_PUBLISHABLE_KEY;
-console.log('Stripe key status:', STRIPE_KEY ? 'present' : 'missing');
+console.log('Stripe initialization:', {
+  keyExists: !!STRIPE_KEY,
+  keyLength: STRIPE_KEY?.length,
+  keyPrefix: STRIPE_KEY?.substring(0, 7)
+});
 
 // Only initialize Stripe if we have a key
 const stripePromise = STRIPE_KEY 
-  ? loadStripe(STRIPE_KEY).catch(err => {
+  ? loadStripe(STRIPE_KEY).then(stripe => {
+      console.log('Stripe loaded successfully:', !!stripe);
+      return stripe;
+    }).catch(err => {
       console.error('Failed to initialize Stripe:', err);
       return null;
     })
@@ -47,34 +55,52 @@ function StripeCheckoutForm({
   const [processing, setProcessing] = React.useState(false);
   const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
 
+  // Log stripe and elements availability
+  React.useEffect(() => {
+    console.log('Stripe form state:', {
+      stripeAvailable: !!stripe,
+      elementsAvailable: !!elements
+    });
+  }, [stripe, elements]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    console.log('Submit clicked, checking prerequisites:', {
+      stripe: !!stripe,
+      elements: !!elements,
+      solPrice: !!solPrice
+    });
 
     if (!stripe || !elements || !solPrice) {
+      console.log('Missing required objects for payment');
       return;
     }
 
     setProcessing(true);
 
     try {
+      console.log('Confirming payment...');
       const result = await stripe.confirmPayment({
         elements,
         redirect: 'if_required',
       });
 
       if (result.error) {
+        console.error('Payment error:', result.error);
         setError(result.error.message || 'Payment failed');
       } else if (result.paymentIntent?.status === 'succeeded') {
+        console.log('Payment succeeded:', result.paymentIntent.id);
         onSuccess(result.paymentIntent.id);
       } else {
+        console.log('Payment requires additional actions:', result.paymentIntent?.status);
         // Payment requires additional actions (like 3D Secure)
         // The webhook will handle the success case
         // We'll show a loading state here
         setProcessing(true);
       }
     } catch (err) {
+      console.error('Payment submission error:', err);
       setError('Payment failed. Please try again.');
-      console.error('Payment error:', err);
     } finally {
       setProcessing(false);
     }
@@ -326,12 +352,28 @@ export function StripePaymentModal({
                     fontFamily: 'ui-sans-serif, system-ui, sans-serif',
                   },
                 },
+                loader: 'always'
               }}
             >
-              <StripeCheckoutForm
-                solAmount={solAmount}
-                onSuccess={(paymentIntentId) => onSuccess(orderId, paymentIntentId)}
-              />
+              <ErrorBoundary
+                fallback={
+                  <div className="text-red-500 p-4 text-center">
+                    <div className="mb-2">Failed to load payment form.</div>
+                    <div className="text-sm text-gray-400 mb-4">Please try refreshing the page.</div>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium block w-full"
+                    >
+                      Refresh Page
+                    </button>
+                  </div>
+                }
+              >
+                <StripeCheckoutForm
+                  solAmount={solAmount}
+                  onSuccess={(paymentIntentId) => onSuccess(orderId, paymentIntentId)}
+                />
+              </ErrorBoundary>
             </Elements>
           )}
         </div>
