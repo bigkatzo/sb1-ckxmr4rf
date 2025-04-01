@@ -30,6 +30,18 @@ interface ImportMetaEnv {
   readonly VITE_WALLETCONNECT_PROJECT_ID: string
 
   /**
+   * The API base URL for the application
+   * @example https://store.fun
+   */
+  readonly VITE_API_URL: string
+
+  /**
+   * The Stripe publishable key for payment processing
+   * @example pk_test_...
+   */
+  readonly VITE_STRIPE_PUBLISHABLE_KEY: string
+
+  /**
    * Whether we're running in development mode
    */
   readonly DEV: boolean
