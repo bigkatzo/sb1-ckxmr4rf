@@ -46,7 +46,13 @@ exports.handler = async (event, context) => {
   try {
     console.log('Parsing request body...');
     const { amount, productName, shippingInfo, productId, variants } = JSON.parse(event.body);
-    console.log('Request data:', { amount, productName, productId, variants: !!variants });
+    console.log('Request data:', { 
+      amount, 
+      productName, 
+      productId, 
+      variants: !!variants,
+      shippingInfo: JSON.stringify(shippingInfo, null, 2)
+    });
 
     // Create a payment intent
     console.log('Creating Stripe payment intent...');
