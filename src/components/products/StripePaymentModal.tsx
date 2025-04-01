@@ -181,23 +181,25 @@ export function StripePaymentModal({
 
         let errorMessage = 'Failed to create payment intent';
         
-        try {
-          const data = await response.json();
-          if (!response.ok) {
-            errorMessage = data.error || data.details || errorMessage;
-            throw new Error(errorMessage);
+        // Check if response is ok before trying to parse JSON
+        if (!response.ok) {
+          const text = await response.text();
+          try {
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.error || errorData.details || errorMessage;
+          } catch (e) {
+            errorMessage = text || errorMessage;
           }
-
-          if (!data.clientSecret || !data.orderId) {
-            throw new Error('Invalid response from server');
-          }
-
-          setClientSecret(data.clientSecret);
-          setOrderId(data.orderId);
-        } catch (parseError) {
-          console.error('Error parsing response:', parseError);
-          throw new Error(response.ok ? 'Invalid server response' : errorMessage);
+          throw new Error(errorMessage);
         }
+
+        const data = await response.json();
+        if (!data.clientSecret || !data.orderId) {
+          throw new Error('Invalid response from server');
+        }
+
+        setClientSecret(data.clientSecret);
+        setOrderId(data.orderId);
       } catch (err) {
         console.error('Error creating payment intent:', err);
         setError(err instanceof Error ? err.message : 'Failed to initialize payment');
@@ -207,7 +209,7 @@ export function StripePaymentModal({
     }
 
     createPaymentIntent();
-  }, [solPrice]);
+  }, [solPrice, solAmount, productName, productId, variants, walletAddress, shippingInfo, isCreatingOrder]);
 
   if (priceLoading) {
     return (
