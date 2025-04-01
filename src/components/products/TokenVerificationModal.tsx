@@ -161,6 +161,7 @@ export function TokenVerificationModal({
   useEffect(() => {
     async function verifyAccess() {
       if (!walletAddress) {
+        console.log('Wallet not connected, setting verification to false');
         setVerificationResult({ isValid: false, error: 'Wallet not connected' });
         setVerifying(false);
         return;
@@ -168,6 +169,7 @@ export function TokenVerificationModal({
 
       // If no category or no rule groups, user is eligible
       if (!product.category?.eligibilityRules?.groups?.length) {
+        console.log('No eligibility rules found, setting verification to true');
         setVerificationResult({ isValid: true });
         setVerifying(false);
         return;
@@ -774,7 +776,7 @@ export function TokenVerificationModal({
                         <button
                           type="button"
                           onClick={() => setShowStripeModal(true)}
-                          disabled={submitting || !verificationResult?.isValid || 
+                          disabled={submitting || 
                             !shippingInfo.address || !shippingInfo.city || 
                             !shippingInfo.country || !shippingInfo.zip || 
                             !shippingInfo.contactValue || !shippingInfo.fullName ||

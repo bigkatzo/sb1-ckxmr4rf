@@ -124,6 +124,18 @@ export async function monitorTransaction(
   onStatusUpdate: (status: TransactionStatus) => void,
   expectedDetails?: TransactionDetails
 ): Promise<boolean> {
+  // Add defensive check for signature
+  if (!signature || typeof signature !== 'string') {
+    console.error('Invalid transaction signature:', signature);
+    onStatusUpdate({
+      processing: false,
+      success: false,
+      error: 'Invalid transaction signature',
+      paymentConfirmed: false
+    });
+    return false;
+  }
+
   // Prevent duplicate processing
   if (processedSignatures.has(signature)) {
     console.log('Transaction already processed:', signature);
