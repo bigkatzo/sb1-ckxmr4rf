@@ -1,21 +1,38 @@
-import { NextApiRequest, NextApiResponse } from 'next';
 import Stripe from 'stripe';
-import { supabase } from '../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-02-24.acacia',
 });
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+// Initialize Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
+export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { amount, productName, shippingInfo, productId, variants } = req.body;
+    const { amount, productName, shippingInfo, productId, variants } = JSON.parse(req.body);
 
     // Create a payment intent
     const paymentIntent = await stripe.paymentIntents.create({
@@ -66,7 +83,8 @@ export default async function handler(
   } catch (err) {
     console.error('Error creating payment intent:', err);
     return res.status(500).json({ 
-      error: 'Failed to create payment intent' 
+      error: 'Failed to create payment intent',
+      details: err.message
     });
   }
 } 
