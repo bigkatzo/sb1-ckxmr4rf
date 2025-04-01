@@ -76,10 +76,7 @@ exports.handler = async (event, context) => {
     const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
       p_product_id: productId,
       p_variants: variants || [],
-      p_shipping_info: {
-        shipping_address: shippingInfo.shipping_address,
-        contact_info: shippingInfo.contact_info,
-      },
+      p_shipping_info: shippingInfo,
       p_wallet_address: 'stripe', // Use 'stripe' as wallet address for Stripe payments
     });
 
