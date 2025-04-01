@@ -21,6 +21,7 @@ interface Product extends BaseProduct {
     quality?: string;
     returns?: string;
   };
+  freeNotes?: string;
 }
 
 interface ProductModalProps {
@@ -565,7 +566,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     </div>
                   )}
 
-                  <ProductNotes notes={product.notes} />
+                  <ProductNotes notes={product.notes} freeNotes={product.freeNotes} />
                 </div>
               </div>
 

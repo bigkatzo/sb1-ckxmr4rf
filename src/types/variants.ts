@@ -41,6 +41,7 @@ export interface Product {
     quality?: string;
     returns?: string;
   };
+  freeNotes?: string; // Free-form notes for additional information
 }
 
 export interface ProductVariantFormData {

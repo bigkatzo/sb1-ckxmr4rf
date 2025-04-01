@@ -135,6 +135,7 @@ export async function updateProduct(id: string, data: FormData) {
       quality: data.get('notes.quality') as string || undefined,
       returns: data.get('notes.returns') as string || undefined
     };
+    updateData.free_notes = data.get('freeNotes') as string || undefined;
 
     const { error } = await supabase
       .from('products')

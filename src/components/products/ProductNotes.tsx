@@ -1,4 +1,4 @@
-import { Package, ShieldCheck, Ban } from 'lucide-react';
+import { Package, ShieldCheck, Ban, Info } from 'lucide-react';
 
 interface ProductNotesProps {
   notes?: {
@@ -6,9 +6,10 @@ interface ProductNotesProps {
     quality?: string;
     returns?: string;
   };
+  freeNotes?: string;
 }
 
-export function ProductNotes({ notes }: ProductNotesProps) {
+export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
   const defaultNotes = {
     shipping: "Free Shipping Worldwide included (15-20 days*)",
     quality: "Quality is guaranteed. If there is a print error or visible quality issue, we'll replace or refund it.",
@@ -39,6 +40,13 @@ export function ProductNotes({ notes }: ProductNotesProps) {
           <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
             <Ban className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-gray-300">{displayNotes.returns}</p>
+          </div>
+        )}
+
+        {freeNotes && (
+          <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
+            <Info className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-gray-300 whitespace-pre-wrap">{freeNotes}</p>
           </div>
         )}
       </div>

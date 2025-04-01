@@ -21,6 +21,7 @@ interface ProductBasicInfoProps {
       quality?: string;
       returns?: string;
     };
+    freeNotes?: string;
   };
   onChange: (data: Partial<{
     name: string;
@@ -37,6 +38,7 @@ interface ProductBasicInfoProps {
       quality?: string;
       returns?: string;
     };
+    freeNotes: string;
   }>) => void;
 }
 
@@ -55,6 +57,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
     quality: initialData?.notes?.quality || '',
     returns: initialData?.notes?.returns || ''
   });
+  const [freeNotes, setFreeNotes] = useState(initialData?.freeNotes || '');
 
   // Update local state when initialData changes
   React.useEffect(() => {
@@ -71,6 +74,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
       quality: initialData?.notes?.quality || '',
       returns: initialData?.notes?.returns || ''
     });
+    setFreeNotes(initialData?.freeNotes || '');
   }, [initialData]);
 
   const handleStockChange = (value: string) => {
@@ -309,6 +313,23 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
               value={notes.returns}
               onChange={(e) => handleNotesChange('returns', e.target.value)}
               placeholder="e.g. Because the products are made to order, we do not accept general returns or sizing-related returns."
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="freeNotes" className="block text-sm text-gray-400 mb-1">
+              Additional Notes
+            </label>
+            <textarea
+              id="freeNotes"
+              value={freeNotes}
+              onChange={(e) => {
+                setFreeNotes(e.target.value);
+                onChange({ freeNotes: e.target.value });
+              }}
+              placeholder="Add any additional notes or information about the product..."
+              rows={3}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
