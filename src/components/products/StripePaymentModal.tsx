@@ -161,14 +161,25 @@ export function StripePaymentModal({
           }),
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to create payment intent');
-        }
+        let errorMessage = 'Failed to create payment intent';
+        
+        try {
+          const data = await response.json();
+          if (!response.ok) {
+            errorMessage = data.error || data.details || errorMessage;
+            throw new Error(errorMessage);
+          }
 
-        const { clientSecret, orderId: responseOrderId } = await response.json();
-        setClientSecret(clientSecret);
-        setOrderId(responseOrderId);
+          if (!data.clientSecret || !data.orderId) {
+            throw new Error('Invalid response from server');
+          }
+
+          setClientSecret(data.clientSecret);
+          setOrderId(data.orderId);
+        } catch (parseError) {
+          console.error('Error parsing response:', parseError);
+          throw new Error(response.ok ? 'Invalid server response' : errorMessage);
+        }
       } catch (err) {
         console.error('Error creating payment intent:', err);
         setError(err instanceof Error ? err.message : 'Failed to initialize payment');
