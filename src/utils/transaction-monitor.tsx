@@ -41,7 +41,11 @@ async function verifyTransactionDetails(
     if (!tx || !tx.meta || tx.meta.err) {
       return { 
         isValid: false, 
-        error: tx?.meta?.err ? `Transaction failed: ${tx.meta.err}` : 'Transaction not found' 
+        error: tx?.meta?.err 
+          ? typeof tx.meta.err === 'string' 
+            ? `Transaction failed: ${tx.meta.err}`
+            : 'Transaction failed with an error'
+          : 'Transaction not found' 
       };
     }
 
@@ -68,7 +72,7 @@ async function verifyTransactionDetails(
     if (!recipient || !sender) {
       return { 
         isValid: false, 
-        error: 'Could not identify transfer details' 
+        error: 'Could not identify transfer details'
       };
     }
     
@@ -166,7 +170,7 @@ export async function monitorTransaction(
                 p_status: 'failed',
                 p_details: {
                   error: errorMessage,
-                  verification: verification.details
+                  verification: verification.details || null
                 }
               });
               console.log('Transaction status updated to failed:', errorMessage);
@@ -185,7 +189,8 @@ export async function monitorTransaction(
               processing: false,
               success: false,
               error: errorMessage,
-              signature
+              signature,
+              paymentConfirmed: false
             });
 
             return false;
@@ -196,7 +201,7 @@ export async function monitorTransaction(
             await supabase.rpc('update_transaction_status', {
               p_signature: signature,
               p_status: 'confirmed',
-              p_details: verification.details
+              p_details: verification.details || null
             });
             console.log('Transaction status updated to confirmed');
             
