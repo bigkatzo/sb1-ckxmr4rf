@@ -23,7 +23,7 @@ export function ReturnsAndFAQPage() {
             <li>Early supporters get better prices as the curve starts lower</li>
             <li>Each design has a Minimum Order Quantity (MOQ) that must be reached</li>
             <li>Once MOQ is reached, production begins for all orders</li>
-            <li>If MOQ isn't reached, all payments are refunded 24hrs after the drop ends</li>
+            <li>If MOQ isn't reached, all payments are refunded after the drop ends</li>
           </ul>
         </div>
       )
@@ -40,7 +40,6 @@ export function ReturnsAndFAQPage() {
             <li>Whitelisted addresses get early access to new drops</li>
             <li>Token holders may receive special pricing or benefits</li>
             <li>NFT ownership is verified in real-time through the Solana blockchain</li>
-            <li>Join our Discord to learn about whitelist opportunities</li>
           </ul>
         </div>
       )

@@ -52,7 +52,7 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
         )}
 
         <div className="text-center pt-2">
-          <Link to="/returns-and-faq" className="text-sm text-purple-400 hover:text-purple-300 transition-colors">
+          <Link to="/returns-faq" className="text-sm text-purple-400 hover:text-purple-300 transition-colors">
             View Returns & FAQ
           </Link>
         </div>
