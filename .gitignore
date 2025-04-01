@@ -43,3 +43,6 @@ credentials.json
 
 # Supabase
 supabase/.temp/
+
+# Local Netlify folder
+.netlify
