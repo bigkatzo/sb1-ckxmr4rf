@@ -145,10 +145,14 @@ export function StripePaymentModal({
   const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
   const { walletAddress } = useWallet();
 
+  // Create payment intent when the modal opens and shipping info is available
   React.useEffect(() => {
-    async function createPaymentIntent() {
-      if (!solPrice || isCreatingOrder) return;
+    // Don't create a new order if we already have one or are in the process
+    if (!solPrice || !shippingInfo?.address || isCreatingOrder || clientSecret) return;
+    
+    const amount = solAmount * solPrice; // No need for null check since we verified above
 
+    async function createPaymentIntent() {
       setIsCreatingOrder(true);
       try {
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
@@ -157,7 +161,7 @@ export function StripePaymentModal({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            amount: solAmount * solPrice,
+            amount,
             productName,
             productId,
             variants,
@@ -179,23 +183,10 @@ export function StripePaymentModal({
           }),
         });
 
-        let errorMessage = 'Failed to create payment intent';
-        
-        // Check if response is ok before trying to parse JSON
-        if (!response.ok) {
-          const text = await response.text();
-          try {
-            const errorData = JSON.parse(text);
-            errorMessage = errorData.error || errorData.details || errorMessage;
-          } catch (e) {
-            errorMessage = text || errorMessage;
-          }
-          throw new Error(errorMessage);
-        }
-
         const data = await response.json();
-        if (!data.clientSecret || !data.orderId) {
-          throw new Error('Invalid response from server');
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to create payment intent');
         }
 
         setClientSecret(data.clientSecret);
@@ -209,7 +200,7 @@ export function StripePaymentModal({
     }
 
     createPaymentIntent();
-  }, [solPrice, solAmount, productName, productId, variants, walletAddress, shippingInfo, isCreatingOrder]);
+  }, [solPrice, shippingInfo?.address, isCreatingOrder, clientSecret]); // Add clientSecret to dependencies
 
   if (priceLoading) {
     return (

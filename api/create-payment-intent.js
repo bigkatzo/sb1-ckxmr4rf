@@ -59,8 +59,11 @@ exports.handler = async (event, context) => {
 
     // Create a payment intent
     console.log('Creating Stripe payment intent...');
+    console.log('Amount in SOL:', amount);
+    const amountInCents = Math.round(amount * 100);
+    console.log('Amount in cents:', amountInCents);
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents
+      amount: amountInCents,
       currency: 'usd',
       automatic_payment_methods: {
         enabled: true,
