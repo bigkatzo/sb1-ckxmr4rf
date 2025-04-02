@@ -12,13 +12,19 @@ export interface NFTVerificationResult {
 class NFTVerifier {
   private static instance: NFTVerifier;
   private connection: Connection;
-  private metaplex: any | null = null; // Will be initialized lazily
+  private metaplex: any | null = null;
   private initializationPromise: Promise<void> | null = null;
+  
+  // More balanced RPC rate limiting
+  private lastRequestTime: number = 0;
+  private readonly MIN_REQUEST_INTERVAL = 100; // 100ms between requests (10 RPS max)
+  private readonly MAX_CONCURRENT_REQUESTS = 4; // Allow up to 4 concurrent requests
+  private activeRequests = 0;
 
   private constructor() {
     const connectionConfig: ConnectionConfig = {
-      commitment: 'confirmed',
-      confirmTransactionInitialTimeout: 60000, // 60 seconds
+      commitment: 'finalized',
+      confirmTransactionInitialTimeout: 120000,
     };
     
     this.connection = new Connection(
@@ -66,11 +72,33 @@ class NFTVerifier {
     );
   }
 
+  // Simplified rate limiting helper
+  private async throttleRequest(): Promise<void> {
+    while (this.activeRequests >= this.MAX_CONCURRENT_REQUESTS) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+      await new Promise(resolve => 
+        setTimeout(resolve, this.MIN_REQUEST_INTERVAL - timeSinceLastRequest)
+      );
+    }
+    
+    this.lastRequestTime = Date.now();
+    this.activeRequests++;
+  }
+
+  private async releaseRequest(): Promise<void> {
+    this.activeRequests--;
+  }
+
   public async verifyNFTHolding(
     walletAddress: string,
     collectionAddress: string,
     minAmount: number,
-    retryAttempts = 2
+    retryAttempts = 3
   ): Promise<NFTVerificationResult> {
     // Input validation
     if (!walletAddress || !this.isValidSolanaAddress(walletAddress)) {
@@ -108,26 +136,48 @@ class NFTVerifier {
       let lastError: Error | null = null;
       for (let attempt = 0; attempt <= retryAttempts; attempt++) {
         try {
+          // Apply rate limiting before RPC call
+          await this.throttleRequest();
+          
           // Get all NFTs owned by the user (returns Metadata objects)
           const nfts: (Metadata | Nft | Sft)[] = await this.metaplex.nfts().findAllByOwner({ owner: walletPubKey });
+          this.releaseRequest();
 
-          // First: load all NFTs regardless of collection
-          const CHUNK_SIZE = 5;
+          // More balanced chunking
+          const CHUNK_SIZE = 5; // Process 5 NFTs per chunk
           const nftChunks = this.chunkArray(nfts, CHUNK_SIZE);
+          
+          // Reasonable delays for rate limiting
+          const MIN_CHUNK_DELAY = 200; // 200ms base delay between chunks
+          const JITTER = 100; // 100ms max jitter
+
           const loadedNFTsArrays = await Promise.all(
             nftChunks.map(async (chunk) => {
+              // Process NFTs in parallel within reasonable limits
               const chunkPromises = chunk.map(async (nft) => {
                 try {
-                  // Always load full NFT data to ensure collection info is available
-                  return await this.metaplex.nfts().load({ metadata: nft as Metadata });
+                  await this.throttleRequest();
+                  const loadedNFT = await this.metaplex.nfts().load({ metadata: nft as Metadata });
+                  this.releaseRequest();
+                  return loadedNFT;
                 } catch (error) {
                   console.error('Error loading NFT data:', error);
+                  if (error instanceof Error) {
+                    console.error('NFT loading error details:', {
+                      message: error.message,
+                      nftAddress: (nft as Metadata)?.address?.toBase58(),
+                      errorType: error.name,
+                      stack: error.stack
+                    });
+                  }
                   return null;
                 }
               });
+
+              // Add reasonable delay between chunks
+              const delay = MIN_CHUNK_DELAY + Math.random() * JITTER;
+              await new Promise(resolve => setTimeout(resolve, delay));
               
-              // Add slight delay between chunks to respect rate limits
-              await new Promise(resolve => setTimeout(resolve, 100));
               return Promise.all(chunkPromises);
             })
           );
@@ -173,7 +223,12 @@ class NFTVerifier {
           console.error(`Attempt ${attempt + 1} failed:`, error);
           
           if (attempt < retryAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1))); // Exponential backoff
+            // Enhanced exponential backoff with jitter
+            const baseDelay = 2000;
+            const maxJitter = 1000;
+            const backoffDelay = baseDelay * Math.pow(2, attempt) + (Math.random() * maxJitter);
+            console.log(`Retry attempt ${attempt + 1}/${retryAttempts} - waiting ${Math.round(backoffDelay/1000)}s...`);
+            await new Promise(resolve => setTimeout(resolve, backoffDelay));
             continue;
           }
         }
