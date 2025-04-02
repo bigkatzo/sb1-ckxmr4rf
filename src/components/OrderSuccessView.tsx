@@ -113,23 +113,12 @@ export function OrderSuccessView({
 
   const handleShare = async () => {
     try {
-      // Preload the image with CORS handling
-      if (productImage) {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-          img.src = productImage;
-        });
-      }
-
       const shareableElement = document.getElementById('shareable-success');
       if (!shareableElement) {
         throw new Error('Could not find shareable element');
       }
 
-      // Generate the PNG with high quality
+      // Generate the PNG
       const dataUrl = await toPng(shareableElement, {
         quality: 1,
         pixelRatio: 2
@@ -149,23 +138,11 @@ export function OrderSuccessView({
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            text: shareText
-          });
-          return;
-        } catch (error) {
-          console.warn('Share with text failed, trying file only:', error);
-          try {
-            await navigator.share({
-              files: [file]
-            });
-            return;
-          } catch (error) {
-            console.warn('File share failed, falling back to Twitter:', error);
-          }
-        }
+        await navigator.share({
+          files: [file],
+          text: shareText
+        });
+        return;
       }
 
       // Twitter fallback
@@ -178,7 +155,7 @@ export function OrderSuccessView({
 
     } catch (error) {
       console.error('Share failed:', error);
-      // Simple Twitter fallback as last resort
+      // Twitter fallback
       const fallbackText = encodeURIComponent(`Just got my ${collectionName} merch on @storedotfun! 📦`);
       window.open(
         `https://twitter.com/intent/tweet?text=${fallbackText}`,
