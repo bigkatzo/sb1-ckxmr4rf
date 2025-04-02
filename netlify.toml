@@ -46,6 +46,14 @@
     # Prevent Netlify from processing this file
     X-Netlify-Original-Filename = "service-worker.js"
 
+# Manifest file - ensure correct MIME type
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Content-Type = "application/manifest+json; charset=utf-8"
+    Cache-Control = "public, max-age=86400"
+    X-Content-Type-Options = "nosniff"
+
 # Offline fallback page
 [[headers]]
   for = "/offline.html"
