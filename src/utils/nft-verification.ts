@@ -70,11 +70,11 @@ class NFTVerifier {
         try {
           this.metaplex = Metaplex.make(this.connection);
           this.isInitialized = true;
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Failed to create Metaplex instance:', error);
-          throw new Error(`Failed to create Metaplex instance: ${error.message || 'Unknown error'}`);
+          throw new Error(`Failed to create Metaplex instance: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         // Clean up on any error
         this.metaplex = null;
         this.isInitialized = false;
