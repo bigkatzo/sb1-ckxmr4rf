@@ -57,19 +57,57 @@ export const CACHE_DURATIONS = {
     STALE: 15 * 60 * 1000, // 15 minutes stale time
     PRIORITY: 3
   },
-  // NFT and blockchain data
-  BLOCKCHAIN: {
-    TTL: 60 * 60 * 1000,   // 1 hour
+  // Static NFT metadata (images, descriptions, attributes)
+  NFT_STATIC: {
+    TTL: 60 * 60 * 1000,    // 1 hour
     STALE: 2 * 60 * 60 * 1000, // 2 hours stale time
+    PRIORITY: 3
+  },
+  // Collection metadata (name, symbol, verified status)
+  COLLECTION: {
+    TTL: 12 * 60 * 60 * 1000,  // 12 hours
+    STALE: 24 * 60 * 60 * 1000, // 24 hours stale time
     PRIORITY: 4
   },
-  // Static content (collection details, categories)
+  // Static content (categories, static pages)
   STATIC: {
     TTL: 24 * 60 * 60 * 1000,  // 24 hours
     STALE: 7 * 24 * 60 * 60 * 1000, // 7 days stale time
     PRIORITY: 5
   }
 };
+
+// Add NO_CACHE patterns for blockchain data
+export const NO_CACHE_PATTERNS = [
+  // NFT/Token verification and status
+  '/api/nft/verify',
+  '/api/nft/check',
+  '/api/nft/balance',
+  '/api/nft/ownership',
+  '/api/nft/price',
+  
+  // Blockchain transactions and status
+  '/api/blockchain/verify',
+  '/api/blockchain/status',
+  '/api/blockchain/ownership',
+  '/api/blockchain/transfer',
+  '/api/blockchain/mint',
+  '/api/blockchain/sign',
+  
+  // RPC endpoints
+  '/api/rpc',
+  'api.mainnet-beta.solana.com',
+  'api.metaplex.com',
+  
+  // Authentication/Authorization
+  '/api/auth/',
+  '/api/user/',
+  
+  // Payment processing
+  '/api/checkout',
+  '/api/payment',
+  '/api/orders'
+];
 
 // Memory thresholds for dynamic cache sizing
 const MEMORY_THRESHOLDS = {
@@ -263,6 +301,11 @@ export class EnhancedCacheManager {
     priority?: number;
     context?: Record<string, any>;
   } = {}): Promise<{ value: T | null; needsRevalidation: boolean; metadata?: Record<string, any> }> {
+    // Check if key matches any NO_CACHE pattern
+    if (NO_CACHE_PATTERNS.some(pattern => key.includes(pattern))) {
+      return { value: null, needsRevalidation: true };
+    }
+    
     const startTime = performance.now();
     
     try {

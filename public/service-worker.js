@@ -92,7 +92,7 @@ const CACHE_TTLS = {
   STATIC: 7 * 24 * 60 * 60,    // 7 days - rarely changes
   ASSETS: 24 * 60 * 60,        // 24 hours - build-dependent
   IMAGES: 24 * 60 * 60,        // 24 hours - CDN-backed
-  NFT_METADATA: 60 * 60,       // 1 hour - blockchain data
+  NFT_METADATA: 60 * 60,       // 1 hour - only for static metadata
   PRODUCT_DATA: 5 * 60,        // 5 minutes - inventory
   DYNAMIC_DATA: 30             // 30 seconds - pricing/stock
 };
@@ -129,9 +129,9 @@ const REQUEST_PATTERNS = {
     '/storage/images/'
   ],
   NFT_METADATA: [
-    '/api/nft/',
-    '/api/metadata/',
-    '/api/collections/'
+    '/api/nft/metadata/',      // Static NFT metadata only
+    '/api/nft/collection/',    // Static collection data
+    '/api/nft/attributes/'     // Static attribute data
   ],
   PRODUCT_DATA: [
     '/api/products/',
@@ -150,12 +150,20 @@ const NO_CACHE_PATTERNS = [
   '/api/blockchain/transfer',
   '/api/blockchain/mint',
   '/api/blockchain/sign',
+  '/api/nft/verify',
+  '/api/nft/check',
+  '/api/nft/balance',         // Never cache balances
+  '/api/nft/ownership',       // Never cache ownership
+  '/api/nft/price',          // Never cache prices
+  '/api/blockchain/verify',
+  '/api/blockchain/status',   // Never cache transaction status
+  '/api/blockchain/ownership',
   '/api/checkout',
   '/api/payment',
   '/api/orders',
   '/api/auth/',
   '/api/user/',
-  'stripe.com',  // Add Stripe domains to no-cache patterns
+  'stripe.com',
   'js.stripe.com',
   'api.stripe.com',
   'hooks.stripe.com'
