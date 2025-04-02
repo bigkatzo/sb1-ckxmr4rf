@@ -597,7 +597,6 @@ export function TokenVerificationModal({
                         {verificationResult?.error && (
                           <p className="text-gray-400 text-sm mt-1">{verificationResult.error}</p>
                         )}
-                        <p className="text-gray-400 text-sm mt-2">You can still purchase with credit card below.</p>
                       </div>
                     </div>
                   </>
