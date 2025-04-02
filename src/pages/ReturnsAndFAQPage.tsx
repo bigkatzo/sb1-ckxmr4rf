@@ -8,7 +8,15 @@ interface TabContent {
 }
 
 export function ReturnsAndFAQPage() {
-  const [activeTab, setActiveTab] = useState(0);
+  const [openTabs, setOpenTabs] = useState<number[]>([]);
+
+  const toggleTab = (index: number) => {
+    setOpenTabs(prev => 
+      prev.includes(index) 
+        ? prev.filter(i => i !== index) 
+        : [...prev, index]
+    );
+  };
 
   const tabs: TabContent[] = [
     {
@@ -121,17 +129,17 @@ export function ReturnsAndFAQPage() {
           {tabs.map((tab, index) => (
             <div key={index} className="border border-gray-800 rounded-lg overflow-hidden">
               <button
-                onClick={() => setActiveTab(index)}
+                onClick={() => toggleTab(index)}
                 className="w-full flex items-center justify-between p-4 bg-gray-900 hover:bg-gray-800 transition-colors"
               >
                 <span className="text-gray-200 font-medium">{tab.title}</span>
-                {activeTab === index ? (
+                {openTabs.includes(index) ? (
                   <ChevronDown className="h-5 w-5 text-gray-400" />
                 ) : (
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 )}
               </button>
-              {activeTab === index && (
+              {openTabs.includes(index) && (
                 <div className="p-4 bg-gray-900/50">
                   {tab.content}
                 </div>
