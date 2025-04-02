@@ -238,7 +238,7 @@ export function OrderSuccessView({
             </h2>
             
             <p className="text-sm sm:text-base text-gray-300">
-              We'll share your tracking details as soon as they're ready.
+              We'll share your tracking details as soon as they're ready
             </p>
             
             <div className="relative group">
