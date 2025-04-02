@@ -1,7 +1,7 @@
 {
   "name": "Store.fun",
   "short_name": "Store.fun",
-  "description": "NFT Marketplace",
+  "description": "Merch Marketplace",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

@@ -309,6 +309,20 @@ function isSupabaseStorageUrl(url) {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
+  // Bypass service worker for Stripe resources
+  if (url.hostname.includes('stripe.com')) {
+    // Use fetchWithRetry for Stripe resources to handle network issues
+    event.respondWith(
+      fetchWithRetry(event.request.clone(), 3)
+        .catch(error => {
+          console.error('Stripe resource fetch failed:', error);
+          // Pass through the error for Stripe resources
+          return Promise.reject(error);
+        })
+    );
+    return;
+  }
+  
   // Special handling for Supabase storage URLs
   if (isSupabaseStorageUrl(url)) {
     // Bypass service worker for POST requests to storage
@@ -329,6 +343,7 @@ self.addEventListener('fetch', (event) => {
   }
   
   event.respondWith((async () => {
+    const startTime = Date.now();
     try {
       const cache = await caches.open(CACHE_NAMES[cacheType]);
       let cachedResponse = await cache.match(event.request);
@@ -347,30 +362,37 @@ self.addEventListener('fetch', (event) => {
         }
       }
       
-      // If no cache or stale, fetch from network
-      const networkResponse = await fetch(event.request);
-      if (networkResponse.ok) {
-        const cachedResponse = await addCacheHeaders(networkResponse.clone(), cacheType);
-        await cache.put(event.request, cachedResponse);
-        await trimCache(CACHE_NAMES[cacheType], CACHE_LIMITS[cacheType]);
-        return networkResponse;
+      // If no cache or stale, fetch from network with retry
+      try {
+        const networkResponse = await fetchWithRetry(event.request.clone());
+        if (networkResponse.ok) {
+          const cachedResponse = await addCacheHeaders(networkResponse.clone(), cacheType);
+          await cache.put(event.request, cachedResponse);
+          await trimCache(CACHE_NAMES[cacheType], CACHE_LIMITS[cacheType]);
+          recordMetric(cacheType, 'miss', Date.now() - startTime);
+          return networkResponse;
+        }
+        
+        // If network fails and we have cached response, return it
+        if (cachedResponse) {
+          console.log('Network failed, using cached response');
+          recordMetric(cacheType, 'error', Date.now() - startTime);
+          return cachedResponse;
+        }
+        
+        throw new Error('Network response was not ok');
+      } catch (networkError) {
+        console.error('Network fetch error:', networkError);
+        // If we have a cached response, return it as fallback
+        if (cachedResponse) {
+          console.log('Network error, using cached response');
+          recordMetric(cacheType, 'error', Date.now() - startTime);
+          return cachedResponse;
+        }
+        throw networkError;
       }
-      
-      // If network fails and we have cached response, return it
-      if (cachedResponse) {
-        console.log('Network failed, using cached response');
-        return cachedResponse;
-      }
-      
-      throw new Error('Network response was not ok');
     } catch (error) {
-      console.error('Fetch error:', error);
-      // If we have a cached response, return it as fallback
-      const cache = await caches.open(CACHE_NAMES[cacheType]);
-      const cachedResponse = await cache.match(event.request);
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+      recordMetric(cacheType, 'error', Date.now() - startTime);
       throw error;
     }
   })());
