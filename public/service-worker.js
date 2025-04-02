@@ -154,7 +154,11 @@ const NO_CACHE_PATTERNS = [
   '/api/payment',
   '/api/orders',
   '/api/auth/',
-  '/api/user/'
+  '/api/user/',
+  'stripe.com',  // Add Stripe domains to no-cache patterns
+  'js.stripe.com',
+  'api.stripe.com',
+  'hooks.stripe.com'
 ];
 
 // RPC methods that should never be cached
@@ -309,18 +313,9 @@ function isSupabaseStorageUrl(url) {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Bypass service worker for Stripe resources
+  // Completely bypass service worker for Stripe resources
   if (url.hostname.includes('stripe.com')) {
-    // Use fetchWithRetry for Stripe resources to handle network issues
-    event.respondWith(
-      fetchWithRetry(event.request.clone(), 3)
-        .catch(error => {
-          console.error('Stripe resource fetch failed:', error);
-          // Pass through the error for Stripe resources
-          return Promise.reject(error);
-        })
-    );
-    return;
+    return; // This lets the browser handle the request normally
   }
   
   // Special handling for Supabase storage URLs
