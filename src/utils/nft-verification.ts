@@ -14,6 +14,7 @@ class NFTVerifier {
   private connection: Connection;
   private metaplex: any | null = null;
   private initializationPromise: Promise<void> | null = null;
+  private isInitialized: boolean = false;
   
   // More balanced RPC rate limiting
   private lastRequestTime: number = 0;
@@ -46,8 +47,10 @@ class NFTVerifier {
         try {
           const { Metaplex } = await import('@metaplex-foundation/js');
           this.metaplex = Metaplex.make(this.connection);
+          this.isInitialized = true;
         } catch (error) {
-          this.initializationPromise = null; // Reset promise on failure
+          this.initializationPromise = null;
+          this.isInitialized = false;
           console.error('Failed to initialize Metaplex:', error);
           throw new Error('Failed to initialize Metaplex client');
         }
@@ -58,7 +61,7 @@ class NFTVerifier {
 
   // Add method to check if Metaplex is ready
   private async ensureMetaplexReady(): Promise<void> {
-    if (!this.metaplex) {
+    if (!this.isInitialized || !this.metaplex) {
       try {
         await this.initializeMetaplex();
         // Double check initialization succeeded
@@ -66,6 +69,7 @@ class NFTVerifier {
           throw new Error('Metaplex failed to initialize properly');
         }
       } catch (error) {
+        this.isInitialized = false;
         console.error('Failed to ensure Metaplex is ready:', error);
         throw new Error('Could not initialize Metaplex client');
       }
@@ -279,23 +283,22 @@ export async function verifyNFTHolding(
   return verifier.verifyNFTHolding(walletAddress, collectionAddress, minAmount);
 }
 
-// Add preload function that can be called after initial app load
+// Update preload function to be more reliable
 export function preloadNFTVerifier(): void {
-  // Preload in the background without blocking
-  setTimeout(() => {
-    const verifier = NFTVerifier.getInstance();
-    verifier.initializeMetaplex().catch(err => {
-      // Silent fail on preload
-      console.debug('NFT Verifier preload failed:', err);
-    });
-  }, 3000); // Wait 3 seconds after call to start preloading
+  // Preload immediately but don't block
+  const verifier = NFTVerifier.getInstance();
+  verifier.initializeMetaplex().catch(err => {
+    // Silent fail on preload but log for debugging
+    console.debug('NFT Verifier preload failed:', err);
+  });
 }
 
-// Add initialization function
+// Update initialization function
 export async function initializeNFTVerifier(): Promise<void> {
   try {
-    await NFTVerifier.getInstance();
-    console.log('NFT Verifier initialized successfully');
+    const verifier = NFTVerifier.getInstance();
+    await verifier.initializeMetaplex();
+    console.log('NFT Verifier and Metaplex initialized successfully');
   } catch (error) {
     console.error('Failed to initialize NFT Verifier:', error);
     throw error;
