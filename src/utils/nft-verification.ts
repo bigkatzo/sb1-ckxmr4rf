@@ -1,5 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
-import { Metaplex } from '@metaplex-foundation/js';
+import { Metaplex, Nft, Metadata, Sft } from '@metaplex-foundation/js';
 import { SOLANA_CONNECTION } from '../config/solana';
 
 export interface NFTVerificationResult {
@@ -38,20 +38,74 @@ export async function verifyNFTHolding(
     }
 
     const walletPubKey = new PublicKey(walletAddress);
+    const collectionPubKey = new PublicKey(collectionAddress);
 
-    // Fetch all NFTs owned by the user
-    const allTokens = await metaplex.nfts().findAllByOwner({ owner: walletPubKey });
+    console.log('Starting NFT verification for:', {
+      wallet: walletAddress,
+      collection: collectionAddress
+    });
+
+    // First verify the collection exists
+    try {
+      const collectionNft = await metaplex.nfts().findByMint({ mintAddress: collectionPubKey });
+      console.log('Collection NFT found:', {
+        name: collectionNft.name,
+        address: collectionNft.address.toString(),
+        verified: collectionNft.collection?.verified
+      });
+    } catch (error) {
+      console.error('Error fetching collection:', error);
+    }
+
+    // Fetch all NFTs owned by the user with retries
+    let allTokens: (Metadata | Nft | Sft)[] = [];
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`Attempt ${retryCount + 1} to fetch NFTs...`);
+        allTokens = await metaplex.nfts().findAllByOwner({ owner: walletPubKey });
+        break;
+      } catch (error) {
+        console.error(`Attempt ${retryCount + 1} failed:`, error);
+        retryCount++;
+        if (retryCount === maxRetries) {
+          throw new Error('Failed to fetch NFTs after multiple attempts');
+        }
+        // Wait before retrying with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+      }
+    }
+
+    console.log('Found total NFTs:', allTokens.length);
+
+    // Log all NFTs for debugging
+    allTokens.forEach((nft, index) => {
+      console.log(`NFT ${index + 1}:`, {
+        mint: nft.address.toString(),
+        name: nft.name,
+        collection: nft.collection?.address.toString(),
+        verified: nft.collection?.verified
+      });
+    });
 
     // Filter tokens that belong to the desired collection and are verified
-    const matchingNFTs = allTokens.filter((nft) => 
-      nft.collection?.address.toString() === collectionAddress && 
-      nft.collection.verified
-    );
+    const matchingNFTs = allTokens.filter((nft) => {
+      const matches = nft.collection?.address.toString() === collectionAddress;
+      const isVerified = nft.collection?.verified === true;
+      console.log('Checking NFT:', {
+        mint: nft.address.toString(),
+        collectionMatches: matches,
+        isVerified: isVerified
+      });
+      return matches && isVerified;
+    });
 
     const nftCount = matchingNFTs.length;
 
     // Log verification details for debugging
-    console.log('NFT Verification:', {
+    console.log('NFT Verification Result:', {
       walletAddress,
       collectionAddress,
       totalNFTs: allTokens.length,
