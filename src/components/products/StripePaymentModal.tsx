@@ -267,14 +267,13 @@ export function StripePaymentModal({
   React.useEffect(() => {
     if (!solPrice || !shippingInfo?.shipping_address || isCreatingOrder || clientSecret) return;
     
-    const amount = solAmount * solPrice;
-
     async function createPaymentIntent() {
       setIsCreatingOrder(true);
       try {
         console.log('Creating payment intent:', {
           endpoint: `${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`,
-          amount,
+          solAmount,
+          solPrice,
           productName,
           productId
         });
@@ -286,7 +285,8 @@ export function StripePaymentModal({
             'Accept': 'application/json',
           },
           body: JSON.stringify({
-            amount,
+            solAmount,  // Send original SOL amount
+            solPrice,   // Send current SOL price for server-side conversion
             productName,
             productId,
             variants,

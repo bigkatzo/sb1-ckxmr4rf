@@ -45,9 +45,10 @@ exports.handler = async (event, context) => {
 
   try {
     console.log('Parsing request body...');
-    const { amount, productName, shippingInfo, productId, variants, walletAddress } = JSON.parse(event.body);
+    const { solAmount, solPrice, productName, shippingInfo, productId, variants, walletAddress } = JSON.parse(event.body);
     console.log('Request data:', { 
-      amount, 
+      solAmount,
+      solPrice, 
       productName, 
       productId, 
       variants: !!variants,
@@ -57,11 +58,17 @@ exports.handler = async (event, context) => {
     // Ensure shippingInfo is properly formatted
     const parsedShippingInfo = typeof shippingInfo === 'string' ? JSON.parse(shippingInfo) : shippingInfo;
 
+    // Convert SOL to USD
+    console.log('Converting SOL to USD...');
+    console.log('Amount in SOL:', solAmount);
+    console.log('SOL price in USD:', solPrice);
+    const amountInUSD = solAmount * solPrice;
+    const amountInCents = Math.round(amountInUSD * 100);
+    console.log('Amount in USD:', amountInUSD);
+    console.log('Amount in cents:', amountInCents);
+
     // Create a payment intent
     console.log('Creating Stripe payment intent...');
-    console.log('Amount in SOL:', amount);
-    const amountInCents = Math.round(amount * 100);
-    console.log('Amount in cents:', amountInCents);
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountInCents,
       currency: 'usd',
@@ -70,6 +77,9 @@ exports.handler = async (event, context) => {
       },
       metadata: {
         productName,
+        solAmount: solAmount.toString(),
+        solPrice: solPrice.toString(),
+        usdAmount: amountInUSD.toString(),
         customerName: parsedShippingInfo.contact_info.fullName,
         shippingAddress: JSON.stringify(parsedShippingInfo.shipping_address),
         contactInfo: JSON.stringify(parsedShippingInfo.contact_info),
@@ -97,7 +107,7 @@ exports.handler = async (event, context) => {
     const { error: updateError } = await supabase.rpc('update_order_transaction', {
       p_order_id: orderId,
       p_transaction_signature: paymentIntent.id,
-      p_amount_sol: amount, // Store the SOL amount for reference
+      p_amount_sol: solAmount, // Store the original SOL amount
     });
 
     if (updateError) {
