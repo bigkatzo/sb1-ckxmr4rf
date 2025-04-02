@@ -50,7 +50,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 function WalletContextProvider({ children }: { children: React.ReactNode }) {
-  const { publicKey, connected, disconnect: nativeDisconnect, signTransaction, sendTransaction } = useSolanaWallet();
+  const { publicKey, connected, disconnect: nativeDisconnect } = useSolanaWallet();
   const [error, setError] = useState<Error | null>(null);
   const [notifications, setNotifications] = useState<WalletNotification[]>([]);
 
@@ -106,7 +106,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   }, [nativeDisconnect, addNotification]);
 
   const signAndSendTransaction = useCallback(async (transaction: Transaction): Promise<string> => {
-    if (!connected || !publicKey || !signTransaction || !sendTransaction) {
+    if (!connected || !publicKey || !window.solana) {
       throw new Error('Wallet not connected');
     }
 
@@ -120,11 +120,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey;
 
-      // Sign transaction
-      const signedTransaction = await signTransaction(transaction);
-      
-      // Send transaction
-      const signature = await sendTransaction(signedTransaction, SOLANA_CONNECTION);
+      // Sign and send transaction atomically
+      const { signature } = await window.solana.signAndSendTransaction(transaction);
       addNotification('success', `Transaction sent: ${signature.slice(0, 8)}...`);
 
       return signature;
@@ -135,7 +132,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       addNotification('error', errorMessage);
       throw error;
     }
-  }, [connected, publicKey, signTransaction, sendTransaction, addNotification]);
+  }, [connected, publicKey, addNotification]);
 
   return (
     <WalletContext.Provider value={{
