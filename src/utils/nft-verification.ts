@@ -1,4 +1,4 @@
-import { PublicKey, Connection } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { Metaplex } from '@metaplex-foundation/js';
 import { SOLANA_CONNECTION } from '../config/solana';
 
@@ -8,12 +8,8 @@ export interface NFTVerificationResult {
   balance?: number;
 }
 
-// Simple connection setup
-const connection = new Connection(SOLANA_CONNECTION.rpcEndpoint, {
-  commitment: 'confirmed'
-});
-
-const metaplex = Metaplex.make(connection);
+// Initialize Metaplex with our connection
+const metaplex = new Metaplex(SOLANA_CONNECTION);
 
 /**
  * Verifies if a wallet holds the required number of NFTs from a specific collection
@@ -42,13 +38,13 @@ export async function verifyNFTHolding(
     }
 
     const walletPubKey = new PublicKey(walletAddress);
-    
-    // Get all NFTs owned by the user
-    const nfts = await metaplex.nfts().findAllByOwner({ owner: walletPubKey });
 
-    // Filter NFTs that belong to the desired collection and are verified
-    const matchingNFTs = nfts.filter((nft) => 
-      nft.collection?.address.toBase58() === collectionAddress &&
+    // Fetch all NFTs owned by the user
+    const allTokens = await metaplex.nfts().findAllByOwner({ owner: walletPubKey });
+
+    // Filter tokens that belong to the desired collection and are verified
+    const matchingNFTs = allTokens.filter((nft) => 
+      nft.collection?.address.toString() === collectionAddress && 
       nft.collection.verified
     );
 
@@ -58,12 +54,13 @@ export async function verifyNFTHolding(
     console.log('NFT Verification:', {
       walletAddress,
       collectionAddress,
-      totalNFTs: nfts.length,
+      totalNFTs: allTokens.length,
       matchingNFTs: nftCount,
       matchingDetails: matchingNFTs.map(nft => ({
-        mint: nft.address.toBase58(),
+        mint: nft.address.toString(),
         name: nft.name,
-        collection: nft.collection?.address.toBase58()
+        collection: nft.collection?.address.toString(),
+        verified: nft.collection?.verified
       }))
     });
 
