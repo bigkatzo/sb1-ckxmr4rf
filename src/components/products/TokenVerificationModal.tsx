@@ -581,19 +581,19 @@ export function TokenVerificationModal({
               <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
                 {verifying ? (
                   <>
-                    <Loading type={LoadingType.ACTION} text="Verifying Solana wallet eligibility..." />
+                    <Loading type={LoadingType.ACTION} text="Verifying eligibility..." />
                   </>
                 ) : verificationResult?.isValid ? (
                   <>
                     <CheckCircle2 className="h-5 w-5 text-green-400" />
-                    <span className="text-gray-100">Your wallet is eligible to purchase with Solana!</span>
+                    <span className="text-gray-100">You are eligible to purchase this item!</span>
                   </>
                 ) : (
                   <>
                     <div className="w-full flex flex-col items-center gap-3 py-2">
                       <AlertTriangle className="h-10 w-10 text-red-500" />
                       <div className="text-center">
-                        <p className="text-red-500 font-semibold text-lg">Solana Payment Not Available</p>
+                        <p className="text-red-500 font-semibold text-lg">Access Denied</p>
                         {verificationResult?.error && (
                           <p className="text-gray-400 text-sm mt-1">{verificationResult.error}</p>
                         )}
@@ -606,7 +606,7 @@ export function TokenVerificationModal({
             ) : (
               <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-800/50">
                 <CheckCircle2 className="h-5 w-5 text-green-400" />
-                <span className="text-gray-100">This item is available to all payment methods!</span>
+                <span className="text-gray-100">This item is available to all collectors!</span>
               </div>
             )}
 
