@@ -18,7 +18,6 @@ import { ScrollBehavior } from './components/ui/ScrollBehavior';
 import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
 import { supabase } from './lib/supabase';
-import { preloadNFTVerifier } from './utils/nft-verification';
 import { HowItWorksModal } from './components/HowItWorksModal';
 import 'react-toastify/dist/ReactToastify.css';
 import { setupServiceWorker } from './lib/service-worker';
@@ -80,9 +79,6 @@ function AppContent() {
       console.error('Failed to set up service worker:', err);
     });
 
-    // Preload NFT verifier after a delay
-    preloadNFTVerifier();
-    
     // Expose realtime debugging utilities in development
     if (import.meta.env.DEV) {
       exposeRealtimeDebugger();
