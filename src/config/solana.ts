@@ -18,15 +18,20 @@ const RPC_ENDPOINTS = {
   ]
 };
 
+// Enhanced configuration for Metaplex operations
 const CONNECTION_CONFIG = {
-  commitment: 'finalized' as Commitment,
+  commitment: 'confirmed' as Commitment, // Changed from 'finalized' for faster NFT operations
   confirmTransactionInitialTimeout: 60000,
   disableRetryOnRateLimit: false,
   wsEndpoint: HELIUS_API_KEY 
     ? `wss://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
     : ALCHEMY_API_KEY 
       ? `wss://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
-      : undefined
+      : undefined,
+  // Add specific RPC configs for Metaplex
+  httpHeaders: {
+    'x-api-key': HELIUS_API_KEY || ALCHEMY_API_KEY || '',
+  }
 };
 
 // Create connection with improved retry logic
