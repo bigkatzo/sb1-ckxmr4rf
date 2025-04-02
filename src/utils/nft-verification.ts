@@ -15,6 +15,7 @@ class NFTVerifier {
   private metaplex: any | null = null;
   private initializationPromise: Promise<void> | null = null;
   private isInitialized: boolean = false;
+  private isInitializing: boolean = false;
   
   // Rate limiting configuration
   private lastRequestTime: number = 0;
@@ -45,37 +46,73 @@ class NFTVerifier {
   }
 
   public async initializeMetaplex() {
-    if (!this.initializationPromise) {
-      this.initializationPromise = (async () => {
+    // If already initialized, return immediately
+    if (this.isInitialized && this.metaplex) {
+      return Promise.resolve();
+    }
+
+    // If currently initializing, wait for the existing promise
+    if (this.isInitializing && this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    // Start initialization
+    this.isInitializing = true;
+    this.initializationPromise = (async () => {
+      try {
+        // Dynamic import of Metaplex
+        const { Metaplex } = await import('@metaplex-foundation/js').catch((error: unknown) => {
+          console.error('Failed to import Metaplex:', error);
+          throw new Error(`Failed to import Metaplex: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        });
+
+        // Create Metaplex instance
         try {
-          const { Metaplex } = await import('@metaplex-foundation/js');
           this.metaplex = Metaplex.make(this.connection);
           this.isInitialized = true;
         } catch (error) {
-          this.initializationPromise = null;
-          this.isInitialized = false;
-          console.error('Failed to initialize Metaplex:', error);
-          throw new Error('Failed to initialize Metaplex client');
+          console.error('Failed to create Metaplex instance:', error);
+          throw new Error(`Failed to create Metaplex instance: ${error.message || 'Unknown error'}`);
         }
-      })();
-    }
+      } catch (error) {
+        // Clean up on any error
+        this.metaplex = null;
+        this.isInitialized = false;
+        this.initializationPromise = null;
+        throw error;
+      } finally {
+        // Always reset initializing flag
+        this.isInitializing = false;
+      }
+    })();
+
     return this.initializationPromise;
   }
 
   // Add method to check if Metaplex is ready
   private async ensureMetaplexReady(): Promise<void> {
-    if (!this.isInitialized || !this.metaplex) {
-      try {
-        await this.initializeMetaplex();
-        // Double check initialization succeeded
-        if (!this.metaplex) {
-          throw new Error('Metaplex failed to initialize properly');
-        }
-      } catch (error) {
-        this.isInitialized = false;
-        console.error('Failed to ensure Metaplex is ready:', error);
-        throw new Error('Could not initialize Metaplex client');
+    try {
+      // If already initialized and instance exists, return immediately
+      if (this.isInitialized && this.metaplex) {
+        return;
       }
+
+      // Attempt initialization
+      await this.initializeMetaplex();
+
+      // Verify initialization succeeded
+      if (!this.metaplex) {
+        throw new Error('Metaplex failed to initialize properly');
+      }
+    } catch (error) {
+      // Reset state on failure
+      this.isInitialized = false;
+      this.metaplex = null;
+      this.initializationPromise = null;
+      this.isInitializing = false;
+      
+      console.error('Failed to ensure Metaplex is ready:', error);
+      throw error; // Preserve original error
     }
   }
 
