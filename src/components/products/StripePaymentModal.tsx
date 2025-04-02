@@ -1,6 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, Stripe } from '@stripe/stripe-js';
 import {
   Elements,
   PaymentElement,
@@ -13,8 +13,8 @@ import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from 'react-error-boundary';
 
-// Initialize Stripe with proper error handling
-const stripePromise = (() => {
+// Replace the early initialization with a function
+function getStripe() {
   const key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
   if (!key) {
     console.error('Stripe publishable key is missing from environment variables');
@@ -24,7 +24,7 @@ const stripePromise = (() => {
     console.error('Failed to initialize Stripe:', err);
     return null;
   });
-})();
+}
 
 // Type definitions for better type safety
 interface ShippingAddress {
@@ -260,8 +260,14 @@ export function StripePaymentModal({
   const [orderId, setOrderId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isCreatingOrder, setIsCreatingOrder] = React.useState(false);
+  const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
   const { price: solPrice } = useSolanaPrice();
   const { walletAddress } = useWallet();
+
+  // Initialize Stripe only when modal is opened
+  React.useEffect(() => {
+    setStripePromise(getStripe());
+  }, []);
 
   // Create payment intent with proper dependency tracking
   React.useEffect(() => {
