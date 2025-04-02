@@ -68,7 +68,11 @@
     X-XSS-Protection = "1; mode=block"
     Content-Security-Policy = """
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.stripe.com https://*.stripe.network https://js.stripe.com blob:;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'
+        https://*.stripe.com https://*.stripe.network https://js.stripe.com 
+        https://*.metaplex.com https://*.solana.com
+        https://*.phantom.app https://*.backpack.app
+        blob:;
       connect-src 'self' 
         https://*.stripe.com https://*.stripe.network https://api.stripe.com https://hooks.stripe.com
         https://*.netlify.app https://*.netlify.com
@@ -79,16 +83,37 @@
         https://fonts.googleapis.com https://fonts.gstatic.com
         https://*.metaplex.com https://cdn.metaplex.com https://arweave.net https://*.arweave.net
         https://*.genesysgo.net https://*.solana.com
-        blob:;
-      frame-src 'self' https://*.stripe.com https://*.stripe.network https://js.stripe.com https://hooks.stripe.com;
-      img-src 'self' data: blob: https://*.stripe.com https://*.netlify.app https://*.netlify.com https://*.supabase.co https://*.arweave.net https://arweave.net https://*.nftstorage.link;
+        https://*.helius.xyz https://*.helius.dev
+        https://*.magiceden.io https://*.magiceden.dev
+        https://*.tensor.trade
+        https://*.phantom.app https://*.backpack.app
+        https://*.jupiter.ag https://*.jup.ag
+        wss://*.solana.com ws://*.solana.com
+        blob:
+        data:;
+      frame-src 'self' 
+        https://*.stripe.com https://*.stripe.network https://js.stripe.com https://hooks.stripe.com 
+        https://*.solana.com https://*.phantom.app https://*.backpack.app;
+      img-src 'self' data: blob: 
+        https://*.stripe.com https://*.netlify.app https://*.netlify.com 
+        https://*.supabase.co https://*.arweave.net https://arweave.net 
+        https://*.nftstorage.link https://*.ipfs.io https://*.ipfs.dweb.link
+        https://*.metaplex.com https://cdn.metaplex.com
+        https://*.cloudfront.net https://*.amazonaws.com
+        https://*.magiceden.io https://*.magiceden.dev
+        https://*.tensor.trade;
       style-src 'self' 'unsafe-inline' https://*.stripe.com https://fonts.googleapis.com;
       font-src 'self' https://fonts.gstatic.com data:;
-      worker-src 'self' blob:;
+      worker-src 'self' blob: 'wasm-unsafe-eval';
       child-src 'self' blob:;
       object-src 'none';
       base-uri 'self';
       form-action 'self';
+      manifest-src 'self';
+      media-src 'self' blob: data:;
+      prefetch-src 'self';
+      require-trusted-types-for 'script';
+      upgrade-insecure-requests;
     """
     # Short cache for HTML files
     Cache-Control = "public, max-age=0, must-revalidate"
