@@ -72,28 +72,45 @@ function StripeCheckoutForm({
   const elements = useElements();
   const [error, setError] = React.useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>('idle');
+  const paymentStatusRef = React.useRef<PaymentStatus>('idle');
   const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
   const submitButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  // Update ref when status changes
+  React.useEffect(() => {
+    paymentStatusRef.current = paymentStatus;
+  }, [paymentStatus]);
 
   // Debounced submit handler to prevent multiple rapid clicks
   const handleSubmit = React.useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!stripe || !elements || !solPrice || paymentStatus === 'processing') {
+      console.log('Payment submission blocked:', { 
+        hasStripe: !!stripe, 
+        hasElements: !!elements, 
+        hasSolPrice: !!solPrice, 
+        paymentStatus 
+      });
       return;
     }
 
     setPaymentStatus('processing');
     try {
+      console.log('Confirming payment...');
       const result = await stripe.confirmPayment({
         elements,
         redirect: 'if_required',
       });
 
+      console.log('Payment confirmation result:', result);
+
       if (result.error) {
+        console.error('Payment error:', result.error);
         setError(result.error.message || 'Payment failed');
         setPaymentStatus('error');
       } else if (result.paymentIntent) {
+        console.log('Payment intent status:', result.paymentIntent.status);
         switch (result.paymentIntent.status) {
           case 'succeeded':
             setPaymentStatus('succeeded');
@@ -101,16 +118,33 @@ function StripeCheckoutForm({
             break;
           case 'processing':
             setPaymentStatus('processing');
+            // Add a timeout to check status again
+            const timeoutId = window.setTimeout(() => {
+              // Use ref to check current status
+              if (paymentStatusRef.current === 'processing') {
+                setError('Payment is taking longer than expected. Please check your payment status.');
+                setPaymentStatus('error');
+              }
+            }, 30000); // 30 seconds timeout
+            return () => window.clearTimeout(timeoutId);
             break;
           case 'requires_payment_method':
-            setError('Your payment was not successful, please try again.');
-            setPaymentStatus('error');
+            setError('Please provide a valid payment method.');
+            setPaymentStatus('idle');
+            break;
+          case 'requires_confirmation':
+            setError('Payment requires confirmation. Please try again.');
+            setPaymentStatus('idle');
             break;
           case 'requires_action':
             setPaymentStatus('requires_action');
             break;
+          case 'canceled':
+            setError('Payment was canceled. Please try again.');
+            setPaymentStatus('idle');
+            break;
           default:
-            setError('Something went wrong.');
+            setError('Something went wrong with the payment.');
             setPaymentStatus('error');
             break;
         }
@@ -121,6 +155,24 @@ function StripeCheckoutForm({
       setPaymentStatus('error');
     }
   }, [stripe, elements, solPrice, paymentStatus, onSuccess]);
+
+  // Add payment status effect
+  React.useEffect(() => {
+    let timeoutId: number;
+    
+    if (paymentStatus === 'processing') {
+      timeoutId = window.setTimeout(() => {
+        setError('Payment is taking longer than expected. Please check your payment status.');
+        setPaymentStatus('error');
+      }, 30000); // 30 seconds timeout
+    }
+
+    return () => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [paymentStatus]);
 
   if (priceLoading) {
     return <Loading type={LoadingType.ACTION} text="Loading price data..." />;
