@@ -3,7 +3,8 @@ import {
   Metaplex, 
   Nft, 
   Metadata, 
-  MetaplexError
+  MetaplexError,
+  isNft
 } from '@metaplex-foundation/js';
 import { SOLANA_CONNECTION } from '../config/solana';
 
@@ -11,6 +12,11 @@ export interface NFTVerificationResult {
   isValid: boolean;
   error?: string;
   balance?: number;
+}
+
+interface CacheEntry {
+  result: NFTVerificationResult;
+  timestamp: number;
 }
 
 // Initialize Metaplex with proper configuration
@@ -22,7 +28,12 @@ const CONFIG = {
   ENABLE_DEBUG_LOGS: process.env.NODE_ENV !== 'production',
   MAX_RETRIES: 3,
   RETRY_DELAY_BASE: 1000, // Base delay in ms for exponential backoff
+  CACHE_TTL: 5 * 60 * 1000, // Cache TTL in ms (5 minutes)
+  PARALLEL_BATCH_PROCESSING: true, // Enable/disable parallel batch processing
 };
+
+// Simple in-memory cache
+const verificationCache = new Map<string, CacheEntry>();
 
 /**
  * Splits an array into chunks of specified size
@@ -36,7 +47,7 @@ function chunkArray<T>(array: T[], size: number): T[][] {
 /**
  * Debug logging wrapper that only logs in non-production environments
  */
-function debugLog(message: string, data?: any) {
+function debugLog(message: string, data?: any): void {
   if (CONFIG.ENABLE_DEBUG_LOGS) {
     if (data) {
       console.log(message, data);
@@ -44,6 +55,60 @@ function debugLog(message: string, data?: any) {
       console.log(message);
     }
   }
+}
+
+/**
+ * Generates a cache key for a verification request
+ */
+function getCacheKey(walletAddress: string, collectionAddress: string, minAmount: number): string {
+  return `${walletAddress}:${collectionAddress}:${minAmount}`;
+}
+
+/**
+ * Checks if metadata is valid and contains required properties
+ */
+function isValidMetadata(metadata: any): metadata is Metadata {
+  return (
+    metadata &&
+    'mintAddress' in metadata &&
+    metadata.mintAddress instanceof PublicKey &&
+    'updateAuthority' in metadata &&
+    metadata.updateAuthority instanceof PublicKey
+  );
+}
+
+/**
+ * Process a chunk of metadata entries and return valid NFTs
+ */
+async function processMetadataChunk(
+  chunk: Metadata[],
+  chunkIndex: number,
+  totalChunks: number
+): Promise<Nft[]> {
+  debugLog(`Loading NFT batch ${chunkIndex + 1}/${totalChunks}...`);
+  
+  const loadedNfts = await Promise.all(
+    chunk.map(async (metadata) => {
+      try {
+        const nft = await metaplex.nfts().load({ metadata });
+        // Additional validation to ensure we have a valid NFT
+        if (isNft(nft)) {
+          return nft;
+        }
+        console.warn(`Loaded token is not a valid NFT: ${metadata.mintAddress.toString()}`);
+        return null;
+      } catch (error) {
+        console.warn(
+          `Failed to load NFT data for metadata: ${metadata.mintAddress.toString()}`,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+        return null;
+      }
+    })
+  );
+
+  // Filter out failed loads and non-NFT tokens
+  return loadedNfts.filter((nft): nft is Nft => nft !== null);
 }
 
 /**
@@ -55,6 +120,15 @@ export async function verifyNFTHolding(
   minAmount: number = 1
 ): Promise<NFTVerificationResult> {
   try {
+    // Check cache first
+    const cacheKey = getCacheKey(walletAddress, collectionAddress, minAmount);
+    const cachedResult = verificationCache.get(cacheKey);
+    
+    if (cachedResult && (Date.now() - cachedResult.timestamp) < CONFIG.CACHE_TTL) {
+      debugLog('Returning cached result for:', { walletAddress, collectionAddress });
+      return cachedResult.result;
+    }
+
     // Input validation
     if (!walletAddress || !isValidSolanaAddress(walletAddress)) {
       return {
@@ -102,14 +176,16 @@ export async function verifyNFTHolding(
     }
 
     // Fetch all NFTs owned by the user with retries
-    let metadataList: Metadata[] = [];
+    let allMetadata: Metadata[] = [];
     let retryCount = 0;
 
     while (retryCount < CONFIG.MAX_RETRIES) {
       try {
-        debugLog(`Attempt ${retryCount + 1} to fetch NFTs...`);
+        debugLog('Fetching NFTs...');
         const nfts = await metaplex.nfts().findAllByOwner({ owner: walletPubKey });
-        metadataList = nfts.filter((nft): nft is Metadata => 'mintAddress' in nft);
+        
+        // Improved metadata filtering with type checking
+        allMetadata = nfts.filter(isValidMetadata);
         break;
       } catch (error) {
         console.error(`Attempt ${retryCount + 1} failed:`, error);
@@ -123,50 +199,30 @@ export async function verifyNFTHolding(
       }
     }
 
-    debugLog('Found total NFT metadata entries:', metadataList.length);
+    debugLog('Found total NFT metadata entries:', allMetadata.length);
 
-    // Load full NFT data in batches
+    // Split metadata into chunks for batch processing
+    const metadataChunks = chunkArray(allMetadata, CONFIG.BATCH_SIZE);
     const allTokens: Nft[] = [];
-    const metadataChunks = chunkArray(metadataList, CONFIG.BATCH_SIZE);
 
-    for (const [chunkIndex, chunk] of metadataChunks.entries()) {
-      debugLog(`Loading NFT batch ${chunkIndex + 1}/${metadataChunks.length}...`);
-      
-      const loadedNfts = await Promise.all(
-        chunk.map(async (metadata) => {
-          try {
-            return await metaplex.nfts().load({ metadata });
-          } catch (error) {
-            console.warn(
-              `Failed to load NFT data for metadata: ${metadata.mintAddress.toString()}`,
-              error instanceof Error ? error.message : 'Unknown error'
-            );
-            return null;
-          }
+    if (CONFIG.PARALLEL_BATCH_PROCESSING) {
+      // Process all chunks in parallel
+      const chunksResults = await Promise.all(
+        metadataChunks.map(async (chunk, chunkIndex) => {
+          debugLog(`Processing chunk ${chunkIndex + 1}/${metadataChunks.length} in parallel`);
+          return await processMetadataChunk(chunk, chunkIndex, metadataChunks.length);
         })
       );
-
-      // Filter out failed loads and non-NFT tokens
-      const validNfts = loadedNfts.filter((nft): nft is Nft => 
-        nft !== null && 
-        nft.model === 'nft'
-      );
-      allTokens.push(...validNfts);
+      allTokens.push(...chunksResults.flat());
+    } else {
+      // Process chunks sequentially
+      for (const [chunkIndex, chunk] of metadataChunks.entries()) {
+        const chunkTokens = await processMetadataChunk(chunk, chunkIndex, metadataChunks.length);
+        allTokens.push(...chunkTokens);
+      }
     }
 
     debugLog('Successfully loaded NFTs:', allTokens.length);
-
-    // Log NFT details in debug mode only
-    if (CONFIG.ENABLE_DEBUG_LOGS) {
-      allTokens.forEach((nft, index) => {
-        debugLog(`NFT ${index + 1}:`, {
-          mint: nft.address.toString(),
-          name: nft.name,
-          collection: nft.collection?.address.toString(),
-          verified: nft.collection?.verified
-        });
-      });
-    }
 
     // Filter tokens that belong to the desired collection and are verified
     const matchingNFTs = allTokens.filter((nft) => {
@@ -185,6 +241,18 @@ export async function verifyNFTHolding(
     });
 
     const nftCount = matchingNFTs.length;
+    const result: NFTVerificationResult = {
+      isValid: nftCount >= minAmount,
+      balance: nftCount,
+      error: nftCount >= minAmount ? undefined : 
+             `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
+    };
+
+    // Cache the result
+    verificationCache.set(cacheKey, {
+      result,
+      timestamp: Date.now()
+    });
 
     // Log verification details
     debugLog('NFT Verification Result:', {
@@ -200,12 +268,7 @@ export async function verifyNFTHolding(
       })) : 'Debug logging disabled'
     });
 
-    return {
-      isValid: nftCount >= minAmount,
-      balance: nftCount,
-      error: nftCount >= minAmount ? undefined : 
-             `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
-    };
+    return result;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to verify NFT balance';
     console.error('Error verifying NFT balance:', errorMessage);
