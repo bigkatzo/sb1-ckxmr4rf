@@ -16,10 +16,13 @@ class NFTVerifier {
   private initializationPromise: Promise<void> | null = null;
   private isInitialized: boolean = false;
   
-  // More balanced RPC rate limiting
+  // Rate limiting configuration
   private lastRequestTime: number = 0;
   private readonly MIN_REQUEST_INTERVAL = 100; // 100ms between requests (10 RPS max)
   private readonly MAX_CONCURRENT_REQUESTS = 4; // Allow up to 4 concurrent requests
+  private readonly CHUNK_SIZE = 5; // Process 5 NFTs per chunk
+  private readonly MIN_CHUNK_DELAY = 200; // Base delay between chunks
+  private readonly MAX_CHUNK_DELAY = 300; // Max delay with jitter
   private activeRequests = 0;
 
   private constructor() {
@@ -86,8 +89,14 @@ class NFTVerifier {
     }
   }
 
-  // Chunk array into smaller arrays for rate limiting
+  // Enhanced chunk array method with size validation
   private chunkArray<T>(array: T[], size: number): T[][] {
+    if (!Array.isArray(array)) {
+      throw new Error('Input must be an array');
+    }
+    if (size < 1) {
+      throw new Error('Chunk size must be at least 1');
+    }
     return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
       array.slice(i * size, i * size + size)
     );
@@ -113,6 +122,46 @@ class NFTVerifier {
 
   private async releaseRequest(): Promise<void> {
     this.activeRequests--;
+  }
+
+  private async processNFTChunk(chunk: (Metadata | Nft | Sft)[], attempt: number): Promise<(Nft | null)[]> {
+    try {
+      // Process NFTs in parallel within reasonable limits
+      const chunkPromises = chunk.map(async (nft) => {
+        try {
+          await this.throttleRequest();
+          const loadedNFT = await this.metaplex.nfts().load({ metadata: nft as Metadata });
+          this.releaseRequest();
+          return loadedNFT;
+        } catch (error) {
+          console.error('Error loading NFT data:', error);
+          if (error instanceof Error) {
+            console.error('NFT loading error details:', {
+              message: error.message,
+              nftAddress: (nft as Metadata)?.address?.toBase58(),
+              errorType: error.name,
+              stack: error.stack,
+              attempt: attempt
+            });
+          }
+          return null;
+        }
+      });
+
+      // Add dynamic delay based on chunk size and attempt number
+      const baseDelay = this.MIN_CHUNK_DELAY;
+      const maxJitter = this.MAX_CHUNK_DELAY - this.MIN_CHUNK_DELAY;
+      const dynamicDelay = baseDelay + (Math.random() * maxJitter);
+      
+      // Increase delay for retry attempts
+      const retryMultiplier = Math.max(1, attempt);
+      await new Promise(resolve => setTimeout(resolve, dynamicDelay * retryMultiplier));
+      
+      return Promise.all(chunkPromises);
+    } catch (error) {
+      console.error(`Error processing NFT chunk:`, error);
+      return new Array(chunk.length).fill(null);
+    }
   }
 
   public async verifyNFTHolding(
@@ -157,7 +206,7 @@ class NFTVerifier {
       let lastError: Error | null = null;
       for (let attempt = 0; attempt <= retryAttempts; attempt++) {
         try {
-          // Verify Metaplex is still available (in case of connection issues)
+          // Verify Metaplex is still available
           if (!this.metaplex) {
             await this.ensureMetaplexReady();
           }
@@ -165,47 +214,16 @@ class NFTVerifier {
           // Apply rate limiting before RPC call
           await this.throttleRequest();
           
-          // Get all NFTs owned by the user (returns Metadata objects)
+          // Get all NFTs owned by the user
           const nfts: (Metadata | Nft | Sft)[] = await this.metaplex.nfts().findAllByOwner({ owner: walletPubKey });
           this.releaseRequest();
 
-          // More balanced chunking
-          const CHUNK_SIZE = 5; // Process 5 NFTs per chunk
-          const nftChunks = this.chunkArray(nfts, CHUNK_SIZE);
+          // Split into chunks with configured size
+          const nftChunks = this.chunkArray(nfts, this.CHUNK_SIZE);
           
-          // Reasonable delays for rate limiting
-          const MIN_CHUNK_DELAY = 200; // 200ms base delay between chunks
-          const JITTER = 100; // 100ms max jitter
-
+          // Process chunks with enhanced error handling
           const loadedNFTsArrays = await Promise.all(
-            nftChunks.map(async (chunk) => {
-              // Process NFTs in parallel within reasonable limits
-              const chunkPromises = chunk.map(async (nft) => {
-                try {
-                  await this.throttleRequest();
-                  const loadedNFT = await this.metaplex.nfts().load({ metadata: nft as Metadata });
-                  this.releaseRequest();
-                  return loadedNFT;
-                } catch (error) {
-                  console.error('Error loading NFT data:', error);
-                  if (error instanceof Error) {
-                    console.error('NFT loading error details:', {
-                      message: error.message,
-                      nftAddress: (nft as Metadata)?.address?.toBase58(),
-                      errorType: error.name,
-                      stack: error.stack
-                    });
-                  }
-                  return null;
-                }
-              });
-
-              // Add reasonable delay between chunks
-              const delay = MIN_CHUNK_DELAY + Math.random() * JITTER;
-              await new Promise(resolve => setTimeout(resolve, delay));
-              
-              return Promise.all(chunkPromises);
-            })
+            nftChunks.map(chunk => this.processNFTChunk(chunk, attempt))
           );
 
           // Then filter after full loading
