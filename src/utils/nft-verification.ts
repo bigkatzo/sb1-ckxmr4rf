@@ -48,11 +48,28 @@ class NFTVerifier {
           this.metaplex = Metaplex.make(this.connection);
         } catch (error) {
           this.initializationPromise = null; // Reset promise on failure
-          throw error;
+          console.error('Failed to initialize Metaplex:', error);
+          throw new Error('Failed to initialize Metaplex client');
         }
       })();
     }
     return this.initializationPromise;
+  }
+
+  // Add method to check if Metaplex is ready
+  private async ensureMetaplexReady(): Promise<void> {
+    if (!this.metaplex) {
+      try {
+        await this.initializeMetaplex();
+        // Double check initialization succeeded
+        if (!this.metaplex) {
+          throw new Error('Metaplex failed to initialize properly');
+        }
+      } catch (error) {
+        console.error('Failed to ensure Metaplex is ready:', error);
+        throw new Error('Could not initialize Metaplex client');
+      }
+    }
   }
 
   // Validate Solana address format
@@ -100,34 +117,34 @@ class NFTVerifier {
     minAmount: number,
     retryAttempts = 3
   ): Promise<NFTVerificationResult> {
-    // Input validation
-    if (!walletAddress || !this.isValidSolanaAddress(walletAddress)) {
-      return {
-        isValid: false,
-        error: 'Invalid wallet address format',
-        balance: 0
-      };
-    }
-
-    if (!collectionAddress || !this.isValidSolanaAddress(collectionAddress)) {
-      return {
-        isValid: false,
-        error: 'Invalid collection address format',
-        balance: 0
-      };
-    }
-
-    if (typeof minAmount !== 'number' || minAmount < 0) {
-      return {
-        isValid: false,
-        error: 'Invalid minimum amount specified',
-        balance: 0
-      };
-    }
-
     try {
-      // Ensure Metaplex is initialized before proceeding
-      await this.initializeMetaplex();
+      // Input validation
+      if (!walletAddress || !this.isValidSolanaAddress(walletAddress)) {
+        return {
+          isValid: false,
+          error: 'Invalid wallet address format',
+          balance: 0
+        };
+      }
+
+      if (!collectionAddress || !this.isValidSolanaAddress(collectionAddress)) {
+        return {
+          isValid: false,
+          error: 'Invalid collection address format',
+          balance: 0
+        };
+      }
+
+      if (typeof minAmount !== 'number' || minAmount < 0) {
+        return {
+          isValid: false,
+          error: 'Invalid minimum amount specified',
+          balance: 0
+        };
+      }
+
+      // Ensure Metaplex is ready before proceeding with any operations
+      await this.ensureMetaplexReady();
       
       const walletPubKey = new PublicKey(walletAddress);
       const collectionPubKey = new PublicKey(collectionAddress);
@@ -136,6 +153,11 @@ class NFTVerifier {
       let lastError: Error | null = null;
       for (let attempt = 0; attempt <= retryAttempts; attempt++) {
         try {
+          // Verify Metaplex is still available (in case of connection issues)
+          if (!this.metaplex) {
+            await this.ensureMetaplexReady();
+          }
+
           // Apply rate limiting before RPC call
           await this.throttleRequest();
           
