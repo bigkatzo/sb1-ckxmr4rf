@@ -196,12 +196,17 @@ function StripeCheckoutForm({
           <span className="text-gray-300">Amount:</span>
           <div className="text-right">
             <span className="text-white font-medium">
-              ${(solAmount * solPrice).toFixed(2)} <span className="text-gray-400">({solAmount} SOL)</span>
+              ${Math.max(solAmount * solPrice, 0.50).toFixed(2)} <span className="text-gray-400">({solAmount} SOL)</span>
             </span>
             {couponDiscount && couponDiscount > 0 && originalPrice && originalPrice > 0 && (
               <div className="text-sm">
                 <span className="text-gray-400 line-through">${(originalPrice * solPrice).toFixed(2)}</span>
                 <span className="text-purple-400 ml-2">Coupon applied</span>
+              </div>
+            )}
+            {solAmount * solPrice < 0.50 && (
+              <div className="text-sm text-yellow-400">
+                Adjusted to minimum payment amount ($0.50)
               </div>
             )}
           </div>
@@ -349,6 +354,12 @@ export function StripePaymentModal({
             status: response.status,
             data
           });
+          
+          // Handle specific error cases
+          if (data.details?.includes('must be at least $0.50 usd')) {
+            throw new Error('The payment amount after discount is too low. Minimum payment amount is $0.50 USD.');
+          }
+          
           throw new Error(data.error || `Failed to create payment intent (${response.status})`);
         }
 

@@ -63,9 +63,20 @@ exports.handler = async (event, context) => {
     console.log('Amount in SOL:', solAmount);
     console.log('SOL price in USD:', solPrice);
     const amountInUSD = solAmount * solPrice;
-    const amountInCents = Math.round(amountInUSD * 100);
-    console.log('Amount in USD:', amountInUSD);
+    const MINIMUM_USD_AMOUNT = 0.50;
+    
+    // Adjust amount if below minimum
+    const finalAmountInUSD = Math.max(amountInUSD, MINIMUM_USD_AMOUNT);
+    const amountInCents = Math.round(finalAmountInUSD * 100);
+    
+    console.log('Original amount in USD:', amountInUSD);
+    console.log('Final amount in USD:', finalAmountInUSD);
     console.log('Amount in cents:', amountInCents);
+
+    // Validate minimum amount
+    if (finalAmountInUSD < MINIMUM_USD_AMOUNT) {
+      throw new Error(`Amount must be at least $${MINIMUM_USD_AMOUNT} usd`);
+    }
 
     // Create a payment intent
     console.log('Creating Stripe payment intent...');
@@ -79,7 +90,7 @@ exports.handler = async (event, context) => {
         productName,
         solAmount: solAmount.toString(),
         solPrice: solPrice.toString(),
-        usdAmount: amountInUSD.toString(),
+        usdAmount: finalAmountInUSD.toString(),
         customerName: parsedShippingInfo.contact_info.fullName,
         shippingAddress: JSON.stringify(parsedShippingInfo.shipping_address),
         contactInfo: JSON.stringify(parsedShippingInfo.contact_info),
