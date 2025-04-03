@@ -157,14 +157,6 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
     }));
   };
 
-  const handleCollectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
-    setFormData(prev => ({
-      ...prev,
-      collection_ids: selectedOptions
-    }));
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
