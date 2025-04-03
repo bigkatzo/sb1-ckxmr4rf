@@ -1,5 +1,5 @@
 import { PublicKey, Connection, ConnectionConfig } from '@solana/web3.js';
-import { getAssociatedTokenAddress, getMint } from '@solana/spl-token';
+import { getAssociatedTokenAddress, getMint, TokenAccountNotFoundError, TokenInvalidAccountOwnerError } from '@solana/spl-token';
 import { SOLANA_CONNECTION } from '../config/solana';
 
 // Cache structure to store recent balance checks
@@ -105,7 +105,7 @@ export async function verifyTokenHolding(
         isValid: tokenBalance >= minAmount,
         balance: tokenBalance,
         error: tokenBalance >= minAmount ? undefined : 
-               `Insufficient tokens. You have ${tokenBalance} but need ${minAmount} tokens. Token decimals: ${mintInfo.decimals}`
+               `Insufficient tokens. You have ${tokenBalance} but need ${minAmount} tokens.`
       };
 
       // Cache the result
@@ -116,15 +116,32 @@ export async function verifyTokenHolding(
 
       return result;
     } catch (error) {
-      // Token account doesn't exist - user has never held this token
+      // Handle specific token account errors
+      if (error instanceof TokenAccountNotFoundError || error instanceof TokenInvalidAccountOwnerError) {
+        return {
+          isValid: false,
+          error: `You don't have any tokens yet. You need ${minAmount} tokens to proceed. Please acquire some tokens first.`,
+          balance: 0
+        };
+      }
+      
+      // Handle other errors
+      console.error('Error checking token balance:', error);
       return {
         isValid: false,
-        error: `No tokens found. You need to buy the required (${minAmount}) tokens first.`,
+        error: 'Failed to check token balance. Please try again.',
         balance: 0
       };
     }
   } catch (error) {
     console.error('Error verifying token balance:', error);
+    if (error instanceof TokenInvalidAccountOwnerError) {
+      return {
+        isValid: false,
+        error: `You don't have any tokens yet. You need ${minAmount} tokens to proceed.`,
+        balance: 0
+      };
+    }
     return {
       isValid: false,
       error: error instanceof Error ? error.message : 'Failed to verify token balance',
