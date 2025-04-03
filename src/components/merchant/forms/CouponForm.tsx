@@ -44,7 +44,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
       if (discountValue > 100) {
         newErrors.discount_value = 'Percentage discount cannot exceed 100%';
       }
-      if (formData.max_discount !== undefined && formData.max_discount !== null && formData.max_discount <= 0) {
+      if (typeof formData.max_discount === 'number' && formData.max_discount <= 0) {
         newErrors.max_discount = 'Maximum discount must be greater than 0';
       }
     }
