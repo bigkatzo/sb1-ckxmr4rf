@@ -3,6 +3,7 @@ import { Button } from '../../ui/Button';
 import { Plus, Trash2 } from 'lucide-react';
 import type { Coupon } from '../../../types/coupons';
 import type { CategoryRule } from '../../../types';
+import { useCollections } from '../../../hooks/useCollections';
 
 interface CouponFormProps {
   onClose: () => void;
@@ -11,12 +12,13 @@ interface CouponFormProps {
 }
 
 const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
+  const { collections, loading: collectionsLoading } = useCollections('latest');
   const [formData, setFormData] = useState<Partial<Coupon>>({
     code: '',
     discount_type: 'fixed_sol',
     discount_value: 0,
     max_discount: undefined,
-    collection_id: undefined,
+    collection_ids: initialData?.collection_ids || [],
     eligibility_rules: { groups: [] },
     status: 'active',
     ...initialData
@@ -155,6 +157,14 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
     }));
   };
 
+  const handleCollectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
+    setFormData(prev => ({
+      ...prev,
+      collection_ids: selectedOptions
+    }));
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -175,19 +185,24 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
 
       <div>
         <label className="block text-sm font-medium text-gray-200 mb-1">
-          Collection
+          Collections (Hold Ctrl/Cmd to select multiple)
         </label>
         <select
-          value={formData.collection_id || ''}
-          onChange={(e) => setFormData({ 
-            ...formData, 
-            collection_id: e.target.value || undefined
-          })}
-          className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          multiple
+          value={formData.collection_ids || []}
+          onChange={handleCollectionChange}
+          className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none min-h-[120px]"
         >
           <option value="">All Collections</option>
-          {/* Add collection options here */}
+          {collections.map(collection => (
+            <option key={collection.id} value={collection.id}>
+              {collection.name}
+            </option>
+          ))}
         </select>
+        <p className="mt-1 text-sm text-gray-400">
+          {collectionsLoading ? 'Loading collections...' : 'Leave empty to apply to all collections'}
+        </p>
       </div>
 
       <div>

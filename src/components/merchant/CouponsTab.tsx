@@ -57,11 +57,21 @@ export function CouponsTab() {
 
   const handleSaveCoupon = async (couponData: Partial<Coupon>) => {
     try {
+      const { code, discount_type, discount_value, max_discount, collection_ids, eligibility_rules, status } = couponData;
+      
       if (editingCoupon) {
         // Update existing coupon
         const { error } = await supabase
           .from('coupons')
-          .update(couponData)
+          .update({
+            code,
+            discount_type,
+            discount_value,
+            max_discount,
+            collection_ids,
+            eligibility_rules,
+            status
+          })
           .eq('id', editingCoupon.id);
 
         if (error) throw error;
@@ -70,7 +80,15 @@ export function CouponsTab() {
         // Create new coupon
         const { error } = await supabase
           .from('coupons')
-          .insert([couponData]);
+          .insert([{
+            code,
+            discount_type,
+            discount_value,
+            max_discount,
+            collection_ids,
+            eligibility_rules,
+            status
+          }]);
 
         if (error) throw error;
         toast.success('Coupon created successfully');
