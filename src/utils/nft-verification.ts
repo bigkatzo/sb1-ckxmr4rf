@@ -90,24 +90,33 @@ export async function verifyNFTHolding(
             const numCreators = accountInfo.data.readUInt32LE(offset);
             offset += 4 + (numCreators * 34); // Each creator is 34 bytes
           }
-          
-          // Skip collection verification (1 byte)
+
+          // Collection data starts here
+          // Check if uses field exists (1 byte)
+          const hasUses = accountInfo.data[offset] === 1;
+          offset += 1;
+          if (hasUses) {
+            offset += 17; // Skip uses struct
+          }
+
+          // Now we're at collection data
           const hasCollection = accountInfo.data[offset] === 1;
           offset += 1;
-          
+
           if (hasCollection) {
-            // Read collection address (32 bytes)
+            // Read collection key (32 bytes)
             const collectionKey = new PublicKey(accountInfo.data.slice(offset, offset + 32));
             
             // Check if this NFT belongs to the target collection
             if (collectionKey.toBase58() === collectionAddress) {
-              // Skip to verified byte
-              offset += 32;
-              const isVerified = accountInfo.data[offset] === 1;
-              
-              if (isVerified) {
-                return account;
-              }
+              console.log('Found NFT from collection:', account.account.data.parsed.info.mint);
+              return account;
+            } else {
+              console.log('NFT collection mismatch:', {
+                nft: account.account.data.parsed.info.mint,
+                collection: collectionKey.toBase58(),
+                expected: collectionAddress
+              });
             }
           }
 
