@@ -23,7 +23,7 @@ import type { PriceWithDiscount } from '../../types/coupons';
 interface TokenVerificationModalProps {
   product: Product;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (orderId: string, signature: string, orderNumber: string) => void;
   selectedOptions?: Record<string, string>;
 }
 
@@ -318,13 +318,17 @@ export function TokenVerificationModal({
           throw orderError;
         }
 
+        if (!orderId) {
+          throw new Error('Order ID not found');
+        }
+
         // Show success
         setOrderDetails({
           orderNumber: orderData.order_number,
           transactionSignature: uniqueSignature
         });
         setShowSuccessView(true);
-        onSuccess?.();
+        onSuccess?.(orderId, uniqueSignature, orderData.order_number);
         return;
       }
 
@@ -359,7 +363,7 @@ export function TokenVerificationModal({
       }
 
       if (!orderId) {
-        throw new Error('Failed to create order');
+        throw new Error('Order ID not found');
       }
       
       // Start payment processing
@@ -464,6 +468,7 @@ export function TokenVerificationModal({
           transactionSignature: signature
         });
         setShowSuccessView(true);
+        onSuccess?.(orderId, signature, orderData.order_number);
       } catch (error) {
         console.error('Order error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
@@ -604,7 +609,7 @@ export function TokenVerificationModal({
           productImage={product.imageUrl}
           orderNumber={orderDetails.orderNumber}
           transactionSignature={orderDetails.transactionSignature}
-          onClose={onSuccess}
+          onClose={onClose}
           collectionSlug={product.collectionSlug || ''}
         />
       ) : showStripeModal ? (

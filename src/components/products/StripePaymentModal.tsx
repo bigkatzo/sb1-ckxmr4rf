@@ -49,11 +49,11 @@ interface ShippingInfo {
 
 interface StripePaymentModalProps {
   onClose: () => void;
-  onSuccess: (orderId: string, paymentIntentId: string) => void;
+  onSuccess: (orderId: string, paymentIntentId: string, orderNumber: string) => void;
   solAmount: number;
   productName: string;
   productId: string;
-  shippingInfo: ShippingInfo;
+  shippingInfo?: ShippingInfo;
   variants?: Array<{
     name: string;
     value: string;
@@ -346,8 +346,8 @@ export function StripePaymentModal({
             throw orderError;
           }
 
-          // Call onSuccess with the order ID and unique signature
-          onSuccess(createdOrderId, uniqueSignature);
+          // Call onSuccess with the order ID, signature, and order number
+          onSuccess(createdOrderId, uniqueSignature, orderData.order_number);
           return;
         }
 
@@ -452,6 +452,61 @@ export function StripePaymentModal({
     originalPrice
   ]);
 
+  const handlePaymentSuccess = async (paymentIntentId: string) => {
+    try {
+      // Update order with payment details
+      const { error: updateError } = await supabase.rpc('update_order_transaction', {
+        p_order_id: orderId,
+        p_transaction_signature: paymentIntentId,
+        p_amount_sol: solPrice
+      });
+
+      if (updateError) {
+        console.error('Error updating order:', updateError);
+        throw updateError;
+      }
+
+      // Handle successful payment
+      const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+        p_order_id: orderId
+      });
+
+      if (confirmError) {
+        console.error('Error confirming order:', confirmError);
+        throw confirmError;
+      }
+
+      // Get order number for success view
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .select('order_number')
+        .eq('id', orderId)
+        .single();
+
+      if (orderError) {
+        console.error('Error fetching order number:', orderError);
+        throw orderError;
+      }
+
+      if (!orderData?.order_number) {
+        throw new Error('Order number not found');
+      }
+
+      if (!orderId) {
+        throw new Error('Order ID not found');
+      }
+
+      // Call onSuccess with complete order details
+      onSuccess(orderId, paymentIntentId, orderData.order_number);
+      setIsLoading(false);
+      setClientSecret(null);
+    } catch (error) {
+      console.error('Payment error:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred');
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
       <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
@@ -529,7 +584,12 @@ export function StripePaymentModal({
               >
                 <StripeCheckoutForm
                   solAmount={solAmount}
-                  onSuccess={(paymentIntentId) => onSuccess(orderId, paymentIntentId)}
+                  onSuccess={(paymentIntentId) => {
+                    if (!paymentIntentId) {
+                      throw new Error('Payment intent ID is required');
+                    }
+                    handlePaymentSuccess(paymentIntentId);
+                  }}
                   couponDiscount={couponDiscount}
                   originalPrice={originalPrice}
                   solPrice={solPrice}
