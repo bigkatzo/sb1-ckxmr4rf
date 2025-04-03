@@ -287,10 +287,13 @@ export function TokenVerificationModal({
         if (createError) throw createError;
         orderId = createdOrderId;
 
-        // Update order with special transaction signature for free orders
+        // Generate unique transaction signature for free orders
+        const uniqueSignature = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+
+        // Update order with unique transaction signature for free orders
         const { error: updateError } = await supabase.rpc('update_order_transaction', {
           p_order_id: orderId,
-          p_transaction_signature: 'free_order',
+          p_transaction_signature: uniqueSignature,
           p_amount_sol: 0
         });
 
@@ -306,7 +309,7 @@ export function TokenVerificationModal({
         // Show success
         setOrderDetails({
           orderNumber: '',
-          transactionSignature: ''
+          transactionSignature: uniqueSignature
         });
         setShowSuccessView(true);
         onSuccess?.();

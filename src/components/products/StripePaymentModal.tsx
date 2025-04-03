@@ -315,10 +315,13 @@ export function StripePaymentModal({
 
           if (createError) throw createError;
 
-          // Update order with special transaction signature for free orders
+          // Generate unique transaction signature for free orders
+          const uniqueSignature = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+
+          // Update order with unique transaction signature for free orders
           const { error: updateError } = await supabase.rpc('update_order_transaction', {
             p_order_id: createdOrderId,
-            p_transaction_signature: 'free_order',
+            p_transaction_signature: uniqueSignature,
             p_amount_sol: 0
           });
 
@@ -331,8 +334,8 @@ export function StripePaymentModal({
 
           if (confirmError) throw confirmError;
 
-          // Call onSuccess with the order ID and special signature
-          onSuccess(createdOrderId, 'free_order');
+          // Call onSuccess with the order ID and unique signature
+          onSuccess(createdOrderId, uniqueSignature);
           return;
         }
 
