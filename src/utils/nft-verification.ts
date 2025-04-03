@@ -62,17 +62,20 @@ export async function verifyNFTHolding(
 
     // Filter NFTs by collection and verified status
     const collectionNfts = nfts.filter((nft): nft is Nft => {
+      if (!nft) return false;
+      
+      console.log('Checking NFT:', {
+        mint: nft.address.toBase58(),
+        collection: nft.collection ? {
+          address: nft.collection.address.toBase58(),
+          verified: nft.collection.verified
+        } : null,
+        expectedCollection: collectionAddress
+      });
+      
       const isFromCollection = nft?.collection?.address.toBase58() === collectionAddress;
-      const isVerified = nft?.collection?.verified ?? false;
       
-      if (isFromCollection) {
-        console.log('Found collection NFT:', {
-          mint: nft.address.toBase58(),
-          verified: isVerified
-        });
-      }
-      
-      return isFromCollection && isVerified;
+      return isFromCollection; // Remove verified check
     });
 
     const nftCount = collectionNfts.length;
