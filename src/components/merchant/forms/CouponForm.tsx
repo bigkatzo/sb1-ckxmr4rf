@@ -185,22 +185,39 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
 
       <div>
         <label className="block text-sm font-medium text-gray-200 mb-1">
-          Collections (Hold Ctrl/Cmd to select multiple)
+          Collections
         </label>
-        <select
-          multiple
-          value={formData.collection_ids || []}
-          onChange={handleCollectionChange}
-          className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none min-h-[120px]"
-        >
-          {collections.map(collection => (
-            <option key={collection.id} value={collection.id}>
-              {collection.name}
-            </option>
-          ))}
-        </select>
+        <div className="max-h-[200px] overflow-y-auto bg-gray-800 rounded-lg p-2">
+          {collectionsLoading ? (
+            <p className="text-gray-400 p-2">Loading collections...</p>
+          ) : collections.length === 0 ? (
+            <p className="text-gray-400 p-2">No collections found</p>
+          ) : (
+            <div className="space-y-2">
+              {collections.map(collection => (
+                <label key={collection.id} className="flex items-center space-x-2 p-2 hover:bg-gray-700 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.collection_ids?.includes(collection.id) || false}
+                    onChange={(e) => {
+                      const newCollectionIds = e.target.checked
+                        ? [...(formData.collection_ids || []), collection.id]
+                        : (formData.collection_ids || []).filter(id => id !== collection.id);
+                      setFormData(prev => ({
+                        ...prev,
+                        collection_ids: newCollectionIds
+                      }));
+                    }}
+                    className="rounded border-gray-600 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                  />
+                  <span className="text-white">{collection.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
         <p className="mt-1 text-sm text-gray-400">
-          {collectionsLoading ? 'Loading collections...' : 'Leave empty to apply to all collections'}
+          Leave all unchecked to apply to all collections
         </p>
       </div>
 
