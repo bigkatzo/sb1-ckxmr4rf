@@ -40,10 +40,8 @@ BEGIN
     AND (expires_at IS NULL OR expires_at > now())
     AND (max_uses IS NULL OR current_uses < max_uses)
     AND (
-        -- Check if coupon applies to all collections (empty arrays)
-        (collection_id IS NULL AND (collection_ids IS NULL OR array_length(collection_ids, 1) IS NULL))
-        -- Check if product collection matches single collection_id
-        OR collection_id = v_product_collection_id
+        -- Check if coupon applies to all collections (empty array)
+        (collection_ids IS NULL OR array_length(collection_ids, 1) IS NULL)
         -- Check if product collection is in collection_ids array
         OR v_product_collection_id = ANY(collection_ids)
     );
