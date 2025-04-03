@@ -3,7 +3,7 @@ import { Button } from '../../ui/Button';
 import { Plus, Trash2 } from 'lucide-react';
 import type { Coupon } from '../../../types/coupons';
 import type { CategoryRule } from '../../../types';
-import { useCollections } from '../../../hooks/useCollections';
+import { useMerchantCollections } from '../../../hooks/useMerchantCollections';
 
 interface CouponFormProps {
   onClose: () => void;
@@ -12,7 +12,7 @@ interface CouponFormProps {
 }
 
 const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
-  const { collections, loading: collectionsLoading } = useCollections('latest');
+  const { collections, loading: collectionsLoading } = useMerchantCollections();
   const [formData, setFormData] = useState<Partial<Coupon>>({
     code: '',
     discount_type: 'fixed_sol',
@@ -193,7 +193,6 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           onChange={handleCollectionChange}
           className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none min-h-[120px]"
         >
-          <option value="">All Collections</option>
           {collections.map(collection => (
             <option key={collection.id} value={collection.id}>
               {collection.name}
