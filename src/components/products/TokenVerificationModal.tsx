@@ -306,9 +306,21 @@ export function TokenVerificationModal({
 
         if (confirmError) throw confirmError;
 
+        // Get order number
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .select('order_number')
+          .eq('id', orderId)
+          .single();
+
+        if (orderError) {
+          console.error('Error fetching order number:', orderError);
+          throw orderError;
+        }
+
         // Show success
         setOrderDetails({
-          orderNumber: '',
+          orderNumber: orderData.order_number,
           transactionSignature: uniqueSignature
         });
         setShowSuccessView(true);

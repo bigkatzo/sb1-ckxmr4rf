@@ -334,6 +334,18 @@ export function StripePaymentModal({
 
           if (confirmError) throw confirmError;
 
+          // Get order number
+          const { data: orderData, error: orderError } = await supabase
+            .from('orders')
+            .select('order_number')
+            .eq('id', createdOrderId)
+            .single();
+
+          if (orderError) {
+            console.error('Error fetching order number:', orderError);
+            throw orderError;
+          }
+
           // Call onSuccess with the order ID and unique signature
           onSuccess(createdOrderId, uniqueSignature);
           return;
