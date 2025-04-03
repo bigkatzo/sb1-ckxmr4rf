@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
-import { Metaplex, Nft } from '@metaplex-foundation/js';
+import { Metaplex, Nft, MetaplexPlugin } from '@metaplex-foundation/js';
 
 export interface NFTVerificationResult {
   isValid: boolean;
@@ -21,24 +21,62 @@ export async function verifyNFTHolding(
 
     const connection = SOLANA_CONNECTION;
     const metaplex = Metaplex.make(connection);
+
+    const walletPublicKey = new PublicKey(walletAddress);
     
-    // Get all NFTs owned by the wallet
-    const nfts = await metaplex.nfts().findAllByOwner({ 
-      owner: new PublicKey(walletAddress) 
+    // First check token accounts
+    console.log('Checking token accounts for wallet:', walletAddress);
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+      walletPublicKey,
+      { programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') }
+    );
+
+    // Filter for NFTs (tokens with amount 1)
+    const nftAccounts = tokenAccounts.value.filter(account => {
+      const tokenAmount = account.account.data.parsed.info.tokenAmount;
+      return tokenAmount.amount === '1' && tokenAmount.decimals === 0;
     });
 
-    console.log('Found NFTs:', {
-      total: nfts.length,
-      mints: nfts.map(nft => nft.address.toBase58())
+    console.log('Token account analysis:', {
+      total: tokenAccounts.value.length,
+      nftLike: nftAccounts.length,
+      mints: nftAccounts.map(acc => acc.account.data.parsed.info.mint)
     });
 
-    if (!nfts.length) {
+    if (nftAccounts.length === 0) {
       return { 
         isValid: false, 
-        error: `No NFTs found in wallet. Need ${minAmount} from collection ${collectionAddress}`, 
+        error: `No NFT-like tokens found in wallet. Need ${minAmount} from collection ${collectionAddress}`, 
         balance: 0 
       };
     }
+
+    // Get mint addresses and fetch NFT data
+    const mintAddresses = nftAccounts.map(account => 
+      new PublicKey(account.account.data.parsed.info.mint)
+    );
+
+    console.log('Fetching metadata for mints:', mintAddresses.map(m => m.toBase58()));
+    
+    // Try both methods to fetch NFTs
+    const [byMintList, byOwner] = await Promise.all([
+      metaplex.nfts().findAllByMintList({ mints: mintAddresses }).catch(e => {
+        console.warn('findAllByMintList failed:', e);
+        return [];
+      }),
+      metaplex.nfts().findAllByOwner({ owner: walletPublicKey }).catch(e => {
+        console.warn('findAllByOwner failed:', e);
+        return [];
+      })
+    ]);
+
+    console.log('NFT fetch results:', {
+      byMintList: byMintList.length,
+      byOwner: byOwner.length
+    });
+
+    // Combine results and remove duplicates
+    const nfts = [...new Set([...byMintList, ...byOwner])];
 
     // Filter NFTs by collection and verified status
     const collectionNfts = nfts.filter((nft): nft is Nft => {
@@ -50,7 +88,8 @@ export async function verifyNFTHolding(
       if (isFromCollection) {
         console.log('Found collection NFT:', {
           mint: nft.address.toBase58(),
-          verified: isVerified
+          verified: isVerified,
+          collection: nft.collection?.address.toBase58()
         });
       }
       
@@ -80,4 +119,4 @@ export async function verifyNFTHolding(
       balance: 0
     };
   }
-} 
+}
