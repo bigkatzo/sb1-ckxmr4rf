@@ -1,5 +1,5 @@
 import { PublicKey, Connection, ConnectionConfig } from '@solana/web3.js';
-import { getAssociatedTokenAddress, getMint, TokenAccountNotFoundError, TokenInvalidAccountOwnerError } from '@solana/spl-token';
+import { getAssociatedTokenAddress, getMint, TokenAccountNotFoundError, TokenInvalidAccountOwnerError, getAccount } from '@solana/spl-token';
 import { SOLANA_CONNECTION } from '../config/solana';
 
 // Cache structure to store recent balance checks
@@ -79,12 +79,7 @@ export async function verifyTokenHolding(
 
     // Get token mint info to check decimals
     const mintInfo = await getMint(connection, tokenMintPubKey);
-    console.log('Token mint info:', {
-      address: tokenMintAddress,
-      decimals: mintInfo.decimals,
-      minAmount
-    });
-
+    
     // Get the associated token account for the wallet
     const tokenAccount = await getAssociatedTokenAddress(tokenMintPubKey, walletPubKey);
 
@@ -97,9 +92,19 @@ export async function verifyTokenHolding(
         return cachedEntry.result;
       }
 
-      // Fetch balance of the token account
-      const balanceInfo = await connection.getTokenAccountBalance(tokenAccount);
-      const tokenBalance = balanceInfo.value.uiAmount || 0;
+      // First verify the token account exists and is valid
+      const account = await getAccount(connection, tokenAccount);
+      
+      console.log('Token account info:', {
+        address: tokenAccount.toBase58(),
+        mint: account.mint.toBase58(),
+        owner: account.owner.toBase58(),
+        amount: account.amount.toString()
+      });
+
+      // Get raw amount and convert based on decimals
+      const rawBalance = Number(account.amount);
+      const tokenBalance = rawBalance / Math.pow(10, mintInfo.decimals);
 
       const result = {
         isValid: tokenBalance >= minAmount,
@@ -118,9 +123,15 @@ export async function verifyTokenHolding(
     } catch (error) {
       // Handle specific token account errors
       if (error instanceof TokenAccountNotFoundError || error instanceof TokenInvalidAccountOwnerError) {
+        console.error('Token account error:', {
+          error,
+          tokenAccount: tokenAccount.toBase58(),
+          wallet: walletAddress,
+          mint: tokenMintAddress
+        });
         return {
           isValid: false,
-          error: `You don't have any tokens yet. You need ${minAmount} tokens to proceed. Please acquire some tokens first.`,
+          error: `Unable to verify token balance. Please make sure you have the correct tokens in your wallet.`,
           balance: 0
         };
       }
@@ -135,13 +146,6 @@ export async function verifyTokenHolding(
     }
   } catch (error) {
     console.error('Error verifying token balance:', error);
-    if (error instanceof TokenInvalidAccountOwnerError) {
-      return {
-        isValid: false,
-        error: `You don't have any tokens yet. You need ${minAmount} tokens to proceed.`,
-        balance: 0
-      };
-    }
     return {
       isValid: false,
       error: error instanceof Error ? error.message : 'Failed to verify token balance',
