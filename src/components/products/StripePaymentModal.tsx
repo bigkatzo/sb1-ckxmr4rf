@@ -12,6 +12,7 @@ import { Loading, LoadingType } from '../ui/LoadingStates';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { supabase } from '../../lib/supabase';
+import { API_ENDPOINTS } from '../../config/api';
 
 // Replace the early initialization with a function
 function getStripe() {
@@ -352,7 +353,7 @@ export function StripePaymentModal({
         }
 
         // Regular Stripe payment flow for non-free orders
-        const response = await fetch('/api/create-payment-intent', {
+        const response = await fetch(API_ENDPOINTS.createPaymentIntent, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
