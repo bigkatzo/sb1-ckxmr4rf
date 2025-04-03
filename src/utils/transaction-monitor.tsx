@@ -262,7 +262,7 @@ export async function monitorTransaction(
                 console.log('Order is already confirmed:', order.id);
               }
             } else {
-              console.log('No order found for transaction, will attempt creation');
+              console.log('No order found for transaction, logging for recovery check');
               // Only log creation attempt if no order exists
               try {
                 const { error: logError } = await supabase.rpc('log_order_creation_attempt', {
