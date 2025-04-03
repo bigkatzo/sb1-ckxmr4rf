@@ -1,5 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
+import { Buffer } from 'buffer';
 
 export interface NFTVerificationResult {
   isValid: boolean;
@@ -49,11 +50,12 @@ export async function verifyNFTHolding(
     const metadataAccounts = await Promise.all(
       nftAccounts.map(async account => {
         try {
+          const mintAddress = account.account.data.parsed.info.mint;
           const [metadataPDA] = PublicKey.findProgramAddressSync(
             [
               Buffer.from('metadata'),
               new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s').toBuffer(),
-              new PublicKey(account.account.data.parsed.info.mint).toBuffer()
+              new PublicKey(mintAddress).toBuffer()
             ],
             new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
           );
@@ -61,68 +63,20 @@ export async function verifyNFTHolding(
           const accountInfo = await connection.getAccountInfo(metadataPDA);
           if (!accountInfo) return null;
 
-          // Parse metadata according to Metaplex standard
-          // Skip version (1 byte) and update authority (32 bytes)
-          let offset = 1 + 32;
-          
-          // Skip mint (32 bytes)
-          offset += 32;
-          
-          // Skip name string length (4 bytes) and name
-          const nameLength = accountInfo.data.readUInt32LE(offset);
-          offset += 4 + nameLength;
-          
-          // Skip symbol string length (4 bytes) and symbol
-          const symbolLength = accountInfo.data.readUInt32LE(offset);
-          offset += 4 + symbolLength;
-          
-          // Skip uri string length (4 bytes) and uri
-          const uriLength = accountInfo.data.readUInt32LE(offset);
-          offset += 4 + uriLength;
-          
-          // Skip seller fee basis points (2 bytes)
-          offset += 2;
-          
-          // Skip creator array (if present)
-          const hasCreators = accountInfo.data[offset] === 1;
-          offset += 1;
-          if (hasCreators) {
-            const numCreators = accountInfo.data.readUInt32LE(offset);
-            offset += 4 + (numCreators * 34); // Each creator is 34 bytes
-          }
+          // Get metadata as JSON
+          const metadata = await connection.getParsedAccountInfo(metadataPDA);
+          const data = metadata.value?.data;
+          if (!data || typeof data !== 'object' || !('parsed' in data)) return null;
 
-          // Collection data starts here
-          // Check if uses field exists (1 byte)
-          const hasUses = accountInfo.data[offset] === 1;
-          offset += 1;
-          if (hasUses) {
-            offset += 17; // Skip uses struct
-          }
-
-          // Now we're at collection data
-          const hasCollection = accountInfo.data[offset] === 1;
-          offset += 1;
-
-          if (hasCollection) {
-            // Read collection key (32 bytes)
-            const collectionKey = new PublicKey(accountInfo.data.slice(offset, offset + 32));
-            
-            // Check if this NFT belongs to the target collection
-            if (collectionKey.toBase58() === collectionAddress) {
-              console.log('Found NFT from collection:', account.account.data.parsed.info.mint);
-              return account;
-            } else {
-              console.log('NFT collection mismatch:', {
-                nft: account.account.data.parsed.info.mint,
-                collection: collectionKey.toBase58(),
-                expected: collectionAddress
-              });
-            }
+          const collection = data.parsed.info?.collection?.key;
+          if (collection === collectionAddress) {
+            console.log('Found NFT from collection:', mintAddress);
+            return account;
           }
 
           return null;
         } catch (error) {
-          console.error('Error parsing metadata for NFT:', error);
+          console.error('Error checking NFT:', error);
           return null;
         }
       })
