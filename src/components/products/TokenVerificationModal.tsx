@@ -17,6 +17,8 @@ import type { TransactionStatus } from '../../types/transactions';
 import { OrderSuccessView } from '../OrderSuccessView';
 import { validatePhoneNumber } from '../../lib/validation';
 import { StripePaymentModal } from './StripePaymentModal';
+import { CouponService } from '../../services/coupons';
+import type { PriceWithDiscount } from '../../types/coupons';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -87,6 +89,9 @@ export function TokenVerificationModal({
   } | null>(null);
   const [phoneError, setPhoneError] = useState<string>('');
   const [showStripeModal, setShowStripeModal] = useState(false);
+  const [showCoupon, setShowCoupon] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponResult, setCouponResult] = useState<PriceWithDiscount | null>(null);
   
   // Update progress steps to reflect new flow
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
@@ -123,13 +128,14 @@ export function TokenVerificationModal({
     ));
   };
 
-  // Calculate final price including variants and modifications
+  // Calculate final price including variants, modifications, and coupon
   const variantKey = Object.values(selectedOptions).join(':');
   const hasVariantPrice = 
     Object.keys(selectedOptions).length > 0 && 
     product.variantPrices && 
     variantKey in product.variantPrices;
-  const finalPrice = hasVariantPrice ? product.variantPrices![variantKey] : modifiedPrice;
+  const baseModifiedPrice = hasVariantPrice ? product.variantPrices![variantKey] : modifiedPrice;
+  const finalPrice = couponResult?.finalPrice ?? baseModifiedPrice;
 
   // Initialize shipping info from localStorage if available
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo>(() => {
@@ -254,7 +260,14 @@ export function TokenVerificationModal({
         };
       });
 
-      // Create order
+      // Add coupon information if applied
+      const paymentMetadata = {
+        couponCode: couponResult?.couponDiscount ? couponCode : undefined,
+        originalPrice: couponResult?.originalPrice,
+        couponDiscount: couponResult?.couponDiscount
+      };
+
+      // Create order with coupon info
       updateProgressStep(0, 'processing', 'Creating your order...');
 
       // Retry order creation up to 3 times
@@ -264,7 +277,8 @@ export function TokenVerificationModal({
             p_product_id: product.id,
             p_variants: formattedVariantSelections,
             p_shipping_info: formattedShippingInfo,
-            p_wallet_address: walletAddress
+            p_wallet_address: walletAddress,
+            p_payment_metadata: paymentMetadata // Add payment metadata
           });
 
           if (error) throw error;
@@ -561,6 +575,9 @@ export function TokenVerificationModal({
               value
             };
           })}
+          couponCode={couponResult?.couponCode}
+          couponDiscount={couponResult?.couponDiscount}
+          originalPrice={product.price}
         />
       ) : (
         <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
@@ -781,6 +798,64 @@ export function TokenVerificationModal({
                     </div>
 
                     <div className="pt-4 border-t border-gray-800">
+                      {/* Subtle coupon section */}
+                      <div className="mb-4">
+                        <button
+                          type="button"
+                          onClick={() => setShowCoupon(prev => !prev)}
+                          className="text-gray-400 hover:text-gray-300 text-xs font-normal transition-colors"
+                        >
+                          {showCoupon ? 'Hide coupon code' : 'Have a coupon code?'}
+                        </button>
+                        
+                        {showCoupon && (
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              type="text"
+                              value={couponCode}
+                              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                              className="block w-full rounded-md bg-gray-800 border border-gray-700 text-sm px-3 py-1.5 placeholder-gray-500"
+                              placeholder="Enter code"
+                            />
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const result = await CouponService.calculateDiscount(
+                                    baseModifiedPrice,
+                                    couponCode
+                                  );
+                                  setCouponResult(result);
+                                  if (result.couponDiscount > 0) {
+                                    toast.success('Coupon applied!');
+                                  } else {
+                                    toast.error('Invalid coupon code');
+                                    setCouponResult(null);
+                                  }
+                                } catch (error) {
+                                  console.error('Error applying coupon:', error);
+                                  toast.error('Error applying coupon');
+                                  setCouponResult(null);
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-md text-sm text-gray-300 hover:text-white transition-colors whitespace-nowrap"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Show discount if applied */}
+                        {couponResult && couponResult.couponDiscount > 0 && (
+                          <div className="mt-2 text-xs space-y-1">
+                            <span className="text-purple-400 font-medium">{couponResult.discountDisplay || `${couponResult.couponDiscount} SOL off`}</span>
+                            <div className="text-gray-500">
+                              Original price: {baseModifiedPrice.toFixed(2)} SOL
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       {/* Solana Payment Button - requires wallet verification */}
                       <button
                         type="submit"

@@ -57,23 +57,31 @@ interface StripePaymentModalProps {
     name: string;
     value: string;
   }>;
+  couponCode?: string;
+  couponDiscount?: number;
+  originalPrice?: number;
 }
 
 type PaymentStatus = 'idle' | 'processing' | 'requires_action' | 'succeeded' | 'error';
 
 function StripeCheckoutForm({ 
   solAmount, 
-  onSuccess
+  onSuccess,
+  couponDiscount,
+  originalPrice,
+  solPrice
 }: {
   solAmount: number;
   onSuccess: (paymentIntentId: string) => void;
+  couponDiscount?: number;
+  originalPrice?: number;
+  solPrice: number;
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = React.useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>('idle');
   const paymentStatusRef = React.useRef<PaymentStatus>('idle');
-  const { price: solPrice, loading: priceLoading, error: priceError } = useSolanaPrice();
   const submitButtonRef = React.useRef<HTMLButtonElement>(null);
 
   // Update ref when status changes
@@ -174,16 +182,8 @@ function StripeCheckoutForm({
     };
   }, [paymentStatus]);
 
-  if (priceLoading) {
+  if (solPrice === 0) {
     return <Loading type={LoadingType.ACTION} text="Loading price data..." />;
-  }
-
-  if (priceError || !solPrice) {
-    return (
-      <div className="text-red-500 p-4 text-center">
-        Failed to load price data. Please try again later.
-      </div>
-    );
   }
 
   const usdAmount = (solAmount * solPrice).toFixed(2);
@@ -194,9 +194,17 @@ function StripeCheckoutForm({
       <div className="bg-gray-800/50 p-4 rounded-lg">
         <div className="flex justify-between items-center mb-2">
           <span className="text-gray-300">Amount:</span>
-          <span className="text-white font-medium">
-            ${usdAmount} <span className="text-gray-400">({solAmount} SOL)</span>
-          </span>
+          <div className="text-right">
+            <span className="text-white font-medium">
+              ${(solAmount * solPrice).toFixed(2)} <span className="text-gray-400">({solAmount} SOL)</span>
+            </span>
+            {couponDiscount && couponDiscount > 0 && originalPrice && originalPrice > 0 && (
+              <div className="text-sm">
+                <span className="text-gray-400 line-through">${(originalPrice * solPrice).toFixed(2)}</span>
+                <span className="text-purple-400 ml-2">Coupon applied</span>
+              </div>
+            )}
+          </div>
         </div>
         <div className="text-xs text-gray-400">
           Price updated in real-time based on current SOL/USD rate
@@ -255,14 +263,18 @@ export function StripePaymentModal({
   productId,
   shippingInfo,
   variants,
+  couponCode,
+  couponDiscount = 0,
+  originalPrice = 0
 }: StripePaymentModalProps) {
   const [clientSecret, setClientSecret] = React.useState<string | null>(null);
-  const [orderId, setOrderId] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [isCreatingOrder, setIsCreatingOrder] = React.useState(false);
+  const [orderId, setOrderId] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
-  const { price: solPrice } = useSolanaPrice();
   const { walletAddress } = useWallet();
+  const { price: rawSolPrice } = useSolanaPrice();
+  const solPrice = rawSolPrice || 0; // Provide default value
 
   // Initialize Stripe only when modal is opened
   React.useEffect(() => {
@@ -271,17 +283,19 @@ export function StripePaymentModal({
 
   // Create payment intent with proper dependency tracking
   React.useEffect(() => {
-    if (!solPrice || !shippingInfo?.shipping_address || isCreatingOrder || clientSecret) return;
+    if (!solPrice || !shippingInfo?.shipping_address || isLoading || clientSecret) return;
     
     async function createPaymentIntent() {
-      setIsCreatingOrder(true);
+      setIsLoading(true);
       try {
         console.log('Creating payment intent:', {
           endpoint: `${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`,
           solAmount,
           solPrice,
           productName,
-          productId
+          productId,
+          couponCode,
+          couponDiscount
         });
 
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
@@ -291,13 +305,16 @@ export function StripePaymentModal({
             'Accept': 'application/json',
           },
           body: JSON.stringify({
-            solAmount,  // Send original SOL amount
-            solPrice,   // Send current SOL price for server-side conversion
+            solAmount,
+            solPrice,
             productName,
             productId,
             variants,
             walletAddress,
             shippingInfo,
+            couponCode,
+            couponDiscount,
+            originalPrice
           }),
         });
 
@@ -346,7 +363,7 @@ export function StripePaymentModal({
         console.error('Error creating payment intent:', err);
         setError(err instanceof Error ? err.message : 'Failed to initialize payment');
       } finally {
-        setIsCreatingOrder(false);
+        setIsLoading(false);
       }
     }
 
@@ -354,13 +371,16 @@ export function StripePaymentModal({
   }, [
     solPrice, 
     shippingInfo?.shipping_address, 
-    isCreatingOrder, 
+    isLoading, 
     clientSecret,
     solAmount,
     productName,
     productId,
     variants,
-    walletAddress
+    walletAddress,
+    couponCode,
+    couponDiscount,
+    originalPrice
   ]);
 
   return (
@@ -441,6 +461,9 @@ export function StripePaymentModal({
                 <StripeCheckoutForm
                   solAmount={solAmount}
                   onSuccess={(paymentIntentId) => onSuccess(orderId, paymentIntentId)}
+                  couponDiscount={couponDiscount}
+                  originalPrice={originalPrice}
+                  solPrice={solPrice}
                 />
               </ErrorBoundary>
             </Elements>
