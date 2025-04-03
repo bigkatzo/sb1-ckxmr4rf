@@ -12,6 +12,7 @@ import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
+import { supabase } from '../../lib/supabase';
 
 // Replace the early initialization with a function
 function getStripe() {
@@ -293,6 +294,48 @@ export function StripePaymentModal({
     async function createPaymentIntent() {
       setIsLoading(true);
       try {
+        // Check if it's a 100% discount
+        const is100PercentDiscount = couponDiscount && originalPrice && couponDiscount >= originalPrice;
+
+        if (is100PercentDiscount) {
+          // For 100% discount, create order directly without payment
+          console.log('Creating free order with 100% discount');
+          
+          const { data: createdOrderId, error: createError } = await supabase.rpc('create_order', {
+            p_product_id: productId,
+            p_variants: variants || [],
+            p_shipping_info: shippingInfo,
+            p_wallet_address: walletAddress || 'stripe',
+            p_payment_metadata: {
+              couponCode,
+              originalPrice,
+              couponDiscount
+            }
+          });
+
+          if (createError) throw createError;
+
+          // Update order with special transaction signature for free orders
+          const { error: updateError } = await supabase.rpc('update_order_transaction', {
+            p_order_id: createdOrderId,
+            p_transaction_signature: 'free_order',
+            p_amount_sol: 0
+          });
+
+          if (updateError) throw updateError;
+
+          // Confirm the order immediately since it's free
+          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+            p_order_id: createdOrderId
+          });
+
+          if (confirmError) throw confirmError;
+
+          // Call onSuccess with the order ID and special signature
+          onSuccess(createdOrderId, 'free_order');
+          return;
+        }
+
         console.log('Creating payment intent:', {
           endpoint: `${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`,
           solAmount,

@@ -267,9 +267,55 @@ export function TokenVerificationModal({
         couponDiscount: couponResult?.couponDiscount
       };
 
-      // Create order with coupon info
-      updateProgressStep(0, 'processing', 'Creating your order...');
+      // Check if it's a 100% discount
+      const is100PercentDiscount = couponResult?.couponDiscount && 
+        couponResult.originalPrice && 
+        couponResult.couponDiscount >= couponResult.originalPrice;
 
+      if (is100PercentDiscount) {
+        // For 100% discount, create order directly without payment
+        updateProgressStep(0, 'processing', 'Creating your free order...');
+        
+        const { data: createdOrderId, error: createError } = await supabase.rpc('create_order', {
+          p_product_id: product.id,
+          p_variants: formattedVariantSelections,
+          p_shipping_info: formattedShippingInfo,
+          p_wallet_address: walletAddress,
+          p_payment_metadata: paymentMetadata
+        });
+
+        if (createError) throw createError;
+        orderId = createdOrderId;
+
+        // Update order with special transaction signature for free orders
+        const { error: updateError } = await supabase.rpc('update_order_transaction', {
+          p_order_id: orderId,
+          p_transaction_signature: 'free_order',
+          p_amount_sol: 0
+        });
+
+        if (updateError) throw updateError;
+
+        // Confirm the order immediately since it's free
+        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+          p_order_id: orderId
+        });
+
+        if (confirmError) throw confirmError;
+
+        // Show success
+        setOrderDetails({
+          orderNumber: '',
+          transactionSignature: ''
+        });
+        setShowSuccessView(true);
+        onSuccess?.();
+        return;
+      }
+
+      // Regular payment flow for non-100% discounts
+      updateProgressStep(0, 'processing', 'Creating your order...');
+      
       // Retry order creation up to 3 times
       for (let i = 0; i < 3; i++) {
         try {
