@@ -144,10 +144,10 @@ export function CouponsTab() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-400">
-                  {coupon.discountType === 'fixed_sol' 
-                    ? `${coupon.discountValue} SOL off`
-                    : `${coupon.discountValue}% off`}
-                  {coupon.maxDiscount && ` (max ${coupon.maxDiscount} SOL)`}
+                  {coupon.discount_type === 'fixed_sol' 
+                    ? `${coupon.discount_value} SOL off`
+                    : `${coupon.discount_value}% off`}
+                  {coupon.max_discount && ` (max ${coupon.max_discount} SOL)`}
                 </p>
               </div>
               <div className="flex items-center gap-2">

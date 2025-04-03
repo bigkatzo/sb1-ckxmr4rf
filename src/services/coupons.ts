@@ -58,15 +58,15 @@ export class CouponService {
       let discountDisplay = '';
 
       // Calculate discount based on type
-      if (coupon.discountType === 'fixed_sol') {
-        discountAmount = Math.min(coupon.discountValue, modifiedPrice);
+      if (coupon.discount_type === 'fixed_sol') {
+        discountAmount = Math.min(coupon.discount_value, modifiedPrice);
         discountDisplay = `${discountAmount} SOL off`;
       } else {
-        discountAmount = (modifiedPrice * coupon.discountValue) / 100;
-        if (coupon.maxDiscount) {
-          discountAmount = Math.min(discountAmount, coupon.maxDiscount);
+        discountAmount = (modifiedPrice * coupon.discount_value) / 100;
+        if (coupon.max_discount) {
+          discountAmount = Math.min(discountAmount, coupon.max_discount);
         }
-        discountDisplay = `${coupon.discountValue}% off`;
+        discountDisplay = `${coupon.discount_value}% off`;
       }
 
       // Ensure we don't discount more than the price

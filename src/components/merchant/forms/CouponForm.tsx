@@ -11,9 +11,9 @@ interface CouponFormProps {
 const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
   const [formData, setFormData] = useState<Partial<Coupon>>({
     code: '',
-    discountType: 'fixed_sol',
-    discountValue: 0,
-    maxDiscount: undefined,
+    discount_type: 'fixed_sol',
+    discount_value: 0,
+    max_discount: undefined,
     status: 'active',
     ...initialData
   });
@@ -29,17 +29,17 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
       newErrors.code = 'Coupon code must be at least 3 characters';
     }
 
-    const discountValue = formData.discountValue ?? 0;
+    const discountValue = formData.discount_value ?? 0;
     if (discountValue <= 0) {
-      newErrors.discountValue = 'Discount value must be greater than 0';
+      newErrors.discount_value = 'Discount value must be greater than 0';
     }
 
-    if (formData.discountType === 'percentage') {
+    if (formData.discount_type === 'percentage') {
       if (discountValue > 100) {
-        newErrors.discountValue = 'Percentage discount cannot exceed 100%';
+        newErrors.discount_value = 'Percentage discount cannot exceed 100%';
       }
-      if (formData.maxDiscount !== undefined && formData.maxDiscount <= 0) {
-        newErrors.maxDiscount = 'Maximum discount must be greater than 0';
+      if (formData.max_discount !== undefined && formData.max_discount <= 0) {
+        newErrors.max_discount = 'Maximum discount must be greater than 0';
       }
     }
 
@@ -77,11 +77,11 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           Discount Type
         </label>
         <select
-          value={formData.discountType}
+          value={formData.discount_type}
           onChange={(e) => setFormData({ 
             ...formData, 
-            discountType: e.target.value as 'fixed_sol' | 'percentage',
-            maxDiscount: e.target.value === 'fixed_sol' ? undefined : formData.maxDiscount
+            discount_type: e.target.value as 'fixed_sol' | 'percentage',
+            max_discount: e.target.value === 'fixed_sol' ? undefined : formData.max_discount
           })}
           className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
         >
@@ -98,21 +98,21 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           <input
             type="number"
             step="0.000000001"
-            value={formData.discountValue}
-            onChange={(e) => setFormData({ ...formData, discountValue: parseFloat(e.target.value) })}
+            value={formData.discount_value}
+            onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) })}
             className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-            placeholder={formData.discountType === 'fixed_sol' ? "Enter SOL amount" : "Enter percentage"}
+            placeholder={formData.discount_type === 'fixed_sol' ? "Enter SOL amount" : "Enter percentage"}
           />
           <span className="absolute right-3 top-2 text-gray-400">
-            {formData.discountType === 'fixed_sol' ? 'SOL' : '%'}
+            {formData.discount_type === 'fixed_sol' ? 'SOL' : '%'}
           </span>
         </div>
-        {errors.discountValue && (
-          <p className="mt-1 text-sm text-red-500">{errors.discountValue}</p>
+        {errors.discount_value && (
+          <p className="mt-1 text-sm text-red-500">{errors.discount_value}</p>
         )}
       </div>
 
-      {formData.discountType === 'percentage' && (
+      {formData.discount_type === 'percentage' && (
         <div>
           <label className="block text-sm font-medium text-gray-200 mb-1">
             Maximum Discount (SOL)
@@ -120,16 +120,16 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           <input
             type="number"
             step="0.000000001"
-            value={formData.maxDiscount || ''}
+            value={formData.max_discount || ''}
             onChange={(e) => setFormData({ 
               ...formData, 
-              maxDiscount: e.target.value ? parseFloat(e.target.value) : undefined 
+              max_discount: e.target.value ? parseFloat(e.target.value) : undefined 
             })}
             className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
             placeholder="Optional maximum discount in SOL"
           />
-          {errors.maxDiscount && (
-            <p className="mt-1 text-sm text-red-500">{errors.maxDiscount}</p>
+          {errors.max_discount && (
+            <p className="mt-1 text-sm text-red-500">{errors.max_discount}</p>
           )}
         </div>
       )}

@@ -3,12 +3,12 @@ export type DiscountType = 'fixed_sol' | 'percentage';
 export interface Coupon {
   id: string;
   code: string;
-  discountType: DiscountType;
-  discountValue: number;
-  maxDiscount?: number;
+  discount_type: DiscountType;
+  discount_value: number;
+  max_discount?: number;
   status: 'active' | 'inactive';
-  createdAt: Date;
-  createdBy?: string;
+  created_at: Date;
+  created_by?: string;
 }
 
 export interface CouponResult {
