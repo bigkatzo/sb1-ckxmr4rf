@@ -111,8 +111,6 @@
       form-action 'self';
       manifest-src 'self';
       media-src 'self' blob: data:;
-      prefetch-src 'self';
-      require-trusted-types-for 'script';
       upgrade-insecure-requests;
     """
     # Short cache for HTML files
