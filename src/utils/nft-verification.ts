@@ -61,16 +61,59 @@ export async function verifyNFTHolding(
           const accountInfo = await connection.getAccountInfo(metadataPDA);
           if (!accountInfo) return null;
 
-          // Skip first 1 byte (metadata version) and next 32 bytes (update authority)
-          const collectionData = accountInfo.data.slice(33);
+          // Parse metadata according to Metaplex standard
+          // Skip version (1 byte) and update authority (32 bytes)
+          let offset = 1 + 32;
           
-          // Find collection address in metadata (this is a simplification)
-          const collectionStart = collectionData.indexOf(Buffer.from(collectionAddress, 'base64'));
-          if (collectionStart === -1) return null;
+          // Skip mint (32 bytes)
+          offset += 32;
+          
+          // Skip name string length (4 bytes) and name
+          const nameLength = accountInfo.data.readUInt32LE(offset);
+          offset += 4 + nameLength;
+          
+          // Skip symbol string length (4 bytes) and symbol
+          const symbolLength = accountInfo.data.readUInt32LE(offset);
+          offset += 4 + symbolLength;
+          
+          // Skip uri string length (4 bytes) and uri
+          const uriLength = accountInfo.data.readUInt32LE(offset);
+          offset += 4 + uriLength;
+          
+          // Skip seller fee basis points (2 bytes)
+          offset += 2;
+          
+          // Skip creator array (if present)
+          const hasCreators = accountInfo.data[offset] === 1;
+          offset += 1;
+          if (hasCreators) {
+            const numCreators = accountInfo.data.readUInt32LE(offset);
+            offset += 4 + (numCreators * 34); // Each creator is 34 bytes
+          }
+          
+          // Skip collection verification (1 byte)
+          const hasCollection = accountInfo.data[offset] === 1;
+          offset += 1;
+          
+          if (hasCollection) {
+            // Read collection address (32 bytes)
+            const collectionKey = new PublicKey(accountInfo.data.slice(offset, offset + 32));
+            
+            // Check if this NFT belongs to the target collection
+            if (collectionKey.toBase58() === collectionAddress) {
+              // Skip to verified byte
+              offset += 32;
+              const isVerified = accountInfo.data[offset] === 1;
+              
+              if (isVerified) {
+                return account;
+              }
+            }
+          }
 
-          return account;
+          return null;
         } catch (error) {
-          console.error('Error getting metadata for NFT:', error);
+          console.error('Error parsing metadata for NFT:', error);
           return null;
         }
       })
@@ -83,7 +126,8 @@ export async function verifyNFTHolding(
     console.log('NFT verification result:', {
       collection: collectionAddress,
       found: nftCount,
-      required: minAmount
+      required: minAmount,
+      validNFTs: validNFTs.map(nft => nft?.account.data.parsed.info.mint)
     });
 
     return {
