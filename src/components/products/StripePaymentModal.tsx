@@ -11,7 +11,7 @@ import { useSolanaPrice } from '../../utils/price-conversion';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
-import { ErrorBoundary } from 'react-error-boundary';
+import { ErrorBoundary } from '../ui/ErrorBoundary';
 
 // Replace the early initialization with a function
 function getStripe() {
@@ -271,11 +271,15 @@ export function StripePaymentModal({
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [orderId, setOrderId] = React.useState<string | null>(null);
+  const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
+  const { walletAddress } = useWallet();
   const { price: rawSolPrice } = useSolanaPrice();
   const solPrice = rawSolPrice || 0;
 
-  // Initialize Stripe
-  const stripePromise = React.useMemo(() => getStripe(), []);
+  // Initialize Stripe only when modal is opened
+  React.useEffect(() => {
+    setStripePromise(getStripe());
+  }, []);
 
   // Create payment intent with proper dependency tracking
   React.useEffect(() => {
@@ -306,6 +310,7 @@ export function StripePaymentModal({
             productName,
             productId,
             variants,
+            walletAddress,
             shippingInfo,
             couponCode,
             couponDiscount,
@@ -313,13 +318,44 @@ export function StripePaymentModal({
           }),
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to create payment intent');
+        console.log('Payment intent response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+
+        let data;
+        let responseText;
+        try {
+          responseText = await response.text();
+          console.log('Response text:', responseText);
+          
+          try {
+            data = JSON.parse(responseText);
+          } catch (e) {
+            console.error('JSON parse error:', e);
+            throw new Error(`Invalid JSON response from server: ${responseText}`);
+          }
+        } catch (err) {
+          console.error('Network or parsing error:', err);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
+          }
+          throw new Error('Failed to connect to payment server');
         }
 
-        const data = await response.json();
-        console.log('Payment intent response:', response);
-        console.log('Response text:', JSON.stringify(data));
+        if (!response.ok) {
+          console.error('Response not OK:', {
+            status: response.status,
+            data
+          });
+          throw new Error(data.error || `Failed to create payment intent (${response.status})`);
+        }
+
+        if (!data.clientSecret) {
+          console.error('Missing client secret in response:', data);
+          throw new Error('No client secret received from server');
+        }
 
         setClientSecret(data.clientSecret);
         setOrderId(data.orderId);
@@ -341,6 +377,7 @@ export function StripePaymentModal({
     productName,
     productId,
     variants,
+    walletAddress,
     couponCode,
     couponDiscount,
     originalPrice
@@ -353,29 +390,82 @@ export function StripePaymentModal({
           <h2 className="text-lg font-semibold text-white">Credit Card Payment</h2>
           <button
             onClick={onClose}
-            disabled={isLoading}
-            className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-4 sm:p-6 space-y-6">
+        <div className="p-4 sm:p-6">
           {error ? (
             <div className="text-red-500 p-4 text-center">
               {error}
+              <button
+                onClick={() => {
+                  setError(null);
+                  setClientSecret(null);
+                  setOrderId(null);
+                }}
+                className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium"
+              >
+                Try Again
+              </button>
             </div>
-          ) : !clientSecret ? (
-            <Loading type={LoadingType.ACTION} text="Initializing payment..." />
+          ) : !clientSecret || !orderId ? (
+            <div className="flex items-center justify-center p-8">
+              <Loading type={LoadingType.ACTION} text="Initializing payment..." />
+            </div>
+          ) : !stripePromise ? (
+            <div className="text-red-500 p-4 text-center">
+              <div className="mb-2">Failed to initialize payment provider.</div>
+              <div className="text-sm text-gray-400 mb-4">Please try refreshing the page.</div>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium block w-full"
+              >
+                Refresh Page
+              </button>
+            </div>
           ) : (
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <StripeCheckoutForm
-                solAmount={solAmount}
-                onSuccess={(paymentIntentId) => onSuccess(orderId!, paymentIntentId)}
-                couponDiscount={couponDiscount}
-                originalPrice={originalPrice}
-                solPrice={solPrice}
-              />
+            <Elements 
+              stripe={stripePromise} 
+              options={{
+                clientSecret,
+                appearance: {
+                  theme: 'night',
+                  variables: {
+                    colorPrimary: '#9333ea',
+                    colorBackground: '#111827',
+                    colorText: '#ffffff',
+                    colorDanger: '#ef4444',
+                    fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+                  },
+                },
+                loader: 'always'
+              }}
+            >
+              <ErrorBoundary
+                fallback={
+                  <div className="text-red-500 p-4 text-center">
+                    <div className="mb-2">Failed to load payment form.</div>
+                    <div className="text-sm text-gray-400 mb-4">Please try refreshing the page.</div>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium block w-full"
+                    >
+                      Refresh Page
+                    </button>
+                  </div>
+                }
+              >
+                <StripeCheckoutForm
+                  solAmount={solAmount}
+                  onSuccess={(paymentIntentId) => onSuccess(orderId, paymentIntentId)}
+                  couponDiscount={couponDiscount}
+                  originalPrice={originalPrice}
+                  solPrice={solPrice}
+                />
+              </ErrorBoundary>
             </Elements>
           )}
         </div>
