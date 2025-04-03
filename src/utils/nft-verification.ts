@@ -14,68 +14,47 @@ export async function verifyNFTHolding(
   minAmount: number = 1
 ): Promise<NFTVerificationResult> {
   try {
-    // Basic input validation
-    if (!walletAddress || !collectionAddress || minAmount < 0) {
+    // Basic input validation with better minAmount check
+    if (!walletAddress || !collectionAddress || minAmount <= 0) {
       return { isValid: false, error: 'Invalid input parameters', balance: 0 };
     }
 
     const connection = SOLANA_CONNECTION;
     const metaplex = Metaplex.make(connection);
     
-    // First get all token accounts for this wallet
-    const accounts = await connection.getParsedTokenAccountsByOwner(
-      new PublicKey(walletAddress),
-      { programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') }
-    );
-
-    // Filter for NFTs (tokens with amount 1)
-    const nftAccounts = accounts.value.filter(account => {
-      const tokenAmount = account.account.data.parsed.info.tokenAmount;
-      return tokenAmount.amount === '1' && tokenAmount.decimals === 0;
+    // Get all NFTs owned by the wallet
+    const nfts = await metaplex.nfts().findAllByOwner({ 
+      owner: new PublicKey(walletAddress) 
     });
 
-    console.log('Found token accounts:', {
-      total: accounts.value.length,
-      nfts: nftAccounts.length
+    console.log('Found NFTs:', {
+      total: nfts.length,
+      mints: nfts.map(nft => nft.address.toBase58())
     });
 
-    if (nftAccounts.length === 0) {
-      return {
-        isValid: false,
-        error: `No NFTs found. You need ${minAmount} NFT(s) from this collection.`,
-        balance: 0
+    if (!nfts.length) {
+      return { 
+        isValid: false, 
+        error: `No NFTs found in wallet. Need ${minAmount} from collection ${collectionAddress}`, 
+        balance: 0 
       };
     }
 
-    // Get mint addresses
-    const mintAddresses = nftAccounts.map(account => 
-      new PublicKey(account.account.data.parsed.info.mint)
-    );
-
-    // Load NFT metadata for all tokens
-    const nfts = await metaplex.nfts().findAllByMintList({ mints: mintAddresses });
-    
-    console.log('Loaded NFT metadata:', {
-      total: nfts.length,
-      mints: mintAddresses.map(mint => mint.toBase58())
-    });
-
     // Filter NFTs by collection and verified status
     const collectionNfts = nfts.filter((nft): nft is Nft => {
-      if (!nft) return false;
+      if (!nft || nft.model !== 'nft') return false;
       
-      console.log('Checking NFT:', {
-        mint: nft.address.toBase58(),
-        collection: nft.collection ? {
-          address: nft.collection.address.toBase58(),
-          verified: nft.collection.verified
-        } : null,
-        expectedCollection: collectionAddress
-      });
+      const isFromCollection = nft.collection?.address.toBase58() === collectionAddress;
+      const isVerified = nft.collection?.verified ?? false;
       
-      const isFromCollection = nft?.collection?.address.toBase58() === collectionAddress;
+      if (isFromCollection) {
+        console.log('Found collection NFT:', {
+          mint: nft.address.toBase58(),
+          verified: isVerified
+        });
+      }
       
-      return isFromCollection; // Remove verified check
+      return isFromCollection && isVerified;
     });
 
     const nftCount = collectionNfts.length;
@@ -90,13 +69,14 @@ export async function verifyNFTHolding(
       isValid: nftCount >= minAmount,
       balance: nftCount,
       error: nftCount >= minAmount ? undefined : 
-             `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
+             `You need ${minAmount} verified NFT(s) from this collection, but only have ${nftCount}`
     };
+
   } catch (error) {
     console.error('Error verifying NFT balance:', error);
     return {
       isValid: false,
-      error: 'Failed to verify NFT balance',
+      error: error instanceof Error ? error.message : 'Failed to verify NFT balance',
       balance: 0
     };
   }
