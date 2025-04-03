@@ -82,26 +82,24 @@ export async function verifyNFTHolding(
     const collectionNfts = nfts.filter((nft): nft is Nft => {
       if (!nft || nft.model !== 'nft') return false;
       
+      // Get the raw metadata
+      const metadata = nft as any;
+      
       console.log('Checking NFT metadata:', {
-        mint: nft.address.toBase58(),
-        collection: nft.collection,
-        raw: nft
+        mint: metadata.mint || nft.address.toBase58(),
+        collection: metadata.collection,
+        collectionFromNft: nft.collection
       });
       
-      // Check if the NFT belongs to the collection
-      const collectionKey = (nft.collection as any)?.key;
-      const isFromCollection = nft.collection?.address.toBase58() === collectionAddress ||
-                             (collectionKey && collectionKey === collectionAddress);
-      
-      // Check if it's verified (can be boolean or 1/0)
-      const verifiedValue = (nft.collection as any)?.verified;
-      const isVerified = verifiedValue === true || verifiedValue === 1;
+      // Check collection directly from metadata
+      const isFromCollection = metadata.collection?.key === collectionAddress;
+      const isVerified = metadata.collection?.verified === 1;
       
       if (isFromCollection) {
         console.log('Found collection NFT:', {
-          mint: nft.address.toBase58(),
+          mint: metadata.mint || nft.address.toBase58(),
           verified: isVerified,
-          collection: nft.collection
+          collection: metadata.collection
         });
       }
       
