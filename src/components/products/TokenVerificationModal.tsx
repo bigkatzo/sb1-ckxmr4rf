@@ -60,9 +60,9 @@ interface ProgressStep {
 async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ isValid: boolean; error?: string }> {
   switch (rule.type) {
     case 'token':
-      return verifyTokenHolding(walletAddress, rule.value, rule.quantity || 1);
+      return verifyTokenHolding(walletAddress, rule.value, rule.quantity === undefined ? 1 : rule.quantity);
     case 'nft':
-      return verifyNFTHolding(walletAddress, rule.value, rule.quantity || 1);
+      return verifyNFTHolding(walletAddress, rule.value, rule.quantity === undefined ? 1 : rule.quantity);
     case 'whitelist':
       return verifyWhitelistAccess(walletAddress, rule.value);
     default:
