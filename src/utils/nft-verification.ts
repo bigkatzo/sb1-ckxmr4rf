@@ -72,7 +72,15 @@ export async function verifyNFTHolding(
 
     console.log('NFT fetch results:', {
       byMintList: byMintList.length,
-      byOwner: byOwner.length
+      byOwner: byOwner.length,
+      firstMintListNFT: byMintList[0] ? {
+        mint: byMintList[0].address.toBase58(),
+        collection: byMintList[0].collection
+      } : null,
+      firstOwnerNFT: byOwner[0] ? {
+        mint: byOwner[0].address.toBase58(),
+        collection: byOwner[0].collection
+      } : null
     });
 
     // Combine results and remove duplicates
@@ -82,24 +90,37 @@ export async function verifyNFTHolding(
     const collectionNfts = nfts.filter((nft): nft is Nft => {
       if (!nft || nft.model !== 'nft') return false;
       
-      // Get the raw metadata
-      const metadata = nft as any;
+      // Access the collection data from the correct location
+      const collection = nft.collection;
       
-      console.log('Checking NFT metadata:', {
-        mint: metadata.mint || nft.address.toBase58(),
-        collection: metadata.collection,
-        collectionFromNft: nft.collection
+      console.log('Checking NFT:', {
+        mint: nft.address.toBase58(),
+        metadata: {
+          collection: collection,
+          name: nft.name,
+          uri: nft.uri
+        },
+        collectionMatch: {
+          expected: collectionAddress,
+          actual: collection?.address.toBase58(),
+          matches: collection?.address.toBase58() === collectionAddress
+        },
+        verificationStatus: {
+          isVerified: collection?.verified,
+          type: typeof collection?.verified
+        }
       });
       
-      // Check collection directly from metadata
-      const isFromCollection = metadata.collection?.key === collectionAddress;
-      const isVerified = metadata.collection?.verified === 1;
+      // Both conditions must be true for a valid collection NFT
+      const isFromCollection = collection?.address.toBase58() === collectionAddress;
+      const isVerified = collection?.verified === true;
       
       if (isFromCollection) {
         console.log('Found collection NFT:', {
-          mint: metadata.mint || nft.address.toBase58(),
+          mint: nft.address.toBase58(),
+          name: nft.name,
           verified: isVerified,
-          collection: metadata.collection
+          verifiedType: typeof collection?.verified
         });
       }
       
