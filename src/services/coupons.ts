@@ -5,7 +5,7 @@ import { verifyNFTHolding } from '../utils/nft-verification';
 import { verifyWhitelistAccess } from '../utils/whitelist-verification';
 
 export class CouponService {
-  static async validateCoupon(code: string, walletAddress: string): Promise<CouponResult> {
+  static async validateCoupon(code: string, walletAddress: string, productCollectionId?: string): Promise<CouponResult> {
     try {
       const { data: coupon, error } = await supabase
         .from('coupons')
@@ -20,6 +20,17 @@ export class CouponService {
           discountAmount: 0,
           error: 'Invalid coupon code'
         };
+      }
+
+      // Check if coupon is restricted to specific collections
+      if (productCollectionId && Array.isArray(coupon.collection_ids) && coupon.collection_ids.length > 0) {
+        if (!coupon.collection_ids.includes(productCollectionId)) {
+          return {
+            isValid: false,
+            discountAmount: 0,
+            error: 'This coupon is not valid for this product'
+          };
+        }
       }
 
       // Check eligibility rules if they exist
@@ -87,7 +98,8 @@ export class CouponService {
   static async calculateDiscount(
     modifiedPrice: number,
     code: string,
-    walletAddress: string
+    walletAddress: string,
+    productCollectionId?: string
   ): Promise<PriceWithDiscount> {
     try {
       const { data: coupon, error } = await supabase
@@ -107,7 +119,7 @@ export class CouponService {
       }
 
       // First validate eligibility
-      const eligibilityResult = await this.validateCoupon(code, walletAddress);
+      const eligibilityResult = await this.validateCoupon(code, walletAddress, productCollectionId);
       if (!eligibilityResult.isValid) {
         return {
           finalPrice: modifiedPrice,
