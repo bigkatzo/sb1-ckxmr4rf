@@ -11,6 +11,7 @@ const CategoriesTab = lazy(() => import('./CategoriesTab').then(module => ({ def
 const CollectionsTab = lazy(() => import('./CollectionsTab').then(module => ({ default: module.CollectionsTab })));
 const OrdersTab = lazy(() => import('./OrdersTab').then(module => ({ default: module.OrdersTab })));
 const TransactionsTab = lazy(() => import('../../components/merchant/TransactionsTab').then(module => ({ default: module.TransactionsTab })));
+const CouponsTab = lazy(() => import('../../components/merchant/CouponsTab').then(module => ({ default: module.CouponsTab })));
 
 // Loading component for lazy-loaded tabs
 const TabLoader = () => (
@@ -24,7 +25,8 @@ const merchantTabs = [
   { id: 'collections', label: 'Collections' },
   { id: 'categories', label: 'Categories' },
   { id: 'products', label: 'Products' },
-  { id: 'orders', label: 'Orders' }
+  { id: 'orders', label: 'Orders' },
+  { id: 'coupons', label: 'Coupons' }
 ];
 
 export function DashboardPage() {
@@ -105,6 +107,8 @@ export function DashboardPage() {
           return hasCollectionAccess ? <Suspense fallback={<TabLoader />}><ProductsTab /></Suspense> : <NoAccessMessage />;
         case 'orders':
           return hasCollectionAccess ? <Suspense fallback={<TabLoader />}><OrdersTab /></Suspense> : <NoAccessMessage />;
+        case 'coupons':
+          return hasCollectionAccess ? <Suspense fallback={<TabLoader />}><CouponsTab /></Suspense> : <NoAccessMessage />;
         case 'transactions':
           return isAdmin ? <Suspense fallback={<TabLoader />}><TransactionsTab /></Suspense> : null;
         default:

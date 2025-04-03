@@ -8,7 +8,8 @@ export type ButtonVariant =
   | 'outline'
   | 'ghost'
   | 'link'
-  | 'destructive';
+  | 'destructive'
+  | 'danger';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -35,7 +36,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
     outline: 'border border-gray-700 hover:bg-gray-800 text-gray-200',
     ghost: 'hover:bg-gray-800 text-gray-200',
     link: 'text-purple-400 hover:text-purple-300 p-0',
-    destructive: 'bg-red-600 hover:bg-red-700 text-white'
+    destructive: 'bg-red-600 hover:bg-red-700 text-white',
+    danger: 'bg-red-600 hover:bg-red-700 text-white'
   };
 
   const sizes = {

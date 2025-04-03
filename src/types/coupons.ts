@@ -8,6 +8,7 @@ export interface Coupon {
   maxDiscount?: number;
   status: 'active' | 'inactive';
   createdAt: Date;
+  createdBy?: string;
 }
 
 export interface CouponResult {
