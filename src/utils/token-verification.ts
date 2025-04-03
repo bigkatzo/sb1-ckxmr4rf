@@ -69,7 +69,7 @@ export async function verifyTokenHolding(
     try {
       // Fetch balance of the token account
       const balanceInfo = await connection.getTokenAccountBalance(tokenAccount);
-      const tokenBalance = parseFloat(balanceInfo.value.amount);
+      const tokenBalance = balanceInfo.value.uiAmount || 0;
 
       return {
         isValid: tokenBalance >= minAmount,
