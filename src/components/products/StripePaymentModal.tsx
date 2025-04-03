@@ -9,7 +9,6 @@ import {
 } from '@stripe/react-stripe-js';
 import { useSolanaPrice } from '../../utils/price-conversion';
 import { Loading, LoadingType } from '../ui/LoadingStates';
-import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { supabase } from '../../lib/supabase';
@@ -305,7 +304,7 @@ export function StripePaymentModal({
             p_product_id: productId,
             p_variants: variants || [],
             p_shipping_info: shippingInfo,
-            p_wallet_address: walletAddress || 'stripe',
+            p_wallet_address: 'stripe',
             p_payment_metadata: {
               couponCode,
               originalPrice,
@@ -334,7 +333,7 @@ export function StripePaymentModal({
 
           if (confirmError) throw confirmError;
 
-          // Get order number
+          // Get order number for success view
           const { data: orderData, error: orderError } = await supabase
             .from('orders')
             .select('order_number')
@@ -346,83 +345,34 @@ export function StripePaymentModal({
             throw orderError;
           }
 
-          // Call onSuccess with the order ID, signature, and order number
+          // Call onSuccess with complete order details
           onSuccess(createdOrderId, uniqueSignature, orderData.order_number);
+          setIsLoading(false);
           return;
         }
 
-        console.log('Creating payment intent:', {
-          endpoint: `${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`,
-          solAmount,
-          solPrice,
-          productName,
-          productId,
-          couponCode,
-          couponDiscount
-        });
-
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
+        // Regular Stripe payment flow for non-free orders
+        const response = await fetch('/api/create-payment-intent', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            solAmount,
-            solPrice,
-            productName,
+            amount: solPrice,
             productId,
-            variants,
-            walletAddress,
             shippingInfo,
+            variants,
             couponCode,
             couponDiscount,
             originalPrice
           }),
         });
 
-        console.log('Payment intent response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries())
-        });
-
-        let data;
-        let responseText;
-        try {
-          responseText = await response.text();
-          console.log('Response text:', responseText);
-          
-          try {
-            data = JSON.parse(responseText);
-          } catch (e) {
-            console.error('JSON parse error:', e);
-            throw new Error(`Invalid JSON response from server: ${responseText}`);
-          }
-        } catch (err) {
-          console.error('Network or parsing error:', err);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
-          }
-          throw new Error('Failed to connect to payment server');
-        }
-
         if (!response.ok) {
-          console.error('Response not OK:', {
-            status: response.status,
-            data
-          });
-          
-          // Handle specific error cases
-          if (data.details?.includes('must be at least $0.50 usd')) {
-            throw new Error('The payment amount after discount is too low. Minimum payment amount is $0.50 USD.');
-          }
-          
-          throw new Error(data.error || `Failed to create payment intent (${response.status})`);
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Payment initialization failed (${response.status})`);
         }
 
+        const data = await response.json();
         if (!data.clientSecret) {
-          console.error('Missing client secret in response:', data);
           throw new Error('No client secret received from server');
         }
 
@@ -453,12 +403,18 @@ export function StripePaymentModal({
   ]);
 
   const handlePaymentSuccess = async (paymentIntentId: string) => {
+    if (!orderId) {
+      console.error('No order ID found');
+      setError('Order ID not found');
+      return;
+    }
+
     try {
       // Update order with payment details
       const { error: updateError } = await supabase.rpc('update_order_transaction', {
         p_order_id: orderId,
         p_transaction_signature: paymentIntentId,
-        p_amount_sol: solPrice
+        p_amount_sol: solAmount
       });
 
       if (updateError) {
@@ -466,7 +422,7 @@ export function StripePaymentModal({
         throw updateError;
       }
 
-      // Handle successful payment
+      // Confirm the order
       const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
         p_order_id: orderId
       });
@@ -476,24 +432,16 @@ export function StripePaymentModal({
         throw confirmError;
       }
 
-      // Get order number for success view
+      // Get order number
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select('order_number')
         .eq('id', orderId)
         .single();
 
-      if (orderError) {
+      if (orderError || !orderData?.order_number) {
         console.error('Error fetching order number:', orderError);
-        throw orderError;
-      }
-
-      if (!orderData?.order_number) {
-        throw new Error('Order number not found');
-      }
-
-      if (!orderId) {
-        throw new Error('Order ID not found');
+        throw orderError || new Error('Order number not found');
       }
 
       // Call onSuccess with complete order details
