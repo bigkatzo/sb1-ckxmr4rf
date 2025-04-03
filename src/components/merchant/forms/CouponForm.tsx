@@ -44,7 +44,8 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
       if (discountValue > 100) {
         newErrors.discount_value = 'Percentage discount cannot exceed 100%';
       }
-      if (typeof formData.max_discount === 'number' && formData.max_discount <= 0) {
+      const maxDiscount = formData.max_discount;
+      if (maxDiscount !== undefined && maxDiscount !== null && typeof maxDiscount === 'number' && maxDiscount <= 0) {
         newErrors.max_discount = 'Maximum discount must be greater than 0';
       }
     }
@@ -261,10 +262,10 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           <input
             type="number"
             step="0.000000001"
-            value={formData.max_discount || ''}
+            value={formData.max_discount ?? ''}
             onChange={(e) => setFormData({ 
               ...formData, 
-              max_discount: e.target.value ? parseFloat(e.target.value) : undefined 
+              max_discount: e.target.value === '' ? undefined : parseFloat(e.target.value) 
             })}
             className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
             placeholder="Optional maximum discount in SOL"
