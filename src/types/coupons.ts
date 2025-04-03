@@ -6,6 +6,17 @@ export interface Coupon {
   discount_type: DiscountType;
   discount_value: number;
   max_discount?: number;
+  collection_id?: string;
+  eligibility_rules?: {
+    groups: {
+      operator: 'AND' | 'OR';
+      rules: {
+        type: 'token' | 'nft' | 'whitelist';
+        value: string;
+        quantity?: number;
+      }[];
+    }[];
+  };
   status: 'active' | 'inactive';
   created_at: Date;
   created_by?: string;
@@ -23,4 +34,5 @@ export type PriceWithDiscount = {
   originalPrice: number;
   discountDisplay?: string;
   couponCode?: string;
+  error?: string;
 }; 

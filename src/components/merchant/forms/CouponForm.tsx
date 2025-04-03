@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '../../ui/Button';
+import { Plus, Trash2 } from 'lucide-react';
 import type { Coupon } from '../../../types/coupons';
+import type { CategoryRule } from '../../../types';
 
 interface CouponFormProps {
   onClose: () => void;
@@ -14,6 +16,8 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
     discount_type: 'fixed_sol',
     discount_value: 0,
     max_discount: undefined,
+    collection_id: undefined,
+    eligibility_rules: { groups: [] },
     status: 'active',
     ...initialData
   });
@@ -54,6 +58,103 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
     }
   };
 
+  const addRuleGroup = () => {
+    setFormData(prev => ({
+      ...prev,
+      eligibility_rules: {
+        groups: [
+          ...(prev.eligibility_rules?.groups || []),
+          {
+            operator: 'AND',
+            rules: []
+          }
+        ]
+      }
+    }));
+  };
+
+  const removeRuleGroup = (groupIndex: number) => {
+    setFormData(prev => ({
+      ...prev,
+      eligibility_rules: {
+        groups: prev.eligibility_rules?.groups.filter((_, i) => i !== groupIndex) || []
+      }
+    }));
+  };
+
+  const addRule = (groupIndex: number) => {
+    setFormData(prev => ({
+      ...prev,
+      eligibility_rules: {
+        groups: prev.eligibility_rules?.groups.map((group, i) => {
+          if (i === groupIndex) {
+            return {
+              ...group,
+              rules: [
+                ...group.rules,
+                { type: 'token', value: '' }
+              ]
+            };
+          }
+          return group;
+        }) || []
+      }
+    }));
+  };
+
+  const removeRule = (groupIndex: number, ruleIndex: number) => {
+    setFormData(prev => ({
+      ...prev,
+      eligibility_rules: {
+        groups: prev.eligibility_rules?.groups.map((group, i) => {
+          if (i === groupIndex) {
+            return {
+              ...group,
+              rules: group.rules.filter((_, j) => j !== ruleIndex)
+            };
+          }
+          return group;
+        }) || []
+      }
+    }));
+  };
+
+  const updateRule = (groupIndex: number, ruleIndex: number, updates: Partial<CategoryRule>) => {
+    setFormData(prev => ({
+      ...prev,
+      eligibility_rules: {
+        groups: prev.eligibility_rules?.groups.map((group, i) => {
+          if (i === groupIndex) {
+            return {
+              ...group,
+              rules: group.rules.map((rule, j) => {
+                if (j === ruleIndex) {
+                  return { ...rule, ...updates };
+                }
+                return rule;
+              })
+            };
+          }
+          return group;
+        }) || []
+      }
+    }));
+  };
+
+  const updateGroupOperator = (groupIndex: number, operator: 'AND' | 'OR') => {
+    setFormData(prev => ({
+      ...prev,
+      eligibility_rules: {
+        groups: prev.eligibility_rules?.groups.map((group, i) => {
+          if (i === groupIndex) {
+            return { ...group, operator };
+          }
+          return group;
+        }) || []
+      }
+    }));
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -70,6 +171,23 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
         {errors.code && (
           <p className="mt-1 text-sm text-red-500">{errors.code}</p>
         )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-200 mb-1">
+          Collection
+        </label>
+        <select
+          value={formData.collection_id || ''}
+          onChange={(e) => setFormData({ 
+            ...formData, 
+            collection_id: e.target.value || undefined
+          })}
+          className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+        >
+          <option value="">All Collections</option>
+          {/* Add collection options here */}
+        </select>
       </div>
 
       <div>
@@ -133,6 +251,116 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           )}
         </div>
       )}
+
+      {/* Eligibility Rules Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-medium text-gray-200">
+            Eligibility Rules
+          </label>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={addRuleGroup}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Rule Group
+          </Button>
+        </div>
+
+        {formData.eligibility_rules?.groups.map((group, groupIndex) => (
+          <div key={groupIndex} className="space-y-4 p-4 bg-gray-800/50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <select
+                  value={group.operator}
+                  onChange={(e) => updateGroupOperator(groupIndex, e.target.value as 'AND' | 'OR')}
+                  className="bg-gray-800 text-white rounded-lg px-3 py-1 text-sm"
+                >
+                  <option value="AND">AND</option>
+                  <option value="OR">OR</option>
+                </select>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => addRule(groupIndex)}
+                >
+                  Add Rule
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={() => removeRuleGroup(groupIndex)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {group.rules.map((rule, ruleIndex) => (
+              <div key={ruleIndex} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={rule.type}
+                    onChange={(e) => updateRule(groupIndex, ruleIndex, {
+                      type: e.target.value as 'token' | 'nft' | 'whitelist'
+                    })}
+                    className="bg-gray-800 text-white rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="token">Token</option>
+                    <option value="nft">NFT</option>
+                    <option value="whitelist">Whitelist</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={rule.value}
+                    onChange={(e) => updateRule(groupIndex, ruleIndex, {
+                      value: e.target.value
+                    })}
+                    className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 text-sm"
+                    placeholder={rule.type === 'whitelist' ? 'Whitelist ID' : 'Contract Address'}
+                  />
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={() => removeRule(groupIndex, ruleIndex)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {(rule.type === 'token' || rule.type === 'nft') && (
+                  <div className="flex items-center gap-2 pl-0 sm:pl-[calc(25%+1rem)]">
+                    <label className="text-sm text-gray-400 whitespace-nowrap">
+                      Required {rule.type === 'nft' ? 'NFTs' : 'Amount'}:
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={rule.quantity || 1}
+                      onChange={(e) => updateRule(groupIndex, ruleIndex, {
+                        quantity: parseInt(e.target.value, 10)
+                      })}
+                      className="w-32 rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {formData.eligibility_rules?.groups.length === 0 && (
+          <div className="text-center text-gray-400 py-8">
+            No rule groups added. Click "Add Rule Group" to create eligibility rules.
+          </div>
+        )}
+      </div>
 
       <div className="flex justify-end gap-3 mt-6">
         <Button

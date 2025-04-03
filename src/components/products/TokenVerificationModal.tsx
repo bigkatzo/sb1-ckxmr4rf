@@ -867,15 +867,20 @@ export function TokenVerificationModal({
                               type="button"
                               onClick={async () => {
                                 try {
+                                  if (!walletAddress) {
+                                    toast.error('Please connect your wallet first');
+                                    return;
+                                  }
                                   const result = await CouponService.calculateDiscount(
                                     baseModifiedPrice,
-                                    couponCode
+                                    couponCode,
+                                    walletAddress
                                   );
                                   setCouponResult(result);
                                   if (result.couponDiscount > 0) {
                                     toast.success('Coupon applied!');
                                   } else {
-                                    toast.error('Invalid coupon code');
+                                    toast.error(result.error || 'Invalid coupon code');
                                     setCouponResult(null);
                                   }
                                 } catch (error) {
