@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
-import { Metaplex } from '@metaplex-foundation/js';
+import { Metaplex, Nft } from '@metaplex-foundation/js';
 
 export interface NFTVerificationResult {
   isValid: boolean;
@@ -25,7 +25,7 @@ export async function verifyNFTHolding(
     console.log('Found NFTs:', nfts.length);
 
     // Filter NFTs by collection
-    const collectionNfts = nfts.filter(nft => 
+    const collectionNfts = nfts.filter((nft): nft is Nft => 
       nft.collection?.address.toBase58() === collectionAddress
     );
 
