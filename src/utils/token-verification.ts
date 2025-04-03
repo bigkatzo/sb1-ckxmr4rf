@@ -1,5 +1,5 @@
 import { PublicKey, Connection, ConnectionConfig } from '@solana/web3.js';
-import { getAssociatedTokenAddress } from '@solana/spl-token';
+import { getAssociatedTokenAddress, getMint } from '@solana/spl-token';
 import { SOLANA_CONNECTION } from '../config/solana';
 
 // Cache structure to store recent balance checks
@@ -77,6 +77,14 @@ export async function verifyTokenHolding(
       connectionConfig
     );
 
+    // Get token mint info to check decimals
+    const mintInfo = await getMint(connection, tokenMintPubKey);
+    console.log('Token mint info:', {
+      address: tokenMintAddress,
+      decimals: mintInfo.decimals,
+      minAmount
+    });
+
     // Get the associated token account for the wallet
     const tokenAccount = await getAssociatedTokenAddress(tokenMintPubKey, walletPubKey);
 
@@ -97,7 +105,7 @@ export async function verifyTokenHolding(
         isValid: tokenBalance >= minAmount,
         balance: tokenBalance,
         error: tokenBalance >= minAmount ? undefined : 
-               `Insufficient tokens. You have ${tokenBalance} but need ${minAmount} tokens.`
+               `Insufficient tokens. You have ${tokenBalance} but need ${minAmount} tokens. Token decimals: ${mintInfo.decimals}`
       };
 
       // Cache the result
