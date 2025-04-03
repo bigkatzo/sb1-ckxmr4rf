@@ -23,7 +23,7 @@ import type { PriceWithDiscount } from '../../types/coupons';
 interface TokenVerificationModalProps {
   product: Product;
   onClose: () => void;
-  onSuccess: (orderId: string, signature: string, orderNumber: string) => void;
+  onSuccess: () => void;
   selectedOptions?: Record<string, string>;
 }
 
@@ -60,9 +60,9 @@ interface ProgressStep {
 async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ isValid: boolean; error?: string }> {
   switch (rule.type) {
     case 'token':
-      return verifyTokenHolding(walletAddress, rule.value, rule.quantity === undefined ? 1 : rule.quantity);
+      return verifyTokenHolding(walletAddress, rule.value, rule.quantity || 1);
     case 'nft':
-      return verifyNFTHolding(walletAddress, rule.value, rule.quantity === undefined ? 1 : rule.quantity);
+      return verifyNFTHolding(walletAddress, rule.value, rule.quantity || 1);
     case 'whitelist':
       return verifyWhitelistAccess(walletAddress, rule.value);
     default:
@@ -290,76 +290,74 @@ export function TokenVerificationModal({
         // Generate unique transaction signature for free orders
         const uniqueSignature = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
 
-        try {
-          // Update order with unique transaction signature for free orders
-          const { error: updateError } = await supabase.rpc('update_order_transaction', {
-            p_order_id: orderId,
-            p_transaction_signature: uniqueSignature,
-            p_amount_sol: 0
-          });
+        // Update order with unique transaction signature for free orders
+        const { error: updateError } = await supabase.rpc('update_order_transaction', {
+          p_order_id: orderId,
+          p_transaction_signature: uniqueSignature,
+          p_amount_sol: 0
+        });
 
-          if (updateError) throw updateError;
+        if (updateError) throw updateError;
 
-          // Confirm the order immediately since it's free
-          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-            p_order_id: orderId
-          });
+        // Confirm the order immediately since it's free
+        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+          p_order_id: orderId
+        });
 
-          if (confirmError) throw confirmError;
+        if (confirmError) throw confirmError;
 
-          // Get order number
-          const { data: orderData, error: orderError } = await supabase
-            .from('orders')
-            .select('order_number')
-            .eq('id', orderId)
-            .single();
+        // Fetch order number
+        const { data: orderData, error: fetchError } = await supabase
+          .from('orders')
+          .select('order_number')
+          .eq('id', orderId)
+          .single();
 
-          if (orderError) {
-            console.error('Error fetching order number:', orderError);
-            throw orderError;
-          }
+        if (fetchError) throw fetchError;
 
-          // Show success
-          updateProgressStep(0, 'completed', 'Order confirmed successfully!');
-          setOrderDetails({
-            orderNumber: orderData.order_number,
-            transactionSignature: uniqueSignature
-          });
-          setShowSuccessView(true);
-          
-          // Call onSuccess callback
-          if (onSuccess && orderId) {
-            onSuccess(orderId, uniqueSignature, orderData.order_number);
-          }
-          
-          return; // Exit early since order is complete
-        } catch (error) {
-          console.error('Error processing free order:', error);
-          updateProgressStep(0, 'error', 'Error processing your order. Please try again.');
-          throw error;
-        }
+        // Show success
+        setOrderDetails({
+          orderNumber: orderData.order_number,
+          transactionSignature: uniqueSignature
+        });
+        setShowSuccessView(true);
+        onSuccess?.();
+        return;
       }
 
       // Regular payment flow for non-100% discounts
       updateProgressStep(0, 'processing', 'Creating your order...');
       
-      // Create the order first
-      const { data: createdOrderId, error: createError } = await supabase.rpc('create_order', {
-        p_product_id: product.id,
-        p_variants: formattedVariantSelections,
-        p_shipping_info: formattedShippingInfo,
-        p_wallet_address: walletAddress,
-        p_payment_metadata: paymentMetadata
-      });
+      // Retry order creation up to 3 times
+      for (let i = 0; i < 3; i++) {
+        try {
+          const { data: order, error } = await supabase.rpc('create_order', {
+            p_product_id: product.id,
+            p_variants: formattedVariantSelections,
+            p_shipping_info: formattedShippingInfo,
+            p_wallet_address: walletAddress,
+            p_payment_metadata: paymentMetadata // Add payment metadata
+          });
 
-      if (createError) {
-        console.error('Failed to create order:', createError);
-        updateProgressStep(0, 'error', 'Failed to create order');
-        throw createError;
+          if (error) throw error;
+          orderId = order;
+          updateProgressStep(0, 'completed');
+          break;
+        } catch (err) {
+          console.error(`Order creation attempt ${i + 1} failed:`, err);
+          if (i < 2) {
+            updateProgressStep(0, 'processing', `Retrying order creation (attempt ${i + 2} of 3)...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+          } else {
+            updateProgressStep(0, 'error', 'Failed to create order');
+            throw err;
+          }
+        }
       }
 
-      orderId = createdOrderId;
-      updateProgressStep(0, 'completed');
+      if (!orderId) {
+        throw new Error('Failed to create order');
+      }
       
       // Start payment processing
       updateProgressStep(1, 'processing', 'Initiating payment on Solana network...');
@@ -369,82 +367,107 @@ export function TokenVerificationModal({
       
       if (!success || !txSignature) {
         updateProgressStep(1, 'error', 'Payment failed');
+        
+        // Update order to pending_payment status even if payment fails
+        try {
+          const { error: updateError } = await supabase.rpc('update_order_transaction', {
+            p_order_id: orderId,
+            p_transaction_signature: 'rejected', // Use a special value for rejected transactions
+            p_amount_sol: finalPrice
+          });
+
+          if (updateError) {
+            console.error('Failed to update order status:', updateError);
+          }
+        } catch (err) {
+          console.error('Error updating order status:', err);
+        }
+        
         throw new Error('Payment failed');
       }
 
       signature = txSignature;
 
       // Update order with transaction signature
-      const { error: updateError } = await supabase.rpc('update_order_transaction', {
-        p_order_id: orderId,
-        p_transaction_signature: signature,
-        p_amount_sol: finalPrice
-      });
+      try {
+        const { error: updateError } = await supabase.rpc('update_order_transaction', {
+          p_order_id: orderId,
+          p_transaction_signature: signature,
+          p_amount_sol: finalPrice
+        });
 
-      if (updateError) {
-        console.error('Failed to update order with transaction:', updateError);
-        updateProgressStep(1, 'error', 'Failed to update order with transaction');
-        throw updateError;
-      }
+        if (updateError) throw updateError;
         
-      // Payment initiated successfully
-      updateProgressStep(1, 'completed');
+        // Payment initiated successfully
+        updateProgressStep(1, 'completed');
         
-      // Start transaction confirmation
-      updateProgressStep(2, 'processing', 'Waiting for transaction confirmation...');
+        // Start transaction confirmation
+        updateProgressStep(2, 'processing', 'Waiting for transaction confirmation...');
         
-      // Wait for transaction confirmation
-      const confirmed = await monitorTransaction(signature, (status: TransactionStatus) => {
-        if (status.error) {
-          updateProgressStep(2, 'error', status.error);
+        // Wait for transaction confirmation
+        const confirmed = await monitorTransaction(signature, (status: TransactionStatus) => {
+          if (status.error) {
+            updateProgressStep(2, 'error', status.error);
+          }
+        });
+
+        if (!confirmed) {
+          updateProgressStep(2, 'error', 'Transaction verification failed. Order will remain in pending_payment status for merchant review.');
+          // Don't throw error here, let the merchant handle it
+          setShowSuccessView(true); // Show success view since order is created
+          return;
         }
-      });
 
-      if (!confirmed) {
-        updateProgressStep(2, 'error', 'Transaction verification failed');
-        throw new Error('Transaction verification failed');
-      }
+        // Update order status to confirmed
+        try {
+          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+            p_order_id: orderId
+          });
 
-      // Update order status to confirmed
-      const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-        p_order_id: orderId
-      });
+          if (confirmError) {
+            console.error('Failed to confirm order transaction:', confirmError);
+            updateProgressStep(2, 'error', 'Transaction confirmed but failed to update order status. Please contact support.');
+            return;
+          }
+        } catch (err) {
+          console.error('Error confirming order transaction:', err);
+          updateProgressStep(2, 'error', 'Transaction confirmed but failed to update order status. Please contact support.');
+          return;
+        }
 
-      if (confirmError) {
-        console.error('Failed to confirm order transaction:', confirmError);
-        updateProgressStep(2, 'error', 'Failed to confirm order');
-        throw confirmError;
-      }
+        updateProgressStep(2, 'completed');
 
-      updateProgressStep(2, 'completed');
+        // Get order number
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .select('order_number')
+          .eq('id', orderId)
+          .single();
 
-      // Get order number
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select('order_number')
-        .eq('id', orderId)
-        .single();
+        if (orderError) {
+          console.error('Error fetching order number:', orderError);
+          throw orderError;
+        }
 
-      if (orderError) {
-        console.error('Error fetching order number:', orderError);
-        throw orderError;
-      }
-
-      // Show toast notification
-      toastService.showOrderSuccess();
+        // Show toast notification
+        toastService.showOrderSuccess();
         
-      // Wait 1 second to show the completed progress state
-      await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait 1 second to show the completed progress state
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Then transition to success view
-      setOrderDetails({
-        orderNumber: orderData.order_number,
-        transactionSignature: signature
-      });
-      setShowSuccessView(true);
-      
-      if (orderId) {
-        onSuccess(orderId, signature, orderData.order_number);
+        // Then transition to success view
+        setOrderDetails({
+          orderNumber: orderData.order_number,
+          transactionSignature: signature
+        });
+        setShowSuccessView(true);
+      } catch (error) {
+        console.error('Order error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
+        toast.error(errorMessage, {
+          autoClose: false
+        });
+        setSubmitting(false);
       }
     } catch (error) {
       console.error('Order error:', error);
@@ -578,7 +601,7 @@ export function TokenVerificationModal({
           productImage={product.imageUrl}
           orderNumber={orderDetails.orderNumber}
           transactionSignature={orderDetails.transactionSignature}
-          onClose={onClose}
+          onClose={onSuccess}
           collectionSlug={product.collectionSlug || ''}
         />
       ) : showStripeModal ? (
@@ -863,8 +886,7 @@ export function TokenVerificationModal({
                                   const result = await CouponService.calculateDiscount(
                                     baseModifiedPrice,
                                     couponCode,
-                                    walletAddress,
-                                    product.collectionId
+                                    walletAddress
                                   );
                                   setCouponResult(result);
                                   if (result.couponDiscount > 0) {
