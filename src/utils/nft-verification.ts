@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
-import { Metaplex, Nft, MetaplexPlugin } from '@metaplex-foundation/js';
+import { Metaplex, Nft } from '@metaplex-foundation/js';
 
 export interface NFTVerificationResult {
   isValid: boolean;
