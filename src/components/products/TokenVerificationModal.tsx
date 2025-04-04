@@ -323,9 +323,6 @@ export function TokenVerificationModal({
 
           updateProgressStep(2, 'completed');
 
-          // Show toast notification
-          toastService.showOrderSuccess();
-        
           // Wait 1 second to show the completed progress state
           await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -472,18 +469,16 @@ export function TokenVerificationModal({
           throw orderError;
         }
 
-        // Show toast notification
-        toastService.showOrderSuccess();
-        
         // Wait 1 second to show the completed progress state
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Then transition to success view
+        // Show success
         setOrderDetails({
           orderNumber: orderData.order_number,
           transactionSignature: signature
         });
         setShowSuccessView(true);
+        toastService.showOrderSuccess();
       } catch (error) {
         console.error('Order error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
