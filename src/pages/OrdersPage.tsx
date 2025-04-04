@@ -11,9 +11,20 @@ import { Link } from 'react-router-dom';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
-  const { orders, loading } = useOrders();
+  const { orders, loading, error } = useOrders();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const prevWalletRef = useRef<string | null>(null);
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('OrdersPage state:', {
+      walletAddress,
+      loading,
+      error,
+      ordersCount: orders.length,
+      isInitialLoad
+    });
+  }, [walletAddress, loading, error, orders, isInitialLoad]);
   
   // Reset isInitialLoad when wallet address changes
   useEffect(() => {
@@ -165,6 +176,21 @@ export function OrdersPage() {
     return <OrderPageSkeleton />;
   }
 
+  // Show error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Your Orders</h1>
+        <div className="min-h-[50vh] flex flex-col items-center justify-center text-center">
+          <div className="bg-red-500/10 text-red-400 p-4 rounded-lg max-w-md">
+            <h2 className="text-lg font-semibold mb-2">Error Loading Orders</h2>
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -306,25 +332,6 @@ export function OrdersPage() {
                             <span className="text-xs text-gray-500">Pending</span>
                           )}
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Tracking Info */}
-                    <div className="mt-4 pt-4 border-t border-gray-800">
-                      <div className="flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-purple-400" />
-                        <span className="text-xs text-gray-400">Tracking Number:</span>
-                        {order.tracking_number ? (
-                          <Link
-                            to={`/tracking/${order.tracking_number}`}
-                            className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
-                          >
-                            {order.tracking_number}
-                            <ExternalLink className="h-3 w-3" />
-                          </Link>
-                        ) : (
-                          <span className="text-xs text-gray-500">Not available yet</span>
-                        )}
                       </div>
                     </div>
                   </div>

@@ -40,11 +40,13 @@ export function useOrders() {
 
   const fetchOrders = useCallback(async () => {
     try {
+      console.log('Fetching orders, wallet address:', walletAddress);
       setLoading(true);
       setError(null);
 
       // Only fetch orders if wallet is connected
       if (!walletAddress) {
+        console.log('No wallet address, clearing orders');
         setOrders([]);
         return;
       }
@@ -55,6 +57,8 @@ export function useOrders() {
         .eq('wallet_address', walletAddress)
         .order('created_at', { ascending: false })
         .throwOnError();
+
+      console.log('Orders query result:', { data, error });
 
       if (error) throw error;
 
@@ -80,12 +84,10 @@ export function useOrders() {
         transactionSignature: order.transaction_signature,
         order_variants: order.order_variants || [],
         product_variants: order.product_variants || [],
-        product_variant_prices: order.product_variant_prices || {},
-        tracking_number: order.tracking_number || undefined,
-        tracking_status: order.tracking_status || undefined,
-        tracking_details: order.tracking_details || undefined
+        product_variant_prices: order.product_variant_prices || {}
       }));
 
+      console.log('Transformed orders:', transformedOrders);
       setOrders(transformedOrders);
     } catch (err) {
       console.error('Error fetching orders:', err);
