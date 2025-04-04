@@ -111,16 +111,7 @@ function StripeCheckoutForm({
       console.log('Confirming payment...');
       const result = await stripe.confirmPayment({
         elements,
-        redirect: 'if_required',
-        confirmParams: {
-          payment_method_data: {
-            billing_details: {
-              name: shippingInfo?.contact_info?.fullName,
-              email: shippingInfo?.contact_info?.value,
-              phone: shippingInfo?.contact_info?.phoneNumber || undefined
-            }
-          }
-        }
+        redirect: 'if_required'
       });
 
       console.log('Payment confirmation result:', result);
@@ -174,7 +165,7 @@ function StripeCheckoutForm({
       setError('An unexpected error occurred. Please try again.');
       setPaymentStatus('error');
     }
-  }, [stripe, elements, solPrice, paymentStatus, onSuccess, shippingInfo]);
+  }, [stripe, elements, solPrice, paymentStatus, onSuccess]);
 
   // Add payment status effect
   React.useEffect(() => {
@@ -235,11 +226,16 @@ function StripeCheckoutForm({
             billingDetails: {
               name: shippingInfo?.contact_info?.fullName,
               email: shippingInfo?.contact_info?.value,
+              phone: shippingInfo?.contact_info?.phoneNumber,
+              address: {
+                ...shippingInfo?.shipping_address,
+                country: shippingInfo?.shipping_address?.country || 'US'
+              }
             }
           },
           paymentMethodOrder: ['card'],
           fields: {
-            billingDetails: 'never'
+            billingDetails: 'auto'
           }
         }}
       />
