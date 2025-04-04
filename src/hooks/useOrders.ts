@@ -28,6 +28,8 @@ interface OrderRow {
   product_variants: Order['product_variants'];
   product_variant_prices: Order['product_variant_prices'];
   tracking_number: string | null;
+  tracking_status: string | null;
+  tracking_details: string | null;
 }
 
 export function useOrders() {
@@ -79,7 +81,9 @@ export function useOrders() {
         order_variants: order.order_variants || [],
         product_variants: order.product_variants || [],
         product_variant_prices: order.product_variant_prices || {},
-        tracking_number: order.tracking_number || undefined
+        tracking_number: order.tracking_number || undefined,
+        tracking_status: order.tracking_status || undefined,
+        tracking_details: order.tracking_details || undefined
       }));
 
       setOrders(transformedOrders);

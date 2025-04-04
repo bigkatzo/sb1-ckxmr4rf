@@ -61,6 +61,8 @@ export interface Order {
   }>;
   product_variant_prices: Record<string, number>;
   tracking_number?: string;
+  tracking_status?: string;
+  tracking_details?: string;
 }
 
 // Type for the public order counts view
