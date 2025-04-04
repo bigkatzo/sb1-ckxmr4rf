@@ -34,7 +34,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { solAmount, solPrice, productName, shippingInfo, productId, variants } = JSON.parse(event.body);
+    const { solAmount, solPrice, productName, shippingInfo, productId, variants, walletAddress } = JSON.parse(event.body);
 
     // Calculate USD amount, ensuring minimum of $0.50
     const usdAmount = Math.max(solAmount * solPrice, 0.50);
@@ -54,6 +54,7 @@ exports.handler = async (event, context) => {
         contactInfo: JSON.stringify(shippingInfo.contact_info),
         solAmount: solAmount.toString(),
         solPrice: solPrice.toString(),
+        walletAddress: walletAddress || 'stripe', // Store wallet address in metadata
       },
     });
 
@@ -62,7 +63,7 @@ exports.handler = async (event, context) => {
       p_product_id: productId,
       p_variants: variants || [],
       p_shipping_info: shippingInfo,
-      p_wallet_address: 'stripe', // Use 'stripe' as wallet address for Stripe payments
+      p_wallet_address: walletAddress || 'stripe', // Use wallet address when available
     });
 
     if (orderError) {

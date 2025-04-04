@@ -330,7 +330,8 @@ export function StripePaymentModal({
             p_payment_metadata: {
               couponCode,
               originalPrice,
-              couponDiscount
+              couponDiscount,
+              paymentMethod: 'stripe'
             }
           });
 
