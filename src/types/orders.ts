@@ -75,7 +75,7 @@ export interface Order {
   shippingAddress: ShippingAddress;
   contactInfo: ContactInfo;
   walletAddress: string;
-  transactionSignature: string;
+  transactionSignature?: string;
   variant_selections: OrderVariant[];
   product_snapshot: ProductSnapshot;
   collection_snapshot: CollectionSnapshot;
