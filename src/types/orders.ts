@@ -26,29 +26,41 @@ export interface Order {
   product_id: string;
   walletAddress: string;
   transactionSignature: string;
-  shippingAddress: any;
-  contactInfo: any;
+  shippingAddress: {
+    address: string;
+    city: string;
+    country: string;
+    zip: string;
+  };
+  contactInfo: {
+    method: string;
+    value: string;
+    fullName?: string;
+    phoneNumber?: string;
+  };
   status: OrderStatus;
   amountSol: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
   product_name: string;
   product_sku: string;
   product_image_url: string;
   collection_name: string;
-  category_name?: string;
-  category_description?: string;
-  category_type?: string;
+  category_name: string;
+  category_description: string;
+  category_type: string;
   access_type?: string;
   order_variants: Array<{
     name: string;
     value: string;
   }>;
   product_variants: Array<{
+    id: string;
     name: string;
-    options: string[];
+    values: string[];
   }>;
   product_variant_prices: Record<string, number>;
+  tracking_number?: string;
 }
 
 // Type for the public order counts view

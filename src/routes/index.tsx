@@ -20,6 +20,7 @@ const PrivacyPolicyPage = lazy(() => import('../pages/legal/PrivacyPolicyPage').
 const TermsPage = lazy(() => import('../pages/legal/TermsPage').then(module => ({ default: module.TermsPage })));
 const OrdersPage = lazy(() => import('../pages/OrdersPage').then(module => ({ default: module.OrdersPage })));
 const ReturnsAndFAQPage = lazy(() => import('../pages/ReturnsAndFAQPage').then(module => ({ default: module.ReturnsAndFAQPage })));
+const TrackingPage = lazy(() => import('../pages/TrackingPage').then(module => ({ default: module.TrackingPage })));
 
 // Loading component for merchant/admin pages
 const PageLoader = () => (
@@ -40,6 +41,10 @@ export const router = createBrowserRouter([
       {
         path: 'orders',
         element: <Suspense fallback={<OrderPageSkeleton />}><OrdersPage /></Suspense>
+      },
+      {
+        path: 'tracking/:trackingNumber',
+        element: <Suspense fallback={<PageLoader />}><TrackingPage /></Suspense>
       },
       {
         path: ':slug',

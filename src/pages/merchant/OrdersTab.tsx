@@ -8,6 +8,7 @@ import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import type { OrderStatus } from '../../types/orders';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
+import { supabase } from '../../lib/supabase';
 
 export function OrdersTab() {
   const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
@@ -46,6 +47,23 @@ export function OrdersTab() {
     }
   };
 
+  const handleTrackingUpdate = async (orderId: string, trackingNumber: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ tracking_number: trackingNumber })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // Refresh orders to get updated data
+      await refreshOrders();
+    } catch (error) {
+      console.error('Error updating tracking number:', error);
+      throw error;
+    }
+  };
+
   // Filter orders based on selected collections, products, and statuses
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
@@ -66,26 +84,12 @@ export function OrdersTab() {
 
       // Filter by search query
       if (searchQuery) {
-        const searchLower = searchQuery.toLowerCase();
+        const query = searchQuery.toLowerCase();
         return (
-          // Order details
-          (order.order_number && order.order_number.toLowerCase().includes(searchLower)) ||
-          (order.id && order.id.toLowerCase().includes(searchLower)) ||
-          // Product details
-          (order.product_name && order.product_name.toLowerCase().includes(searchLower)) ||
-          (order.product_sku && order.product_sku.toLowerCase().includes(searchLower)) ||
-          // Collection
-          (order.collection_name && order.collection_name.toLowerCase().includes(searchLower)) ||
-          // Contact info
-          (order.contactInfo?.value && order.contactInfo.value.toLowerCase().includes(searchLower)) ||
-          // Wallet and transaction
-          (order.walletAddress && order.walletAddress.toLowerCase().includes(searchLower)) ||
-          (order.transactionSignature && order.transactionSignature.toLowerCase().includes(searchLower)) ||
-          // Shipping address
-          (order.shippingAddress?.address && order.shippingAddress.address.toLowerCase().includes(searchLower)) ||
-          (order.shippingAddress?.city && order.shippingAddress.city.toLowerCase().includes(searchLower)) ||
-          (order.shippingAddress?.country && order.shippingAddress.country.toLowerCase().includes(searchLower)) ||
-          (order.shippingAddress?.zip && order.shippingAddress.zip.toLowerCase().includes(searchLower))
+          order.order_number?.toLowerCase().includes(query) ||
+          order.product_name?.toLowerCase().includes(query) ||
+          order.collection_name?.toLowerCase().includes(query) ||
+          order.tracking_number?.toLowerCase().includes(query)
         );
       }
 
@@ -94,15 +98,17 @@ export function OrdersTab() {
   }, [orders, selectedCollections, selectedProducts, selectedStatuses, searchQuery]);
 
   if (loading) {
-    return <Loading type={LoadingType.PAGE} text="Loading orders..." />;
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loading type={LoadingType.PAGE} />
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="bg-red-500/10 text-red-500 rounded-lg p-4">
-          <p className="text-sm">{error.message || String(error)}</p>
-        </div>
+      <div className="text-center py-12">
+        <p className="text-red-400">Error loading orders. Please try again later.</p>
       </div>
     );
   }
@@ -140,6 +146,7 @@ export function OrdersTab() {
         <OrderList
           orders={filteredOrders}
           onStatusUpdate={handleStatusUpdate}
+          onTrackingUpdate={handleTrackingUpdate}
         />
       )}
     </div>

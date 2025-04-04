@@ -7,6 +7,7 @@ import { OptimizedImage } from '../components/ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
 import { OrderPageSkeleton } from '../components/ui/Skeletons';
 import { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
@@ -305,6 +306,25 @@ export function OrdersPage() {
                             <span className="text-xs text-gray-500">Pending</span>
                           )}
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Tracking Info */}
+                    <div className="mt-4 pt-4 border-t border-gray-800">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-purple-400" />
+                        <span className="text-xs text-gray-400">Tracking Number:</span>
+                        {order.tracking_number ? (
+                          <Link
+                            to={`/tracking/${order.tracking_number}`}
+                            className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                          >
+                            {order.tracking_number}
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-gray-500">Not available yet</span>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -10,7 +10,8 @@ import {
   Twitter,
   Calendar,
   Download,
-  BarChart3
+  BarChart3,
+  Link
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
@@ -47,10 +48,12 @@ const safeParseDate = (date: any): Date => {
 interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
+  onTrackingUpdate?: (orderId: string, trackingNumber: string) => Promise<void>;
 }
 
-export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
+export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderListProps) {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [editingTrackingId, setEditingTrackingId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -84,6 +87,28 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
       toast.error('Failed to update order status');
     } finally {
       setUpdatingOrderId(null);
+    }
+  };
+
+  const handleTrackingUpdate = async (orderId: string, trackingNumber: string) => {
+    if (!onTrackingUpdate) return;
+    
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // Check if user has permission to edit order
+    if (!canEditOrderStatus(order)) {
+      toast.error('You do not have permission to update this order');
+      return;
+    }
+    
+    try {
+      await onTrackingUpdate(orderId, trackingNumber);
+      setEditingTrackingId(null);
+      toast.success('Tracking number updated successfully');
+    } catch (error) {
+      console.error('Failed to update tracking number:', error);
+      toast.error('Failed to update tracking number');
     }
   };
 
@@ -626,6 +651,70 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                           Amount: {order.amountSol} SOL
                         </p>
                       </div>
+                    </div>
+
+                    {/* Tracking Number Section */}
+                    <div className="mt-4 pt-4 border-t border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Truck className="h-4 w-4 text-purple-400" />
+                          <span className="text-sm text-gray-400">Tracking Number</span>
+                        </div>
+                        {canEditOrderStatus(order) && order.status !== 'cancelled' && (
+                          <button
+                            onClick={() => setEditingTrackingId(order.id)}
+                            className="text-xs text-purple-400 hover:text-purple-300"
+                          >
+                            {order.tracking_number ? 'Edit' : 'Add'}
+                          </button>
+                        )}
+                      </div>
+                      
+                      {editingTrackingId === order.id ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const form = e.target as HTMLFormElement;
+                            const input = form.elements.namedItem('tracking') as HTMLInputElement;
+                            void handleTrackingUpdate(order.id, input.value);
+                          }}
+                          className="mt-2 flex items-center gap-2"
+                        >
+                          <input
+                            type="text"
+                            name="tracking"
+                            defaultValue={order.tracking_number || ''}
+                            placeholder="Enter tracking number"
+                            className="flex-1 bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                          />
+                          <button
+                            type="submit"
+                            className="px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingTrackingId(null)}
+                            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg"
+                          >
+                            Cancel
+                          </button>
+                        </form>
+                      ) : (
+                        <div className="mt-2">
+                          {order.tracking_number ? (
+                            <div className="flex items-center gap-2">
+                              <Link to={`/tracking/${order.tracking_number}`} className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1">
+                                {order.tracking_number}
+                                <ExternalLink className="h-3 w-3" />
+                              </Link>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-500">No tracking number</span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Order Details */}
