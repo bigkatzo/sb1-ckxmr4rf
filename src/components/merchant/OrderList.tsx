@@ -104,9 +104,28 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
     }
     
     try {
+      // First update the tracking number in our database
       await onTrackingUpdate(orderId, trackingNumber);
+
+      // Then register the tracking number with TrackShip
+      const response = await fetch('/.netlify/functions/register-tracking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          orderId,
+          trackingNumber
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to register tracking');
+      }
+
       setEditingTrackingId(null);
-      toast.success('Tracking number updated successfully');
+      toast.success('Tracking number updated and registered successfully');
     } catch (error) {
       console.error('Failed to update tracking number:', error);
       toast.error('Failed to update tracking number');
