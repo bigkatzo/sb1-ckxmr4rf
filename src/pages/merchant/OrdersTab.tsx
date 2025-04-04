@@ -56,7 +56,7 @@ export function OrdersTab() {
 
       if (error) throw error;
 
-      // Refresh orders to get updated data
+      // Wait for the refresh to complete before returning
       await refreshOrders();
     } catch (error) {
       console.error('Error updating tracking number:', error);
