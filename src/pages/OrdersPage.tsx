@@ -1,7 +1,6 @@
 import { useWallet } from '../contexts/WalletContext';
 import { useOrders } from '../hooks/useOrders';
 import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../types/orders';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
@@ -193,12 +192,10 @@ export function OrdersPage() {
     );
   }
 
-  // Always show skeleton during loading, regardless of initial or subsequent load
   if (loading) {
     return <OrderPageSkeleton />;
   }
 
-  // Show error state
   if (error) {
     return (
       <div className="space-y-6">
