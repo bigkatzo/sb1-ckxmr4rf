@@ -20,6 +20,7 @@ SELECT
     o.created_at,
     o.updated_at,
     o.variant_selections,
+    o.payment_metadata,
     p.name as product_name,
     p.sku as product_sku,
     p.images[1] as product_image_url,
