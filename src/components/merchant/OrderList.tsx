@@ -23,6 +23,7 @@ import { OptimizedImage } from '../ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { Button } from '../ui/Button';
+import { addTracking } from '../../services/tracking';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -49,10 +50,9 @@ const safeParseDate = (date: any): Date => {
 interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
-  onTrackingUpdate?: (orderId: string, trackingNumber: string) => Promise<void>;
 }
 
-export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderListProps) {
+export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [editingTrackingId, setEditingTrackingId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
@@ -92,8 +92,6 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
   };
 
   const handleTrackingUpdate = async (orderId: string, trackingNumber: string) => {
-    if (!onTrackingUpdate) return;
-    
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
@@ -104,31 +102,12 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
     }
     
     try {
-      // First update the tracking number in our database
-      await onTrackingUpdate(orderId, trackingNumber);
-
-      // Then register the tracking number with TrackShip
-      const response = await fetch('/.netlify/functions/register-tracking', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          orderId,
-          trackingNumber
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to register tracking');
-      }
-
+      await addTracking(orderId, trackingNumber);
       setEditingTrackingId(null);
-      toast.success('Tracking number updated and registered successfully');
+      toast.success('Tracking number added successfully');
     } catch (error) {
-      console.error('Failed to update tracking number:', error);
-      toast.error('Failed to update tracking number');
+      console.error('Failed to add tracking number:', error);
+      toast.error('Failed to add tracking number');
     }
   };
 
@@ -296,8 +275,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
     }
   };
 
-  const getStatusColor = (status: Order['status']) => {
-    switch (status) {
+  const getStatusColor = (status: Order['status'] | string) => {
+    switch (status.toLowerCase()) {
       case 'draft':
         return 'text-gray-400 bg-gray-500/10 hover:bg-gray-500/20';
       case 'pending_payment':
@@ -310,6 +289,14 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
         return 'text-green-400 bg-green-500/10 hover:bg-green-500/20';
       case 'cancelled':
         return 'text-red-400 bg-red-500/10 hover:bg-red-500/20';
+      case 'in_transit':
+        return 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20';
+      case 'out_for_delivery':
+        return 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20';
+      case 'pending':
+        return 'text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20';
+      default:
+        return 'text-gray-400 bg-gray-500/10 hover:bg-gray-500/20';
     }
   };
 
@@ -473,7 +460,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
               onClick={() => setEditingTrackingId(order.id)}
               className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
             >
-              {order.tracking_number ? (
+              {order.tracking?.tracking_number ? (
                 <>
                   <LinkIcon className="h-3 w-3" />
                   Edit
@@ -502,16 +489,14 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
             }}
             className="mt-2 flex items-center gap-2"
           >
-            <div className="flex-1">
-              <input
-                type="text"
-                name="tracking"
-                defaultValue={order.tracking_number || ''}
-                placeholder="Enter tracking number"
-                className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40 border border-gray-700"
-                autoFocus
-              />
-            </div>
+            <input
+              type="text"
+              name="tracking"
+              defaultValue={order.tracking?.tracking_number || ''}
+              placeholder="Enter tracking number"
+              className="flex-1 bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+              autoFocus
+            />
             <div className="flex items-center gap-2">
               <button
                 type="submit"
@@ -532,16 +517,21 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
           </form>
         ) : (
           <div className="mt-2">
-            {order.tracking_number ? (
-              <div className="flex items-center gap-2">
+            {order.tracking?.tracking_number ? (
+              <div className="space-y-2">
                 <Link 
-                  to={`/tracking/${order.tracking_number}`} 
+                  to={`/tracking/${order.tracking.tracking_number}`} 
                   className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1"
                 >
                   <Truck className="h-3 w-3" />
-                  {order.tracking_number}
+                  {order.tracking.tracking_number}
                   <ExternalLink className="h-3 w-3" />
                 </Link>
+                {order.tracking.status && (
+                  <div className={`text-xs ${getStatusColor(order.tracking.status)}`}>
+                    {order.tracking.status_details || order.tracking.status}
+                  </div>
+                )}
               </div>
             ) : (
               <span className="text-sm text-gray-500 flex items-center gap-1">

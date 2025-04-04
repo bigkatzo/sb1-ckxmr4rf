@@ -76,79 +76,67 @@ export const handler: Handler = async (event) => {
     const latestEvent = events[events.length - 1];
     const statusDetails = latestEvent ? latestEvent.message : '';
 
-    // Map TrackShip status to our order status
-    let orderStatus;
-    switch (tracking_event_status.toLowerCase()) {
-      case 'delivered':
-        orderStatus = 'delivered';
-        break;
-      case 'in_transit':
-      case 'out_for_delivery':
-      case 'pre_transit':
-        orderStatus = 'shipped';
-        break;
-      case 'exception':
-      case 'failure':
-        // Don't update order status for exceptions, but store the tracking status
-        orderStatus = undefined;
-        break;
-      default:
-        // Don't update order status for unknown tracking statuses
-        orderStatus = undefined;
-    }
+    // Get tracking record from our database
+    const { data: tracking, error: trackingError } = await supabase
+      .from('order_tracking')
+      .select('id')
+      .eq('tracking_number', tracking_number)
+      .single();
 
-    // Update order in database
-    const updateData: Record<string, any> = {
-      tracking_status: tracking_event_status,
-      tracking_details: statusDetails,
-      updated_at: new Date().toISOString()
-    };
-
-    // Only update order status if we have a valid mapping
-    if (orderStatus) {
-      updateData.status = orderStatus;
-    }
-
-    // Add estimated delivery date if available
-    if (tracking_est_delivery_date) {
-      updateData.estimated_delivery_date = tracking_est_delivery_date;
-    }
-
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update(updateData)
-      .eq('tracking_number', tracking_number);
-
-    if (updateError) {
-      console.error('Error updating order:', updateError);
+    if (trackingError) {
+      console.error('Error fetching tracking record:', trackingError);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to update order status' })
+        body: JSON.stringify({ error: 'Failed to fetch tracking record' })
       };
     }
 
-    // Store tracking events in tracking_history table for detailed timeline
+    if (!tracking) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Tracking record not found' })
+      };
+    }
+
+    // Update tracking status
+    const { error: updateError } = await supabase
+      .from('order_tracking')
+      .update({
+        status: tracking_event_status,
+        status_details: statusDetails,
+        estimated_delivery_date: tracking_est_delivery_date,
+        last_update: new Date().toISOString()
+      })
+      .eq('id', tracking.id);
+
+    if (updateError) {
+      console.error('Error updating tracking status:', updateError);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Failed to update tracking status' })
+      };
+    }
+
+    // Store tracking events
     if (events && events.length > 0) {
-      const { error: historyError } = await supabase
-        .from('tracking_history')
+      const { error: eventsError } = await supabase
+        .from('tracking_events')
         .upsert(
           events.map(event => ({
-            tracking_number,
+            tracking_id: tracking.id,
             status: event.status,
-            status_detail: event.status_detail,
-            message: event.message,
+            details: event.message,
             location: event.tracking_location ? 
               `${event.tracking_location.city}${event.tracking_location.state ? `, ${event.tracking_location.state}` : ''}` : 
               null,
-            timestamp: event.datetime,
-            created_at: new Date().toISOString()
+            timestamp: event.datetime
           })),
-          { onConflict: 'tracking_number,timestamp' }
+          { onConflict: 'tracking_id,timestamp' }
         );
 
-      if (historyError) {
-        console.error('Error storing tracking history:', historyError);
-        // Don't fail the webhook for history storage errors
+      if (eventsError) {
+        console.error('Error storing tracking events:', eventsError);
+        // Don't fail the webhook for events storage errors
       }
     }
 

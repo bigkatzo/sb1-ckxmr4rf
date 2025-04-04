@@ -19,6 +19,30 @@ export interface OrderVariant {
 
 export type OrderStatus = 'draft' | 'pending_payment' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
+export interface OrderTracking {
+  id: string;
+  order_id: string;
+  tracking_number: string;
+  carrier: string;
+  status?: string;
+  status_details?: string;
+  estimated_delivery_date?: string;
+  last_update?: string;
+  created_at: string;
+  updated_at: string;
+  tracking_events?: TrackingEvent[];
+}
+
+export interface TrackingEvent {
+  id: string;
+  tracking_id: string;
+  status: string;
+  details?: string;
+  location?: string;
+  timestamp: string;
+  created_at: string;
+}
+
 export interface Order {
   id: string;
   order_number: string;
@@ -60,16 +84,17 @@ export interface Order {
     values: string[];
   }>;
   product_variant_prices: Record<string, number>;
-  tracking_number?: string;
-  tracking_status?: string;
-  tracking_details?: string;
+  tracking?: OrderTracking;
 }
 
 // Type for the public order counts view
-export interface PublicOrderCount {
-  product_id: string;
-  collection_id: string;
-  total_orders: number;
+export interface OrderCounts {
+  total: number;
+  pending: number;
+  confirmed: number;
+  shipped: number;
+  delivered: number;
+  cancelled: number;
 }
 
 // This interface is used for the merchant_orders view

@@ -81,21 +81,23 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Update order with tracking status from TrackShip
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        tracking_status: trackshipData.data?.tracking_event_status || 'pending',
-        tracking_details: trackshipData.data?.status_details || 'Tracking registered',
-        status: 'shipped'
-      })
-      .eq('id', orderId);
+    // Create tracking record in our database
+    const { error: trackingError } = await supabase
+      .from('order_tracking')
+      .insert({
+        order_id: orderId,
+        tracking_number: trackingNumber,
+        carrier,
+        status: trackshipData.data?.tracking_event_status || 'pending',
+        status_details: trackshipData.data?.status_details || 'Tracking registered',
+        last_update: new Date().toISOString()
+      });
 
-    if (updateError) {
-      console.error('Error updating order with tracking status:', updateError);
+    if (trackingError) {
+      console.error('Error creating tracking record:', trackingError);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to update order with tracking status' })
+        body: JSON.stringify({ error: 'Failed to create tracking record' })
       };
     }
 
