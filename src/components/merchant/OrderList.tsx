@@ -320,7 +320,10 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
 
     // Add discount tag if applicable
     if (order.payment_metadata?.couponDiscount && order.payment_metadata?.originalPrice) {
-      const discountPercent = Math.round((order.payment_metadata.couponDiscount / order.payment_metadata.originalPrice) * 100);
+      const discountPercent = Math.min(
+        100,
+        Math.round((order.payment_metadata.couponDiscount / order.payment_metadata.originalPrice) * 100)
+      );
       tags.push(
         <span 
           key="discount"
