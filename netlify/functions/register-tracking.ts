@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const trackshipApiKey = process.env.TRACKSHIP_API_KEY!;
+const appName = process.env.TRACKSHIP_APP_NAME!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -19,7 +20,7 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { orderId, trackingNumber, carrier } = JSON.parse(event.body || '{}');
+    const { orderId, trackingNumber, carrier = 'usps' } = JSON.parse(event.body || '{}');
 
     if (!orderId || !trackingNumber) {
       return {
@@ -51,16 +52,16 @@ export const handler: Handler = async (event) => {
     }
 
     // Register tracking with TrackShip
-    const response = await fetch(`${TRACKSHIP_API_URL}/shipments/register`, {
+    const response = await fetch(`${TRACKSHIP_API_URL}/shipment/register/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${trackshipApiKey}`,
-        'Trackship-Api-Key': trackshipApiKey
+        'trackship-api-key': trackshipApiKey,
+        'app-name': appName
       },
       body: JSON.stringify({
         tracking_number: trackingNumber,
-        carrier: carrier || 'usps', // Default to USPS if no carrier specified
+        tracking_provider: carrier,
         order_id: order.order_number,
         shipping_address: order.shipping_address,
         metadata: {
@@ -70,24 +71,23 @@ export const handler: Handler = async (event) => {
       })
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('TrackShip registration failed:', errorData);
+    const trackshipData = await response.json();
+
+    if (trackshipData.status === 'error') {
+      console.error('TrackShip registration failed:', trackshipData);
       return {
-        statusCode: response.status,
-        body: JSON.stringify({ error: 'Failed to register tracking with TrackShip' })
+        statusCode: 400,
+        body: JSON.stringify({ error: trackshipData.message || 'Failed to register tracking with TrackShip' })
       };
     }
-
-    const trackshipData = await response.json();
 
     // Update order with tracking status from TrackShip
     const { error: updateError } = await supabase
       .from('orders')
       .update({
-        tracking_status: trackshipData.status,
-        tracking_details: trackshipData.status_details,
-        status: trackshipData.status.toLowerCase() === 'delivered' ? 'delivered' : 'shipped'
+        tracking_status: trackshipData.data?.tracking_event_status || 'pending',
+        tracking_details: trackshipData.data?.status_details || 'Tracking registered',
+        status: 'shipped'
       })
       .eq('id', orderId);
 
@@ -107,10 +107,10 @@ export const handler: Handler = async (event) => {
       })
     };
   } catch (error) {
-    console.error('Error processing tracking registration:', error);
+    console.error('Error registering tracking:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Failed to register tracking' })
     };
   }
 }; 
