@@ -1,13 +1,13 @@
 import { useWallet } from '../contexts/WalletContext';
 import { useOrders } from '../hooks/useOrders';
 import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../types/orders';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
 import { OrderPageSkeleton } from '../components/ui/Skeletons';
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { TrackingDetails } from '../components/TrackingDetails';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
@@ -134,29 +134,8 @@ export function OrdersPage() {
     );
   };
 
-  const renderTrackingInfo = (order: Order) => {
-    if (!order.tracking) return null;
-    
-    return (
-      <div className="mt-2">
-        <Link
-          to={`/tracking/${order.tracking.tracking_number}`}
-          className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1"
-        >
-          <Truck className="h-3 w-3" />
-          Track Order
-          <ExternalLink className="h-3 w-3" />
-        </Link>
-        {order.tracking.status && (
-          <div className="mt-1 text-xs text-purple-400">
-            {order.tracking.status}
-            {order.tracking.status_details && (
-              <span className="text-gray-400 ml-1">- {order.tracking.status_details}</span>
-            )}
-          </div>
-        )}
-      </div>
-    );
+  const getProductImage = (order: Order): string | null => {
+    return order.product_snapshot?.images?.[0] || null;
   };
 
   const SupportMessage = () => (
@@ -182,10 +161,6 @@ export function OrdersPage() {
       </div>
     </div>
   );
-
-  const getProductImage = (order: Order): string | null => {
-    return order.product_snapshot?.images?.[0] || null;
-  };
 
   if (!walletAddress) {
     return (
@@ -234,104 +209,161 @@ export function OrdersPage() {
       ) : (
         <div className="space-y-4">
           {orders.map((order) => (
-            <div key={order.id} className="bg-gray-800 rounded-lg overflow-hidden">
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">Order #</span>
-                    <span className="font-mono text-sm">{order.order_number}</span>
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                    <div className="flex items-center gap-1.5">
+            <div key={order.id} className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-purple-500/20 transition-all">
+              {/* Order Number Header */}
+              <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
+                <div className="flex flex-col gap-0.5 sm:gap-2">
+                  {/* Mobile Layout */}
+                  <div className="flex items-center justify-between sm:hidden">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Order</span>
+                      <span className="font-mono text-sm font-medium text-white truncate">{order.order_number}</span>
+                    </div>
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
                       {getStatusIcon(order.status)}
-                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}</span>
+                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                    </div>
+                  </div>
+                  {/* Mobile Date */}
+                  <div className="sm:hidden">
+                    <span className="text-[10px] text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                  </div>
+
+                  {/* Desktop Layout - All inline */}
+                  <div className="hidden sm:flex sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
+                        <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
+                      </div>
+                      <span className="text-gray-600">•</span>
+                      <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
+                      {getStatusIcon(order.status)}
+                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="w-24 h-24 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
+              <div className="p-4">
+                <div className="flex items-start gap-4">
+                  {/* Product Image */}
+                  <div className="relative h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
                     {(() => {
                       const imageUrl = getProductImage(order);
                       return imageUrl ? (
                         <OptimizedImage
                           src={imageUrl}
                           alt={order.product_name}
-                          className="w-full h-full object-cover"
+                          width={160}
+                          height={160}
+                          quality={75}
+                          className="object-cover w-full h-full"
+                          sizes="80px"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon className="w-8 h-8 text-gray-500" />
+                        <div className="h-full w-full flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-gray-600" />
                         </div>
                       );
                     })()}
                   </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-lg font-medium">{order.product_name}</h3>
-                      <span className="text-sm text-gray-400">•</span>
-                      <span className="text-sm text-gray-400">{order.collection_name}</span>
+                  <div className="flex-1 min-w-0">
+                    {/* Order Header */}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-sm truncate">{order.product_name}</h3>
+                          {order.collection_name && (
+                            <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full shrink-0">
+                              {order.collection_name}
+                            </span>
+                          )}
+                        </div>
+                        {order.product_sku && (
+                          <p className="text-xs text-gray-400">SKU: {order.product_sku}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {order.variant_selections && order.variant_selections.length > 0 && (
+                            <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
+                              {order.variant_selections.map((v) => `${v.name}: ${v.value}`).join(', ')}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-400 text-xs mt-2">
+                          Amount: {order.amountSol} SOL
+                        </p>
+                      </div>
                     </div>
                     
-                    {order.product_sku && (
-                      <p className="text-sm text-gray-400 mb-2">SKU: {order.product_sku}</p>
-                    )}
-                    
-                    {order.variant_selections && order.variant_selections.length > 0 && (
-                      <div className="mb-2">
-                        <h4 className="text-sm text-gray-400 mb-1">Selected Options:</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {order.variant_selections.map((variant, index) => (
-                            <div
-                              key={index}
-                              className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300"
-                            >
-                              {variant.name}: {variant.value}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <p className="text-sm text-gray-300 mb-4">Amount: {order.amountSol} SOL</p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Order Details */}
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
+                      {/* Shipping Info */}
                       {order.shippingAddress && (
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400 mb-2">Shipping Address</h4>
+                          <h4 className="text-xs font-medium text-gray-400 mb-2">Shipping Address</h4>
                           {formatShippingAddress(order.shippingAddress)}
                         </div>
                       )}
                       
+                      {/* Contact Info */}
                       {order.contactInfo && (
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400 mb-2">Contact Info</h4>
+                          <h4 className="text-xs font-medium text-gray-400 mb-2">Contact</h4>
                           {formatContactInfo(order.contactInfo)}
                         </div>
                       )}
                     </div>
 
-                    {renderTrackingInfo(order)}
-
-                    <div className="mt-4 pt-4 border-t border-gray-700">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">Transaction:</span>
-                        {order.transactionSignature ? (
-                          <a
-                            href={`https://solscan.io/tx/${order.transactionSignature}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
-                          >
-                            {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : (
-                          <span className="text-xs text-gray-500">Not available</span>
-                        )}
+                    {/* Transaction Info */}
+                    <div className="mt-4 pt-4 border-t border-gray-800">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400">Transaction:</span>
+                          {order.transactionSignature ? (
+                            <a
+                              href={`https://solscan.io/tx/${order.transactionSignature}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                            >
+                              {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-500">Not available</span>
+                          )}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Tracking Info */}
+                    {order.tracking && (
+                      <div className="mt-4 pt-4 border-t border-gray-800">
+                        <div className="flex items-center gap-2">
+                          <Truck className="h-4 w-4 text-purple-400" />
+                          <span className="text-xs text-gray-400">Tracking Number:</span>
+                          <Link
+                            to={`/tracking/${order.tracking.tracking_number}`}
+                            className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                          >
+                            {order.tracking.tracking_number}
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        </div>
+                        {order.tracking.status && (
+                          <div className="mt-2 text-xs text-purple-400">
+                            {order.tracking.status}
+                            {order.tracking.status_details && (
+                              <span className="text-gray-400 ml-1">- {order.tracking.status_details}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
