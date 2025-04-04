@@ -201,9 +201,9 @@ function StripeCheckoutForm({
             <span className="text-white font-medium">
               ${usdAmount} <span className="text-gray-400">({solAmount.toFixed(2)} SOL)</span>
             </span>
-            {couponDiscount && couponDiscount > 0 && originalPrice && originalPrice > 0 && (
+            {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (
               <div className="text-sm">
-                <span className="text-gray-400 line-through">${(originalPrice * solPrice).toFixed(2)}</span>
+                <span className="text-gray-400 line-through">${((originalPrice ?? 0) * solPrice).toFixed(2)}</span>
                 <span className="text-purple-400 ml-2">Coupon applied</span>
               </div>
             )}
