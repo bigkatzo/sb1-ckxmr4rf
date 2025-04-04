@@ -197,7 +197,7 @@ function StripeCheckoutForm({
           <span className="text-gray-300">Amount:</span>
           <div className="text-right">
             <span className="text-white font-medium">
-              ${Math.max(solAmount * solPrice, 0.50).toFixed(2)} <span className="text-gray-400">({solAmount} SOL)</span>
+              ${Math.max(solAmount * solPrice, 0.50).toFixed(2)} <span className="text-gray-400">({solAmount.toFixed(2)} SOL)</span>
             </span>
             {couponDiscount && couponDiscount > 0 && originalPrice && originalPrice > 0 && (
               <div className="text-sm">
