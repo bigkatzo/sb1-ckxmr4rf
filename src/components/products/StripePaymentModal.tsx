@@ -117,6 +117,7 @@ function StripeCheckoutForm({
             billing_details: {
               name: shippingInfo?.contact_info?.fullName,
               email: shippingInfo?.contact_info?.value,
+              phone: shippingInfo?.contact_info?.phoneNumber || undefined
             }
           }
         }
