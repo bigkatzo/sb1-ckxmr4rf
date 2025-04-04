@@ -43,48 +43,44 @@ export interface TrackingEvent {
   created_at: string;
 }
 
+export interface ProductSnapshot {
+  id: string;
+  name: string;
+  sku: string;
+  images: string[];
+  variants: any[];
+  variant_prices: Record<string, any>;
+  // other product fields...
+}
+
+export interface CollectionSnapshot {
+  id: string;
+  name: string;
+  // other collection fields...
+}
+
 export interface Order {
   id: string;
   order_number: string;
-  collection_id: string;
-  product_id: string;
-  walletAddress: string;
-  transactionSignature: string;
-  shippingAddress: {
-    address: string;
-    city: string;
-    country: string;
-    zip: string;
-  };
-  contactInfo: {
-    method: string;
-    value: string;
-    fullName?: string;
-    phoneNumber?: string;
-  };
   status: OrderStatus;
-  amountSol: number;
   createdAt: Date;
   updatedAt: Date;
+  product_id: string;
+  collection_id: string;
   product_name: string;
   product_sku: string;
-  product_image_url: string;
   collection_name: string;
+  amountSol: number;
   category_name: string;
-  category_description: string;
-  category_type: string;
-  access_type?: string;
-  order_variants: Array<{
-    name: string;
-    value: string;
-  }>;
-  product_variants: Array<{
-    id: string;
-    name: string;
-    values: string[];
-  }>;
-  product_variant_prices: Record<string, number>;
-  tracking?: OrderTracking;
+  shippingAddress: ShippingAddress;
+  contactInfo: ContactInfo;
+  walletAddress: string;
+  transactionSignature: string;
+  variant_selections: OrderVariant[];
+  product_snapshot: ProductSnapshot;
+  collection_snapshot: CollectionSnapshot;
+  payment_metadata: any;
+  tracking: OrderTracking | null;
 }
 
 // Type for the public order counts view

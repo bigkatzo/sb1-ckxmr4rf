@@ -1,35 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
-import type { Order, OrderStatus } from '../types/orders';
+import type { Order, OrderTracking } from '../types/orders';
 
 // Define the database row type for type safety
 interface OrderRow {
   id: string;
   order_number: string;
-  status: OrderStatus;
+  status: Order['status'];
   created_at: string;
   updated_at: string;
   product_id: string;
   collection_id: string;
   product_name: string;
   product_sku: string;
-  product_image_url: string;
   collection_name: string;
   amount_sol: number;
-  category_name: string | null;
-  category_description: string | null;
-  category_type: string | null;
-  shipping_address: Order['shippingAddress'];
-  contact_info: Order['contactInfo'];
+  category_name: string;
+  shipping_address: any;
+  contact_info: any;
   wallet_address: string;
   transaction_signature: string;
-  order_variants: Order['order_variants'];
-  product_variants: Order['product_variants'];
-  product_variant_prices: Order['product_variant_prices'];
-  tracking_number: string | null;
-  tracking_status: string | null;
-  tracking_details: string | null;
+  variant_selections: any[];
+  product_snapshot: any;
+  collection_snapshot: any;
+  payment_metadata: any;
+  tracking: OrderTracking | null;
 }
 
 export function useOrders() {
@@ -68,26 +64,22 @@ export function useOrders() {
         status: order.status,
         createdAt: new Date(order.created_at),
         updatedAt: new Date(order.updated_at),
-        product_id: order.product_id || '',
+        product_id: order.product_id,
         collection_id: order.collection_id,
         product_name: order.product_name,
-        product_sku: order.product_sku || '',
-        product_image_url: order.product_image_url || '',
+        product_sku: order.product_sku,
         collection_name: order.collection_name,
         amountSol: order.amount_sol,
-        category_name: order.category_name || '',
-        category_description: order.category_description || '',
-        category_type: order.category_type || '',
+        category_name: order.category_name,
         shippingAddress: order.shipping_address,
         contactInfo: order.contact_info,
         walletAddress: order.wallet_address,
         transactionSignature: order.transaction_signature,
-        order_variants: order.order_variants || [],
-        product_variants: order.product_variants || [],
-        product_variant_prices: order.product_variant_prices || {},
-        tracking_number: order.tracking_number || undefined,
-        tracking_status: order.tracking_status || undefined,
-        tracking_details: order.tracking_details || undefined
+        variant_selections: order.variant_selections || [],
+        product_snapshot: order.product_snapshot,
+        collection_snapshot: order.collection_snapshot,
+        payment_metadata: order.payment_metadata,
+        tracking: order.tracking
       }));
 
       console.log('Transformed orders:', transformedOrders);
@@ -102,7 +94,7 @@ export function useOrders() {
   }, [walletAddress]);
 
   useEffect(() => {
-    fetchOrders();
+    void fetchOrders();
 
     // Set up realtime subscription for the specific wallet
     const channel = supabase.channel('user_orders')
@@ -115,13 +107,13 @@ export function useOrders() {
           filter: `wallet_address=eq.${walletAddress}`
         },
         () => {
-          fetchOrders();
+          void fetchOrders();
         }
       )
       .subscribe();
 
     return () => {
-      channel.unsubscribe();
+      void channel.unsubscribe();
     };
   }, [fetchOrders, walletAddress]);
 

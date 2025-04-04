@@ -135,26 +135,26 @@ export function OrdersPage() {
   };
 
   const renderTrackingInfo = (order: Order) => {
-    if (!order.tracking_number) return null;
+    if (!order.tracking) return null;
     
     return (
       <div className="mt-2">
         <Link
-          to={`/tracking/${order.tracking_number}`}
+          to={`/tracking/${order.tracking.tracking_number}`}
           className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1"
         >
           <Truck className="h-3 w-3" />
           Track Order
           <ExternalLink className="h-3 w-3" />
         </Link>
-        {order.tracking_status && (
-          <div className={`mt-1 text-xs ${getStatusColor(order.status)}`}>
-            {order.tracking_status}
+        {order.tracking.status && (
+          <div className="mt-1 text-xs text-purple-400">
+            {order.tracking.status}
+            {order.tracking.status_details && (
+              <span className="text-gray-400 ml-1">- {order.tracking.status_details}</span>
+            )}
           </div>
         )}
-        <div className="mt-4">
-          <TrackingDetails trackingNumber={order.tracking_number} />
-        </div>
       </div>
     );
   };
@@ -182,6 +182,10 @@ export function OrdersPage() {
       </div>
     </div>
   );
+
+  const getProductImage = (order: Order): string | null => {
+    return order.product_snapshot?.images?.[0] || null;
+  };
 
   if (!walletAddress) {
     return (
@@ -247,17 +251,20 @@ export function OrdersPage() {
 
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="w-24 h-24 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-                    {order.product_image_url ? (
-                      <OptimizedImage
-                        src={order.product_image_url}
-                        alt={order.product_name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="w-8 h-8 text-gray-500" />
-                      </div>
-                    )}
+                    {(() => {
+                      const imageUrl = getProductImage(order);
+                      return imageUrl ? (
+                        <OptimizedImage
+                          src={imageUrl}
+                          alt={order.product_name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="w-8 h-8 text-gray-500" />
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex-1">
