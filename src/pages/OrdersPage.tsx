@@ -7,6 +7,7 @@ import { ImageIcon } from 'lucide-react';
 import { OrderPageSkeleton } from '../components/ui/Skeletons';
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { TrackingDetails } from '../components/TrackingDetails';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
@@ -151,6 +152,9 @@ export function OrdersPage() {
             {order.tracking_status}
           </div>
         )}
+        <div className="mt-4">
+          <TrackingDetails trackingNumber={order.tracking_number} />
+        </div>
       </div>
     );
   };
