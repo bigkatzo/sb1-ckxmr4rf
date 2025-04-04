@@ -12,7 +12,10 @@ import {
   Calendar,
   Download,
   BarChart3,
-  Link as LinkIcon
+  Link as LinkIcon,
+  CreditCard,
+  Wallet,
+  Tag
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
@@ -298,6 +301,57 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
       default:
         return 'text-gray-400 bg-gray-500/10 hover:bg-gray-500/20';
     }
+  };
+
+  const renderPaymentMetadataTags = (order: Order) => {
+    if (!order.payment_metadata) return null;
+
+    const tags = [];
+
+    // Add payment method tag
+    if (order.payment_metadata.paymentMethod) {
+      tags.push(
+        <span 
+          key="payment-method"
+          className="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded-full flex items-center gap-1"
+        >
+          {order.payment_metadata.paymentMethod === 'stripe' ? (
+            <>
+              <CreditCard className="h-3 w-3" />
+              <span>Stripe</span>
+            </>
+          ) : (
+            <>
+              <Wallet className="h-3 w-3" />
+              <span>{order.payment_metadata.paymentMethod}</span>
+            </>
+          )}
+        </span>
+      );
+    }
+
+    // Add discount tag if applicable
+    if (order.payment_metadata.couponDiscount && order.payment_metadata.originalPrice) {
+      const discountPercent = Math.round((order.payment_metadata.couponDiscount / order.payment_metadata.originalPrice) * 100);
+      tags.push(
+        <span 
+          key="discount"
+          className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1"
+          title={order.payment_metadata.couponCode ? `Coupon: ${order.payment_metadata.couponCode}` : undefined}
+        >
+          <Tag className="h-3 w-3" />
+          <span>{discountPercent}% off</span>
+        </span>
+      );
+    }
+
+    if (tags.length === 0) return null;
+
+    return (
+      <div className="flex items-center gap-1.5">
+        {tags}
+      </div>
+    );
   };
 
   const formatContactInfo = (contactInfo: any) => {
@@ -756,8 +810,9 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                             </span>
                           )}
                         </div>
-                        <p className="text-gray-400 text-xs mt-2">
-                          Amount: {order.amountSol} SOL
+                        <p className="text-gray-400 text-xs mt-2 flex items-center gap-2">
+                          <span>Amount: {order.amountSol} SOL</span>
+                          {renderPaymentMetadataTags(order)}
                         </p>
                       </div>
                     </div>
