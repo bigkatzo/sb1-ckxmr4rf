@@ -18,7 +18,7 @@ import {
   Tag
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
-import type { Order, OrderStatus } from '../../types/orders';
+import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
 import { useState } from 'react';
 import { OrderAnalytics } from './OrderAnalytics';
 import { toast } from 'react-toastify';
@@ -806,14 +806,16 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                           )}
                           {productInfo.variants && productInfo.variants.length > 0 && (
                             <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
-                              {productInfo.variants.map(v => `${v.name}: ${v.value}`).join(', ')}
+                              {productInfo.variants.map((v: OrderVariant) => `${v.name}: ${v.value}`).join(', ')}
                             </span>
                           )}
                         </div>
-                        <p className="text-gray-400 text-xs mt-2 flex items-center gap-2">
-                          <span>Amount: {order.amountSol} SOL</span>
-                          {renderPaymentMetadataTags(order)}
-                        </p>
+                        <div className="flex flex-col gap-2">
+                          <p className="text-gray-400 text-xs">Amount: {order.amountSol} SOL</p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {renderPaymentMetadataTags(order)}
+                          </div>
+                        </div>
                       </div>
                     </div>
 

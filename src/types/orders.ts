@@ -81,6 +81,10 @@ export interface Order {
   collection_snapshot: CollectionSnapshot;
   payment_metadata: any;
   tracking: OrderTracking | null;
+  access_type?: 'admin' | 'owner' | 'edit' | string;
+  product_image_url?: string;
+  order_variants?: OrderVariant[];
+  product_variant_prices?: Record<string, any>;
 }
 
 // Type for the public order counts view
