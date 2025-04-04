@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { 
   ExternalLink, 
   Package, 
@@ -11,7 +12,7 @@ import {
   Calendar,
   Download,
   BarChart3,
-  Link
+  Link as LinkIcon
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus } from '../../types/orders';
@@ -436,6 +437,105 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
     );
   };
 
+  const renderTrackingSection = (order: Order) => {
+    const canEdit = canEditOrderStatus(order) && 
+      !['cancelled', 'draft', 'pending_payment'].includes(order.status);
+    const isEditing = editingTrackingId === order.id;
+
+    return (
+      <div className="mt-4 pt-4 border-t border-gray-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Truck className="h-4 w-4 text-purple-400" />
+            <span className="text-sm text-gray-400">Tracking Number</span>
+          </div>
+          {canEdit && (
+            <button
+              onClick={() => setEditingTrackingId(order.id)}
+              className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+            >
+              {order.tracking_number ? (
+                <>
+                  <LinkIcon className="h-3 w-3" />
+                  Edit
+                </>
+              ) : (
+                <>
+                  <Package className="h-3 w-3" />
+                  Add Tracking
+                </>
+              )}
+            </button>
+          )}
+        </div>
+        
+        {isEditing ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const input = form.elements.namedItem('tracking') as HTMLInputElement;
+              if (!input.value.trim()) {
+                toast.error('Please enter a tracking number');
+                return;
+              }
+              void handleTrackingUpdate(order.id, input.value.trim());
+            }}
+            className="mt-2 flex items-center gap-2"
+          >
+            <div className="flex-1">
+              <input
+                type="text"
+                name="tracking"
+                defaultValue={order.tracking_number || ''}
+                placeholder="Enter tracking number"
+                className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40 border border-gray-700"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                className="px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg flex items-center gap-1"
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingTrackingId(null)}
+                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg flex items-center gap-1"
+              >
+                <XCircle className="h-3 w-3" />
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-2">
+            {order.tracking_number ? (
+              <div className="flex items-center gap-2">
+                <Link 
+                  to={`/tracking/${order.tracking_number}`} 
+                  className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                >
+                  <Truck className="h-3 w-3" />
+                  {order.tracking_number}
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
+            ) : (
+              <span className="text-sm text-gray-500 flex items-center gap-1">
+                <Package className="h-3 w-3" />
+                No tracking number
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Header with Filters and Actions */}
@@ -654,68 +754,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
                     </div>
 
                     {/* Tracking Number Section */}
-                    <div className="mt-4 pt-4 border-t border-gray-800">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Truck className="h-4 w-4 text-purple-400" />
-                          <span className="text-sm text-gray-400">Tracking Number</span>
-                        </div>
-                        {canEditOrderStatus(order) && order.status !== 'cancelled' && (
-                          <button
-                            onClick={() => setEditingTrackingId(order.id)}
-                            className="text-xs text-purple-400 hover:text-purple-300"
-                          >
-                            {order.tracking_number ? 'Edit' : 'Add'}
-                          </button>
-                        )}
-                      </div>
-                      
-                      {editingTrackingId === order.id ? (
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const form = e.target as HTMLFormElement;
-                            const input = form.elements.namedItem('tracking') as HTMLInputElement;
-                            void handleTrackingUpdate(order.id, input.value);
-                          }}
-                          className="mt-2 flex items-center gap-2"
-                        >
-                          <input
-                            type="text"
-                            name="tracking"
-                            defaultValue={order.tracking_number || ''}
-                            placeholder="Enter tracking number"
-                            className="flex-1 bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                          />
-                          <button
-                            type="submit"
-                            className="px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg"
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingTrackingId(null)}
-                            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg"
-                          >
-                            Cancel
-                          </button>
-                        </form>
-                      ) : (
-                        <div className="mt-2">
-                          {order.tracking_number ? (
-                            <div className="flex items-center gap-2">
-                              <Link to={`/tracking/${order.tracking_number}`} className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1">
-                                {order.tracking_number}
-                                <ExternalLink className="h-3 w-3" />
-                              </Link>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-gray-500">No tracking number</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    {renderTrackingSection(order)}
 
                     {/* Order Details */}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
