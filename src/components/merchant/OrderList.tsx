@@ -14,7 +14,6 @@ import {
   BarChart3,
   Link as LinkIcon,
   CreditCard,
-  Wallet,
   Tag
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
@@ -304,34 +303,23 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
   };
 
   const renderPaymentMetadataTags = (order: Order) => {
-    if (!order.payment_metadata) return null;
-
     const tags = [];
 
-    // Add payment method tag
-    if (order.payment_metadata.paymentMethod) {
+    // Add payment method tag only for Stripe payments
+    if (order.payment_metadata?.paymentMethod === 'stripe') {
       tags.push(
         <span 
           key="payment-method"
           className="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded-full flex items-center gap-1"
         >
-          {order.payment_metadata.paymentMethod === 'stripe' ? (
-            <>
-              <CreditCard className="h-3 w-3" />
-              <span>Stripe</span>
-            </>
-          ) : (
-            <>
-              <Wallet className="h-3 w-3" />
-              <span>{order.payment_metadata.paymentMethod}</span>
-            </>
-          )}
+          <CreditCard className="h-3 w-3" />
+          <span>Stripe</span>
         </span>
       );
     }
 
     // Add discount tag if applicable
-    if (order.payment_metadata.couponDiscount && order.payment_metadata.originalPrice) {
+    if (order.payment_metadata?.couponDiscount && order.payment_metadata?.originalPrice) {
       const discountPercent = Math.round((order.payment_metadata.couponDiscount / order.payment_metadata.originalPrice) * 100);
       tags.push(
         <span 
