@@ -40,23 +40,22 @@ export function TrackingPage() {
         setLoading(true);
         setError(null);
         
-        // TODO: Replace with your Trackship API endpoint and key
-        const response = await fetch(`/api/tracking/${trackingNumber}`, {
+        const response = await fetch(`/.netlify/functions/tracking/${trackingNumber}`, {
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.TRACKSHIP_API_KEY}`
+            'Content-Type': 'application/json'
           }
         });
 
         if (!response.ok) {
-          throw new Error('Failed to fetch tracking information');
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch tracking information');
         }
 
         const data = await response.json();
         setTrackingInfo(data);
       } catch (err) {
         console.error('Error fetching tracking info:', err);
-        setError('Unable to load tracking information. Please try again later.');
+        setError(err instanceof Error ? err.message : 'Unable to load tracking information. Please try again later.');
       } finally {
         setLoading(false);
       }

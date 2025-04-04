@@ -9,7 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const TRACKSHIP_API_URL = 'https://api.trackship.com/v1';
 
-const handler: Handler = async (event) => {
+export const handler: Handler = async (event) => {
   // Only allow GET requests
   if (event.httpMethod !== 'GET') {
     return {
@@ -94,6 +94,11 @@ const handler: Handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS'
+      },
       body: JSON.stringify(trackingInfo)
     };
   } catch (error) {
@@ -103,6 +108,4 @@ const handler: Handler = async (event) => {
       body: JSON.stringify({ error: 'Internal server error' })
     };
   }
-};
-
-export { handler }; 
+}; 
