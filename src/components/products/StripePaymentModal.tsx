@@ -462,9 +462,9 @@ export function StripePaymentModal({
   ]);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
-      <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
-        <div className="p-4 sm:p-6 border-b border-gray-800 flex justify-between items-center">
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg overflow-y-auto">
+      <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6 my-8">
+        <div className="p-4 sm:p-6 border-b border-gray-800 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
           <h2 className="text-lg font-semibold text-white">Credit Card Payment</h2>
           <button
             onClick={onClose}
@@ -474,7 +474,7 @@ export function StripePaymentModal({
           </button>
         </div>
 
-        <div className="p-4 sm:p-6">
+        <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(100vh-12rem)]">
           {error ? (
             <div className="text-red-500 p-4 text-center">
               {error}
