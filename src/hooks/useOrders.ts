@@ -84,7 +84,10 @@ export function useOrders() {
         transactionSignature: order.transaction_signature,
         order_variants: order.order_variants || [],
         product_variants: order.product_variants || [],
-        product_variant_prices: order.product_variant_prices || {}
+        product_variant_prices: order.product_variant_prices || {},
+        tracking_number: order.tracking_number || undefined,
+        tracking_status: order.tracking_status || undefined,
+        tracking_details: order.tracking_details || undefined
       }));
 
       console.log('Transformed orders:', transformedOrders);
