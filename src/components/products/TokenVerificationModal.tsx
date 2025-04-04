@@ -273,56 +273,79 @@ export function TokenVerificationModal({
         couponResult.couponDiscount >= couponResult.originalPrice;
 
       if (is100PercentDiscount) {
-        // For 100% discount, create order directly without payment
-        updateProgressStep(0, 'processing', 'Creating your free order...');
+        try {
+          setSubmitting(true);
+          // For 100% discount, create order directly without payment
+          updateProgressStep(0, 'processing', 'Creating your free order...');
         
-        const { data: createdOrderId, error: createError } = await supabase.rpc('create_order', {
-          p_product_id: product.id,
-          p_variants: formattedVariantSelections,
-          p_shipping_info: formattedShippingInfo,
-          p_wallet_address: walletAddress,
-          p_payment_metadata: paymentMetadata
-        });
+          const { data: createdOrderId, error: createError } = await supabase.rpc('create_order', {
+            p_product_id: product.id,
+            p_variants: formattedVariantSelections,
+            p_shipping_info: formattedShippingInfo,
+            p_wallet_address: walletAddress,
+            p_payment_metadata: paymentMetadata
+          });
 
-        if (createError) throw createError;
-        orderId = createdOrderId;
+          if (createError) throw createError;
+          orderId = createdOrderId;
+          updateProgressStep(0, 'completed');
 
-        // Generate unique transaction signature for free orders
-        const uniqueSignature = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+          // Generate unique transaction signature for free orders
+          updateProgressStep(1, 'processing', 'Processing free order...');
+          const uniqueSignature = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
 
-        // Update order with unique transaction signature for free orders
-        const { error: updateError } = await supabase.rpc('update_order_transaction', {
-          p_order_id: orderId,
-          p_transaction_signature: uniqueSignature,
-          p_amount_sol: 0
-        });
+          // Update order with unique transaction signature for free orders
+          const { error: updateError } = await supabase.rpc('update_order_transaction', {
+            p_order_id: orderId,
+            p_transaction_signature: uniqueSignature,
+            p_amount_sol: 0
+          });
 
-        if (updateError) throw updateError;
+          if (updateError) throw updateError;
+          updateProgressStep(1, 'completed');
 
-        // Confirm the order immediately since it's free
-        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-          p_order_id: orderId
-        });
+          // Confirm the order immediately since it's free
+          updateProgressStep(2, 'processing', 'Confirming order...');
+          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+            p_order_id: orderId
+          });
 
-        if (confirmError) throw confirmError;
+          if (confirmError) throw confirmError;
 
-        // Fetch order number
-        const { data: orderData, error: fetchError } = await supabase
-          .from('orders')
-          .select('order_number')
-          .eq('id', orderId)
-          .single();
+          // Fetch order number
+          const { data: orderData, error: fetchError } = await supabase
+            .from('orders')
+            .select('order_number')
+            .eq('id', orderId)
+            .single();
 
-        if (fetchError) throw fetchError;
+          if (fetchError) throw fetchError;
 
-        // Show success
-        setOrderDetails({
-          orderNumber: orderData.order_number,
-          transactionSignature: uniqueSignature
-        });
-        setShowSuccessView(true);
-        onSuccess?.();
-        return;
+          updateProgressStep(2, 'completed');
+
+          // Show toast notification
+          toastService.showOrderSuccess();
+        
+          // Wait 1 second to show the completed progress state
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Show success
+          setOrderDetails({
+            orderNumber: orderData.order_number,
+            transactionSignature: uniqueSignature
+          });
+          setShowSuccessView(true);
+          onSuccess?.();
+          return;
+        } catch (error) {
+          console.error('Free order error:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Failed to process free order';
+          toast.error(errorMessage, {
+            autoClose: false
+          });
+          setSubmitting(false);
+          return;
+        }
       }
 
       // Regular payment flow for non-100% discounts
