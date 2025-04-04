@@ -59,6 +59,15 @@ export interface CollectionSnapshot {
   // other collection fields...
 }
 
+// Add PaymentMetadata interface
+export interface PaymentMetadata {
+  paymentMethod?: 'stripe' | string;
+  couponCode?: string;
+  couponDiscount?: number;
+  originalPrice?: number;
+  [key: string]: any;
+}
+
 export interface Order {
   id: string;
   order_number: string;
@@ -79,7 +88,7 @@ export interface Order {
   variant_selections: OrderVariant[];
   product_snapshot: ProductSnapshot;
   collection_snapshot: CollectionSnapshot;
-  payment_metadata: any;
+  payment_metadata?: PaymentMetadata;
   tracking: OrderTracking | null;
   access_type?: 'admin' | 'owner' | 'edit' | string;
   product_image_url?: string;

@@ -63,12 +63,14 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
         category_description: order.category_description || '',
         category_type: order.category_type || '',
         access_type: order.access_type,
+        variant_selections: order.variant_selections || [],
         order_variants: order.variant_selections || [],
         product_variants: order.product_variants || [],
         product_variant_prices: order.product_variant_prices || [],
-        tracking_number: order.tracking_number || undefined,
-        tracking_status: order.tracking_status || undefined,
-        tracking_details: order.tracking_details || undefined
+        product_snapshot: order.product_snapshot || {},
+        collection_snapshot: order.collection_snapshot || {},
+        tracking: order.tracking || null,
+        payment_metadata: order.payment_metadata || undefined
       }));
 
       setOrders(transformedOrders);
