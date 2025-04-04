@@ -5,30 +5,21 @@ ALTER TABLE orders
 ADD COLUMN IF NOT EXISTS tracking_status text,
 ADD COLUMN IF NOT EXISTS tracking_details text;
 
--- Update RLS policies to allow these columns to be updated by the tracking webhook
+-- Drop existing policy if it exists
+DROP POLICY IF EXISTS "Allow tracking webhook to update tracking status" ON orders;
+
+-- Create a new policy that allows tracking status updates
 CREATE POLICY "Allow tracking webhook to update tracking status"
 ON orders
 FOR UPDATE
 USING (true)
 WITH CHECK (
-  -- Only allow updating tracking_status and tracking_details
-  (
-    OLD.tracking_number = NEW.tracking_number AND
-    OLD.order_number = NEW.order_number AND
-    OLD.collection_id = NEW.collection_id AND
-    OLD.product_id = NEW.product_id AND
-    OLD.wallet_address = NEW.wallet_address AND
-    OLD.transaction_signature = NEW.transaction_signature AND
-    OLD.shipping_address = NEW.shipping_address AND
-    OLD.contact_info = NEW.contact_info AND
-    OLD.amount_sol = NEW.amount_sol AND
-    OLD.created_at = NEW.created_at AND
-    OLD.variant_selections = NEW.variant_selections
-  ) OR (
-    -- Or if it's a status update along with tracking details
-    OLD.tracking_number = NEW.tracking_number AND
-    NEW.status IN ('shipped', 'delivered')
-  )
+  -- Allow updating tracking status and details when status is shipped or delivered
+  status IN ('shipped', 'delivered') AND
+  tracking_number IS NOT NULL
 );
+
+-- Add an index on tracking_number for faster lookups
+CREATE INDEX IF NOT EXISTS idx_orders_tracking_number ON orders (tracking_number);
 
 COMMIT; 
