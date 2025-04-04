@@ -8,6 +8,7 @@ import { OrderPageSkeleton } from '../components/ui/Skeletons';
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { TrackingDetails } from '../components/TrackingDetails';
+import { AddTrackingForm } from '../components/AddTrackingForm';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
@@ -135,7 +136,20 @@ export function OrdersPage() {
   };
 
   const renderTrackingInfo = (order: Order) => {
-    if (!order.tracking_number) return null;
+    if (!order.tracking_number) {
+      return (
+        <div className="mt-2">
+          <h4 className="text-sm font-medium text-gray-400 mb-2">Add Tracking</h4>
+          <AddTrackingForm 
+            orderId={order.order_number} 
+            onSuccess={() => {
+              // Refresh orders after adding tracking
+              window.location.reload();
+            }} 
+          />
+        </div>
+      );
+    }
     
     return (
       <div className="mt-2">
