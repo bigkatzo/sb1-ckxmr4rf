@@ -895,7 +895,7 @@ export function TokenVerificationModal({
                               type="text"
                               value={couponCode}
                               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                              className="block w-full rounded-md bg-gray-800 border border-gray-700 text-sm px-3 py-1.5 placeholder-gray-500"
+                              className="block w-full rounded-md bg-gray-800 border border-gray-700 text-white text-sm px-3 py-1.5 placeholder-gray-500"
                               placeholder="Enter code"
                             />
                             <button
