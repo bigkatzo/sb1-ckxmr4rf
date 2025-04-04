@@ -49,7 +49,7 @@ interface ShippingInfo {
 
 interface StripePaymentModalProps {
   onClose: () => void;
-  onSuccess: (orderId: string, paymentIntentId: string, orderNumber: string) => void;
+  onSuccess: (orderId: string, paymentIntentId: string) => void;
   solAmount: number;
   productName: string;
   productId: string;
@@ -334,22 +334,9 @@ export function StripePaymentModal({
 
           if (confirmError) throw confirmError;
 
-          // Get order number for success view
-          const { data: orderData, error: orderError } = await supabase
-            .from('orders')
-            .select('order_number')
-            .eq('id', createdOrderId)
-            .single();
-
-          if (orderError || !orderData?.order_number) {
-            console.error('Error fetching order number:', orderError);
-            throw orderError || new Error('Order number not found');
-          }
-
-          // Call onSuccess with complete order details
-          onSuccess(createdOrderId, uniqueSignature, orderData.order_number);
-          setIsLoading(false);
-          setClientSecret(null);
+          // Call onSuccess with the order ID and unique signature
+          onSuccess(createdOrderId, uniqueSignature);
+          return;
         }
 
         console.log('Creating payment intent:', {
@@ -453,59 +440,6 @@ export function StripePaymentModal({
     originalPrice
   ]);
 
-  const handlePaymentSuccess = async (paymentIntentId: string) => {
-    if (!orderId) {
-      console.error('No order ID found');
-      setError('Order ID not found');
-      return;
-    }
-
-    try {
-      // Update order with payment details
-      const { error: updateError } = await supabase.rpc('update_order_transaction', {
-        p_order_id: orderId,
-        p_transaction_signature: paymentIntentId,
-        p_amount_sol: solAmount
-      });
-
-      if (updateError) {
-        console.error('Error updating order:', updateError);
-        throw updateError;
-      }
-
-      // Confirm the order
-      const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-        p_order_id: orderId
-      });
-
-      if (confirmError) {
-        console.error('Error confirming order:', confirmError);
-        throw confirmError;
-      }
-
-      // Get order number
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select('order_number')
-        .eq('id', orderId)
-        .single();
-
-      if (orderError || !orderData?.order_number) {
-        console.error('Error fetching order number:', orderError);
-        throw orderError || new Error('Order number not found');
-      }
-
-      // Call onSuccess with complete order details
-      onSuccess(orderId, paymentIntentId, orderData.order_number);
-      setIsLoading(false);
-      setClientSecret(null);
-    } catch (error) {
-      console.error('Payment error:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred');
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
       <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
@@ -583,7 +517,7 @@ export function StripePaymentModal({
               >
                 <StripeCheckoutForm
                   solAmount={solAmount}
-                  onSuccess={(paymentIntentId) => handlePaymentSuccess(paymentIntentId)}
+                  onSuccess={(paymentIntentId) => onSuccess(orderId, paymentIntentId)}
                   couponDiscount={couponDiscount}
                   originalPrice={originalPrice}
                   solPrice={solPrice}
