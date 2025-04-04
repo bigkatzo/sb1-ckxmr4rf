@@ -225,7 +225,7 @@ function StripeCheckoutForm({
           defaultValues: {
             billingDetails: {
               name: shippingInfo?.contact_info?.fullName,
-              email: shippingInfo?.contact_info?.value,
+              email: shippingInfo?.contact_info?.method === 'email' ? shippingInfo?.contact_info?.value : undefined,
               phone: shippingInfo?.contact_info?.phoneNumber,
               address: {
                 ...shippingInfo?.shipping_address,
