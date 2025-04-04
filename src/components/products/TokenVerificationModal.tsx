@@ -335,7 +335,7 @@ export function TokenVerificationModal({
             transactionSignature: uniqueSignature
           });
           setShowSuccessView(true);
-          onSuccess?.();
+          onSuccess();
           return;
         } catch (error) {
           console.error('Free order error:', error);
