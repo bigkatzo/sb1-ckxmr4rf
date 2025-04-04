@@ -70,13 +70,15 @@ function StripeCheckoutForm({
   onSuccess,
   couponDiscount,
   originalPrice,
-  solPrice
+  solPrice,
+  shippingInfo
 }: {
   solAmount: number;
   onSuccess: (paymentIntentId: string) => void;
   couponDiscount?: number;
   originalPrice?: number;
   solPrice: number;
+  shippingInfo: ShippingInfo;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -187,7 +189,7 @@ function StripeCheckoutForm({
     return <Loading type={LoadingType.ACTION} text="Loading price data..." />;
   }
 
-  const usdAmount = (solAmount * solPrice).toFixed(2);
+  const usdAmount = Math.max(solAmount * solPrice, 0.50).toFixed(2);
   const isProcessing = paymentStatus === 'processing' || paymentStatus === 'requires_action';
 
   return (
@@ -197,7 +199,7 @@ function StripeCheckoutForm({
           <span className="text-gray-300">Amount:</span>
           <div className="text-right">
             <span className="text-white font-medium">
-              ${Math.max(solAmount * solPrice, 0.50).toFixed(2)} <span className="text-gray-400">({solAmount.toFixed(2)} SOL)</span>
+              ${usdAmount} <span className="text-gray-400">({solAmount.toFixed(2)} SOL)</span>
             </span>
             {couponDiscount && couponDiscount > 0 && originalPrice && originalPrice > 0 && (
               <div className="text-sm">
@@ -217,7 +219,21 @@ function StripeCheckoutForm({
         </div>
       </div>
 
-      <PaymentElement />
+      <PaymentElement
+        options={{
+          layout: 'tabs',
+          defaultValues: {
+            billingDetails: {
+              name: shippingInfo?.contact_info?.fullName,
+              email: shippingInfo?.contact_info?.value,
+            }
+          },
+          paymentMethodOrder: ['card'],
+          fields: {
+            billingDetails: 'never'
+          }
+        }}
+      />
 
       {error && (
         <div className="text-red-500 text-sm p-4 bg-red-500/10 rounded-lg">
@@ -497,6 +513,17 @@ export function StripePaymentModal({
                     colorDanger: '#ef4444',
                     fontFamily: 'ui-sans-serif, system-ui, sans-serif',
                   },
+                  rules: {
+                    '.Input': {
+                      color: '#ffffff'
+                    },
+                    '.Label': {
+                      color: '#ffffff'
+                    },
+                    '.Tab': {
+                      color: '#ffffff'
+                    }
+                  }
                 },
                 loader: 'always'
               }}
@@ -521,6 +548,7 @@ export function StripePaymentModal({
                   couponDiscount={couponDiscount}
                   originalPrice={originalPrice}
                   solPrice={solPrice}
+                  shippingInfo={shippingInfo}
                 />
               </ErrorBoundary>
             </Elements>
