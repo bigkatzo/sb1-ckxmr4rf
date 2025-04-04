@@ -268,10 +268,32 @@ export function OrdersPage() {
                   </div>
 
                   <div className="flex-1">
-                    <h3 className="text-lg font-medium mb-1">{order.product_name}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-lg font-medium">{order.product_name}</h3>
+                      <span className="text-sm text-gray-400">•</span>
+                      <span className="text-sm text-gray-400">{order.collection_name}</span>
+                    </div>
+                    
                     {order.product_sku && (
                       <p className="text-sm text-gray-400 mb-2">SKU: {order.product_sku}</p>
                     )}
+                    
+                    {order.variant_selections && order.variant_selections.length > 0 && (
+                      <div className="mb-2">
+                        <h4 className="text-sm text-gray-400 mb-1">Selected Options:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {order.variant_selections.map((variant, index) => (
+                            <div
+                              key={index}
+                              className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300"
+                            >
+                              {variant.name}: {variant.value}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <p className="text-sm text-gray-300 mb-4">Amount: {order.amountSol} SOL</p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -281,8 +303,16 @@ export function OrdersPage() {
                           {formatShippingAddress(order.shippingAddress)}
                         </div>
                       )}
-                      {renderTrackingInfo(order)}
+                      
+                      {order.contactInfo && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400 mb-2">Contact Info</h4>
+                          {formatContactInfo(order.contactInfo)}
+                        </div>
+                      )}
                     </div>
+
+                    {renderTrackingInfo(order)}
 
                     <div className="mt-4 pt-4 border-t border-gray-700">
                       <div className="flex items-center gap-2">
