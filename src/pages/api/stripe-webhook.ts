@@ -41,16 +41,6 @@ export default async function handler(
     switch (event.type) {
       case 'payment_intent.processing': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        // Update order status to processing
-        await supabase.rpc('update_stripe_payment_status', {
-          p_payment_id: paymentIntent.id,
-          p_status: 'processing'
-        });
-        break;
-      }
-
-      case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
         
         // Get order ID for this payment intent
         const { data: orders, error: fetchError } = await supabase
@@ -69,8 +59,49 @@ export default async function handler(
           return res.status(404).json({ error: 'Order not found' });
         }
 
+        // If order is still in draft, move it to pending_payment
+        if (orders.status === 'draft') {
+          console.log('Moving order to pending_payment:', orders.id);
+          const { error: updateError } = await supabase.rpc('update_order_transaction', {
+            p_order_id: orders.id,
+            p_transaction_signature: paymentIntent.id,
+            p_amount_sol: paymentIntent.metadata.solAmount || 0
+          });
+
+          if (updateError) {
+            console.error('Error updating to pending_payment status:', updateError);
+            return res.status(500).json({ error: 'Failed to update order status' });
+          }
+        }
+        break;
+      }
+
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('Processing successful payment for intent:', paymentIntent.id);
+        
+        // Get order ID for this payment intent
+        const { data: orders, error: fetchError } = await supabase
+          .from('orders')
+          .select('id, status')
+          .eq('transaction_signature', paymentIntent.id)
+          .single();
+
+        if (fetchError) {
+          console.error('Error fetching order:', fetchError);
+          return res.status(500).json({ error: 'Failed to fetch order' });
+        }
+
+        if (!orders) {
+          console.error('No order found for payment intent:', paymentIntent.id);
+          return res.status(404).json({ error: 'Order not found' });
+        }
+
+        console.log('Found order:', { orderId: orders.id, currentStatus: orders.status });
+
         // First ensure order is in pending_payment status
         if (orders.status === 'draft') {
+          console.log('Moving order from draft to pending_payment:', orders.id);
           const { error: updateError } = await supabase.rpc('update_order_transaction', {
             p_order_id: orders.id,
             p_transaction_signature: paymentIntent.id,
@@ -83,17 +114,18 @@ export default async function handler(
           }
         }
 
-        // Then confirm the order if it's in pending_payment status
-        if (orders.status === 'pending_payment' || orders.status === 'draft') {
-          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-            p_order_id: orders.id
-          });
+        // Then confirm the order
+        console.log('Confirming order:', orders.id);
+        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+          p_order_id: orders.id
+        });
 
-          if (confirmError) {
-            console.error('Error confirming order:', confirmError);
-            return res.status(500).json({ error: 'Failed to confirm order' });
-          }
+        if (confirmError) {
+          console.error('Error confirming order:', confirmError);
+          return res.status(500).json({ error: 'Failed to confirm order' });
         }
+
+        console.log('Successfully confirmed order:', orders.id);
         break;
       }
 
