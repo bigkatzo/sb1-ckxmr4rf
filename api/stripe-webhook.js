@@ -76,31 +76,22 @@ exports.handler = async (event, context) => {
         const paymentIntent = stripeEvent.data.object;
         console.log('Payment succeeded:', paymentIntent.id);
         
-        // Get order ID for this payment intent
-        const { data: order, error: fetchError } = await supabase
-          .from('orders')
-          .select('id')
-          .eq('transaction_signature', paymentIntent.id)
-          .single();
+        try {
+          // Confirm the Stripe payment using the dedicated function
+          const { error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
+            p_payment_id: paymentIntent.id
+          });
 
-        if (fetchError) {
-          console.error('Error fetching order:', fetchError);
-          throw fetchError;
-        }
+          if (confirmError) {
+            console.error('Error confirming payment:', confirmError);
+            throw confirmError;
+          }
 
-        if (!order) {
-          console.error('No order found for payment:', paymentIntent.id);
-          throw new Error('Order not found');
-        }
-
-        // Confirm the order
-        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-          p_order_id: order.id
-        });
-
-        if (confirmError) {
-          console.error('Error confirming order:', confirmError);
-          throw confirmError;
+          console.log('Payment confirmed successfully for intent:', paymentIntent.id);
+          return res.status(200).json({ received: true });
+        } catch (error) {
+          console.error('Failed to confirm payment:', error);
+          return res.status(500).json({ error: 'Failed to confirm payment' });
         }
         break;
       }
