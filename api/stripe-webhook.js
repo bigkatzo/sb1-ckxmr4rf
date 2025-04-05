@@ -77,17 +77,49 @@ exports.handler = async (event, context) => {
         console.log('Payment succeeded:', paymentIntent.id);
         
         try {
-          // Confirm the Stripe payment using the dedicated function
-          const { error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
-            p_payment_id: paymentIntent.id
+          // Get order ID for this payment intent
+          const { data: order, error: fetchError } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('transaction_signature', paymentIntent.id)
+            .single();
+
+          if (fetchError) {
+            console.error('Error fetching order:', fetchError);
+            throw fetchError;
+          }
+
+          if (!order) {
+            console.error('No order found for payment:', paymentIntent.id);
+            throw new Error('Order not found');
+          }
+
+          console.log('Found order:', order.id, 'with status:', order.status);
+
+          // First ensure the order is marked as pending_payment using Stripe function
+          if (order.status === 'draft') {
+            const { error: updateError } = await supabase.rpc('update_stripe_payment_status', {
+              p_payment_id: paymentIntent.id,
+              p_status: 'pending_payment'
+            });
+
+            if (updateError) {
+              console.error('Error updating to pending_payment status:', updateError);
+              throw updateError;
+            }
+          }
+
+          // Then confirm the order using the general order confirmation
+          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+            p_order_id: order.id
           });
 
           if (confirmError) {
-            console.error('Error confirming payment:', confirmError);
+            console.error('Error confirming order:', confirmError);
             throw confirmError;
           }
 
-          console.log('Payment confirmed successfully for intent:', paymentIntent.id);
+          console.log('Payment confirmed successfully for order:', order.id);
           return res.status(200).json({ received: true });
         } catch (error) {
           console.error('Failed to confirm payment:', error);
