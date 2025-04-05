@@ -114,7 +114,7 @@ export default async function handler(
           }
         }
 
-        // Then confirm the order
+        // Confirm the order
         console.log('Confirming order:', orders.id);
         const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
           p_order_id: orders.id
