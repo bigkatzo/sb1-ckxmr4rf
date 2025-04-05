@@ -96,34 +96,36 @@ exports.handler = async (event, context) => {
 
           console.log('Found order:', order.id, 'with status:', order.status);
 
-          // First ensure the order is marked as pending_payment using Stripe function
-          if (order.status === 'draft') {
-            const { error: updateError } = await supabase.rpc('update_stripe_payment_status', {
-              p_payment_id: paymentIntent.id,
-              p_status: 'pending_payment'
-            });
-
-            if (updateError) {
-              console.error('Error updating to pending_payment status:', updateError);
-              throw updateError;
-            }
-          }
-
-          // Then confirm the order using the general order confirmation
-          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-            p_order_id: order.id
+          // Use the Stripe-specific function to confirm the payment
+          // This will handle both draft->pending_payment and pending_payment->confirmed transitions
+          const { error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
+            p_payment_id: paymentIntent.id
           });
 
           if (confirmError) {
-            console.error('Error confirming order:', confirmError);
+            console.error('Error confirming payment:', confirmError);
             throw confirmError;
           }
 
-          console.log('Payment confirmed successfully for order:', order.id);
-          return res.status(200).json({ received: true });
+          // Verify the order status was updated
+          const { data: confirmedOrder, error: verifyError } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('transaction_signature', paymentIntent.id)
+            .single();
+
+          if (verifyError || !confirmedOrder) {
+            console.error('Error verifying order status:', verifyError);
+            throw verifyError || new Error('Could not verify order status');
+          }
+
+          console.log('Payment confirmed successfully for order:', confirmedOrder.id, 'new status:', confirmedOrder.status);
         } catch (error) {
-          console.error('Failed to confirm payment:', error);
-          return res.status(500).json({ error: 'Failed to confirm payment' });
+          console.error('Failed to process payment webhook:', error);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to process payment webhook' })
+          };
         }
         break;
       }
@@ -135,7 +137,7 @@ exports.handler = async (event, context) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ received: true }),
+      body: JSON.stringify({ received: true })
     };
   } catch (err) {
     console.error('Webhook error:', err.message);
