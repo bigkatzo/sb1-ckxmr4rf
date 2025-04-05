@@ -32,27 +32,26 @@ language plpgsql
 security definer
 as $$
 begin
-  -- Directly confirm the payment
-  with updated_orders as (
-    update orders
-    set 
-      status = 'confirmed',
-      payment_confirmed_at = now(),
-      updated_at = now()
-    where (
-      transaction_signature = p_payment_id
-      or payment_metadata->>'charge_id' = p_payment_id
-    )
-    and status = 'pending_payment'
-    returning id, status
-  )
-  select count(*) from updated_orders into strict found;
+  -- First move to pending_payment if in draft
+  update orders
+  set 
+    status = 'pending_payment',
+    updated_at = now()
+  where (
+    transaction_signature = p_payment_id OR 
+    payment_metadata->>'charge_id' = p_payment_id
+  ) and status = 'draft';
 
-  -- Log if no order was updated
-  if not found then
-    raise notice 'No order found with transaction_signature: % and status: pending_payment', p_payment_id;
-    raise exception 'No order found to confirm with payment ID: %', p_payment_id;
-  end if;
+  -- Then confirm the payment
+  update orders
+  set 
+    status = 'confirmed',
+    payment_confirmed_at = now(),
+    updated_at = now()
+  where (
+    transaction_signature = p_payment_id OR 
+    payment_metadata->>'charge_id' = p_payment_id
+  ) and status = 'pending_payment';
 end;
 $$;
 
