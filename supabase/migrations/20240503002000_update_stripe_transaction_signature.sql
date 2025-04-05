@@ -23,7 +23,26 @@ begin
 end;
 $$;
 
--- Update confirm payment function to handle both transaction signature and charge ID
+-- Function to update Stripe payment status
+create or replace function public.update_stripe_payment_status(
+  p_payment_id text,
+  p_status text
+)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  update orders
+  set 
+    status = p_status,
+    updated_at = now()
+  where transaction_signature = p_payment_id
+    and transaction_signature LIKE 'pi_%';  -- Only update Stripe payments (Payment Intent IDs start with pi_)
+end;
+$$;
+
+-- Function to confirm Stripe payment
 create or replace function public.confirm_stripe_payment(
   p_payment_id text
 )
@@ -37,10 +56,9 @@ begin
   set 
     status = 'pending_payment',
     updated_at = now()
-  where (
-    transaction_signature = p_payment_id OR 
-    payment_metadata->>'charge_id' = p_payment_id
-  ) and status = 'draft';
+  where transaction_signature = p_payment_id
+    and transaction_signature LIKE 'pi_%'  -- Only update Stripe payments
+    and status = 'draft';
 
   -- Then confirm the payment
   update orders
@@ -48,44 +66,13 @@ begin
     status = 'confirmed',
     payment_confirmed_at = now(),
     updated_at = now()
-  where (
-    transaction_signature = p_payment_id OR 
-    payment_metadata->>'charge_id' = p_payment_id
-  ) and status = 'pending_payment';
-end;
-$$;
-
--- Update payment status function to handle both transaction signature and charge ID
-create or replace function public.update_stripe_payment_status(
-  p_payment_id text,
-  p_status text
-)
-returns void
-language plpgsql
-security definer
-as $$
-begin
-  -- Update order status based on the payment status
-  update orders
-  set 
-    status = case 
-      when p_status = 'pending_payment' and status = 'draft' then 'pending_payment'
-      when p_status = 'pending_payment' and status = 'pending_payment' then 'pending_payment'
-      when p_status = 'confirmed' then 'confirmed'
-      else status
-    end,
-    updated_at = now()
   where transaction_signature = p_payment_id
-    or payment_metadata->>'charge_id' = p_payment_id;
-
-  -- If no rows were updated, log an error
-  if not found then
-    raise warning 'No order found for payment ID: %', p_payment_id;
-  end if;
+    and transaction_signature LIKE 'pi_%'  -- Only update Stripe payments
+    and status = 'pending_payment';
 end;
 $$;
 
--- Update fail payment function to handle both transaction signature and charge ID
+-- Function to handle failed Stripe payment
 create or replace function public.fail_stripe_payment(
   p_payment_id text,
   p_error text
@@ -97,17 +84,16 @@ as $$
 begin
   update orders
   set 
+    status = 'cancelled',  -- Use cancelled instead of failed to match enum
     error_message = p_error,
     updated_at = now()
-  where (
-    transaction_signature = p_payment_id OR 
-    payment_metadata->>'charge_id' = p_payment_id
-  ) and status = 'pending_payment';  -- Only update if in pending_payment status
+  where transaction_signature = p_payment_id
+    and transaction_signature LIKE 'pi_%';  -- Only update Stripe payments
 end;
 $$;
 
 -- Grant execute permissions
 grant execute on function public.update_stripe_payment_signature to authenticated, anon, service_role;
-grant execute on function public.confirm_stripe_payment to authenticated, anon, service_role;
 grant execute on function public.update_stripe_payment_status to authenticated, anon, service_role;
+grant execute on function public.confirm_stripe_payment to authenticated, anon, service_role;
 grant execute on function public.fail_stripe_payment to authenticated, anon, service_role; 

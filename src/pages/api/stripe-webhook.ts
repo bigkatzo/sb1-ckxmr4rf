@@ -39,108 +39,60 @@ export default async function handler(
 
     // Handle the event
     switch (event.type) {
-      case 'payment_intent.created': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log('Payment intent created:', paymentIntent.id);
-        
-        // Update order status to pending_payment
-        const { error: updateError } = await supabase.rpc('update_stripe_payment_status', {
-          p_payment_id: paymentIntent.id,
-          p_status: 'pending_payment'
-        });
-
-        if (updateError) {
-          console.error('Error updating to pending_payment status:', updateError);
-          return res.status(500).json({ error: 'Failed to update order status' });
-        }
-        break;
-      }
-
       case 'payment_intent.processing': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log('Payment processing for intent:', paymentIntent.id);
-        
-        // Ensure order is in pending_payment status
-        const { error: updateError } = await supabase.rpc('update_stripe_payment_status', {
+        // Update order status to processing
+        await supabase.rpc('update_stripe_payment_status', {
           p_payment_id: paymentIntent.id,
-          p_status: 'pending_payment'
+          p_status: 'processing'
         });
-
-        if (updateError) {
-          console.error('Error updating to pending_payment status:', updateError);
-          return res.status(500).json({ error: 'Failed to update order status' });
-        }
         break;
       }
 
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log('Processing successful payment for intent:', paymentIntent.id);
         
-        // Get the charge details from the payment intent
-        let receiptUrl: string | null = null;
-        let chargeId: string | null = null;
-        try {
-          const charges = await stripe.charges.list({
-            payment_intent: paymentIntent.id,
-            limit: 1
-          });
-          const charge = charges.data[0];
-          if (charge) {
-            receiptUrl = charge.receipt_url || null;
-            chargeId = charge.id;
-            console.log('Found charge ID:', chargeId, 'and receipt URL:', receiptUrl);
-          }
-        } catch (err) {
-          console.error('Failed to fetch charge details:', err);
-          // Continue with confirmation even if charge details fetch fails
+        // Get order ID for this payment intent
+        const { data: orders, error: fetchError } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('transaction_signature', paymentIntent.id)
+          .single();
+
+        if (fetchError) {
+          console.error('Error fetching order:', fetchError);
+          return res.status(500).json({ error: 'Failed to fetch order' });
         }
 
-        // First update the order status to confirmed
-        const { error: confirmError } = await supabase.rpc('update_stripe_payment_status', {
-          p_payment_id: paymentIntent.id,
-          p_status: 'confirmed'
+        if (!orders) {
+          console.error('No order found for payment intent:', paymentIntent.id);
+          return res.status(404).json({ error: 'Order not found' });
+        }
+
+        // Confirm the order
+        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+          p_order_id: orders.id
         });
 
         if (confirmError) {
-          console.error('Error confirming payment:', confirmError);
-          return res.status(500).json({ error: 'Failed to confirm payment' });
+          console.error('Error confirming order:', confirmError);
+          return res.status(500).json({ error: 'Failed to confirm order' });
         }
-
-        // Then update the transaction signature if we have charge details
-        if (chargeId && receiptUrl) {
-          const { error: updateError } = await supabase.rpc('update_stripe_payment_signature', {
-            p_payment_id: paymentIntent.id,
-            p_charge_id: chargeId,
-            p_receipt_url: receiptUrl
-          });
-
-          if (updateError) {
-            console.error('Error updating transaction signature:', updateError);
-            // Don't fail the webhook, the order is already confirmed
-          }
-        }
-
-        console.log('Successfully confirmed payment for order');
         break;
       }
 
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const errorMessage = paymentIntent.last_payment_error?.message || 'Payment failed';
-        
-        // Handle failed payment using Stripe-specific function
-        const { error: failError } = await supabase.rpc('fail_stripe_payment', {
+        // Update order status to cancelled
+        const { error: updateError } = await supabase.rpc('update_stripe_payment_status', {
           p_payment_id: paymentIntent.id,
-          p_error: errorMessage
+          p_status: 'cancelled'
         });
 
-        if (failError) {
-          console.error('Error handling failed payment:', failError);
-          return res.status(500).json({ error: 'Failed to handle payment failure' });
+        if (updateError) {
+          console.error('Error updating failed payment:', updateError);
+          return res.status(500).json({ error: 'Failed to update payment status' });
         }
-
-        console.log('Payment failure handled for intent:', paymentIntent.id);
         break;
       }
 
