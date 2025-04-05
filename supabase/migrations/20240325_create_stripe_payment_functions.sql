@@ -13,13 +13,14 @@ begin
     status = p_status,
     updated_at = now()
   where transaction_signature = p_payment_id
-    and transaction_signature LIKE 'pi_%';  -- Only update Stripe payments (Payment Intent IDs start with pi_)
+    or payment_metadata->>'charge_id' = p_payment_id;
 end;
 $$;
 
 -- Function to confirm Stripe payment
 create or replace function public.confirm_stripe_payment(
-  p_payment_id text
+  p_payment_id text,
+  p_receipt_url text default null
 )
 returns void
 language plpgsql
@@ -31,9 +32,10 @@ begin
   set 
     status = 'pending_payment',
     updated_at = now()
-  where transaction_signature = p_payment_id
-    and transaction_signature LIKE 'pi_%'  -- Only update Stripe payments
-    and status = 'draft';
+  where (
+    transaction_signature = p_payment_id OR 
+    payment_metadata->>'charge_id' = p_payment_id
+  ) and status = 'draft';
 
   -- Then confirm the payment
   update orders
@@ -41,9 +43,10 @@ begin
     status = 'confirmed',
     payment_confirmed_at = now(),
     updated_at = now()
-  where transaction_signature = p_payment_id
-    and transaction_signature LIKE 'pi_%'  -- Only update Stripe payments
-    and status = 'pending_payment';
+  where (
+    transaction_signature = p_payment_id OR 
+    payment_metadata->>'charge_id' = p_payment_id
+  ) and status = 'pending_payment';
 end;
 $$;
 
@@ -59,15 +62,42 @@ as $$
 begin
   update orders
   set 
-    status = 'cancelled',  -- Use cancelled instead of failed to match enum
     error_message = p_error,
     updated_at = now()
+  where (
+    transaction_signature = p_payment_id OR 
+    payment_metadata->>'charge_id' = p_payment_id
+  ) and status = 'pending_payment';  -- Only update if in pending_payment status
+end;
+$$;
+
+-- Function to update transaction signature to receipt URL and store charge ID in metadata
+create or replace function public.update_stripe_payment_signature(
+  p_payment_id text,
+  p_charge_id text,
+  p_receipt_url text
+)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  update orders
+  set 
+    transaction_signature = p_receipt_url,
+    payment_metadata = jsonb_set(
+      coalesce(payment_metadata, '{}'::jsonb),
+      '{charge_id}',
+      to_jsonb(p_charge_id)
+    ),
+    updated_at = now()
   where transaction_signature = p_payment_id
-    and transaction_signature LIKE 'pi_%';  -- Only update Stripe payments
+    and transaction_signature LIKE 'pi_%';  -- Only update Stripe payments (Payment Intent IDs)
 end;
 $$;
 
 -- Grant execute permissions
 grant execute on function public.update_stripe_payment_status to authenticated, anon, service_role;
 grant execute on function public.confirm_stripe_payment to authenticated, anon, service_role;
-grant execute on function public.fail_stripe_payment to authenticated, anon, service_role; 
+grant execute on function public.fail_stripe_payment to authenticated, anon, service_role;
+grant execute on function public.update_stripe_payment_signature to authenticated, anon, service_role; 
