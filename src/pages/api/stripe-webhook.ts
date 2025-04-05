@@ -88,7 +88,17 @@ export default async function handler(
           return res.status(500).json({ error: 'No receipt URL found in Stripe response' });
         }
 
-        // First update the transaction signature to receipt URL and store charge ID in metadata
+        // First confirm the payment using the payment intent ID (which is still the transaction_signature)
+        const { error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
+          p_payment_id: paymentIntent.id
+        });
+
+        if (confirmError) {
+          console.error('Error confirming payment:', confirmError);
+          return res.status(500).json({ error: 'Failed to confirm payment' });
+        }
+
+        // Then update the transaction signature to receipt URL and store charge ID in metadata
         const { error: updateError } = await supabase.rpc('update_stripe_payment_signature', {
           p_payment_id: paymentIntent.id,
           p_charge_id: chargeId,
@@ -99,18 +109,8 @@ export default async function handler(
           console.error('Error updating transaction signature:', updateError);
           return res.status(500).json({ error: 'Failed to update transaction signature' });
         }
-        
-        // Then confirm the payment using the charge ID
-        const { error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
-          p_payment_id: chargeId
-        });
 
-        if (confirmError) {
-          console.error('Error confirming payment:', confirmError);
-          return res.status(500).json({ error: 'Failed to confirm payment' });
-        }
-
-        console.log('Successfully confirmed payment. Receipt URL:', receiptUrl, 'Charge ID:', chargeId);
+        console.log('Successfully confirmed payment and updated signature. Receipt URL:', receiptUrl, 'Charge ID:', chargeId);
         break;
       }
 

@@ -32,26 +32,19 @@ language plpgsql
 security definer
 as $$
 begin
-  -- First move to pending_payment if in draft
-  update orders
-  set 
-    status = 'pending_payment',
-    updated_at = now()
-  where (
-    transaction_signature = p_payment_id OR 
-    payment_metadata->>'charge_id' = p_payment_id
-  ) and status = 'draft';
-
-  -- Then confirm the payment
+  -- Directly confirm the payment
   update orders
   set 
     status = 'confirmed',
     payment_confirmed_at = now(),
     updated_at = now()
-  where (
-    transaction_signature = p_payment_id OR 
-    payment_metadata->>'charge_id' = p_payment_id
-  ) and status = 'pending_payment';
+  where transaction_signature = p_payment_id
+    and status = 'pending_payment';
+
+  -- Log if no order was updated
+  if not found then
+    raise notice 'No order found with transaction_signature: % and status: pending_payment', p_payment_id;
+  end if;
 end;
 $$;
 
