@@ -39,10 +39,28 @@ export default async function handler(
 
     // Handle the event
     switch (event.type) {
-      case 'payment_intent.processing': {
+      case 'payment_intent.created': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('Payment intent created:', paymentIntent.id);
         
         // Update order status to pending_payment
+        const { error: updateError } = await supabase.rpc('update_stripe_payment_status', {
+          p_payment_id: paymentIntent.id,
+          p_status: 'pending_payment'
+        });
+
+        if (updateError) {
+          console.error('Error updating to pending_payment status:', updateError);
+          return res.status(500).json({ error: 'Failed to update order status' });
+        }
+        break;
+      }
+
+      case 'payment_intent.processing': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('Payment processing for intent:', paymentIntent.id);
+        
+        // Ensure order is in pending_payment status
         const { error: updateError } = await supabase.rpc('update_stripe_payment_status', {
           p_payment_id: paymentIntent.id,
           p_status: 'pending_payment'
@@ -78,9 +96,10 @@ export default async function handler(
           // Continue with confirmation even if charge details fetch fails
         }
 
-        // First confirm the payment using the payment intent ID
-        const { error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
-          p_payment_id: paymentIntent.id
+        // First update the order status to confirmed
+        const { error: confirmError } = await supabase.rpc('update_stripe_payment_status', {
+          p_payment_id: paymentIntent.id,
+          p_status: 'confirmed'
         });
 
         if (confirmError) {
@@ -88,7 +107,7 @@ export default async function handler(
           return res.status(500).json({ error: 'Failed to confirm payment' });
         }
 
-        // If we have charge details, update them
+        // Then update the transaction signature if we have charge details
         if (chargeId && receiptUrl) {
           const { error: updateError } = await supabase.rpc('update_stripe_payment_signature', {
             p_payment_id: paymentIntent.id,

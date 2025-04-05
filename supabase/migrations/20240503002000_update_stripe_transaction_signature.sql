@@ -65,12 +65,23 @@ language plpgsql
 security definer
 as $$
 begin
+  -- Update order status based on the payment status
   update orders
   set 
-    status = p_status,
+    status = case 
+      when p_status = 'pending_payment' and status = 'draft' then 'pending_payment'
+      when p_status = 'pending_payment' and status = 'pending_payment' then 'pending_payment'
+      when p_status = 'confirmed' then 'confirmed'
+      else status
+    end,
     updated_at = now()
   where transaction_signature = p_payment_id
     or payment_metadata->>'charge_id' = p_payment_id;
+
+  -- If no rows were updated, log an error
+  if not found then
+    raise warning 'No order found for payment ID: %', p_payment_id;
+  end if;
 end;
 $$;
 
