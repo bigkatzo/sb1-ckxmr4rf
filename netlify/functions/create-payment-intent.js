@@ -34,11 +34,34 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { solAmount, solPrice, productName, shippingInfo, productId, variants, walletAddress } = JSON.parse(event.body);
+    const { 
+      solAmount, 
+      solPrice, 
+      productName, 
+      shippingInfo, 
+      productId, 
+      variants, 
+      walletAddress,
+      couponCode,
+      couponDiscount,
+      originalPrice,
+      paymentMetadata = {}
+    } = JSON.parse(event.body);
 
     // Calculate USD amount, ensuring minimum of $0.50
     const usdAmount = Math.max(solAmount * solPrice, 0.50);
     const amountInCents = Math.round(usdAmount * 100);
+
+    // Ensure payment method is included in metadata
+    const stripeMetadata = {
+      productName,
+      customerName: shippingInfo.contact_info.fullName,
+      shippingAddress: JSON.stringify(shippingInfo.shipping_address),
+      contactInfo: JSON.stringify(shippingInfo.contact_info),
+      solAmount: solAmount.toString(),
+      solPrice: solPrice.toString(),
+      walletAddress: walletAddress || 'stripe', // Store wallet address in metadata
+    };
 
     // Create a payment intent
     const paymentIntent = await stripe.paymentIntents.create({
@@ -47,23 +70,24 @@ exports.handler = async (event, context) => {
       automatic_payment_methods: {
         enabled: true,
       },
-      metadata: {
-        productName,
-        customerName: shippingInfo.contact_info.fullName,
-        shippingAddress: JSON.stringify(shippingInfo.shipping_address),
-        contactInfo: JSON.stringify(shippingInfo.contact_info),
-        solAmount: solAmount.toString(),
-        solPrice: solPrice.toString(),
-        walletAddress: walletAddress || 'stripe', // Store wallet address in metadata
-      },
+      metadata: stripeMetadata,
     });
 
-    // Create a draft order
+    // Create a draft order with payment method info
+    const finalPaymentMetadata = {
+      ...paymentMetadata,
+      paymentMethod: 'stripe',
+      couponCode,
+      couponDiscount,
+      originalPrice
+    };
+    
     const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
       p_product_id: productId,
       p_variants: variants || [],
       p_shipping_info: shippingInfo,
-      p_wallet_address: walletAddress || 'stripe', // Use wallet address when available
+      p_wallet_address: walletAddress || 'stripe',
+      p_payment_metadata: finalPaymentMetadata
     });
 
     if (orderError) {

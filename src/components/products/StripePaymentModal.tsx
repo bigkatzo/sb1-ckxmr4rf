@@ -85,6 +85,7 @@ function StripeCheckoutForm({
   const [error, setError] = React.useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>('idle');
   const [isPaymentMethodSelected, setIsPaymentMethodSelected] = React.useState(false);
+  const [elementsReady, setElementsReady] = React.useState(false);
   const paymentStatusRef = React.useRef<PaymentStatus>('idle');
   const submitButtonRef = React.useRef<HTMLButtonElement>(null);
 
@@ -93,8 +94,28 @@ function StripeCheckoutForm({
     paymentStatusRef.current = paymentStatus;
   }, [paymentStatus]);
 
+  // Effect to check if elements are ready
+  React.useEffect(() => {
+    if (!elements) return;
+    
+    const checkElementsReady = async () => {
+      try {
+        // Get the payment element
+        const paymentElement = elements.getElement('payment');
+        if (paymentElement) {
+          setElementsReady(true);
+        }
+      } catch (err) {
+        console.error('Error checking elements ready state:', err);
+      }
+    };
+    
+    checkElementsReady();
+  }, [elements]);
+
   // Handle payment element changes
   const handlePaymentElementChange = React.useCallback((event: any) => {
+    console.log('Payment element change:', event);
     setIsPaymentMethodSelected(event.complete);
     if (event.error) {
       setError(event.error.message);
@@ -107,7 +128,7 @@ function StripeCheckoutForm({
   const handleSubmit = React.useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!stripe || !elements || !solPrice || paymentStatus === 'processing' || !isPaymentMethodSelected) {
+    if (!stripe || !elements || !solPrice || paymentStatus === 'processing') {
       console.log('Payment submission blocked:', { 
         hasStripe: !!stripe, 
         hasElements: !!elements, 
@@ -115,6 +136,19 @@ function StripeCheckoutForm({
         paymentStatus,
         isPaymentMethodSelected
       });
+      return;
+    }
+
+    // Additional validation to ensure we have a payment method selected
+    try {
+      const result = await elements.submit();
+      if (result.error) {
+        setError(result.error.message || 'Please complete all required payment information.');
+        return;
+      }
+    } catch (error) {
+      console.error('Error validating payment form:', error);
+      setError('Please select a payment method.');
       return;
     }
 
@@ -251,6 +285,7 @@ function StripeCheckoutForm({
           }
         }}
         onChange={handlePaymentElementChange}
+        onReady={() => setElementsReady(true)}
       />
 
       {error && (
@@ -262,7 +297,7 @@ function StripeCheckoutForm({
       <button
         ref={submitButtonRef}
         type="submit"
-        disabled={isProcessing || !isPaymentMethodSelected || !stripe || !elements}
+        disabled={isProcessing || !elementsReady || !stripe}
         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
       >
         {isProcessing ? (
@@ -274,8 +309,8 @@ function StripeCheckoutForm({
                 : 'Processing payment...'}
             </span>
           </>
-        ) : !isPaymentMethodSelected ? (
-          <span>Select a payment method</span>
+        ) : !elementsReady ? (
+          <span>Loading payment options...</span>
         ) : (
           <span>Pay ${usdAmount}</span>
         )}
@@ -330,8 +365,11 @@ export function StripePaymentModal({
     async function createPaymentIntent() {
       setIsLoading(true);
       try {
-        // Check if it's a 100% discount
-        const is100PercentDiscount = couponDiscount && originalPrice && couponDiscount >= originalPrice;
+        // Check if it's a 100% discount - properly compare values, not just existence
+        const is100PercentDiscount = couponDiscount !== undefined && 
+                                     originalPrice !== undefined && 
+                                     couponDiscount >= originalPrice && 
+                                     couponDiscount > 0;
 
         if (is100PercentDiscount) {
           // For 100% discount, create order directly without payment
@@ -402,7 +440,13 @@ export function StripePaymentModal({
             shippingInfo,
             couponCode,
             couponDiscount,
-            originalPrice
+            originalPrice,
+            paymentMetadata: {
+              couponCode,
+              originalPrice,
+              couponDiscount,
+              paymentMethod: 'stripe'
+            }
           }),
         });
 
