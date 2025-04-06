@@ -145,14 +145,13 @@ export function CouponsTab() {
             <h2 className="text-lg font-semibold">Coupons</h2>
             <RefreshButton onRefresh={loadCoupons} />
           </div>
-          <Button
+          <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2"
+            className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden xs:inline">Add Coupon</span>
-            <span className="xs:hidden">Add</span>
-          </Button>
+            <span>Add Coupon</span>
+          </button>
         </div>
         <p className="text-sm text-gray-400">
           Manage discount coupons for your products
@@ -181,13 +180,13 @@ export function CouponsTab() {
           {coupons.map((coupon) => (
             <div
               key={coupon.id}
-              className="bg-gray-900 rounded-lg p-4"
+              className="bg-gray-900 rounded-lg p-3 hover:bg-gray-800/50 transition-colors"
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="space-y-1">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-base text-white">{coupon.code}</h3>
-                    <span className={`text-xs px-2 py-0.5 rounded ${
+                    <h3 className="font-medium text-sm text-white">{coupon.code}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
                       coupon.status === 'active' 
                         ? 'bg-green-500/10 text-green-400'
                         : 'bg-gray-500/10 text-gray-400'
@@ -195,13 +194,32 @@ export function CouponsTab() {
                       {coupon.status}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400">
-                    {coupon.discount_type === 'fixed_sol' 
-                      ? `${coupon.discount_value} SOL off`
-                      : `${coupon.discount_value}% off`}
-                    {coupon.max_discount && ` (max ${coupon.max_discount} SOL)`}
-                  </p>
+                  
+                  <div className="flex items-center flex-wrap gap-2 mt-1">
+                    <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
+                      {coupon.discount_type === 'fixed_sol' 
+                        ? `${coupon.discount_value} SOL off`
+                        : `${coupon.discount_value}% off`}
+                    </span>
+                    {coupon.max_discount && (
+                      <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
+                        Max: {coupon.max_discount} SOL
+                      </span>
+                    )}
+                    {coupon.collection_ids && coupon.collection_ids.length > 0 && (
+                      <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
+                        {coupon.collection_ids.length} collection{coupon.collection_ids.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="mt-2">
+                    <p className="text-xs text-gray-500">
+                      Created: {new Date(coupon.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
+                
                 <div className="flex items-center gap-2">
                   <Button
                     variant="secondary"

@@ -370,7 +370,7 @@ export function TransactionsTab() {
       ) : (
         <div className="space-y-3">
           {filteredAnomalies.map((anomaly) => (
-            <div key={anomaly.id} className="bg-gray-900 rounded-lg p-4">
+            <div key={anomaly.id} className="bg-gray-900 rounded-lg p-3 hover:bg-gray-800/50 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 pb-3 border-b border-gray-800">
                 <div className="flex items-center gap-2 min-w-0">
                   {getAnomalyIcon(anomaly.type)}
@@ -447,19 +447,19 @@ export function TransactionsTab() {
                 )}
 
                 {/* Amount Info */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   {anomaly.amount_sol && (
-                    <span className="text-xs text-gray-400">
-                      Amount: {anomaly.amount_sol} SOL
+                    <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
+                      {anomaly.amount_sol} SOL
                     </span>
                   )}
                   {anomaly.expected_amount_sol && anomaly.amount_sol !== anomaly.expected_amount_sol && (
-                    <span className="text-xs text-yellow-400">
+                    <span className="text-xs bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded-full">
                       Expected: {anomaly.expected_amount_sol} SOL
                     </span>
                   )}
                   {anomaly.buyer_address && (
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
                       Buyer: {anomaly.buyer_address.slice(0, 4)}...{anomaly.buyer_address.slice(-4)}
                     </span>
                   )}
@@ -467,7 +467,7 @@ export function TransactionsTab() {
 
                 {/* Order Status */}
                 {anomaly.order_status && (
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       anomaly.order_status === 'draft'
                         ? 'bg-gray-500/10 text-gray-400'
@@ -479,24 +479,31 @@ export function TransactionsTab() {
                         ? 'bg-red-500/10 text-red-400'
                         : 'bg-gray-500/10 text-gray-400'
                     }`}>
-                      Order Status: {anomaly.order_status.charAt(0).toUpperCase() + anomaly.order_status.slice(1)}
+                      {anomaly.order_status.charAt(0).toUpperCase() + anomaly.order_status.slice(1)}
                     </span>
+                    {anomaly.retry_count > 0 && (
+                      <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
+                        Retry: {anomaly.retry_count}
+                      </span>
+                    )}
                   </div>
                 )}
 
                 {/* Error Message */}
                 {anomaly.error_message && (
-                  <div className="text-xs text-red-400 bg-red-500/10 p-2 rounded">
+                  <div className="text-xs text-red-400 bg-red-500/10 p-2 rounded mt-2">
                     {anomaly.error_message}
                   </div>
                 )}
 
                 {/* Actions */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 gap-2">
-                  <span className="text-xs text-gray-400">
-                    Retry count: {anomaly.retry_count}
-                  </span>
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 gap-2 mt-2">
+                  {!anomaly.order_status && anomaly.retry_count > 0 && (
+                    <span className="text-xs text-gray-400">
+                      Retry count: {anomaly.retry_count}
+                    </span>
+                  )}
+                  <div className={`flex items-center gap-2 ${!anomaly.order_status && anomaly.retry_count > 0 ? '' : 'sm:ml-auto'}`}>
                     {getAnomalyActions(anomaly)}
                   </div>
                 </div>
