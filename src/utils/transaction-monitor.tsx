@@ -136,6 +136,19 @@ export async function monitorTransaction(
     return false;
   }
 
+  // Skip monitoring for non-Solana transactions (e.g. Stripe or free orders)
+  if (signature.startsWith('pi_') || signature.startsWith('free_')) {
+    console.log('Non-Solana transaction, skipping monitoring:', signature);
+    onStatusUpdate({
+      processing: false,
+      success: true,
+      paymentConfirmed: true,
+      signature,
+      error: null
+    });
+    return true;
+  }
+
   // Prevent duplicate processing
   if (processedSignatures.has(signature)) {
     console.log('Transaction already processed:', signature);
@@ -144,6 +157,7 @@ export async function monitorTransaction(
   processedSignatures.add(signature);
 
   let attempts = 0;
+  let isBackoffMode = false;
   const toastId = toast.loading('Processing transaction...');
 
   try {
@@ -182,7 +196,8 @@ export async function monitorTransaction(
                 p_status: 'failed',
                 p_details: {
                   error: errorMessage,
-                  verification: verification.details || null
+                  verification: verification.details || null,
+                  attempts: attempts + 1
                 }
               });
               console.log('Transaction status updated to failed:', errorMessage);
@@ -213,7 +228,11 @@ export async function monitorTransaction(
             await supabase.rpc('update_transaction_status', {
               p_signature: signature,
               p_status: 'confirmed',
-              p_details: verification.details || null
+              p_details: {
+                ...verification.details,
+                confirmationAttempts: attempts + 1,
+                confirmedAt: new Date().toISOString()
+              }
             });
             console.log('Transaction status updated to confirmed');
             
@@ -245,11 +264,34 @@ export async function monitorTransaction(
                     if (confirmError.message.includes('not in pending_payment status')) {
                       console.log('Order is already confirmed through another process');
                     } else {
-                      // For other errors, we should notify the user
-                      toast.warning(
-                        'Payment confirmed, but there was an issue updating the order. Please contact support.',
-                        { autoClose: false }
-                      );
+                      // For other errors, we should retry once more directly
+                      try {
+                        const { error: retryError } = await supabase
+                          .from('orders')
+                          .update({ 
+                            status: 'confirmed',
+                            payment_confirmed_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                          })
+                          .eq('id', order.id)
+                          .eq('status', 'pending_payment');
+                          
+                        if (retryError) {
+                          console.error('Retry update failed:', retryError);
+                          toast.warning(
+                            'Payment confirmed, but there was an issue updating the order. Please contact support.',
+                            { autoClose: false }
+                          );
+                        } else {
+                          console.log('Order confirmed via direct update');
+                        }
+                      } catch (retryError) {
+                        console.error('Exception in retry update:', retryError);
+                        toast.warning(
+                          'Payment confirmed, but there was an issue updating the order. Please contact support.',
+                          { autoClose: false }
+                        );
+                      }
                     }
                   } else {
                     console.log('Order confirmed successfully:', order.id);

@@ -178,8 +178,48 @@ exports.handler = async (event, context) => {
         const paymentIntent = stripeEvent.data.object;
         console.log('Payment failed:', paymentIntent.id);
         const errorMessage = paymentIntent.last_payment_error?.message || 'Unknown payment error';
+        const errorCode = paymentIntent.last_payment_error?.code || 'unknown_error';
         
         try {
+          // Store more detailed error information
+          const paymentErrorDetails = {
+            code: errorCode,
+            message: errorMessage,
+            payment_method_type: paymentIntent.last_payment_error?.payment_method?.type || null,
+            decline_code: paymentIntent.last_payment_error?.decline_code || null,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Get the order for this payment intent
+          const { data: order, error: fetchError } = await supabase
+            .from('orders')
+            .select('id, payment_metadata')
+            .eq('transaction_signature', paymentIntent.id)
+            .single();
+            
+          if (fetchError) {
+            console.error('Error fetching order for failed payment:', fetchError);
+          } else if (order) {
+            console.log('Found order for failed payment:', order.id);
+            
+            // Update payment metadata with error details for potential recovery
+            const updatedMetadata = {
+              ...order.payment_metadata,
+              payment_error: paymentErrorDetails,
+              retry_eligible: ['authentication_required', 'insufficient_funds', 'card_declined'].includes(errorCode)
+            };
+            
+            // Update order metadata
+            const { error: metadataError } = await supabase
+              .from('orders')
+              .update({ payment_metadata: updatedMetadata })
+              .eq('id', order.id);
+              
+            if (metadataError) {
+              console.error('Error updating payment metadata:', metadataError);
+            }
+          }
+          
           // Update the payment status to failed
           const { error } = await supabase.rpc('fail_stripe_payment', {
             p_payment_id: paymentIntent.id,

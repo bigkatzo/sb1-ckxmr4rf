@@ -288,6 +288,12 @@ export function OrderSuccessView({
                   </a>
                 </div>
               )}
+
+              {transactionSignature.startsWith('pi_') && (
+                <div className="flex items-center justify-center space-x-2 text-xs sm:text-sm mt-1">
+                  <span className="text-gray-400/80 italic">Receipt will be available shortly</span>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mt-6 sm:mt-8">

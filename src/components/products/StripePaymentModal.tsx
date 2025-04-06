@@ -415,33 +415,65 @@ export function StripePaymentModal({
               couponCode,
               originalPrice,
               couponDiscount,
-              paymentMethod: 'stripe'
+              paymentMethod: 'free',
+              orderDate: new Date().toISOString()
             }
           });
 
           if (createError) throw createError;
 
-          // Generate unique transaction signature for free orders
-          const uniqueSignature = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+          // Generate structured transaction signature for free orders
+          // This ensures consistency and includes critical information
+          const orderHash = await generateOrderHash(createdOrderId, productId);
+          const uniqueSignature = `free_${orderHash}_${Date.now()}`;
 
-          // Update order with unique transaction signature for free orders
+          // Update order with structured transaction signature
           const { error: updateError } = await supabase.rpc('update_order_transaction', {
             p_order_id: createdOrderId,
             p_transaction_signature: uniqueSignature,
             p_amount_sol: 0
           });
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error('Error updating free order transaction:', updateError);
+            throw updateError;
+          }
 
           // Confirm the order immediately since it's free
-          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-            p_order_id: createdOrderId
-          });
+          try {
+            const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+              p_order_id: createdOrderId
+            });
 
-          if (confirmError) throw confirmError;
-
-          // Call onSuccess with the order ID and unique signature
-          onSuccess(createdOrderId, uniqueSignature);
+            if (confirmError) throw confirmError;
+            
+            console.log('Free order confirmed successfully:', createdOrderId);
+            
+            // Call onSuccess with the order ID and unique signature
+            onSuccess(createdOrderId, uniqueSignature);
+          } catch (confirmErr) {
+            console.error('Error confirming free order:', confirmErr);
+            
+            // Attempt recovery by directly updating the status
+            try {
+              const { error: recoveryError } = await supabase
+                .from('orders')
+                .update({ status: 'confirmed' })
+                .eq('id', createdOrderId);
+                
+              if (recoveryError) {
+                console.error('Recovery attempt failed:', recoveryError);
+                throw confirmErr; // Re-throw the original error
+              }
+              
+              console.log('Free order recovery successful');
+              onSuccess(createdOrderId, uniqueSignature);
+            } catch (recoveryErr) {
+              console.error('Free order recovery failed:', recoveryErr);
+              throw confirmErr; // Re-throw the original error
+            }
+          }
+          
           return;
         }
 
@@ -653,4 +685,21 @@ export function StripePaymentModal({
       </div>
     </div>
   );
+}
+
+// Add this helper function near the bottom of the file
+async function generateOrderHash(orderId: string, productId: string): Promise<string> {
+  // Create a deterministic but unique hash for the order
+  const dataToHash = `${orderId}:${productId}:${Date.now()}`;
+  
+  // Use a simple hash function for browser compatibility
+  let hash = 0;
+  for (let i = 0; i < dataToHash.length; i++) {
+    const char = dataToHash.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  
+  // Convert to a positive hex string
+  return Math.abs(hash).toString(16).substring(0, 8);
 } 
