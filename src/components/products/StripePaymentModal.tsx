@@ -125,8 +125,9 @@ function StripeCheckoutForm({
   }, []);
 
   // Debounced submit handler to prevent multiple rapid clicks
-  const handleSubmit = React.useCallback(async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleSubmit = React.useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Payment submission initiated');
 
     if (!stripe || !elements || !solPrice || paymentStatus === 'processing') {
       console.log('Payment submission blocked:', { 
@@ -136,6 +137,19 @@ function StripeCheckoutForm({
         paymentStatus,
         isPaymentMethodSelected
       });
+      return;
+    }
+
+    // Check if this is a 100% discounted order - no need to process payment
+    const is100PercentDiscount = 
+      couponDiscount !== undefined && 
+      originalPrice !== undefined && 
+      couponDiscount > 0 && 
+      (couponDiscount >= originalPrice || (originalPrice > 0 && (couponDiscount / originalPrice) * 100 >= 100));
+
+    if (is100PercentDiscount) {
+      console.log('Client-side validation: 100% discounted order detected, payment should be bypassed');
+      setError('This order has a 100% discount and should not require payment. Please refresh the page and try again.');
       return;
     }
 
@@ -297,7 +311,7 @@ function StripeCheckoutForm({
       <button
         ref={submitButtonRef}
         type="submit"
-        disabled={isProcessing || !elementsReady || !stripe}
+        disabled={isProcessing || !elementsReady || !stripe || !isPaymentMethodSelected}
         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
       >
         {isProcessing ? (
@@ -365,11 +379,28 @@ export function StripePaymentModal({
     async function createPaymentIntent() {
       setIsLoading(true);
       try {
-        // Check if it's a 100% discount - properly compare values, not just existence
-        const is100PercentDiscount = couponDiscount !== undefined && 
-                                     originalPrice !== undefined && 
-                                     couponDiscount >= originalPrice && 
-                                     couponDiscount > 0;
+        // Check if it's a 100% discount - with improved handling for different discount types
+        const discountPercentage = originalPrice && originalPrice > 0 
+          ? (couponDiscount / originalPrice) * 100 
+          : 0;
+          
+        const is100PercentDiscount = 
+          couponDiscount !== undefined && 
+          originalPrice !== undefined && 
+          couponDiscount > 0 && (
+            // Handle fixed SOL discount (equal or greater than original price)
+            couponDiscount >= originalPrice ||
+            // Handle percentage discount (100% or more)
+            discountPercentage >= 100
+          );
+
+        console.log('Coupon discount calculation:', {
+          couponDiscount,
+          originalPrice,
+          discountPercentage: discountPercentage.toFixed(2) + '%',
+          is100PercentDiscount,
+          couponCode
+        });
 
         if (is100PercentDiscount) {
           // For 100% discount, create order directly without payment

@@ -136,12 +136,27 @@ export class CouponService {
       if (coupon.discount_type === 'fixed_sol') {
         discountAmount = Math.min(coupon.discount_value, modifiedPrice);
         discountDisplay = `${discountAmount} SOL off`;
+        console.log('Fixed SOL discount calculation:', {
+          couponCode: code,
+          discountValue: coupon.discount_value,
+          modifiedPrice,
+          finalDiscount: discountAmount,
+          percentageOfPrice: ((discountAmount / modifiedPrice) * 100).toFixed(2) + '%'
+        });
       } else {
         discountAmount = (modifiedPrice * coupon.discount_value) / 100;
         if (coupon.max_discount) {
           discountAmount = Math.min(discountAmount, coupon.max_discount);
         }
         discountDisplay = `${coupon.discount_value}% off`;
+        console.log('Percentage discount calculation:', {
+          couponCode: code,
+          percentageValue: coupon.discount_value + '%',
+          modifiedPrice,
+          calculatedDiscount: (modifiedPrice * coupon.discount_value) / 100,
+          maxDiscount: coupon.max_discount,
+          finalDiscount: discountAmount
+        });
       }
 
       // Ensure we don't discount more than the price
