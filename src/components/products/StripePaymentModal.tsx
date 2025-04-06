@@ -84,6 +84,7 @@ function StripeCheckoutForm({
   const elements = useElements();
   const [error, setError] = React.useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>('idle');
+  const [isPaymentMethodSelected, setIsPaymentMethodSelected] = React.useState(false);
   const paymentStatusRef = React.useRef<PaymentStatus>('idle');
   const submitButtonRef = React.useRef<HTMLButtonElement>(null);
 
@@ -92,16 +93,27 @@ function StripeCheckoutForm({
     paymentStatusRef.current = paymentStatus;
   }, [paymentStatus]);
 
+  // Handle payment element changes
+  const handlePaymentElementChange = React.useCallback((event: any) => {
+    setIsPaymentMethodSelected(event.complete);
+    if (event.error) {
+      setError(event.error.message);
+    } else {
+      setError(null);
+    }
+  }, []);
+
   // Debounced submit handler to prevent multiple rapid clicks
   const handleSubmit = React.useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!stripe || !elements || !solPrice || paymentStatus === 'processing') {
+    if (!stripe || !elements || !solPrice || paymentStatus === 'processing' || !isPaymentMethodSelected) {
       console.log('Payment submission blocked:', { 
         hasStripe: !!stripe, 
         hasElements: !!elements, 
         hasSolPrice: !!solPrice, 
-        paymentStatus 
+        paymentStatus,
+        isPaymentMethodSelected
       });
       return;
     }
@@ -238,6 +250,7 @@ function StripeCheckoutForm({
             billingDetails: 'auto'
           }
         }}
+        onChange={handlePaymentElementChange}
       />
 
       {error && (
@@ -249,7 +262,7 @@ function StripeCheckoutForm({
       <button
         ref={submitButtonRef}
         type="submit"
-        disabled={isProcessing}
+        disabled={isProcessing || !isPaymentMethodSelected || !stripe || !elements}
         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
       >
         {isProcessing ? (
@@ -261,6 +274,8 @@ function StripeCheckoutForm({
                 : 'Processing payment...'}
             </span>
           </>
+        ) : !isPaymentMethodSelected ? (
+          <span>Select a payment method</span>
         ) : (
           <span>Pay ${usdAmount}</span>
         )}
