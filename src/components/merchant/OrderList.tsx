@@ -26,6 +26,12 @@ import { ImageIcon } from 'lucide-react';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { Button } from '../ui/Button';
 import { addTracking } from '../../services/tracking';
+import { 
+  getTransactionUrl, 
+  formatTransactionSignature, 
+  getTransactionLabel,
+  isStripeReceiptUrl
+} from '../../utils/transactions';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -850,14 +856,14 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
                         </div>
                         {order.transactionSignature ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">Transaction:</span>
+                            <span className="text-xs text-gray-400">{getTransactionLabel(order.transactionSignature)}:</span>
                             <a
-                              href={`https://solscan.io/tx/${order.transactionSignature}`}
+                              href={getTransactionUrl(order.transactionSignature)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                              className={`text-xs ${isStripeReceiptUrl(order.transactionSignature) ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
                             >
-                              {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
+                              {formatTransactionSignature(order.transactionSignature)}
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           </div>

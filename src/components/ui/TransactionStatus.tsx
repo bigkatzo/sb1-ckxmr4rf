@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Check, AlertCircle, ExternalLink, Wallet } from 'lucide-react';
+import { getTransactionUrl, isStripeReceiptUrl } from '../../utils/transactions';
 
 interface TransactionStatusProps {
   processing: boolean;
@@ -24,10 +25,6 @@ export function TransactionStatus({
   }, [success, error, onClose]);
 
   if (!processing && !success && !error) return null;
-
-  const getSolscanUrl = (signature: string) => {
-    return `https://solscan.io/tx/${signature}`;
-  };
 
   const isInsufficientBalance = error?.toLowerCase().includes('insufficient balance');
   const errorMessage = isInsufficientBalance 
@@ -64,19 +61,35 @@ export function TransactionStatus({
             </p>
             {signature && (
               <div className="mt-2 flex flex-col gap-1">
-                <p className="text-xs opacity-90">Transaction ID:</p>
-                <code className="text-xs bg-black/20 px-2 py-1 rounded break-all font-mono">
-                  {signature}
-                </code>
-                <a
-                  href={getSolscanUrl(signature)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs mt-2 hover:underline"
-                >
-                  <span>View on Solscan</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                <p className="text-xs opacity-90">
+                  {isStripeReceiptUrl(signature) ? 'Payment Receipt:' : 'Transaction ID:'}
+                </p>
+                {isStripeReceiptUrl(signature) ? (
+                  <a
+                    href={getTransactionUrl(signature)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs mt-1 hover:underline"
+                  >
+                    <span>View Receipt</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : (
+                  <>
+                    <code className="text-xs bg-black/20 px-2 py-1 rounded break-all font-mono">
+                      {signature}
+                    </code>
+                    <a
+                      href={getTransactionUrl(signature)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs mt-2 hover:underline"
+                    >
+                      <span>View on Solscan</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </>
+                )}
               </div>
             )}
           </div>

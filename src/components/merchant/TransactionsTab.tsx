@@ -7,6 +7,10 @@ import { toast } from 'react-toastify';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import type { TransactionAnomaly, TransactionAnomalyType } from '../../types/transactions';
 import { Button } from '../ui/Button';
+import { 
+  getTransactionUrl, 
+  isStripeReceiptUrl 
+} from '../../utils/transactions';
 
 export function TransactionsTab() {
   const [anomalies, setAnomalies] = useState<TransactionAnomaly[]>([]);
@@ -357,9 +361,15 @@ export function TransactionsTab() {
                     <span className="text-xs sm:text-sm font-medium text-gray-300">
                       {anomaly.transaction_signature ? (
                         <>
-                          {anomaly.transaction_signature.slice(0, 8)}...{anomaly.transaction_signature.slice(-8)}
+                          {isStripeReceiptUrl(anomaly.transaction_signature) ? (
+                            'Stripe Payment'
+                          ) : (
+                            <>
+                              {anomaly.transaction_signature.slice(0, 8)}...{anomaly.transaction_signature.slice(-8)}
+                            </>
+                          )}
                           <a
-                            href={`https://solscan.io/tx/${anomaly.transaction_signature}`}
+                            href={getTransactionUrl(anomaly.transaction_signature)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-purple-400 hover:text-purple-300 ml-2"

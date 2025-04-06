@@ -2,6 +2,10 @@ import { motion } from 'framer-motion';
 import { ShoppingBag, ExternalLink, Share2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toPng } from 'html-to-image';
+import { 
+  getTransactionUrl, 
+  isStripeReceiptUrl 
+} from '../utils/transactions';
 
 // Shareable version without sensitive info
 const ShareableView = ({ productImage, collectionName }: { productImage?: string, collectionName: string }) => {
@@ -254,19 +258,23 @@ export function OrderSuccessView({
               </div>
               
               <div className="flex items-center justify-center space-x-2 text-xs sm:text-sm">
-                <span className="text-gray-400">Transaction:</span>
+                <span className="text-gray-400">
+                  {isStripeReceiptUrl(transactionSignature) ? 'Payment:' : 'Transaction:'}
+                </span>
                 <a
-                  href={`https://solscan.io/tx/${transactionSignature}`}
+                  href={getTransactionUrl(transactionSignature)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-purple-300 hover:text-purple-200 flex items-center gap-1"
+                  className={`${isStripeReceiptUrl(transactionSignature) ? '' : 'font-mono'} text-purple-300 hover:text-purple-200 flex items-center gap-1`}
                 >
-                  {`${transactionSignature.slice(0, 6)}...${transactionSignature.slice(-6)}`}
+                  {isStripeReceiptUrl(transactionSignature) 
+                    ? 'View Receipt' 
+                    : `${transactionSignature.slice(0, 6)}...${transactionSignature.slice(-6)}`}
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
 
-              {receiptUrl && (
+              {receiptUrl && !isStripeReceiptUrl(transactionSignature) && (
                 <div className="flex items-center justify-center space-x-2 text-xs sm:text-sm">
                   <span className="text-gray-400">Receipt:</span>
                   <a

@@ -8,6 +8,12 @@ import { ImageIcon } from 'lucide-react';
 import { OrderPageSkeleton } from '../components/ui/Skeletons';
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { 
+  getTransactionUrl, 
+  formatTransactionSignature, 
+  getTransactionLabel,
+  isStripeReceiptUrl
+} from '../utils/transactions';
 
 export function OrdersPage() {
   const { walletAddress } = useWallet();
@@ -322,15 +328,17 @@ export function OrdersPage() {
                     <div className="mt-4 pt-4 border-t border-gray-800">
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">Transaction:</span>
+                          <span className="text-xs text-gray-400">
+                            {order.transactionSignature ? getTransactionLabel(order.transactionSignature) : "Transaction"}:
+                          </span>
                           {order.transactionSignature ? (
                             <a
-                              href={`https://solscan.io/tx/${order.transactionSignature}`}
+                              href={getTransactionUrl(order.transactionSignature)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                              className={`text-xs ${isStripeReceiptUrl(order.transactionSignature) ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
                             >
-                              {order.transactionSignature.slice(0, 8)}...{order.transactionSignature.slice(-8)}
+                              {formatTransactionSignature(order.transactionSignature)}
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           ) : (
