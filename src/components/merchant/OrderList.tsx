@@ -326,20 +326,41 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
 
     // Add discount tag if applicable
     if (order.payment_metadata?.couponDiscount && order.payment_metadata?.originalPrice) {
-      const discountPercent = Math.min(
-        100,
-        Math.round((order.payment_metadata.couponDiscount / order.payment_metadata.originalPrice) * 100)
-      );
-      tags.push(
-        <span 
-          key="discount"
-          className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1"
-          title={order.payment_metadata.couponCode ? `Coupon: ${order.payment_metadata.couponCode}` : undefined}
-        >
-          <Tag className="h-3 w-3" />
-          <span>{discountPercent}% off</span>
-        </span>
-      );
+      // Display coupon code if available, otherwise fallback to calculated percentage
+      if (order.payment_metadata.couponCode) {
+        tags.push(
+          <span 
+            key="discount"
+            className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1"
+            title="Coupon applied"
+          >
+            <Tag className="h-3 w-3" />
+            <span>{order.payment_metadata.couponCode}</span>
+          </span>
+        );
+      } else {
+        // Fallback to percentage calculation if no coupon code is available
+        let discountPercent = 0;
+        
+        if (order.payment_metadata.originalPrice > 0) {
+          discountPercent = Math.min(
+            100,
+            Math.round((order.payment_metadata.couponDiscount / order.payment_metadata.originalPrice) * 100)
+          );
+        }
+        
+        if (discountPercent > 0) {
+          tags.push(
+            <span 
+              key="discount"
+              className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1"
+            >
+              <Tag className="h-3 w-3" />
+              <span>{discountPercent}% off</span>
+            </span>
+          );
+        }
+      }
     }
 
     if (tags.length === 0) return null;
