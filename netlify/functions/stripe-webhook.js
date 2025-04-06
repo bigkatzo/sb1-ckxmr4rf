@@ -114,11 +114,48 @@ exports.handler = async (event, context) => {
             throw confirmError;
           }
 
+          // Get the receipt URL from the charge
+          try {
+            // Get the charge details from Stripe
+            const charges = await stripe.charges.list({
+              payment_intent: paymentIntent.id,
+              limit: 1
+            });
+            
+            // Extract charge ID and receipt URL
+            if (charges.data.length > 0) {
+              const charge = charges.data[0];
+              const chargeId = charge.id;
+              const receiptUrl = charge.receipt_url;
+              
+              console.log('Found charge details:', { chargeId, receiptUrl });
+
+              if (chargeId && receiptUrl) {
+                // Update the transaction signature to use the receipt URL
+                const { error: signatureError } = await supabase.rpc('update_stripe_payment_signature', {
+                  p_payment_id: paymentIntent.id,
+                  p_charge_id: chargeId,
+                  p_receipt_url: receiptUrl
+                });
+
+                if (signatureError) {
+                  console.error('Error updating transaction signature:', signatureError);
+                  // Continue processing since payment is confirmed
+                } else {
+                  console.log('Updated transaction signature to receipt URL:', receiptUrl);
+                }
+              }
+            }
+          } catch (stripeError) {
+            console.error('Error fetching charge details:', stripeError);
+            // Continue processing since payment is confirmed
+          }
+
           // Verify the order status was updated
           const { data: confirmedOrder, error: verifyError } = await supabase
             .from('orders')
-            .select('id, status')
-            .eq('transaction_signature', paymentIntent.id)
+            .select('id, status, transaction_signature')
+            .eq('id', order.id)
             .single();
 
           if (verifyError || !confirmedOrder) {
