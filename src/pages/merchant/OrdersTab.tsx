@@ -16,6 +16,7 @@ export function OrdersTab() {
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<OrderStatus[]>([]);
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Extract unique products from filtered orders
@@ -64,7 +65,17 @@ export function OrdersTab() {
     }
   };
 
-  // Filter orders based on selected collections, products, and statuses
+  // Determine the payment method of an order
+  const getPaymentMethod = (order: typeof orders[0]): string => {
+    if (order.payment_metadata?.paymentMethod === 'stripe') {
+      return 'stripe';
+    }
+    // If it's not stripe, assume it's a Solana payment
+    // This could be refined further if there are other payment methods
+    return 'solana';
+  };
+
+  // Filter orders based on selected collections, products, statuses, and payment methods
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
       // Filter by collections if any are selected
@@ -82,6 +93,14 @@ export function OrdersTab() {
         return false;
       }
 
+      // Filter by payment methods if any are selected
+      if (selectedPaymentMethods.length > 0) {
+        const paymentMethod = getPaymentMethod(order);
+        if (!selectedPaymentMethods.includes(paymentMethod)) {
+          return false;
+        }
+      }
+
       // Filter by search query
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -89,13 +108,16 @@ export function OrdersTab() {
           order.order_number?.toLowerCase().includes(query) ||
           order.product_name?.toLowerCase().includes(query) ||
           order.collection_name?.toLowerCase().includes(query) ||
-          order.tracking_number?.toLowerCase().includes(query)
+          (order.tracking?.tracking_number?.toLowerCase().includes(query) || false) ||
+          order.payment_metadata?.couponCode?.toLowerCase().includes(query) ||
+          order.contactInfo?.phoneNumber?.toLowerCase().includes(query) ||
+          order.contactInfo?.fullName?.toLowerCase().includes(query)
         );
       }
 
       return true;
     });
-  }, [orders, selectedCollections, selectedProducts, selectedStatuses, searchQuery]);
+  }, [orders, selectedCollections, selectedProducts, selectedStatuses, selectedPaymentMethods, searchQuery]);
 
   if (loading) {
     return (
@@ -129,10 +151,12 @@ export function OrdersTab() {
           selectedCollections={selectedCollections}
           selectedProducts={selectedProducts}
           selectedStatuses={selectedStatuses}
+          selectedPaymentMethods={selectedPaymentMethods}
           searchQuery={searchQuery}
           onCollectionChange={setSelectedCollections}
           onProductChange={setSelectedProducts}
           onStatusChange={setSelectedStatuses}
+          onPaymentMethodChange={setSelectedPaymentMethods}
           onSearchChange={setSearchQuery}
         />
       </div>

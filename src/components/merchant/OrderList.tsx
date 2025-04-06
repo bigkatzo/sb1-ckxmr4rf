@@ -58,9 +58,10 @@ const safeParseDate = (date: any): Date => {
 interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
+  onTrackingUpdate?: (orderId: string, trackingNumber: string) => Promise<void>;
 }
 
-export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
+export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderListProps) {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [editingTrackingId, setEditingTrackingId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
@@ -110,7 +111,11 @@ export function OrderList({ orders, onStatusUpdate }: OrderListProps) {
     }
     
     try {
-      await addTracking(orderId, trackingNumber);
+      if (onTrackingUpdate) {
+        await onTrackingUpdate(orderId, trackingNumber);
+      } else {
+        await addTracking(orderId, trackingNumber);
+      }
       setEditingTrackingId(null);
       toast.success('Tracking number added successfully');
     } catch (error) {
