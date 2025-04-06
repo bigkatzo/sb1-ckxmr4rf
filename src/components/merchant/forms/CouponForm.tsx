@@ -159,7 +159,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 p-3 sm:p-4">
       <div>
         <label className="block text-sm font-medium text-gray-200 mb-1">
           Coupon Code
@@ -168,11 +168,11 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           type="text"
           value={formData.code}
           onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-          className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
           placeholder="Enter coupon code"
         />
         {errors.code && (
-          <p className="mt-1 text-sm text-red-500">{errors.code}</p>
+          <p className="mt-1 text-xs sm:text-sm text-red-500">{errors.code}</p>
         )}
       </div>
 
@@ -182,9 +182,9 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
         </label>
         <div className="max-h-[200px] overflow-y-auto bg-gray-800 rounded-lg p-2">
           {collectionsLoading ? (
-            <p className="text-gray-400 p-2">Loading collections...</p>
+            <p className="text-gray-400 p-2 text-xs sm:text-sm">Loading collections...</p>
           ) : collections.length === 0 ? (
-            <p className="text-gray-400 p-2">No collections found</p>
+            <p className="text-gray-400 p-2 text-xs sm:text-sm">No collections found</p>
           ) : (
             <div className="space-y-2">
               {collections.map(collection => (
@@ -203,13 +203,13 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
                     }}
                     className="rounded border-gray-600 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
                   />
-                  <span className="text-white">{collection.name}</span>
+                  <span className="text-white text-xs sm:text-sm">{collection.name}</span>
                 </label>
               ))}
             </div>
           )}
         </div>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-xs sm:text-sm text-gray-400">
           Leave all unchecked to apply to all collections
         </p>
       </div>
@@ -225,7 +225,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
             discount_type: e.target.value as 'fixed_sol' | 'percentage',
             max_discount: e.target.value === 'fixed_sol' ? undefined : formData.max_discount
           })}
-          className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
         >
           <option value="fixed_sol">Fixed SOL Amount</option>
           <option value="percentage">Percentage</option>
@@ -242,7 +242,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
             step="0.000000001"
             value={formData.discount_value}
             onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) })}
-            className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
             placeholder={formData.discount_type === 'fixed_sol' ? "Enter SOL amount" : "Enter percentage"}
           />
           <span className="absolute right-3 top-2 text-gray-400">
@@ -250,7 +250,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           </span>
         </div>
         {errors.discount_value && (
-          <p className="mt-1 text-sm text-red-500">{errors.discount_value}</p>
+          <p className="mt-1 text-xs sm:text-sm text-red-500">{errors.discount_value}</p>
         )}
       </div>
 
@@ -267,18 +267,18 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
               ...formData, 
               max_discount: e.target.value === '' ? undefined : parseFloat(e.target.value) 
             })}
-            className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
             placeholder="Optional maximum discount in SOL"
           />
           {errors.max_discount && (
-            <p className="mt-1 text-sm text-red-500">{errors.max_discount}</p>
+            <p className="mt-1 text-xs sm:text-sm text-red-500">{errors.max_discount}</p>
           )}
         </div>
       )}
 
       {/* Eligibility Rules Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <label className="block text-sm font-medium text-gray-200">
             Eligibility Rules
           </label>
@@ -287,7 +287,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
             variant="secondary"
             size="sm"
             onClick={addRuleGroup}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-xs"
           >
             <Plus className="h-4 w-4" />
             Add Rule Group
@@ -295,13 +295,13 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
         </div>
 
         {formData.eligibility_rules?.groups.map((group, groupIndex) => (
-          <div key={groupIndex} className="space-y-4 p-4 bg-gray-800/50 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+          <div key={groupIndex} className="space-y-4 p-3 sm:p-4 bg-gray-800/50 rounded-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <select
                   value={group.operator}
                   onChange={(e) => updateGroupOperator(groupIndex, e.target.value as 'AND' | 'OR')}
-                  className="bg-gray-800 text-white rounded-lg px-3 py-1 text-sm"
+                  className="bg-gray-800 text-white rounded-lg px-2 py-1 text-xs sm:text-sm"
                 >
                   <option value="AND">AND</option>
                   <option value="OR">OR</option>
@@ -311,6 +311,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
                   variant="secondary"
                   size="sm"
                   onClick={() => addRule(groupIndex)}
+                  className="text-xs"
                 >
                   Add Rule
                 </Button>
@@ -320,6 +321,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
                 variant="danger"
                 size="sm"
                 onClick={() => removeRuleGroup(groupIndex)}
+                className="text-xs"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -327,13 +329,13 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
 
             {group.rules.map((rule, ruleIndex) => (
               <div key={ruleIndex} className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <select
                     value={rule.type}
                     onChange={(e) => updateRule(groupIndex, ruleIndex, {
                       type: e.target.value as 'token' | 'nft' | 'whitelist'
                     })}
-                    className="bg-gray-800 text-white rounded-lg px-3 py-2 text-sm"
+                    className="bg-gray-800 text-white rounded-lg px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm"
                   >
                     <option value="token">Token</option>
                     <option value="nft">NFT</option>
@@ -345,7 +347,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
                     onChange={(e) => updateRule(groupIndex, ruleIndex, {
                       value: e.target.value
                     })}
-                    className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 text-sm"
+                    className="flex-1 bg-gray-800 text-white rounded-lg px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm"
                     placeholder={rule.type === 'whitelist' ? 'Whitelist ID' : 'Contract Address'}
                   />
                   <Button
@@ -353,6 +355,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
                     variant="danger"
                     size="sm"
                     onClick={() => removeRule(groupIndex, ruleIndex)}
+                    className="text-xs"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -360,7 +363,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
 
                 {(rule.type === 'token' || rule.type === 'nft') && (
                   <div className="flex items-center gap-2 pl-0 sm:pl-[calc(25%+1rem)]">
-                    <label className="text-sm text-gray-400 whitespace-nowrap">
+                    <label className="text-xs sm:text-sm text-gray-400 whitespace-nowrap">
                       Required {rule.type === 'nft' ? 'NFTs' : 'Amount'}:
                     </label>
                     <input
@@ -370,7 +373,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
                       onChange={(e) => updateRule(groupIndex, ruleIndex, {
                         quantity: parseInt(e.target.value, 10)
                       })}
-                      className="w-32 rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
+                      className="w-20 sm:w-32 rounded-lg bg-gray-800 border-gray-700 px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm text-white"
                     />
                   </div>
                 )}
@@ -380,7 +383,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
         ))}
 
         {formData.eligibility_rules?.groups.length === 0 && (
-          <div className="text-center text-gray-400 py-8">
+          <div className="text-center text-xs sm:text-sm text-gray-400 py-6 sm:py-8">
             No rule groups added. Click "Add Rule Group" to create eligibility rules.
           </div>
         )}
@@ -391,11 +394,13 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           type="button"
           variant="secondary"
           onClick={onClose}
+          className="text-xs sm:text-sm"
         >
           Cancel
         </Button>
         <Button
           type="submit"
+          className="text-xs sm:text-sm"
         >
           {initialData ? 'Update Coupon' : 'Create Coupon'}
         </Button>

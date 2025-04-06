@@ -279,11 +279,12 @@ export function TransactionsTab() {
         </div>
 
         {/* Filter Controls */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
           <Button
             size="sm"
             variant={selectedType === 'all' ? 'primary' : 'secondary'}
             onClick={() => setSelectedType('all')}
+            className="text-xs whitespace-nowrap"
           >
             All
           </Button>
@@ -291,6 +292,7 @@ export function TransactionsTab() {
             size="sm"
             variant={selectedType === 'failed_payment' ? 'primary' : 'secondary'}
             onClick={() => setSelectedType('failed_payment')}
+            className="text-xs whitespace-nowrap"
           >
             Failed Payments
           </Button>
@@ -298,6 +300,7 @@ export function TransactionsTab() {
             size="sm"
             variant={selectedType === 'rejected_payment' ? 'primary' : 'secondary'}
             onClick={() => setSelectedType('rejected_payment')}
+            className="text-xs whitespace-nowrap"
           >
             Rejected Payments
           </Button>
@@ -305,6 +308,7 @@ export function TransactionsTab() {
             size="sm"
             variant={selectedType === 'orphaned_transaction' ? 'primary' : 'secondary'}
             onClick={() => setSelectedType('orphaned_transaction')}
+            className="text-xs whitespace-nowrap"
           >
             Orphaned Transactions
           </Button>
@@ -312,6 +316,7 @@ export function TransactionsTab() {
             size="sm"
             variant={selectedType === 'abandoned_order' ? 'primary' : 'secondary'}
             onClick={() => setSelectedType('abandoned_order')}
+            className="text-xs whitespace-nowrap"
           >
             Abandoned Orders
           </Button>
@@ -319,6 +324,7 @@ export function TransactionsTab() {
             size="sm"
             variant={selectedType === 'pending_timeout' ? 'primary' : 'secondary'}
             onClick={() => setSelectedType('pending_timeout')}
+            className="text-xs whitespace-nowrap"
           >
             Pending Timeout
           </Button>
@@ -326,6 +332,7 @@ export function TransactionsTab() {
             size="sm"
             variant={selectedType === 'mismatched_amount' ? 'primary' : 'secondary'}
             onClick={() => setSelectedType('mismatched_amount')}
+            className="text-xs whitespace-nowrap"
           >
             Amount Mismatch
           </Button>
@@ -333,18 +340,19 @@ export function TransactionsTab() {
             size="sm"
             variant={selectedType === 'multiple_transactions' ? 'primary' : 'secondary'}
             onClick={() => setSelectedType('multiple_transactions')}
+            className="text-xs whitespace-nowrap"
           >
             Multiple Transactions
           </Button>
         </div>
 
         {error ? (
-          <div className="bg-red-500/10 text-red-500 rounded-lg p-4">
+          <div className="bg-red-500/10 text-red-500 rounded-lg p-3 sm:p-4">
             <p className="text-xs sm:text-sm">{error}</p>
           </div>
         ) : filteredAnomalies.length === 0 ? (
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="bg-gray-900 rounded-lg p-3 sm:p-4">
+            <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
               <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600 mb-3" />
               <p className="text-gray-400 text-xs sm:text-sm">
                 No transaction anomalies found.
@@ -354,11 +362,11 @@ export function TransactionsTab() {
         ) : (
           <div className="space-y-3">
             {filteredAnomalies.map((anomaly) => (
-              <div key={anomaly.id} className="bg-gray-900 rounded-lg p-3">
+              <div key={anomaly.id} className="bg-gray-900 rounded-lg p-3 sm:p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 pb-3 border-b border-gray-800">
                   <div className="flex items-center gap-2 min-w-0">
                     {getAnomalyIcon(anomaly.type)}
-                    <span className="text-xs sm:text-sm font-medium text-gray-300">
+                    <span className="text-xs sm:text-sm font-medium text-gray-300 truncate">
                       {anomaly.transaction_signature ? (
                         <>
                           {isStripeReceiptUrl(anomaly.transaction_signature) ? (
@@ -418,12 +426,12 @@ export function TransactionsTab() {
                   {(anomaly.product_name || anomaly.product_sku) && (
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
                       {anomaly.product_name && (
-                        <span className="text-xs sm:text-sm font-medium">
+                        <span className="text-xs sm:text-sm font-medium truncate">
                           {anomaly.product_name}
                         </span>
                       )}
                       {anomaly.product_sku && (
-                        <span className="text-[10px] sm:text-xs text-gray-400">
+                        <span className="text-[10px] sm:text-xs text-gray-400 truncate">
                           SKU: {anomaly.product_sku}
                         </span>
                       )}
@@ -433,17 +441,17 @@ export function TransactionsTab() {
                   {/* Amount Info */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
                     {anomaly.amount_sol && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-[10px] sm:text-xs text-gray-400">
                         Amount: {anomaly.amount_sol} SOL
                       </span>
                     )}
                     {anomaly.expected_amount_sol && anomaly.amount_sol !== anomaly.expected_amount_sol && (
-                      <span className="text-xs text-yellow-400">
+                      <span className="text-[10px] sm:text-xs text-yellow-400">
                         Expected: {anomaly.expected_amount_sol} SOL
                       </span>
                     )}
                     {anomaly.buyer_address && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-[10px] sm:text-xs text-gray-400">
                         Buyer: {anomaly.buyer_address.slice(0, 4)}...{anomaly.buyer_address.slice(-4)}
                       </span>
                     )}
@@ -452,7 +460,7 @@ export function TransactionsTab() {
                   {/* Order Status */}
                   {anomaly.order_status && (
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      <span className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full ${
                         anomaly.order_status === 'draft'
                           ? 'bg-gray-500/10 text-gray-400'
                           : anomaly.order_status === 'pending_payment'
@@ -476,7 +484,7 @@ export function TransactionsTab() {
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center justify-between pt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 gap-2">
                     <span className="text-[10px] sm:text-xs text-gray-400">
                       Retry count: {anomaly.retry_count}
                     </span>
