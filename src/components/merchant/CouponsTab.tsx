@@ -8,6 +8,7 @@ import type { Coupon } from '../../types/coupons';
 import CouponForm from './forms/CouponForm';
 import Modal from '../ui/Modal';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { RefreshButton } from '../ui/RefreshButton';
 
 export function CouponsTab() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -23,6 +24,7 @@ export function CouponsTab() {
 
   const loadCoupons = async () => {
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('coupons')
         .select('*')
@@ -128,35 +130,41 @@ export function CouponsTab() {
   };
 
   if (loading) {
-    return <Loading type={LoadingType.CONTENT} />;
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loading type={LoadingType.PAGE} />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6 px-3 sm:px-6 lg:px-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base sm:text-xl font-semibold text-white">Coupons</h2>
-          <p className="text-xs sm:text-sm text-gray-400 mt-1">
-            Manage discount coupons for your products
-          </p>
+    <div className="px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">Coupons</h2>
+            <RefreshButton onRefresh={loadCoupons} />
+          </div>
+          <Button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden xs:inline">Add Coupon</span>
+            <span className="xs:hidden">Add</span>
+          </Button>
         </div>
-        <Button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden xs:inline">Add Coupon</span>
-          <span className="xs:hidden">Add</span>
-        </Button>
+        <p className="text-sm text-gray-400">
+          Manage discount coupons for your products
+        </p>
       </div>
 
       {/* Coupons List */}
       {coupons.length === 0 ? (
-        <div className="text-center py-8 sm:py-12 bg-gray-800/50 rounded-lg">
-          <Tag className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400 mx-auto mb-3" />
-          <h3 className="text-base sm:text-lg font-medium text-gray-300 mb-2">No Coupons Yet</h3>
-          <p className="text-xs sm:text-sm text-gray-400 max-w-sm mx-auto mb-4">
+        <div className="text-center py-8 bg-gray-900 rounded-lg">
+          <Tag className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+          <h3 className="text-lg font-medium text-gray-300 mb-2">No Coupons Yet</h3>
+          <p className="text-sm text-gray-400 max-w-sm mx-auto mb-4">
             Create your first coupon to start offering discounts to your customers.
           </p>
           <Button
@@ -168,17 +176,17 @@ export function CouponsTab() {
             <span>Add Your First Coupon</span>
           </Button>
         </div>
-      ) :
-        <div className="grid gap-4">
+      ) : (
+        <div className="space-y-3">
           {coupons.map((coupon) => (
             <div
               key={coupon.id}
-              className="bg-gray-800/50 rounded-lg p-3 sm:p-4"
+              className="bg-gray-900 rounded-lg p-4"
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-sm sm:text-base text-white">{coupon.code}</h3>
+                    <h3 className="font-medium text-base text-white">{coupon.code}</h3>
                     <span className={`text-xs px-2 py-0.5 rounded ${
                       coupon.status === 'active' 
                         ? 'bg-green-500/10 text-green-400'
@@ -187,14 +195,14 @@ export function CouponsTab() {
                       {coupon.status}
                     </span>
                   </div>
-                  <p className="text-xs sm:text-sm text-gray-400">
+                  <p className="text-sm text-gray-400">
                     {coupon.discount_type === 'fixed_sol' 
                       ? `${coupon.discount_value} SOL off`
                       : `${coupon.discount_value}% off`}
                     {coupon.max_discount && ` (max ${coupon.max_discount} SOL)`}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                <div className="flex items-center gap-2">
                   <Button
                     variant="secondary"
                     size="sm"
@@ -202,7 +210,6 @@ export function CouponsTab() {
                       setEditingCoupon(coupon);
                       setShowAddModal(true);
                     }}
-                    className="text-xs"
                   >
                     Edit
                   </Button>
@@ -213,7 +220,6 @@ export function CouponsTab() {
                       coupon.id,
                       coupon.status === 'active' ? 'inactive' : 'active'
                     )}
-                    className="text-xs"
                   >
                     {coupon.status === 'active' ? 'Deactivate' : 'Activate'}
                   </Button>
@@ -224,7 +230,6 @@ export function CouponsTab() {
                       setDeletingCoupon(coupon);
                       setShowDeleteConfirm(true);
                     }}
-                    className="text-xs"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -233,7 +238,7 @@ export function CouponsTab() {
             </div>
           ))}
         </div>
-      }
+      )}
 
       {/* Add/Edit Coupon Modal */}
       <Modal
@@ -255,19 +260,17 @@ export function CouponsTab() {
       </Modal>
 
       {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && deletingCoupon && (
-        <ConfirmDialog
-          open={showDeleteConfirm}
-          onClose={() => {
-            setShowDeleteConfirm(false);
-            setDeletingCoupon(null);
-          }}
-          title="Delete Coupon"
-          description={`Are you sure you want to delete the coupon "${deletingCoupon.code}"? This action cannot be undone.`}
-          confirmLabel="Delete"
-          onConfirm={handleDeleteCoupon}
-        />
-      )}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setDeletingCoupon(null);
+        }}
+        title="Delete Coupon"
+        description={`Are you sure you want to delete the coupon "${deletingCoupon?.code}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteCoupon}
+      />
     </div>
   );
 }
