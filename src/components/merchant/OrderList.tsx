@@ -168,20 +168,34 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
         throw new Error('No orders to export');
       }
 
-      const headers = [
-        'Order Number',
-        'Date',
-        'Status',
-        'Product',
-        'SKU',
-        'Amount (SOL)',
-        'Collection',
-        'Category',
-        'Shipping Address',
-        'Contact',
-        'Wallet',
-        'Transaction'
-      ];
+      // Define the headers and mapping according to the specified format
+      const csvMapping = {
+        "SKU Code": null,
+        "Store ID": null,
+        "Order Number": "order_number",
+        "Hypersku Quantity": null,
+        "First Name": "contact_info.full_name",
+        "Last Name": null,
+        "Address1": "shipping_info.address",
+        "Address2": null,
+        "City": "shipping_info.city",
+        "Province": null,
+        "Country": "shipping_info.country",
+        "Zip": "shipping_info.zip",
+        "Phone Number": "contact_info.phone",
+        "Tracking URL": null,
+        "Product SKU": "product_sku",
+        "Product Name": "product_name",
+        "Variant Selections": "variant_selections",
+        "Contact": "contact_value",
+        "Contact Method": "contact_info.method",
+        "Wallet Address": "wallet_address",
+        "Transaction": "transaction_signature",
+        "SOL Amount": "ammount_sol",
+        "Payment Metadata": "payment_metadata"
+      };
+
+      const headers = Object.keys(csvMapping);
 
       const escapeCSV = (value: any): string => {
         if (value === null || value === undefined) return '';
@@ -192,48 +206,76 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
         return str;
       };
 
-      const formatShippingAddressCSV = (address: any): string => {
-        if (!address) return '';
-        try {
-          const { address: addr, city, country, zip } = address;
-          return [addr, city, zip, country].filter(Boolean).join(', ');
-        } catch (err) {
-          console.warn('Error formatting shipping address:', err);
-          return '';
-        }
-      };
-
-      const formatContactInfoCSV = (contact: any): string => {
-        if (!contact || !contact.method || !contact.value) return '';
-        try {
-          const parts = [
-            `${contact.method}: ${contact.value}`,
-            contact.fullName ? `Name: ${contact.fullName}` : null,
-            contact.phoneNumber ? `Phone: ${contact.phoneNumber}` : null
-          ].filter(Boolean);
-          return parts.join(' | ');
-        } catch (err) {
-          console.warn('Error formatting contact info:', err);
-          return '';
-        }
-      };
-
       const rows = filteredOrders.map((order, index) => {
         try {
-          return [
-            escapeCSV(order.order_number),
-            escapeCSV(format(safeParseDate(order.createdAt), 'yyyy-MM-dd HH:mm:ss')),
-            escapeCSV(order.status),
-            escapeCSV(order.product_name),
-            escapeCSV(order.product_sku || ''),
-            escapeCSV(typeof order.amountSol === 'number' ? order.amountSol.toFixed(2) : ''),
-            escapeCSV(order.collection_name),
-            escapeCSV(order.category_name || ''),
-            escapeCSV(formatShippingAddressCSV(order.shippingAddress)),
-            escapeCSV(formatContactInfoCSV(order.contactInfo)),
-            escapeCSV(order.walletAddress || ''),
-            escapeCSV(order.transactionSignature || '')
-          ];
+          const row = headers.map(header => {
+            const fieldPath = csvMapping[header as keyof typeof csvMapping];
+            
+            if (!fieldPath) return '';
+            
+            // Handle special fields with dot notation (nested properties)
+            if (fieldPath.includes('.')) {
+              const [parent, child] = fieldPath.split('.');
+              
+              if (parent === 'contact_info') {
+                if (child === 'full_name' && order.contactInfo) {
+                  return escapeCSV(order.contactInfo.fullName || '');
+                }
+                if (child === 'method' && order.contactInfo) {
+                  return escapeCSV(order.contactInfo.method || '');
+                }
+                if (child === 'phone' && order.contactInfo) {
+                  return escapeCSV(order.contactInfo.phoneNumber || '');
+                }
+              }
+              
+              if (parent === 'shipping_info') {
+                if (child === 'address' && order.shippingAddress) {
+                  return escapeCSV(order.shippingAddress.address || '');
+                }
+                if (child === 'city' && order.shippingAddress) {
+                  return escapeCSV(order.shippingAddress.city || '');
+                }
+                if (child === 'country' && order.shippingAddress) {
+                  return escapeCSV(order.shippingAddress.country || '');
+                }
+                if (child === 'zip' && order.shippingAddress) {
+                  return escapeCSV(order.shippingAddress.zip || '');
+                }
+              }
+              
+              return '';
+            }
+            
+            // Handle direct field mappings
+            switch (fieldPath) {
+              case 'order_number':
+                return escapeCSV(order.order_number);
+              case 'product_sku':
+                return escapeCSV(order.product_sku || '');
+              case 'product_name':
+                return escapeCSV(order.product_name || '');
+              case 'variant_selections':
+                if (order.variant_selections && Array.isArray(order.variant_selections)) {
+                  return escapeCSV(order.variant_selections.map(v => `${v.name}: ${v.value}`).join(', '));
+                }
+                return '';
+              case 'contact_value':
+                return order.contactInfo ? escapeCSV(order.contactInfo.value || '') : '';
+              case 'wallet_address':
+                return escapeCSV(order.walletAddress || '');
+              case 'transaction_signature':
+                return escapeCSV(order.transactionSignature || '');
+              case 'ammount_sol':
+                return escapeCSV(typeof order.amountSol === 'number' ? order.amountSol.toFixed(2) : '');
+              case 'payment_metadata':
+                return order.payment_metadata ? escapeCSV(JSON.stringify(order.payment_metadata)) : '';
+              default:
+                return '';
+            }
+          });
+          
+          return row;
         } catch (err) {
           console.error(`Error processing order at index ${index}:`, err);
           // Return a row of empty values if there's an error
