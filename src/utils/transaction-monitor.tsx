@@ -157,7 +157,6 @@ export async function monitorTransaction(
   processedSignatures.add(signature);
 
   let attempts = 0;
-  let isBackoffMode = false;
   const toastId = toast.loading('Processing transaction...');
 
   try {
