@@ -1,5 +1,5 @@
-import { Search, ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { Search, ChevronDown, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import type { OrderStatus } from '../../types/orders';
 
 interface OrderFiltersProps {
@@ -32,6 +32,32 @@ export function OrderFilters({
   onSearchChange
 }: OrderFiltersProps) {
   const [openDropdown, setOpenDropdown] = useState<'status' | 'collection' | 'product' | 'payment' | null>(null);
+  const [collectionSearch, setCollectionSearch] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle clicks outside dropdowns
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdown(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Filter collections based on search term
+  const filteredCollections = collections.filter(collection => 
+    collection.name.toLowerCase().includes(collectionSearch.toLowerCase())
+  );
+
+  // Filter products based on search term
+  const filteredProducts = products.filter(product => 
+    product.name.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   const handleStatusChange = (status: OrderStatus) => {
     if (selectedStatuses.includes(status)) {
@@ -65,11 +91,51 @@ export function OrderFilters({
     }
   };
 
+  const handleSelectAllCollections = () => {
+    if (selectedCollections.length === filteredCollections.length) {
+      // Deselect all if all are already selected
+      onCollectionChange([]);
+    } else {
+      // Select all filtered collections
+      onCollectionChange(filteredCollections.map(c => c.id));
+    }
+  };
+
+  const handleSelectAllProducts = () => {
+    if (selectedProducts.length === filteredProducts.length) {
+      // Deselect all if all are already selected
+      onProductChange([]);
+    } else {
+      // Select all filtered products
+      onProductChange(filteredProducts.map(p => p.id));
+    }
+  };
+
+  const handleSelectAllStatuses = (statuses: OrderStatus[]) => {
+    if (selectedStatuses.length === statuses.length) {
+      // Deselect all if all are already selected
+      onStatusChange([]);
+    } else {
+      // Select all statuses
+      onStatusChange([...statuses]);
+    }
+  };
+
+  const handleSelectAllPaymentMethods = (methods: string[]) => {
+    if (selectedPaymentMethods.length === methods.length) {
+      // Deselect all if all are already selected
+      onPaymentMethodChange([]);
+    } else {
+      // Select all payment methods
+      onPaymentMethodChange([...methods]);
+    }
+  };
+
   const statuses: OrderStatus[] = ['confirmed', 'shipped', 'delivered', 'cancelled', 'draft', 'pending_payment'];
   const paymentMethods = ['solana', 'stripe'];
 
   return (
-    <div className="flex flex-col sm:flex-row gap-2">
+    <div className="flex flex-col sm:flex-row gap-2" ref={dropdownRef}>
       {/* Search Box */}
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
@@ -94,20 +160,71 @@ export function OrderFilters({
           </button>
           {openDropdown === 'collection' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
-              {collections.map((collection) => (
+              {/* Search input */}
+              <div className="p-2 border-b border-gray-700">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search collections..."
+                    value={collectionSearch}
+                    onChange={(e) => setCollectionSearch(e.target.value)}
+                    className="w-full bg-gray-700 text-white rounded-md pl-8 pr-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  {collectionSearch && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCollectionSearch('');
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                    >
+                      <X className="h-3.5 w-3.5 text-gray-400 hover:text-white" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Select All option */}
+              <div className="max-h-60 overflow-y-auto">
                 <label
-                  key={collection.id}
-                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700"
                 >
                   <input
                     type="checkbox"
-                    checked={selectedCollections.includes(collection.id)}
-                    onChange={() => handleCollectionChange(collection.id)}
+                    checked={selectedCollections.length === filteredCollections.length && filteredCollections.length > 0}
+                    onChange={handleSelectAllCollections}
                     className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
                   />
-                  <span className="text-xs sm:text-sm">{collection.name}</span>
+                  <span className="text-xs sm:text-sm font-medium">
+                    {selectedCollections.length === filteredCollections.length && filteredCollections.length > 0
+                      ? 'Deselect All'
+                      : 'Select All'}
+                  </span>
                 </label>
-              ))}
+                
+                {filteredCollections.map((collection) => (
+                  <label
+                    key={collection.id}
+                    className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCollections.includes(collection.id)}
+                      onChange={() => handleCollectionChange(collection.id)}
+                      className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    />
+                    <span className="text-xs sm:text-sm">{collection.name}</span>
+                  </label>
+                ))}
+                
+                {filteredCollections.length === 0 && (
+                  <div className="px-3 py-2 text-gray-400 text-xs">
+                    No collections found
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -123,20 +240,71 @@ export function OrderFilters({
           </button>
           {openDropdown === 'product' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
-              {products.map((product) => (
+              {/* Search input */}
+              <div className="p-2 border-b border-gray-700">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="w-full bg-gray-700 text-white rounded-md pl-8 pr-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  {productSearch && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProductSearch('');
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                    >
+                      <X className="h-3.5 w-3.5 text-gray-400 hover:text-white" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Select All option */}
+              <div className="max-h-60 overflow-y-auto">
                 <label
-                  key={product.id}
-                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700"
                 >
                   <input
                     type="checkbox"
-                    checked={selectedProducts.includes(product.id)}
-                    onChange={() => handleProductChange(product.id)}
+                    checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
+                    onChange={handleSelectAllProducts}
                     className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
                   />
-                  <span className="text-xs sm:text-sm">{product.name}</span>
+                  <span className="text-xs sm:text-sm font-medium">
+                    {selectedProducts.length === filteredProducts.length && filteredProducts.length > 0
+                      ? 'Deselect All'
+                      : 'Select All'}
+                  </span>
                 </label>
-              ))}
+                
+                {filteredProducts.map((product) => (
+                  <label
+                    key={product.id}
+                    className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.includes(product.id)}
+                      onChange={() => handleProductChange(product.id)}
+                      className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    />
+                    <span className="text-xs sm:text-sm">{product.name}</span>
+                  </label>
+                ))}
+                
+                {filteredProducts.length === 0 && (
+                  <div className="px-3 py-2 text-gray-400 text-xs">
+                    No products found
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -152,22 +320,39 @@ export function OrderFilters({
           </button>
           {openDropdown === 'status' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
-              {statuses.map((status) => (
+              {/* Select All option */}
+              <div className="max-h-60 overflow-y-auto">
                 <label
-                  key={status}
-                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700"
                 >
                   <input
                     type="checkbox"
-                    checked={selectedStatuses.includes(status)}
-                    onChange={() => handleStatusChange(status)}
+                    checked={selectedStatuses.length === statuses.length}
+                    onChange={() => handleSelectAllStatuses(statuses)}
                     className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
                   />
-                  <span className="text-xs sm:text-sm">
-                    {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                  <span className="text-xs sm:text-sm font-medium">
+                    {selectedStatuses.length === statuses.length ? 'Deselect All' : 'Select All'}
                   </span>
                 </label>
-              ))}
+                
+                {statuses.map((status) => (
+                  <label
+                    key={status}
+                    className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedStatuses.includes(status)}
+                      onChange={() => handleStatusChange(status)}
+                      className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    />
+                    <span className="text-xs sm:text-sm">
+                      {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -183,22 +368,39 @@ export function OrderFilters({
           </button>
           {openDropdown === 'payment' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
-              {paymentMethods.map((method) => (
+              {/* Select All option */}
+              <div className="max-h-60 overflow-y-auto">
                 <label
-                  key={method}
-                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                  className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700"
                 >
                   <input
                     type="checkbox"
-                    checked={selectedPaymentMethods.includes(method)}
-                    onChange={() => handlePaymentMethodChange(method)}
+                    checked={selectedPaymentMethods.length === paymentMethods.length}
+                    onChange={() => handleSelectAllPaymentMethods(paymentMethods)}
                     className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
                   />
-                  <span className="text-xs sm:text-sm">
-                    {method.charAt(0).toUpperCase() + method.slice(1)}
+                  <span className="text-xs sm:text-sm font-medium">
+                    {selectedPaymentMethods.length === paymentMethods.length ? 'Deselect All' : 'Select All'}
                   </span>
                 </label>
-              ))}
+                
+                {paymentMethods.map((method) => (
+                  <label
+                    key={method}
+                    className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedPaymentMethods.includes(method)}
+                      onChange={() => handlePaymentMethodChange(method)}
+                      className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    />
+                    <span className="text-xs sm:text-sm">
+                      {method.charAt(0).toUpperCase() + method.slice(1)}
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
         </div>
