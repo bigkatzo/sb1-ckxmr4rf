@@ -78,6 +78,12 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
     try {
       console.log('Registering tracking number with 17TRACK:', trackingNumber);
       
+      // Get carrier code if a carrier was specified
+      const carrierCode = carrier ? getCarrierCode(carrier) : 0;
+      const useAutoDetection = !carrier || carrierCode === 0;
+      
+      console.log(`Using carrier: ${carrier}, code: ${carrierCode}, auto_detection: ${useAutoDetection}`);
+      
       // Use our serverless function to avoid CSP issues
       const response = await fetch(API_PROXY_URL, {
         method: 'POST',
@@ -88,7 +94,8 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
           action: 'register',
           payload: {
             number: trackingNumber,
-            auto_detection: true,
+            auto_detection: useAutoDetection,
+            carrier: carrierCode > 0 ? carrierCode : undefined,
             order_id: orderId
           }
         })

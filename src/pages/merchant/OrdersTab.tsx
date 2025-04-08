@@ -49,9 +49,9 @@ export function OrdersTab() {
     }
   };
 
-  const handleTrackingUpdate = async (orderId: string, trackingNumber: string) => {
+  const handleTrackingUpdate = async (orderId: string, trackingNumber: string, carrier: string = '') => {
     try {
-      console.log(`OrdersTab: Updating tracking for order ${orderId}: ${trackingNumber ? trackingNumber : '(empty)'}`);
+      console.log(`OrdersTab: Updating tracking for order ${orderId}: ${trackingNumber ? trackingNumber : '(empty)'}, carrier: ${carrier || 'not specified'}`);
       
       if (!trackingNumber.trim()) {
         console.log('Clearing tracking number for order:', orderId);
@@ -81,11 +81,11 @@ export function OrdersTab() {
           toast.info('No tracking number found to delete');
         }
       } else {
-        console.log('Setting tracking number:', trackingNumber);
+        console.log('Setting tracking number:', trackingNumber, 'with carrier:', carrier);
         
         try {
-          // Use the tracking service to add tracking
-          await addTracking(orderId, trackingNumber);
+          // Use the tracking service to add tracking with the specified carrier
+          await addTracking(orderId, trackingNumber, carrier || 'usps');
           toast.success('Tracking number added successfully');
         } catch (addError: any) {
           // Special handling for timeout errors which might actually succeed in the background

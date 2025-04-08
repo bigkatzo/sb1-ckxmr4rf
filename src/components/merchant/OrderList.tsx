@@ -58,7 +58,7 @@ const safeParseDate = (date: any): Date => {
 interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
-  onTrackingUpdate?: (orderId: string, trackingNumber: string) => Promise<void>;
+  onTrackingUpdate?: (orderId: string, trackingNumber: string, carrier?: string) => Promise<void>;
   refreshOrders?: () => Promise<void>;
 }
 
@@ -101,7 +101,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     }
   };
 
-  const handleTrackingUpdate = async (orderId: string, trackingNumber: string) => {
+  const handleTrackingUpdate = async (orderId: string, trackingNumber: string, carrier: string = '') => {
     const order = orders.find(o => o.id === orderId);
     if (!order) {
       console.error('Order not found:', orderId);
@@ -116,7 +116,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     }
     
     try {
-      console.log(`Adding tracking for order ${orderId}: ${trackingNumber}`);
+      console.log(`Adding tracking for order ${orderId}: ${trackingNumber}, carrier: ${carrier || 'not specified'}`);
       
       // If tracking number is empty, treat it as a removal (though this shouldn't happen with UI changes)
       if (!trackingNumber.trim()) {
@@ -146,7 +146,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         if (onTrackingUpdate) {
           try {
             console.log('Updating order with empty tracking');
-            await onTrackingUpdate(orderId, '');
+            await onTrackingUpdate(orderId, '', '');
           } catch (updateError) {
             console.error('Error removing tracking from order:', updateError);
             toast.error(`Error removing tracking: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
@@ -157,8 +157,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         // Flow for adding new tracking
         if (onTrackingUpdate) {
           try {
-            console.log(`Adding tracking to order ${orderId}: ${trackingNumber}`);
-            await onTrackingUpdate(orderId, trackingNumber);
+            console.log(`Adding tracking to order ${orderId}: ${trackingNumber}, carrier: ${carrier || 'not specified'}`);
+            await onTrackingUpdate(orderId, trackingNumber, carrier);
           } catch (updateError) {
             console.error('Error adding tracking to order:', updateError);
             toast.error(`Error adding tracking: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
@@ -166,8 +166,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           }
         } else {
           try {
-            console.log(`Adding tracking via service: ${trackingNumber}`);
-            await addTracking(orderId, trackingNumber);
+            console.log(`Adding tracking via service: ${trackingNumber}, carrier: ${carrier || 'not specified'}`);
+            await addTracking(orderId, trackingNumber, carrier || 'usps');
           } catch (addError) {
             console.error('Error adding tracking:', addError);
             toast.error(`Error adding tracking: ${addError instanceof Error ? addError.message : 'Unknown error'}`);
@@ -667,19 +667,32 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             onSubmit={(e) => {
               e.preventDefault();
               const form = e.currentTarget;
-              const input = form.elements.namedItem('tracking') as HTMLInputElement;
-              void handleTrackingUpdate(order.id, input.value.trim());
+              const trackingInput = form.elements.namedItem('tracking') as HTMLInputElement;
+              const carrierInput = form.elements.namedItem('carrier') as HTMLInputElement;
+              void handleTrackingUpdate(order.id, trackingInput.value.trim(), carrierInput.value.trim());
             }}
             className="mt-2 flex flex-col gap-2"
           >
-            <input
-              type="text"
-              name="tracking"
-              defaultValue={order.tracking?.tracking_number || ''}
-              placeholder="Enter tracking number (carrier auto-detected)"
-              className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-              autoFocus
-            />
+            <div className="space-y-2">
+              <input
+                type="text"
+                name="tracking"
+                defaultValue={order.tracking?.tracking_number || ''}
+                placeholder="Enter tracking number"
+                className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                autoFocus
+              />
+              <input
+                type="text"
+                name="carrier"
+                defaultValue={order.tracking?.carrier || ''}
+                placeholder="Enter carrier (e.g., usps, fedex, ups, dhl)"
+                className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+              />
+              <div className="text-xs text-gray-400">
+                Available carriers: usps, fedex, ups, dhl, dhl-express
+              </div>
+            </div>
             <div className="flex items-center justify-end gap-2">
               <button
                 type="submit"
