@@ -52,7 +52,7 @@ export const handler: Handler = async (event) => {
     }
 
     // Get carrier code for 17TRACK
-    const carrierCode = getCarrierCode(carrier);
+    const carrierCode = carrier ? getCarrierCode(carrier) : undefined;
     
     // Register tracking with 17TRACK
     const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/register`, {
@@ -64,6 +64,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify([{
         number: trackingNumber,
         carrier: carrierCode,
+        auto_detection: true,
         order_no: order.order_number,
         order_time: order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : undefined,
         remark: `Order ${order.order_number}`

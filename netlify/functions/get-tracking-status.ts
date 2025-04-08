@@ -30,7 +30,7 @@ const handler: Handler = async (event) => {
     }
 
     // Get carrier code if provided
-    const carrierCode = carrier ? getCarrierCode(carrier) : 0;
+    const carrierCode = carrier ? getCarrierCode(carrier) : undefined;
     
     // Use realtime tracking to get the most up-to-date information
     const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/getRealTimeTrackInfo`, {
@@ -42,7 +42,8 @@ const handler: Handler = async (event) => {
       body: JSON.stringify([
         {
           number: tracking_number,
-          carrier: carrierCode || undefined,
+          carrier: carrierCode,
+          auto_detection: true,
           cacheLevel: 1 // 1 = real-time fetch from carrier
         }
       ]),

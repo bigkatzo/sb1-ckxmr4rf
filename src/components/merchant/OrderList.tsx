@@ -612,7 +612,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
               type="text"
               name="tracking"
               defaultValue={order.tracking?.tracking_number || ''}
-              placeholder="Enter tracking number"
+              placeholder="Enter tracking number (carrier auto-detected)"
               className="flex-1 bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
               autoFocus
             />

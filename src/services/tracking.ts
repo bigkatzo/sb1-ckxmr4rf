@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { OrderTracking, TrackingEvent } from '../types/orders';
+import { OrderTracking } from '../types/orders';
 
 // 17TRACK API carrier codes
 export const CARRIER_CODES: Record<string, number> = {
