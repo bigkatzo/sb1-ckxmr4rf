@@ -1,14 +1,14 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { getCarrierCode } from '../../src/services/tracking';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const trackshipApiKey = process.env.TRACKSHIP_API_KEY!;
-const appName = process.env.TRACKSHIP_APP_NAME!;
+const seventeenTrackApiKey = process.env.SEVENTEEN_TRACK_API_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-const TRACKSHIP_API_URL = 'https://api.trackship.com/v1';
+const SEVENTEEN_TRACK_API_URL = 'https://api.17track.net/track/v2.2';
 
 export const handler: Handler = async (event) => {
   // Only allow POST requests
@@ -51,47 +51,51 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Register tracking with TrackShip
-    const response = await fetch(`${TRACKSHIP_API_URL}/shipment/register/`, {
+    // Get carrier code for 17TRACK
+    const carrierCode = getCarrierCode(carrier);
+    
+    // Register tracking with 17TRACK
+    const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'trackship-api-key': trackshipApiKey,
-        'app-name': appName
+        '17token': seventeenTrackApiKey
       },
-      body: JSON.stringify({
-        tracking_number: trackingNumber,
-        tracking_provider: carrier,
-        order_id: order.order_number,
-        shipping_address: order.shipping_address,
-        metadata: {
-          order_id: order.id,
-          store_order_number: order.order_number
-        }
-      })
+      body: JSON.stringify([{
+        number: trackingNumber,
+        carrier: carrierCode,
+        order_no: order.order_number,
+        order_time: order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : undefined,
+        remark: `Order ${order.order_number}`
+      }])
     });
 
-    const trackshipData = await response.json();
+    const trackingResponse = await response.json();
 
-    if (trackshipData.status === 'error') {
-      console.error('TrackShip registration failed:', trackshipData);
+    if (trackingResponse.code !== 0) {
+      console.error('17TRACK registration failed:', trackingResponse);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: trackshipData.message || 'Failed to register tracking with TrackShip' })
+        body: JSON.stringify({ 
+          error: 'Failed to register tracking with 17TRACK',
+          details: trackingResponse
+        })
       };
     }
 
     // Create tracking record in our database
-    const { error: trackingError } = await supabase
+    const { data: trackingRecord, error: trackingError } = await supabase
       .from('order_tracking')
       .insert({
         order_id: orderId,
         tracking_number: trackingNumber,
         carrier,
-        status: trackshipData.data?.tracking_event_status || 'pending',
-        status_details: trackshipData.data?.status_details || 'Tracking registered',
+        status: 'pending',
+        status_details: 'Tracking registered',
         last_update: new Date().toISOString()
-      });
+      })
+      .select()
+      .single();
 
     if (trackingError) {
       console.error('Error creating tracking record:', trackingError);
@@ -105,7 +109,8 @@ export const handler: Handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify({
         message: 'Tracking registered successfully',
-        tracking: trackshipData
+        tracking: trackingRecord,
+        tracking_service_response: trackingResponse
       })
     };
   } catch (error) {

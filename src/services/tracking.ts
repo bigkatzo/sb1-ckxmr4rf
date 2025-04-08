@@ -1,8 +1,36 @@
 import { supabase } from '../lib/supabase';
-import { OrderTracking } from '../types/orders';
+import { OrderTracking, TrackingEvent } from '../types/orders';
 
-// Remove unused constant since it's not being used
-// const TRACKSHIP_API_URL = process.env.NEXT_PUBLIC_TRACKSHIP_API_URL;
+// 17TRACK API carrier codes
+export const CARRIER_CODES: Record<string, number> = {
+  usps: 21051,
+  fedex: 100003,
+  ups: 100001,
+  dhl: 7041,
+  'dhl-express': 7042,
+  // Add more carriers as needed
+};
+
+export function getCarrierCode(carrier: string): number {
+  return CARRIER_CODES[carrier.toLowerCase()] || 0;
+}
+
+// Map 17TRACK status to our system status
+export function mapTrackingStatus(status: string): string {
+  const statusMap: Record<string, string> = {
+    'InfoReceived': 'pending',
+    'InTransit': 'confirmed',
+    'AvailableForPickup': 'in_transit',
+    'OutForDelivery': 'in_transit',
+    'DeliveryFailure': 'exception',
+    'Delivered': 'delivered',
+    'Exception': 'exception',
+    'Expired': 'exception',
+    'NotFound': 'pending',
+  };
+  
+  return statusMap[status] || 'pending';
+}
 
 export async function addTracking(orderId: string, trackingNumber: string, carrier: string = 'usps'): Promise<OrderTracking> {
   const { data, error } = await supabase
@@ -76,5 +104,21 @@ export async function addTrackingEvent(
   } catch (error) {
     console.error('Error adding tracking event:', error);
     throw error;
+  }
+}
+
+export async function verify17TrackSignature(payload: string, signature: string, apiKey: string): Promise<boolean> {
+  try {
+    const crypto = require('crypto');
+    const src = payload + '/' + apiKey;
+    const calculatedSignature = crypto
+      .createHash('sha256')
+      .update(src)
+      .digest('hex');
+    
+    return calculatedSignature === signature;
+  } catch (error) {
+    console.error('Error verifying 17TRACK signature:', error);
+    return false;
   }
 } 
