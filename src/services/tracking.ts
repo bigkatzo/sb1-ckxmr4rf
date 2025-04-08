@@ -4,6 +4,9 @@ import { OrderTracking } from '../types/orders';
 // API proxy endpoint for frontend calls to avoid CSP issues
 const API_PROXY_URL = '/.netlify/functions/tracking-api-proxy';
 
+// 17TRACK carrier list API URL
+const CARRIER_LIST_URL = 'https://res.17track.net/asset/carrier/info/apicarrier.all.json';
+
 // 17TRACK API carrier codes
 export const CARRIER_CODES: Record<string, number> = {
   usps: 21051,
@@ -14,7 +17,61 @@ export const CARRIER_CODES: Record<string, number> = {
   // Add more carriers as needed
 };
 
+/**
+ * Fetches the complete list of carriers from 17TRACK
+ * @returns A promise that resolves to an array of carrier objects
+ */
+export async function fetchCarrierList(): Promise<Array<{
+  id: number;
+  name: string;
+  name_cn?: string;
+  shortname?: string;
+  shortname_cn?: string;
+  website?: string;
+}>> {
+  try {
+    const response = await fetch(CARRIER_LIST_URL);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch carrier list: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // The API returns an object with carrier IDs as keys, transform it to an array
+    if (data && typeof data === 'object') {
+      const carrierArray = Object.entries(data).map(([id, details]: [string, any]) => ({
+        id: parseInt(id),
+        name: details.name || '',
+        name_cn: details.nameCN,
+        shortname: details.shortname,
+        shortname_cn: details.shortnameCN,
+        website: details.website
+      }));
+      
+      // Sort carriers by name
+      return carrierArray.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching carrier list:', error);
+    return [];
+  }
+}
+
+/**
+ * Gets the carrier code from a name or ID
+ * @param carrier Carrier name or ID
+ * @returns The carrier code number or 0 if not found
+ */
 export function getCarrierCode(carrier: string): number {
+  // If the carrier is already a number, return it
+  if (!isNaN(Number(carrier))) {
+    return Number(carrier);
+  }
+  
+  // Otherwise look up by name
   return CARRIER_CODES[carrier.toLowerCase()] || 0;
 }
 
@@ -57,13 +114,30 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
       return existingTracking as OrderTracking;
     }
     
+    // Get the carrier name for database storage
+    // We store the carrier name in the database as a string
+    let carrierName = carrier;
+    let carrierId = 0;
+    
+    // If carrier looks like a numeric ID, convert it to a name for storage
+    if (!isNaN(Number(carrier))) {
+      carrierId = Number(carrier);
+      // We'll still store the ID as a string if we can't find the name
+      carrierName = String(carrierId);
+    } else {
+      // If it's a name, look up the ID
+      carrierId = getCarrierCode(carrier);
+    }
+    
+    console.log(`Using carrier: ${carrierName}, ID: ${carrierId}`);
+    
     // Attempt to insert with a more conservative approach
     const { data, error } = await supabase
       .from('order_tracking')
       .insert({
         order_id: orderId,
         tracking_number: trackingNumber,
-        carrier,
+        carrier: carrierName,
         last_update: new Date().toISOString()
       })
       .select()
@@ -79,10 +153,9 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
       console.log('Registering tracking number with 17TRACK:', trackingNumber);
       
       // Get carrier code if a carrier was specified
-      const carrierCode = carrier ? getCarrierCode(carrier) : 0;
-      const useAutoDetection = !carrier || carrierCode === 0;
+      const useAutoDetection = !carrierId;
       
-      console.log(`Using carrier: ${carrier}, code: ${carrierCode}, auto_detection: ${useAutoDetection}`);
+      console.log(`Using carrier ID: ${carrierId}, auto_detection: ${useAutoDetection}`);
       
       // Use our serverless function to avoid CSP issues
       const response = await fetch(API_PROXY_URL, {
@@ -95,7 +168,7 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
           payload: {
             number: trackingNumber,
             auto_detection: useAutoDetection,
-            carrier: carrierCode > 0 ? carrierCode : undefined,
+            carrier: carrierId || undefined,
             order_id: orderId
           }
         })

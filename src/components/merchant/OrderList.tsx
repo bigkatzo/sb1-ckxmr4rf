@@ -17,14 +17,14 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { OrderAnalytics } from './OrderAnalytics';
 import { toast } from 'react-toastify';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { Button } from '../ui/Button';
-import { addTracking, deleteTracking } from '../../services/tracking';
+import { addTracking, deleteTracking, fetchCarrierList } from '../../services/tracking';
 import { 
   getTransactionUrl, 
   formatTransactionSignature, 
@@ -70,12 +70,32 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   const [endDate, setEndDate] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(true);
+  const [carriers, setCarriers] = useState<Array<{ id: number; name: string; }>>([]);
+  const [isLoadingCarriers, setIsLoadingCarriers] = useState(false);
 
   // Function to check if user has permission to edit order status
   const canEditOrderStatus = (order: Order): boolean => {
     if (!order.access_type) return false;
     return ['admin', 'owner', 'edit'].includes(order.access_type);
   };
+  
+  // Fetch carrier list on component mount
+  useEffect(() => {
+    const loadCarriers = async () => {
+      setIsLoadingCarriers(true);
+      try {
+        const carrierList = await fetchCarrierList();
+        setCarriers(carrierList);
+      } catch (error) {
+        console.error('Failed to load carrier list:', error);
+        toast.error('Failed to load carrier list. Some features may be limited.');
+      } finally {
+        setIsLoadingCarriers(false);
+      }
+    };
+
+    loadCarriers();
+  }, []);
   
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     if (!onStatusUpdate) return;
@@ -627,6 +647,11 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       !['cancelled', 'draft', 'pending_payment'].includes(order.status);
     const isEditing = editingTrackingId === order.id;
 
+    // Get top carriers for quick selection (common ones)
+    const commonCarriers = carriers.filter(c => 
+      [21051, 100003, 100001, 7041, 7042].includes(c.id)
+    );
+
     return (
       <div className="mt-4 pt-4 border-t border-gray-800">
         <div className="flex items-center justify-between">
@@ -668,31 +693,68 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               e.preventDefault();
               const form = e.currentTarget;
               const trackingInput = form.elements.namedItem('tracking') as HTMLInputElement;
-              const carrierInput = form.elements.namedItem('carrier') as HTMLInputElement;
-              void handleTrackingUpdate(order.id, trackingInput.value.trim(), carrierInput.value.trim());
+              const carrierInput = form.elements.namedItem('carrier') as HTMLSelectElement;
+              
+              // Use carrier ID or empty string for auto-detection
+              const carrierValue = carrierInput.value;
+              const carrier = carrierValue === 'auto' ? '' : carrierValue;
+              
+              void handleTrackingUpdate(order.id, trackingInput.value.trim(), carrier);
             }}
             className="mt-2 flex flex-col gap-2"
           >
-            <div className="space-y-2">
-              <input
-                type="text"
-                name="tracking"
-                defaultValue={order.tracking?.tracking_number || ''}
-                placeholder="Enter tracking number"
-                className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                autoFocus
-              />
-              <input
-                type="text"
-                name="carrier"
-                defaultValue={order.tracking?.carrier || ''}
-                placeholder="Enter carrier (e.g., usps, fedex, ups, dhl)"
-                className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-              />
-              <div className="text-xs text-gray-400">
-                Available carriers: usps, fedex, ups, dhl, dhl-express
+            <div className="flex flex-col md:flex-row gap-2">
+              <div className="w-full md:w-2/3">
+                <input
+                  type="text"
+                  name="tracking"
+                  defaultValue={order.tracking?.tracking_number || ''}
+                  placeholder="Enter tracking number"
+                  className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="w-full md:w-1/3">
+                {isLoadingCarriers ? (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm">
+                    <Loading type={LoadingType.ACTION} text="Loading carriers..." />
+                  </div>
+                ) : (
+                  <select
+                    name="carrier"
+                    className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  >
+                    <option value="auto">Auto-detect carrier</option>
+                    
+                    {commonCarriers.length > 0 && (
+                      <optgroup label="Common Carriers">
+                        {commonCarriers.map((carrier) => (
+                          <option key={carrier.id} value={carrier.id}>
+                            {carrier.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    
+                    <optgroup label="All Carriers">
+                      {carriers
+                        .filter(c => !commonCarriers.some(common => common.id === c.id))
+                        .map((carrier) => (
+                          <option key={carrier.id} value={carrier.id}>
+                            {carrier.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                  </select>
+                )}
               </div>
             </div>
+            
+            <div className="text-xs text-gray-400">
+              Select a carrier or choose "Auto-detect" to let the system identify it
+            </div>
+            
             <div className="flex items-center justify-end gap-2">
               <button
                 type="submit"
