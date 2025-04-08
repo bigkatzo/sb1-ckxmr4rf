@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import type { OrderStatus } from '../../types/orders';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 import { supabase } from '../../lib/supabase';
+import { addTracking, deleteTracking } from '../../services/tracking';
 
 export function OrdersTab() {
   const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
@@ -55,61 +56,25 @@ export function OrdersTab() {
       if (!trackingNumber.trim()) {
         console.log('Clearing tracking number for order:', orderId);
         
-        // 1. Update orders table
-        const { error: orderError } = await supabase
-          .from('orders')
-          .update({ tracking_number: null })
-          .eq('id', orderId);
-
-        if (orderError) {
-          console.error('Database error clearing tracking from orders table:', orderError);
-          throw orderError;
-        }
-        
-        // 2. Delete from order_tracking table
-        const { error: trackingError } = await supabase
+        // Find existing tracking for this order
+        const { data: existingTracking } = await supabase
           .from('order_tracking')
-          .delete()
-          .eq('order_id', orderId);
+          .select('tracking_number')
+          .eq('order_id', orderId)
+          .single();
           
-        if (trackingError) {
-          console.error('Database error clearing from order_tracking table:', trackingError);
-          // Don't throw here - we already updated the orders table
-          console.warn('Continuing despite order_tracking delete error');
+        if (existingTracking?.tracking_number) {
+          // Use tracking service to delete the tracking
+          const result = await deleteTracking(existingTracking.tracking_number);
+          console.log('Delete tracking result:', result);
+        } else {
+          console.log('No existing tracking found to delete');
         }
       } else {
         console.log('Setting tracking number:', trackingNumber);
         
-        // 1. Update orders table first
-        const { error: orderError } = await supabase
-          .from('orders')
-          .update({ tracking_number: trackingNumber })
-          .eq('id', orderId);
-
-        if (orderError) {
-          console.error('Database error updating tracking number in orders table:', orderError);
-          throw orderError;
-        }
-        
-        // 2. Use the upsert function for order_tracking table
-        try {
-          const { data, error: functionError } = await supabase
-            .rpc('update_order_tracking', {
-              p_order_id: orderId,
-              p_tracking_number: trackingNumber,
-              p_carrier: 'auto' // Auto-detected by 17TRACK
-            });
-            
-          if (functionError) {
-            console.error('Error calling update_order_tracking function:', functionError);
-            console.warn('Will continue with orders table update only');
-          } else {
-            console.log('Successfully updated order_tracking table, tracking ID:', data);
-          }
-        } catch (rpcError) {
-          console.error('Exception calling update_order_tracking function:', rpcError);
-          console.warn('Will continue with orders table update only');
-        }
+        // Use the tracking service to add or update tracking
+        await addTracking(orderId, trackingNumber);
       }
 
       // Wait for the refresh to complete before returning
