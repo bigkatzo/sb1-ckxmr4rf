@@ -92,10 +92,12 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           throw new Error(`Failed to fetch carriers: ${response.status}`);
         }
         const carrierList = await response.json();
-        setCarriers(carrierList);
+        // Ensure we're setting an array
+        setCarriers(Array.isArray(carrierList) ? carrierList : []);
       } catch (error) {
         console.error('Failed to load carrier list:', error);
         toast.error('Failed to load carrier list. Some features may be limited.');
+        setCarriers([]);
       } finally {
         setIsLoadingCarriers(false);
       }
@@ -106,6 +108,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   
   // Filter carriers based on search term
   const filteredCarriers = useMemo(() => {
+    if (!Array.isArray(carriers)) return [];
     if (!carrierSearchTerm.trim()) return carriers;
     
     const searchLower = carrierSearchTerm.toLowerCase();
@@ -118,6 +121,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   // Get common carriers for quick selection
   const commonCarriers = useMemo(() => {
+    if (!Array.isArray(carriers)) return [];
+    
     // Common carrier codes: USPS, FedEx, UPS, DHL, China Post, etc.
     const commonCarrierIds = [21051, 100003, 100001, 7041, 7042, 190094, 100027];
     return carriers.filter(c => commonCarrierIds.includes(c.key));
@@ -125,6 +130,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   // Limit displayed carriers when not searching to prevent dropdown from being too large
   const displayedCarriers = useMemo(() => {
+    if (!Array.isArray(filteredCarriers)) return [];
+    
     if (carrierSearchTerm.trim() || showAllCarriers) {
       return filteredCarriers;
     }
@@ -214,7 +221,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           try {
             // Find carrier name if ID is provided
             let carrierName = carrier || '';
-            if (carrier && !isNaN(Number(carrier))) {
+            if (carrier && !isNaN(Number(carrier)) && Array.isArray(carriers)) {
               const carrierKey = Number(carrier);
               const carrierObj = carriers.find(c => c.key === carrierKey);
               if (carrierObj) {
