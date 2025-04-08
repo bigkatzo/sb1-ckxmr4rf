@@ -1,9 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { OrderTracking } from '../types/orders';
 
-// API endpoints and keys
-const SEVENTEEN_TRACK_API_URL = 'https://api.17track.net/track/v2.2';
-const SEVENTEEN_TRACK_API_KEY = import.meta.env.VITE_SEVENTEEN_TRACK_API_KEY;
+// API proxy endpoint for frontend calls to avoid CSP issues
+const API_PROXY_URL = '/.netlify/functions/tracking-api-proxy';
 
 // 17TRACK API carrier codes
 export const CARRIER_CODES: Record<string, number> = {
@@ -55,27 +54,30 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
       throw error;
     }
     
-    // Try to register with 17TRACK
+    // Try to register with 17TRACK via our proxy
     try {
       console.log('Registering tracking number with 17TRACK:', trackingNumber);
       
-      const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/register`, {
+      // Use our serverless function to avoid CSP issues
+      const response = await fetch(API_PROXY_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          '17token': SEVENTEEN_TRACK_API_KEY
         },
-        body: JSON.stringify([{
-          number: trackingNumber,
-          auto_detection: true,
-          order_id: orderId
-        }])
+        body: JSON.stringify({
+          action: 'register',
+          payload: {
+            number: trackingNumber,
+            auto_detection: true,
+            order_id: orderId
+          }
+        })
       });
       
       const result = await response.json();
       console.log('17TRACK registration response:', result);
       
-      if (result.code !== 0) {
+      if (!result.success) {
         console.warn('17TRACK registration warning:', result);
       }
     } catch (apiError) {
@@ -91,6 +93,7 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
 }
 
 export async function getTrackingInfo(trackingNumber: string): Promise<OrderTracking | null> {
+  // First check our database
   const { data, error } = await supabase
     .from('order_tracking')
     .select(`
@@ -101,6 +104,78 @@ export async function getTrackingInfo(trackingNumber: string): Promise<OrderTrac
     .single();
 
   if (error) throw error;
+  
+  // If we have data and it was updated recently (within the last hour), just return it
+  const oneHourAgo = new Date();
+  oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+  
+  if (data && data.last_update && new Date(data.last_update) > oneHourAgo) {
+    return data;
+  }
+  
+  // Otherwise, try to get fresh data from 17TRACK via our proxy
+  try {
+    const response = await fetch(API_PROXY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        action: 'status',
+        payload: {
+          number: trackingNumber
+        }
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success && result.data && result.data.accepted && result.data.accepted.length > 0) {
+      const trackData = result.data.accepted[0];
+      
+      // Update our database with the latest tracking info
+      if (trackData && trackData.track) {
+        const track = trackData.track;
+        const status = mapTrackingStatus(track.e);
+        
+        // Update the tracking record
+        await updateTrackingStatus(
+          trackingNumber,
+          status,
+          track.z0?.c,
+          track.z1?.a
+        );
+        
+        // Add tracking events if available
+        if (track.z2 && Array.isArray(track.z2) && data && data.id) {
+          for (const event of track.z2) {
+            await addTrackingEvent(data.id, {
+              status: event.z,
+              details: event.c,
+              location: event.l,
+              timestamp: event.a
+            });
+          }
+        }
+        
+        // Fetch the updated record
+        const { data: updatedData } = await supabase
+          .from('order_tracking')
+          .select(`
+            *,
+            tracking_events (*)
+          `)
+          .eq('tracking_number', trackingNumber)
+          .single();
+          
+        return updatedData;
+      }
+    }
+  } catch (apiError) {
+    console.error('Error fetching tracking from 17TRACK API:', apiError);
+    // Fall back to database data
+  }
+  
   return data;
 }
 
@@ -199,25 +274,27 @@ export async function deleteTracking(trackingNumber: string, carrier?: number): 
     // Then remove from 17TRACK regardless of database success
     // This ensures we don't keep consuming quota for tracking we don't need
     try {
-      const apiResponse = await fetch(`${SEVENTEEN_TRACK_API_URL}/deletetrack`, {
+      // Use our serverless function proxy to avoid CSP issues
+      const apiResponse = await fetch(API_PROXY_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          '17token': SEVENTEEN_TRACK_API_KEY
         },
-        body: JSON.stringify([{
-          number: trackingNumber,
-          carrier // Optional carrier code
-        }])
+        body: JSON.stringify({
+          action: 'delete',
+          payload: {
+            number: trackingNumber,
+            carrier // Optional carrier code
+          }
+        })
       });
 
       const result = await apiResponse.json();
       
-      if (result.code === 0 && result.data?.accepted?.length > 0) {
+      if (result.success) {
         apiSuccess = true;
       } else {
-        const apiError = result.data?.rejected?.[0]?.error?.message || 'Unknown API error';
-        errorMessage += errorMessage ? ` | API error: ${apiError}` : `API error: ${apiError}`;
+        errorMessage += errorMessage ? ` | API error: ${result.message || 'Unknown API error'}` : `API error: ${result.message || 'Unknown API error'}`;
         console.error('Error deleting tracking from 17TRACK:', result);
       }
     } catch (apiError: any) {
