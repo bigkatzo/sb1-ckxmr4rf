@@ -3,8 +3,26 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Ensure environment variables are properly passed to serverless functions
 [build.environment]
-  NODE_VERSION = "22"
+  NODE_VERSION = "18"
+
+# Redirect API calls to the respective functions
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = true
+
+# Handle SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Define the environment variables that are needed but use references to actual values
+[template.environment]
+  SEVENTEEN_TRACK_API_KEY = "Your 17TRACK API key"
 
 # Redirects
 [[redirects]]

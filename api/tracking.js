@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 
 // 17TRACK API configuration
 const SEVENTEEN_TRACK_API_URL = 'https://api.17track.net/track/v2.2';
-const SEVENTEEN_TRACK_API_KEY = process.env.VITE_SEVENTEEN_TRACK_API_KEY;
+const SEVENTEEN_TRACK_API_KEY = process.env.VITE_SEVENTEEN_TRACK_API_KEY || process.env.SEVENTEEN_TRACK_API_KEY;
 
 /**
  * Helper function to return standardized API responses

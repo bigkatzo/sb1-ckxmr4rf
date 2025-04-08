@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 
 // 17TRACK API configuration
 const SEVENTEEN_TRACK_API_URL = 'https://api.17track.net/track/v2.2';
-const SEVENTEEN_TRACK_API_KEY = process.env.VITE_SEVENTEEN_TRACK_API_KEY;
+const SEVENTEEN_TRACK_API_KEY = process.env.VITE_SEVENTEEN_TRACK_API_KEY || process.env.SEVENTEEN_TRACK_API_KEY;
 
 interface ApiRequest {
   action: 'register' | 'delete' | 'status';
@@ -98,20 +98,28 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
     // Check for API key
     if (!SEVENTEEN_TRACK_API_KEY) {
-      console.error('Missing 17TRACK API key in environment variables');
+      console.error('Missing 17TRACK API key in environment variables', {
+        availableEnvVars: Object.keys(process.env).filter(key => !key.includes('SECRET') && !key.includes('KEY')).join(', ')
+      });
+      
       return {
         statusCode: 500,
         headers,
         body: JSON.stringify({
           success: false,
-          message: 'Server configuration error'
+          message: 'Server configuration error: Missing 17TRACK API key'
         })
       };
     }
 
+    // Log debugging info
+    console.log('17TRACK API request details:', {
+      endpoint: apiEndpoint,
+      hasApiKey: !!SEVENTEEN_TRACK_API_KEY,
+      apiKeyLength: SEVENTEEN_TRACK_API_KEY ? SEVENTEEN_TRACK_API_KEY.length : 0
+    });
+
     // Forward request to 17TRACK API
-    console.log(`Proxying request to ${apiEndpoint}`, { payload: apiPayload });
-    
     const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
