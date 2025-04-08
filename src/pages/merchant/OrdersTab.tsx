@@ -171,6 +171,7 @@ export function OrdersTab() {
           orders={filteredOrders}
           onStatusUpdate={handleStatusUpdate}
           onTrackingUpdate={handleTrackingUpdate}
+          refreshOrders={refreshOrders}
         />
       )}
     </div>

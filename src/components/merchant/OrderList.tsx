@@ -32,6 +32,7 @@ import {
   getTransactionLabel,
   isStripeReceiptUrl
 } from '../../utils/transactions';
+import DeleteTrackingButton from '../tracking/DeleteTrackingButton';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -59,9 +60,10 @@ interface OrderListProps {
   orders: Order[];
   onStatusUpdate?: (orderId: string, status: OrderStatus) => Promise<void>;
   onTrackingUpdate?: (orderId: string, trackingNumber: string) => Promise<void>;
+  refreshOrders?: () => Promise<void>;
 }
 
-export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderListProps) {
+export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrders }: OrderListProps) {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [editingTrackingId, setEditingTrackingId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
@@ -575,22 +577,37 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate }: OrderLis
             <span className="text-sm text-gray-400">Tracking Number</span>
           </div>
           {canEdit && (
-            <button
-              onClick={() => setEditingTrackingId(order.id)}
-              className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
-            >
-              {order.tracking?.tracking_number ? (
-                <>
-                  <LinkIcon className="h-3 w-3" />
-                  Edit
-                </>
-              ) : (
-                <>
-                  <Package className="h-3 w-3" />
-                  Add Tracking
-                </>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setEditingTrackingId(order.id)}
+                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+              >
+                {order.tracking?.tracking_number ? (
+                  <>
+                    <LinkIcon className="h-3 w-3" />
+                    Edit
+                  </>
+                ) : (
+                  <>
+                    <Package className="h-3 w-3" />
+                    Add Tracking
+                  </>
+                )}
+              </button>
+              
+              {order.tracking?.tracking_number && (
+                <DeleteTrackingButton
+                  trackingNumber={order.tracking.tracking_number}
+                  onDeleted={() => {
+                    // Refresh orders to update the UI
+                    if (refreshOrders) {
+                      void refreshOrders();
+                    }
+                  }}
+                  disabled={isEditing}
+                />
               )}
-            </button>
+            </div>
           )}
         </div>
         
