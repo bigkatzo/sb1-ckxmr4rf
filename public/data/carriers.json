@@ -1,0 +1,110 @@
+{
+  "21051": {
+    "name": "USPS",
+    "shortname": "USPS"
+  },
+  "100003": {
+    "name": "FedEx",
+    "shortname": "FedEx"
+  },
+  "100001": {
+    "name": "UPS",
+    "shortname": "UPS"
+  },
+  "7041": {
+    "name": "DHL",
+    "shortname": "DHL"
+  },
+  "7042": {
+    "name": "DHL Express",
+    "shortname": "DHL Express"
+  },
+  "3011": {
+    "name": "China Post",
+    "shortname": "China Post"
+  },
+  "13957": {
+    "name": "Amazon Logistics US",
+    "shortname": "Amazon US"
+  },
+  "100143": {
+    "name": "Asendia USA",
+    "shortname": "Asendia USA"
+  },
+  "100043": {
+    "name": "LaserShip",
+    "shortname": "LaserShip"
+  },
+  "100224": {
+    "name": "OnTrac",
+    "shortname": "OnTrac"
+  },
+  "190061": {
+    "name": "Canada Post",
+    "shortname": "Canada Post"
+  },
+  "100136": {
+    "name": "Purolator",
+    "shortname": "Purolator"
+  },
+  "8032": {
+    "name": "Royal Mail",
+    "shortname": "Royal Mail"
+  },
+  "100065": {
+    "name": "DPD UK",
+    "shortname": "DPD UK"
+  },
+  "8031": {
+    "name": "Parcelforce",
+    "shortname": "Parcelforce"
+  },
+  "100103": {
+    "name": "Australia Post",
+    "shortname": "Australia Post"
+  },
+  "190021": {
+    "name": "Japan Post",
+    "shortname": "Japan Post"
+  },
+  "100098": {
+    "name": "Yamato Transport",
+    "shortname": "Yamato"
+  },
+  "190006": {
+    "name": "Singapore Post",
+    "shortname": "SingPost"
+  },
+  "790002": {
+    "name": "DHL eCommerce",
+    "shortname": "DHL eCommerce"
+  },
+  "100144": {
+    "name": "SF Express",
+    "shortname": "SF Express"
+  },
+  "190042": {
+    "name": "Deutsche Post",
+    "shortname": "Deutsche Post"
+  },
+  "100089": {
+    "name": "DPD",
+    "shortname": "DPD"
+  },
+  "100032": {
+    "name": "La Poste France",
+    "shortname": "La Poste"
+  },
+  "190110": {
+    "name": "Hermes",
+    "shortname": "Hermes"
+  },
+  "100147": {
+    "name": "GLS",
+    "shortname": "GLS"
+  },
+  "100069": {
+    "name": "Aliexpress Standard Shipping",
+    "shortname": "AliExpress"
+  }
+} 

@@ -4,8 +4,8 @@ import { OrderTracking } from '../types/orders';
 // API proxy endpoint for frontend calls to avoid CSP issues
 const API_PROXY_URL = '/.netlify/functions/tracking-api-proxy';
 
-// 17TRACK carrier list API URL
-const CARRIER_LIST_URL = 'https://res.17track.net/asset/carrier/info/apicarrier.all.json';
+// Local carrier list URL (to avoid CSP issues)
+const CARRIER_LIST_URL = '/data/carriers.json';
 
 // 17TRACK API carrier codes
 export const CARRIER_CODES: Record<string, number> = {
@@ -18,16 +18,13 @@ export const CARRIER_CODES: Record<string, number> = {
 };
 
 /**
- * Fetches the complete list of carriers from 17TRACK
+ * Fetches the complete list of carriers from our local JSON file
  * @returns A promise that resolves to an array of carrier objects
  */
 export async function fetchCarrierList(): Promise<Array<{
   id: number;
   name: string;
-  name_cn?: string;
   shortname?: string;
-  shortname_cn?: string;
-  website?: string;
 }>> {
   try {
     const response = await fetch(CARRIER_LIST_URL);
@@ -43,10 +40,7 @@ export async function fetchCarrierList(): Promise<Array<{
       const carrierArray = Object.entries(data).map(([id, details]: [string, any]) => ({
         id: parseInt(id),
         name: details.name || '',
-        name_cn: details.nameCN,
-        shortname: details.shortname,
-        shortname_cn: details.shortnameCN,
-        website: details.website
+        shortname: details.shortname || details.name
       }));
       
       // Sort carriers by name
@@ -56,7 +50,15 @@ export async function fetchCarrierList(): Promise<Array<{
     return [];
   } catch (error) {
     console.error('Error fetching carrier list:', error);
-    return [];
+    // Fallback to hardcoded carriers if the fetch fails
+    const fallbackCarriers = [
+      { id: 21051, name: 'USPS', shortname: 'USPS' },
+      { id: 100003, name: 'FedEx', shortname: 'FedEx' },
+      { id: 100001, name: 'UPS', shortname: 'UPS' },
+      { id: 7041, name: 'DHL', shortname: 'DHL' },
+      { id: 7042, name: 'DHL Express', shortname: 'DHL Express' }
+    ];
+    return fallbackCarriers;
   }
 }
 

@@ -13,18 +13,19 @@ import {
   Download,
   BarChart3,
   CreditCard,
-  Tag
+  Tag,
+  Search
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { OrderAnalytics } from './OrderAnalytics';
 import { toast } from 'react-toastify';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { Button } from '../ui/Button';
-import { addTracking, deleteTracking, fetchCarrierList } from '../../services/tracking';
+import { addTracking, deleteTracking } from '../../services/tracking';
 import { 
   getTransactionUrl, 
   formatTransactionSignature, 
@@ -70,8 +71,10 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   const [endDate, setEndDate] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(true);
-  const [carriers, setCarriers] = useState<Array<{ id: number; name: string; }>>([]);
+  const [carriers, setCarriers] = useState<Array<{ key: number; name_en: string; name_cn?: string; name_hk?: string; url?: string; }>>([]);
   const [isLoadingCarriers, setIsLoadingCarriers] = useState(false);
+  const [carrierSearchTerm, setCarrierSearchTerm] = useState('');
+  const [showAllCarriers, setShowAllCarriers] = useState(false);
 
   // Function to check if user has permission to edit order status
   const canEditOrderStatus = (order: Order): boolean => {
@@ -84,7 +87,11 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     const loadCarriers = async () => {
       setIsLoadingCarriers(true);
       try {
-        const carrierList = await fetchCarrierList();
+        const response = await fetch('/data/carriers.json');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch carriers: ${response.status}`);
+        }
+        const carrierList = await response.json();
         setCarriers(carrierList);
       } catch (error) {
         console.error('Failed to load carrier list:', error);
@@ -96,6 +103,34 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
     loadCarriers();
   }, []);
+  
+  // Filter carriers based on search term
+  const filteredCarriers = useMemo(() => {
+    if (!carrierSearchTerm.trim()) return carriers;
+    
+    const searchLower = carrierSearchTerm.toLowerCase();
+    return carriers.filter(carrier => 
+      carrier.name_en.toLowerCase().includes(searchLower) || 
+      (carrier.name_cn && carrier.name_cn.toLowerCase().includes(searchLower)) ||
+      (carrier.name_hk && carrier.name_hk.toLowerCase().includes(searchLower))
+    );
+  }, [carriers, carrierSearchTerm]);
+
+  // Get common carriers for quick selection
+  const commonCarriers = useMemo(() => {
+    // Common carrier codes: USPS, FedEx, UPS, DHL, China Post, etc.
+    const commonCarrierIds = [21051, 100003, 100001, 7041, 7042, 190094, 100027];
+    return carriers.filter(c => commonCarrierIds.includes(c.key));
+  }, [carriers]);
+
+  // Limit displayed carriers when not searching to prevent dropdown from being too large
+  const displayedCarriers = useMemo(() => {
+    if (carrierSearchTerm.trim() || showAllCarriers) {
+      return filteredCarriers;
+    }
+    // Show only top carriers when not searching
+    return filteredCarriers.slice(0, 100);
+  }, [filteredCarriers, carrierSearchTerm, showAllCarriers]);
   
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     if (!onStatusUpdate) return;
@@ -177,7 +212,17 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         // Flow for adding new tracking
         if (onTrackingUpdate) {
           try {
-            console.log(`Adding tracking to order ${orderId}: ${trackingNumber}, carrier: ${carrier || 'not specified'}`);
+            // Find carrier name if ID is provided
+            let carrierName = carrier || '';
+            if (carrier && !isNaN(Number(carrier))) {
+              const carrierKey = Number(carrier);
+              const carrierObj = carriers.find(c => c.key === carrierKey);
+              if (carrierObj) {
+                carrierName = carrierObj.name_en;
+              }
+            }
+            
+            console.log(`Adding tracking to order ${orderId}: ${trackingNumber}, carrier: ${carrierName || carrier || 'not specified'}`);
             await onTrackingUpdate(orderId, trackingNumber, carrier);
           } catch (updateError) {
             console.error('Error adding tracking to order:', updateError);
@@ -198,6 +243,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       }
       
       setEditingTrackingId(null);
+      setCarrierSearchTerm('');
+      setShowAllCarriers(false);
     } catch (error) {
       console.error('Failed to add tracking number:', error);
       toast.error(`Failed to add tracking number: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -647,11 +694,6 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       !['cancelled', 'draft', 'pending_payment'].includes(order.status);
     const isEditing = editingTrackingId === order.id;
 
-    // Get top carriers for quick selection (common ones)
-    const commonCarriers = carriers.filter(c => 
-      [21051, 100003, 100001, 7041, 7042].includes(c.id)
-    );
-
     return (
       <div className="mt-4 pt-4 border-t border-gray-800">
         <div className="flex items-center justify-between">
@@ -721,32 +763,72 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     <Loading type={LoadingType.ACTION} text="Loading carriers..." />
                   </div>
                 ) : (
-                  <select
-                    name="carrier"
-                    className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                  >
-                    <option value="auto">Auto-detect carrier</option>
+                  <div className="relative">
+                    <div className="relative mb-2">
+                      <input
+                        type="text"
+                        placeholder="Search carriers..."
+                        value={carrierSearchTerm}
+                        onChange={(e) => setCarrierSearchTerm(e.target.value)}
+                        className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                      />
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    </div>
                     
-                    {commonCarriers.length > 0 && (
-                      <optgroup label="Common Carriers">
-                        {commonCarriers.map((carrier) => (
-                          <option key={carrier.id} value={carrier.id}>
-                            {carrier.name}
+                    <select
+                      name="carrier"
+                      className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                      size={Math.min(8, displayedCarriers.length + 2)}
+                    >
+                      <option value="auto">Auto-detect carrier</option>
+                      
+                      {commonCarriers.length > 0 && carrierSearchTerm.length === 0 && (
+                        <>
+                          <optgroup label="Common Carriers">
+                            {commonCarriers.map((carrier) => (
+                              <option key={carrier.key} value={carrier.key}>
+                                {carrier.name_en}
+                              </option>
+                            ))}
+                          </optgroup>
+                          
+                          <optgroup label="All Carriers">
+                            {displayedCarriers
+                              .filter(c => !commonCarriers.some(common => common.key === c.key))
+                              .map((carrier) => (
+                                <option key={carrier.key} value={carrier.key}>
+                                  {carrier.name_en}
+                                </option>
+                              ))}
+                          </optgroup>
+                        </>
+                      )}
+                      
+                      {(carrierSearchTerm.length > 0 || !commonCarriers.length) && (
+                        displayedCarriers.map((carrier) => (
+                          <option key={carrier.key} value={carrier.key}>
+                            {carrier.name_en}
                           </option>
-                        ))}
-                      </optgroup>
+                        ))
+                      )}
+                    </select>
+                    
+                    {!carrierSearchTerm && filteredCarriers.length > 100 && !showAllCarriers && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllCarriers(true)}
+                        className="mt-1 text-xs text-purple-400 hover:text-purple-300"
+                      >
+                        Show all {filteredCarriers.length} carriers
+                      </button>
                     )}
                     
-                    <optgroup label="All Carriers">
-                      {carriers
-                        .filter(c => !commonCarriers.some(common => common.id === c.id))
-                        .map((carrier) => (
-                          <option key={carrier.id} value={carrier.id}>
-                            {carrier.name}
-                          </option>
-                        ))}
-                    </optgroup>
-                  </select>
+                    {displayedCarriers.length === 0 && (
+                      <div className="text-sm text-gray-400 mt-2">
+                        No carriers found matching "{carrierSearchTerm}"
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -765,7 +847,11 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               </button>
               <button
                 type="button"
-                onClick={() => setEditingTrackingId(null)}
+                onClick={() => {
+                  setEditingTrackingId(null);
+                  setCarrierSearchTerm('');
+                  setShowAllCarriers(false);
+                }}
                 className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg flex items-center gap-1"
               >
                 <XCircle className="h-3 w-3" />
