@@ -14,7 +14,8 @@ import {
   BarChart3,
   Link as LinkIcon,
   CreditCard,
-  Tag
+  Tag,
+  Trash2
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
@@ -25,7 +26,7 @@ import { OptimizedImage } from '../ui/OptimizedImage';
 import { ImageIcon } from 'lucide-react';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { Button } from '../ui/Button';
-import { addTracking } from '../../services/tracking';
+import { addTracking, deleteTracking } from '../../services/tracking';
 import { 
   getTransactionUrl, 
   formatTransactionSignature, 
@@ -113,16 +114,35 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     }
     
     try {
-      if (onTrackingUpdate) {
-        await onTrackingUpdate(orderId, trackingNumber);
+      // If tracking number is empty, treat it as a removal
+      if (!trackingNumber.trim()) {
+        // Get the existing tracking number for removal from 17TRACK
+        const existingTrackingNumber = order.tracking?.tracking_number;
+        
+        if (existingTrackingNumber) {
+          // Call the tracking service to delete the tracking
+          await deleteTracking(existingTrackingNumber);
+          toast.success('Tracking number removed successfully');
+        }
+        
+        // Update the order with empty tracking
+        if (onTrackingUpdate) {
+          await onTrackingUpdate(orderId, '');
+        }
       } else {
-        await addTracking(orderId, trackingNumber);
+        // Normal flow for adding/updating tracking
+        if (onTrackingUpdate) {
+          await onTrackingUpdate(orderId, trackingNumber);
+        } else {
+          await addTracking(orderId, trackingNumber);
+        }
+        toast.success('Tracking number updated successfully');
       }
+      
       setEditingTrackingId(null);
-      toast.success('Tracking number added successfully');
     } catch (error) {
-      console.error('Failed to add tracking number:', error);
-      toast.error('Failed to add tracking number');
+      console.error('Failed to update tracking number:', error);
+      toast.error('Failed to update tracking number');
     }
   };
 
@@ -617,30 +637,39 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               e.preventDefault();
               const form = e.currentTarget;
               const input = form.elements.namedItem('tracking') as HTMLInputElement;
-              if (!input.value.trim()) {
-                toast.error('Please enter a tracking number');
-                return;
-              }
               void handleTrackingUpdate(order.id, input.value.trim());
             }}
-            className="mt-2 flex items-center gap-2"
+            className="mt-2 flex flex-col gap-2"
           >
             <input
               type="text"
               name="tracking"
               defaultValue={order.tracking?.tracking_number || ''}
               placeholder="Enter tracking number (carrier auto-detected)"
-              className="flex-1 bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+              className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
               autoFocus
             />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2">
               <button
                 type="submit"
                 className="px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg flex items-center gap-1"
               >
                 <CheckCircle2 className="h-3 w-3" />
-                Save
+                {order.tracking?.tracking_number ? 'Update' : 'Save'}
               </button>
+              {order.tracking?.tracking_number && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Submit an empty tracking number to remove it
+                    void handleTrackingUpdate(order.id, '');
+                  }}
+                  className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg flex items-center gap-1"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Remove
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setEditingTrackingId(null)}
