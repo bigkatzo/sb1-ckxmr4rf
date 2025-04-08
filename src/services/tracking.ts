@@ -32,6 +32,41 @@ export function mapTrackingStatus(status: string): string {
   return statusMap[status] || 'pending';
 }
 
+// Check if status requires customer notification
+// Note: Currently not used for email notifications as email is not supported
+export function shouldNotifyStatus(status: string): boolean {
+  const notifyStatuses = [
+    'Delivered',
+    'OutForDelivery',
+    'DeliveryFailure',
+    'Exception'
+  ];
+  
+  return notifyStatuses.includes(status);
+}
+
+// Get a user-friendly status message
+// Note: Currently not used for email notifications as email is not supported
+export function getStatusMessage(status: string, subStatus: string): string {
+  switch (status) {
+    case 'Delivered':
+      return 'Your package has been delivered!';
+    case 'OutForDelivery':
+      return 'Your package is out for delivery today!';
+    case 'DeliveryFailure':
+      return `Delivery attempt failed: ${subStatus || 'Please check tracking for details'}`;
+    case 'Exception':
+      if (subStatus === 'Exception_Returning') {
+        return 'Your package is being returned to sender';
+      }
+      return `Delivery exception: ${subStatus || 'Please check tracking for details'}`;
+    case 'InTransit':
+      return 'Your package is in transit';
+    default:
+      return `Tracking status updated: ${status}`;
+  }
+}
+
 export async function addTracking(orderId: string, trackingNumber: string, carrier: string = 'usps'): Promise<OrderTracking> {
   const { data, error } = await supabase
     .from('order_tracking')
