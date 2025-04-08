@@ -12,10 +12,8 @@ import {
   Calendar,
   Download,
   BarChart3,
-  Link as LinkIcon,
   CreditCard,
-  Tag,
-  Trash2
+  Tag
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
@@ -118,9 +116,9 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     }
     
     try {
-      console.log(`Updating tracking for order ${orderId}: ${trackingNumber}`);
+      console.log(`Adding tracking for order ${orderId}: ${trackingNumber}`);
       
-      // If tracking number is empty, treat it as a removal
+      // If tracking number is empty, treat it as a removal (though this shouldn't happen with UI changes)
       if (!trackingNumber.trim()) {
         // Get the existing tracking number for removal from 17TRACK
         const existingTrackingNumber = order.tracking?.tracking_number;
@@ -150,20 +148,20 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             console.log('Updating order with empty tracking');
             await onTrackingUpdate(orderId, '');
           } catch (updateError) {
-            console.error('Error updating order with empty tracking:', updateError);
-            toast.error(`Error updating order: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
+            console.error('Error removing tracking from order:', updateError);
+            toast.error(`Error removing tracking: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
             throw updateError;
           }
         }
       } else {
-        // Normal flow for adding/updating tracking
+        // Flow for adding new tracking
         if (onTrackingUpdate) {
           try {
-            console.log(`Updating order ${orderId} with tracking ${trackingNumber}`);
+            console.log(`Adding tracking to order ${orderId}: ${trackingNumber}`);
             await onTrackingUpdate(orderId, trackingNumber);
           } catch (updateError) {
-            console.error('Error updating order tracking:', updateError);
-            toast.error(`Error updating order: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
+            console.error('Error adding tracking to order:', updateError);
+            toast.error(`Error adding tracking: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
             throw updateError;
           }
         } else {
@@ -176,13 +174,13 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             throw addError;
           }
         }
-        toast.success('Tracking number updated successfully');
+        toast.success('Tracking number added successfully');
       }
       
       setEditingTrackingId(null);
     } catch (error) {
-      console.error('Failed to update tracking number:', error);
-      toast.error(`Failed to update tracking number: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Failed to add tracking number:', error);
+      toast.error(`Failed to add tracking number: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -638,22 +636,15 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           </div>
           {canEdit && (
             <div className="flex gap-2">
-              <button
-                onClick={() => setEditingTrackingId(order.id)}
-                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
-              >
-                {order.tracking?.tracking_number ? (
-                  <>
-                    <LinkIcon className="h-3 w-3" />
-                    Edit
-                  </>
-                ) : (
-                  <>
-                    <Package className="h-3 w-3" />
-                    Add Tracking
-                  </>
-                )}
-              </button>
+              {!order.tracking?.tracking_number && (
+                <button
+                  onClick={() => setEditingTrackingId(order.id)}
+                  className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                >
+                  <Package className="h-3 w-3" />
+                  Add Tracking
+                </button>
+              )}
               
               {order.tracking?.tracking_number && (
                 <DeleteTrackingButton
@@ -695,21 +686,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 className="px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg flex items-center gap-1"
               >
                 <CheckCircle2 className="h-3 w-3" />
-                {order.tracking?.tracking_number ? 'Update' : 'Save'}
+                Save
               </button>
-              {order.tracking?.tracking_number && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Submit an empty tracking number to remove it
-                    void handleTrackingUpdate(order.id, '');
-                  }}
-                  className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg flex items-center gap-1"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Remove
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => setEditingTrackingId(null)}

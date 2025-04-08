@@ -67,23 +67,59 @@ export function OrdersTab() {
           // Use tracking service to delete the tracking
           const result = await deleteTracking(existingTracking.tracking_number);
           console.log('Delete tracking result:', result);
+          
+          if (result.success) {
+            toast.success('Tracking number removed successfully');
+          } else if (result.dbSuccess) {
+            // Partial success, but tracking is removed from our system
+            toast.warning('Tracking removed from database but removal from carrier system may have failed');
+          } else {
+            toast.error('Failed to remove tracking number: ' + result.message);
+          }
         } else {
           console.log('No existing tracking found to delete');
+          toast.info('No tracking number found to delete');
         }
       } else {
         console.log('Setting tracking number:', trackingNumber);
         
-        // Use the tracking service to add or update tracking
-        await addTracking(orderId, trackingNumber);
+        try {
+          // Use the tracking service to add tracking
+          await addTracking(orderId, trackingNumber);
+          toast.success('Tracking number added successfully');
+        } catch (addError: any) {
+          // Special handling for timeout errors which might actually succeed in the background
+          if (addError.message && addError.message.includes('timeout')) {
+            console.warn('Database timeout when adding tracking:', addError);
+            toast.warning('The operation is taking longer than expected. Your tracking number may still be added in the background. Please check back in a few minutes.');
+            // We'll still try to refresh orders after a delay
+            setTimeout(async () => {
+              try {
+                await refreshOrders();
+              } catch (refreshError) {
+                console.error('Error refreshing orders after timeout:', refreshError);
+              }
+            }, 5000);
+            return; // Early return to prevent the immediate refresh
+          } else {
+            throw addError; // Re-throw for normal error handling
+          }
+        }
       }
 
       // Wait for the refresh to complete before returning
       console.log('Refreshing orders after tracking update');
       await refreshOrders();
       console.log('Orders refreshed successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating tracking number:', error);
-      throw error;
+      
+      // Format error message for user
+      const errorMessage = 
+        error?.message || 
+        (error?.code ? `Database error (${error.code})` : 'Unknown error');
+      
+      toast.error(`Error: ${errorMessage}`);
     }
   };
 

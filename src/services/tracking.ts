@@ -39,12 +39,32 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
   try {
     console.log(`Adding tracking: order=${orderId}, tracking=${trackingNumber}, carrier=${carrier}`);
     
+    // First check if this tracking number already exists - this can prevent duplicate attempts
+    const { data: existingTracking, error: checkError } = await supabase
+      .from('order_tracking')
+      .select('id, tracking_number')
+      .eq('tracking_number', trackingNumber)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.warn('Error checking for existing tracking:', checkError);
+      // Continue anyway to attempt the insert
+    }
+    
+    // If tracking already exists, just return it
+    if (existingTracking) {
+      console.log('Tracking number already exists, skipping insert:', trackingNumber);
+      return existingTracking as OrderTracking;
+    }
+    
+    // Attempt to insert with a more conservative approach
     const { data, error } = await supabase
       .from('order_tracking')
       .insert({
         order_id: orderId,
         tracking_number: trackingNumber,
-        carrier
+        carrier,
+        last_update: new Date().toISOString()
       })
       .select()
       .single();
@@ -74,6 +94,12 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
         })
       });
       
+      // Handle potential response issues
+      if (!response.ok) {
+        console.warn(`17TRACK API returned ${response.status}: ${response.statusText}`);
+        return data;
+      }
+      
       const result = await response.json();
       console.log('17TRACK registration response:', result);
       
@@ -88,6 +114,14 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
     return data;
   } catch (error) {
     console.error('Error in addTracking:', error);
+    
+    // Check if it's a timeout error and provide a clearer message
+    if (error && typeof error === 'object' && 'code' in error && error.code === '57014') {
+      const timeoutError = new Error('Database timeout - tracking may still be added in the background');
+      console.warn('Database timeout when adding tracking, operation may still complete:', timeoutError);
+      throw timeoutError;
+    }
+    
     throw error;
   }
 }
