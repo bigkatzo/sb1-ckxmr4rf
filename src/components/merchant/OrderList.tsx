@@ -105,7 +105,11 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   const handleTrackingUpdate = async (orderId: string, trackingNumber: string) => {
     const order = orders.find(o => o.id === orderId);
-    if (!order) return;
+    if (!order) {
+      console.error('Order not found:', orderId);
+      toast.error('Order not found');
+      return;
+    }
 
     // Check if user has permission to edit order
     if (!canEditOrderStatus(order)) {
@@ -114,27 +118,63 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     }
     
     try {
+      console.log(`Updating tracking for order ${orderId}: ${trackingNumber}`);
+      
       // If tracking number is empty, treat it as a removal
       if (!trackingNumber.trim()) {
         // Get the existing tracking number for removal from 17TRACK
         const existingTrackingNumber = order.tracking?.tracking_number;
         
         if (existingTrackingNumber) {
-          // Call the tracking service to delete the tracking
-          await deleteTracking(existingTrackingNumber);
-          toast.success('Tracking number removed successfully');
+          console.log(`Removing tracking number: ${existingTrackingNumber}`);
+          try {
+            // Call the tracking service to delete the tracking
+            const result = await deleteTracking(existingTrackingNumber);
+            console.log('Delete tracking result:', result);
+            
+            if (result.success) {
+              toast.success('Tracking number removed successfully');
+            } else {
+              console.warn('Partial success deleting tracking:', result);
+              toast.warning(result.message || 'Tracking partially removed');
+            }
+          } catch (deleteError) {
+            console.error('Error deleting tracking:', deleteError);
+            toast.error(`Error deleting tracking: ${deleteError instanceof Error ? deleteError.message : 'Unknown error'}`);
+          }
         }
         
         // Update the order with empty tracking
         if (onTrackingUpdate) {
-          await onTrackingUpdate(orderId, '');
+          try {
+            console.log('Updating order with empty tracking');
+            await onTrackingUpdate(orderId, '');
+          } catch (updateError) {
+            console.error('Error updating order with empty tracking:', updateError);
+            toast.error(`Error updating order: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
+            throw updateError;
+          }
         }
       } else {
         // Normal flow for adding/updating tracking
         if (onTrackingUpdate) {
-          await onTrackingUpdate(orderId, trackingNumber);
+          try {
+            console.log(`Updating order ${orderId} with tracking ${trackingNumber}`);
+            await onTrackingUpdate(orderId, trackingNumber);
+          } catch (updateError) {
+            console.error('Error updating order tracking:', updateError);
+            toast.error(`Error updating order: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
+            throw updateError;
+          }
         } else {
-          await addTracking(orderId, trackingNumber);
+          try {
+            console.log(`Adding tracking via service: ${trackingNumber}`);
+            await addTracking(orderId, trackingNumber);
+          } catch (addError) {
+            console.error('Error adding tracking:', addError);
+            toast.error(`Error adding tracking: ${addError instanceof Error ? addError.message : 'Unknown error'}`);
+            throw addError;
+          }
         }
         toast.success('Tracking number updated successfully');
       }
@@ -142,7 +182,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       setEditingTrackingId(null);
     } catch (error) {
       console.error('Failed to update tracking number:', error);
-      toast.error('Failed to update tracking number');
+      toast.error(`Failed to update tracking number: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

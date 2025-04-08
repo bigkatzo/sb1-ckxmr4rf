@@ -37,18 +37,57 @@ export function mapTrackingStatus(status: string): string {
 }
 
 export async function addTracking(orderId: string, trackingNumber: string, carrier: string = 'usps'): Promise<OrderTracking> {
-  const { data, error } = await supabase
-    .from('order_tracking')
-    .insert({
-      order_id: orderId,
-      tracking_number: trackingNumber,
-      carrier
-    })
-    .select()
-    .single();
+  try {
+    console.log(`Adding tracking: order=${orderId}, tracking=${trackingNumber}, carrier=${carrier}`);
+    
+    const { data, error } = await supabase
+      .from('order_tracking')
+      .insert({
+        order_id: orderId,
+        tracking_number: trackingNumber,
+        carrier
+      })
+      .select()
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.error('Database error adding tracking:', error);
+      throw error;
+    }
+    
+    // Try to register with 17TRACK
+    try {
+      console.log('Registering tracking number with 17TRACK:', trackingNumber);
+      
+      const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          '17token': SEVENTEEN_TRACK_API_KEY
+        },
+        body: JSON.stringify([{
+          number: trackingNumber,
+          auto_detection: true,
+          order_id: orderId
+        }])
+      });
+      
+      const result = await response.json();
+      console.log('17TRACK registration response:', result);
+      
+      if (result.code !== 0) {
+        console.warn('17TRACK registration warning:', result);
+      }
+    } catch (apiError) {
+      // Log but don't fail if 17TRACK registration fails
+      console.error('Error registering with 17TRACK:', apiError);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in addTracking:', error);
+    throw error;
+  }
 }
 
 export async function getTrackingInfo(trackingNumber: string): Promise<OrderTracking | null> {
