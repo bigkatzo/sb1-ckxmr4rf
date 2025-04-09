@@ -71,7 +71,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   const [endDate, setEndDate] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(true);
-  const [carriers, setCarriers] = useState<Array<{ key: number; name_en: string; name_cn?: string; name_hk?: string; url?: string; }>>([]);
+  const [carriers, setCarriers] = useState<Array<{ key: number; name: string; shortname?: string; }>>([]);
   const [isLoadingCarriers, setIsLoadingCarriers] = useState(false);
   const [carrierSearchTerm, setCarrierSearchTerm] = useState('');
   const [showAllCarriers, setShowAllCarriers] = useState(false);
@@ -91,14 +91,14 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         
         // Try to fetch carriers with multiple fallback URLs
         let response;
-        let carrierList;
+        let carrierData;
         let success = false;
         
         try {
           // First try with relative path
           response = await fetch('/data/carriers.json');
           if (response.ok) {
-            carrierList = await response.json();
+            carrierData = await response.json();
             success = true;
             console.log('Successfully loaded carriers from relative path');
           }
@@ -113,7 +113,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             console.log(`Trying alternate URL: ${baseUrl}/data/carriers.json`);
             response = await fetch(`${baseUrl}/data/carriers.json`);
             if (response.ok) {
-              carrierList = await response.json();
+              carrierData = await response.json();
               success = true;
               console.log('Successfully loaded carriers from absolute path');
             } else {
@@ -131,7 +131,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             console.log(`Trying CDN URL: ${cdnUrl}`);
             response = await fetch(cdnUrl);
             if (response.ok) {
-              carrierList = await response.json();
+              carrierData = await response.json();
               success = true;
               console.log('Successfully loaded carriers from CDN');
             } else {
@@ -146,16 +146,29 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           throw new Error('Failed to load carriers from any source');
         }
         
-        // Log results
-        console.log(`Loaded ${Array.isArray(carrierList) ? carrierList.length : 'non-array'} carriers`);
+        // Transform the data based on its format
+        let parsedCarriers: Array<{ key: number; name: string; shortname?: string }> = [];
         
-        // Ensure we're setting an array
-        if (Array.isArray(carrierList)) {
-          setCarriers(carrierList);
-        } else {
-          console.error('carriers.json did not return an array:', carrierList);
-          setCarriers([]);
+        if (Array.isArray(carrierData)) {
+          // Handle array format (each item has key, name_en properties)
+          console.log('Parsing carrier data in array format');
+          parsedCarriers = carrierData.map(item => ({
+            key: item.key,
+            name: item.name_en || item.name || `Carrier ${item.key}`,
+            shortname: item.name_en || item.name || `Carrier ${item.key}`
+          }));
+        } else if (typeof carrierData === 'object' && carrierData !== null) {
+          // Handle object format (keys are carrier IDs, values have name, shortname)
+          console.log('Parsing carrier data in object format');
+          parsedCarriers = Object.entries(carrierData).map(([id, details]: [string, any]) => ({
+            key: parseInt(id, 10),
+            name: details.name || '',
+            shortname: details.shortname || details.name
+          }));
         }
+        
+        console.log(`Loaded ${parsedCarriers.length} carriers`);
+        setCarriers(parsedCarriers);
       } catch (error) {
         console.error('Failed to load carrier list:', error);
         toast.error('Failed to load carrier list. Some features may be limited.');
@@ -171,13 +184,12 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   // Filter carriers based on search term
   const filteredCarriers = useMemo(() => {
     if (!Array.isArray(carriers)) return [];
+    
     if (!carrierSearchTerm.trim()) return carriers;
     
     const searchLower = carrierSearchTerm.toLowerCase();
     return carriers.filter(carrier => 
-      carrier.name_en.toLowerCase().includes(searchLower) || 
-      (carrier.name_cn && carrier.name_cn.toLowerCase().includes(searchLower)) ||
-      (carrier.name_hk && carrier.name_hk.toLowerCase().includes(searchLower))
+      carrier.name.toLowerCase().includes(searchLower)
     );
   }, [carriers, carrierSearchTerm]);
 
@@ -287,7 +299,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               const carrierKey = Number(carrier);
               const carrierObj = carriers.find(c => c.key === carrierKey);
               if (carrierObj) {
-                carrierName = carrierObj.name_en;
+                carrierName = carrierObj.name;
               }
             }
             
@@ -854,7 +866,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                       {commonCarriers.length > 0 && !carrierSearchTerm && (
                         commonCarriers.map((carrier) => (
                           <option key={carrier.key} value={carrier.key}>
-                            {carrier.name_en}
+                            {carrier.name}
                           </option>
                         ))
                       )}
@@ -863,7 +875,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                         (carrierSearchTerm ? displayedCarriers : displayedCarriers.filter(c => !commonCarriers.some(common => common.key === c.key)))
                           .map((carrier) => (
                             <option key={carrier.key} value={carrier.key}>
-                              {carrier.name_en}
+                              {carrier.name}
                             </option>
                           ))
                       )}
