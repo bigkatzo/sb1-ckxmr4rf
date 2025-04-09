@@ -16,13 +16,13 @@ const TRACKING_STAGES = [
 // Helper function to get status color and icon
 const getStatusInfo = (status: string) => {
   const statusMap: Record<string, { color: string; bgColor: string; icon: typeof Package }> = {
-    'pending': { color: 'text-yellow-500', bgColor: 'bg-yellow-50', icon: Clock },
-    'confirmed': { color: 'text-blue-500', bgColor: 'bg-blue-50', icon: Package },
-    'in_transit': { color: 'text-purple-500', bgColor: 'bg-purple-50', icon: Truck },
-    'delivered': { color: 'text-green-500', bgColor: 'bg-green-50', icon: CheckCircle },
-    'exception': { color: 'text-red-500', bgColor: 'bg-red-50', icon: AlertCircle },
+    'pending': { color: 'text-yellow-400', bgColor: 'bg-yellow-400/10', icon: Clock },
+    'confirmed': { color: 'text-blue-400', bgColor: 'bg-blue-400/10', icon: Package },
+    'in_transit': { color: 'text-purple-400', bgColor: 'bg-purple-400/10', icon: Truck },
+    'delivered': { color: 'text-green-400', bgColor: 'bg-green-400/10', icon: CheckCircle },
+    'exception': { color: 'text-red-400', bgColor: 'bg-red-400/10', icon: AlertCircle },
   };
-  return statusMap[status] || { color: 'text-gray-500', bgColor: 'bg-gray-50', icon: Package };
+  return statusMap[status] || { color: 'text-gray-400', bgColor: 'bg-gray-400/10', icon: Package };
 };
 
 // Helper function to get stage progress
@@ -66,25 +66,25 @@ export default function TrackingPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8 animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="bg-gray-900 rounded-xl border border-gray-800/50 p-6 mb-8 animate-pulse">
+            <div className="h-8 bg-gray-800 rounded w-1/3 mb-4"></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
-                <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded w-2/3"></div>
+                <div className="h-4 bg-gray-800 rounded w-1/4 mb-2"></div>
+                <div className="h-6 bg-gray-800 rounded w-2/3"></div>
               </div>
               <div>
-                <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded w-2/3"></div>
+                <div className="h-4 bg-gray-800 rounded w-1/4 mb-2"></div>
+                <div className="h-6 bg-gray-800 rounded w-2/3"></div>
               </div>
             </div>
             <div className="space-y-4">
-              <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+              <div className="h-6 bg-gray-800 rounded w-1/4 mb-4"></div>
               <div className="space-y-6">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="border-l-2 border-gray-200 pl-8 pb-8">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div key={i} className="border-l-2 border-gray-800 pl-8 pb-8">
+                    <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-800 rounded w-1/2"></div>
                   </div>
                 ))}
               </div>
@@ -99,12 +99,12 @@ export default function TrackingPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-100 text-red-500 mb-6">
+          <div className="bg-gray-900 rounded-xl border border-gray-800/50 p-8 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-400/10 text-red-400 mb-6">
               <AlertCircle className="w-10 h-10" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">Tracking Error</h1>
-            <p className="text-gray-600 max-w-md mx-auto">{error}</p>
+            <h1 className="text-2xl font-bold text-white mb-3">Tracking Error</h1>
+            <p className="text-gray-400 max-w-md mx-auto">{error}</p>
           </div>
         </div>
       </div>
@@ -115,12 +115,12 @@ export default function TrackingPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 text-gray-500 mb-6">
+          <div className="bg-gray-900 rounded-xl border border-gray-800/50 p-8 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-800 text-gray-400 mb-6">
               <Package className="w-10 h-10" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">No Tracking Information</h1>
-            <p className="text-gray-600 max-w-md mx-auto">No tracking information found for this number</p>
+            <h1 className="text-2xl font-bold text-white mb-3">No Tracking Information</h1>
+            <p className="text-gray-400 max-w-md mx-auto">No tracking information found for this number</p>
           </div>
         </div>
       </div>
@@ -133,14 +133,14 @@ export default function TrackingPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+        <div className="bg-gray-900 rounded-xl border border-gray-800/50 p-8 mb-8">
           {/* Header Section */}
           <div className="flex items-center gap-4 mb-8">
-            <div className={`p-3 rounded-xl ${bgColor}`}>
+            <div className={`p-3 rounded-xl ${bgColor} ring-1 ring-white/5`}>
               <StatusIcon className={`w-8 h-8 ${color}`} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Tracking Details</h1>
+              <h1 className="text-2xl font-bold text-white">Tracking Details</h1>
               <p className={`text-sm ${color} font-medium`}>
                 {tracking.status_details || tracking.status || 'Pending'}
               </p>
@@ -150,9 +150,9 @@ export default function TrackingPage() {
           {/* Progress Indicator */}
           <div className="mb-12">
             <div className="relative">
-              <div className="absolute top-1/2 left-0 right-0 h-1 -translate-y-1/2 bg-gray-200 rounded">
+              <div className="absolute top-1/2 left-0 right-0 h-1 -translate-y-1/2 bg-gray-800 rounded">
                 <div 
-                  className="h-full bg-blue-500 rounded transition-all duration-500" 
+                  className="h-full bg-purple-500 rounded transition-all duration-500" 
                   style={{ width: `${(currentStage / (TRACKING_STAGES.length - 1)) * 100}%` }}
                 />
               </div>
@@ -164,12 +164,12 @@ export default function TrackingPage() {
                     <div key={stage.id} className="flex flex-col items-center">
                       <div 
                         className={`w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300 ${
-                          isActive ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
+                          isActive ? 'bg-purple-500 text-white ring-2 ring-purple-500/20' : 'bg-gray-800 text-gray-400'
                         }`}
                       >
                         <StageIcon className="w-5 h-5" />
                       </div>
-                      <div className="mt-2 text-sm font-medium text-gray-600">{stage.label}</div>
+                      <div className="mt-2 text-sm font-medium text-gray-400">{stage.label}</div>
                     </div>
                   );
                 })}
@@ -179,18 +179,18 @@ export default function TrackingPage() {
 
           {/* Tracking Info Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-            <div className={`p-6 rounded-xl ${bgColor} transition-all duration-300`}>
-              <label className="text-sm text-gray-600 block mb-1">Tracking Number</label>
-              <p className="font-bold text-lg">{tracking.tracking_number}</p>
+            <div className={`p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
+              <label className="text-sm text-gray-400 block mb-1">Tracking Number</label>
+              <p className="font-bold text-lg text-white">{tracking.tracking_number}</p>
             </div>
-            <div className={`p-6 rounded-xl ${bgColor} transition-all duration-300`}>
-              <label className="text-sm text-gray-600 block mb-1">Carrier</label>
-              <p className="font-bold text-lg uppercase">{tracking.carrier}</p>
+            <div className={`p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
+              <label className="text-sm text-gray-400 block mb-1">Carrier</label>
+              <p className="font-bold text-lg text-white uppercase">{tracking.carrier}</p>
             </div>
             {tracking.estimated_delivery_date && (
-              <div className={`p-6 rounded-xl ${bgColor} transition-all duration-300 md:col-span-2`}>
-                <label className="text-sm text-gray-600 block mb-1">Estimated Delivery</label>
-                <p className="font-bold text-lg">
+              <div className={`p-6 rounded-xl ${bgColor} ring-1 ring-white/5 md:col-span-2`}>
+                <label className="text-sm text-gray-400 block mb-1">Estimated Delivery</label>
+                <p className="font-bold text-lg text-white">
                   {format(new Date(tracking.estimated_delivery_date), 'PPP')}
                 </p>
               </div>
@@ -199,32 +199,32 @@ export default function TrackingPage() {
 
           {/* Tracking History */}
           <div>
-            <h2 className="text-xl font-bold mb-6">Tracking History</h2>
+            <h2 className="text-xl font-bold text-white mb-6">Tracking History</h2>
             {tracking.tracking_events && tracking.tracking_events.length > 0 ? (
               <div className="space-y-6">
                 {tracking.tracking_events.map((event, index) => (
                   <div
                     key={event.id}
                     className={`relative pl-8 pb-8 ${
-                      index === tracking.tracking_events!.length - 1 ? '' : 'border-l-2 border-blue-200'
+                      index === tracking.tracking_events!.length - 1 ? '' : 'border-l-2 border-gray-800'
                     }`}
                   >
-                    <div className="absolute -left-2 w-4 h-4 bg-blue-500 rounded-full shadow-md" />
-                    <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="absolute -left-2 w-4 h-4 bg-purple-500 rounded-full ring-2 ring-gray-900" />
+                    <div className="bg-gray-800/50 rounded-lg p-4 ring-1 ring-white/5">
                       <div className="mb-2">
-                        <span className="font-bold text-gray-900">{event.status}</span>
+                        <span className="font-bold text-white">{event.status}</span>
                       </div>
                       {event.details && (
-                        <p className="text-gray-600 text-sm mb-3">{event.details}</p>
+                        <p className="text-gray-400 text-sm mb-3">{event.details}</p>
                       )}
                       <div className="flex items-center text-sm text-gray-500 space-x-4">
                         {event.location && (
-                          <div className="flex items-center">
+                          <div className="flex items-center text-gray-400">
                             <MapPin className="w-4 h-4 mr-1" />
                             <span>{event.location}</span>
                           </div>
                         )}
-                        <div className="flex items-center">
+                        <div className="flex items-center text-gray-400">
                           <Clock className="w-4 h-4 mr-1" />
                           <span>{format(new Date(event.timestamp), 'PPp')}</span>
                         </div>
@@ -234,9 +234,9 @@ export default function TrackingPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 bg-gray-50 rounded-xl">
-                <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">No tracking events available yet</p>
+              <div className="text-center py-8 bg-gray-800/50 rounded-xl ring-1 ring-white/5">
+                <Package className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-400">No tracking events available yet</p>
               </div>
             )}
           </div>
