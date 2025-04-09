@@ -4,6 +4,7 @@ import { Package, Clock, MapPin, AlertCircle, CheckCircle, Truck, Box, Home } fr
 import { getTrackingInfo } from '../services/tracking';
 import { OrderTracking } from '../types/orders';
 import { format } from 'date-fns';
+import { SupportMessage } from '../components/ui/SupportMessage';
 
 // Define tracking stages for the progress indicator
 const TRACKING_STAGES = [
@@ -328,6 +329,11 @@ export default function TrackingPage() {
             Last updated: {format(new Date(tracking.last_update), 'PPP p')}
           </p>
         )}
+
+        {/* Support Message */}
+        <div className="mt-8">
+          <SupportMessage />
+        </div>
       </div>
     </div>
   );
