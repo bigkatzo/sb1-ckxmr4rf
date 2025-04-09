@@ -70,6 +70,22 @@ export function ReturnsAndFAQPage() {
       )
     },
     {
+      title: "Order Tracking",
+      content: (
+        <div className="space-y-4">
+          <p className="text-gray-300">
+            Track your orders:
+          </p>
+          <ul className="list-disc pl-6 space-y-2 text-gray-300">
+            <li>Connect your wallet and visit your orders page to track your order status</li>
+            <li>Tracking numbers are updated once available from the shipping carrier</li>
+            <li>Access your tracking number anytime for live shipping updates</li>
+            <li>Orders are processed and shipped as quickly as possible</li>
+          </ul>
+        </div>
+      )
+    },
+    {
       title: "Returns & Refunds",
       content: (
         <div className="space-y-4">
@@ -108,13 +124,15 @@ export function ReturnsAndFAQPage() {
       content: (
         <div className="space-y-4">
           <p className="text-gray-300">
-            Our payment system:
+            Our payment options:
           </p>
           <ul className="list-disc pl-6 space-y-2 text-gray-300">
-            <li>All payments are processed securely through the Solana blockchain</li>
-            <li>Prices are denominated in SOL</li>
-            <li>Transaction fees are the responsibility of the buyer</li>
-            <li>Payments are confirmed in real-time</li>
+            <li>Choose between Solana blockchain payments or credit card payments via Stripe</li>
+            <li>Blockchain payments are processed securely through Solana</li>
+            <li>Credit card payments are processed securely through Stripe</li>
+            <li>Prices are shown in SOL or USD conversion at the time of purchase</li>
+            <li>For blockchain payments: transaction fees are the responsibility of the buyer</li>
+            <li>All payments are confirmed in real-time</li>
             <li>Failed transactions are automatically refunded</li>
           </ul>
         </div>
