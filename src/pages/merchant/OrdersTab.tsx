@@ -85,7 +85,8 @@ export function OrdersTab() {
         
         try {
           // Use the tracking service to add tracking with the specified carrier
-          await addTracking(orderId, trackingNumber, carrier || 'usps');
+          // Pass carrier as is - empty string will trigger auto-detection
+          await addTracking(orderId, trackingNumber, carrier);
           toast.success('Tracking number added successfully');
         } catch (addError: any) {
           // Special handling for timeout errors which might actually succeed in the background

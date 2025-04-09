@@ -94,9 +94,9 @@ export function mapTrackingStatus(status: string): string {
   return statusMap[status] || 'pending';
 }
 
-export async function addTracking(orderId: string, trackingNumber: string, carrier: string = 'usps'): Promise<OrderTracking> {
+export async function addTracking(orderId: string, trackingNumber: string, carrier: string = ''): Promise<OrderTracking> {
   try {
-    console.log(`Adding tracking: order=${orderId}, tracking=${trackingNumber}, carrier=${carrier}`);
+    console.log(`Adding tracking: order=${orderId}, tracking=${trackingNumber}, carrier=${carrier ? carrier : 'auto-detect'}`);
     
     // First check if this tracking number already exists - this can prevent duplicate attempts
     const { data: existingTracking, error: checkError } = await supabase
@@ -118,7 +118,7 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
     
     // Get the carrier name for database storage
     // We store the carrier name in the database as a string
-    let carrierName = carrier;
+    let carrierName = carrier || 'auto-detect';
     let carrierId = 0;
     
     // If carrier looks like a numeric ID, convert it to a name for storage
@@ -126,7 +126,7 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
       carrierId = Number(carrier);
       // We'll still store the ID as a string if we can't find the name
       carrierName = String(carrierId);
-    } else {
+    } else if (carrier) { // Only look up ID if carrier is specified
       // If it's a name, look up the ID
       carrierId = getCarrierCode(carrier);
     }
@@ -154,8 +154,8 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
     try {
       console.log('Registering tracking number with 17TRACK:', trackingNumber);
       
-      // Get carrier code if a carrier was specified
-      const useAutoDetection = !carrierId;
+      // Use auto-detection if no carrier ID is provided
+      const useAutoDetection = carrierId === 0;
       
       console.log(`Using carrier ID: ${carrierId}, auto_detection: ${useAutoDetection}`);
       

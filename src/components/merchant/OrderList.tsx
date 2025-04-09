@@ -87,13 +87,21 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     const loadCarriers = async () => {
       setIsLoadingCarriers(true);
       try {
+        console.log('Fetching carriers from /data/carriers.json');
         const response = await fetch('/data/carriers.json');
         if (!response.ok) {
           throw new Error(`Failed to fetch carriers: ${response.status}`);
         }
         const carrierList = await response.json();
+        console.log(`Loaded ${Array.isArray(carrierList) ? carrierList.length : 'non-array'} carriers`);
+        
         // Ensure we're setting an array
-        setCarriers(Array.isArray(carrierList) ? carrierList : []);
+        if (Array.isArray(carrierList)) {
+          setCarriers(carrierList);
+        } else {
+          console.error('carriers.json did not return an array:', carrierList);
+          setCarriers([]);
+        }
       } catch (error) {
         console.error('Failed to load carrier list:', error);
         toast.error('Failed to load carrier list. Some features may be limited.');
@@ -786,37 +794,36 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                       name="carrier"
                       className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
                       size={Math.min(8, displayedCarriers.length + 2)}
+                      style={{ height: 'auto', maxHeight: '250px' }}
                     >
                       <option value="auto">Auto-detect carrier</option>
                       
-                      {commonCarriers.length > 0 && carrierSearchTerm.length === 0 && (
+                      {!carrierSearchTerm && commonCarriers.length > 0 && (
                         <>
-                          <optgroup label="Common Carriers">
-                            {commonCarriers.map((carrier) => (
-                              <option key={carrier.key} value={carrier.key}>
-                                {carrier.name_en}
-                              </option>
-                            ))}
-                          </optgroup>
-                          
-                          <optgroup label="All Carriers">
-                            {displayedCarriers
-                              .filter(c => !commonCarriers.some(common => common.key === c.key))
-                              .map((carrier) => (
-                                <option key={carrier.key} value={carrier.key}>
-                                  {carrier.name_en}
-                                </option>
-                              ))}
-                          </optgroup>
+                          <option disabled>──────── Common Carriers ────────</option>
+                          {commonCarriers.map((carrier) => (
+                            <option key={carrier.key} value={carrier.key}>
+                              {carrier.name_en}
+                            </option>
+                          ))}
+                          <option disabled>──────── All Carriers ────────</option>
                         </>
                       )}
                       
-                      {(carrierSearchTerm.length > 0 || !commonCarriers.length) && (
+                      {(carrierSearchTerm || !commonCarriers.length) ? (
                         displayedCarriers.map((carrier) => (
                           <option key={carrier.key} value={carrier.key}>
                             {carrier.name_en}
                           </option>
                         ))
+                      ) : (
+                        displayedCarriers
+                          .filter(c => !commonCarriers.some(common => common.key === c.key))
+                          .map((carrier) => (
+                            <option key={carrier.key} value={carrier.key}>
+                              {carrier.name_en}
+                            </option>
+                          ))
                       )}
                     </select>
                     
