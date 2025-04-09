@@ -277,23 +277,13 @@ export function PrivacyPolicyPage() {
         <h2 className="text-xl font-semibold mb-4">16. Contact Information</h2>
         <div className="text-gray-300">
           <p className="mb-4">
-            For privacy-related inquiries or to exercise your rights:
+            If you have any questions about this Privacy Policy or our data practices, please contact us at:
           </p>
           <ul className="list-none pl-6 space-y-2">
-            <li>Data Protection Officer: dpo@store.fun</li>
+            <li>Data Protection Officer: privacy@store.fun</li>
             <li>General Support: support@store.fun</li>
             <li>Telegram: @storedotfun</li>
           </ul>
-          <p className="mt-4">
-            Physical Address:<br />
-            [Insert Company Legal Address]<br />
-            [City, State, ZIP]<br />
-            [Country]
-          </p>
-          <p className="mt-4">
-            For EU/UK Representatives (GDPR Article 27):<br />
-            [Insert EU/UK Representative Details]
-          </p>
         </div>
       </section>
     </LegalPage>
