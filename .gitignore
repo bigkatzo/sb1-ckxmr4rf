@@ -46,3 +46,6 @@ supabase/.temp/
 
 # Local Netlify folder
 .netlify
+
+# Auto-generated types
+src/types/database.types.ts
