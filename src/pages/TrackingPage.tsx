@@ -332,8 +332,10 @@ export default function TrackingPage() {
 
         {/* Support Message - Fixed at the bottom of the screen */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/50 z-10">
-          <div className="max-w-4xl mx-auto">
-            <SupportMessage />
+          <div className="max-w-4xl mx-auto flex justify-end">
+            <div className="max-w-sm">
+              <SupportMessage />
+            </div>
           </div>
         </div>
       </div>
