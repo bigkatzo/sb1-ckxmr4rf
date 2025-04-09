@@ -2,7 +2,7 @@ import { Send, Mail } from 'lucide-react';
 
 export function SupportMessage() {
   return (
-    <div className="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 bg-purple-500/10 rounded-lg">
+    <div className="flex flex-wrap items-center gap-2 p-3 bg-purple-500/10 rounded-lg">
       <p className="text-sm text-purple-300">Need help with your order?</p>
       <div className="flex items-center gap-3">
         <a
