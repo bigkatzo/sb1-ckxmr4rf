@@ -15,25 +15,71 @@ const TRACKING_STAGES = [
 
 // Helper function to get status color and icon
 const getStatusInfo = (status: string) => {
-  const statusMap: Record<string, { color: string; bgColor: string; icon: typeof Package }> = {
-    'pending': { color: 'text-yellow-400', bgColor: 'bg-yellow-400/10', icon: Clock },
-    'confirmed': { color: 'text-blue-400', bgColor: 'bg-blue-400/10', icon: Package },
-    'in_transit': { color: 'text-purple-400', bgColor: 'bg-purple-400/10', icon: Truck },
-    'delivered': { color: 'text-green-400', bgColor: 'bg-green-400/10', icon: CheckCircle },
-    'exception': { color: 'text-red-400', bgColor: 'bg-red-400/10', icon: AlertCircle },
+  // Map 17track status codes to our display format
+  const statusMap: Record<string, { color: string; bgColor: string; icon: typeof Package; label: string }> = {
+    'NotFound': { 
+      color: 'text-gray-400', 
+      bgColor: 'bg-gray-400/10', 
+      icon: Package,
+      label: 'Pending'
+    },
+    'InfoReceived': { 
+      color: 'text-yellow-400', 
+      bgColor: 'bg-yellow-400/10', 
+      icon: Clock,
+      label: 'Information Received'
+    },
+    'InTransit': { 
+      color: 'text-purple-400', 
+      bgColor: 'bg-purple-400/10', 
+      icon: Truck,
+      label: 'In Transit'
+    },
+    'OutForDelivery': { 
+      color: 'text-blue-400', 
+      bgColor: 'bg-blue-400/10', 
+      icon: Truck,
+      label: 'Out for Delivery'
+    },
+    'Delivered': { 
+      color: 'text-green-400', 
+      bgColor: 'bg-green-400/10', 
+      icon: CheckCircle,
+      label: 'Delivered'
+    },
+    'Exception': { 
+      color: 'text-red-400', 
+      bgColor: 'bg-red-400/10', 
+      icon: AlertCircle,
+      label: 'Exception'
+    },
+    'Expired': { 
+      color: 'text-red-400', 
+      bgColor: 'bg-red-400/10', 
+      icon: AlertCircle,
+      label: 'Expired'
+    }
   };
-  return statusMap[status] || { color: 'text-gray-400', bgColor: 'bg-gray-400/10', icon: Package };
+  return statusMap[status] || { 
+    color: 'text-gray-400', 
+    bgColor: 'bg-gray-400/10', 
+    icon: Package,
+    label: 'Unknown Status'
+  };
 };
 
 // Helper function to get stage progress
 const getStageProgress = (status: string) => {
   const statusMap: Record<string, number> = {
-    'pending': 0,
-    'confirmed': 1,
-    'in_transit': 2,
-    'delivered': 3,
+    'NotFound': 0,
+    'InfoReceived': 0,
+    'InTransit': 2,
+    'OutForDelivery': 2,
+    'Delivered': 3,
+    'Exception': 1,
+    'Expired': 1
   };
-  return statusMap[status.toLowerCase()] || 0;
+  return statusMap[status] || 0;
 };
 
 export default function TrackingPage() {
@@ -54,7 +100,12 @@ export default function TrackingPage() {
         const data = await getTrackingInfo(trackingNumber);
         setTracking(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch tracking information');
+        console.error('Tracking error:', err);
+        setError(
+          err instanceof Error 
+            ? err.message 
+            : 'Failed to fetch tracking information. Please try again later.'
+        );
       } finally {
         setLoading(false);
       }
@@ -69,30 +120,20 @@ export default function TrackingPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-gray-900 rounded-xl border border-gray-800/50 p-6 mb-8 animate-pulse">
-            <div className="h-8 bg-gray-800 rounded w-1/3 mb-4"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <div className="h-4 bg-gray-800 rounded w-1/4 mb-2"></div>
-                <div className="h-6 bg-gray-800 rounded w-2/3"></div>
-              </div>
-              <div>
-                <div className="h-4 bg-gray-800 rounded w-1/4 mb-2"></div>
-                <div className="h-6 bg-gray-800 rounded w-2/3"></div>
+      <div className="min-h-screen bg-gray-900 py-6 sm:py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 sm:p-6 lg:p-8 animate-pulse">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 bg-gray-700 rounded-lg"></div>
+              <div className="flex-1">
+                <div className="h-6 bg-gray-700 rounded w-1/4 mb-2"></div>
+                <div className="h-4 bg-gray-700 rounded w-1/3"></div>
               </div>
             </div>
             <div className="space-y-4">
-              <div className="h-6 bg-gray-800 rounded w-1/4 mb-4"></div>
-              <div className="space-y-6">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="border-l-2 border-gray-800 pl-8 pb-8">
-                    <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
-                    <div className="h-4 bg-gray-800 rounded w-1/2"></div>
-                  </div>
-                ))}
-              </div>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-24 bg-gray-700 rounded-lg"></div>
+              ))}
             </div>
           </div>
         </div>
@@ -102,14 +143,20 @@ export default function TrackingPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-gray-900 rounded-xl border border-gray-800/50 p-8 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-400/10 text-red-400 mb-6">
+      <div className="min-h-screen bg-gray-900 py-6 sm:py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-8 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 text-red-400 mb-6">
               <AlertCircle className="w-10 h-10" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-3">Tracking Error</h1>
             <p className="text-gray-400 max-w-md mx-auto">{error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-6 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       </div>

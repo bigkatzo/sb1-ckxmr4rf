@@ -3,11 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const trackshipApiKey = process.env.TRACKSHIP_API_KEY!;
+const seventeenTrackApiKey = process.env.SEVENTEEN_TRACK_API_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-const TRACKSHIP_API_URL = 'https://api.trackship.com/v1';
+const SEVENTEEN_TRACK_API_URL = 'https://api.17track.net/track/v2.2';
 
 export const handler: Handler = async (event) => {
   // Only allow GET requests
@@ -57,55 +57,72 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Then, fetch tracking info from Trackship
-    const response = await fetch(`${TRACKSHIP_API_URL}/shipments/${trackingNumber}`, {
+    // Fetch tracking info from 17TRACK
+    const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/gettrackinfo`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${trackshipApiKey}`,
-        'Trackship-Api-Key': trackshipApiKey
-      }
+        '17token': seventeenTrackApiKey
+      },
+      body: JSON.stringify([{
+        number: trackingNumber,
+        auto_detection: true
+      }])
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch tracking information from Trackship');
+      throw new Error(`Failed to fetch tracking information: ${response.status}`);
     }
 
-    const trackshipData = await response.json();
+    const result = await response.json();
 
-    // Combine order data with tracking data
-    const trackingInfo = {
-      tracking_number: trackingNumber,
-      status: trackshipData.status,
-      status_details: trackshipData.status_details,
-      location: trackshipData.current_location,
-      estimated_delivery: trackshipData.estimated_delivery_date,
-      timeline: trackshipData.tracking_events.map((event: any) => ({
-        date: event.datetime,
-        status: event.status,
-        location: event.location,
-        description: event.message
-      })),
-      order_details: {
-        order_number: order.order_number,
-        product_name: order.product_name,
-        shipping_address: order.shipping_address
-      }
-    };
+    if (result.code !== 0 || !result.data?.accepted?.[0]?.track) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          tracking_number: trackingNumber,
+          status: 'NotFound',
+          status_details: result.message || 'No tracking information available',
+          order_details: {
+            order_number: order.order_number,
+            product_name: order.product_name,
+            shipping_address: order.shipping_address
+          }
+        })
+      };
+    }
 
+    const trackData = result.data.accepted[0].track;
+
+    // Transform 17track data to our format
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS'
-      },
-      body: JSON.stringify(trackingInfo)
+      body: JSON.stringify({
+        tracking_number: trackingNumber,
+        status: trackData.e || 'NotFound',
+        status_details: trackData.z0?.c,
+        location: trackData.z0?.l,
+        estimated_delivery: trackData.z1?.a,
+        timeline: trackData.z2?.map(event => ({
+          date: event.a,
+          status: event.z,
+          location: event.l,
+          description: event.c
+        })) || [],
+        order_details: {
+          order_number: order.order_number,
+          product_name: order.product_name,
+          shipping_address: order.shipping_address
+        }
+      })
     };
   } catch (error) {
-    console.error('Error processing tracking request:', error);
+    console.error('Error fetching tracking:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Failed to fetch tracking information'
+      })
     };
   }
 }; 

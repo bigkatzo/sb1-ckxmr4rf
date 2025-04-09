@@ -2,7 +2,9 @@ import { supabase } from '../lib/supabase';
 import { OrderTracking } from '../types/orders';
 
 // API proxy endpoint for frontend calls to avoid CSP issues
-const API_PROXY_URL = '/.netlify/functions/tracking-api-proxy';
+const API_PROXY_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://store.dot.fun/.netlify/functions/tracking-api-proxy'
+  : '/.netlify/functions/tracking-api-proxy';
 
 // Local carrier list URL (to avoid CSP issues)
 const CARRIER_LIST_URL = '/data/carriers.json';
@@ -209,90 +211,118 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
 }
 
 export async function getTrackingInfo(trackingNumber: string): Promise<OrderTracking | null> {
-  // First check our database
-  const { data, error } = await supabase
-    .from('order_tracking')
-    .select(`
-      *,
-      tracking_events (*)
-    `)
-    .eq('tracking_number', trackingNumber)
-    .single();
-
-  if (error) throw error;
-  
-  // If we have data and it was updated recently (within the last hour), just return it
-  const oneHourAgo = new Date();
-  oneHourAgo.setHours(oneHourAgo.getHours() - 1);
-  
-  if (data && data.last_update && new Date(data.last_update) > oneHourAgo) {
-    return data;
-  }
-  
-  // Otherwise, try to get fresh data from 17TRACK via our proxy
   try {
-    const response = await fetch(API_PROXY_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        action: 'status',
-        payload: {
-          number: trackingNumber
-        }
-      })
-    });
-    
-    const result = await response.json();
-    
-    if (result.success && result.data && result.data.accepted && result.data.accepted.length > 0) {
-      const trackData = result.data.accepted[0];
-      
-      // Update our database with the latest tracking info
-      if (trackData && trackData.track) {
-        const track = trackData.track;
-        const status = mapTrackingStatus(track.e);
-        
-        // Update the tracking record
-        await updateTrackingStatus(
-          trackingNumber,
-          status,
-          track.z0?.c,
-          track.z1?.a
-        );
-        
-        // Add tracking events if available
-        if (track.z2 && Array.isArray(track.z2) && data && data.id) {
-          for (const event of track.z2) {
-            await addTrackingEvent(data.id, {
-              status: event.z,
-              details: event.c,
-              location: event.l,
-              timestamp: event.a
-            });
-          }
-        }
-        
-        // Fetch the updated record
-        const { data: updatedData } = await supabase
-          .from('order_tracking')
-          .select(`
-            *,
-            tracking_events (*)
-          `)
-          .eq('tracking_number', trackingNumber)
-          .single();
-          
-        return updatedData;
-      }
+    // First check our database
+    const { data, error } = await supabase
+      .from('order_tracking')
+      .select(`
+        *,
+        tracking_events (*)
+      `)
+      .eq('tracking_number', trackingNumber)
+      .single();
+
+    if (error) {
+      console.error('Database error:', error);
+      throw new Error('Failed to fetch tracking from database');
     }
-  } catch (apiError) {
-    console.error('Error fetching tracking from 17TRACK API:', apiError);
-    // Fall back to database data
-  }
   
-  return data;
+    // If we have data and it was updated recently (within the last hour), just return it
+    const oneHourAgo = new Date();
+    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+  
+    if (data && data.last_update && new Date(data.last_update) > oneHourAgo) {
+      return data;
+    }
+  
+    // Otherwise, try to get fresh data from 17TRACK via our proxy
+    try {
+      const response = await fetch(API_PROXY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'status',
+          payload: {
+            number: trackingNumber
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+    
+      const result = await response.json();
+    
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to fetch tracking from API');
+      }
+    
+      if (result.data && result.data.accepted && result.data.accepted.length > 0) {
+        const trackData = result.data.accepted[0];
+      
+        // Update our database with the latest tracking info
+        if (trackData && trackData.track) {
+          const track = trackData.track;
+          const status = mapTrackingStatus(track.e);
+        
+          // Update the tracking record
+          await updateTrackingStatus(
+            trackingNumber,
+            status,
+            track.z0?.c,
+            track.z1?.a
+          );
+        
+          // Add tracking events if available
+          if (track.z2 && Array.isArray(track.z2) && data && data.id) {
+            for (const event of track.z2) {
+              await addTrackingEvent(data.id, {
+                status: event.z,
+                details: event.c,
+                location: event.l,
+                timestamp: event.a
+              });
+            }
+          }
+        
+          // Fetch the updated record
+          const { data: updatedData, error: updateError } = await supabase
+            .from('order_tracking')
+            .select(`
+              *,
+              tracking_events (*)
+            `)
+            .eq('tracking_number', trackingNumber)
+            .single();
+          
+          if (updateError) {
+            console.error('Error fetching updated tracking:', updateError);
+            throw new Error('Failed to fetch updated tracking');
+          }
+          
+          return updatedData;
+        }
+      }
+      
+      // If we get here, no valid tracking data was found
+      throw new Error('No tracking information available');
+    } catch (apiError) {
+      console.error('Error fetching tracking from API:', apiError);
+      // If we have stale data, return it as fallback
+      if (data) {
+        console.log('Falling back to database data');
+        return data;
+      }
+      throw new Error('Failed to fetch tracking information. Please try again later.');
+    }
+  } catch (error) {
+    console.error('Error in getTrackingInfo:', error);
+    throw error;
+  }
 }
 
 export async function updateTrackingStatus(

@@ -1,6 +1,33 @@
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 
-const TRACKSHIP_API_URL = 'https://api.trackship.com/v1';
+const SEVENTEEN_TRACK_API_URL = 'https://api.17track.net/track/v2.2';
+
+interface TrackingEvent {
+  a: string; // timestamp
+  z: string; // status
+  l: string; // location
+  c: string; // description
+}
+
+interface Track17Response {
+  code: number;
+  message?: string;
+  data?: {
+    accepted?: Array<{
+      track?: {
+        e: string;
+        z0?: {
+          c?: string;
+          l?: string;
+        };
+        z1?: {
+          a?: string;
+        };
+        z2?: TrackingEvent[];
+      };
+    }>;
+  };
+}
 
 export async function getTrackingInfo(trackingNumber: string) {
   try {
@@ -21,34 +48,44 @@ export async function getTrackingInfo(trackingNumber: string) {
     if (orderError) throw orderError;
     if (!order) throw new Error('Order not found');
 
-    // Then, fetch tracking info from Trackship
-    const response = await fetch(`${TRACKSHIP_API_URL}/shipments/${trackingNumber}`, {
+    // Then, fetch tracking info from 17TRACK
+    const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/gettrackinfo`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.TRACKSHIP_API_KEY}`,
-        'Trackship-Api-Key': `${process.env.TRACKSHIP_API_KEY}`
-      }
+        '17token': process.env.SEVENTEEN_TRACK_API_KEY || ''
+      },
+      body: JSON.stringify([{
+        number: trackingNumber,
+        auto_detection: true
+      }])
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch tracking information from Trackship');
+      throw new Error(`Failed to fetch tracking information: ${response.status}`);
     }
 
-    const trackshipData = await response.json();
+    const result = await response.json() as Track17Response;
+    
+    if (result.code !== 0 || !result.data?.accepted?.[0]?.track) {
+      throw new Error(result.message || 'No tracking information available');
+    }
 
-    // Combine order data with tracking data
+    const trackData = result.data.accepted[0].track;
+
+    // Transform 17track data to our format
     return {
       tracking_number: trackingNumber,
-      status: trackshipData.status,
-      status_details: trackshipData.status_details,
-      location: trackshipData.current_location,
-      estimated_delivery: trackshipData.estimated_delivery_date,
-      timeline: trackshipData.tracking_events.map((event: any) => ({
-        date: event.datetime,
-        status: event.status,
-        location: event.location,
-        description: event.message
-      })),
+      status: trackData.e || 'pending',
+      status_details: trackData.z0?.c,
+      location: trackData.z0?.l,
+      estimated_delivery: trackData.z1?.a,
+      timeline: trackData.z2?.map((event: TrackingEvent) => ({
+        date: event.a,
+        status: event.z,
+        location: event.l,
+        description: event.c
+      })) || [],
       order_details: {
         order_number: order.order_number,
         product_name: order.product_name,
