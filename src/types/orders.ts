@@ -31,6 +31,17 @@ export interface OrderTracking {
   created_at: string;
   updated_at: string;
   tracking_events?: TrackingEvent[];
+  timeline?: {
+    date: string;
+    status: string;
+    location?: string;
+    description?: string;
+  }[];
+  order_details?: {
+    order_number: string;
+    product_name: string;
+    shipping_address?: string;
+  };
 }
 
 export interface TrackingEvent {

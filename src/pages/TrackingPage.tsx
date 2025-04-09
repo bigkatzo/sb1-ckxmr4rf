@@ -27,8 +27,13 @@ const getStatusInfo = (status: string) => {
 
 // Helper function to get stage progress
 const getStageProgress = (status: string) => {
-  const stageIndex = TRACKING_STAGES.findIndex(stage => stage.id === status);
-  return Math.max(0, stageIndex);
+  const statusMap: Record<string, number> = {
+    'pending': 0,
+    'confirmed': 1,
+    'in_transit': 2,
+    'delivered': 3,
+  };
+  return statusMap[status.toLowerCase()] || 0;
 };
 
 export default function TrackingPage() {
@@ -198,47 +203,76 @@ export default function TrackingPage() {
           </div>
 
           {/* Tracking History */}
-          <div className="space-y-1">
-            <h2 className="text-lg sm:text-xl font-semibold text-white mb-4">Tracking History</h2>
-            {tracking.tracking_events && tracking.tracking_events.length > 0 ? (
-              <div className="space-y-6">
-                {tracking.tracking_events.map((event, index) => (
+          {tracking.timeline && tracking.timeline.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-white">Tracking History</h2>
+              <div className="space-y-4">
+                {tracking.timeline.map((event, index) => (
                   <div
                     key={index}
-                    className={`relative pl-6 pb-6 ${
-                      index !== tracking.tracking_events!.length - 1 ? 'border-l border-gray-700' : ''
-                    }`}
+                    className={`p-4 sm:p-6 rounded-xl ${index === 0 ? bgColor : 'bg-gray-800/50'} ring-1 ring-white/5`}
                   >
-                    <div
-                      className={`absolute -left-2 w-4 h-4 rounded-full ${
-                        index === 0 ? bgColor : 'bg-gray-700'
-                      } flex items-center justify-center`}
-                    >
-                      <div className={`w-2 h-2 rounded-full ${index === 0 ? color : 'bg-gray-500'}`} />
-                    </div>
-                    <div>
-                      <p className="text-sm sm:text-base text-white">{event.details}</p>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
-                        <time className="text-xs sm:text-sm text-gray-400">
-                          {format(new Date(event.timestamp), 'PPP p')}
-                        </time>
-                        {event.location && (
-                          <p className="text-xs sm:text-sm text-gray-400">
-                            {event.location}
-                          </p>
+                    <div className="flex items-start gap-4">
+                      <div className={`p-2 rounded-lg ${index === 0 ? bgColor : 'bg-gray-800'} ring-1 ring-white/5`}>
+                        {index === 0 ? (
+                          <StatusIcon className={`w-5 h-5 ${color}`} />
+                        ) : (
+                          <Clock className="w-5 h-5 text-gray-400" />
                         )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${index === 0 ? color : 'text-white'}`}>
+                          {event.status}
+                        </p>
+                        {event.description && (
+                          <p className="mt-1 text-sm text-gray-400">{event.description}</p>
+                        )}
+                        <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                          {event.location && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              <span>{event.location}</span>
+                            </div>
+                          )}
+                          {event.date && (
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{format(new Date(event.date), 'PPp')}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-8 bg-gray-800/50 rounded-lg ring-1 ring-white/5">
-                <Package className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-400">No tracking events available yet</p>
+            </div>
+          )}
+
+          {/* Order Details */}
+          {tracking.order_details && (
+            <div className="mt-8 space-y-4">
+              <h2 className="text-lg font-semibold text-white">Order Details</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 sm:p-6 rounded-xl bg-gray-800/50 ring-1 ring-white/5">
+                  <label className="text-xs text-gray-400 block mb-1">Order Number</label>
+                  <p className="font-medium text-white">{tracking.order_details.order_number}</p>
+                </div>
+                <div className="p-4 sm:p-6 rounded-xl bg-gray-800/50 ring-1 ring-white/5">
+                  <label className="text-xs text-gray-400 block mb-1">Product</label>
+                  <p className="font-medium text-white">{tracking.order_details.product_name}</p>
+                </div>
+                {tracking.order_details.shipping_address && (
+                  <div className="p-4 sm:p-6 rounded-xl bg-gray-800/50 ring-1 ring-white/5 sm:col-span-2">
+                    <label className="text-xs text-gray-400 block mb-1">Shipping Address</label>
+                    <p className="font-medium text-white whitespace-pre-line">
+                      {tracking.order_details.shipping_address}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Last Update Time */}

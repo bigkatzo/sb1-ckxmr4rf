@@ -540,29 +540,15 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     }
   };
 
-  const getStatusColor = (status: Order['status'] | string) => {
-    switch (status.toLowerCase()) {
-      case 'draft':
-        return 'text-gray-400 bg-gray-500/10 hover:bg-gray-500/20';
-      case 'pending_payment':
-        return 'text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 font-medium';
-      case 'confirmed':
-        return 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20';
-      case 'shipped':
-        return 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20';
-      case 'delivered':
-        return 'text-green-400 bg-green-500/10 hover:bg-green-500/20';
-      case 'cancelled':
-        return 'text-red-400 bg-red-500/10 hover:bg-red-500/20';
-      case 'in_transit':
-        return 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20';
-      case 'out_for_delivery':
-        return 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20';
-      case 'pending':
-        return 'text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20';
-      default:
-        return 'text-gray-400 bg-gray-500/10 hover:bg-gray-500/20';
-    }
+  const getStatusColor = (status: string) => {
+    const statusMap: Record<string, { color: string; bgColor: string }> = {
+      'pending': { color: 'text-yellow-400', bgColor: 'bg-yellow-400/10' },
+      'confirmed': { color: 'text-blue-400', bgColor: 'bg-blue-400/10' },
+      'in_transit': { color: 'text-purple-400', bgColor: 'bg-purple-400/10' },
+      'delivered': { color: 'text-green-400', bgColor: 'bg-green-400/10' },
+      'exception': { color: 'text-red-400', bgColor: 'bg-red-400/10' },
+    };
+    return statusMap[status.toLowerCase()] || { color: 'text-gray-400', bgColor: 'bg-gray-400/10' };
   };
 
   const renderPaymentMetadataTags = (order: Order) => {
@@ -739,7 +725,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     
     if (!canEdit) {
       return (
-        <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
+        <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status).bgColor} ${getStatusColor(order.status).color}`}>
           {getStatusIcon(order.status)}
           <span className="capitalize">{order.status}</span>
         </div>
@@ -760,7 +746,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         value={order.status}
         onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
         disabled={updatingOrderId === order.id}
-        className={`appearance-none cursor-pointer rounded px-2 py-1 pr-8 text-xs font-medium transition-colors relative ${getStatusColor(order.status)}`}
+        className={`appearance-none cursor-pointer rounded px-2 py-1 pr-8 text-xs font-medium transition-colors relative ${getStatusColor(order.status).bgColor} ${getStatusColor(order.status).color}`}
         style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em' }}
       >
         {allowedStatuses.map(status => (
@@ -942,8 +928,11 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                   <ExternalLink className="h-3 w-3" />
                 </Link>
                 {order.tracking.status && (
-                  <div className={`text-xs ${getStatusColor(order.tracking.status)}`}>
-                    {order.tracking.status_details || order.tracking.status}
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${getStatusColor(order.tracking.status).bgColor} ring-1 ring-white/10`} />
+                    <div className={`text-xs ${getStatusColor(order.tracking.status).color}`}>
+                      {order.tracking.status_details || order.tracking.status}
+                    </div>
                   </div>
                 )}
               </div>
