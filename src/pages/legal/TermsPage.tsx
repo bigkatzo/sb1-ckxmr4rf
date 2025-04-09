@@ -100,17 +100,17 @@ export function TermsPage() {
           <h3 className="text-lg font-medium mb-2">6.1 Product Information</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>All product descriptions are provided by merchants</li>
-            <li>We do not guarantee accuracy of product information</li>
-            <li>Prices are subject to change without notice</li>
-            <li>Products are subject to availability</li>
+            <li>store.fun, as the technology provider, does not guarantee accuracy of product information</li>
+            <li>Prices and availability are managed by Logic Group LLC</li>
+            <li>Products are subject to availability as determined by Logic Group LLC</li>
           </ul>
 
           <h3 className="text-lg font-medium mb-2 mt-4">6.2 Ordering and Fulfillment</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Orders are subject to acceptance and availability</li>
-            <li>We reserve the right to refuse or cancel any order</li>
-            <li>Shipping times are estimates only</li>
-            <li>Risk of loss transfers upon delivery</li>
+            <li>Orders are subject to acceptance and availability as determined by Logic Group LLC</li>
+            <li>Logic Group LLC reserves the right to refuse or cancel any order</li>
+            <li>Shipping and delivery are managed entirely by Logic Group LLC</li>
+            <li>Risk of loss transfers upon delivery as per Logic Group LLC's policies</li>
           </ul>
         </div>
       </section>
@@ -118,12 +118,13 @@ export function TermsPage() {
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">7. Returns and Refunds</h2>
         <div className="text-gray-300 mb-4">
+          <p className="mb-4">All returns, refunds, and related customer service are handled by our operating partner, Logic Group LLC:</p>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Products are made to order and generally non-returnable</li>
-            <li>Defective items will be replaced or refunded</li>
-            <li>Claims must be submitted with photographic evidence</li>
-            <li>Refunds will be processed in the original payment method</li>
-            <li>Shipping costs may not be refundable</li>
+            <li>Products are made to order and generally non-returnable as per Logic Group LLC's policies</li>
+            <li>Defective items will be replaced or refunded through Logic Group LLC</li>
+            <li>Claims must be submitted to Logic Group LLC with photographic evidence</li>
+            <li>Refunds will be processed by Logic Group LLC in the original payment method</li>
+            <li>Shipping costs refund policies are determined by Logic Group LLC</li>
           </ul>
         </div>
       </section>
@@ -159,17 +160,18 @@ export function TermsPage() {
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">10. Limitation of Liability</h2>
         <div className="text-gray-300 mb-4">
-          <p className="mb-2">We are not liable for:</p>
+          <p className="mb-4">store.fun, as the technology platform provider, is not liable for:</p>
           <ul className="list-disc pl-6 space-y-2">
+            <li>Any payment processing, refunds, or financial transactions handled by Logic Group LLC</li>
             <li>Blockchain network issues or delays</li>
             <li>Wallet connection problems</li>
             <li>Lost or stolen cryptocurrency</li>
-            <li>Third-party payment processing issues</li>
-            <li>Shipping delays or loss</li>
+            <li>Any shipping, fulfillment, or delivery issues managed by Logic Group LLC</li>
             <li>Product quality issues from merchants</li>
-            <li>Data loss or security breaches</li>
-            <li>Technical malfunctions</li>
+            <li>Data loss or security breaches not directly related to the technology platform</li>
+            <li>Technical malfunctions of the platform interface</li>
           </ul>
+          <p className="mt-4">For all matters related to payments, orders, shipping, and customer service, please contact Logic Group LLC at admin@logic300.com</p>
         </div>
       </section>
 
