@@ -131,26 +131,26 @@ export default function TrackingPage() {
   const currentStage = getStageProgress(tracking.status || 'pending');
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-gray-900 rounded-xl border border-gray-800/50 p-8 mb-8">
+    <div className="min-h-screen bg-gray-900 py-6 sm:py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 sm:p-6 lg:p-8 mb-8 backdrop-blur-sm">
           {/* Header Section */}
-          <div className="flex items-center gap-4 mb-8">
-            <div className={`p-3 rounded-xl ${bgColor} ring-1 ring-white/5`}>
-              <StatusIcon className={`w-8 h-8 ${color}`} />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 sm:mb-8">
+            <div className={`p-3 rounded-xl ${bgColor} ring-1 ring-white/5 self-start`}>
+              <StatusIcon className={`w-6 h-6 sm:w-8 sm:h-8 ${color}`} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Tracking Details</h1>
-              <p className={`text-sm ${color} font-medium`}>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">Tracking Details</h1>
+              <p className={`text-sm ${color} font-medium mt-1`}>
                 {tracking.status_details || tracking.status || 'Pending'}
               </p>
             </div>
           </div>
 
           {/* Progress Indicator */}
-          <div className="mb-12">
-            <div className="relative">
-              <div className="absolute top-1/2 left-0 right-0 h-1 -translate-y-1/2 bg-gray-800 rounded">
+          <div className="mb-8 sm:mb-12 overflow-x-auto pb-4 sm:pb-0">
+            <div className="relative min-w-[600px] sm:min-w-full">
+              <div className="absolute top-1/2 left-0 right-0 h-1 -translate-y-1/2 bg-gray-700/50 rounded">
                 <div 
                   className="h-full bg-purple-500 rounded transition-all duration-500" 
                   style={{ width: `${(currentStage / (TRACKING_STAGES.length - 1)) * 100}%` }}
@@ -163,13 +163,13 @@ export default function TrackingPage() {
                   return (
                     <div key={stage.id} className="flex flex-col items-center">
                       <div 
-                        className={`w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300 ${
-                          isActive ? 'bg-purple-500 text-white ring-2 ring-purple-500/20' : 'bg-gray-800 text-gray-400'
+                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300 ${
+                          isActive ? 'bg-purple-500 text-white ring-2 ring-purple-500/20' : 'bg-gray-700/50 text-gray-400'
                         }`}
                       >
-                        <StageIcon className="w-5 h-5" />
+                        <StageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                       </div>
-                      <div className="mt-2 text-sm font-medium text-gray-400">{stage.label}</div>
+                      <div className="mt-2 text-xs sm:text-sm font-medium text-gray-400">{stage.label}</div>
                     </div>
                   );
                 })}
@@ -178,19 +178,19 @@ export default function TrackingPage() {
           </div>
 
           {/* Tracking Info Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-            <div className={`p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
-              <label className="text-sm text-gray-400 block mb-1">Tracking Number</label>
-              <p className="font-bold text-lg text-white">{tracking.tracking_number}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
+            <div className={`p-4 sm:p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
+              <label className="text-xs sm:text-sm text-gray-400 block mb-1">Tracking Number</label>
+              <p className="font-bold text-base sm:text-lg text-white">{tracking.tracking_number}</p>
             </div>
-            <div className={`p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
-              <label className="text-sm text-gray-400 block mb-1">Carrier</label>
-              <p className="font-bold text-lg text-white uppercase">{tracking.carrier}</p>
+            <div className={`p-4 sm:p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
+              <label className="text-xs sm:text-sm text-gray-400 block mb-1">Carrier</label>
+              <p className="font-bold text-base sm:text-lg text-white uppercase">{tracking.carrier}</p>
             </div>
             {tracking.estimated_delivery_date && (
-              <div className={`p-6 rounded-xl ${bgColor} ring-1 ring-white/5 md:col-span-2`}>
-                <label className="text-sm text-gray-400 block mb-1">Estimated Delivery</label>
-                <p className="font-bold text-lg text-white">
+              <div className={`p-4 sm:p-6 rounded-xl ${bgColor} ring-1 ring-white/5 sm:col-span-2`}>
+                <label className="text-xs sm:text-sm text-gray-400 block mb-1">Estimated Delivery</label>
+                <p className="font-bold text-base sm:text-lg text-white">
                   {format(new Date(tracking.estimated_delivery_date), 'PPP')}
                 </p>
               </div>
@@ -198,49 +198,55 @@ export default function TrackingPage() {
           </div>
 
           {/* Tracking History */}
-          <div>
-            <h2 className="text-xl font-bold text-white mb-6">Tracking History</h2>
+          <div className="space-y-1">
+            <h2 className="text-lg sm:text-xl font-semibold text-white mb-4">Tracking History</h2>
             {tracking.tracking_events && tracking.tracking_events.length > 0 ? (
               <div className="space-y-6">
                 {tracking.tracking_events.map((event, index) => (
                   <div
-                    key={event.id}
-                    className={`relative pl-8 pb-8 ${
-                      index === tracking.tracking_events!.length - 1 ? '' : 'border-l-2 border-gray-800'
+                    key={index}
+                    className={`relative pl-6 pb-6 ${
+                      index !== tracking.tracking_events!.length - 1 ? 'border-l border-gray-700' : ''
                     }`}
                   >
-                    <div className="absolute -left-2 w-4 h-4 bg-purple-500 rounded-full ring-2 ring-gray-900" />
-                    <div className="bg-gray-800/50 rounded-lg p-4 ring-1 ring-white/5">
-                      <div className="mb-2">
-                        <span className="font-bold text-white">{event.status}</span>
-                      </div>
-                      {event.details && (
-                        <p className="text-gray-400 text-sm mb-3">{event.details}</p>
-                      )}
-                      <div className="flex items-center text-sm text-gray-500 space-x-4">
+                    <div
+                      className={`absolute -left-2 w-4 h-4 rounded-full ${
+                        index === 0 ? bgColor : 'bg-gray-700'
+                      } flex items-center justify-center`}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${index === 0 ? color : 'bg-gray-500'}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm sm:text-base text-white">{event.details}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
+                        <time className="text-xs sm:text-sm text-gray-400">
+                          {format(new Date(event.timestamp), 'PPP p')}
+                        </time>
                         {event.location && (
-                          <div className="flex items-center text-gray-400">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            <span>{event.location}</span>
-                          </div>
+                          <p className="text-xs sm:text-sm text-gray-400">
+                            {event.location}
+                          </p>
                         )}
-                        <div className="flex items-center text-gray-400">
-                          <Clock className="w-4 h-4 mr-1" />
-                          <span>{format(new Date(event.timestamp), 'PPp')}</span>
-                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 bg-gray-800/50 rounded-xl ring-1 ring-white/5">
+              <div className="text-center py-8 bg-gray-800/50 rounded-lg ring-1 ring-white/5">
                 <Package className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                 <p className="text-gray-400">No tracking events available yet</p>
               </div>
             )}
           </div>
         </div>
+
+        {/* Last Update Time */}
+        {tracking.last_update && (
+          <p className="text-center text-xs sm:text-sm text-gray-500">
+            Last updated: {format(new Date(tracking.last_update), 'PPP p')}
+          </p>
+        )}
       </div>
     </div>
   );
