@@ -88,11 +88,65 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       setIsLoadingCarriers(true);
       try {
         console.log('Fetching carriers from /data/carriers.json');
-        const response = await fetch('/data/carriers.json');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch carriers: ${response.status}`);
+        
+        // Try to fetch carriers with multiple fallback URLs
+        let response;
+        let carrierList;
+        let success = false;
+        
+        try {
+          // First try with relative path
+          response = await fetch('/data/carriers.json');
+          if (response.ok) {
+            carrierList = await response.json();
+            success = true;
+            console.log('Successfully loaded carriers from relative path');
+          }
+        } catch (err) {
+          console.warn('Failed to load carriers from relative path:', err);
         }
-        const carrierList = await response.json();
+        
+        // If first attempt failed, try with window.location.origin
+        if (!success) {
+          try {
+            const baseUrl = window.location.origin;
+            console.log(`Trying alternate URL: ${baseUrl}/data/carriers.json`);
+            response = await fetch(`${baseUrl}/data/carriers.json`);
+            if (response.ok) {
+              carrierList = await response.json();
+              success = true;
+              console.log('Successfully loaded carriers from absolute path');
+            } else {
+              console.error(`Failed to fetch from ${baseUrl}/data/carriers.json: Status ${response.status}`);
+            }
+          } catch (err) {
+            console.warn('Failed to load carriers from absolute path:', err);
+          }
+        }
+        
+        // If still no success, try with CDN URL
+        if (!success) {
+          try {
+            const cdnUrl = 'https://store.fun/data/carriers.json';
+            console.log(`Trying CDN URL: ${cdnUrl}`);
+            response = await fetch(cdnUrl);
+            if (response.ok) {
+              carrierList = await response.json();
+              success = true;
+              console.log('Successfully loaded carriers from CDN');
+            } else {
+              console.error(`Failed to fetch from CDN: Status ${response.status}`);
+            }
+          } catch (err) {
+            console.warn('Failed to load carriers from CDN:', err);
+          }
+        }
+        
+        if (!success) {
+          throw new Error('Failed to load carriers from any source');
+        }
+        
+        // Log results
         console.log(`Loaded ${Array.isArray(carrierList) ? carrierList.length : 'non-array'} carriers`);
         
         // Ensure we're setting an array
@@ -793,32 +847,20 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     <select
                       name="carrier"
                       className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                      size={Math.min(8, displayedCarriers.length + 2)}
-                      style={{ height: 'auto', maxHeight: '250px' }}
+                      size={6}
                     >
                       <option value="auto">Auto-detect carrier</option>
                       
-                      {!carrierSearchTerm && commonCarriers.length > 0 && (
-                        <>
-                          <option disabled>──────── Common Carriers ────────</option>
-                          {commonCarriers.map((carrier) => (
-                            <option key={carrier.key} value={carrier.key}>
-                              {carrier.name_en}
-                            </option>
-                          ))}
-                          <option disabled>──────── All Carriers ────────</option>
-                        </>
-                      )}
-                      
-                      {(carrierSearchTerm || !commonCarriers.length) ? (
-                        displayedCarriers.map((carrier) => (
+                      {commonCarriers.length > 0 && !carrierSearchTerm && (
+                        commonCarriers.map((carrier) => (
                           <option key={carrier.key} value={carrier.key}>
                             {carrier.name_en}
                           </option>
                         ))
-                      ) : (
-                        displayedCarriers
-                          .filter(c => !commonCarriers.some(common => common.key === c.key))
+                      )}
+                      
+                      {displayedCarriers.length > 0 && (
+                        (carrierSearchTerm ? displayedCarriers : displayedCarriers.filter(c => !commonCarriers.some(common => common.key === c.key)))
                           .map((carrier) => (
                             <option key={carrier.key} value={carrier.key}>
                               {carrier.name_en}
@@ -826,6 +868,12 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                           ))
                       )}
                     </select>
+                    
+                    <div className="text-xs text-gray-400 mt-1">
+                      {displayedCarriers.length > 0 ? 
+                        `Showing ${Math.min(displayedCarriers.length, carrierSearchTerm ? displayedCarriers.length : 100)} carriers` : 
+                        carrierSearchTerm ? `No carriers found matching "${carrierSearchTerm}"` : 'No carriers available'}
+                    </div>
                     
                     {!carrierSearchTerm && filteredCarriers.length > 100 && !showAllCarriers && (
                       <button
@@ -835,12 +883,6 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                       >
                         Show all {filteredCarriers.length} carriers
                       </button>
-                    )}
-                    
-                    {displayedCarriers.length === 0 && (
-                      <div className="text-sm text-gray-400 mt-2">
-                        No carriers found matching "{carrierSearchTerm}"
-                      </div>
                     )}
                   </div>
                 )}
