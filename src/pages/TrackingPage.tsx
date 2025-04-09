@@ -185,7 +185,7 @@ export default function TrackingPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 py-6 sm:py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
         <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 sm:p-6 lg:p-8 mb-8 backdrop-blur-sm">
           {/* Header Section */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 sm:mb-8">
@@ -330,9 +330,11 @@ export default function TrackingPage() {
           </p>
         )}
 
-        {/* Support Message */}
-        <div className="mt-8">
-          <SupportMessage />
+        {/* Support Message - Fixed at the bottom of the screen */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/50 z-10">
+          <div className="max-w-4xl mx-auto">
+            <SupportMessage />
+          </div>
         </div>
       </div>
     </div>
