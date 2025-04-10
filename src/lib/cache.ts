@@ -178,15 +178,48 @@ export class EnhancedCacheManager {
    */
   private async initializeDB(): Promise<void> {
     try {
+      // Check if we already have a connection
+      if (this.db) {
+        try {
+          // Test if the connection is still alive
+          await this.db.get('cache-store', 'test-key');
+          return; // Connection is good, no need to re-initialize
+        } catch (connectionErr) {
+          console.warn('IndexedDB connection lost, reconnecting...', connectionErr);
+          // Continue to re-open the database
+        }
+      }
+
       this.db = await openDB('enhanced-cache', 1, {
         upgrade(db: IDBPDatabase) {
           if (!db.objectStoreNames.contains('cache-store')) {
             db.createObjectStore('cache-store');
           }
+        },
+        blocked() {
+          console.warn('IndexedDB is blocked, another connection may be open');
+        },
+        blocking() {
+          console.warn('This connection is blocking a newer version');
+        },
+        terminated: () => {
+          console.warn('IndexedDB connection was terminated unexpectedly');
+          // Reset the db reference so future operations will attempt to reconnect
+          setTimeout(() => {
+            this.db = null;
+            this.initializeDB().catch((reconnectErr: Error) => {
+              console.error('Failed to reconnect to IndexedDB:', reconnectErr);
+            });
+          }, 1000);
         }
       });
+      
+      // Add a test key to verify the connection works
+      await this.db.put('cache-store', { test: true, timestamp: Date.now() }, 'db-connection-test');
+      
     } catch (err) {
       console.error('Failed to initialize IndexedDB:', err);
+      this.db = null;
     }
   }
 
@@ -639,17 +672,31 @@ export class EnhancedCacheManager {
         );
         
         // Sort by timestamp and remove oldest
-        entries.sort((a: { entry: CacheEntry<any> }, b: { entry: CacheEntry<any> }) => 
-          a.entry.timestamp - b.entry.timestamp
-        );
+        entries.sort((a: { entry: CacheEntry<any> }, b: { entry: CacheEntry<any> }) => {
+          // Handle potential undefined values gracefully
+          if (!a.entry || !b.entry) return 0;
+          if (!a.entry.timestamp) return -1; // Move entries without timestamp to the front
+          if (!b.entry.timestamp) return 1;
+          return a.entry.timestamp - b.entry.timestamp;
+        });
         
         // Remove entries until we're under the limit
         for (const { key } of entries) {
+          if (!key) continue; // Skip undefined keys
+          
           const currentEstimate = await navigator.storage?.estimate();
           if (!currentEstimate?.usage || currentEstimate.usage <= this.cacheLimits.INDEXED_DB_SIZE) {
             break;
           }
-          await this.db.delete('cache-store', key);
+          
+          try {
+            if (this.db) {
+              await this.db.delete('cache-store', key);
+            }
+          } catch (err) {
+            console.warn('Failed to delete cache entry during cleanup:', err);
+            // Continue with other entries
+          }
         }
       }
     }
