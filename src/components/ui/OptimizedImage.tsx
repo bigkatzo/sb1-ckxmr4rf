@@ -40,10 +40,13 @@ export function OptimizedImage({
       // For Supabase storage URLs, add render endpoint with format and size params
       const baseUrl = src.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
       
-      // Select the best format based on content type
-      const format = src.toLowerCase().endsWith('.png') && !src.toLowerCase().includes('transparent') 
-        ? 'webp' // Convert non-transparent PNGs to WebP
-        : '';  // Let Supabase determine the best format
+      // Only convert to WebP if it's a larger image (>400px) and not likely transparent
+      // This conservative approach ensures we don't change the visual appearance of UI elements
+      const shouldConvertFormat = width > 400 && 
+        src.toLowerCase().endsWith('.png') && 
+        !src.toLowerCase().includes('transparent');
+      
+      const format = shouldConvertFormat ? 'webp' : '';
 
       const params = new URLSearchParams({
         width: width.toString(),
@@ -58,13 +61,12 @@ export function OptimizedImage({
     return src;
   }, [src, width, quality]);
 
-  // Generate responsive sizes if not provided
-  const responsiveSizes = sizes || (width && height
-    ? `(max-width: 640px) ${Math.min(width, 640)}px, ${width}px`
-    : '100vw'
-  );
+  // Only generate responsive sizes if explicitly not provided by the parent component
+  // This ensures we don't override specific sizing requirements in different components
+  const responsiveSizes = sizes || 
+    (width && height ? `(max-width: 640px) ${Math.min(width, 640)}px, ${width}px` : '100vw');
 
-  // Preload LCP image
+  // Preload LCP image only for actual LCP candidates, not smaller UI elements
   useEffect(() => {
     if (isLCP && typeof window !== 'undefined') {
       const linkEl = document.createElement('link');
@@ -106,7 +108,7 @@ export function OptimizedImage({
       {isLoading && (
         <div 
           className="absolute inset-0 bg-gray-800 animate-pulse" 
-          style={height ? { aspectRatio: `${width}/${height}` } : undefined}
+          style={height && width ? { aspectRatio: `${width}/${height}` } : undefined}
         />
       )}
       
