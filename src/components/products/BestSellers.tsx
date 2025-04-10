@@ -42,7 +42,7 @@ export function BestSellers() {
                 onClick={() => setSelectedProduct(product)}
                 categoryIndex={categoryIndices[product.categoryId]}
                 showCategory={false}
-                isInInitialViewport={index < 4}
+                isInInitialViewport={index < 2}
               />
             </div>
           ))}
