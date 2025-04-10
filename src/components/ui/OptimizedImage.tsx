@@ -12,6 +12,8 @@ interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
   onLoad?: () => void;
   sizes?: string;
   inViewport?: boolean;
+  fetchPriority?: 'high' | 'low' | 'auto';
+  loading?: 'eager' | 'lazy';
 }
 
 // Helper to detect if image is an LCP candidate based on attributes
@@ -85,6 +87,8 @@ export function OptimizedImage({
   onLoad,
   sizes,
   inViewport = false,
+  fetchPriority: propFetchPriority,
+  loading: propLoading,
   ...props
 }: OptimizedImageProps) {
   // Only consider real high-priority images for eager loading
@@ -95,8 +99,8 @@ export function OptimizedImage({
   
   // Determine proper loading strategy based on importance
   // More conservative eager loading to prevent too many concurrent requests
-  const loadingStrategy = shouldPrioritize ? 'eager' : 'lazy';
-  const fetchPriorityValue = getFetchPriority(isLCP, priority, inViewport);
+  const loadingStrategy = propLoading || (shouldPrioritize ? 'eager' : 'lazy');
+  const fetchPriorityValue = propFetchPriority || getFetchPriority(isLCP, priority, inViewport);
 
   // Enhanced URL optimization with caching and format conversion
   const optimizedSrc = useMemo(() => {
@@ -147,7 +151,9 @@ export function OptimizedImage({
   useEffect(() => {
     // Only preload images that are truly important - limit to absolute priorities
     // This prevents excessive preloads that can block rendering
-    if ((isLCP || priority) && typeof window !== 'undefined' && !document.querySelector(`link[rel="preload"][href="${optimizedSrc}"]`)) {
+    const shouldPreload = (isLCP || priority) || (propFetchPriority === 'high');
+    
+    if (shouldPreload && typeof window !== 'undefined' && !document.querySelector(`link[rel="preload"][href="${optimizedSrc}"]`)) {
       const linkEl = document.createElement('link');
       linkEl.rel = 'preload';
       linkEl.as = 'image';
@@ -163,7 +169,7 @@ export function OptimizedImage({
         }
       };
     }
-  }, [optimizedSrc, isLCP, priority]);
+  }, [optimizedSrc, isLCP, priority, propFetchPriority]);
 
   const handleImageError = () => {
     // If render endpoint fails, fall back to original URL with cache control

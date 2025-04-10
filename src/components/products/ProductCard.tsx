@@ -55,6 +55,10 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
               inViewport={isInInitialViewport}
               onLoad={() => setImageLoading(false)}
               loading={loadingPriority !== undefined ? (loadingPriority < 4 ? "eager" : "lazy") : undefined}
+              fetchPriority={loadingPriority !== undefined ? 
+                (loadingPriority < 2 ? "high" : 
+                 loadingPriority < 8 ? "auto" : "low") : undefined
+              }
             />
           </>
         ) : (
