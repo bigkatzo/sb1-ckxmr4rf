@@ -11,9 +11,10 @@ interface ProductCardProps {
   onClick: (product: Product) => void;
   categoryIndex?: number;
   isInInitialViewport?: boolean;
+  loadingPriority?: number;
 }
 
-export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport }: ProductCardProps) {
+export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport, loadingPriority }: ProductCardProps) {
   const [imageLoading, setImageLoading] = useState(true);
   const { modifiedPrice } = useModifiedPrice({ product });
 
@@ -53,6 +54,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
               priority={isInInitialViewport}
               inViewport={isInInitialViewport}
               onLoad={() => setImageLoading(false)}
+              loading={loadingPriority !== undefined ? (loadingPriority < 4 ? "eager" : "lazy") : undefined}
             />
           </>
         ) : (

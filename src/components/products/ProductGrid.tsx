@@ -90,15 +90,31 @@ export function ProductGrid({ products, categoryId, categoryIndices, loading }: 
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 sm:gap-6">
-      {filteredProducts.map((product, index) => (
-        <ProductCard 
-          key={product.id} 
-          product={product} 
-          onClick={() => handleProductClick(product)}
-          categoryIndex={categoryIndices[product.categoryId] || 0}
-          isInInitialViewport={index < initialViewportCount}
-        />
-      ))}
+      {filteredProducts.map((product, index) => {
+        // Calculate row and column position for consistent loading order
+        let columns = 2; // Default mobile
+        if (window.innerWidth >= 768) columns = 4; // md:grid-cols-4
+        else if (window.innerWidth >= 640) columns = 3; // sm:grid-cols-3
+        
+        // Calculate row and column based on index
+        const row = Math.floor(index / columns);
+        const col = index % columns;
+        
+        // Set loading priority based on visual position (top-to-bottom, left-to-right)
+        // Lower priority value means higher loading priority
+        const loadingPriority = row * 100 + col;
+        
+        return (
+          <ProductCard 
+            key={product.id} 
+            product={product} 
+            onClick={() => handleProductClick(product)}
+            categoryIndex={categoryIndices[product.categoryId] || 0}
+            isInInitialViewport={index < initialViewportCount}
+            loadingPriority={loadingPriority}
+          />
+        );
+      })}
     </div>
   );
 }
