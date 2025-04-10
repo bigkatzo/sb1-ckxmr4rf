@@ -11,6 +11,7 @@
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["@solana/*", "@particle-network/*", "@fractalwagmi/*", "@project-serum/*", "@metaplex-*", "solana-*"]
+  config_dir = "netlify/config"  # Point to the new configuration directory
 
 # API endpoints for tracking functions
 [[redirects]]
