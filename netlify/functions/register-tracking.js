@@ -1,21 +1,43 @@
-import { Handler } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-import { getCarrierCode } from '../../src/services/tracking';
+// CommonJS version of the register-tracking function
+const { createClient } = require('@supabase/supabase-js');
+const { getCarrierCode } = require('./tracking-utils');
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const seventeenTrackApiKey = process.env.SEVENTEEN_TRACK_API_KEY!;
+// Ensure environment variables are properly handled
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const seventeenTrackApiKey = process.env.SEVENTEEN_TRACK_API_KEY;
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Only create supabase client if credentials are available
+const supabase = supabaseUrl && supabaseServiceKey ? 
+  createClient(supabaseUrl, supabaseServiceKey) : 
+  null;
 
 const SEVENTEEN_TRACK_API_URL = 'https://api.17track.net/track/v2.2';
 
-export const handler: Handler = async (event) => {
+/**
+ * Serverless function to register tracking with 17TRACK
+ */
+exports.handler = async (event) => {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
       body: JSON.stringify({ error: 'Method not allowed' })
+    };
+  }
+
+  // Check if required environment variables are set
+  if (!supabase) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Database configuration is missing' })
+    };
+  }
+
+  if (!seventeenTrackApiKey) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: '17TRACK API configuration is missing' })
     };
   }
 

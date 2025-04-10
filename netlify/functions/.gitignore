@@ -1,0 +1,11 @@
+# Node.js dependencies - these will be installed by Netlify
+node_modules/
+
+# Build artifacts
+*.zip
+*.tgz
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store 

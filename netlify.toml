@@ -7,6 +7,22 @@
 [build.environment]
   NODE_VERSION = "18"
 
+# Global function configuration - simpler approach
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@solana/*", "@particle-network/*", "@fractalwagmi/*", "@project-serum/*", "@metaplex-*", "solana-*"]
+
+# API endpoints for tracking functions
+[[redirects]]
+  from = "/api/get-tracking-status"
+  to = "/.netlify/functions/get-tracking-status"
+  status = 200
+
+[[redirects]]
+  from = "/api/register-tracking"
+  to = "/.netlify/functions/register-tracking"
+  status = 200
+
 # Handle SPA routing
 [[redirects]]
   from = "/*"

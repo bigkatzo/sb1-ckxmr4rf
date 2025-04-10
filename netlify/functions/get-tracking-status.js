@@ -1,10 +1,14 @@
-import { Handler } from '@netlify/functions';
-import { getCarrierCode } from '../../src/services/tracking';
+// CommonJS version of the get-tracking-status function
+const { getCarrierCode } = require('./tracking-utils');
 
-const seventeenTrackApiKey = process.env.SEVENTEEN_TRACK_API_KEY!;
+// Ensure environment variables are properly handled
+const seventeenTrackApiKey = process.env.SEVENTEEN_TRACK_API_KEY;
 const SEVENTEEN_TRACK_API_URL = 'https://api.17track.net/track/v2.2';
 
-const handler: Handler = async (event) => {
+/**
+ * Serverless function to get tracking status from 17TRACK
+ */
+exports.handler = async (event) => {
   try {
     if (event.httpMethod !== 'POST') {
       return {
@@ -106,6 +110,4 @@ const handler: Handler = async (event) => {
       body: JSON.stringify({ error: 'Failed to fetch tracking status' }),
     };
   }
-};
-
-export { handler }; 
+}; 
