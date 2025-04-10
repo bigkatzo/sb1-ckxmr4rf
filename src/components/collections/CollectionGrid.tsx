@@ -25,18 +25,34 @@ export function CollectionGrid({ filter }: CollectionGridProps) {
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
-      {collections.map((collection) => (
-        <div
-          key={collection.id}
-          onClick={() => navigate(`/${collection.slug}`)}
-          className="cursor-pointer animate-fade-in"
-        >
-          <CollectionCard 
-            collection={collection} 
-            variant="large"
-          />
-        </div>
-      ))}
+      {collections.map((collection, index) => {
+        // Calculate row and column position for consistent loading order
+        let columns = 1; // Default mobile
+        if (window.innerWidth >= 1024) columns = 3; // lg:grid-cols-3
+        else if (window.innerWidth >= 640) columns = 2; // sm:grid-cols-2
+        
+        // Calculate row and column based on index
+        const row = Math.floor(index / columns);
+        const col = index % columns;
+        
+        // Set loading priority based on visual position (top-to-bottom, left-to-right)
+        // Lower priority value means higher loading priority
+        const loadingPriority = row * 100 + col;
+        
+        return (
+          <div
+            key={collection.id}
+            onClick={() => navigate(`/${collection.slug}`)}
+            className="cursor-pointer animate-fade-in"
+          >
+            <CollectionCard 
+              collection={collection} 
+              variant="large"
+              loadingPriority={loadingPriority}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
