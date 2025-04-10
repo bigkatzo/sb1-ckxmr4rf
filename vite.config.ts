@@ -138,11 +138,16 @@ export default defineConfig({
     cssMinify: true,
     // Improve minification
     reportCompressedSize: true,
+    // Ensure proper JS module handling
+    modulePreload: {
+      polyfill: true
+    },
     rollupOptions: {
       output: {
         assetFileNames: 'assets/[name]-[hash][extname]',
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
+        format: 'es', // Ensure ES modules format
         // Improve tree-shaking
         hoistTransitiveImports: true,
         manualChunks: {
