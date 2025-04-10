@@ -83,7 +83,7 @@ export default defineConfig({
     sourcemap: false,
     target: 'esnext',
     minify: 'esbuild',
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1500,
     assetsDir: 'assets',
     rollupOptions: {
       output: {
@@ -103,7 +103,15 @@ export default defineConfig({
             '@solana/wallet-adapter-react-ui',
             '@solana/wallet-adapter-wallets'
           ],
-          'vendor-metaplex': ['@metaplex-foundation/js'],
+          
+          // Split Metaplex into smaller chunks
+          'vendor-metaplex-core': ['@metaplex-foundation/js/dist/index'],
+          'vendor-metaplex-mpl-token': ['@metaplex-foundation/mpl-token-metadata'],
+          'vendor-metaplex-mpl-candy': [
+            '@metaplex-foundation/mpl-candy-machine',
+            '@metaplex-foundation/mpl-candy-guard'
+          ],
+          'vendor-metaplex-bubblegum': ['@metaplex-foundation/mpl-bubblegum'],
           
           // UI dependencies
           'vendor-ui': ['lucide-react', 'react-toastify', 'react-dropzone', '@headlessui/react', '@radix-ui/react-tooltip'],
