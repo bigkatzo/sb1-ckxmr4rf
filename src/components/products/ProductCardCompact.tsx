@@ -13,6 +13,7 @@ interface ProductCardCompactProps {
   categoryIndex?: number;
   showCategory?: boolean;
   isInInitialViewport?: boolean;
+  loadingPriority?: number;
 }
 
 export function ProductCardCompact({ 
@@ -20,7 +21,8 @@ export function ProductCardCompact({
   onClick, 
   categoryIndex = 0,
   showCategory = false,
-  isInInitialViewport = false
+  isInInitialViewport = false,
+  loadingPriority
 }: ProductCardCompactProps) {
   const navigate = useNavigate();
   const { modifiedPrice } = useModifiedPrice({ product });
@@ -94,6 +96,11 @@ export function ProductCardCompact({
             sizes="(max-width: 640px) 140px, 200px"
             inViewport={isInInitialViewport}
             priority={isInInitialViewport}
+            loading={loadingPriority !== undefined ? (loadingPriority < 4 ? "eager" : "lazy") : undefined}
+            fetchPriority={loadingPriority !== undefined ? 
+              (loadingPriority < 2 ? "high" : 
+               loadingPriority < 8 ? "auto" : "low") : undefined
+            }
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">

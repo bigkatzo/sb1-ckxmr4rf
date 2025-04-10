@@ -69,6 +69,7 @@ export function BestSellers() {
                 categoryIndex={categoryIndices[product.categoryId]}
                 showCategory={false}
                 isInInitialViewport={index < visibleItemCount}
+                loadingPriority={index}
               />
             </div>
           ))}
