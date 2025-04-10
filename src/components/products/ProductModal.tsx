@@ -12,6 +12,9 @@ import { ProductNotes } from './ProductNotes';
 import type { Product as BaseProduct } from '../../types/variants';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
 
+// Create a local Set to track preloaded images for this component instance
+const preloadedImages = new Set<string>();
+
 // Extend the base Product type with additional properties needed for the modal
 interface Product extends BaseProduct {
   collectionLaunchDate?: Date;
@@ -370,34 +373,114 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     if (!images.length) return;
     
     // Use the smart gallery preloader to prioritize images properly
+    // Add immediate adjacent images to high priority preloading
     preloadGallery(images, selectedImageIndex, 2);
     
+    // Directly preload the next image with high priority when available
+    if (selectedImageIndex + 1 < images.length) {
+      const nextImg = new Image();
+      nextImg.src = images[selectedImageIndex + 1];
+      nextImg.fetchPriority = 'high';
+    }
+    
+    // Also preload the previous image with slightly lower priority when available
+    if (selectedImageIndex > 0) {
+      const prevImg = new Image();
+      prevImg.src = images[selectedImageIndex - 1];
+      // Use a slightly lower priority for the previous image
+      prevImg.fetchPriority = 'auto';
+    }
   }, [selectedImageIndex, images]);
 
   // Preload all images when the modal first opens for a complete gallery experience
   useEffect(() => {
     if (!images.length) return;
     
-    // Immediately preload the first visible image
+    // Preload the visible image immediately with highest priority
     if (images[selectedImageIndex]) {
-      const img = new Image();
-      img.src = images[selectedImageIndex];
-      img.fetchPriority = 'high';
+      const visibleImg = new Image();
+      visibleImg.src = images[selectedImageIndex];
+      visibleImg.fetchPriority = 'high';
+      
+      // Add a preload link to ensure browser fetches this immediately
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = images[selectedImageIndex];
+      link.fetchPriority = 'high';
+      document.head.appendChild(link);
+      
+      // Remove the preload link after image is loaded or after a timeout
+      const cleanup = () => {
+        if (document.head.contains(link)) {
+          document.head.removeChild(link);
+        }
+      };
+      
+      visibleImg.onload = cleanup;
+      visibleImg.onerror = cleanup;
+      // Fallback cleanup in case onload never fires
+      setTimeout(cleanup, 3000);
     }
     
-    // Preload all other images during idle time
-    if ('requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(() => {
-        // Gradually preload all images
-        preloadImages(images);
+    // Use intersection observer API for better loading of offscreen images
+    // This creates a more progressive loading experience than requestIdleCallback
+    if ('IntersectionObserver' in window) {
+      const imageLoaderCallback = (entries: IntersectionObserverEntry[], observer: IntersectionObserver) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const index = parseInt(entry.target.getAttribute('data-index') || '-1');
+            if (index >= 0 && index < images.length) {
+              // Preload this specific image
+              const img = new Image();
+              img.src = images[index];
+              preloadedImages.add(images[index]);
+              // Unobserve after loading
+              observer.unobserve(entry.target);
+            }
+          }
+        });
+      };
+      
+      // Create low-threshold observer to start loading before images are fully visible
+      const imageObserver = new IntersectionObserver(imageLoaderCallback, {
+        rootMargin: '500px', // Larger margin to start loading even earlier
+        threshold: 0.01 // Trigger with just 1% in view
       });
+      
+      // Observe placeholder elements for all gallery images
+      // Use requestAnimationFrame to ensure the DOM is ready
+      requestAnimationFrame(() => {
+        const placeHolders = document.querySelectorAll('.gallery-image-placeholder');
+        if (placeHolders && placeHolders.length > 0) {
+          placeHolders.forEach((placeholder) => {
+            imageObserver.observe(placeholder);
+          });
+        } else {
+          // Fallback if placeholders aren't found
+          setTimeout(() => preloadImages(images), 200);
+        }
+      });
+      
+      return () => {
+        imageObserver.disconnect();
+      };
     } else {
-      // Fallback for browsers without requestIdleCallback
-      setTimeout(() => {
-        preloadImages(images);
-      }, 300);
+      // Fallback for browsers without IntersectionObserver
+      // Preload all other images during idle time
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => {
+          // Gradually preload all images
+          preloadImages(images);
+        });
+      } else {
+        // Fallback for browsers without requestIdleCallback
+        setTimeout(() => {
+          preloadImages(images);
+        }, 300);
+      }
     }
-  }, [images, selectedImageIndex]); // Only run once when modal opens or images change
+  }, [images]);
 
   return (
     <div 
@@ -496,6 +579,11 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                         WebkitBackfaceVisibility: 'hidden'
                       } : { width: '100%' }}
                     >
+                      <div 
+                        className="gallery-image-placeholder absolute inset-0 pointer-events-none opacity-0" 
+                        data-index={index}
+                        aria-hidden="true"
+                      ></div>
                       <OptimizedImage
                         src={image}
                         alt={`${product.name}${images.length > 1 ? ` - Image ${index + 1}` : ''}`}
@@ -503,7 +591,25 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                         height={1000}
                         quality={95}
                         priority={index === selectedImageIndex}
-                        inViewport={index === selectedImageIndex || index === (selectedImageIndex + 1) % images.length || index === (selectedImageIndex - 1 + images.length) % images.length}
+                        inViewport={
+                          index === selectedImageIndex || 
+                          index === (selectedImageIndex + 1) % images.length || 
+                          index === (selectedImageIndex - 1 + images.length) % images.length
+                        }
+                        fetchPriority={
+                          index === selectedImageIndex 
+                            ? 'high' 
+                            : (index === selectedImageIndex + 1 || index === selectedImageIndex - 1) 
+                              ? 'auto' 
+                              : 'low'
+                        }
+                        loading={
+                          index === selectedImageIndex || 
+                          index === (selectedImageIndex + 1) % images.length || 
+                          index === (selectedImageIndex - 1 + images.length) % images.length 
+                            ? 'eager' 
+                            : 'lazy'
+                        }
                         className="max-w-full max-h-full w-auto h-auto object-contain pointer-events-none"
                         sizes="(max-width: 640px) 100vw, 800px"
                       />
