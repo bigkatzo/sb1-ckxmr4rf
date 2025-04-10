@@ -11,10 +11,13 @@ interface CollectionScrollerProps {
 
 export function CollectionScroller({ filter }: CollectionScrollerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
   const { collections, loading } = useCollections(filter);
+  const navigate = useNavigate();
   const [touchStartTime, setTouchStartTime] = useState<Record<string, number>>({});
   const [touchStartPosition, setTouchStartPosition] = useState<Record<string, {x: number, y: number}>>({});
+
+  // No need for visibleCount as we're using index-based loading priority
+  // This simplifies the component without changing functionality
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -93,7 +96,7 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
         ref={scrollRef}
         className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
       >
-        {collections.map((collection) => (
+        {collections.map((collection, index) => (
           <div
             key={collection.id}
             className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start cursor-pointer touch-manipulation"
@@ -104,6 +107,7 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
             <CollectionCard 
               collection={collection} 
               variant="small"
+              loadingPriority={index}
             />
           </div>
         ))}

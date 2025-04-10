@@ -1,14 +1,25 @@
 import { Image as ImageIcon, Ban, ArrowRight, Calendar } from 'lucide-react';
 import { OptimizedImage } from '../ui/OptimizedImage';
-import type { Collection } from '../../types/collections';
 import { format } from 'date-fns';
 
-interface CollectionCardProps {
-  collection: Collection;
-  variant?: 'small' | 'large';
+// Simplified Collection interface that matches what we actually use in this component
+interface SimpleCollection {
+  id: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  launchDate: Date;
+  saleEnded: boolean;
+  slug: string;
 }
 
-export function CollectionCard({ collection, variant = 'large' }: CollectionCardProps) {
+interface CollectionCardProps {
+  collection: SimpleCollection;
+  variant?: 'small' | 'large';
+  loadingPriority?: number;
+}
+
+export function CollectionCard({ collection, variant = 'large', loadingPriority }: CollectionCardProps) {
   const now = new Date();
   const isUpcoming = collection.launchDate > now;
   const isNew = !isUpcoming && (now.getTime() - collection.launchDate.getTime()) < 7 * 24 * 60 * 60 * 1000;
@@ -35,6 +46,7 @@ export function CollectionCard({ collection, variant = 'large' }: CollectionCard
               ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               : "(max-width: 640px) 50vw, 33vw"
             }
+            loading={loadingPriority !== undefined ? (loadingPriority < 3 ? "eager" : "lazy") : undefined}
           />
         ) : (
           <div className="h-full w-full bg-gray-800 flex items-center justify-center">
