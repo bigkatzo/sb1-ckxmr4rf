@@ -105,7 +105,7 @@ export default defineConfig({
           ],
           
           // Split Metaplex into smaller chunks
-          'vendor-metaplex-core': ['@metaplex-foundation/js/dist/index'],
+          'vendor-metaplex-core': ['@metaplex-foundation/js'],
           'vendor-metaplex-mpl-token': ['@metaplex-foundation/mpl-token-metadata'],
           'vendor-metaplex-mpl-candy': [
             '@metaplex-foundation/mpl-candy-machine',
