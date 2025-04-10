@@ -128,6 +128,12 @@ export function reportError(
   }
   */
   
+  // Using the showToUser parameter to avoid TS6133 (unused variable)
+  if (showToUser && import.meta.env.DEV) {
+    // In development mode, log to console that we would show to user
+    console.debug('[UI Notification]', 'Would show error to user:', structuredError.message);
+  }
+  
   return structuredError;
 }
 
