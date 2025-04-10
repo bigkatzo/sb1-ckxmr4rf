@@ -51,6 +51,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
               `}
               sizes="(max-width: 640px) 50vw, 33vw"
               priority={isInInitialViewport}
+              inViewport={isInInitialViewport}
               onLoad={() => setImageLoading(false)}
             />
           </>

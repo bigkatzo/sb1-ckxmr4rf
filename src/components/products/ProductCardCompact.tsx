@@ -12,13 +12,15 @@ interface ProductCardCompactProps {
   onClick: (product: Product) => void;
   categoryIndex?: number;
   showCategory?: boolean;
+  isInInitialViewport?: boolean;
 }
 
 export function ProductCardCompact({ 
   product, 
   onClick, 
   categoryIndex = 0,
-  showCategory = false
+  showCategory = false,
+  isInInitialViewport = false
 }: ProductCardCompactProps) {
   const navigate = useNavigate();
   const { modifiedPrice } = useModifiedPrice({ product });
@@ -90,6 +92,8 @@ export function ProductCardCompact({
             quality={75}
             className="transition-transform duration-300 will-change-transform group-hover:scale-105"
             sizes="(max-width: 640px) 140px, 200px"
+            inViewport={isInInitialViewport}
+            priority={isInInitialViewport}
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">

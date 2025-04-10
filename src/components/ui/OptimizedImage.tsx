@@ -11,11 +11,23 @@ interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
   priority?: boolean;
   onLoad?: () => void;
   sizes?: string;
+  inViewport?: boolean;
 }
 
 // Helper to detect if image is an LCP candidate based on attributes
 const isLCPCandidate = (priority: boolean, width?: number, height?: number): boolean => {
   return priority || (!!width && width >= 800 && !!height && height >= 600);
+};
+
+// Get proper fetch priority based on image importance
+const getFetchPriority = (
+  isLCP: boolean, 
+  priority: boolean, 
+  inViewport?: boolean
+): 'high' | 'low' | 'auto' => {
+  if (isLCP || priority) return 'high';
+  if (inViewport) return 'high';
+  return 'auto';
 };
 
 export function OptimizedImage({
@@ -29,10 +41,15 @@ export function OptimizedImage({
   priority = false,
   onLoad,
   sizes,
+  inViewport = false,
   ...props
 }: OptimizedImageProps) {
-  const [isLoading, setIsLoading] = useState(!priority);
+  const [isLoading, setIsLoading] = useState(!priority && !inViewport);
   const isLCP = isLCPCandidate(priority, width, height);
+  
+  // Determine proper loading strategy based on importance
+  const loadingStrategy = priority || inViewport ? 'eager' : 'lazy';
+  const fetchPriorityValue = getFetchPriority(isLCP, priority, inViewport);
 
   // Enhanced URL optimization with caching and format conversion
   const optimizedSrc = useMemo(() => {
@@ -66,9 +83,9 @@ export function OptimizedImage({
   const responsiveSizes = sizes || 
     (width && height ? `(max-width: 640px) ${Math.min(width, 640)}px, ${width}px` : '100vw');
 
-  // Preload LCP image only for actual LCP candidates, not smaller UI elements
+  // Preload high priority images
   useEffect(() => {
-    if (isLCP && typeof window !== 'undefined') {
+    if ((isLCP || priority || inViewport) && typeof window !== 'undefined') {
       const linkEl = document.createElement('link');
       linkEl.rel = 'preload';
       linkEl.as = 'image';
@@ -80,7 +97,7 @@ export function OptimizedImage({
         document.head.removeChild(linkEl);
       };
     }
-  }, [optimizedSrc, isLCP]);
+  }, [optimizedSrc, isLCP, priority, inViewport]);
 
   const handleImageError = () => {
     // If render endpoint fails, fall back to original URL with cache control
@@ -123,8 +140,8 @@ export function OptimizedImage({
           ${isLoading ? 'scale-105 blur-[1px]' : 'scale-100 blur-0'}
           ${className}
         `}
-        loading={priority ? 'eager' : 'lazy'}
-        fetchPriority={isLCP ? 'high' : 'auto'}
+        loading={loadingStrategy}
+        fetchPriority={fetchPriorityValue}
         sizes={responsiveSizes}
         onLoad={() => {
           setIsLoading(false);
