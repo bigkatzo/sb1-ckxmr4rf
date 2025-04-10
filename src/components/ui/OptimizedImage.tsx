@@ -44,11 +44,15 @@ export function OptimizedImage({
   inViewport = false,
   ...props
 }: OptimizedImageProps) {
-  const [isLoading, setIsLoading] = useState(!priority && !inViewport);
+  // Only consider real high-priority images for eager loading
+  // This helps avoid too many concurrent image loads
+  const shouldPrioritize = priority || (isLCPCandidate(priority, width, height) && width > 600);
+  const [isLoading, setIsLoading] = useState(!shouldPrioritize);
   const isLCP = isLCPCandidate(priority, width, height);
   
   // Determine proper loading strategy based on importance
-  const loadingStrategy = priority || inViewport ? 'eager' : 'lazy';
+  // More conservative eager loading to prevent too many concurrent requests
+  const loadingStrategy = shouldPrioritize ? 'eager' : 'lazy';
   const fetchPriorityValue = getFetchPriority(isLCP, priority, inViewport);
 
   // Enhanced URL optimization with caching and format conversion
@@ -85,7 +89,9 @@ export function OptimizedImage({
 
   // Preload high priority images
   useEffect(() => {
-    if ((isLCP || priority || inViewport) && typeof window !== 'undefined') {
+    // Only preload images that are truly important - limit to absolute priorities
+    // This prevents excessive preloads that can block rendering
+    if ((isLCP || priority) && typeof window !== 'undefined' && !document.querySelector(`link[rel="preload"][href="${optimizedSrc}"]`)) {
       const linkEl = document.createElement('link');
       linkEl.rel = 'preload';
       linkEl.as = 'image';
@@ -94,10 +100,14 @@ export function OptimizedImage({
       document.head.appendChild(linkEl);
       
       return () => {
-        document.head.removeChild(linkEl);
+        // Only attempt to remove if the element still exists
+        const existingLink = document.querySelector(`link[rel="preload"][href="${optimizedSrc}"]`);
+        if (existingLink && existingLink.parentNode) {
+          existingLink.parentNode.removeChild(existingLink);
+        }
       };
     }
-  }, [optimizedSrc, isLCP, priority, inViewport]);
+  }, [optimizedSrc, isLCP, priority]);
 
   const handleImageError = () => {
     // If render endpoint fails, fall back to original URL with cache control

@@ -10,7 +10,7 @@ import { OptimizedImage } from '../ui/OptimizedImage';
 import { ProductModalSkeleton } from '../ui/Skeletons';
 import { ProductNotes } from './ProductNotes';
 import type { Product as BaseProduct } from '../../types/variants';
-import { preloadImages } from '../../utils/ImagePreloader';
+import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
 
 // Extend the base Product type with additional properties needed for the modal
 interface Product extends BaseProduct {
@@ -369,26 +369,35 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   useEffect(() => {
     if (!images.length) return;
     
-    // Immediately preload the first image for instant display
+    // Use the smart gallery preloader to prioritize images properly
+    preloadGallery(images, selectedImageIndex, 2);
+    
+  }, [selectedImageIndex, images]);
+
+  // Preload all images when the modal first opens for a complete gallery experience
+  useEffect(() => {
+    if (!images.length) return;
+    
+    // Immediately preload the first visible image
     if (images[selectedImageIndex]) {
       const img = new Image();
       img.src = images[selectedImageIndex];
+      img.fetchPriority = 'high';
     }
     
-    // Preload next image during idle time
-    const nextImage = images[(selectedImageIndex + 1) % images.length];
-    if (nextImage) {
-      if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(() => {
-          preloadImages([nextImage]);
-        });
-      } else {
-        setTimeout(() => {
-          preloadImages([nextImage]);
-        }, 500);
-      }
+    // Preload all other images during idle time
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => {
+        // Gradually preload all images
+        preloadImages(images);
+      });
+    } else {
+      // Fallback for browsers without requestIdleCallback
+      setTimeout(() => {
+        preloadImages(images);
+      }, 300);
     }
-  }, [selectedImageIndex, images]);
+  }, [images, selectedImageIndex]); // Only run once when modal opens or images change
 
   return (
     <div 
@@ -493,7 +502,8 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                         width={1000}
                         height={1000}
                         quality={95}
-                        priority={Math.abs(index - selectedImageIndex) <= 1}
+                        priority={index === selectedImageIndex}
+                        inViewport={index === selectedImageIndex || index === (selectedImageIndex + 1) % images.length || index === (selectedImageIndex - 1 + images.length) % images.length}
                         className="max-w-full max-h-full w-auto h-auto object-contain pointer-events-none"
                         sizes="(max-width: 640px) 100vw, 800px"
                       />
