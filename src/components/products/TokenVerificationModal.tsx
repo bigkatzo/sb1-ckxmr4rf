@@ -798,40 +798,41 @@ export function TokenVerificationModal({
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-200 mb-2">
-                          First Name
-                        </label>
-                        <input
-                          type="text"
-                          value={shippingInfo.firstName}
-                          onChange={(e) => setShippingInfo(prev => ({
-                            ...prev,
-                            firstName: e.target.value
-                          }))}
-                          required
-                          disabled={submitting}
-                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          placeholder="Enter your first name"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-200 mb-2">
-                          Last Name
-                        </label>
-                        <input
-                          type="text"
-                          value={shippingInfo.lastName}
-                          onChange={(e) => setShippingInfo(prev => ({
-                            ...prev,
-                            lastName: e.target.value
-                          }))}
-                          required
-                          disabled={submitting}
-                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          placeholder="Enter your last name"
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-200 mb-2">
+                            First Name
+                          </label>
+                          <input
+                            type="text"
+                            value={shippingInfo.firstName}
+                            onChange={(e) => setShippingInfo(prev => ({
+                              ...prev,
+                              firstName: e.target.value
+                            }))}
+                            required
+                            disabled={submitting}
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            placeholder="First name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-200 mb-2">
+                            Last Name
+                          </label>
+                          <input
+                            type="text"
+                            value={shippingInfo.lastName}
+                            onChange={(e) => setShippingInfo(prev => ({
+                              ...prev,
+                              lastName: e.target.value
+                            }))}
+                            required
+                            disabled={submitting}
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            placeholder="Last name"
+                          />
+                        </div>
                       </div>
 
                       <div>
