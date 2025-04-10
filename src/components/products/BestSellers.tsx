@@ -4,12 +4,18 @@ import { ProductCardCompact } from './ProductCardCompact';
 import { ProductModal } from './ProductModal';
 import { useBestSellers } from '../../hooks/useBestSellers';
 import { BestSellersSkeleton } from '../ui/Skeletons';
-import type { Product } from '../../types';
+import type { Product as VariantsProduct } from '../../types/variants';
 
 export function BestSellers() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { products, categoryIndices, loading } = useBestSellers(12, 'sales');
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const { products: rawProducts, categoryIndices, loading } = useBestSellers(10);
+  const [selectedProduct, setSelectedProduct] = useState<VariantsProduct | null>(null);
+
+  // Ensure products have all required properties for VariantsProduct
+  const products = rawProducts.map(product => ({
+    ...product,
+    visible: product.visible === undefined ? true : product.visible // Ensure visible is defined
+  })) as unknown as VariantsProduct[];
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -29,13 +35,14 @@ export function BestSellers() {
           ref={scrollRef}
           className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
         >
-          {products.map((product) => (
+          {products.map((product, index) => (
             <div key={product.id} className="flex-shrink-0 w-[140px] sm:w-[200px] snap-start">
               <ProductCardCompact 
                 product={product}
                 onClick={() => setSelectedProduct(product)}
                 categoryIndex={categoryIndices[product.categoryId]}
                 showCategory={false}
+                isInInitialViewport={index < 4}
               />
             </div>
           ))}
