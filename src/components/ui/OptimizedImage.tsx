@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -10,7 +10,13 @@ interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
   objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   priority?: boolean;
   onLoad?: () => void;
+  sizes?: string;
 }
+
+// Helper to detect if image is an LCP candidate based on attributes
+const isLCPCandidate = (priority: boolean, width?: number, height?: number): boolean => {
+  return priority || (!!width && width >= 800 && !!height && height >= 600);
+};
 
 export function OptimizedImage({
   src,
@@ -22,24 +28,57 @@ export function OptimizedImage({
   objectFit = 'cover',
   priority = false,
   onLoad,
+  sizes,
   ...props
 }: OptimizedImageProps) {
   const [isLoading, setIsLoading] = useState(!priority);
+  const isLCP = isLCPCandidate(priority, width, height);
 
-  // Enhanced URL optimization with caching
+  // Enhanced URL optimization with caching and format conversion
   const optimizedSrc = useMemo(() => {
     if (src.includes('/storage/v1/object/public/')) {
-      // For Supabase storage URLs, add render endpoint and caching params
+      // For Supabase storage URLs, add render endpoint with format and size params
       const baseUrl = src.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+      
+      // Select the best format based on content type
+      const format = src.toLowerCase().endsWith('.png') && !src.toLowerCase().includes('transparent') 
+        ? 'webp' // Convert non-transparent PNGs to WebP
+        : '';  // Let Supabase determine the best format
+
       const params = new URLSearchParams({
         width: width.toString(),
         quality: quality.toString(),
         cache: '604800' // 1 week cache
       });
+      
+      if (format) params.append('format', format);
+      
       return `${baseUrl}?${params.toString()}`;
     }
     return src;
   }, [src, width, quality]);
+
+  // Generate responsive sizes if not provided
+  const responsiveSizes = sizes || (width && height
+    ? `(max-width: 640px) ${Math.min(width, 640)}px, ${width}px`
+    : '100vw'
+  );
+
+  // Preload LCP image
+  useEffect(() => {
+    if (isLCP && typeof window !== 'undefined') {
+      const linkEl = document.createElement('link');
+      linkEl.rel = 'preload';
+      linkEl.as = 'image';
+      linkEl.href = optimizedSrc;
+      linkEl.fetchPriority = 'high';
+      document.head.appendChild(linkEl);
+      
+      return () => {
+        document.head.removeChild(linkEl);
+      };
+    }
+  }, [optimizedSrc, isLCP]);
 
   const handleImageError = () => {
     // If render endpoint fails, fall back to original URL with cache control
@@ -65,7 +104,10 @@ export function OptimizedImage({
   return (
     <div className="relative w-full h-full">
       {isLoading && (
-        <div className="absolute inset-0 bg-gray-800 animate-pulse" />
+        <div 
+          className="absolute inset-0 bg-gray-800 animate-pulse" 
+          style={height ? { aspectRatio: `${width}/${height}` } : undefined}
+        />
       )}
       
       <img
@@ -80,6 +122,8 @@ export function OptimizedImage({
           ${className}
         `}
         loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={isLCP ? 'high' : 'auto'}
+        sizes={responsiveSizes}
         onLoad={() => {
           setIsLoading(false);
           if (onLoad) onLoad();

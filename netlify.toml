@@ -179,7 +179,7 @@
 [[headers]]
   for = "/storage/*"
   [headers.values]
-    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+    Cache-Control = "public, max-age=2592000, stale-while-revalidate=31536000"
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, HEAD, OPTIONS"
     Access-Control-Allow-Headers = "Accept, Authorization, Cache-Control, Content-Type, Keep-Alive, Origin, X-Client-Info"
@@ -193,7 +193,7 @@
 [[headers]]
   for = "/.netlify/functions/supabase-proxy/*"
   [headers.values]
-    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+    Cache-Control = "public, max-age=2592000, stale-while-revalidate=31536000"
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, HEAD, OPTIONS"
     Access-Control-Allow-Headers = "Accept, Authorization, Cache-Control, Content-Type, Keep-Alive, Origin, X-Client-Info"
@@ -202,6 +202,14 @@
     Timing-Allow-Origin = "*"
     X-Cache-Type = "IMAGES"
     X-Cache-Strategy = "dynamic"
+
+# Add specific proxy for Supabase image render endpoints
+[[redirects]]
+  from = "/image-proxy/*"
+  to = "https://:splat"
+  status = 200
+  force = true
+  headers = {Cache-Control = "public, max-age=2592000, stale-while-revalidate=31536000"}
 
 # NFT Metadata
 [[headers]]
