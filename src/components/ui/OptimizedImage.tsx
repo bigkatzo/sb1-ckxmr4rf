@@ -30,6 +30,49 @@ const getFetchPriority = (
   return 'auto';
 };
 
+// Feature detection for WebP support
+let webpSupportCache: boolean | null = null;
+
+// Check if browser supports WebP
+const supportsWebP = (): boolean => {
+  // Return cached result if available
+  if (webpSupportCache !== null) return webpSupportCache;
+  
+  // SSR guard
+  if (typeof window === 'undefined') return false;
+  
+  // Try to get cached value from localStorage
+  try {
+    const cached = window.localStorage?.getItem('webp_support');
+    if (cached !== null) {
+      webpSupportCache = cached === 'true';
+      return webpSupportCache;
+    }
+  } catch (e) {
+    // Ignore storage errors
+  }
+  
+  // Simple feature detection
+  const canvas = document.createElement('canvas');
+  if (canvas.getContext && canvas.getContext('2d')) {
+    // Check if the browser can encode WebP
+    webpSupportCache = canvas.toDataURL('image/webp').startsWith('data:image/webp');
+    
+    // Cache the result
+    try {
+      window.localStorage?.setItem('webp_support', webpSupportCache.toString());
+    } catch (e) {
+      // Ignore storage errors
+    }
+    
+    return webpSupportCache;
+  }
+  
+  // Default to false
+  webpSupportCache = false;
+  return false;
+};
+
 export function OptimizedImage({
   src,
   alt,
@@ -61,13 +104,26 @@ export function OptimizedImage({
       // For Supabase storage URLs, add render endpoint with format and size params
       const baseUrl = src.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
       
-      // Only convert to WebP if it's a larger image (>400px) and not likely transparent
-      // This conservative approach ensures we don't change the visual appearance of UI elements
-      const shouldConvertFormat = width > 400 && 
-        src.toLowerCase().endsWith('.png') && 
-        !src.toLowerCase().includes('transparent');
+      // Determine if we should convert format to WebP
+      let format = '';
       
-      const format = shouldConvertFormat ? 'webp' : '';
+      // Skip format conversion for images that might have transparency unless they're PNGs
+      const mightHaveTransparency = 
+        src.toLowerCase().includes('transparent') || 
+        src.toLowerCase().includes('alpha') || 
+        src.toLowerCase().includes('logo');
+      
+      const isPng = src.toLowerCase().endsWith('.png');
+      const isJpg = src.toLowerCase().match(/\.(jpg|jpeg)$/i) !== null;
+      
+      // Only attempt format conversion for larger images (>400px) and if browser supports WebP
+      // Supabase storage only supports WebP conversion
+      if (width > 400 && supportsWebP()) {
+        // Convert JPGs or PNGs without transparency to WebP
+        if (isJpg || (isPng && !mightHaveTransparency)) {
+          format = 'webp';
+        }
+      }
 
       const params = new URLSearchParams({
         width: width.toString(),
@@ -113,7 +169,12 @@ export function OptimizedImage({
     // If render endpoint fails, fall back to original URL with cache control
     if (src.includes('/storage/v1/render/image/public/')) {
       const fallbackUrl = new URL(src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/'));
+      
+      // Set cache control for the fallback URL
       fallbackUrl.searchParams.set('cache', '604800'); // 1 week cache
+      
+      // Fall back to original format
+      console.warn(`Image conversion failed for ${optimizedSrc}, using original format`);
       const img = document.querySelector(`img[src="${optimizedSrc}"]`) as HTMLImageElement;
       if (img) {
         img.src = fallbackUrl.toString();
