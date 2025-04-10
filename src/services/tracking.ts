@@ -3,7 +3,7 @@ import { OrderTracking } from '../types/orders';
 
 // API proxy endpoint for frontend calls to avoid CSP issues
 const API_PROXY_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://store.dot.fun/.netlify/functions/tracking-api-proxy'
+  ? 'https://store.fun/.netlify/functions/tracking-api-proxy'
   : '/.netlify/functions/tracking-api-proxy';
 
 // Local carrier list URL (to avoid CSP issues)
