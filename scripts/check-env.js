@@ -43,42 +43,62 @@ const colors = {
   bold: '\x1b[1m'
 };
 
-// Check if .env file exists
-if (!fs.existsSync(dotEnvPath)) {
-  console.log(`${colors.red}${colors.bold}ERROR: .env file not found!${colors.reset}`);
-  console.log(`Create a .env file based on .env.example`);
-  
-  if (fs.existsSync(dotEnvExamplePath)) {
-    console.log(`${colors.blue}An example file exists at: ${dotEnvExamplePath}${colors.reset}`);
-  }
-  
-  process.exit(1);
-}
+// Check if running on Netlify or other CI environment
+const isCI = process.env.CI === 'true' || process.env.NETLIFY === 'true';
 
-// Read .env file
-const envContent = fs.readFileSync(dotEnvPath, 'utf8');
-const envLines = envContent.split('\n');
+// Initialize environment variables object
 const envVars = {};
 
-// Parse .env file
-envLines.forEach(line => {
-  // Skip comments and empty lines
-  if (!line || line.startsWith('#')) return;
-  
-  const match = line.match(/^([^=]+)=(.*)$/);
-  if (match) {
-    const key = match[1].trim();
-    let value = match[2].trim();
-    
-    // Remove quotes if present
-    if ((value.startsWith('"') && value.endsWith('"')) || 
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    
-    envVars[key] = value;
+// First, load any variables from process.env (these will always take precedence)
+REQUIRED_VARS.concat(RECOMMENDED_VARS).forEach(varName => {
+  if (process.env[varName]) {
+    envVars[varName] = process.env[varName];
   }
 });
+
+// If we're not in a CI environment, also check the .env file
+if (!isCI) {
+  // Check if .env file exists
+  if (!fs.existsSync(dotEnvPath)) {
+    console.log(`${colors.red}${colors.bold}ERROR: .env file not found!${colors.reset}`);
+    console.log(`Create a .env file based on .env.example`);
+    
+    if (fs.existsSync(dotEnvExamplePath)) {
+      console.log(`${colors.blue}An example file exists at: ${dotEnvExamplePath}${colors.reset}`);
+    }
+    
+    process.exit(1);
+  }
+
+  // Read .env file
+  const envContent = fs.readFileSync(dotEnvPath, 'utf8');
+  const envLines = envContent.split('\n');
+
+  // Parse .env file
+  envLines.forEach(line => {
+    // Skip comments and empty lines
+    if (!line || line.startsWith('#')) return;
+    
+    const match = line.match(/^([^=]+)=(.*)$/);
+    if (match) {
+      const key = match[1].trim();
+      let value = match[2].trim();
+      
+      // Remove quotes if present
+      if ((value.startsWith('"') && value.endsWith('"')) || 
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      
+      // Only set from .env if not already set from process.env
+      if (!envVars[key]) {
+        envVars[key] = value;
+      }
+    }
+  });
+} else {
+  console.log(`${colors.blue}Running in CI environment, checking system environment variables${colors.reset}`);
+}
 
 // Check for all required variables
 let missingRequired = [];
