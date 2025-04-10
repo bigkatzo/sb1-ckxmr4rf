@@ -384,8 +384,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         "Store ID": null,
         "Order Number": "order_number",
         "Hypersku Quantity": null,
-        "First Name": "contact_info.full_name",
-        "Last Name": null,
+        "First Name": "contact_info.firstName",
+        "Last Name": "contact_info.lastName",
         "Address1": "shipping_info.address",
         "Address2": null,
         "City": "shipping_info.city",
@@ -429,7 +429,13 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               
               if (parent === 'contact_info') {
                 if (child === 'full_name' && order.contactInfo) {
-                  return escapeCSV(order.contactInfo.fullName || '');
+                  return escapeCSV(`${order.contactInfo.firstName || ''} ${order.contactInfo.lastName || ''}`);
+                }
+                if (child === 'first_name' && order.contactInfo) {
+                  return escapeCSV(order.contactInfo.firstName || '');
+                }
+                if (child === 'last_name' && order.contactInfo) {
+                  return escapeCSV(order.contactInfo.lastName || '');
                 }
                 if (child === 'method' && order.contactInfo) {
                   return escapeCSV(order.contactInfo.method || '');
@@ -617,7 +623,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   const formatContactInfo = (contactInfo: any) => {
     if (!contactInfo || !contactInfo.method || !contactInfo.value) return null;
-    const { method, value, fullName, phoneNumber } = contactInfo;
+    const { method, value, firstName, lastName, phoneNumber } = contactInfo;
     
     const getContactInfo = () => {
       const cleanValue = typeof value === 'string' && value.startsWith('@') 
@@ -677,9 +683,9 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               <span className="text-gray-300">{display}</span>
             )}
           </div>
-          {fullName && (
+          {(firstName || lastName) && (
             <div className="text-sm text-gray-300">
-              <span className="text-gray-400">Name:</span> {fullName}
+              <span className="text-gray-400">Name:</span> {firstName} {lastName}
             </div>
           )}
           {phoneNumber && (

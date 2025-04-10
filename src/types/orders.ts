@@ -8,7 +8,8 @@ export interface ShippingAddress {
 export interface ContactInfo {
   method: string;
   value: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   phoneNumber: string;
 }
 

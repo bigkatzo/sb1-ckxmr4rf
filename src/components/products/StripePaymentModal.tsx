@@ -38,7 +38,8 @@ interface ShippingAddress {
 interface ContactInfo {
   method: string;
   value: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   phoneNumber?: string;
 }
 
@@ -284,7 +285,7 @@ function StripeCheckoutForm({
           layout: 'tabs',
           defaultValues: {
             billingDetails: {
-              name: shippingInfo?.contact_info?.fullName,
+              name: shippingInfo?.contact_info?.firstName + ' ' + shippingInfo?.contact_info?.lastName,
               email: shippingInfo?.contact_info?.method === 'email' ? shippingInfo?.contact_info?.value : undefined,
               phone: shippingInfo?.contact_info?.phoneNumber,
               address: {
@@ -702,4 +703,4 @@ async function generateOrderHash(orderId: string, productId: string): Promise<st
   
   // Convert to a positive hex string
   return Math.abs(hash).toString(16).substring(0, 8);
-} 
+}

@@ -34,7 +34,8 @@ interface ShippingInfo {
   zip: string;
   contactMethod: string;
   contactValue: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   phoneNumber: string;
 }
 
@@ -147,7 +148,8 @@ export function TokenVerificationModal({
       zip: '',
       contactMethod: 'telegram',
       contactValue: '',
-      fullName: '',
+      firstName: '',
+      lastName: '',
       phoneNumber: ''
     };
   });
@@ -245,7 +247,8 @@ export function TokenVerificationModal({
         contact_info: {
           method: shippingInfo.contactMethod,
           value: shippingInfo.contactValue,
-          fullName: shippingInfo.fullName,
+          firstName: shippingInfo.firstName,
+          lastName: shippingInfo.lastName,
           phoneNumber: shippingInfo.phoneNumber
         }
       };
@@ -639,7 +642,8 @@ export function TokenVerificationModal({
             contact_info: {
               method: shippingInfo.contactMethod,
               value: shippingInfo.contactValue,
-              fullName: shippingInfo.fullName,
+              firstName: shippingInfo.firstName,
+              lastName: shippingInfo.lastName,
               phoneNumber: shippingInfo.phoneNumber,
             }
           }}
@@ -796,19 +800,37 @@ export function TokenVerificationModal({
 
                       <div>
                         <label className="block text-sm font-medium text-gray-200 mb-2">
-                          Full Name
+                          First Name
                         </label>
                         <input
                           type="text"
-                          value={shippingInfo.fullName}
+                          value={shippingInfo.firstName}
                           onChange={(e) => setShippingInfo(prev => ({
                             ...prev,
-                            fullName: e.target.value
+                            firstName: e.target.value
                           }))}
                           required
                           disabled={submitting}
                           className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          placeholder="Enter your full name"
+                          placeholder="Enter your first name"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
+                          Last Name
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingInfo.lastName}
+                          onChange={(e) => setShippingInfo(prev => ({
+                            ...prev,
+                            lastName: e.target.value
+                          }))}
+                          required
+                          disabled={submitting}
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="Enter your last name"
                         />
                       </div>
 
@@ -943,8 +965,8 @@ export function TokenVerificationModal({
                         disabled={submitting || !verificationResult?.isValid || 
                           !shippingInfo.address || !shippingInfo.city || 
                           !shippingInfo.country || !shippingInfo.zip || 
-                          !shippingInfo.contactValue || !shippingInfo.fullName ||
-                          !shippingInfo.phoneNumber || !!phoneError}
+                          !shippingInfo.contactValue || !shippingInfo.firstName ||
+                          !shippingInfo.lastName || !shippingInfo.phoneNumber || !!phoneError}
                         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                         <span>Pay with Solana ({finalPrice.toFixed(2)} SOL)</span>
@@ -958,8 +980,8 @@ export function TokenVerificationModal({
                           disabled={submitting || 
                             !shippingInfo.address || !shippingInfo.city || 
                             !shippingInfo.country || !shippingInfo.zip || 
-                            !shippingInfo.contactValue || !shippingInfo.fullName ||
-                            !shippingInfo.phoneNumber || !!phoneError}
+                            !shippingInfo.contactValue || !shippingInfo.firstName ||
+                            !shippingInfo.lastName || !shippingInfo.phoneNumber || !!phoneError}
                           className="text-purple-400 hover:text-purple-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Pay with Credit Card
