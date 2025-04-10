@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductCardCompact } from './ProductCardCompact';
 import { ProductModal } from './ProductModal';
@@ -10,12 +10,38 @@ export function BestSellers() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { products: rawProducts, categoryIndices, loading } = useBestSellers(10);
   const [selectedProduct, setSelectedProduct] = useState<VariantsProduct | null>(null);
+  const [visibleItemCount, setVisibleItemCount] = useState(3); // Default to mobile
 
   // Ensure products have all required properties for VariantsProduct
   const products = rawProducts.map(product => ({
     ...product,
     visible: product.visible === undefined ? true : product.visible // Ensure visible is defined
   })) as unknown as VariantsProduct[];
+
+  // Update visible items count based on screen size
+  useEffect(() => {
+    // Initialize on mount
+    updateVisibleItemCount();
+    
+    // Update on resize
+    window.addEventListener('resize', updateVisibleItemCount);
+    return () => window.removeEventListener('resize', updateVisibleItemCount);
+  }, []);
+
+  // Determine how many items are visible in the carousel based on screen width
+  const updateVisibleItemCount = () => {
+    const width = window.innerWidth;
+    // For mobile (< 640px): show 3 items
+    // For tablets (640px - 1024px): show 4 items
+    // For desktop (> 1024px): show 6 items
+    if (width < 640) {
+      setVisibleItemCount(3);
+    } else if (width < 1024) {
+      setVisibleItemCount(4);
+    } else {
+      setVisibleItemCount(6);
+    }
+  };
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -42,7 +68,7 @@ export function BestSellers() {
                 onClick={() => setSelectedProduct(product)}
                 categoryIndex={categoryIndices[product.categoryId]}
                 showCategory={false}
-                isInInitialViewport={index < 2}
+                isInInitialViewport={index < visibleItemCount}
               />
             </div>
           ))}
