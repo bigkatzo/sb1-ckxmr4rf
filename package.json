@@ -8,10 +8,11 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node scripts/check-env.js && tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate-icons": "node scripts/generate-icons.js"
+    "generate-icons": "node scripts/generate-icons.js",
+    "check-env": "node scripts/check-env.js"
   },
   "dependencies": {
     "@babel/helpers": "^7.27.0",
