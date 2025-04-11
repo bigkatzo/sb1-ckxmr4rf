@@ -392,7 +392,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         "Province": null,
         "Country": "shipping_info.country",
         "Zip": "shipping_info.zip",
-        "Phone Number": "contact_info.phone",
+        "Phone Number": "contact_info.phoneNumber",
         "Tracking URL": null,
         "Product SKU": "product_sku",
         "Product Name": "product_name",
@@ -431,16 +431,16 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 if (child === 'full_name' && order.contactInfo) {
                   return escapeCSV(`${order.contactInfo.firstName || ''} ${order.contactInfo.lastName || ''}`);
                 }
-                if (child === 'first_name' && order.contactInfo) {
+                if (child === 'firstName' && order.contactInfo) {
                   return escapeCSV(order.contactInfo.firstName || '');
                 }
-                if (child === 'last_name' && order.contactInfo) {
+                if (child === 'lastName' && order.contactInfo) {
                   return escapeCSV(order.contactInfo.lastName || '');
                 }
                 if (child === 'method' && order.contactInfo) {
                   return escapeCSV(order.contactInfo.method || '');
                 }
-                if (child === 'phone' && order.contactInfo) {
+                if (child === 'phoneNumber' && order.contactInfo) {
                   return escapeCSV(order.contactInfo.phoneNumber || '');
                 }
               }
