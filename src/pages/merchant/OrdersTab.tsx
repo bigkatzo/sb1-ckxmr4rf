@@ -164,13 +164,32 @@ export function OrdersTab() {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
+          // Order identification
           order.order_number?.toLowerCase().includes(query) ||
+          
+          // Product information
           order.product_name?.toLowerCase().includes(query) ||
+          order.product_sku?.toLowerCase().includes(query) ||
           order.collection_name?.toLowerCase().includes(query) ||
-          (order.tracking?.tracking_number?.toLowerCase().includes(query) || false) ||
-          order.payment_metadata?.couponCode?.toLowerCase().includes(query) ||
+          
+          // Shipping info
+          order.shippingAddress?.address?.toLowerCase().includes(query) ||
+          order.shippingAddress?.city?.toLowerCase().includes(query) ||
+          order.shippingAddress?.country?.toLowerCase().includes(query) ||
+          
+          // Contact info
+          order.contactInfo?.value?.toLowerCase().includes(query) ||
+          order.contactInfo?.firstName?.toLowerCase().includes(query) ||
+          order.contactInfo?.lastName?.toLowerCase().includes(query) ||
           order.contactInfo?.phoneNumber?.toLowerCase().includes(query) ||
-          order.contactInfo?.fullName?.toLowerCase().includes(query)
+          
+          // Transaction details
+          order.transactionSignature?.toLowerCase().includes(query) ||
+          order.walletAddress?.toLowerCase().includes(query) ||
+          
+          // Tracking and coupon
+          (order.tracking?.tracking_number?.toLowerCase().includes(query) || false) ||
+          order.payment_metadata?.couponCode?.toLowerCase().includes(query)
         );
       }
 
