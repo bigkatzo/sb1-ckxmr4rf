@@ -141,7 +141,7 @@ export function OrderFilters({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
         <input
           type="text"
-          placeholder="Search by order #, SKU, product name, shipping address, contact info, wallet, transaction ID, coupon code..."
+          placeholder="Search by order #, product, SKU, name, address, phone, wallet, transaction..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"

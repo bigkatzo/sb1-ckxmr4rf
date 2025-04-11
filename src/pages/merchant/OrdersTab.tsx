@@ -163,33 +163,37 @@ export function OrdersTab() {
       // Filter by search query
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
+        // Create a full name from firstName and lastName if they exist
+        const fullName = order.contactInfo?.firstName && order.contactInfo?.lastName 
+          ? `${order.contactInfo.firstName} ${order.contactInfo.lastName}`.toLowerCase()
+          : '';
+          
         return (
           // Order identification
-          order.order_number?.toLowerCase().includes(query) ||
+          (order.order_number?.toLowerCase().includes(query) || false) ||
           
           // Product information
-          order.product_name?.toLowerCase().includes(query) ||
-          order.product_sku?.toLowerCase().includes(query) ||
-          order.collection_name?.toLowerCase().includes(query) ||
+          (order.product_name?.toLowerCase().includes(query) || false) ||
+          (order.product_sku?.toLowerCase().includes(query) || false) ||
+          (order.collection_name?.toLowerCase().includes(query) || false) ||
           
           // Shipping info
-          order.shippingAddress?.address?.toLowerCase().includes(query) ||
-          order.shippingAddress?.city?.toLowerCase().includes(query) ||
-          order.shippingAddress?.country?.toLowerCase().includes(query) ||
+          (order.shippingAddress?.address?.toLowerCase().includes(query) || false) ||
+          (order.shippingAddress?.city?.toLowerCase().includes(query) || false) ||
+          (order.shippingAddress?.country?.toLowerCase().includes(query) || false) ||
           
           // Contact info
-          order.contactInfo?.value?.toLowerCase().includes(query) ||
-          order.contactInfo?.firstName?.toLowerCase().includes(query) ||
-          order.contactInfo?.lastName?.toLowerCase().includes(query) ||
-          order.contactInfo?.phoneNumber?.toLowerCase().includes(query) ||
+          (order.contactInfo?.value?.toLowerCase().includes(query) || false) ||
+          (order.contactInfo?.phoneNumber?.toLowerCase().includes(query) || false) ||
+          fullName.includes(query) ||
           
           // Transaction details
-          order.transactionSignature?.toLowerCase().includes(query) ||
-          order.walletAddress?.toLowerCase().includes(query) ||
+          (order.transactionSignature?.toLowerCase().includes(query) || false) ||
+          (order.walletAddress?.toLowerCase().includes(query) || false) ||
           
           // Tracking and coupon
           (order.tracking?.tracking_number?.toLowerCase().includes(query) || false) ||
-          order.payment_metadata?.couponCode?.toLowerCase().includes(query)
+          (order.payment_metadata?.couponCode?.toLowerCase().includes(query) || false)
         );
       }
 
