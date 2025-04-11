@@ -182,8 +182,10 @@ export function OrdersTab() {
           (order.shippingAddress?.city?.toLowerCase().includes(query) || false) ||
           (order.shippingAddress?.country?.toLowerCase().includes(query) || false) ||
           
-          // Contact info
+          // Contact info - check all parts of contact information
           (order.contactInfo?.value?.toLowerCase().includes(query) || false) ||
+          (order.contactInfo?.firstName?.toLowerCase().includes(query) || false) ||
+          (order.contactInfo?.lastName?.toLowerCase().includes(query) || false) ||
           (order.contactInfo?.phoneNumber?.toLowerCase().includes(query) || false) ||
           fullName.includes(query) ||
           
