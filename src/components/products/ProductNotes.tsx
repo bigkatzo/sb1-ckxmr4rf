@@ -12,7 +12,10 @@ interface ProductNotesProps {
 
 export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
   // Log basic received props
-  console.log('ProductNotes received:', { notes, freeNotes });
+  console.log('ProductNotes received:', { 
+    notes: notes || 'default notes will be used',
+    freeNotes: freeNotes || 'no free notes'
+  });
 
   const defaultNotes = {
     shipping: "Free Shipping Worldwide included (15-20 days*)",
@@ -27,8 +30,9 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
     returns: notes?.returns || defaultNotes.returns
   };
 
-  // Check if free notes is non-empty string
-  const hasFreeNotes = freeNotes && freeNotes.trim() !== '';
+  // Check if free notes is non-empty string with better handling for edge cases
+  const hasFreeNotes = typeof freeNotes === 'string' && freeNotes.trim() !== '';
+  console.log('Should display free notes:', hasFreeNotes);
 
   return (
     <div className="border-t border-gray-800 pt-4">

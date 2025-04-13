@@ -131,18 +131,18 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         }
       });
 
-      // Process notes properly - ensure we're adding them as a JSON string
+      // Process notes properly - ensure we're adding them individually as form fields
       if (data.notes) {
-        // Create a clean notes object
-        const notesObj = {
-          shipping: data.notes.shipping || '',
-          quality: data.notes.quality || '',
-          returns: data.notes.returns || ''
-        };
+        // Add each note field individually to prevent nested object serialization issues
+        formData.append('notes.shipping', data.notes.shipping || '');
+        formData.append('notes.quality', data.notes.quality || '');
+        formData.append('notes.returns', data.notes.returns || '');
         
-        // Add notes as properly formatted JSON
-        formData.append('notes', JSON.stringify(notesObj));
-        console.log('Added notes to form data:', notesObj);
+        console.log('Added notes to form data:', {
+          'notes.shipping': data.notes.shipping || '',
+          'notes.quality': data.notes.quality || '',
+          'notes.returns': data.notes.returns || ''
+        });
       }
 
       // Make sure freeNotes is included (it can be an empty string)

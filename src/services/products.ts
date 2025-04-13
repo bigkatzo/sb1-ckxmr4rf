@@ -64,6 +64,9 @@ export async function createProduct(collectionId: string, data: FormData) {
     console.log('Create product - freeNotes value:', freeNotesValue, typeof freeNotesValue);
     const freeNotes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
 
+    console.log('Final notes for creation:', notes);
+    console.log('Final free_notes for creation:', freeNotes);
+
     const { error } = await supabase
       .from('products')
       .insert({
@@ -148,16 +151,17 @@ export async function updateProduct(id: string, data: FormData) {
       if (hasShippingNote) updateData.notes.shipping = shippingNote as string;
       if (hasQualityNote) updateData.notes.quality = qualityNote as string;
       if (hasReturnsNote) updateData.notes.returns = returnsNote as string;
-    } else if (currentProduct.notes) {
-      // If we have no notes in the form but there are existing notes, set to empty object
-      updateData.notes = {};
+    } else {
+      // If there are no notes, explicitly set to null instead of empty object
+      updateData.notes = null;
     }
     
     // Handle free notes separately
     const freeNotesValue = data.get('freeNotes');
     if (freeNotesValue !== null) {
       // Make sure it's assigned to free_notes (not freeNotes) to match DB column name
-      updateData.free_notes = freeNotesValue || '';
+      // If empty string, store as null to be consistent
+      updateData.free_notes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
       console.log('Setting free_notes to:', updateData.free_notes);
     }
     

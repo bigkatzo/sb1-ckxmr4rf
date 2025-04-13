@@ -76,11 +76,19 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         if (error) throw error;
         if (!data) throw new Error('Product not found');
         
+        // Debug the raw data from the database
+        console.log('Raw product data from DB:', {
+          id: data.id,
+          notes: data.notes,
+          free_notes: data.free_notes
+        });
+        
         // Fix for empty object in JSONB column
         const hasValidNotes = data.notes && typeof data.notes === 'object' && Object.keys(data.notes).length > 0;
         
         // CRITICAL FIX: Make sure free_notes is properly processed from database column name
-        const freeNotesValue = data.free_notes || '';
+        const freeNotesValue = data.free_notes !== null ? String(data.free_notes) : '';
+        console.log('Processed freeNotesValue:', freeNotesValue);
 
         const transformedProduct: Product = {
           id: data.id,
@@ -106,6 +114,13 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           notes: hasValidNotes ? data.notes : undefined,
           freeNotes: freeNotesValue
         };
+
+        // Verify the transformed product data
+        console.log('Transformed product:', {
+          id: transformedProduct.id,
+          notes: transformedProduct.notes,
+          freeNotes: transformedProduct.freeNotes
+        });
 
         // Cache the product data
         const cacheKey = `product:${collectionSlug}:${productSlug}`;
