@@ -34,6 +34,24 @@ Rather than simply changing the constraints to `ON DELETE SET NULL` (which would
    - Maintained all existing view columns with identical names
    - Included complete snapshot objects for frontend compatibility
    
+## Image Preservation Change
+
+In addition to the database migration, we made the following change to improve reliability:
+
+**File:** `src/services/collections/index.ts`
+
+We modified the `deleteCollection` function to stop trying to delete collection images from storage. Now, when a collection is deleted:
+
+1. The collection record is removed from the database
+2. The collection images are preserved in storage
+3. Order history continues to display these images via snapshots
+
+This change provides several benefits:
+- Eliminates storage-related errors during collection deletion
+- Maintains a complete visual history of orders
+- Preserves image assets that may be referenced in order snapshots
+- Improves system reliability by removing a potential failure point
+
 ## Technical Details
 
 ### Database Changes
