@@ -52,12 +52,12 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
   const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<number | null>(initialData?.priceModifierBeforeMin ?? null);
   const [priceModifierAfterMin, setPriceModifierAfterMin] = useState<number | null>(initialData?.priceModifierAfterMin ?? null);
-  const [notes] = useState({
+  const [notes, setNotes] = useState({
     shipping: initialData?.notes?.shipping || '',
     quality: initialData?.notes?.quality || '',
     returns: initialData?.notes?.returns || ''
   });
-  const [freeNotes] = useState(initialData?.freeNotes || '');
+  const [freeNotes, setFreeNotes] = useState(initialData?.freeNotes || '');
 
   // Update local state when initialData changes
   React.useEffect(() => {
@@ -69,6 +69,12 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
     setMinimumOrderQuantity(initialData?.minimumOrderQuantity || 50);
     setPriceModifierBeforeMin(initialData?.priceModifierBeforeMin ?? null);
     setPriceModifierAfterMin(initialData?.priceModifierAfterMin ?? null);
+    setNotes({
+      shipping: initialData?.notes?.shipping || '',
+      quality: initialData?.notes?.quality || '',
+      returns: initialData?.notes?.returns || ''
+    });
+    setFreeNotes(initialData?.freeNotes || '');
   }, [initialData]);
 
   const handleStockChange = (value: string) => {
@@ -256,6 +262,84 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
           }}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+      </div>
+
+      {/* Product Notes Section */}
+      <div className="border-t border-gray-800 pt-4">
+        <h3 className="text-sm font-medium text-white mb-4">Product Notes (Optional)</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="notes.shipping" className="block text-sm font-medium text-white">
+              Shipping Notes
+            </label>
+            <textarea
+              id="notes.shipping"
+              name="notes.shipping"
+              value={notes.shipping}
+              onChange={(e) => {
+                const newNotes = {...notes, shipping: e.target.value};
+                onChange({ notes: newNotes });
+              }}
+              rows={2}
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="E.g., Free shipping worldwide (15-20 days)"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="notes.quality" className="block text-sm font-medium text-white">
+              Quality Notes
+            </label>
+            <textarea
+              id="notes.quality"
+              name="notes.quality"
+              value={notes.quality}
+              onChange={(e) => {
+                const newNotes = {...notes, quality: e.target.value};
+                onChange({ notes: newNotes });
+              }}
+              rows={2}
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="E.g., Quality is guaranteed. We'll replace or refund if there's an issue."
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="notes.returns" className="block text-sm font-medium text-white">
+              Returns Notes
+            </label>
+            <textarea
+              id="notes.returns"
+              name="notes.returns"
+              value={notes.returns}
+              onChange={(e) => {
+                const newNotes = {...notes, returns: e.target.value};
+                onChange({ notes: newNotes });
+              }}
+              rows={2}
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="E.g., Made to order, no returns for sizing issues."
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="freeNotes" className="block text-sm font-medium text-white">
+              Additional Notes
+            </label>
+            <textarea
+              id="freeNotes"
+              name="freeNotes"
+              value={freeNotes}
+              onChange={(e) => {
+                onChange({ freeNotes: e.target.value });
+              }}
+              rows={3}
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="Any other information about the product..."
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
