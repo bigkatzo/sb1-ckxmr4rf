@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ModalForm } from '../../../ui/Modal/ModalForm';
@@ -23,6 +23,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initializedRef = useRef(false);
   
   // Log initialData for debugging
   useEffect(() => {
@@ -69,10 +70,11 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     mode: 'onChange'
   });
   
-  // Ensure form is reset when initialData changes
+  // Initialize form with initialData ONLY ONCE
   useEffect(() => {
-    if (initialData) {
-      // Reset form with initialData
+    // Only run this effect once per initialData change
+    if (initialData && !initializedRef.current) {
+      // Reset form with initialData - ensure notes and freeNotes are properly set
       methods.reset({
         ...defaultValues,
         notes: {
@@ -83,12 +85,19 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         freeNotes: initialData?.freeNotes || ''
       });
       
-      console.log('ProductForm - Form reset with values:', {
+      console.log('ProductForm - Form initialized once with values:', {
         notes: methods.getValues('notes'),
         freeNotes: methods.getValues('freeNotes')
       });
+      
+      initializedRef.current = true;
     }
-  }, [initialData, methods, defaultValues]);
+    
+    // Reset the initialized flag when initialData changes
+    return () => {
+      initializedRef.current = false;
+    };
+  }, [initialData]);
 
   // Create a submit handler that processes the form data
   const processSubmit = async (data: any) => {

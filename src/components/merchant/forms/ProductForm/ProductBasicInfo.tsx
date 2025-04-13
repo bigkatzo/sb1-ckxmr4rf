@@ -214,10 +214,6 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder={defaultNotes.shipping}
-              onChange={(e) => {
-                const currentNotes = getValues('notes') || {};
-                setValue('notes', {...currentNotes, shipping: e.target.value});
-              }}
             />
           </div>
           
@@ -231,10 +227,6 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder={defaultNotes.quality}
-              onChange={(e) => {
-                const currentNotes = getValues('notes') || {};
-                setValue('notes', {...currentNotes, quality: e.target.value});
-              }}
             />
           </div>
           
@@ -248,10 +240,6 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder={defaultNotes.returns}
-              onChange={(e) => {
-                const currentNotes = getValues('notes') || {};
-                setValue('notes', {...currentNotes, returns: e.target.value});
-              }}
             />
           </div>
           
