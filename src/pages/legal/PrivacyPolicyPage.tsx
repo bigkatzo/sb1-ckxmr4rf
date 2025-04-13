@@ -13,7 +13,6 @@ export function PrivacyPolicyPage() {
           <li><span className="font-semibold text-green-400">✓</span> We never sell your personal information</li>
           <li><span className="font-semibold text-green-400">✓</span> We use robust security measures to protect your data</li>
           <li><span className="font-semibold text-green-400">✓</span> Your wallet's private keys remain under your control</li>
-          <li><span className="font-semibold text-green-400">✓</span> You can access, correct, or delete your data</li>
           <li><span className="font-semibold text-green-400">✓</span> We're your primary point of contact for all support needs</li>
           <li><span className="font-semibold text-green-400">✓</span> Your shipping and contact information is shared only with shipping carriers and only for delivery purposes</li>
           <li><span className="font-semibold text-yellow-400">!</span> Public wallet addresses and blockchain transactions are visible on-chain</li>
@@ -35,32 +34,32 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-4 text-blue-400">Why We're Different</h2>
+        <h2 className="text-xl font-semibold mb-4 text-blue-400">Our Privacy Approach</h2>
         <div className="text-gray-300 mb-4">
-          <p className="mb-4">store.fun takes a unique approach to privacy compared to most e-commerce sites:</p>
+          <p className="mb-4">store.fun implements the following privacy practices:</p>
           <ul className="space-y-4">
             <li className="flex items-start">
-              <div className="text-green-400 mr-3 mt-1 text-xl">•</div>
+              <div className="text-gray-400 mr-3 mt-1">•</div>
               <div>
-                <span className="font-semibold">Direct customer care:</span> We're your primary point of contact for all your needs, ensuring you always have someone advocating for you through every step of your experience.
+                <span className="font-semibold">Central point of contact:</span> We provide a unified support channel for all account and service matters.
               </div>
             </li>
             <li className="flex items-start">
-              <div className="text-green-400 mr-3 mt-1 text-xl">•</div>
+              <div className="text-gray-400 mr-3 mt-1">•</div>
               <div>
-                <span className="font-semibold">Clear separation of data:</span> We maintain a strict division between blockchain data and personal information, giving you the benefits of decentralization while protecting your privacy.
+                <span className="font-semibold">Data segregation:</span> We separate on-chain blockchain data from personal information to enhance privacy while maintaining necessary functionality.
               </div>
             </li>
             <li className="flex items-start">
-              <div className="text-green-400 mr-3 mt-1 text-xl">•</div>
+              <div className="text-gray-400 mr-3 mt-1">•</div>
               <div>
-                <span className="font-semibold">Limited data collection:</span> Unlike many platforms that harvest user data for marketing, we collect only what's needed to provide our services.
+                <span className="font-semibold">Minimal data collection:</span> We collect only information that is directly necessary for providing our services and fulfilling orders.
               </div>
             </li>
             <li className="flex items-start">
-              <div className="text-green-400 mr-3 mt-1 text-xl">•</div>
+              <div className="text-gray-400 mr-3 mt-1">•</div>
               <div>
-                <span className="font-semibold">Dedicated to security:</span> We implement advanced security measures specifically designed for blockchain commerce.
+                <span className="font-semibold">Blockchain-specific security:</span> We utilize specialized security protocols designed for the unique requirements of blockchain commerce.
               </div>
             </li>
           </ul>
