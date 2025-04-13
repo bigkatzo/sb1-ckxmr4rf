@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ModalForm } from '../../../ui/Modal/ModalForm';
@@ -23,6 +23,17 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Log initialData for debugging
+  useEffect(() => {
+    if (initialData) {
+      console.log('ProductForm - Initial data received:', { 
+        initialData,
+        notes: initialData.notes,
+        freeNotes: initialData.freeNotes
+      });
+    }
+  }, [initialData]);
   
   // Initialize default values for the form
   const defaultValues: ProductFormValues = {
@@ -57,6 +68,27 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     defaultValues,
     mode: 'onChange'
   });
+  
+  // Ensure form is reset when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      // Reset form with initialData
+      methods.reset({
+        ...defaultValues,
+        notes: {
+          shipping: initialData?.notes?.shipping || '',
+          quality: initialData?.notes?.quality || '',
+          returns: initialData?.notes?.returns || ''
+        },
+        freeNotes: initialData?.freeNotes || ''
+      });
+      
+      console.log('ProductForm - Form reset with values:', {
+        notes: methods.getValues('notes'),
+        freeNotes: methods.getValues('freeNotes')
+      });
+    }
+  }, [initialData, methods, defaultValues]);
 
   // Create a submit handler that processes the form data
   const processSubmit = async (data: any) => {
@@ -168,7 +200,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
 
         <ProductBasicInfo 
           categories={categories}
-          initialData={initialData}
         />
 
         <div>

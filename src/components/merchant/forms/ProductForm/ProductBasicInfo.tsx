@@ -1,17 +1,14 @@
 import { useFormContext } from 'react-hook-form';
-import type { Product } from '../../../../types/variants';
 import type { ProductFormValues } from './schema';
-import { useEffect } from 'react';
 
 export interface ProductBasicInfoProps {
   categories: {
     id: string;
     name: string;
   }[];
-  initialData?: Product;
 }
 
-export function ProductBasicInfo({ categories, initialData }: ProductBasicInfoProps) {
+export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
   const { register, setValue, formState: { errors }, getValues } = useFormContext<ProductFormValues>();
   
   // Default notes for placeholders
@@ -20,31 +17,6 @@ export function ProductBasicInfo({ categories, initialData }: ProductBasicInfoPr
     quality: "Quality is guaranteed. If there's a print error or visible quality issue, we'll replace or refund it.",
     returns: "Because the products are made to order, we do not accept general returns or sizing-related returns."
   };
-  
-  // Ensure notes are properly initialized from initialData
-  useEffect(() => {
-    if (initialData) {
-      // Log the initialData for debugging
-      console.log('ProductBasicInfo - Initializing with data:', {
-        notes: initialData.notes,
-        freeNotes: initialData.freeNotes
-      });
-      
-      // Initialize notes object properly
-      if (initialData.notes) {
-        setValue('notes', {
-          shipping: initialData.notes.shipping || '',
-          quality: initialData.notes.quality || '',
-          returns: initialData.notes.returns || ''
-        });
-      }
-      
-      // Make sure freeNotes is set
-      if (initialData.freeNotes) {
-        setValue('freeNotes', initialData.freeNotes);
-      }
-    }
-  }, [initialData, setValue]);
   
   return (
     <div className="space-y-6">
