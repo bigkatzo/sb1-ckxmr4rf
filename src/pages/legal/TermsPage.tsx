@@ -10,18 +10,6 @@ export function TermsPage() {
         <p className="text-gray-300 mb-4">
           Thank you for choosing store.fun! These Terms of Use are designed to ensure a safe and enjoyable experience for everyone. By using our platform, you agree to these terms and applicable laws. If you have any questions about these terms, please reach out to us before using the platform.
         </p>
-        
-        <h3 className="text-lg font-medium mb-2 mt-4">1.1 Relationship Structure</h3>
-        <p className="text-gray-300 mb-4">
-          store.fun is your primary service provider and point of contact for all aspects of your shopping experience. While our operations partner, Logic Group LLC, handles back-end payment processing and fulfillment logistics, store.fun remains your dedicated advocate throughout your journey with us. We're committed to ensuring you have a seamless experience and are here to assist you with any questions or concerns.
-        </p>
-        <ul className="list-disc pl-6 text-gray-300 space-y-2">
-          <li>store.fun is your direct point of contact for all platform-related matters</li>
-          <li>Our team will coordinate with Logic Group LLC on your behalf for payment processing and shipping</li>
-          <li>For any questions or concerns about your orders, reach out to us first at support@store.fun</li>
-          <li>We're committed to resolving any issues quickly and ensuring your complete satisfaction</li>
-          <li>This collaborative structure allows us to provide the best possible service while maintaining legal compliance</li>
-        </ul>
       </section>
 
       <section className="mb-8">
