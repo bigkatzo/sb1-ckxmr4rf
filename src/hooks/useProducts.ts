@@ -45,6 +45,10 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
         // Handle notes properly - check if notes is a valid object with properties
         const hasValidNotes = product.notes && typeof product.notes === 'object' && Object.keys(product.notes).length > 0;
         
+        // CRITICAL FIX: Always create a valid notes object with at least empty strings
+        // This ensures the form fields are always populated with the right structure
+        const notesObject = hasValidNotes ? product.notes : { shipping: '', quality: '', returns: '' };
+        
         // Process free_notes with proper type handling
         const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
         
@@ -55,6 +59,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           freeNotesFromDB: product.free_notes,
           freeNotesType: typeof product.free_notes,
           hasValidNotes,
+          transformedNotes: notesObject,
           processedFreeNotes: freeNotesValue
         });
 
@@ -90,7 +95,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           priceModifierBeforeMin: product.price_modifier_before_min ?? null,
           priceModifierAfterMin: product.price_modifier_after_min ?? null,
           visible: product.visible ?? true,
-          notes: hasValidNotes ? product.notes : undefined,
+          notes: notesObject,  // Use the properly formatted notes object
           freeNotes: freeNotesValue
         };
       });

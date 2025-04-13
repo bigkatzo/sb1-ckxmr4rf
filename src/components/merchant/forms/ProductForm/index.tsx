@@ -54,12 +54,14 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     visible: initialData?.visible ?? true,
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
     priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
-    // Ensure notes properties are always strings
+    // CRITICAL FIX: Ensure notes is properly initialized with valid structure
+    // Even if notes is undefined or null, create a valid object with empty strings
     notes: {
       shipping: initialData?.notes?.shipping || '',
       quality: initialData?.notes?.quality || '',
       returns: initialData?.notes?.returns || ''
     },
+    // Ensure freeNotes is always a string
     freeNotes: initialData?.freeNotes || '',
     // Initialize the array and object fields
     variants: initialData?.variants || [],
@@ -107,14 +109,15 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         freeNotes: initialData?.freeNotes
       });
     
-      // Make sure notes are properly formatted
+      // CRITICAL FIX: Ensure notes have a valid structure 
+      // and empty strings instead of undefined/null
       const notesForReset = {
         shipping: initialData?.notes?.shipping || '',
         quality: initialData?.notes?.quality || '',
         returns: initialData?.notes?.returns || ''
       };
       
-      // Reset form with initialData 
+      // Reset form with initialData and proper notes structure
       methods.reset({
         ...defaultValues,
         notes: notesForReset,
