@@ -65,6 +65,11 @@ export async function createProduct(collectionId: string, data: FormData) {
 
 export async function updateProduct(id: string, data: FormData) {
   try {
+    console.log('Starting product update for ID:', id);
+    
+    // Log all form data keys for debugging
+    console.log('Form data keys:', [...data.keys()]);
+    
     // First, get the current product to ensure proper updates
     const { data: currentProduct, error: fetchError } = await supabase
       .from('products')
@@ -73,8 +78,15 @@ export async function updateProduct(id: string, data: FormData) {
       .single();
     
     if (fetchError) {
+      console.error('Error fetching current product:', fetchError);
       throw new Error(`Failed to fetch current product: ${fetchError.message}`);
     }
+    
+    console.log('Current product data:', JSON.stringify({
+      imageCount: currentProduct?.images?.length || 0,
+      variantCount: currentProduct?.variants?.length || 0,
+      variantPriceKeys: Object.keys(currentProduct?.variant_prices || {}).length
+    }));
     
     // Prepare basic product data
     const updateData: Record<string, any> = {
@@ -89,55 +101,111 @@ export async function updateProduct(id: string, data: FormData) {
       price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
     };
     
+    console.log('Processing image data...');
     // 1. Process image changes if any
     if (data.get('currentImages') !== null || data.get('image0') !== null) {
+      console.log('Image data detected in form data');
+      
       // Upload any new images first
       const newImageUrls: string[] = [];
-      for (let i = 0; data.get(`image${i}`); i++) {
+      let newImageCount = 0;
+      
+      // Count how many images are in the form data
+      while (data.get(`image${newImageCount}`)) {
+        newImageCount++;
+      }
+      
+      console.log(`Found ${newImageCount} new images to process`);
+      
+      for (let i = 0; i < newImageCount; i++) {
         const imageFile = data.get(`image${i}`) as File;
         if (imageFile instanceof File) {
+          console.log(`Uploading image ${i}: ${imageFile.name}, size: ${imageFile.size}`);
           const imageUrls = await uploadProductImages([imageFile]);
+          console.log(`Upload successful, got URLs:`, imageUrls);
           newImageUrls.push(...imageUrls);
+        } else {
+          console.log(`Image ${i} is not a valid file:`, imageFile);
         }
       }
       
       // Process existing and removed images
       let finalImages: string[];
-      if (data.get('currentImages')) {
-        const currentImages = JSON.parse(data.get('currentImages') as string || '[]') as string[];
-        const removedImages = JSON.parse(data.get('removedImages') as string || '[]') as string[];
+      const hasCurrentImages = !!data.get('currentImages');
+      console.log(`Has currentImages data: ${hasCurrentImages}`);
+      
+      if (hasCurrentImages) {
+        const currentImagesStr = data.get('currentImages') as string;
+        const removedImagesStr = data.get('removedImages') as string;
+        
+        console.log('currentImages data:', currentImagesStr);
+        console.log('removedImages data:', removedImagesStr);
+        
+        const currentImages = JSON.parse(currentImagesStr || '[]') as string[];
+        const removedImages = JSON.parse(removedImagesStr || '[]') as string[];
+        
+        console.log(`Parsed currentImages count: ${currentImages.length}`);
+        console.log(`Parsed removedImages count: ${removedImages.length}`);
         
         // Filter out removed images and add new ones
         const remainingImages = currentImages.filter((img: string) => !removedImages.includes(img));
+        console.log(`After filtering: ${remainingImages.length} remaining images`);
+        
         finalImages = [...remainingImages, ...newImageUrls];
+        console.log(`Final image count: ${finalImages.length}`);
       } else {
         // If currentImages not provided but we have new images, replace completely
         finalImages = newImageUrls.length > 0 ? newImageUrls : (currentProduct.images || []);
+        console.log(`No currentImages data, using ${finalImages.length} images`);
       }
       
       updateData.images = finalImages;
+      console.log('Set updateData.images:', updateData.images);
+    } else {
+      console.log('No image data detected in form submission');
     }
     
+    console.log('Processing variant data...');
     // 2. Process variant data if provided
-    if (data.get('variants') !== null) {
-      const variants = JSON.parse(data.get('variants') as string || '[]');
+    const hasVariants = data.get('variants') !== null;
+    console.log(`Has variants data: ${hasVariants}`);
+    
+    if (hasVariants) {
+      const variantsStr = data.get('variants') as string;
+      console.log('variants data:', variantsStr);
+      const variants = JSON.parse(variantsStr || '[]');
+      console.log(`Parsed variants count: ${variants.length}`);
       updateData.variants = variants;
     }
     
     // 3. Process variant prices if provided
-    if (data.get('variantPrices') !== null) {
-      const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
+    const hasVariantPrices = data.get('variantPrices') !== null;
+    console.log(`Has variantPrices data: ${hasVariantPrices}`);
+    
+    if (hasVariantPrices) {
+      const pricesStr = data.get('variantPrices') as string;
+      console.log('variantPrices data:', pricesStr);
+      const variantPrices = JSON.parse(pricesStr || '{}');
+      console.log(`Parsed variantPrices keys: ${Object.keys(variantPrices).length}`);
       updateData.variant_prices = variantPrices;
     }
     
+    console.log('Final updateData keys:', Object.keys(updateData));
+    console.log('updateData:', JSON.stringify(updateData));
+    
     // Perform the update with all necessary fields
+    console.log('Sending update to Supabase...');
     const { error: updateError } = await supabase
       .from('products')
       .update(updateData)
       .eq('id', id);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('Supabase update error:', updateError);
+      throw updateError;
+    }
     
+    console.log('Product update successful for ID:', id);
     return { success: true };
   } catch (error) {
     console.error('Error updating product:', error);
