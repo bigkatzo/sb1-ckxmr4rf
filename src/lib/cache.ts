@@ -660,43 +660,95 @@ export class EnhancedCacheManager {
     
     // Check IndexedDB size if available
     if (this.db) {
-      const estimate = await navigator.storage?.estimate();
-      if (estimate?.usage && estimate.usage > this.cacheLimits.INDEXED_DB_SIZE) {
-        // Remove oldest entries first
-        const keys = await this.db.getAllKeys('cache-store');
-        const entries = await Promise.all(
-          keys.map(async (key) => ({
-            key: key.toString(),
-            entry: await this.db!.get('cache-store', key) as CacheEntry<any>
-          }))
-        );
-        
-        // Sort by timestamp and remove oldest
-        entries.sort((a: { entry: CacheEntry<any> }, b: { entry: CacheEntry<any> }) => {
-          // Handle potential undefined values gracefully
-          if (!a.entry || !b.entry) return 0;
-          if (!a.entry.timestamp) return -1; // Move entries without timestamp to the front
-          if (!b.entry.timestamp) return 1;
-          return a.entry.timestamp - b.entry.timestamp;
-        });
-        
-        // Remove entries until we're under the limit
-        for (const { key } of entries) {
-          if (!key) continue; // Skip undefined keys
+      // Add proper feature detection for navigator.storage.estimate
+      if (navigator.storage && typeof navigator.storage.estimate === 'function') {
+        const estimate = await navigator.storage.estimate();
+        if (estimate?.usage && estimate.usage > this.cacheLimits.INDEXED_DB_SIZE) {
+          // Remove oldest entries first
+          const keys = await this.db.getAllKeys('cache-store');
+          const entries = await Promise.all(
+            keys.map(async (key) => ({
+              key: key.toString(),
+              entry: await this.db!.get('cache-store', key) as CacheEntry<any>
+            }))
+          );
           
-          const currentEstimate = await navigator.storage?.estimate();
-          if (!currentEstimate?.usage || currentEstimate.usage <= this.cacheLimits.INDEXED_DB_SIZE) {
-            break;
-          }
+          // Sort by timestamp and remove oldest
+          entries.sort((a: { entry: CacheEntry<any> }, b: { entry: CacheEntry<any> }) => {
+            // Handle potential undefined values gracefully
+            if (!a.entry || !b.entry) return 0;
+            if (!a.entry.timestamp) return -1; // Move entries without timestamp to the front
+            if (!b.entry.timestamp) return 1;
+            return a.entry.timestamp - b.entry.timestamp;
+          });
           
-          try {
-            if (this.db) {
-              await this.db.delete('cache-store', key);
+          // Remove entries until we're under the limit
+          for (const { key } of entries) {
+            if (!key) continue; // Skip undefined keys
+            
+            // Also check for estimate function here
+            if (navigator.storage && typeof navigator.storage.estimate === 'function') {
+              const currentEstimate = await navigator.storage.estimate();
+              if (!currentEstimate?.usage || currentEstimate.usage <= this.cacheLimits.INDEXED_DB_SIZE) {
+                break;
+              }
+            } else {
+              // No storage estimation available, just delete a few entries to be safe
+              const MAX_ENTRIES_TO_DELETE = 5;
+              const currentIndex = entries.findIndex(entry => entry.key === key);
+              if (currentIndex >= MAX_ENTRIES_TO_DELETE) {
+                break;
+              }
             }
-          } catch (err) {
-            console.warn('Failed to delete cache entry during cleanup:', err);
-            // Continue with other entries
+            
+            try {
+              if (this.db) {
+                await this.db.delete('cache-store', key);
+              }
+            } catch (err) {
+              console.warn('Failed to delete cache entry during cleanup:', err);
+              // Continue with other entries
+            }
           }
+        }
+      } else {
+        // Fallback when storage estimation is not available (like on iPad)
+        // Just clean up by number of entries to avoid unbounded growth
+        try {
+          const keys = await this.db.getAllKeys('cache-store');
+          const MAX_ENTRIES = 100; // Arbitrary limit when we can't check actual size
+          
+          if (keys.length > MAX_ENTRIES) {
+            const entries = await Promise.all(
+              keys.map(async (key) => ({
+                key: key.toString(),
+                entry: await this.db!.get('cache-store', key) as CacheEntry<any>
+              }))
+            );
+            
+            // Sort by timestamp and remove oldest
+            entries.sort((a: { entry: CacheEntry<any> }, b: { entry: CacheEntry<any> }) => {
+              if (!a.entry || !b.entry) return 0;
+              if (!a.entry.timestamp) return -1;
+              if (!b.entry.timestamp) return 1;
+              return a.entry.timestamp - b.entry.timestamp;
+            });
+            
+            // Remove oldest entries to get down to MAX_ENTRIES
+            const entriesToRemove = entries.slice(0, keys.length - MAX_ENTRIES);
+            for (const { key } of entriesToRemove) {
+              if (!key) continue;
+              try {
+                if (this.db) {
+                  await this.db.delete('cache-store', key);
+                }
+              } catch (err) {
+                console.warn('Failed to delete cache entry during cleanup:', err);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to perform cache cleanup with fallback method:', err);
         }
       }
     }
