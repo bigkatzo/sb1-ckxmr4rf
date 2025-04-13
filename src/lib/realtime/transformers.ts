@@ -20,16 +20,6 @@ export function transformCollection(dbCollection: any): Collection {
 }
 
 export function transformProduct(dbProduct: any): Product {
-  // Debug: Log the raw product data with exact values and types
-  console.log('Raw product data from DB (transformers.ts):', {
-    notes: dbProduct.notes,
-    free_notes: dbProduct.free_notes,
-    notes_type: typeof dbProduct.notes,
-    free_notes_type: typeof dbProduct.free_notes, 
-    notes_json: JSON.stringify(dbProduct.notes),
-    all_keys: Object.keys(dbProduct)
-  });
-  
   const variants: ProductVariant[] = dbProduct.variants || [];
   const category: Category | undefined = dbProduct.categories ? {
     id: dbProduct.categories.id,
@@ -44,6 +34,9 @@ export function transformProduct(dbProduct: any): Product {
 
   // Fix for empty string objects in JSONB columns
   const hasValidNotes = dbProduct.notes && typeof dbProduct.notes === 'object' && Object.keys(dbProduct.notes).length > 0;
+  
+  // CRITICAL FIX: Direct assignment from free_notes column
+  const freeNotesValue = dbProduct.free_notes || '';
   
   return {
     id: dbProduct.id,
@@ -67,6 +60,6 @@ export function transformProduct(dbProduct: any): Product {
     priceModifierAfterMin: dbProduct.price_modifier_after_min ?? null,
     visible: dbProduct.visible ?? true,
     notes: hasValidNotes ? dbProduct.notes : undefined,
-    freeNotes: dbProduct.free_notes || ''
+    freeNotes: freeNotesValue
   };
 }

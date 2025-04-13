@@ -11,15 +11,8 @@ interface ProductNotesProps {
 }
 
 export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
-  // Enhanced debugging to log detailed information about received props
-  console.log('ProductNotes component received:', { 
-    notes, 
-    freeNotes, 
-    notesType: typeof notes,
-    freeNotesType: typeof freeNotes,
-    notesEmpty: notes ? Object.keys(notes).length === 0 : true,
-    freeNotesEmpty: !freeNotes || freeNotes.trim() === ''
-  });
+  // Log basic received props
+  console.log('ProductNotes received:', { notes, freeNotes });
 
   const defaultNotes = {
     shipping: "Free Shipping Worldwide included (15-20 days*)",

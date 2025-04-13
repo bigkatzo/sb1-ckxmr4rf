@@ -156,7 +156,9 @@ export async function updateProduct(id: string, data: FormData) {
     // Handle free notes separately
     const freeNotesValue = data.get('freeNotes');
     if (freeNotesValue !== null) {
+      // Make sure it's assigned to free_notes (not freeNotes) to match DB column name
       updateData.free_notes = freeNotesValue || '';
+      console.log('Setting free_notes to:', updateData.free_notes);
     }
     
     console.log('Final update data notes:', updateData.notes);
