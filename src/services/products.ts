@@ -53,11 +53,11 @@ export async function createProduct(collectionId: string, data: FormData) {
         price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
         visible: data.get('visible') === 'true',
         notes: {
-          shipping: data.get('notes.shipping') as string || undefined,
-          quality: data.get('notes.quality') as string || undefined,
-          returns: data.get('notes.returns') as string || undefined
+          shipping: data.get('notes.shipping') || null,
+          quality: data.get('notes.quality') || null,
+          returns: data.get('notes.returns') || null
         },
-        free_notes: data.get('freeNotes') as string || undefined
+        free_notes: data.get('freeNotes') || null,
       });
 
     if (error) throw error;
@@ -71,6 +71,12 @@ export async function createProduct(collectionId: string, data: FormData) {
 
 export async function updateProduct(id: string, data: FormData) {
   try {
+    console.log('Starting product update with notes data:');
+    console.log('notes.shipping:', data.get('notes.shipping'));
+    console.log('notes.quality:', data.get('notes.quality'));
+    console.log('notes.returns:', data.get('notes.returns'));
+    console.log('freeNotes:', data.get('freeNotes'));
+    
     // First, get the current product to ensure proper updates
     const { data: currentProduct, error: fetchError } = await supabase
       .from('products')
@@ -81,6 +87,9 @@ export async function updateProduct(id: string, data: FormData) {
     if (fetchError) {
       throw new Error(`Failed to fetch current product: ${fetchError.message}`);
     }
+    
+    console.log('Current product notes data:', currentProduct.notes);
+    console.log('Current product free_notes:', currentProduct.free_notes);
     
     // Prepare basic product data
     const updateData: Record<string, any> = {
@@ -94,12 +103,15 @@ export async function updateProduct(id: string, data: FormData) {
       price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
       price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
       notes: {
-        shipping: data.get('notes.shipping') as string || undefined,
-        quality: data.get('notes.quality') as string || undefined,
-        returns: data.get('notes.returns') as string || undefined
+        shipping: data.get('notes.shipping') || null,
+        quality: data.get('notes.quality') || null,
+        returns: data.get('notes.returns') || null
       },
-      free_notes: data.get('freeNotes') as string || undefined,
+      free_notes: data.get('freeNotes') || null,
     };
+    
+    console.log('Update data notes:', updateData.notes);
+    console.log('Update data free_notes:', updateData.free_notes);
     
     // 1. Process image changes if any
     if (data.get('currentImages') !== null || data.get('image0') !== null) {

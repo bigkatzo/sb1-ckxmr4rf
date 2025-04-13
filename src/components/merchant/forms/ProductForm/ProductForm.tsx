@@ -21,6 +21,7 @@ interface ProductFormData {
   priceModifierAfterMin: number | null;
   visible: boolean;
   notes?: Record<string, string>;
+  freeNotes?: string;
 }
 
 export interface ProductFormProps {
@@ -66,10 +67,14 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
 
     try {
       const data = new FormData(e.currentTarget);
+      
+      console.log('ProductForm - Preparing form data with notes:');
+      console.log('formData.notes:', formData.notes);
+      console.log('formData.freeNotes:', formData.freeNotes);
 
       // Add basic product info
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null && key !== 'visible') {
+        if (value !== null && key !== 'visible' && key !== 'notes' && key !== 'freeNotes') {
           data.append(key, value.toString());
         }
       });
@@ -77,13 +82,22 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       // Add visibility state
       data.append('visible', visible.toString());
 
-      // Add notes if they exist
+      // Add notes directly with proper format
       if (formData.notes) {
-        Object.entries(formData.notes).forEach(([key, value]) => {
-          if (value) {
-            data.append(`notes.${key}`, value);
-          }
-        });
+        if (formData.notes.shipping) {
+          data.append('notes.shipping', formData.notes.shipping);
+        }
+        if (formData.notes.quality) {
+          data.append('notes.quality', formData.notes.quality);
+        }
+        if (formData.notes.returns) {
+          data.append('notes.returns', formData.notes.returns);
+        }
+      }
+
+      // Add free notes directly
+      if (formData.freeNotes) {
+        data.append('freeNotes', formData.freeNotes);
       }
 
       // Add images to form data
