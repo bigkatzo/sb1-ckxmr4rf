@@ -96,15 +96,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     try {
       const formData = new FormData();
 
-      // Log the form data before submission with more details
-      console.log('Form data before submission:', {
-        notesObject: data.notes,
-        notesShipping: data.notes?.shipping,
-        notesQuality: data.notes?.quality,
-        notesReturns: data.notes?.returns,
-        freeNotes: data.freeNotes
-      });
-
       // Add all form state data
       Object.entries(data).forEach(([key, value]) => {
         const val = value as any; // Cast to any to handle all possible types
@@ -126,23 +117,15 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         formData.append('notes.shipping', data.notes.shipping || '');
         formData.append('notes.quality', data.notes.quality || '');
         formData.append('notes.returns', data.notes.returns || '');
-        
-        console.log('Added notes to form data:', {
-          'notes.shipping': data.notes.shipping || '',
-          'notes.quality': data.notes.quality || '',
-          'notes.returns': data.notes.returns || ''
-        });
       } else {
         // Ensure notes fields are present even if notes object is null/undefined
         formData.append('notes.shipping', '');
         formData.append('notes.quality', '');
         formData.append('notes.returns', '');
-        console.log('Added empty notes to form data as notes object was null/undefined');
       }
 
       // Make sure freeNotes is included (it can be an empty string)
       formData.append('freeNotes', data.freeNotes || '');
-      console.log('Added freeNotes to form data:', data.freeNotes);
 
       // Handle image files
       const imageFiles = data.imageFiles;

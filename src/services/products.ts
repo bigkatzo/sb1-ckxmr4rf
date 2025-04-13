@@ -41,11 +41,6 @@ export async function createProduct(collectionId: string, data: FormData) {
     const qualityNote = data.get('notes.quality');
     const returnsNote = data.get('notes.returns');
     
-    console.log('Create product - note values:');
-    console.log('shippingNote:', shippingNote, typeof shippingNote);
-    console.log('qualityNote:', qualityNote, typeof qualityNote);
-    console.log('returnsNote:', returnsNote, typeof returnsNote);
-    
     // Only include notes if at least one field is not empty
     let notes: { shipping?: string; quality?: string; returns?: string; } | null = null;
     const hasShippingNote = shippingNote && shippingNote !== '';
@@ -61,11 +56,7 @@ export async function createProduct(collectionId: string, data: FormData) {
     
     // Handle free notes
     const freeNotesValue = data.get('freeNotes');
-    console.log('Create product - freeNotes value:', freeNotesValue, typeof freeNotesValue);
     const freeNotes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
-
-    console.log('Final notes for creation:', notes);
-    console.log('Final free_notes for creation:', freeNotes);
 
     const { error } = await supabase
       .from('products')
@@ -98,12 +89,6 @@ export async function createProduct(collectionId: string, data: FormData) {
 
 export async function updateProduct(id: string, data: FormData) {
   try {
-    console.log('Starting product update with notes data:');
-    console.log('notes.shipping:', data.get('notes.shipping'));
-    console.log('notes.quality:', data.get('notes.quality'));
-    console.log('notes.returns:', data.get('notes.returns'));
-    console.log('freeNotes:', data.get('freeNotes'));
-    
     // First, get the current product to ensure proper updates
     const { data: currentProduct, error: fetchError } = await supabase
       .from('products')
@@ -114,9 +99,6 @@ export async function updateProduct(id: string, data: FormData) {
     if (fetchError) {
       throw new Error(`Failed to fetch current product: ${fetchError.message}`);
     }
-    
-    console.log('Current product notes data:', currentProduct.notes);
-    console.log('Current product free_notes:', currentProduct.free_notes);
     
     // Prepare basic product data
     const updateData: Record<string, any> = {
@@ -135,11 +117,6 @@ export async function updateProduct(id: string, data: FormData) {
     const shippingNote = data.get('notes.shipping');
     const qualityNote = data.get('notes.quality');
     const returnsNote = data.get('notes.returns');
-    
-    console.log('Raw note values from form:');
-    console.log('shippingNote:', shippingNote, typeof shippingNote);
-    console.log('qualityNote:', qualityNote, typeof qualityNote);
-    console.log('returnsNote:', returnsNote, typeof returnsNote);
     
     // Only add notes if at least one note field has a value (handle empty strings too)
     const hasShippingNote = shippingNote && shippingNote !== '';
@@ -162,11 +139,7 @@ export async function updateProduct(id: string, data: FormData) {
       // Make sure it's assigned to free_notes (not freeNotes) to match DB column name
       // If empty string, store as null to be consistent
       updateData.free_notes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
-      console.log('Setting free_notes to:', updateData.free_notes);
     }
-    
-    console.log('Final update data notes:', updateData.notes);
-    console.log('Final update data free_notes:', updateData.free_notes);
     
     // 1. Process image changes if any
     if (data.get('currentImages') !== null || data.get('image0') !== null) {
@@ -234,7 +207,6 @@ export async function updateProduct(id: string, data: FormData) {
       throw updateError;
     }
     
-    console.log('Product updated successfully with notes');
     return { success: true };
   } catch (error) {
     console.error('Error updating product:', error);

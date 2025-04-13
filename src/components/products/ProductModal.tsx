@@ -94,11 +94,6 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     return <ProductModalSkeleton />;
   }
   
-  // Debug: Check for free notes
-  console.log('ProductModal - Product Data:', product);
-  console.log('ProductModal - freeNotes:', product.freeNotes);
-  console.log('ProductModal - notes:', product.notes);
-  
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const modalRef = useRef<HTMLDivElement>(null);
