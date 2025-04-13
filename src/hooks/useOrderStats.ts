@@ -240,7 +240,32 @@ export function useOrderStats(
         .eq('product_id', productId)
         .single();
 
-      if (error) throw error;
+      // Handle the case where the product no longer exists or has no order data
+      // This commonly happens when a product is deleted
+      if (error) {
+        // If error code is PGRST116 (no rows found), simply set count to 0
+        if (error.code === 'PGRST116') {
+          // Product likely deleted or has no orders - set to 0 quietly
+          setStats({
+            currentOrders: 0,
+            loading: false,
+            error: null
+          });
+          
+          // Update cache to prevent repeated errors
+          await cacheManager.set(
+            `order_stats:${productId}`, 
+            0, 
+            CACHE_DURATIONS.REALTIME.TTL,
+            { staleTime: CACHE_DURATIONS.REALTIME.STALE }
+          );
+          
+          return; // Exit gracefully
+        }
+        
+        // Other errors should be thrown
+        throw error;
+      }
 
       const orderCount = data?.total_orders || 0;
 
