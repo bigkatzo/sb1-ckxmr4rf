@@ -9,7 +9,7 @@ export interface ProductBasicInfoProps {
 }
 
 export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
-  const { register, setValue, formState: { errors }, getValues } = useFormContext<ProductFormValues>();
+  const { register, setValue, formState: { errors } } = useFormContext<ProductFormValues>();
   
   // Default notes for placeholders
   const defaultNotes = {
