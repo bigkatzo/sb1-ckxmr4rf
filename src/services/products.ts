@@ -230,9 +230,11 @@ export async function updateProduct(id: string, data: FormData) {
       .eq('id', id);
 
     if (updateError) {
+      console.error('Error updating product:', updateError);
       throw updateError;
     }
     
+    console.log('Product updated successfully with notes');
     return { success: true };
   } catch (error) {
     console.error('Error updating product:', error);

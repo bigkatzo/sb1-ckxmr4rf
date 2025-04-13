@@ -63,6 +63,16 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     removedImages: []
   };
   
+  // Log the constructed default values
+  useEffect(() => {
+    console.log('ProductForm - Default values with notes:', {
+      notesFromInitialData: initialData?.notes,
+      freeNotesFromInitialData: initialData?.freeNotes,
+      notesInDefaultValues: defaultValues.notes,
+      freeNotesInDefaultValues: defaultValues.freeNotes
+    });
+  }, [initialData]);
+  
   // Set up react-hook-form with zod validation
   const methods = useForm({
     resolver: zodResolver(productSchema),
@@ -74,19 +84,25 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   useEffect(() => {
     // Only run this effect once per initialData change
     if (initialData && !initializedRef.current) {
-      // Reset form with initialData - ensure notes and freeNotes are properly set
+      // Make sure notes are properly formatted
+      const notesForReset = {
+        shipping: initialData?.notes?.shipping || '',
+        quality: initialData?.notes?.quality || '',
+        returns: initialData?.notes?.returns || ''
+      };
+      
+      // Reset form with initialData 
       methods.reset({
         ...defaultValues,
-        notes: {
-          shipping: initialData?.notes?.shipping || '',
-          quality: initialData?.notes?.quality || '',
-          returns: initialData?.notes?.returns || ''
-        },
+        notes: notesForReset,
         freeNotes: initialData?.freeNotes || ''
       });
       
-      console.log('ProductForm - Form initialized once with values:', {
+      console.log('ProductForm - Form initialized with values:', {
         notes: methods.getValues('notes'),
+        notesShipping: methods.getValues('notes.shipping'),
+        notesQuality: methods.getValues('notes.quality'),
+        notesReturns: methods.getValues('notes.returns'),
         freeNotes: methods.getValues('freeNotes')
       });
       
@@ -97,7 +113,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     return () => {
       initializedRef.current = false;
     };
-  }, [initialData]);
+  }, [initialData, methods, defaultValues]);
 
   // Create a submit handler that processes the form data
   const processSubmit = async (data: any) => {
@@ -110,10 +126,13 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     try {
       const formData = new FormData();
 
-      // Log the form data for debugging
+      // Log the form data before submission with more details
       console.log('Form data before submission:', {
-        freeNotes: data.freeNotes,
-        notes: data.notes
+        notesObject: data.notes,
+        notesShipping: data.notes?.shipping,
+        notesQuality: data.notes?.quality,
+        notesReturns: data.notes?.returns,
+        freeNotes: data.freeNotes
       });
 
       // Add all form state data
@@ -143,6 +162,12 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
           'notes.quality': data.notes.quality || '',
           'notes.returns': data.notes.returns || ''
         });
+      } else {
+        // Ensure notes fields are present even if notes object is null/undefined
+        formData.append('notes.shipping', '');
+        formData.append('notes.quality', '');
+        formData.append('notes.returns', '');
+        console.log('Added empty notes to form data as notes object was null/undefined');
       }
 
       // Make sure freeNotes is included (it can be an empty string)

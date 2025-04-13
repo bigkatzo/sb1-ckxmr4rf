@@ -41,39 +41,49 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
 
       if (error) throw error;
       
-      const transformedProducts = (data || []).map(product => ({
-        id: product.id,
-        sku: product.sku,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
-        images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
-        categoryId: product.category_id,
-        category: product.category_id && product.category_name ? {
-          id: product.category_id,
-          name: product.category_name,
-          description: product.category_description,
-          type: product.category_type,
-          visible: true,
-          eligibilityRules: {
-            groups: product.category_eligibility_rules?.groups || []
-          }
-        } : undefined,
-        collectionId: product.collection_id,
-        collectionName: product.collection_name,
-        collectionSlug: product.collection_slug,
-        collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
-        collectionSaleEnded: product.collection_sale_ended,
-        slug: product.slug || '',
-        stock: product.quantity,
-        minimumOrderQuantity: product.minimum_order_quantity || 50,
-        variants: product.variants || [],
-        variantPrices: product.variant_prices || {},
-        priceModifierBeforeMin: product.price_modifier_before_min ?? null,
-        priceModifierAfterMin: product.price_modifier_after_min ?? null,
-        visible: product.visible ?? true
-      }));
+      const transformedProducts = (data || []).map(product => {
+        // Handle notes properly - check if notes is a valid object with properties
+        const hasValidNotes = product.notes && typeof product.notes === 'object' && Object.keys(product.notes).length > 0;
+        
+        // Process free_notes with proper type handling
+        const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
+
+        return {
+          id: product.id,
+          sku: product.sku,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
+          images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
+          categoryId: product.category_id,
+          category: product.category_id && product.category_name ? {
+            id: product.category_id,
+            name: product.category_name,
+            description: product.category_description,
+            type: product.category_type,
+            visible: true,
+            eligibilityRules: {
+              groups: product.category_eligibility_rules?.groups || []
+            }
+          } : undefined,
+          collectionId: product.collection_id,
+          collectionName: product.collection_name,
+          collectionSlug: product.collection_slug,
+          collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
+          collectionSaleEnded: product.collection_sale_ended,
+          slug: product.slug || '',
+          stock: product.quantity,
+          minimumOrderQuantity: product.minimum_order_quantity || 50,
+          variants: product.variants || [],
+          variantPrices: product.variant_prices || {},
+          priceModifierBeforeMin: product.price_modifier_before_min ?? null,
+          priceModifierAfterMin: product.price_modifier_after_min ?? null,
+          visible: product.visible ?? true,
+          notes: hasValidNotes ? product.notes : undefined,
+          freeNotes: freeNotesValue
+        };
+      });
 
       setProducts(transformedProducts);
     } catch (err) {
