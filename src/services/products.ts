@@ -154,7 +154,7 @@ export async function updateProduct(id: string, data: FormData) {
     // Handle free notes separately
     const freeNotesValue = data.get('freeNotes');
     if (freeNotesValue !== null) {
-      updateData.free_notes = freeNotesValue || null;
+      updateData.free_notes = freeNotesValue || '';
     }
     
     console.log('Final update data notes:', updateData.notes);

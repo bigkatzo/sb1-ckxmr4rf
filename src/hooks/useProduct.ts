@@ -104,7 +104,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           priceModifierBeforeMin: data.price_modifier_before_min ?? null,
           priceModifierAfterMin: data.price_modifier_after_min ?? null,
           notes: data.notes || undefined,
-          freeNotes: data.free_notes || undefined
+          freeNotes: data.free_notes || ''
         };
 
         // Cache the product data

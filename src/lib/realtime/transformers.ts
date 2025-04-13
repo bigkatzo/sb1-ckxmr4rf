@@ -61,6 +61,6 @@ export function transformProduct(dbProduct: any): Product {
     priceModifierAfterMin: dbProduct.price_modifier_after_min ?? null,
     visible: dbProduct.visible ?? true,
     notes: dbProduct.notes || undefined,
-    freeNotes: dbProduct.free_notes || undefined
+    freeNotes: dbProduct.free_notes || ''
   };
 }
