@@ -76,6 +76,12 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         if (error) throw error;
         if (!data) throw new Error('Product not found');
 
+        console.log('Raw product data from DB:', {
+          notes: data.notes,
+          free_notes: data.free_notes,
+          all_keys: Object.keys(data)
+        });
+
         const transformedProduct: Product = {
           id: data.id,
           sku: data.sku,
@@ -96,7 +102,9 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           variants: data.variants || [],
           variantPrices: data.variant_prices || {},
           priceModifierBeforeMin: data.price_modifier_before_min ?? null,
-          priceModifierAfterMin: data.price_modifier_after_min ?? null
+          priceModifierAfterMin: data.price_modifier_after_min ?? null,
+          notes: data.notes || undefined,
+          freeNotes: data.free_notes || undefined
         };
 
         // Cache the product data

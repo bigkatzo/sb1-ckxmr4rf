@@ -11,6 +11,9 @@ interface ProductNotesProps {
 }
 
 export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
+  // Debugging to ensure we get proper values
+  console.log('ProductNotes component received:', { notes, freeNotes });
+
   const defaultNotes = {
     shipping: "Free Shipping Worldwide included (15-20 days*)",
     quality: "Quality is guaranteed. If there is a print error or visible quality issue, we'll replace or refund it.",

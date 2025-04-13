@@ -52,6 +52,29 @@ This change provides several benefits:
 - Preserves image assets that may be referenced in order snapshots
 - Improves system reliability by removing a potential failure point
 
+## Implementation Considerations
+
+To optimize the image preservation strategy, we recommend the following implementation details:
+
+### Storage Organization
+- Organize collection and product images in a structured folder hierarchy (e.g., `collections/{collection_id}/images/`)
+- Include creation timestamps in filenames to facilitate future analysis
+- Consider using metadata tags on storage objects to mark their association with collections/products
+
+### Cleanup Policy
+- Rather than immediate deletion, implement a periodic cleanup process for orphaned images
+- Only remove images that:
+  1. Are older than a defined threshold (e.g., 6-12 months)
+  2. Are not referenced in any order snapshots (verified through database queries)
+- Schedule this cleanup as a monthly background job with proper logging
+
+### Monitoring & Management
+- Create an admin dashboard section to monitor storage usage
+- Implement tools for merchants to identify orphaned images
+- Track image reference counts in snapshots for better cleanup decision-making
+
+This approach balances storage efficiency with data integrity, ensuring that the order history remains complete while providing a path to eventually clean up truly unused assets.
+
 ## Technical Details
 
 ### Database Changes

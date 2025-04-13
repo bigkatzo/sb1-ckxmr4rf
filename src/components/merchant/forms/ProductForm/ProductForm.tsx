@@ -70,6 +70,12 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       
       console.log('ProductForm - Preparing form data with notes:');
       console.log('formData.notes:', formData.notes);
+      console.log('formData.notes type:', typeof formData.notes);
+      if (formData.notes) {
+        console.log('shipping:', formData.notes.shipping, 'type:', typeof formData.notes.shipping);
+        console.log('quality:', formData.notes.quality, 'type:', typeof formData.notes.quality);
+        console.log('returns:', formData.notes.returns, 'type:', typeof formData.notes.returns);
+      }
       console.log('formData.freeNotes:', formData.freeNotes);
 
       // Add basic product info
@@ -82,22 +88,26 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       // Add visibility state
       data.append('visible', visible.toString());
 
-      // Add notes directly with proper format
+      // Add notes directly with proper format - force string values
       if (formData.notes) {
-        if (formData.notes.shipping) {
-          data.append('notes.shipping', formData.notes.shipping);
+        if (formData.notes.shipping !== undefined) {
+          data.append('notes.shipping', String(formData.notes.shipping));
+          console.log('Added notes.shipping:', String(formData.notes.shipping));
         }
-        if (formData.notes.quality) {
-          data.append('notes.quality', formData.notes.quality);
+        if (formData.notes.quality !== undefined) {
+          data.append('notes.quality', String(formData.notes.quality));
+          console.log('Added notes.quality:', String(formData.notes.quality));
         }
-        if (formData.notes.returns) {
-          data.append('notes.returns', formData.notes.returns);
+        if (formData.notes.returns !== undefined) {
+          data.append('notes.returns', String(formData.notes.returns));
+          console.log('Added notes.returns:', String(formData.notes.returns));
         }
       }
 
       // Add free notes directly
       if (formData.freeNotes) {
-        data.append('freeNotes', formData.freeNotes);
+        data.append('freeNotes', String(formData.freeNotes));
+        console.log('Added freeNotes:', String(formData.freeNotes));
       }
 
       // Add images to form data

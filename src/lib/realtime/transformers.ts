@@ -20,6 +20,13 @@ export function transformCollection(dbCollection: any): Collection {
 }
 
 export function transformProduct(dbProduct: any): Product {
+  // Debug: Log the raw product data
+  console.log('Raw product data from DB:', {
+    notes: dbProduct.notes,
+    free_notes: dbProduct.free_notes,
+    all_keys: Object.keys(dbProduct)
+  });
+  
   const variants: ProductVariant[] = dbProduct.variants || [];
   const category: Category | undefined = dbProduct.categories ? {
     id: dbProduct.categories.id,

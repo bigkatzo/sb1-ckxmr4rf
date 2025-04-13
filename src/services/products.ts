@@ -36,6 +36,32 @@ export async function createProduct(collectionId: string, data: FormData) {
       throw new Error('Invalid price value');
     }
 
+    // Handle notes according to database constraint
+    const shippingNote = data.get('notes.shipping');
+    const qualityNote = data.get('notes.quality');
+    const returnsNote = data.get('notes.returns');
+    
+    console.log('Create product - note values:');
+    console.log('shippingNote:', shippingNote, typeof shippingNote);
+    console.log('qualityNote:', qualityNote, typeof qualityNote);
+    console.log('returnsNote:', returnsNote, typeof returnsNote);
+    
+    // Only include notes if at least one field is not empty
+    let notes: { shipping?: string; quality?: string; returns?: string; } | null = null;
+    const hasShippingNote = shippingNote && shippingNote !== '';
+    const hasQualityNote = qualityNote && qualityNote !== '';
+    const hasReturnsNote = returnsNote && returnsNote !== '';
+    
+    if (hasShippingNote || hasQualityNote || hasReturnsNote) {
+      notes = {};
+      if (hasShippingNote) notes.shipping = shippingNote as string;
+      if (hasQualityNote) notes.quality = qualityNote as string;
+      if (hasReturnsNote) notes.returns = returnsNote as string;
+    }
+    
+    // Handle free notes
+    const freeNotes = data.get('freeNotes') || null;
+
     const { error } = await supabase
       .from('products')
       .insert({
@@ -52,12 +78,8 @@ export async function createProduct(collectionId: string, data: FormData) {
         price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
         price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
         visible: data.get('visible') === 'true',
-        notes: {
-          shipping: data.get('notes.shipping') || null,
-          quality: data.get('notes.quality') || null,
-          returns: data.get('notes.returns') || null
-        },
-        free_notes: data.get('freeNotes') || null,
+        notes,
+        free_notes: freeNotes
       });
 
     if (error) throw error;
@@ -102,16 +124,41 @@ export async function updateProduct(id: string, data: FormData) {
       visible: data.get('visible') === 'true',
       price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
       price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
-      notes: {
-        shipping: data.get('notes.shipping') || null,
-        quality: data.get('notes.quality') || null,
-        returns: data.get('notes.returns') || null
-      },
-      free_notes: data.get('freeNotes') || null,
     };
     
-    console.log('Update data notes:', updateData.notes);
-    console.log('Update data free_notes:', updateData.free_notes);
+    // Handle notes according to database constraint
+    const shippingNote = data.get('notes.shipping');
+    const qualityNote = data.get('notes.quality');
+    const returnsNote = data.get('notes.returns');
+    
+    console.log('Raw note values from form:');
+    console.log('shippingNote:', shippingNote, typeof shippingNote);
+    console.log('qualityNote:', qualityNote, typeof qualityNote);
+    console.log('returnsNote:', returnsNote, typeof returnsNote);
+    
+    // Only add notes if at least one note field has a value (handle empty strings too)
+    const hasShippingNote = shippingNote && shippingNote !== '';
+    const hasQualityNote = qualityNote && qualityNote !== '';
+    const hasReturnsNote = returnsNote && returnsNote !== '';
+    
+    if (hasShippingNote || hasQualityNote || hasReturnsNote) {
+      updateData.notes = {};
+      if (hasShippingNote) updateData.notes.shipping = shippingNote as string;
+      if (hasQualityNote) updateData.notes.quality = qualityNote as string;
+      if (hasReturnsNote) updateData.notes.returns = returnsNote as string;
+    } else if (currentProduct.notes) {
+      // If we have no notes in the form but there are existing notes, set to empty object
+      updateData.notes = {};
+    }
+    
+    // Handle free notes separately
+    const freeNotesValue = data.get('freeNotes');
+    if (freeNotesValue !== null) {
+      updateData.free_notes = freeNotesValue || null;
+    }
+    
+    console.log('Final update data notes:', updateData.notes);
+    console.log('Final update data free_notes:', updateData.free_notes);
     
     // 1. Process image changes if any
     if (data.get('currentImages') !== null || data.get('image0') !== null) {
