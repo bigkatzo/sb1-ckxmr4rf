@@ -222,11 +222,11 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         
         <div className="space-y-4">
           <div>
-            <label htmlFor="notes.shipping" className="block text-sm font-medium text-white">
+            <label htmlFor="notes_shipping" className="block text-sm font-medium text-white">
               Shipping Notes
             </label>
             <textarea
-              id="notes.shipping"
+              id="notes_shipping"
               {...register('notes.shipping')}
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -235,11 +235,11 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
           </div>
           
           <div>
-            <label htmlFor="notes.quality" className="block text-sm font-medium text-white">
+            <label htmlFor="notes_quality" className="block text-sm font-medium text-white">
               Quality Notes
             </label>
             <textarea
-              id="notes.quality"
+              id="notes_quality"
               {...register('notes.quality')}
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -248,11 +248,11 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
           </div>
           
           <div>
-            <label htmlFor="notes.returns" className="block text-sm font-medium text-white">
+            <label htmlFor="notes_returns" className="block text-sm font-medium text-white">
               Returns Notes
             </label>
             <textarea
-              id="notes.returns"
+              id="notes_returns"
               {...register('notes.returns')}
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"

@@ -42,12 +42,6 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
       if (error) throw error;
       
       const transformedProducts = (data || []).map(product => {
-        // Debug the raw notes from database
-        console.log(`Product ${product.id} raw database values:`, {
-          rawNotes: product.notes,
-          rawFreeNotes: product.free_notes
-        });
-
         // Handle notes properly - check if notes is a valid object with properties
         const hasValidNotes = product.notes && typeof product.notes === 'object' && Object.keys(product.notes).length > 0;
         
@@ -61,12 +55,13 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
         // Process free_notes with proper type handling
         const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
         
-        // Add detailed logging for debugging notes
-        console.log(`Product ${product.id} transformed notes data:`, {
-          hasValidNotes,
-          notesObject,
-          freeNotesValue
-        });
+        // Add minimal logging for the first product only to avoid cluttering console
+        if (product.id === data[0]?.id) {
+          console.log('Sample product notes processing:', {
+            rawNotes: product.notes,
+            processedNotes: notesObject
+          });
+        }
 
         return {
           id: product.id,

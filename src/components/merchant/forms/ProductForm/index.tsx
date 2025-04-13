@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ModalForm } from '../../../ui/Modal/ModalForm';
@@ -42,8 +42,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     }
   }, [initialData]);
   
-  // Initialize default values for the form
-  const defaultValues: ProductFormValues = {
+  // Initialize default values for the form using useMemo to prevent recreation on each render
+  const defaultValues = useMemo(() => ({
     name: initialData?.name || '',
     description: initialData?.description || '',
     price: initialData?.price || 0,
@@ -55,21 +55,18 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
     priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
     // CRITICAL FIX: Ensure notes is properly initialized with valid structure
-    // Even if notes is undefined or null, create a valid object with empty strings
     notes: {
       shipping: initialData?.notes?.shipping || '',
       quality: initialData?.notes?.quality || '',
       returns: initialData?.notes?.returns || ''
     },
-    // Ensure freeNotes is always a string
     freeNotes: initialData?.freeNotes || '',
-    // Initialize the array and object fields
     variants: initialData?.variants || [],
     variantPrices: initialData?.variantPrices || {},
     imageFiles: [],
     existingImages: initialData?.images || [],
     removedImages: []
-  };
+  }), [initialData]);
   
   // Log the constructed default values in more detail
   useEffect(() => {
@@ -138,7 +135,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     return () => {
       initializedRef.current = false;
     };
-  }, [initialData, methods, defaultValues]);
+  }, [initialData, methods]);
 
   // Create a submit handler that processes the form data
   const processSubmit = async (data: any) => {
