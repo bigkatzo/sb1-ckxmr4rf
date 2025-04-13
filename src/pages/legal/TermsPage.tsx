@@ -5,44 +5,6 @@ export function TermsPage() {
     <LegalPage title="Terms of Use">
       <p className="text-gray-400 mb-6">Last updated: {new Date().toLocaleDateString()}</p>
 
-      <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-4 text-blue-400">Welcome to store.fun!</h2>
-        <p className="text-gray-300 mb-4">We're excited to have you here. These Terms of Use are designed to create a positive experience for everyone. Here's a friendly overview:</p>
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-lg font-medium mb-2 text-blue-300">What We Do</h3>
-            <ul className="space-y-2 text-gray-300">
-              <li className="flex items-start">
-                <span className="text-green-400 mr-2">✓</span>
-                <span>Provide a secure platform for buying merchandise with crypto</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-green-400 mr-2">✓</span>
-                <span>Connect your wallet seamlessly and safely</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-green-400 mr-2">✓</span>
-                <span>Offer special benefits to NFT holders</span>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-lg font-medium mb-2 text-blue-300">Our Partners</h3>
-            <ul className="space-y-2 text-gray-300">
-              <li className="flex items-start">
-                <span className="text-blue-400 mr-2">•</span>
-                <span>Logic Group LLC handles all payment processing and shipping</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-400 mr-2">•</span>
-                <span>For order or payment support, contact admin@logic300.com</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-        <p className="text-gray-400 mt-4 text-sm italic">Please read the full Terms below for complete details about using our platform.</p>
-      </section>
-
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">1. Acceptance of Terms</h2>
         <p className="text-gray-300 mb-4">
@@ -376,13 +338,6 @@ export function TermsPage() {
             <h3 className="text-lg font-medium mb-2 text-blue-300">What happens if there's a problem with my order?</h3>
             <p className="text-gray-300">
               We're here to help! Contact us at support@store.fun with details about your order issue, and we'll work with our operations team to resolve it quickly. If you receive a defective item, please include photos of the issue to help us process a replacement or refund.
-            </p>
-          </div>
-          
-          <div>
-            <h3 className="text-lg font-medium mb-2 text-blue-300">Can I get special discounts with my NFTs?</h3>
-            <p className="text-gray-300">
-              Yes! Certain NFT holders may receive special pricing, early access, or exclusive products. Connect your wallet to see your personalized offers.
             </p>
           </div>
           
