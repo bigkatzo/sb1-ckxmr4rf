@@ -87,28 +87,23 @@ export function PrivacyPolicyPage() {
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">3. Information We Collect</h2>
         <div className="text-gray-300 mb-4">
-          <h3 className="text-lg font-medium mb-2">3.1 Platform Information</h3>
-          <p className="mb-4">As a technology platform provider, store.fun collects:</p>
+          <h3 className="text-lg font-medium mb-2">3.1 Information We Collect</h3>
+          <p className="mb-4">store.fun collects:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>Email address (for account management)</li>
             <li>Wallet addresses (for blockchain transactions)</li>
-            <li>Technical usage data</li>
-          </ul>
-
-          <h3 className="text-lg font-medium mb-2 mt-4">3.2 Information Collected by Logic Group LLC</h3>
-          <p className="mb-4">Our operations partner, Logic Group LLC, working under our oversight, processes:</p>
-          <ul className="list-disc pl-6 space-y-2">
             <li>Name and contact information</li>
             <li>Shipping address</li>
             <li>Phone number (for delivery purposes)</li>
             <li>Payment information (credit card details via Stripe)</li>
             <li>Order history and preferences</li>
+            <li>Technical usage data</li>
           </ul>
           <p className="mt-4">
             <strong>Important:</strong> Your shipping address and personal contact information are collected solely for the purpose of providing this information to shipping carriers to facilitate delivery of your orders. This information is never used for marketing, sold to third parties, or used for any purpose other than order fulfillment and shipping.
           </p>
 
-          <h3 className="text-lg font-medium mb-2 mt-4">3.3 Blockchain Data</h3>
+          <h3 className="text-lg font-medium mb-2 mt-4">3.2 Blockchain Data</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>Public wallet addresses</li>
             <li>Transaction hashes and metadata</li>
@@ -120,7 +115,7 @@ export function PrivacyPolicyPage() {
             <li>On-chain verification data to confirm ownership and eligibility for special offers</li>
           </ul>
 
-          <h3 className="text-lg font-medium mb-2 mt-4">3.4 Technical Information</h3>
+          <h3 className="text-lg font-medium mb-2 mt-4">3.3 Technical Information</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>IP address and location data</li>
             <li>Browser type and version</li>
@@ -135,24 +130,18 @@ export function PrivacyPolicyPage() {
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">4. How We Use Your Information</h2>
         <div className="text-gray-300 mb-4">
-          <h3 className="text-lg font-medium mb-2">4.1 Platform Services</h3>
           <p className="mb-4">store.fun uses collected information to:</p>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Provide and maintain the technology platform</li>
+            <li>Provide and maintain the platform</li>
             <li>Verify wallet connections and token ownership</li>
             <li>Enable blockchain transactions</li>
-            <li>Improve platform functionality</li>
-            <li>Provide technical support</li>
-          </ul>
-
-          <h3 className="text-lg font-medium mb-2 mt-4">4.2 Services Provided by Logic Group LLC</h3>
-          <p className="mb-4">Logic Group LLC uses collected information to:</p>
-          <ul className="list-disc pl-6 space-y-2">
             <li>Process orders and payments</li>
             <li>Manage shipping and delivery</li>
             <li>Handle customer support</li>
             <li>Process refunds and returns</li>
             <li>Maintain order history</li>
+            <li>Improve platform functionality</li>
+            <li>Provide technical support</li>
           </ul>
         </div>
       </section>
@@ -160,11 +149,9 @@ export function PrivacyPolicyPage() {
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">5. Payment Processing</h2>
         <div className="text-gray-300 mb-4">
-          <p className="mb-4">All payment processing is handled by Logic Group LLC:</p>
-          
           <h3 className="text-lg font-medium mb-2">5.1 Traditional Payments</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Credit card processing is managed through Stripe under our oversight</li>
+            <li>Credit card processing is managed through Stripe</li>
             <li>store.fun does not collect or store any credit card information</li>
             <li>Payment data is protected with industry-standard security measures</li>
             <li>For payment-related inquiries, contact us at support@store.fun</li>
@@ -172,7 +159,7 @@ export function PrivacyPolicyPage() {
 
           <h3 className="text-lg font-medium mb-2 mt-4">5.2 Blockchain Payments</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Cryptocurrency payments are processed through the Solana blockchain with our oversight</li>
+            <li>Cryptocurrency payments are processed through the Solana blockchain</li>
             <li>store.fun provides the secure technical interface for wallet connections</li>
             <li>Transaction data is publicly visible on the blockchain</li>
             <li>We do not have access to private keys or wallet credentials</li>

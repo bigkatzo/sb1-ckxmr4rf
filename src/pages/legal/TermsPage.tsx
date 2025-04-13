@@ -51,10 +51,10 @@ export function TermsPage() {
         <div className="text-gray-300 mb-4">
           <h3 className="text-lg font-medium mb-2">4.1 Operating Partner</h3>
           <p className="mb-4">
-            All payments and financial operations on the platform are managed by our operations partner, Logic Group LLC, working closely with our team at store.fun. For payment-related inquiries, please contact us at <a href="mailto:support@store.fun" className="text-blue-400 hover:text-blue-300">support@store.fun</a> and we'll ensure your concerns are addressed promptly.
+            store.fun is operated by Logic Group LLC, handling payments and financial operations on the platform. For payment-related inquiries, please contact us at <a href="mailto:support@store.fun" className="text-blue-400 hover:text-blue-300">support@store.fun</a> and we'll ensure your concerns are addressed promptly.
           </p>
           <p className="mb-4">
-            While store.fun provides the technology platform and serves as your primary point of contact, Logic Group LLC handles the back-end payment processing and fulfillment logistics. This structure allows us to focus on creating the best possible experience for you while ensuring efficient operations behind the scenes.
+            store.fun is your primary point of contact for all platform services. Logic Group LLC supports us behind the scenes with payment processing and fulfillment logistics, allowing us to create the best possible experience for you.
           </p>
 
           <h3 className="text-lg font-medium mb-2">4.2 Traditional Payments</h3>
@@ -119,17 +119,17 @@ export function TermsPage() {
           <h3 className="text-lg font-medium mb-2">6.1 Product Information</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>All product descriptions are provided by merchants</li>
-            <li>store.fun, as the technology provider, does not guarantee accuracy of product information</li>
-            <li>Prices and availability are managed by Logic Group LLC</li>
-            <li>Products are subject to availability as determined by Logic Group LLC</li>
+            <li>store.fun does not guarantee accuracy of product information</li>
+            <li>Prices and availability are managed by store.fun</li>
+            <li>Products are subject to availability as determined by store.fun</li>
           </ul>
 
           <h3 className="text-lg font-medium mb-2 mt-4">6.2 Ordering and Fulfillment</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Orders are subject to acceptance and availability as determined by Logic Group LLC</li>
-            <li>Logic Group LLC reserves the right to refuse or cancel any order</li>
-            <li>Shipping and delivery are managed entirely by Logic Group LLC</li>
-            <li>Risk of loss transfers upon delivery as per Logic Group LLC's policies</li>
+            <li>Orders are subject to acceptance and availability as determined by store.fun</li>
+            <li>store.fun reserves the right to refuse or cancel any order</li>
+            <li>Shipping and delivery are managed by store.fun</li>
+            <li>Risk of loss transfers upon delivery as per store.fun's policies</li>
           </ul>
         </div>
       </section>
@@ -137,13 +137,13 @@ export function TermsPage() {
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">7. Returns and Refunds</h2>
         <div className="text-gray-300 mb-4">
-          <p className="mb-4">All returns, refunds, and related customer service are handled by our operating partner, Logic Group LLC:</p>
+          <p className="mb-4">All returns, refunds, and related customer service are handled by store.fun:</p>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Products are made to order and generally non-returnable as per Logic Group LLC's policies</li>
-            <li>Defective items will be replaced or refunded through Logic Group LLC</li>
-            <li>Claims must be submitted to Logic Group LLC with photographic evidence</li>
-            <li>Refunds will be processed by Logic Group LLC in the original payment method</li>
-            <li>Shipping costs refund policies are determined by Logic Group LLC</li>
+            <li>Products are made to order and generally non-returnable as per store.fun's policies</li>
+            <li>Defective items will be replaced or refunded by store.fun</li>
+            <li>Claims must be submitted to store.fun with photographic evidence</li>
+            <li>Refunds will be processed by store.fun in the original payment method</li>
+            <li>Shipping costs refund policies are determined by store.fun</li>
           </ul>
         </div>
       </section>
@@ -179,15 +179,15 @@ export function TermsPage() {
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">10. Limitation of Liability</h2>
         <div className="text-gray-300 mb-4">
-          <p className="mb-4">store.fun, as the technology platform provider, is not liable for:</p>
+          <p className="mb-4">store.fun is not liable for:</p>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Any payment processing, refunds, or financial transactions handled by Logic Group LLC</li>
+            <li>Any payment processing or financial transaction issues</li>
             <li>Blockchain network issues or delays</li>
             <li>Wallet connection problems</li>
             <li>Lost or stolen cryptocurrency</li>
-            <li>Any shipping, fulfillment, or delivery issues managed by Logic Group LLC</li>
+            <li>Any shipping, fulfillment, or delivery issues</li>
             <li>Product quality issues from merchants</li>
-            <li>Data loss or security breaches not directly related to the technology platform</li>
+            <li>Data loss or security breaches not directly caused by store.fun</li>
             <li>Technical malfunctions of the platform interface</li>
           </ul>
           <p className="mt-4">For all matters related to payments, orders, shipping, and customer service, please contact us at support@store.fun and we'll be happy to assist you.</p>
@@ -311,7 +311,7 @@ export function TermsPage() {
           <div>
             <h3 className="text-lg font-medium mb-2 text-blue-300">Who handles my payment and shipping?</h3>
             <p className="text-gray-300">
-              While Logic Group LLC manages the back-end payment processing and shipping operations, store.fun is your direct point of contact for any questions or concerns. We work closely with our operations partner to ensure a seamless experience, and you can always reach us at support@store.fun for assistance.
+              store.fun handles all aspects of your shopping experience, including payment processing and shipping operations. We're your direct point of contact for any questions or concerns, and you can always reach us at support@store.fun for assistance.
             </p>
           </div>
           
