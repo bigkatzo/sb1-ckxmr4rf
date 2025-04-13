@@ -76,11 +76,17 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         if (error) throw error;
         if (!data) throw new Error('Product not found');
 
-        console.log('Raw product data from DB:', {
+        console.log('Raw product data from DB (useProduct.ts):', {
           notes: data.notes,
           free_notes: data.free_notes,
+          notes_type: typeof data.notes,
+          free_notes_type: typeof data.free_notes,
+          notes_json: JSON.stringify(data.notes),
           all_keys: Object.keys(data)
         });
+        
+        // Fix for empty object in JSONB column
+        const hasValidNotes = data.notes && typeof data.notes === 'object' && Object.keys(data.notes).length > 0;
 
         const transformedProduct: Product = {
           id: data.id,
@@ -103,7 +109,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           variantPrices: data.variant_prices || {},
           priceModifierBeforeMin: data.price_modifier_before_min ?? null,
           priceModifierAfterMin: data.price_modifier_after_min ?? null,
-          notes: data.notes || undefined,
+          notes: hasValidNotes ? data.notes : undefined,
           freeNotes: data.free_notes || ''
         };
 

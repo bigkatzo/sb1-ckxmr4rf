@@ -96,8 +96,8 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   
   // Debug: Check for free notes
   console.log('ProductModal - Product Data:', product);
-  console.log('ProductModal - freeNotes:', product.freeNotes);
-  console.log('ProductModal - notes:', product.notes);
+  console.log('ProductModal - freeNotes (value and type):', product.freeNotes, typeof product.freeNotes);
+  console.log('ProductModal - notes (value and type):', product.notes, typeof product.notes);
   
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});

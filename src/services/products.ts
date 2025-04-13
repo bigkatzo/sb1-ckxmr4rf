@@ -60,7 +60,9 @@ export async function createProduct(collectionId: string, data: FormData) {
     }
     
     // Handle free notes
-    const freeNotes = data.get('freeNotes') || null;
+    const freeNotesValue = data.get('freeNotes');
+    console.log('Create product - freeNotes value:', freeNotesValue, typeof freeNotesValue);
+    const freeNotes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
 
     const { error } = await supabase
       .from('products')
