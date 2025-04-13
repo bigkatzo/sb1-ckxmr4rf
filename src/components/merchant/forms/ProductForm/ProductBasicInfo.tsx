@@ -1,104 +1,25 @@
-import { useState } from 'react';
-import React from 'react';
+import { useFormContext } from 'react-hook-form';
+import type { Product } from '../../../../types/variants';
+import type { ProductFormValues } from './schema';
 
-interface ProductBasicInfoProps {
-  categories: Array<{
+export interface ProductBasicInfoProps {
+  categories: {
     id: string;
     name: string;
-  }>;
-  initialData?: {
-    name?: string;
-    description?: string;
-    price?: number;
-    stock?: number | null;
-    categoryId?: string;
-    sku?: string;
-    minimumOrderQuantity?: number;
-    priceModifierBeforeMin?: number | null;
-    priceModifierAfterMin?: number | null;
-    notes?: {
-      shipping?: string;
-      quality?: string;
-      returns?: string;
-    };
-    freeNotes?: string;
-  };
-  onChange: (data: Partial<{
-    name: string;
-    description: string;
-    price: number;
-    stock: number | null;
-    categoryId: string;
-    sku: string;
-    minimumOrderQuantity: number;
-    priceModifierBeforeMin: number | null;
-    priceModifierAfterMin: number | null;
-    notes: {
-      shipping?: string;
-      quality?: string;
-      returns?: string;
-    };
-    freeNotes: string;
-  }>) => void;
+  }[];
+  initialData?: Product;
 }
 
-export function ProductBasicInfo({ categories, initialData, onChange }: ProductBasicInfoProps) {
-  const [name, setName] = useState(initialData?.name || '');
-  const [description, setDescription] = useState(initialData?.description || '');
-  const [price, setPrice] = useState(initialData?.price || 0);
-  const [stock, setStock] = useState<number | null>(initialData?.stock ?? null);
-  const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
-  const [sku] = useState(initialData?.sku || '');
-  const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(initialData?.minimumOrderQuantity || 50);
-  const [priceModifierBeforeMin, setPriceModifierBeforeMin] = useState<number | null>(initialData?.priceModifierBeforeMin ?? null);
-  const [priceModifierAfterMin, setPriceModifierAfterMin] = useState<number | null>(initialData?.priceModifierAfterMin ?? null);
-  const [notes, setNotes] = useState({
-    shipping: initialData?.notes?.shipping || '',
-    quality: initialData?.notes?.quality || '',
-    returns: initialData?.notes?.returns || ''
-  });
-  const [freeNotes, setFreeNotes] = useState(initialData?.freeNotes || '');
-
+export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
+  const { register, setValue, formState: { errors } } = useFormContext<ProductFormValues>();
+  
   // Default notes for placeholders
   const defaultNotes = {
     shipping: "Free Shipping Worldwide included (15-20 days*)",
-    quality: "Quality is guaranteed. If there is a print error or visible quality issue, we'll replace or refund it.",
+    quality: "Quality is guaranteed. If there's a print error or visible quality issue, we'll replace or refund it.",
     returns: "Because the products are made to order, we do not accept general returns or sizing-related returns."
   };
-
-  // Update local state when initialData changes
-  React.useEffect(() => {
-    setName(initialData?.name || '');
-    setDescription(initialData?.description || '');
-    setPrice(initialData?.price || 0);
-    setStock(initialData?.stock ?? null);
-    setCategoryId(initialData?.categoryId || '');
-    setMinimumOrderQuantity(initialData?.minimumOrderQuantity || 50);
-    setPriceModifierBeforeMin(initialData?.priceModifierBeforeMin ?? null);
-    setPriceModifierAfterMin(initialData?.priceModifierAfterMin ?? null);
-    setNotes({
-      shipping: initialData?.notes?.shipping || '',
-      quality: initialData?.notes?.quality || '',
-      returns: initialData?.notes?.returns || ''
-    });
-    setFreeNotes(initialData?.freeNotes || '');
-  }, [initialData]);
-
-  const handleStockChange = (value: string) => {
-    setStock(value === '' ? null : parseInt(value, 10));
-    onChange({ stock: value === '' ? null : parseInt(value, 10) });
-  };
-
-  const handlePriceModifierBeforeMinChange = (value: string) => {
-    setPriceModifierBeforeMin(value === '' ? null : parseFloat(value));
-    onChange({ priceModifierBeforeMin: value === '' ? null : parseFloat(value) });
-  };
-
-  const handlePriceModifierAfterMinChange = (value: string) => {
-    setPriceModifierAfterMin(value === '' ? null : parseFloat(value));
-    onChange({ priceModifierAfterMin: value === '' ? null : parseFloat(value) });
-  };
-
+  
   return (
     <div className="space-y-6">
       <div>
@@ -108,8 +29,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         <input
           type="text"
           id="sku"
-          name="sku"
-          value={sku}
+          {...register('sku')}
           readOnly
           disabled
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-gray-400 cursor-not-allowed focus:outline-none"
@@ -127,14 +47,12 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         <input
           type="text"
           id="name"
-          name="name"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            onChange({ name: e.target.value });
-          }}
+          {...register('name')}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+        {errors.name && (
+          <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>
+        )}
       </div>
 
       <div>
@@ -143,29 +61,22 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         </label>
         <textarea
           id="description"
-          name="description"
-          value={description}
-          onChange={(e) => {
-            setDescription(e.target.value);
-            onChange({ description: e.target.value });
-          }}
+          {...register('description')}
           rows={4}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+        {errors.description && (
+          <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>
+        )}
       </div>
 
       <div>
         <label htmlFor="category" className="block text-sm font-medium text-white">
           Category
         </label>
-        <input type="hidden" name="categoryId" value={categoryId} />
         <select
-          id="category"
-          value={categoryId}
-          onChange={(e) => {
-            setCategoryId(e.target.value);
-            onChange({ categoryId: e.target.value });
-          }}
+          id="categoryId"
+          {...register('categoryId')}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           <option value="">Select a category</option>
@@ -175,6 +86,9 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             </option>
           ))}
         </select>
+        {errors.categoryId && (
+          <p className="text-red-400 text-xs mt-1">{errors.categoryId.message}</p>
+        )}
       </div>
 
       <div>
@@ -184,16 +98,23 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         <input
           type="number"
           id="price"
-          name="price"
           min="0"
           step="0.01"
-          value={price}
-          onChange={(e) => {
-            setPrice(parseFloat(e.target.value));
-            onChange({ price: parseFloat(e.target.value) });
-          }}
+          {...register('price', {
+            valueAsNumber: true,
+            onChange: (e) => {
+              // Ensure only numeric values are accepted
+              const value = parseFloat(e.target.value);
+              if (!isNaN(value)) {
+                setValue('price', value);
+              }
+            }
+          })}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+        {errors.price && (
+          <p className="text-red-400 text-xs mt-1">{errors.price.message}</p>
+        )}
       </div>
 
       <div>
@@ -203,18 +124,21 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         <input
           type="number"
           id="priceModifierBeforeMin"
-          name="priceModifierBeforeMin"
           min="-1"
           max="1"
           step="0.01"
-          value={priceModifierBeforeMin === null ? '' : priceModifierBeforeMin.toString()}
-          onChange={(e) => handlePriceModifierBeforeMinChange(e.target.value)}
+          {...register('priceModifierBeforeMin', {
+            setValueAs: (value) => value === '' ? null : parseFloat(value),
+          })}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="e.g. -0.2 for 20% discount"
         />
         <p className="mt-1 text-sm text-gray-400">
           Leave empty for no modification. Use negative values for discounts (e.g. -0.2 for 20% off)
         </p>
+        {errors.priceModifierBeforeMin && (
+          <p className="text-red-400 text-xs mt-1">{errors.priceModifierBeforeMin.message}</p>
+        )}
       </div>
 
       <div>
@@ -224,17 +148,20 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         <input
           type="number"
           id="priceModifierAfterMin"
-          name="priceModifierAfterMin"
           min="0"
           step="0.01"
-          value={priceModifierAfterMin === null ? '' : priceModifierAfterMin.toString()}
-          onChange={(e) => handlePriceModifierAfterMinChange(e.target.value)}
+          {...register('priceModifierAfterMin', {
+            setValueAs: (value) => value === '' ? null : parseFloat(value),
+          })}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="e.g. 2 for up to 200% increase"
         />
         <p className="mt-1 text-sm text-gray-400">
           Leave empty for no modification. Use positive values (e.g. 2 for up to 200% increase)
         </p>
+        {errors.priceModifierAfterMin && (
+          <p className="text-red-400 text-xs mt-1">{errors.priceModifierAfterMin.message}</p>
+        )}
       </div>
 
       <div>
@@ -244,13 +171,16 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         <input
           type="number"
           id="stock"
-          name="stock"
           min="0"
-          value={stock === null ? '' : stock.toString()}
-          onChange={(e) => handleStockChange(e.target.value)}
+          {...register('stock', {
+            setValueAs: (value) => value === '' ? null : parseInt(value),
+          })}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="Leave empty for unlimited stock"
         />
+        {errors.stock && (
+          <p className="text-red-400 text-xs mt-1">{errors.stock.message}</p>
+        )}
       </div>
 
       <div>
@@ -260,18 +190,18 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         <input
           type="number"
           id="minimumOrderQuantity"
-          name="minimumOrderQuantity"
           min="1"
-          value={minimumOrderQuantity}
-          onChange={(e) => {
-            setMinimumOrderQuantity(parseInt(e.target.value, 10));
-            onChange({ minimumOrderQuantity: parseInt(e.target.value, 10) });
-          }}
+          {...register('minimumOrderQuantity', {
+            valueAsNumber: true,
+          })}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+        {errors.minimumOrderQuantity && (
+          <p className="text-red-400 text-xs mt-1">{errors.minimumOrderQuantity.message}</p>
+        )}
       </div>
 
-      {/* Product Notes Section - Moved to the end */}
+      {/* Product Notes Section */}
       <div className="border-t border-gray-800 pt-4">
         <h3 className="text-sm font-medium text-white mb-4">Product Notes (Optional)</h3>
         
@@ -282,13 +212,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             </label>
             <textarea
               id="notes.shipping"
-              name="notes.shipping"
-              value={notes.shipping}
-              onChange={(e) => {
-                const newNotes = {...notes, shipping: e.target.value};
-                setNotes(newNotes);
-                onChange({ notes: newNotes });
-              }}
+              {...register('notes.shipping')}
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder={defaultNotes.shipping}
@@ -301,13 +225,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             </label>
             <textarea
               id="notes.quality"
-              name="notes.quality"
-              value={notes.quality}
-              onChange={(e) => {
-                const newNotes = {...notes, quality: e.target.value};
-                setNotes(newNotes);
-                onChange({ notes: newNotes });
-              }}
+              {...register('notes.quality')}
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder={defaultNotes.quality}
@@ -320,13 +238,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             </label>
             <textarea
               id="notes.returns"
-              name="notes.returns"
-              value={notes.returns}
-              onChange={(e) => {
-                const newNotes = {...notes, returns: e.target.value};
-                setNotes(newNotes);
-                onChange({ notes: newNotes });
-              }}
+              {...register('notes.returns')}
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder={defaultNotes.returns}
@@ -339,12 +251,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
             </label>
             <textarea
               id="freeNotes"
-              name="freeNotes"
-              value={freeNotes}
-              onChange={(e) => {
-                setFreeNotes(e.target.value);
-                onChange({ freeNotes: e.target.value });
-              }}
+              {...register('freeNotes')}
               rows={3}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="Any other information about the product..."

@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useForm, FormProvider } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { ModalForm } from '../../../ui/Modal/ModalForm';
 import { ProductBasicInfo } from './ProductBasicInfo';
 import { ProductImages } from './ProductImages';
 import { ProductVariants } from './ProductVariants';
+import { productSchema, ProductFormValues } from './schema';
 import type { Category } from '../../../../types/index';
-import type { Product, ProductVariant, VariantPricing } from '../../../../types/variants';
+import type { Product } from '../../../../types/variants';
 import { Toggle } from '../../../ui/Toggle';
 import { Loader2 } from 'lucide-react';
 
@@ -17,7 +20,12 @@ export interface ProductFormProps {
 }
 
 export function ProductForm({ categories, initialData, onClose, onSubmit, isLoading }: ProductFormProps) {
-  const [formState, setFormState] = useState({
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Initialize default values for the form
+  const defaultValues: ProductFormValues = {
     name: initialData?.name || '',
     description: initialData?.description || '',
     price: initialData?.price || 0,
@@ -28,20 +36,29 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     visible: initialData?.visible ?? true,
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
     priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
+    notes: initialData?.notes || {
+      shipping: '',
+      quality: '',
+      returns: ''
+    },
+    freeNotes: initialData?.freeNotes || '',
+    // Initialize the array and object fields
+    variants: initialData?.variants || [],
+    variantPrices: initialData?.variantPrices || {},
+    imageFiles: [],
+    existingImages: initialData?.images || [],
+    removedImages: []
+  };
+  
+  // Set up react-hook-form with zod validation
+  const methods = useForm({
+    resolver: zodResolver(productSchema),
+    defaultValues,
+    mode: 'onChange'
   });
-  const [images, setImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-  const [existingImages, setExistingImages] = useState<string[]>(initialData?.images || []);
-  const [removedImages, setRemovedImages] = useState<string[]>([]);
-  const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
-  const [variantPrices, setVariantPrices] = useState<VariantPricing>(initialData?.variantPrices || {});
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
+  // Create a submit handler that processes the form data
+  const processSubmit = async (data: any) => {
     // Prevent multiple submissions
     if (loading || uploading) return;
     
@@ -52,30 +69,43 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       const formData = new FormData();
 
       // Add all form state data
-      Object.entries(formState).forEach(([key, value]) => {
-        if (value !== null) {
-          formData.append(key, value.toString());
+      Object.entries(data).forEach(([key, value]) => {
+        const val = value as any; // Cast to any to handle all possible types
+        
+        if (val !== null && val !== undefined && 
+            key !== 'variants' && 
+            key !== 'variantPrices' && 
+            key !== 'imageFiles' && 
+            key !== 'existingImages' && 
+            key !== 'removedImages' &&
+            key !== 'notes') {
+          formData.append(key, val.toString());
         }
       });
 
-      // Add images to form data
-      if (images.length > 0) {
-        setUploading(true);
+      // Add notes as JSON
+      if (data.notes) {
+        formData.append('notes', JSON.stringify(data.notes));
       }
-      
-      images.forEach((file, index) => {
-        formData.append(`image${index}`, file);
-      });
+
+      // Handle image files
+      const imageFiles = data.imageFiles;
+      if (Array.isArray(imageFiles) && imageFiles.length > 0) {
+        setUploading(true);
+        imageFiles.forEach((file, index) => {
+          formData.append(`image${index}`, file);
+        });
+      }
 
       // Add current images if editing
       if (initialData?.images) {
-        formData.append('currentImages', JSON.stringify(existingImages));
-        formData.append('removedImages', JSON.stringify(removedImages));
+        formData.append('currentImages', JSON.stringify(data.existingImages || []));
+        formData.append('removedImages', JSON.stringify(data.removedImages || []));
       }
 
       // Add variant data
-      formData.append('variants', JSON.stringify(variants));
-      formData.append('variantPrices', JSON.stringify(variantPrices));
+      formData.append('variants', JSON.stringify(data.variants || []));
+      formData.append('variantPrices', JSON.stringify(data.variantPrices || {}));
 
       await onSubmit(formData);
       onClose();
@@ -88,97 +118,65 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     }
   };
 
-  const handleBasicInfoChange = (data: Partial<{
-    name: string;
-    description: string;
-    price: number;
-    stock: number | null;
-    categoryId: string;
-    sku: string;
-    minimumOrderQuantity: number;
-    visible: boolean;
-  }>) => {
-    setFormState(prev => ({
-      ...prev,
-      ...data
-    }));
-  };
-
-  const handleRemoveExistingImage = (index: number) => {
-    const imageUrl = existingImages[index];
-    setRemovedImages([...removedImages, imageUrl]);
-    setExistingImages(existingImages.filter((_, i) => i !== index));
-  };
-
   return (
-    <ModalForm
-      isOpen={true}
-      onClose={onClose}
-      onSubmit={handleSubmit}
-      title={initialData ? 'Edit Product' : 'New Product'}
-      submitLabel={initialData ? 'Update Product' : 'Create Product'}
-      className="sm:min-w-[600px] sm:max-w-2xl"
-      isLoading={loading || uploading || isLoading}
-      error={error}
-      submitButton={
-        <button
-          type="submit"
-          disabled={loading || uploading || isLoading}
-          className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
-        >
-          {(loading || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
-          {loading ? 'Saving...' : 
-           uploading ? 'Uploading...' : 
-           initialData ? 'Update Product' : 'Create Product'}
-        </button>
-      }
-    >
-      <ProductImages
-        images={images}
-        previews={previews}
-        setImages={setImages}
-        setPreviews={setPreviews}
-        existingImages={existingImages}
-        setExistingImages={setExistingImages}
-        onRemoveExisting={handleRemoveExistingImage}
-      />
+    <FormProvider {...methods}>
+      <ModalForm
+        isOpen={true}
+        onClose={onClose}
+        onSubmit={methods.handleSubmit(processSubmit)}
+        title={initialData ? 'Edit Product' : 'New Product'}
+        submitLabel={initialData ? 'Update Product' : 'Create Product'}
+        className="sm:min-w-[600px] sm:max-w-2xl"
+        isLoading={loading || uploading || isLoading}
+        error={error}
+        submitButton={
+          <button
+            type="submit"
+            disabled={loading || uploading || isLoading}
+            className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
+          >
+            {(loading || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading ? 'Saving...' : 
+             uploading ? 'Uploading...' : 
+             initialData ? 'Update Product' : 'Create Product'}
+          </button>
+        }
+      >
+        <ProductImages
+          initialExistingImages={initialData?.images}
+        />
 
-      <ProductBasicInfo 
-        categories={categories}
-        initialData={formState}
-        onChange={handleBasicInfoChange}
-      />
+        <ProductBasicInfo 
+          categories={categories}
+          initialData={initialData}
+        />
 
-      <div>
-        <label className="block text-sm font-medium text-white mb-1">
-          Product Visibility
-        </label>
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <Toggle
-              checked={formState.visible}
-              onCheckedChange={(newValue: boolean) => {
-                handleBasicInfoChange({ visible: newValue });
-              }}
-              size="md"
-            />
-            <span className="text-sm text-white">Show in storefront</span>
+        <div>
+          <label className="block text-sm font-medium text-white mb-1">
+            Product Visibility
+          </label>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Toggle
+                checked={methods.watch('visible') ?? false}
+                onCheckedChange={(newValue: boolean) => {
+                  methods.setValue('visible', newValue, { shouldDirty: true });
+                }}
+                size="md"
+              />
+              <span className="text-sm text-white">Show in storefront</span>
+            </div>
+            <p className="text-xs text-gray-400 ml-11">
+              When disabled, this product will be hidden from the storefront
+            </p>
           </div>
-          <p className="text-xs text-gray-400 ml-11">
-            When disabled, this product will be hidden from the storefront
-          </p>
         </div>
-      </div>
 
-      <ProductVariants
-        variants={variants}
-        variantPrices={variantPrices}
-        basePrice={formState.price}
-        onChange={(newVariants, newPrices) => {
-          setVariants(newVariants);
-          setVariantPrices(newPrices);
-        }}
-      />
-    </ModalForm>
+        <ProductVariants
+          initialVariants={initialData?.variants}
+          initialPrices={initialData?.variantPrices}
+        />
+      </ModalForm>
+    </FormProvider>
   );
 }

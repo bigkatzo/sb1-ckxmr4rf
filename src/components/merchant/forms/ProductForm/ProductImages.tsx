@@ -5,15 +5,11 @@ import { toast } from 'react-toastify';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useFormContext } from 'react-hook-form';
+import { useEffect, useState } from 'react';
 
 interface ProductImagesProps {
-  images: File[];
-  previews: string[];
-  setImages: (images: File[]) => void;
-  setPreviews: (previews: string[]) => void;
-  existingImages?: string[];
-  setExistingImages?: (images: string[]) => void;
-  onRemoveExisting?: (index: number) => void;
+  initialExistingImages?: string[];
 }
 
 interface SortableImageProps {
@@ -47,15 +43,29 @@ function SortableImage({ id, src, onRemove }: SortableImageProps) {
   );
 }
 
-export function ProductImages({ 
-  images, 
-  previews, 
-  setImages, 
-  setPreviews,
-  existingImages = [],
-  setExistingImages,
-  onRemoveExisting
-}: ProductImagesProps) {
+export function ProductImages({ initialExistingImages = [] }: ProductImagesProps) {
+  const { register, setValue } = useFormContext();
+  
+  // Local state for UI
+  const [images, setImages] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>(initialExistingImages);
+  const [removedImages, setRemovedImages] = useState<string[]>([]);
+  
+  // Register the image fields with react-hook-form
+  useEffect(() => {
+    // Register custom fields that aren't directly tied to inputs
+    register('imageFiles');
+    register('existingImages');
+    register('removedImages');
+    
+    // Initialize values
+    setValue('imageFiles', []);
+    setValue('existingImages', initialExistingImages);
+    setValue('removedImages', []);
+    setExistingImages(initialExistingImages);
+  }, [initialExistingImages, register, setValue]);
+  
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -88,8 +98,12 @@ export function ProductImages({
 
       // Handle accepted files
       if (acceptedFiles.length > 0) {
-        setImages([...images, ...acceptedFiles]);
-        setPreviews([...previews, ...acceptedFiles.map(file => URL.createObjectURL(file))]);
+        const newImages = [...images, ...acceptedFiles];
+        const newPreviews = [...previews, ...acceptedFiles.map(file => URL.createObjectURL(file))];
+        
+        setImages(newImages);
+        setPreviews(newPreviews);
+        setValue('imageFiles', newImages);
       }
     }
   });
@@ -101,9 +115,24 @@ export function ProductImages({
     } catch (error) {
       console.error('Error revoking URL:', error);
     } finally {
-      setImages(images.filter((_, i) => i !== index));
-      setPreviews(previews.filter((_, i) => i !== index));
+      const newImages = images.filter((_, i) => i !== index);
+      const newPreviews = previews.filter((_, i) => i !== index);
+      
+      setImages(newImages);
+      setPreviews(newPreviews);
+      setValue('imageFiles', newImages);
     }
+  };
+  
+  const removeExistingImage = (index: number) => {
+    const imageUrl = existingImages[index];
+    const newRemovedImages = [...removedImages, imageUrl];
+    const newExistingImages = existingImages.filter((_, i) => i !== index);
+    
+    setRemovedImages(newRemovedImages);
+    setExistingImages(newExistingImages);
+    setValue('removedImages', newRemovedImages);
+    setValue('existingImages', newExistingImages);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -118,18 +147,26 @@ export function ProductImages({
     const isActiveExisting = existingImages.includes(activeId);
     const isOverExisting = existingImages.includes(overId);
 
-    if (isActiveExisting && isOverExisting && setExistingImages) {
+    if (isActiveExisting && isOverExisting) {
       // Both are existing images
       const oldIndex = existingImages.indexOf(activeId);
       const newIndex = existingImages.indexOf(overId);
-      setExistingImages(arrayMove(existingImages, oldIndex, newIndex));
+      const newExistingImages = arrayMove(existingImages, oldIndex, newIndex);
+      
+      setExistingImages(newExistingImages);
+      setValue('existingImages', newExistingImages);
     } else if (!isActiveExisting && !isOverExisting) {
       // Both are new images
       const oldIndex = previews.indexOf(activeId);
       const newIndex = previews.indexOf(overId);
+      
       if (oldIndex !== -1 && newIndex !== -1) {
-        setImages(arrayMove(images, oldIndex, newIndex));
-        setPreviews(arrayMove(previews, oldIndex, newIndex));
+        const newImages = arrayMove(images, oldIndex, newIndex);
+        const newPreviews = arrayMove(previews, oldIndex, newIndex);
+        
+        setImages(newImages);
+        setPreviews(newPreviews);
+        setValue('imageFiles', newImages);
       }
     }
   };
@@ -155,7 +192,7 @@ export function ProductImages({
                     key={imageUrl}
                     id={imageUrl}
                     src={imageUrl}
-                    onRemove={() => onRemoveExisting?.(index)}
+                    onRemove={() => removeExistingImage(index)}
                   />
                 ))}
                 {previews.map((preview, index) => (

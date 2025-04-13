@@ -1,19 +1,44 @@
-import React from 'react';
+import { useEffect } from 'react';
+import { useFormContext } from 'react-hook-form';
 import { VariantsSection } from '../variants/VariantsSection';
 import type { ProductVariant, VariantPricing } from '../../../../types/variants';
 
 interface ProductVariantsProps {
-  variants: ProductVariant[];
-  variantPrices: VariantPricing;
-  basePrice: number;
-  onChange: (variants: ProductVariant[], prices: VariantPricing) => void;
+  initialVariants?: ProductVariant[];
+  initialPrices?: VariantPricing;
 }
 
-export function ProductVariants({ variants, variantPrices, basePrice, onChange }: ProductVariantsProps) {
+export function ProductVariants({ initialVariants = [], initialPrices = {} }: ProductVariantsProps) {
+  const { register, watch, setValue } = useFormContext();
+
+  // Register the variant-related fields with react-hook-form
+  useEffect(() => {
+    register('variants');
+    register('variantPrices');
+    
+    // Initialize variants and prices
+    if (initialVariants.length > 0) {
+      setValue('variants', initialVariants);
+    }
+    
+    if (Object.keys(initialPrices).length > 0) {
+      setValue('variantPrices', initialPrices);
+    }
+  }, [initialVariants, initialPrices, register, setValue]);
+  
+  const basePrice = watch('price') || 0;
+  const variants = watch('variants') || [];
+  const variantPrices = watch('variantPrices') || {};
+  
+  const handleVariantsChange = (updatedVariants: ProductVariant[], updatedPrices: VariantPricing) => {
+    setValue('variants', updatedVariants);
+    setValue('variantPrices', updatedPrices);
+  };
+
   return (
     <VariantsSection
       variants={variants}
-      onChange={onChange}
+      onChange={handleVariantsChange}
       initialPrices={variantPrices}
       basePrice={basePrice}
     />
