@@ -20,7 +20,12 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
     returns: "Because the products are made to order, we do not accept general returns or sizing-related returns."
   };
 
-  const displayNotes = notes || defaultNotes;
+  // Create a display notes object where each field falls back to default independently
+  const displayNotes = {
+    shipping: notes?.shipping || defaultNotes.shipping,
+    quality: notes?.quality || defaultNotes.quality,
+    returns: notes?.returns || defaultNotes.returns
+  };
 
   return (
     <div className="border-t border-gray-800 pt-4">
