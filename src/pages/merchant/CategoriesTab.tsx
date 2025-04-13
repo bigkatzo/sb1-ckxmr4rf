@@ -204,7 +204,7 @@ export function CategoriesTab() {
             setDeletingId(null);
           }}
           title="Delete Category"
-          description="Are you sure you want to delete this category? All products in this category will also be deleted. This action cannot be undone."
+          description="Are you sure you want to delete this category? You must first reassign or delete all products in this category. This action cannot be undone."
           confirmLabel="Delete"
           onConfirm={async () => {
             try {
@@ -213,7 +213,15 @@ export function CategoriesTab() {
               toast.success('Category deleted successfully');
             } catch (error) {
               console.error('Error deleting category:', error);
-              toast.error('Failed to delete category');
+              if (error instanceof Error) {
+                if (error.message.includes('Cannot delete category with existing products')) {
+                  toast.error('This category has products. Please reassign or delete these products first.');
+                } else {
+                  toast.error(`Failed to delete category: ${error.message}`);
+                }
+              } else {
+                toast.error('Failed to delete category');
+              }
             } finally {
               setShowConfirmDialog(false);
               setDeletingId(null);

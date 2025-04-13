@@ -60,6 +60,21 @@ export async function updateCategory(id: string, data: FormData) {
 
 export async function deleteCategory(id: string) {
   try {
+    // First check if the category has any products
+    const { data: products, error: checkError } = await supabase
+      .from('products')
+      .select('id')
+      .eq('category_id', id)
+      .limit(1);
+
+    if (checkError) throw checkError;
+
+    // If products exist, don't allow deletion
+    if (products && products.length > 0) {
+      throw new Error('Cannot delete category with existing products. Please reassign or delete the products first.');
+    }
+
+    // If no products, proceed with deletion
     const { error } = await supabase
       .from('categories')
       .delete()
