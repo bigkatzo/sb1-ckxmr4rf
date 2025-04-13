@@ -11,8 +11,15 @@ interface ProductNotesProps {
 }
 
 export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
-  // Debugging to ensure we get proper values
-  console.log('ProductNotes component received:', { notes, freeNotes });
+  // Enhanced debugging to log detailed information about received props
+  console.log('ProductNotes component received:', { 
+    notes, 
+    freeNotes, 
+    notesType: typeof notes,
+    freeNotesType: typeof freeNotes,
+    notesEmpty: notes ? Object.keys(notes).length === 0 : true,
+    freeNotesEmpty: !freeNotes || freeNotes.trim() === ''
+  });
 
   const defaultNotes = {
     shipping: "Free Shipping Worldwide included (15-20 days*)",
@@ -26,6 +33,9 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
     quality: notes?.quality || defaultNotes.quality,
     returns: notes?.returns || defaultNotes.returns
   };
+
+  // Check if free notes is non-empty string
+  const hasFreeNotes = freeNotes && freeNotes.trim() !== '';
 
   return (
     <div className="border-t border-gray-800 pt-4">
@@ -52,7 +62,7 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
           </div>
         )}
 
-        {freeNotes && (
+        {hasFreeNotes && (
           <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
             <Info className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-gray-300 whitespace-pre-wrap">{freeNotes}</p>
