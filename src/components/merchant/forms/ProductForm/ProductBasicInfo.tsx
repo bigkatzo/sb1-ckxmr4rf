@@ -1,6 +1,7 @@
 import { useFormContext } from 'react-hook-form';
 import type { Product } from '../../../../types/variants';
 import type { ProductFormValues } from './schema';
+import { useEffect } from 'react';
 
 export interface ProductBasicInfoProps {
   categories: {
@@ -10,8 +11,8 @@ export interface ProductBasicInfoProps {
   initialData?: Product;
 }
 
-export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
-  const { register, setValue, formState: { errors } } = useFormContext<ProductFormValues>();
+export function ProductBasicInfo({ categories, initialData }: ProductBasicInfoProps) {
+  const { register, setValue, formState: { errors }, getValues } = useFormContext<ProductFormValues>();
   
   // Default notes for placeholders
   const defaultNotes = {
@@ -19,6 +20,31 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
     quality: "Quality is guaranteed. If there's a print error or visible quality issue, we'll replace or refund it.",
     returns: "Because the products are made to order, we do not accept general returns or sizing-related returns."
   };
+  
+  // Ensure notes are properly initialized from initialData
+  useEffect(() => {
+    if (initialData) {
+      // Log the initialData for debugging
+      console.log('ProductBasicInfo - Initializing with data:', {
+        notes: initialData.notes,
+        freeNotes: initialData.freeNotes
+      });
+      
+      // Initialize notes object properly
+      if (initialData.notes) {
+        setValue('notes', {
+          shipping: initialData.notes.shipping || '',
+          quality: initialData.notes.quality || '',
+          returns: initialData.notes.returns || ''
+        });
+      }
+      
+      // Make sure freeNotes is set
+      if (initialData.freeNotes) {
+        setValue('freeNotes', initialData.freeNotes);
+      }
+    }
+  }, [initialData, setValue]);
   
   return (
     <div className="space-y-6">
@@ -216,6 +242,10 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder={defaultNotes.shipping}
+              onChange={(e) => {
+                const currentNotes = getValues('notes') || {};
+                setValue('notes', {...currentNotes, shipping: e.target.value});
+              }}
             />
           </div>
           
@@ -229,6 +259,10 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder={defaultNotes.quality}
+              onChange={(e) => {
+                const currentNotes = getValues('notes') || {};
+                setValue('notes', {...currentNotes, quality: e.target.value});
+              }}
             />
           </div>
           
@@ -242,6 +276,10 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder={defaultNotes.returns}
+              onChange={(e) => {
+                const currentNotes = getValues('notes') || {};
+                setValue('notes', {...currentNotes, returns: e.target.value});
+              }}
             />
           </div>
           

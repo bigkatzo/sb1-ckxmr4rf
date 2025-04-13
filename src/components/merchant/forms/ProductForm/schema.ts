@@ -14,6 +14,17 @@ const stringArraySchema = z.array(z.string()).default([]);
 const variantSchema = z.array(z.any()).default([]);
 const variantPricingSchema = z.record(z.any()).default({});
 
+// Notes schema - all fields are required strings with default empty values
+const notesSchema = z.object({
+  shipping: z.string().default(''),
+  quality: z.string().default(''),
+  returns: z.string().default('')
+}).default({
+  shipping: '',
+  quality: '',
+  returns: ''
+});
+
 // Core product schema for validation
 export const productSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -26,12 +37,8 @@ export const productSchema = z.object({
   visible: z.boolean().default(true),
   priceModifierBeforeMin: z.number().nullable(),
   priceModifierAfterMin: z.number().nullable(),
-  notes: z.object({
-    shipping: z.string().optional(),
-    quality: z.string().optional(),
-    returns: z.string().optional(),
-  }).optional(),
-  freeNotes: z.string().optional(),
+  notes: notesSchema,
+  freeNotes: z.string().default(''),
   // Add additional fields for form management
   variants: variantSchema,
   variantPrices: variantPricingSchema,

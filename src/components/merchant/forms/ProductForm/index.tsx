@@ -36,10 +36,11 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     visible: initialData?.visible ?? true,
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
     priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
-    notes: initialData?.notes || {
-      shipping: '',
-      quality: '',
-      returns: ''
+    // Ensure notes properties are always strings
+    notes: {
+      shipping: initialData?.notes?.shipping || '',
+      quality: initialData?.notes?.quality || '',
+      returns: initialData?.notes?.returns || ''
     },
     freeNotes: initialData?.freeNotes || '',
     // Initialize the array and object fields
@@ -68,6 +69,12 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     try {
       const formData = new FormData();
 
+      // Log the form data for debugging
+      console.log('Form data before submission:', {
+        freeNotes: data.freeNotes,
+        notes: data.notes
+      });
+
       // Add all form state data
       Object.entries(data).forEach(([key, value]) => {
         const val = value as any; // Cast to any to handle all possible types
@@ -83,10 +90,23 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         }
       });
 
-      // Add notes as JSON
+      // Process notes properly - ensure we're adding them as a JSON string
       if (data.notes) {
-        formData.append('notes', JSON.stringify(data.notes));
+        // Create a clean notes object
+        const notesObj = {
+          shipping: data.notes.shipping || '',
+          quality: data.notes.quality || '',
+          returns: data.notes.returns || ''
+        };
+        
+        // Add notes as properly formatted JSON
+        formData.append('notes', JSON.stringify(notesObj));
+        console.log('Added notes to form data:', notesObj);
       }
+
+      // Make sure freeNotes is included (it can be an empty string)
+      formData.append('freeNotes', data.freeNotes || '');
+      console.log('Added freeNotes to form data:', data.freeNotes);
 
       // Handle image files
       const imageFiles = data.imageFiles;
