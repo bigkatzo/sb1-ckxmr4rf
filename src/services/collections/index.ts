@@ -295,20 +295,8 @@ export async function deleteCollection(id: string) {
       }
     }
 
-    // Delete collection image if exists
-    if (collection.image_url) {
-      try {
-        const path = collection.image_url.split('/').pop();
-        if (path) {
-          await supabase.storage
-            .from('collection-images')
-            .remove([path]);
-        }
-      } catch (cleanupError) {
-        // Keep this error log as it's important for debugging file cleanup issues
-        console.error('Failed to delete collection image:', cleanupError);
-      }
-    }
+    // We no longer delete collection images as they may be referenced in order history
+    // Images are preserved for historical records and order snapshots
 
     const { error } = await supabase
       .from('collections')
