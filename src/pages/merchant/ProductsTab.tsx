@@ -160,6 +160,12 @@ export function ProductsTab() {
                 product={product}
                 categoryIndex={product.categoryId ? categoryIndices[product.categoryId] : 0}
                 onEdit={canEdit ? () => {
+                  console.log('EDIT PRODUCT - Product data being passed to form:', {
+                    id: product.id,
+                    notes: product.notes,
+                    freeNotes: product.freeNotes,
+                    fullProduct: product
+                  });
                   setEditingProduct(product);
                   setShowForm(true);
                 } : undefined}

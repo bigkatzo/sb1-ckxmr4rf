@@ -47,6 +47,16 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
         
         // Process free_notes with proper type handling
         const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
+        
+        // Add detailed logging for debugging notes
+        console.log(`Product ${product.id} raw notes data:`, {
+          notesFromDB: product.notes,
+          notesType: typeof product.notes,
+          freeNotesFromDB: product.free_notes,
+          freeNotesType: typeof product.free_notes,
+          hasValidNotes,
+          processedFreeNotes: freeNotesValue
+        });
 
         return {
           id: product.id,
