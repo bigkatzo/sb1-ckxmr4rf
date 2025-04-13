@@ -14,7 +14,7 @@ export function PrivacyPolicyPage() {
           <li><span className="font-semibold text-green-400">✓</span> We use robust security measures to protect your data</li>
           <li><span className="font-semibold text-green-400">✓</span> Your wallet's private keys remain under your control</li>
           <li><span className="font-semibold text-green-400">✓</span> You can access, correct, or delete your data</li>
-          <li><span className="font-semibold text-green-400">✓</span> Logic Group LLC handles all payment information, not store.fun</li>
+          <li><span className="font-semibold text-green-400">✓</span> We're your primary point of contact for all support needs</li>
           <li><span className="font-semibold text-green-400">✓</span> Your shipping and contact information is shared only with shipping carriers and only for delivery purposes</li>
           <li><span className="font-semibold text-yellow-400">!</span> Public wallet addresses and blockchain transactions are visible on-chain</li>
         </ul>
@@ -30,7 +30,7 @@ export function PrivacyPolicyPage() {
           We understand that privacy concerns can be heightened when using blockchain technology. That's why we've designed our platform with privacy at its core – giving you control over your information while enjoying a seamless shopping experience that bridges traditional e-commerce with Web3.
         </p>
         <p className="text-gray-300 mb-4">
-          If you have questions at any point, our team is here to help at <span className="text-blue-400">support@store.fun</span>.
+          As your primary service provider, we're committed to protecting your privacy every step of the way. If you have questions at any point, our team is here to help at <span className="text-blue-400">support@store.fun</span>.
         </p>
       </section>
 
@@ -39,6 +39,12 @@ export function PrivacyPolicyPage() {
         <div className="text-gray-300 mb-4">
           <p className="mb-4">store.fun takes a unique approach to privacy compared to most e-commerce sites:</p>
           <ul className="space-y-4">
+            <li className="flex items-start">
+              <div className="text-green-400 mr-3 mt-1 text-xl">•</div>
+              <div>
+                <span className="font-semibold">Direct customer care:</span> We're your primary point of contact for all your needs, ensuring you always have someone advocating for you through every step of your experience.
+              </div>
+            </li>
             <li className="flex items-start">
               <div className="text-green-400 mr-3 mt-1 text-xl">•</div>
               <div>
@@ -90,7 +96,7 @@ export function PrivacyPolicyPage() {
           </ul>
 
           <h3 className="text-lg font-medium mb-2 mt-4">3.2 Information Collected by Logic Group LLC</h3>
-          <p className="mb-4">Our operating partner, Logic Group LLC, collects and manages:</p>
+          <p className="mb-4">Our operations partner, Logic Group LLC, working under our oversight, processes:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>Name and contact information</li>
             <li>Shipping address</li>
@@ -158,16 +164,16 @@ export function PrivacyPolicyPage() {
           
           <h3 className="text-lg font-medium mb-2">5.1 Traditional Payments</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Credit card processing is managed by Logic Group LLC through Stripe</li>
+            <li>Credit card processing is managed through Stripe under our oversight</li>
             <li>store.fun does not collect or store any credit card information</li>
-            <li>Payment data is subject to Logic Group LLC's privacy practices</li>
-            <li>For payment-related inquiries, contact admin@logic300.com</li>
+            <li>Payment data is protected with industry-standard security measures</li>
+            <li>For payment-related inquiries, contact us at support@store.fun</li>
           </ul>
 
           <h3 className="text-lg font-medium mb-2 mt-4">5.2 Blockchain Payments</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Cryptocurrency payments are managed by Logic Group LLC</li>
-            <li>store.fun only provides the technical interface for wallet connections</li>
+            <li>Cryptocurrency payments are processed through the Solana blockchain with our oversight</li>
+            <li>store.fun provides the secure technical interface for wallet connections</li>
             <li>Transaction data is publicly visible on the blockchain</li>
             <li>We do not have access to private keys or wallet credentials</li>
           </ul>
@@ -237,7 +243,7 @@ export function PrivacyPolicyPage() {
             <span className="font-medium">Our Security Promise:</span>
           </p>
           <p className="text-gray-300 ml-7">
-            We understand that trust is earned. That's why we regularly conduct security audits and keep our security measures up to date with evolving threats. We're committed to maintaining the highest standards of data protection to safeguard your information.
+            We understand that trust is earned. That's why we regularly conduct security audits and keep our security measures up to date with evolving threats. We're committed to maintaining the highest standards of data protection to safeguard your information. Your trust is our priority, and we're here to address any concerns you may have about your data security.
           </p>
         </div>
         
