@@ -31,6 +31,8 @@ interface PublicProduct {
   price_modifier_before_min?: number;
   price_modifier_after_min?: number;
   sales_count?: number;
+  notes?: Record<string, string>;
+  free_notes?: string;
 }
 
 export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sales') {
@@ -45,7 +47,7 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
 
     async function fetchBestSellers() {
       const cacheKey = `bestsellers:${limit}:${sortBy}`;
-      const { value: cachedData, needsRevalidation } = cacheManager.get<{
+      const { value: cachedData, needsRevalidation } = await cacheManager.get<{
         products: Product[];
         categoryIndices: Record<string, number>;
       }>(cacheKey);
@@ -91,7 +93,6 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
       if (isFetchingRef.current) return;
       
       isFetchingRef.current = true;
-      cacheManager.markRevalidating(cacheKey);
       
       try {
         await fetchFreshBestSellers(cacheKey, false);
@@ -99,7 +100,6 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
         console.error('Error revalidating best sellers:', err);
       } finally {
         isFetchingRef.current = false;
-        cacheManager.unmarkRevalidating(cacheKey);
       }
     }
     
@@ -117,39 +117,56 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
 
         if (error) throw error;
 
-        const transformedProducts = (data || []).map((product: PublicProduct) => ({
-          id: product.id,
-          sku: product.sku,
-          name: product.name,
-          description: product.description,
-          price: product.price,
-          imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
-          images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
-          categoryId: product.category_id,
-          category: product.category_id ? {
-            id: product.category_id,
-            name: product.category_name,
-            description: product.category_description,
-            type: product.category_type,
-            visible: true,
-            eligibilityRules: {
-              groups: product.category_eligibility_rules?.groups || []
-            }
-          } : undefined,
-          collectionId: product.collection_id,
-          collectionName: product.collection_name,
-          collectionSlug: product.collection_slug,
-          collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
-          collectionSaleEnded: product.collection_sale_ended,
-          slug: product.slug || '',
-          stock: product.quantity,
-          minimumOrderQuantity: product.minimum_order_quantity || 50,
-          variants: product.variants || [],
-          variantPrices: product.variant_prices || {},
-          priceModifierBeforeMin: product.price_modifier_before_min ?? null,
-          priceModifierAfterMin: product.price_modifier_after_min ?? null,
-          salesCount: product.sales_count || 0
-        }));
+        const transformedProducts = (data || []).map((product: PublicProduct) => {
+          // Fix for empty object in JSONB column
+          const hasValidNotes = product.notes && typeof product.notes === 'object' && Object.keys(product.notes).length > 0;
+          
+          // Ensure free_notes is properly processed
+          const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
+
+          console.log(`Processing product ${product.id}:`, {
+            notes: product.notes,
+            free_notes: product.free_notes,
+            hasValidNotes,
+            freeNotesValue
+          });
+
+          return {
+            id: product.id,
+            sku: product.sku,
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
+            images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
+            categoryId: product.category_id,
+            category: product.category_id ? {
+              id: product.category_id,
+              name: product.category_name,
+              description: product.category_description,
+              type: product.category_type,
+              visible: true,
+              eligibilityRules: {
+                groups: product.category_eligibility_rules?.groups || []
+              }
+            } : undefined,
+            collectionId: product.collection_id,
+            collectionName: product.collection_name,
+            collectionSlug: product.collection_slug,
+            collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
+            collectionSaleEnded: product.collection_sale_ended,
+            slug: product.slug || '',
+            stock: product.quantity,
+            minimumOrderQuantity: product.minimum_order_quantity || 50,
+            variants: product.variants || [],
+            variantPrices: product.variant_prices || {},
+            priceModifierBeforeMin: product.price_modifier_before_min ?? null,
+            priceModifierAfterMin: product.price_modifier_after_min ?? null,
+            salesCount: product.sales_count || 0,
+            notes: hasValidNotes ? product.notes : undefined,
+            freeNotes: freeNotesValue
+          };
+        });
 
         const indices = createCategoryIndicesFromProducts(transformedProducts);
         
@@ -160,8 +177,10 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             products: transformedProducts,
             categoryIndices: indices
           }, 
-          CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
-          CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+          CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+          {
+            staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+          }
         );
 
         if (isMounted) {

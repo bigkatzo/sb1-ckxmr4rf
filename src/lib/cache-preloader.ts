@@ -15,7 +15,9 @@ export async function preloadCriticalData() {
         'featured_collections', 
         featuredCollections, 
         CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
-        CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+        {
+          staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+        }
       );
       
       // Cache each collection individually
@@ -34,7 +36,9 @@ export async function preloadCriticalData() {
           `collection_static:${collection.id}`, 
           collectionStatic, 
           CACHE_DURATIONS.STATIC.TTL, 
-          CACHE_DURATIONS.STATIC.STALE
+          {
+            staleTime: CACHE_DURATIONS.STATIC.STALE
+          }
         );
         
         // Cache dynamic collection data
@@ -51,7 +55,9 @@ export async function preloadCriticalData() {
           `collection_dynamic:${collection.id}`, 
           collectionDynamic, 
           CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
-          CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+          {
+            staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+          }
         );
       });
     }
@@ -64,39 +70,49 @@ export async function preloadCriticalData() {
     
     if (bestSellers && Array.isArray(bestSellers)) {
       // Transform and cache bestsellers
-      const transformedProducts = bestSellers.map(product => ({
-        id: product.id,
-        sku: product.sku,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
-        images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
-        categoryId: product.category_id,
-        category: product.category_id ? {
-          id: product.category_id,
-          name: product.category_name,
-          description: product.category_description,
-          type: product.category_type,
-          visible: true,
-          eligibilityRules: {
-            groups: product.category_eligibility_rules?.groups || []
-          }
-        } : undefined,
-        collectionId: product.collection_id,
-        collectionName: product.collection_name,
-        collectionSlug: product.collection_slug,
-        collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
-        collectionSaleEnded: product.collection_sale_ended,
-        slug: product.slug || '',
-        stock: product.quantity,
-        minimumOrderQuantity: product.minimum_order_quantity || 50,
-        variants: product.variants || [],
-        variantPrices: product.variant_prices || {},
-        priceModifierBeforeMin: product.price_modifier_before_min ?? null,
-        priceModifierAfterMin: product.price_modifier_after_min ?? null,
-        salesCount: product.sales_count || 0
-      }));
+      const transformedProducts = bestSellers.map(product => {
+        // Handle notes field
+        const hasValidNotes = product.notes && typeof product.notes === 'object' && Object.keys(product.notes).length > 0;
+        
+        // Process free_notes
+        const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
+        
+        return {
+          id: product.id,
+          sku: product.sku,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
+          images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
+          categoryId: product.category_id,
+          category: product.category_id ? {
+            id: product.category_id,
+            name: product.category_name,
+            description: product.category_description,
+            type: product.category_type,
+            visible: true,
+            eligibilityRules: {
+              groups: product.category_eligibility_rules?.groups || []
+            }
+          } : undefined,
+          collectionId: product.collection_id,
+          collectionName: product.collection_name,
+          collectionSlug: product.collection_slug,
+          collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
+          collectionSaleEnded: product.collection_sale_ended,
+          slug: product.slug || '',
+          stock: product.quantity,
+          minimumOrderQuantity: product.minimum_order_quantity || 50,
+          variants: product.variants || [],
+          variantPrices: product.variant_prices || {},
+          priceModifierBeforeMin: product.price_modifier_before_min ?? null,
+          priceModifierAfterMin: product.price_modifier_after_min ?? null,
+          salesCount: product.sales_count || 0,
+          notes: hasValidNotes ? product.notes : undefined,
+          freeNotes: freeNotesValue
+        };
+      });
       
       // Cache bestsellers list
       cacheManager.set(
@@ -106,7 +122,9 @@ export async function preloadCriticalData() {
           categoryIndices: {} // Will be computed when needed
         }, 
         CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
-        CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+        {
+          staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+        }
       );
       
       // Cache individual product data
@@ -132,7 +150,9 @@ export async function preloadCriticalData() {
           `product_static:${product.id}`, 
           productStatic, 
           CACHE_DURATIONS.STATIC.TTL, 
-          CACHE_DURATIONS.STATIC.STALE
+          {
+            staleTime: CACHE_DURATIONS.STATIC.STALE
+          }
         );
         
         // Dynamic product data
@@ -149,7 +169,9 @@ export async function preloadCriticalData() {
           `product_dynamic:${product.id}`, 
           productDynamic, 
           CACHE_DURATIONS.REALTIME.TTL, 
-          CACHE_DURATIONS.REALTIME.STALE
+          {
+            staleTime: CACHE_DURATIONS.REALTIME.STALE
+          }
         );
         
         // Stock data
@@ -157,7 +179,9 @@ export async function preloadCriticalData() {
           `product_stock:${product.id}`, 
           product.stock, 
           CACHE_DURATIONS.REALTIME.TTL, 
-          CACHE_DURATIONS.REALTIME.STALE
+          {
+            staleTime: CACHE_DURATIONS.REALTIME.STALE
+          }
         );
         
         // Price data
@@ -170,7 +194,9 @@ export async function preloadCriticalData() {
             priceModifierAfterMin: product.priceModifierAfterMin,
           }, 
           CACHE_DURATIONS.REALTIME.TTL, 
-          CACHE_DURATIONS.REALTIME.STALE
+          {
+            staleTime: CACHE_DURATIONS.REALTIME.STALE
+          }
         );
       });
     }
