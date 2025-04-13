@@ -65,36 +65,79 @@ export async function createProduct(collectionId: string, data: FormData) {
 
 export async function updateProduct(id: string, data: FormData) {
   try {
-    const price = parseFloat(data.get('price') as string) || 0;
-    const quantity = data.get('stock') ? parseInt(data.get('stock') as string, 10) : null;
-    const categoryId = data.get('categoryId');
-
-    const updateData: any = {
+    // First, get the current product to ensure proper updates
+    const { data: currentProduct, error: fetchError } = await supabase
+      .from('products')
+      .select('images, variants, variant_prices')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError) {
+      throw new Error(`Failed to fetch current product: ${fetchError.message}`);
+    }
+    
+    // Prepare basic product data
+    const updateData: Record<string, any> = {
       name: data.get('name') as string,
       description: data.get('description') as string,
-      price: price,
-      quantity: quantity,
-      category_id: categoryId as string,
+      price: parseFloat(data.get('price') as string) || 0,
+      quantity: data.get('stock') ? parseInt(data.get('stock') as string, 10) : null,
+      category_id: data.get('categoryId') as string,
       minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
       visible: data.get('visible') === 'true',
       price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
       price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
-      // Temporarily ignoring notes and free notes until RLS is fixed
-      // notes: {
-      //   shipping: data.get('notes.shipping') as string || undefined,
-      //   quality: data.get('notes.quality') as string || undefined,
-      //   returns: data.get('notes.returns') as string || undefined
-      // },
-      // free_notes: data.get('freeNotes') as string || undefined,
     };
-
-    const { error } = await supabase
+    
+    // 1. Process image changes if any
+    if (data.get('currentImages') !== null || data.get('image0') !== null) {
+      // Upload any new images first
+      const newImageUrls: string[] = [];
+      for (let i = 0; data.get(`image${i}`); i++) {
+        const imageFile = data.get(`image${i}`) as File;
+        if (imageFile instanceof File) {
+          const imageUrls = await uploadProductImages([imageFile]);
+          newImageUrls.push(...imageUrls);
+        }
+      }
+      
+      // Process existing and removed images
+      let finalImages: string[];
+      if (data.get('currentImages')) {
+        const currentImages = JSON.parse(data.get('currentImages') as string || '[]') as string[];
+        const removedImages = JSON.parse(data.get('removedImages') as string || '[]') as string[];
+        
+        // Filter out removed images and add new ones
+        const remainingImages = currentImages.filter((img: string) => !removedImages.includes(img));
+        finalImages = [...remainingImages, ...newImageUrls];
+      } else {
+        // If currentImages not provided but we have new images, replace completely
+        finalImages = newImageUrls.length > 0 ? newImageUrls : (currentProduct.images || []);
+      }
+      
+      updateData.images = finalImages;
+    }
+    
+    // 2. Process variant data if provided
+    if (data.get('variants') !== null) {
+      const variants = JSON.parse(data.get('variants') as string || '[]');
+      updateData.variants = variants;
+    }
+    
+    // 3. Process variant prices if provided
+    if (data.get('variantPrices') !== null) {
+      const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
+      updateData.variant_prices = variantPrices;
+    }
+    
+    // Perform the update with all necessary fields
+    const { error: updateError } = await supabase
       .from('products')
       .update(updateData)
       .eq('id', id);
 
-    if (error) throw error;
-
+    if (updateError) throw updateError;
+    
     return { success: true };
   } catch (error) {
     console.error('Error updating product:', error);
