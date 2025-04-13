@@ -331,8 +331,7 @@ export default function TrackingPage() {
         )}
 
         {/* Support Message */}
-        <div className="mt-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="hidden sm:block"></div>
+        <div className="mt-8 flex justify-center">
           <SupportMessage />
         </div>
       </div>
