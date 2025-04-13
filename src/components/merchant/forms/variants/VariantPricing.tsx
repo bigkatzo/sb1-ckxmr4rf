@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import type { ProductVariant, VariantPricing } from '../../../../types/variants';
 
 interface VariantPricingProps {
@@ -48,11 +48,27 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
     return result;
   }, [variants]);
 
+  // Apply base price to all variants
+  const applyBasePriceToAll = () => {
+    combinations.forEach(({ key }) => {
+      onPriceChange(key, basePrice);
+    });
+  };
+
   if (!variants.length) return null;
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium">Variant Pricing</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium">Variant Pricing</h3>
+        <button
+          type="button"
+          onClick={applyBasePriceToAll}
+          className="text-sm text-purple-400 hover:text-purple-300 border border-purple-700 rounded-lg px-3 py-1 transition-colors"
+        >
+          Apply Base Price to All
+        </button>
+      </div>
       
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
