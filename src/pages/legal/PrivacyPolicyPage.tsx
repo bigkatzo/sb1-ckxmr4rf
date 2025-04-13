@@ -5,17 +5,83 @@ export function PrivacyPolicyPage() {
     <LegalPage title="Privacy Policy">
       <p className="text-gray-400 mb-6">Last updated: {new Date().toLocaleDateString()}</p>
 
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">1. Introduction</h2>
-        <p className="text-gray-300 mb-4">
-          This Privacy Policy explains how store.fun ("we," "us," or "our") collects, uses, shares, and protects your personal information when you use our e-commerce platform. We are committed to protecting your privacy and ensuring the security of your data while providing a seamless shopping experience that bridges traditional e-commerce with Web3 technology.
-        </p>
+      <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
+        <h2 className="text-xl font-semibold mb-4 text-blue-400">Privacy at a Glance</h2>
+        <p className="text-gray-300 mb-4">Your privacy matters to us. Here's our approach in simple terms:</p>
+        <ul className="space-y-3 text-gray-300">
+          <li><span className="font-semibold text-green-400">✓</span> We only collect information needed to provide our services</li>
+          <li><span className="font-semibold text-green-400">✓</span> We never sell your personal information</li>
+          <li><span className="font-semibold text-green-400">✓</span> We use robust security measures to protect your data</li>
+          <li><span className="font-semibold text-green-400">✓</span> Your wallet's private keys remain under your control</li>
+          <li><span className="font-semibold text-green-400">✓</span> You can access, correct, or delete your data</li>
+          <li><span className="font-semibold text-green-400">✓</span> Logic Group LLC handles all payment information, not store.fun</li>
+          <li><span className="font-semibold text-green-400">✓</span> Your shipping and contact information is shared only with shipping carriers and only for delivery purposes</li>
+          <li><span className="font-semibold text-yellow-400">!</span> Public wallet addresses and blockchain transactions are visible on-chain</li>
+        </ul>
+        <p className="text-gray-400 mt-4 text-sm italic">This summary gives you the highlights. The full policy below provides all the details you need.</p>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">2. Information We Collect</h2>
+        <h2 className="text-xl font-semibold mb-4">1. Our Approach to Privacy</h2>
+        <p className="text-gray-300 mb-4">
+          Welcome to store.fun! We've created this Privacy Policy to explain how we protect your information in simple, straightforward language. We believe you deserve to know exactly how your data is handled when you use our platform.
+        </p>
+        <p className="text-gray-300 mb-4">
+          We understand that privacy concerns can be heightened when using blockchain technology. That's why we've designed our platform with privacy at its core – giving you control over your information while enjoying a seamless shopping experience that bridges traditional e-commerce with Web3.
+        </p>
+        <p className="text-gray-300 mb-4">
+          If you have questions at any point, our team is here to help at <span className="text-blue-400">support@store.fun</span>.
+        </p>
+      </section>
+
+      <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
+        <h2 className="text-xl font-semibold mb-4 text-blue-400">Why We're Different</h2>
         <div className="text-gray-300 mb-4">
-          <h3 className="text-lg font-medium mb-2">2.1 Platform Information</h3>
+          <p className="mb-4">store.fun takes a unique approach to privacy compared to most e-commerce sites:</p>
+          <ul className="space-y-4">
+            <li className="flex items-start">
+              <div className="text-green-400 mr-3 mt-1 text-xl">•</div>
+              <div>
+                <span className="font-semibold">Clear separation of data:</span> We maintain a strict division between blockchain data and personal information, giving you the benefits of decentralization while protecting your privacy.
+              </div>
+            </li>
+            <li className="flex items-start">
+              <div className="text-green-400 mr-3 mt-1 text-xl">•</div>
+              <div>
+                <span className="font-semibold">Limited data collection:</span> Unlike many platforms that harvest user data for marketing, we collect only what's needed to provide our services.
+              </div>
+            </li>
+            <li className="flex items-start">
+              <div className="text-green-400 mr-3 mt-1 text-xl">•</div>
+              <div>
+                <span className="font-semibold">Dedicated to security:</span> We implement advanced security measures specifically designed for blockchain commerce.
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">2. Our Privacy Commitment</h2>
+        <div className="text-gray-300 mb-4">
+          <p className="mb-4">At store.fun, we believe in:</p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><span className="font-semibold">Transparency:</span> We clearly explain what data we collect and why</li>
+            <li><span className="font-semibold">Minimalism:</span> We only collect information that's necessary for our services</li>
+            <li><span className="font-semibold">Security:</span> We implement industry-leading safeguards to protect your data</li>
+            <li><span className="font-semibold">Control:</span> We give you choices about your information</li>
+            <li><span className="font-semibold">No selling:</span> We do not sell your personal information</li>
+          </ul>
+          <p className="mt-4">
+            When you connect your wallet to store.fun, we access only the public information necessary to verify your NFT ownership and enable transactions. We never access your private keys or control your assets.
+          </p>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">3. Information We Collect</h2>
+        <div className="text-gray-300 mb-4">
+          <h3 className="text-lg font-medium mb-2">3.1 Platform Information</h3>
           <p className="mb-4">As a technology platform provider, store.fun collects:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>Email address (for account management)</li>
@@ -23,7 +89,7 @@ export function PrivacyPolicyPage() {
             <li>Technical usage data</li>
           </ul>
 
-          <h3 className="text-lg font-medium mb-2 mt-4">2.2 Information Collected by Logic Group LLC</h3>
+          <h3 className="text-lg font-medium mb-2 mt-4">3.2 Information Collected by Logic Group LLC</h3>
           <p className="mb-4">Our operating partner, Logic Group LLC, collects and manages:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>Name and contact information</li>
@@ -32,16 +98,23 @@ export function PrivacyPolicyPage() {
             <li>Payment information (credit card details via Stripe)</li>
             <li>Order history and preferences</li>
           </ul>
+          <p className="mt-4">
+            <strong>Important:</strong> Your shipping address and personal contact information are collected solely for the purpose of providing this information to shipping carriers to facilitate delivery of your orders. This information is never used for marketing, sold to third parties, or used for any purpose other than order fulfillment and shipping.
+          </p>
 
-          <h3 className="text-lg font-medium mb-2 mt-4">2.3 Blockchain Data</h3>
+          <h3 className="text-lg font-medium mb-2 mt-4">3.3 Blockchain Data</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>Public wallet addresses</li>
             <li>Transaction hashes and metadata</li>
             <li>Token and NFT ownership information</li>
             <li>Smart contract interactions</li>
+            <li>NFT metadata including collection addresses, token IDs, and associated attributes</li>
+            <li>NFT-gated access privileges and tier status</li>
+            <li>Historical token transactions relevant to platform functionality</li>
+            <li>On-chain verification data to confirm ownership and eligibility for special offers</li>
           </ul>
 
-          <h3 className="text-lg font-medium mb-2 mt-4">2.4 Technical Information</h3>
+          <h3 className="text-lg font-medium mb-2 mt-4">3.4 Technical Information</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>IP address and location data</li>
             <li>Browser type and version</li>
@@ -54,9 +127,9 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">3. How We Use Your Information</h2>
+        <h2 className="text-xl font-semibold mb-4">4. How We Use Your Information</h2>
         <div className="text-gray-300 mb-4">
-          <h3 className="text-lg font-medium mb-2">3.1 Platform Services</h3>
+          <h3 className="text-lg font-medium mb-2">4.1 Platform Services</h3>
           <p className="mb-4">store.fun uses collected information to:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>Provide and maintain the technology platform</li>
@@ -66,7 +139,7 @@ export function PrivacyPolicyPage() {
             <li>Provide technical support</li>
           </ul>
 
-          <h3 className="text-lg font-medium mb-2 mt-4">3.2 Services Provided by Logic Group LLC</h3>
+          <h3 className="text-lg font-medium mb-2 mt-4">4.2 Services Provided by Logic Group LLC</h3>
           <p className="mb-4">Logic Group LLC uses collected information to:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>Process orders and payments</li>
@@ -79,11 +152,11 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">4. Payment Processing</h2>
+        <h2 className="text-xl font-semibold mb-4">5. Payment Processing</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-4">All payment processing is handled by Logic Group LLC:</p>
           
-          <h3 className="text-lg font-medium mb-2">4.1 Traditional Payments</h3>
+          <h3 className="text-lg font-medium mb-2">5.1 Traditional Payments</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>Credit card processing is managed by Logic Group LLC through Stripe</li>
             <li>store.fun does not collect or store any credit card information</li>
@@ -91,7 +164,7 @@ export function PrivacyPolicyPage() {
             <li>For payment-related inquiries, contact admin@logic300.com</li>
           </ul>
 
-          <h3 className="text-lg font-medium mb-2 mt-4">4.2 Blockchain Payments</h3>
+          <h3 className="text-lg font-medium mb-2 mt-4">5.2 Blockchain Payments</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>Cryptocurrency payments are managed by Logic Group LLC</li>
             <li>store.fun only provides the technical interface for wallet connections</li>
@@ -102,33 +175,79 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">5. Data Sharing and Disclosure</h2>
+        <h2 className="text-xl font-semibold mb-4">6. Data Sharing and Disclosure</h2>
         <p className="text-gray-300 mb-4">We may share your information with:</p>
         <ul className="list-disc pl-6 text-gray-300 space-y-2">
-          <li>Shipping partners (for order delivery)</li>
+          <li>Shipping partners (for order delivery <strong>only</strong> - your shipping address and contact information are shared exclusively to facilitate delivery of your orders)</li>
           <li>Payment processors (Stripe and Solana)</li>
           <li>Analytics providers (with anonymized data)</li>
           <li>Legal authorities (when required by law)</li>
           <li>Service providers (who help operate our platform)</li>
           <li>Business partners (with your consent)</li>
         </ul>
+        <p className="text-gray-300 mt-4">
+          We strictly limit the sharing of your personal information to what is necessary for the specific purpose. Your shipping and contact details are only shared with shipping carriers to complete deliveries and are never sold, rented, or shared for marketing or any other purposes.
+        </p>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">6. Data Security</h2>
-        <p className="text-gray-300 mb-4">We protect your data through:</p>
-        <ul className="list-disc pl-6 text-gray-300 space-y-2">
-          <li>Encryption of sensitive information</li>
-          <li>Regular security audits and assessments</li>
-          <li>Secure data storage and transmission</li>
-          <li>Access controls and authentication</li>
-          <li>Employee training on data protection</li>
-          <li>Incident response procedures</li>
-        </ul>
+        <h2 className="text-xl font-semibold mb-4">7. Data Security</h2>
+        <p className="text-gray-300 mb-4">Your security is our priority. We implement extensive measures to protect your data:</p>
+        <div className="text-gray-300 mb-6">
+          <h3 className="text-lg font-medium mb-2">7.1 Technical Protections</h3>
+          <ul className="list-disc pl-6 space-y-2">
+            <li>End-to-end encryption for sensitive data transmission</li>
+            <li>Advanced firewalls and intrusion detection systems</li>
+            <li>Regular security penetration testing by independent experts</li>
+            <li>Secure, access-controlled database environments</li>
+            <li>HTTPS/TLS encryption for all web traffic</li>
+          </ul>
+        </div>
+        
+        <div className="text-gray-300 mb-6">
+          <h3 className="text-lg font-medium mb-2">7.2 Organizational Safeguards</h3>
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Regular employee security training and awareness programs</li>
+            <li>Strict access controls based on the principle of least privilege</li>
+            <li>Comprehensive security policies and procedures</li>
+            <li>Background checks for employees with access to sensitive systems</li>
+            <li>Secure development practices and code reviews</li>
+          </ul>
+        </div>
+        
+        <div className="text-gray-300 mb-6">
+          <h3 className="text-lg font-medium mb-2">7.3 Blockchain-Specific Security</h3>
+          <ul className="list-disc pl-6 space-y-2">
+            <li>No storage of private keys or seed phrases</li>
+            <li>Secure wallet connection protocols</li>
+            <li>Verification of transaction signatures</li>
+            <li>Secure handling of on-chain data</li>
+          </ul>
+        </div>
+        
+        <div className="bg-gray-900 p-5 rounded-md border border-gray-700 mt-6">
+          <p className="text-gray-300 mb-3 flex items-center">
+            <span className="text-blue-400 mr-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 16v-4"></path>
+                <path d="M12 8h.01"></path>
+              </svg>
+            </span>
+            <span className="font-medium">Our Security Promise:</span>
+          </p>
+          <p className="text-gray-300 ml-7">
+            We understand that trust is earned. That's why we regularly conduct security audits and keep our security measures up to date with evolving threats. We're committed to maintaining the highest standards of data protection to safeguard your information.
+          </p>
+        </div>
+        
+        <p className="text-gray-300">
+          While we implement best-in-class security measures, no system is completely immune to risks. We continuously monitor for threats and regularly update our security practices to address emerging vulnerabilities.
+        </p>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">7. Your Rights and Choices</h2>
+        <h2 className="text-xl font-semibold mb-4">8. Your Rights and Choices</h2>
         <p className="text-gray-300 mb-4">You have the right to:</p>
         <ul className="list-disc pl-6 text-gray-300 space-y-2">
           <li>Access your personal information</li>
@@ -142,7 +261,7 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">8. Cookies and Tracking</h2>
+        <h2 className="text-xl font-semibold mb-4">9. Cookies and Tracking</h2>
         <p className="text-gray-300 mb-4">
           We use cookies and similar technologies to enhance your experience. You can control these through your browser settings. We use these technologies for:
         </p>
@@ -156,7 +275,7 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">9. International Data Transfers</h2>
+        <h2 className="text-xl font-semibold mb-4">10. International Data Transfers</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-4">
             Your information may be transferred and processed in countries other than your own. We ensure appropriate safeguards are in place for such transfers through:
@@ -174,7 +293,7 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">10. Data Retention</h2>
+        <h2 className="text-xl font-semibold mb-4">11. Data Retention</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-2">We retain your information for as long as necessary to:</p>
           <ul className="list-disc pl-6 space-y-2">
@@ -197,7 +316,7 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">11. Legal Basis for Processing (GDPR)</h2>
+        <h2 className="text-xl font-semibold mb-4">12. Legal Basis for Processing (GDPR)</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-2">Under GDPR, we process your data based on:</p>
           <ul className="list-disc pl-6 space-y-2">
@@ -209,11 +328,31 @@ export function PrivacyPolicyPage() {
           <p className="mt-4">
             For special category data, additional safeguards and legal bases apply.
           </p>
+          
+          <h3 className="text-lg font-medium mb-2 mt-4">12.1 European and UK User Rights</h3>
+          <p className="mb-2">If you are located in the European Economic Area (EEA), United Kingdom, or Switzerland, you have these additional rights:</p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Right to access: You can request a copy of your personal data</li>
+            <li>Right to rectification: You can request correction of inaccurate data</li>
+            <li>Right to erasure: You can request deletion of your data in certain circumstances</li>
+            <li>Right to restrict processing: You can request limits on how we use your data</li>
+            <li>Right to data portability: You can request a machine-readable copy of your data</li>
+            <li>Right to object: You can object to processing based on legitimate interests</li>
+            <li>Rights related to automated decision-making: You can request human intervention for significant decisions</li>
+          </ul>
+          <p className="mt-4">
+            To exercise these rights, contact us at support@store.fun. We will respond to all requests within 30 days. You also have the right to lodge a complaint with your local data protection authority.
+          </p>
+          
+          <h3 className="text-lg font-medium mb-2 mt-4">12.2 Data Protection Officer</h3>
+          <p className="mb-2">
+            Our Data Protection Officer can be contacted at support@store.fun for any data protection concerns.
+          </p>
         </div>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">12. Your Privacy Rights (CCPA)</h2>
+        <h2 className="text-xl font-semibold mb-4">13. Your Privacy Rights (CCPA)</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-2">California residents have the following rights:</p>
           <ul className="list-disc pl-6 space-y-2">
@@ -231,7 +370,7 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">13. Data Breach Procedures</h2>
+        <h2 className="text-xl font-semibold mb-4">14. Data Breach Procedures</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-2">In the event of a data breach, we will:</p>
           <ul className="list-disc pl-6 space-y-2">
@@ -245,14 +384,14 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">14. Children's Privacy</h2>
+        <h2 className="text-xl font-semibold mb-4">15. Children's Privacy</h2>
         <p className="text-gray-300">
           Our services are not intended for children under 13 (or 16 in the European Economic Area). We do not knowingly collect or maintain information from children. If we learn that we have collected personal information from a child, we will take immediate steps to delete such information and terminate the child's account.
         </p>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">15. Changes to This Policy</h2>
+        <h2 className="text-xl font-semibold mb-4">16. Changes to This Policy</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-2">
             We may update this Privacy Policy from time to time. Material changes will be notified through:
@@ -269,13 +408,13 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold mb-4">16. Contact Information</h2>
+        <h2 className="text-xl font-semibold mb-4">17. Contact Information</h2>
         <div className="text-gray-300">
           <p className="mb-4">
             If you have any questions about this Privacy Policy or our data practices, please contact us at:
           </p>
           <ul className="list-none pl-6 space-y-2">
-            <li>Data Protection Officer: privacy@store.fun</li>
+            <li>Data Protection Officer: support@store.fun</li>
             <li>General Support: support@store.fun</li>
             <li>Telegram: @storedotfun</li>
           </ul>

@@ -5,11 +5,61 @@ export function TermsPage() {
     <LegalPage title="Terms of Use">
       <p className="text-gray-400 mb-6">Last updated: {new Date().toLocaleDateString()}</p>
 
+      <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
+        <h2 className="text-xl font-semibold mb-4 text-blue-400">Welcome to store.fun!</h2>
+        <p className="text-gray-300 mb-4">We're excited to have you here. These Terms of Use are designed to create a positive experience for everyone. Here's a friendly overview:</p>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <h3 className="text-lg font-medium mb-2 text-blue-300">What We Do</h3>
+            <ul className="space-y-2 text-gray-300">
+              <li className="flex items-start">
+                <span className="text-green-400 mr-2">✓</span>
+                <span>Provide a secure platform for buying merchandise with crypto</span>
+              </li>
+              <li className="flex items-start">
+                <span className="text-green-400 mr-2">✓</span>
+                <span>Connect your wallet seamlessly and safely</span>
+              </li>
+              <li className="flex items-start">
+                <span className="text-green-400 mr-2">✓</span>
+                <span>Offer special benefits to NFT holders</span>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-lg font-medium mb-2 text-blue-300">Our Partners</h3>
+            <ul className="space-y-2 text-gray-300">
+              <li className="flex items-start">
+                <span className="text-blue-400 mr-2">•</span>
+                <span>Logic Group LLC handles all payment processing and shipping</span>
+              </li>
+              <li className="flex items-start">
+                <span className="text-blue-400 mr-2">•</span>
+                <span>For order or payment support, contact admin@logic300.com</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <p className="text-gray-400 mt-4 text-sm italic">Please read the full Terms below for complete details about using our platform.</p>
+      </section>
+
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">1. Acceptance of Terms</h2>
         <p className="text-gray-300 mb-4">
-          Welcome to store.fun. By accessing or using our platform, you agree to be bound by these Terms of Use and all applicable laws and regulations. If you do not agree with any of these terms, you are prohibited from using or accessing this platform.
+          Thank you for choosing store.fun! These Terms of Use are designed to ensure a safe and enjoyable experience for everyone. By using our platform, you agree to these terms and applicable laws. If you have any questions about these terms, please reach out to us before using the platform.
         </p>
+        
+        <h3 className="text-lg font-medium mb-2 mt-4">1.1 Relationship Structure</h3>
+        <p className="text-gray-300 mb-4">
+          store.fun is solely a technology provider that offers the technical infrastructure and user interface for e-commerce operations. All payment processing, order fulfillment, shipping, refunds, and customer service are exclusively handled by our operating partner, Logic Group LLC, a separate legal entity. By using store.fun, you acknowledge and agree that:
+        </p>
+        <ul className="list-disc pl-6 text-gray-300 space-y-2">
+          <li>store.fun does not process payments, handle merchandise, or manage fulfillment</li>
+          <li>All financial transactions occur between you and Logic Group LLC</li>
+          <li>Any disputes regarding payments, orders, shipping, or merchandise quality must be directed to Logic Group LLC</li>
+          <li>store.fun bears no responsibility for the actions or omissions of Logic Group LLC</li>
+          <li>This separation of responsibilities is fundamental to your use of our services</li>
+        </ul>
       </section>
 
       <section className="mb-8">
@@ -67,14 +117,33 @@ export function TermsPage() {
           </ul>
 
           <h3 className="text-lg font-medium mb-2 mt-4">4.3 Blockchain Payments</h3>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>Cryptocurrency payments are processed through the Solana blockchain and managed by Logic Group LLC</li>
-            <li>Prices are denominated in SOL</li>
-            <li>Transaction fees (gas fees) are the responsibility of the buyer</li>
-            <li>Blockchain transactions are irreversible</li>
-            <li>We are not responsible for lost or incorrect wallet addresses</li>
-            <li>Cryptocurrency payment disputes should be directed to Logic Group LLC</li>
-          </ul>
+          <div className="mb-4">
+            <p className="text-gray-300 mb-4">
+              When you pay with cryptocurrency, it's important to understand how it works:
+            </p>
+            <div className="bg-gray-900 p-4 rounded-lg mb-4">
+              <h4 className="text-blue-300 text-base font-medium mb-2">What You Should Know</h4>
+              <ul className="list-disc pl-6 text-gray-300 space-y-2">
+                <li>Cryptocurrency payments are processed through the Solana blockchain and managed by Logic Group LLC</li>
+                <li>Prices are shown in SOL</li>
+                <li>You'll need to pay transaction fees (gas fees)</li>
+                <li>Blockchain transactions are irreversible once confirmed</li>
+                <li>Always double-check wallet addresses before confirming transactions</li>
+              </ul>
+            </div>
+            
+            <div className="bg-yellow-900/20 p-4 rounded-lg border border-yellow-700/30">
+              <h4 className="text-yellow-300 text-base font-medium mb-2">Important Considerations</h4>
+              <ul className="list-disc pl-6 text-gray-300 space-y-2">
+                <li>Cryptocurrency values can be volatile</li>
+                <li>The platform may temporarily pause crypto payments during network congestion</li>
+                <li>Make sure your wallet is compatible with Solana blockchain</li>
+                <li>Transaction confirmation times depend on network conditions</li>
+                <li>In case of blockchain forks or upgrades, we'll choose which chain to support</li>
+                <li>We cannot be responsible for losses due to blockchain network issues</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -191,7 +260,7 @@ export function TermsPage() {
           <h3 className="text-lg font-medium mb-2">11.3 Arbitration Rules</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>Arbitration will be conducted by JAMS under their applicable rules</li>
-            <li>Arbitration will be held in [jurisdiction]</li>
+            <li>Arbitration will be held in Delaware</li>
             <li>The arbitrator's award shall be binding and may be entered as a judgment in any court of competent jurisdiction</li>
             <li>Discovery and rights to appeal are limited under arbitration</li>
           </ul>
@@ -243,10 +312,10 @@ export function TermsPage() {
         <h2 className="text-xl font-semibold mb-4">14. Governing Law and Jurisdiction</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-4">
-            These Terms shall be governed by and construed in accordance with the laws of [jurisdiction], without regard to its conflict of law provisions.
+            These Terms shall be governed by and construed in accordance with the laws of the State of Delaware, United States, without regard to its conflict of law provisions.
           </p>
           <p className="mb-4">
-            For any matters not subject to arbitration, you agree to submit to the personal and exclusive jurisdiction of the courts located in [jurisdiction].
+            For any matters not subject to arbitration, you agree to submit to the personal and exclusive jurisdiction of the courts located in the State of Florida, United States, unless otherwise required by applicable mandatory law.
           </p>
         </div>
       </section>
@@ -286,6 +355,46 @@ export function TermsPage() {
         </div>
       </section>
 
+      <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
+        <h2 className="text-xl font-semibold mb-4 text-blue-400">Frequently Asked Questions</h2>
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-medium mb-2 text-blue-300">Who handles my payment and shipping?</h3>
+            <p className="text-gray-300">
+              Logic Group LLC handles all payments, order processing, and shipping. For any questions about orders, refunds, or delivery, please contact them directly at admin@logic300.com.
+            </p>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-2 text-blue-300">Is my wallet safe when connecting to store.fun?</h3>
+            <p className="text-gray-300">
+              Yes! We only request limited permissions to verify ownership and process transactions. We never access your private keys or request permissions to move funds without your explicit approval for each transaction.
+            </p>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-2 text-blue-300">What happens if there's a problem with my order?</h3>
+            <p className="text-gray-300">
+              Logic Group LLC handles all customer service issues. If you receive a defective item, please contact them with photos of the issue, and they'll help with replacement or refund options.
+            </p>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-2 text-blue-300">Can I get special discounts with my NFTs?</h3>
+            <p className="text-gray-300">
+              Yes! Certain NFT holders may receive special pricing, early access, or exclusive products. Connect your wallet to see your personalized offers.
+            </p>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-2 text-blue-300">Do you sell my personal information?</h3>
+            <p className="text-gray-300">
+              Absolutely not. We only collect the minimum information needed to process orders and provide services. Your shipping information is only shared with delivery carriers to fulfill your order.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section>
         <h2 className="text-xl font-semibold mb-4">18. Contact Information</h2>
         <div className="text-gray-300">
@@ -293,7 +402,7 @@ export function TermsPage() {
             For questions about these Terms of Use, please contact us at:
           </p>
           <ul className="list-none pl-6 space-y-2">
-            <li>Legal Department: legal@store.fun</li>
+            <li>Legal Department: support@store.fun</li>
             <li>General Support: support@store.fun</li>
             <li>Telegram: @storedotfun</li>
             <li>Payment Operations: <a href="mailto:admin@logic300.com" className="text-blue-400 hover:text-blue-300">admin@logic300.com</a></li>
