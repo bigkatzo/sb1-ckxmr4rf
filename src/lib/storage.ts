@@ -61,6 +61,35 @@ export function normalizeStorageUrl(url: string): string {
   }
 }
 
+/**
+ * Extract the filename from a Supabase storage URL or path
+ * Works with both object and render URLs
+ * @param url The storage URL or path
+ * @returns The extracted filename
+ */
+export function extractFilenameFromStorageUrl(url: string): string {
+  if (!url) return '';
+  
+  try {
+    // Handle full URLs
+    if (url.startsWith('http')) {
+      const parsedUrl = new URL(url);
+      const pathSegments = parsedUrl.pathname.split('/');
+      // Get the last segment which should be the filename
+      return pathSegments[pathSegments.length - 1] || '';
+    }
+    
+    // Handle relative paths
+    const pathSegments = url.split('/');
+    return pathSegments[pathSegments.length - 1] || '';
+  } catch (error) {
+    console.error('Error extracting filename:', error);
+    // If parsing fails, try a simple extraction
+    const segments = url.split('/');
+    return segments[segments.length - 1] || url;
+  }
+}
+
 // Sanitize filename to remove problematic characters
 export function sanitizeFileName(fileName: string): string {
   // Remove any path traversal characters and get the base name
@@ -162,12 +191,23 @@ export async function uploadImage(
     const safeFileName = generateUniqueFileName(file.name);
     const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
 
+    // Add metadata to track image association and upload time
+    const metadata = {
+      contentType: file.type,
+      cacheControl,
+      // Add tracking metadata
+      lastAccessed: new Date().toISOString(),
+      uploadedAt: new Date().toISOString(),
+      associatedEntity: bucket === 'collection-images' ? 'collection' : 'product'
+    };
+
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(cleanPath, file, {
         cacheControl,
         contentType: file.type,
-        upsert
+        upsert,
+        metadata
       });
 
     if (uploadError) {
@@ -265,4 +305,121 @@ export async function uploadFile(
     path: cleanPath,
     url: finalUrl
   };
+}
+
+/**
+ * Safely delete an image from a storage bucket
+ * Note: Use with caution - consider retention policies for order history
+ * @param path The path of the file in the bucket
+ * @param bucket The storage bucket containing the file
+ */
+export async function deleteImage(
+  path: string,
+  bucket: StorageBucket
+): Promise<void> {
+  if (!path) return;
+  
+  try {
+    // Extract the filename from the path/URL
+    const filename = extractFilenameFromStorageUrl(path);
+    if (!filename) {
+      throw new Error('Could not determine filename from provided path');
+    }
+    
+    const { error } = await supabase.storage
+      .from(bucket)
+      .remove([filename]);
+    
+    if (error) {
+      console.error('Storage deletion error:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    throw error;
+  }
+}
+
+/**
+ * Identify potentially orphaned images in a storage bucket
+ * @param bucket The storage bucket to check
+ * @param olderThan Optional date threshold - check images older than this date
+ * @returns Promise<string[]> Array of potentially orphaned image paths
+ */
+export async function findOrphanedImages(
+  bucket: StorageBucket,
+  olderThan?: Date
+): Promise<string[]> {
+  try {
+    // List all images in the bucket
+    const { data: files, error } = await supabase.storage
+      .from(bucket)
+      .list();
+    
+    if (error) {
+      console.error('Error listing storage files:', error);
+      throw error;
+    }
+    
+    if (!files || !files.length) return [];
+    
+    // Filter files by date if specified
+    let filteredFiles = files;
+    if (olderThan) {
+      filteredFiles = files.filter(file => {
+        // Use created_at from file metadata if available
+        const createdAt = file.created_at ? new Date(file.created_at) : null;
+        if (!createdAt) return false; // Skip files with no creation date
+        return createdAt < olderThan;
+      });
+    }
+    
+    // Get file paths
+    const filePaths = filteredFiles.map(file => file.name);
+    
+    return filePaths;
+  } catch (error) {
+    console.error('Error finding orphaned images:', error);
+    throw error;
+  }
+}
+
+/**
+ * Utility function to handle image removal in a standardized way
+ * This function doesn't delete the image from storage, just updates references
+ * 
+ * @param currentImages The current array of image URLs or single URL
+ * @param indicesToRemove Indices to remove (for arrays) or true to remove entirely
+ * @returns The updated image value (null, empty array, or filtered array)
+ */
+export function handleImageRemoval(
+  currentImages: string | string[] | null | undefined,
+  indicesToRemove: number[] | boolean
+): string | string[] | null {
+  // Handle empty input
+  if (!currentImages) return null;
+  
+  // Handle single image (string)
+  if (typeof currentImages === 'string') {
+    return indicesToRemove ? null : currentImages;
+  }
+  
+  // Handle array of images
+  if (Array.isArray(currentImages)) {
+    // Remove all images
+    if (indicesToRemove === true) {
+      return [];
+    }
+    
+    // Remove specific indices
+    if (Array.isArray(indicesToRemove) && indicesToRemove.length > 0) {
+      return currentImages.filter((_, index) => !indicesToRemove.includes(index));
+    }
+    
+    // No changes
+    return currentImages;
+  }
+  
+  // Fallback
+  return null;
 } 
