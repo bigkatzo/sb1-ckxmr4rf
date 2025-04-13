@@ -205,8 +205,13 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         
         {/* Debug notes values - log outside JSX */}
         {(() => {
-          console.log('ProductBasicInfo - Notes values from form:', {
-            notesObject: watch('notes'),
+          // Get the form control values directly from the context
+          const formValues = watch();
+          const notesValues = watch('notes');
+          
+          console.log('ProductBasicInfo - DETAILED NOTE VALUES:', {
+            completeFormValues: formValues,
+            notesObject: notesValues,
             notesShipping: watch('notes.shipping'),
             notesQuality: watch('notes.quality'),
             notesReturns: watch('notes.returns'),

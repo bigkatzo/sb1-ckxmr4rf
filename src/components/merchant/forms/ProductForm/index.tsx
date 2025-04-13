@@ -101,27 +101,26 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     // Only run this effect once per initialData change
     if (initialData && !initializedRef.current) {
       // Log before reset
-      console.log('ProductForm - Before form reset, notes values:', {
-        notesFromInitialData: initialData?.notes,
-        notesShipping: initialData?.notes?.shipping,
-        notesQuality: initialData?.notes?.quality, 
-        notesReturns: initialData?.notes?.returns,
-        freeNotes: initialData?.freeNotes
+      console.log('ProductForm - DEBUGGING NOTES VALUES RECEIVED:', {
+        initialData,
+        notesObject: initialData.notes,
+        shipping: initialData?.notes?.shipping,
+        quality: initialData?.notes?.quality,
+        returns: initialData?.notes?.returns
       });
     
-      // CRITICAL FIX: Ensure notes have a valid structure 
-      // and empty strings instead of undefined/null
+      // Create a properly structured notes object that preserves existing values
       const notesForReset = {
-        shipping: initialData?.notes?.shipping || '',
-        quality: initialData?.notes?.quality || '',
-        returns: initialData?.notes?.returns || ''
+        shipping: initialData?.notes?.shipping ?? '',
+        quality: initialData?.notes?.quality ?? '',
+        returns: initialData?.notes?.returns ?? ''
       };
       
-      // Reset form with initialData and proper notes structure
+      // Reset form with initialData and properly structured notes
       methods.reset({
         ...defaultValues,
         notes: notesForReset,
-        freeNotes: initialData?.freeNotes || ''
+        freeNotes: initialData?.freeNotes ?? ''
       });
       
       console.log('ProductForm - AFTER form reset with values:', {

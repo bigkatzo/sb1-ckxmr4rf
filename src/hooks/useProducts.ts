@@ -42,25 +42,30 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
       if (error) throw error;
       
       const transformedProducts = (data || []).map(product => {
+        // Debug the raw notes from database
+        console.log(`Product ${product.id} raw database values:`, {
+          rawNotes: product.notes,
+          rawFreeNotes: product.free_notes
+        });
+
         // Handle notes properly - check if notes is a valid object with properties
         const hasValidNotes = product.notes && typeof product.notes === 'object' && Object.keys(product.notes).length > 0;
         
-        // CRITICAL FIX: Always create a valid notes object with at least empty strings
-        // This ensures the form fields are always populated with the right structure
-        const notesObject = hasValidNotes ? product.notes : { shipping: '', quality: '', returns: '' };
+        // CRITICAL FIX: Properly preserve the notes values from the database
+        const notesObject = {
+          shipping: hasValidNotes && typeof product.notes.shipping === 'string' ? product.notes.shipping : '',
+          quality: hasValidNotes && typeof product.notes.quality === 'string' ? product.notes.quality : '',
+          returns: hasValidNotes && typeof product.notes.returns === 'string' ? product.notes.returns : ''
+        };
         
         // Process free_notes with proper type handling
         const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
         
         // Add detailed logging for debugging notes
-        console.log(`Product ${product.id} raw notes data:`, {
-          notesFromDB: product.notes,
-          notesType: typeof product.notes,
-          freeNotesFromDB: product.free_notes,
-          freeNotesType: typeof product.free_notes,
+        console.log(`Product ${product.id} transformed notes data:`, {
           hasValidNotes,
-          transformedNotes: notesObject,
-          processedFreeNotes: freeNotesValue
+          notesObject,
+          freeNotesValue
         });
 
         return {
@@ -95,7 +100,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           priceModifierBeforeMin: product.price_modifier_before_min ?? null,
           priceModifierAfterMin: product.price_modifier_after_min ?? null,
           visible: product.visible ?? true,
-          notes: notesObject,  // Use the properly formatted notes object
+          notes: notesObject,  // Always pass the properly structured object
           freeNotes: freeNotesValue
         };
       });
