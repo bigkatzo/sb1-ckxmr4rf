@@ -25,23 +25,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   const [error, setError] = useState<string | null>(null);
   const initializedRef = useRef(false);
   
-  // Log initialData for debugging
-  useEffect(() => {
-    if (initialData) {
-      console.log('ProductForm - Initial data received DETAILED:', { 
-        initialData,
-        notesObject: initialData.notes,
-        notesIsUndefined: initialData.notes === undefined,
-        notesIsNull: initialData.notes === null,
-        notesType: typeof initialData.notes,
-        notesKeys: initialData.notes ? Object.keys(initialData.notes) : 'no keys',
-        freeNotes: initialData.freeNotes,
-        freeNotesType: typeof initialData.freeNotes,
-        freeNotesIsEmpty: initialData.freeNotes === ''
-      });
-    }
-  }, [initialData]);
-  
   // Initialize default values for the form using useMemo to prevent recreation on each render
   const defaultValues = useMemo<ProductFormValues>(() => ({
     name: initialData?.name || '',
@@ -68,24 +51,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     removedImages: []
   }), [initialData]);
   
-  // Log the constructed default values in more detail
-  useEffect(() => {
-    console.log('ProductForm - Default values with notes DETAILED:', {
-      notesFromInitialData: initialData?.notes,
-      notesFromInitialDataType: typeof initialData?.notes,
-      notesShippingFromInitial: initialData?.notes?.shipping,
-      notesQualityFromInitial: initialData?.notes?.quality,
-      notesReturnsFromInitial: initialData?.notes?.returns,
-      freeNotesFromInitialData: initialData?.freeNotes,
-      freeNotesFromInitialDataType: typeof initialData?.freeNotes,
-      notesInDefaultValues: defaultValues.notes,
-      notesShippingInDefault: defaultValues.notes.shipping,
-      notesQualityInDefault: defaultValues.notes.quality,
-      notesReturnsInDefault: defaultValues.notes.returns,
-      freeNotesInDefaultValues: defaultValues.freeNotes
-    });
-  }, [initialData, defaultValues]);
-  
   // Set up react-hook-form with zod validation
   const methods = useForm({
     resolver: zodResolver(productSchema),
@@ -97,15 +62,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   useEffect(() => {
     // Only run this effect once per initialData change
     if (initialData && !initializedRef.current) {
-      // Log before reset
-      console.log('ProductForm - DEBUGGING NOTES VALUES RECEIVED:', {
-        initialData,
-        notesObject: initialData.notes,
-        shipping: initialData?.notes?.shipping,
-        quality: initialData?.notes?.quality,
-        returns: initialData?.notes?.returns
-      });
-    
       // Create a properly structured notes object that preserves existing values
       const notesForReset = {
         shipping: initialData?.notes?.shipping ?? '',
@@ -118,14 +74,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         ...defaultValues,
         notes: notesForReset,
         freeNotes: initialData?.freeNotes ?? ''
-      });
-      
-      console.log('ProductForm - AFTER form reset with values:', {
-        notesObject: methods.getValues('notes'),
-        notesShipping: methods.getValues('notes.shipping'),
-        notesQuality: methods.getValues('notes.quality'),
-        notesReturns: methods.getValues('notes.returns'),
-        freeNotes: methods.getValues('freeNotes')
       });
       
       initializedRef.current = true;

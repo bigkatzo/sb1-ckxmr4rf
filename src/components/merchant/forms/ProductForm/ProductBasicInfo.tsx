@@ -9,7 +9,7 @@ export interface ProductBasicInfoProps {
 }
 
 export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
-  const { register, setValue, formState: { errors }, watch } = useFormContext<ProductFormValues>();
+  const { register, setValue, formState: { errors } } = useFormContext<ProductFormValues>();
   
   // Default notes for placeholders
   const defaultNotes = {
@@ -202,23 +202,6 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
       {/* Product Notes Section */}
       <div className="border-t border-gray-800 pt-4">
         <h3 className="text-sm font-medium text-white mb-4">Product Notes (Optional)</h3>
-        
-        {/* Debug notes values - log outside JSX */}
-        {(() => {
-          // Get the form control values directly from the context
-          const formValues = watch();
-          const notesValues = watch('notes');
-          
-          console.log('ProductBasicInfo - DETAILED NOTE VALUES:', {
-            completeFormValues: formValues,
-            notesObject: notesValues,
-            notesShipping: watch('notes.shipping'),
-            notesQuality: watch('notes.quality'),
-            notesReturns: watch('notes.returns'),
-            freeNotes: watch('freeNotes')
-          });
-          return null;
-        })()}
         
         <div className="space-y-4">
           <div>
