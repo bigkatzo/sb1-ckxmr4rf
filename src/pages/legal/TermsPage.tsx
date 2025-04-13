@@ -51,7 +51,7 @@ export function TermsPage() {
         <div className="text-gray-300 mb-4">
           <h3 className="text-lg font-medium mb-2">4.1 Operating Partner</h3>
           <p className="mb-4">
-            All payments and financial operations on the platform are managed by our operations partner, Logic Group LLC (<a href="https://logic300.com" className="text-blue-400 hover:text-blue-300">logic300.com</a>), working closely with our team at store.fun. For payment-related inquiries, please contact us at <a href="mailto:support@store.fun" className="text-blue-400 hover:text-blue-300">support@store.fun</a> and we'll ensure your concerns are addressed promptly.
+            All payments and financial operations on the platform are managed by our operations partner, Logic Group LLC, working closely with our team at store.fun. For payment-related inquiries, please contact us at <a href="mailto:support@store.fun" className="text-blue-400 hover:text-blue-300">support@store.fun</a> and we'll ensure your concerns are addressed promptly.
           </p>
           <p className="mb-4">
             While store.fun provides the technology platform and serves as your primary point of contact, Logic Group LLC handles the back-end payment processing and fulfillment logistics. This structure allows us to focus on creating the best possible experience for you while ensuring efficient operations behind the scenes.
@@ -348,15 +348,7 @@ export function TermsPage() {
             <li>Legal Department: support@store.fun</li>
             <li>General Support: support@store.fun</li>
             <li>Telegram: @storedotfun</li>
-            <li>Payment Operations: <a href="mailto:admin@logic300.com" className="text-blue-400 hover:text-blue-300">admin@logic300.com</a></li>
           </ul>
-          <p className="mt-4">
-            Payment Operations Address:<br />
-            Logic Group LLC<br />
-            1110 Brickell Ave. Suite 200<br />
-            Miami, FL 33131<br />
-            United States
-          </p>
         </div>
       </section>
     </LegalPage>
