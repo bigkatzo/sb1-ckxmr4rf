@@ -331,7 +331,7 @@ export default function TrackingPage() {
         )}
 
         {/* Support Message */}
-        <div className="mt-8">
+        <div className="mt-8 flex justify-end">
           <SupportMessage />
         </div>
       </div>
