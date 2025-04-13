@@ -43,7 +43,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   }, [initialData]);
   
   // Initialize default values for the form using useMemo to prevent recreation on each render
-  const defaultValues = useMemo(() => ({
+  const defaultValues = useMemo<ProductFormValues>(() => ({
     name: initialData?.name || '',
     description: initialData?.description || '',
     price: initialData?.price || 0,
