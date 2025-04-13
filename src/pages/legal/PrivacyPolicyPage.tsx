@@ -350,9 +350,9 @@ export function PrivacyPolicyPage() {
             To exercise these rights, contact us at support@store.fun. We will respond to all requests within 30 days. You also have the right to lodge a complaint with your local data protection authority.
           </p>
           
-          <h3 className="text-lg font-medium mb-2 mt-4">12.2 Data Protection Officer</h3>
+          <h3 className="text-lg font-medium mb-2 mt-4">12.2 Data Privacy Contact</h3>
           <p className="mb-2">
-            Our Data Protection Officer can be contacted at support@store.fun for any data protection concerns.
+            For data privacy matters, contact our team at support@store.fun.
           </p>
         </div>
       </section>
@@ -420,7 +420,7 @@ export function PrivacyPolicyPage() {
             If you have any questions about this Privacy Policy or our data practices, please contact us at:
           </p>
           <ul className="list-none pl-6 space-y-2">
-            <li>Data Protection Officer: support@store.fun</li>
+            <li>Data Privacy Inquiries: support@store.fun</li>
             <li>General Support: support@store.fun</li>
             <li>Telegram: @storedotfun</li>
           </ul>
