@@ -927,7 +927,8 @@ export function TokenVerificationModal({
                                   const result = await CouponService.calculateDiscount(
                                     baseModifiedPrice,
                                     couponCode,
-                                    walletAddress
+                                    walletAddress,
+                                    product.collectionId
                                   );
                                   setCouponResult(result);
                                   if (result.couponDiscount > 0) {
