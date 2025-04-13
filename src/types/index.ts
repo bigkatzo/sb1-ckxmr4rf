@@ -67,6 +67,12 @@ export interface Product {
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
   visible?: boolean;
+  notes?: {
+    shipping?: string;
+    quality?: string;
+    returns?: string;
+  };
+  freeNotes?: string;
 }
 
 export interface SearchResult {

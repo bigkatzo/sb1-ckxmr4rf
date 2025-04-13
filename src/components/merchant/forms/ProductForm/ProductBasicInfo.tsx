@@ -59,6 +59,13 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
   });
   const [freeNotes, setFreeNotes] = useState(initialData?.freeNotes || '');
 
+  // Default notes for placeholders
+  const defaultNotes = {
+    shipping: "Free Shipping Worldwide included (15-20 days*)",
+    quality: "Quality is guaranteed. If there is a print error or visible quality issue, we'll replace or refund it.",
+    returns: "Because the products are made to order, we do not accept general returns or sizing-related returns."
+  };
+
   // Update local state when initialData changes
   React.useEffect(() => {
     setName(initialData?.name || '');
@@ -264,7 +271,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
         />
       </div>
 
-      {/* Product Notes Section */}
+      {/* Product Notes Section - Moved to the end */}
       <div className="border-t border-gray-800 pt-4">
         <h3 className="text-sm font-medium text-white mb-4">Product Notes (Optional)</h3>
         
@@ -279,11 +286,12 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
               value={notes.shipping}
               onChange={(e) => {
                 const newNotes = {...notes, shipping: e.target.value};
+                setNotes(newNotes);
                 onChange({ notes: newNotes });
               }}
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="E.g., Free shipping worldwide (15-20 days)"
+              placeholder={defaultNotes.shipping}
             />
           </div>
           
@@ -297,11 +305,12 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
               value={notes.quality}
               onChange={(e) => {
                 const newNotes = {...notes, quality: e.target.value};
+                setNotes(newNotes);
                 onChange({ notes: newNotes });
               }}
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="E.g., Quality is guaranteed. We'll replace or refund if there's an issue."
+              placeholder={defaultNotes.quality}
             />
           </div>
           
@@ -315,11 +324,12 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
               value={notes.returns}
               onChange={(e) => {
                 const newNotes = {...notes, returns: e.target.value};
+                setNotes(newNotes);
                 onChange({ notes: newNotes });
               }}
               rows={2}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="E.g., Made to order, no returns for sizing issues."
+              placeholder={defaultNotes.returns}
             />
           </div>
           
@@ -332,6 +342,7 @@ export function ProductBasicInfo({ categories, initialData, onChange }: ProductB
               name="freeNotes"
               value={freeNotes}
               onChange={(e) => {
+                setFreeNotes(e.target.value);
                 onChange({ freeNotes: e.target.value });
               }}
               rows={3}

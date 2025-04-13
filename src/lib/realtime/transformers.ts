@@ -53,6 +53,7 @@ export function transformProduct(dbProduct: any): Product {
     priceModifierBeforeMin: dbProduct.price_modifier_before_min ?? null,
     priceModifierAfterMin: dbProduct.price_modifier_after_min ?? null,
     visible: dbProduct.visible ?? true,
-    notes: dbProduct.notes || undefined
+    notes: dbProduct.notes || undefined,
+    freeNotes: dbProduct.free_notes || undefined
   };
 }
