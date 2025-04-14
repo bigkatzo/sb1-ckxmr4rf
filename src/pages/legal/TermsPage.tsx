@@ -362,6 +362,13 @@ export function TermsPage() {
               Absolutely not. We only collect the minimum information needed to process orders and provide services. Your shipping information is only shared with delivery carriers to fulfill your order.
             </p>
           </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-2 text-blue-300">Afraid of Doxxing?</h3>
+            <p className="text-gray-300">
+              We take your privacy seriously. Your personal contact information and shipping address are collected solely for delivery purposes and are only shared with shipping carriers - nothing more. These shipping providers have no access to your wallet address, transaction details, or any blockchain information. Similarly, your blockchain activity and wallet address are completely separate from your shipping details. We maintain strict separation between your Web3 identity and your physical shipping information, ensuring that your on-chain activity remains disconnected from your personal details.
+            </p>
+          </div>
         </div>
       </section>
 
