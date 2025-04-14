@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserManagement } from '../../components/admin/UserManagement';
 import { WalletManagement } from '../../components/admin/WalletManagement';
+import { SiteSettings } from '../../components/admin/SiteSettings';
 import { useAuth } from '../../contexts/AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -11,7 +12,8 @@ import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 
 const tabs = [
   { id: 'users', label: 'Users' },
-  { id: 'wallets', label: 'Wallets' }
+  { id: 'wallets', label: 'Wallets' },
+  { id: 'site', label: 'Site Settings' }
 ];
 
 function AdminDashboard() {
@@ -119,6 +121,7 @@ function AdminDashboard() {
 
       {activeTab === 'users' && <UserManagement />}
       {activeTab === 'wallets' && <WalletManagement />}
+      {activeTab === 'site' && <SiteSettings />}
     </div>
   );
 }

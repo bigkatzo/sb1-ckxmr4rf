@@ -7,6 +7,10 @@
 [build.environment]
   NODE_VERSION = "18"
 
+# Register site settings plugin
+[[plugins]]
+  package = "./netlify/plugins/site-settings"
+
 # Global function configuration - simpler approach
 [functions]
   node_bundler = "esbuild"
@@ -21,6 +25,11 @@
 [[redirects]]
   from = "/api/register-tracking"
   to = "/.netlify/functions/register-tracking"
+  status = 200
+
+[[redirects]]
+  from = "/api/update-site-assets"
+  to = "/.netlify/functions/update-site-assets"
   status = 200
 
 # Handle SPA routing
