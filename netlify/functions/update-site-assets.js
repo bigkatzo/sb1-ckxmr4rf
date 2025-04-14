@@ -145,10 +145,18 @@ export async function handler(event, context) {
       SITE_NAME: settings.site_name,
       SITE_DESCRIPTION: settings.site_description,
       THEME_COLOR: settings.theme_background_color,
+      THEME_PRIMARY_COLOR: settings.theme_primary_color,
+      THEME_SECONDARY_COLOR: settings.theme_secondary_color,
       FAVICON_URL: settings.favicon_url,
       APPLE_TOUCH_ICON_URL: settings.apple_touch_icon_url,
+      ICON_192_URL: settings.icon_192_url,
+      ICON_512_URL: settings.icon_512_url,
       OG_IMAGE_URL: settings.og_image_url,
       TWITTER_IMAGE_URL: settings.twitter_image_url,
+      SITE_URL: process.env.SITE_URL || process.env.URL || '',
+      PWA_ENABLED: true,
+      PWA_DISPLAY: 'standalone',
+      PWA_ORIENTATION: 'portrait'
     };
 
     // Store the metadata in Supabase for the build process to access
@@ -219,7 +227,22 @@ function generateManifestJson(settings) {
     icons: []
   };
 
+  // Add shortcuts based on available pages (optional PWA feature)
+  manifest.shortcuts = [
+    {
+      name: "Home",
+      url: "/",
+      description: "Go to the homepage"
+    },
+    {
+      name: "Search",
+      url: "/search",
+      description: "Search products"
+    }
+  ];
+
   // Add icons if they exist
+  // 192x192 icon - standard PWA icon size
   if (settings.icon_192_url) {
     manifest.icons.push({
       src: settings.icon_192_url,
@@ -229,6 +252,7 @@ function generateManifestJson(settings) {
     });
   }
 
+  // 512x512 icon - larger size for high-res devices
   if (settings.icon_512_url) {
     manifest.icons.push({
       src: settings.icon_512_url,
@@ -237,6 +261,31 @@ function generateManifestJson(settings) {
       purpose: 'any maskable'
     });
   }
+  
+  // Add favicon as a smaller icon if available
+  if (settings.favicon_url && !settings.favicon_url.endsWith('.svg') && !settings.favicon_url.endsWith('.ico')) {
+    manifest.icons.push({
+      src: settings.favicon_url,
+      sizes: '48x48',
+      type: 'image/png',
+      purpose: 'any'
+    });
+  }
+  
+  // Add apple touch icon if available
+  if (settings.apple_touch_icon_url) {
+    manifest.icons.push({
+      src: settings.apple_touch_icon_url,
+      sizes: '180x180',
+      type: 'image/png',
+      purpose: 'any'
+    });
+  }
+  
+  // Advanced PWA settings
+  manifest.orientation = 'portrait';
+  manifest.scope = '/';
+  manifest.prefer_related_applications = false;
 
   // Use any custom manifest settings that might have been set
   const customManifest = settings.manifest_json;

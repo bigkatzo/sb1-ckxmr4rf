@@ -130,7 +130,22 @@ async function updateManifestJson(settings) {
     icons: []
   };
   
+  // Add app shortcuts based on available pages (optional PWA feature)
+  manifest.shortcuts = [
+    {
+      name: "Home",
+      url: "/",
+      description: "Go to the homepage"
+    },
+    {
+      name: "Search",
+      url: "/search",
+      description: "Search products"
+    }
+  ];
+  
   // Add icons if they exist
+  // 192x192 icon - standard PWA icon size
   if (settings.icon_192_url) {
     manifest.icons.push({
       src: settings.icon_192_url,
@@ -148,6 +163,7 @@ async function updateManifestJson(settings) {
     });
   }
   
+  // 512x512 icon - larger size for high-res devices
   if (settings.icon_512_url) {
     manifest.icons.push({
       src: settings.icon_512_url,
@@ -165,7 +181,32 @@ async function updateManifestJson(settings) {
     });
   }
   
-  // Use any custom manifest settings
+  // Add favicon as a smaller icon if available
+  if (settings.favicon_url && !settings.favicon_url.endsWith('.svg') && !settings.favicon_url.endsWith('.ico')) {
+    manifest.icons.push({
+      src: settings.favicon_url,
+      sizes: '48x48',
+      type: 'image/png',
+      purpose: 'any'
+    });
+  }
+  
+  // Add apple touch icon if available
+  if (settings.apple_touch_icon_url) {
+    manifest.icons.push({
+      src: settings.apple_touch_icon_url,
+      sizes: '180x180',
+      type: 'image/png',
+      purpose: 'any'
+    });
+  }
+  
+  // Advanced PWA settings
+  manifest.orientation = 'portrait';
+  manifest.scope = '/';
+  manifest.prefer_related_applications = false;
+  
+  // Use any custom manifest settings that might have been set
   if (settings.manifest_json) {
     Object.assign(manifest, settings.manifest_json);
   }
@@ -251,36 +292,88 @@ async function updateHtmlMetaTags(settings) {
     }
   }
   
-  // Add Open Graph meta tags
-  if (settings.og_image_url) {
-    const ogImageRegex = /<meta property="og:image".*?>/;
-    const newOgImage = `<meta property="og:image" content="${settings.og_image_url}">`;
-    
-    if (ogImageRegex.test(html)) {
-      html = html.replace(ogImageRegex, newOgImage);
+  // Add canonical URL meta tag
+  const canonicalRegex = /<link rel="canonical".*?>/;
+  const siteUrl = process.env.SITE_URL || process.env.URL || '';
+  if (siteUrl) {
+    const newCanonical = `<link rel="canonical" href="${siteUrl}">`;
+    if (canonicalRegex.test(html)) {
+      html = html.replace(canonicalRegex, newCanonical);
     } else {
-      // If no og:image exists, add it before the closing head tag
       html = html.replace(
         /<\/head>/,
-        `    ${newOgImage}\n  </head>`
+        `    ${newCanonical}\n  </head>`
       );
     }
   }
   
+  // Add Open Graph meta tags
+  const ogTags = {
+    'og:title': settings.site_name || 'store.fun',
+    'og:description': settings.site_description || 'Merch Marketplace',
+    'og:type': 'website',
+    'og:site_name': settings.site_name || 'store.fun'
+  };
+  
+  if (siteUrl) {
+    ogTags['og:url'] = siteUrl;
+  }
+  
+  if (settings.og_image_url) {
+    ogTags['og:image'] = settings.og_image_url;
+    // Add image dimensions if known
+    ogTags['og:image:width'] = '1200';
+    ogTags['og:image:height'] = '630';
+    ogTags['og:image:alt'] = settings.site_name || 'store.fun';
+  }
+  
   // Add Twitter card meta tags
+  const twitterTags = {
+    'twitter:card': 'summary_large_image',
+    'twitter:title': settings.site_name || 'store.fun',
+    'twitter:description': settings.site_description || 'Merch Marketplace'
+  };
+  
   if (settings.twitter_image_url) {
-    const twitterImageRegex = /<meta name="twitter:image".*?>/;
-    const newTwitterImage = `<meta name="twitter:image" content="${settings.twitter_image_url}">`;
+    twitterTags['twitter:image'] = settings.twitter_image_url;
+  } else if (settings.og_image_url) {
+    twitterTags['twitter:image'] = settings.og_image_url;
+  }
+  
+  // Apply all Open Graph tags
+  let ogTagsHtml = '';
+  for (const [property, content] of Object.entries(ogTags)) {
+    // Check if tag already exists
+    const tagRegex = new RegExp(`<meta property="${property}".*?>`, 'i');
+    const newTag = `<meta property="${property}" content="${content}">`;
     
-    if (twitterImageRegex.test(html)) {
-      html = html.replace(twitterImageRegex, newTwitterImage);
+    if (tagRegex.test(html)) {
+      html = html.replace(tagRegex, newTag);
     } else {
-      // If no twitter:image exists, add it before the closing head tag
-      html = html.replace(
-        /<\/head>/,
-        `    <meta name="twitter:card" content="summary_large_image">\n    <meta name="twitter:title" content="${settings.site_name || 'store.fun'}">\n    <meta name="twitter:description" content="${settings.site_description || 'Merch Marketplace'}">\n    ${newTwitterImage}\n  </head>`
-      );
+      ogTagsHtml += `    ${newTag}\n`;
     }
+  }
+  
+  // Apply all Twitter tags
+  let twitterTagsHtml = '';
+  for (const [name, content] of Object.entries(twitterTags)) {
+    // Check if tag already exists
+    const tagRegex = new RegExp(`<meta name="${name}".*?>`, 'i');
+    const newTag = `<meta name="${name}" content="${content}">`;
+    
+    if (tagRegex.test(html)) {
+      html = html.replace(tagRegex, newTag);
+    } else {
+      twitterTagsHtml += `    ${newTag}\n`;
+    }
+  }
+  
+  // Add all new tags before closing head
+  if (ogTagsHtml || twitterTagsHtml) {
+    html = html.replace(
+      /<\/head>/,
+      `${ogTagsHtml}${twitterTagsHtml}  </head>`
+    );
   }
   
   // Write the updated HTML
