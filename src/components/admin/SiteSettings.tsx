@@ -273,7 +273,7 @@ export function SiteSettings() {
       {/* Tab Content */}
       <div className="p-4 sm:p-6">
         {/* Save Button - Floating at the top right */}
-        <div className="flex flex-col sm:flex-row justify-end mb-6 gap-3">
+        <div className="flex flex-row justify-end mb-6 gap-3">
           <button
             onClick={triggerSiteRebuild}
             disabled={rebuilding || saving}
@@ -284,7 +284,8 @@ export function SiteSettings() {
             ) : (
               <RefreshCw className="h-4 w-4" />
             )}
-            <span>Rebuild Site</span>
+            <span className="hidden sm:inline">Rebuild Site</span>
+            <span className="sm:hidden">Rebuild</span>
           </button>
           
           <button
@@ -297,7 +298,8 @@ export function SiteSettings() {
             ) : (
               <Save className="h-4 w-4" />
             )}
-            <span>Save Changes</span>
+            <span className="hidden sm:inline">Save Changes</span>
+            <span className="sm:hidden">Save</span>
           </button>
         </div>
 
