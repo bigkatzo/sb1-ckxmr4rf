@@ -51,7 +51,7 @@ export function TermsPage() {
         <div className="text-gray-300 mb-4">
           <h3 className="text-lg font-medium mb-2">4.1 Operating Partner</h3>
           <p className="mb-4">
-            store.fun is operated in partnership with Logic Group LLC, a U.S.-based e-commerce operations company established in 2023. Logic Group LLC handles payments and fulfillment operations on the platform. For payment-related inquiries, please contact us at <a href="mailto:support@store.fun" className="text-blue-400 hover:text-blue-300">support@store.fun</a> and we'll ensure your concerns are addressed promptly, working directly with Logic Group LLC when necessary.
+            store.fun is operated in partnership with Logic Group LLC, a U.S.-based e-commerce operations company established in 2023. Logic Group LLC handles payments and fulfillment operations on the platform. For payment-related inquiries, please contact us at <a href="mailto:support@store.fun" className="text-blue-400 hover:text-blue-300">support@store.fun</a> and we'll ensure your concerns are addressed promptly.
           </p>
           <p className="mb-4">
             store.fun is your primary point of contact for all platform services. Logic Group LLC supports us behind the scenes with payment processing and fulfillment logistics, allowing us to create the best possible experience for you. We maintain oversight of all operations to ensure quality service.
