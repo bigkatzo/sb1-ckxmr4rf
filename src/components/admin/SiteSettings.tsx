@@ -106,6 +106,9 @@ export function SiteSettings() {
       
       // After saving, update the actual HTML elements and manifest
       updateLiveSettings();
+      
+      // Automatically trigger a site rebuild to apply changes immediately
+      await triggerSiteRebuild();
     } catch (err) {
       console.error('Unexpected error:', err);
       toast.error('An unexpected error occurred');
