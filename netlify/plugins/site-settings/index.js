@@ -8,11 +8,33 @@ export const onPreBuild = async ({ utils }) => {
   
   try {
     // Initialize Supabase client with service role key
-    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      return utils.build.failBuild('Missing Supabase environment variables');
+      console.log('Supabase environment variables missing, continuing with default settings');
+      // Create public directory for default assets
+      const publicDir = path.join(process.cwd(), 'public');
+      if (!fs.existsSync(publicDir)) {
+        fs.mkdirSync(publicDir, { recursive: true });
+      }
+      
+      // Create default manifest.json
+      const defaultSettings = {
+        site_name: 'store.fun',
+        site_description: 'Merch Marketplace',
+        theme_primary_color: '#8b5cf6',
+        theme_secondary_color: '#4f46e5',
+        theme_background_color: '#000000',
+        theme_text_color: '#ffffff'
+      };
+      
+      // Generate default files
+      await updateManifestJson(defaultSettings);
+      await generateThemeCSS(defaultSettings);
+      
+      console.log('Applied default site settings');
+      return;
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -27,11 +49,39 @@ export const onPreBuild = async ({ utils }) => {
     if (settingsError) {
       console.warn('Error fetching site settings:', settingsError);
       console.log('Continuing with default settings');
+      
+      // Apply default settings
+      const defaultSettings = {
+        site_name: 'store.fun',
+        site_description: 'Merch Marketplace',
+        theme_primary_color: '#8b5cf6',
+        theme_secondary_color: '#4f46e5',
+        theme_background_color: '#000000',
+        theme_text_color: '#ffffff'
+      };
+      
+      await updateManifestJson(defaultSettings);
+      await generateThemeCSS(defaultSettings);
+      
       return;
     }
     
     if (!settings) {
       console.log('No site settings found. Using defaults.');
+      
+      // Apply default settings
+      const defaultSettings = {
+        site_name: 'store.fun',
+        site_description: 'Merch Marketplace',
+        theme_primary_color: '#8b5cf6',
+        theme_secondary_color: '#4f46e5',
+        theme_background_color: '#000000',
+        theme_text_color: '#ffffff'
+      };
+      
+      await updateManifestJson(defaultSettings);
+      await generateThemeCSS(defaultSettings);
+      
       return;
     }
     
@@ -49,7 +99,8 @@ export const onPreBuild = async ({ utils }) => {
     console.log('Site settings applied successfully!');
   } catch (error) {
     console.error('Error in site settings plugin:', error);
-    utils.build.failBuild(`Site settings plugin error: ${error.message}`);
+    // Don't fail the build, just log the error
+    console.log('Continuing with build despite site settings error');
   }
 };
 
@@ -57,7 +108,13 @@ export const onPreBuild = async ({ utils }) => {
  * Update the manifest.json file with settings
  */
 async function updateManifestJson(settings) {
-  const manifestPath = path.join(process.cwd(), 'public', 'manifest.json');
+  // Create public directory if it doesn't exist
+  const publicDir = path.join(process.cwd(), 'public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+  
+  const manifestPath = path.join(publicDir, 'manifest.json');
   console.log(`Updating manifest.json at ${manifestPath}`);
   
   // Create manifest content
@@ -234,13 +291,13 @@ async function updateHtmlMetaTags(settings) {
  * Generate CSS variables for theme colors
  */
 async function generateThemeCSS(settings) {
+  // Create public/css directory if it doesn't exist
   const cssDir = path.join(process.cwd(), 'public', 'css');
-  const cssPath = path.join(cssDir, 'theme-variables.css');
-  
-  // Ensure the directory exists
   if (!fs.existsSync(cssDir)) {
     fs.mkdirSync(cssDir, { recursive: true });
   }
+  
+  const cssPath = path.join(cssDir, 'theme-variables.css');
   
   // Get theme colors with defaults
   const primaryColor = settings.theme_primary_color || '#8b5cf6';
