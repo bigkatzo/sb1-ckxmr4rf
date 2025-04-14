@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
-import { Upload, Palette, Share2, PenSquare, Save, RefreshCw } from 'lucide-react';
+import { Upload, Palette, Share2, PenSquare, Save, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 // Constants
@@ -252,7 +252,7 @@ export function SiteSettings() {
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
       {/* Tab Navigation */}
-      <div className="flex overflow-x-auto bg-gray-800 border-b border-gray-700">
+      <div className="flex overflow-x-auto bg-gray-800 border-b border-gray-700 scrollbar-hide">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -271,33 +271,33 @@ export function SiteSettings() {
       </div>
 
       {/* Tab Content */}
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Save Button - Floating at the top right */}
-        <div className="flex justify-end mb-6 gap-3">
+        <div className="flex flex-col sm:flex-row justify-end mb-6 gap-3">
           <button
             onClick={triggerSiteRebuild}
             disabled={rebuilding || saving}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {rebuilding ? (
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
             ) : (
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="h-4 w-4" />
             )}
-            Rebuild Site
+            <span>Rebuild Site</span>
           </button>
           
           <button
             onClick={saveSettings}
             disabled={saving}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 py-2 font-medium disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {saving ? (
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
             ) : (
-              <Save className="w-4 h-4" />
+              <Save className="h-4 w-4" />
             )}
-            Save Changes
+            <span>Save Changes</span>
           </button>
         </div>
 
@@ -436,7 +436,7 @@ export function SiteSettings() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   OG Image (1200×630 recommended)
                 </label>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
                   <input
                     type="file"
                     accept="image/*"
@@ -446,8 +446,9 @@ export function SiteSettings() {
                   />
                   <label 
                     htmlFor="og-image"
-                    className="bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-4 py-2 cursor-pointer"
+                    className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer"
                   >
+                    <Upload className="h-4 w-4 mr-1.5" />
                     Choose File
                   </label>
                   <span className="text-sm text-gray-400">
@@ -472,7 +473,7 @@ export function SiteSettings() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Twitter Image (1200×675 recommended)
                 </label>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
                   <input
                     type="file"
                     accept="image/*"
@@ -482,8 +483,9 @@ export function SiteSettings() {
                   />
                   <label 
                     htmlFor="twitter-image"
-                    className="bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-4 py-2 cursor-pointer"
+                    className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer"
                   >
+                    <Upload className="h-4 w-4 mr-1.5" />
                     Choose File
                   </label>
                   <span className="text-sm text-gray-400">
@@ -517,7 +519,7 @@ export function SiteSettings() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Favicon (SVG recommended)
                 </label>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
                   <input
                     type="file"
                     accept=".svg,.ico,image/*"
@@ -527,8 +529,9 @@ export function SiteSettings() {
                   />
                   <label 
                     htmlFor="favicon"
-                    className="bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-4 py-2 cursor-pointer"
+                    className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer"
                   >
+                    <Upload className="h-4 w-4 mr-1.5" />
                     Choose File
                   </label>
                   <span className="text-sm text-gray-400">
@@ -554,7 +557,7 @@ export function SiteSettings() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   App Icon 192×192
                 </label>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
                   <input
                     type="file"
                     accept="image/png"
@@ -564,8 +567,9 @@ export function SiteSettings() {
                   />
                   <label 
                     htmlFor="icon-192"
-                    className="bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-4 py-2 cursor-pointer"
+                    className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer"
                   >
+                    <Upload className="h-4 w-4 mr-1.5" />
                     Choose File
                   </label>
                   <span className="text-sm text-gray-400">
@@ -591,7 +595,7 @@ export function SiteSettings() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   App Icon 512×512
                 </label>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
                   <input
                     type="file"
                     accept="image/png"
@@ -601,8 +605,9 @@ export function SiteSettings() {
                   />
                   <label 
                     htmlFor="icon-512"
-                    className="bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-4 py-2 cursor-pointer"
+                    className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer"
                   >
+                    <Upload className="h-4 w-4 mr-1.5" />
                     Choose File
                   </label>
                   <span className="text-sm text-gray-400">
@@ -628,7 +633,7 @@ export function SiteSettings() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Apple Touch Icon
                 </label>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
                   <input
                     type="file"
                     accept="image/png"
@@ -638,8 +643,9 @@ export function SiteSettings() {
                   />
                   <label 
                     htmlFor="apple-touch-icon"
-                    className="bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-4 py-2 cursor-pointer"
+                    className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer"
                   >
+                    <Upload className="h-4 w-4 mr-1.5" />
                     Choose File
                   </label>
                   <span className="text-sm text-gray-400">
@@ -670,31 +676,39 @@ export function SiteSettings() {
             <h3 className="text-lg font-medium mb-4">Advanced Settings</h3>
             
             <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-              <p className="text-yellow-400 text-sm mb-4">
-                <strong>Warning:</strong> These settings require a site rebuild to take effect. 
-                After saving, you'll need to redeploy your site from Netlify.
-              </p>
+              <div className="flex items-center text-yellow-400 mb-4 gap-2">
+                <div className="rounded-full bg-yellow-400/20 p-1.5">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+                <p className="text-sm font-medium">
+                  These settings require a site rebuild to take effect. 
+                  After saving, you'll need to trigger a rebuild using the button above.
+                </p>
+              </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Web App Manifest (manifest.json)
                   </label>
-                  <textarea
-                    value={settings.manifest_json ? JSON.stringify(settings.manifest_json, null, 2) : ''}
-                    onChange={(e) => {
-                      try {
-                        const parsed = JSON.parse(e.target.value);
-                        setSettings({...settings, manifest_json: parsed});
-                      } catch (err) {
-                        // Allow invalid JSON while typing, but don't update state
-                        console.log('Invalid JSON, not updating state');
-                      }
-                    }}
-                    rows={10}
-                    className="w-full font-mono text-xs bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
+                  <div className="bg-gray-900 rounded-lg p-0.5">
+                    <textarea
+                      value={settings.manifest_json ? JSON.stringify(settings.manifest_json, null, 2) : ''}
+                      onChange={(e) => {
+                        try {
+                          const parsed = JSON.parse(e.target.value);
+                          setSettings({...settings, manifest_json: parsed});
+                        } catch (err) {
+                          // Allow invalid JSON while typing, but don't update state
+                          console.log('Invalid JSON, not updating state');
+                        }
+                      }}
+                      rows={10}
+                      className="w-full font-mono text-xs bg-gray-900 text-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      placeholder="{}"
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-gray-400">
                     Advanced users can edit the web app manifest JSON directly
                   </p>
                 </div>
