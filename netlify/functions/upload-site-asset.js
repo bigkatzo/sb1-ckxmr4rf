@@ -133,12 +133,15 @@ export async function handler(event, context) {
             })
           };
         }
-      }
-
-      // Update the bucket's public policy
-      const { error: policyError } = await supabase.storage.from(SITE_ASSETS_BUCKET).setPublic();
-      if (policyError) {
-        console.warn('Warning: Could not update bucket policy:', policyError);
+      } else {
+        // Update the bucket to be public if it already exists
+        const { error: updateError } = await supabase.storage.updateBucket(SITE_ASSETS_BUCKET, {
+          public: true
+        });
+        
+        if (updateError) {
+          console.warn('Warning: Could not update bucket policy:', updateError);
+        }
       }
     } catch (bucketError) {
       console.error('Error checking/creating bucket:', bucketError);
