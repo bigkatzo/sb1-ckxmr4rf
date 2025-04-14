@@ -530,12 +530,12 @@ export function SiteSettings() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Favicon (SVG recommended)
+                  Favicon (PNG recommended for best compatibility)
                 </label>
                 <div className="flex flex-wrap items-center gap-3 mb-2">
                   <input
                     type="file"
-                    accept=".svg,.ico,image/*"
+                    accept=".png,.ico,.svg,image/*"
                     id="favicon"
                     className="hidden"
                     onChange={(e) => handleFileUpload(e, 'favicon_url')}
@@ -562,7 +562,8 @@ export function SiteSettings() {
                   </div>
                 )}
                 <p className="mt-1 text-xs text-gray-400">
-                  This icon appears in browser tabs (SVG or ICO format recommended)
+                  This icon appears in browser tabs. PNG format is recommended for best compatibility across browsers, 
+                  especially Safari. For best results, upload a square image (at least 32×32 pixels).
                 </p>
               </div>
 
@@ -600,7 +601,8 @@ export function SiteSettings() {
                   </div>
                 )}
                 <p className="mt-1 text-xs text-gray-400">
-                  Used for Android home screens and PWA (PNG format required)
+                  Used for Android home screens and PWA (PNG format required).
+                  After saving, you must rebuild the site for changes to take effect.
                 </p>
               </div>
 
@@ -644,7 +646,7 @@ export function SiteSettings() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Apple Touch Icon
+                  Apple Touch Icon (180×180)
                 </label>
                 <div className="flex flex-wrap items-center gap-3 mb-2">
                   <input
@@ -676,7 +678,9 @@ export function SiteSettings() {
                   </div>
                 )}
                 <p className="mt-1 text-xs text-gray-400">
-                  Used for iOS home screens (180×180 PNG recommended)
+                  Used for iOS home screens (180×180 PNG recommended). 
+                  This is critical for Safari on iOS to show proper app icons. 
+                  After saving, make sure to rebuild the site and clear your browser cache.
                 </p>
               </div>
             </div>
