@@ -37,6 +37,7 @@ export const onPreBuild = async ({ utils }) => {
       return;
     }
     
+    // Create Supabase client - moved below environment variable check
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Fetch site settings

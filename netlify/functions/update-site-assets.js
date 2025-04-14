@@ -2,15 +2,24 @@ import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
 
 // Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// Netlify API for build hooks
-const NETLIFY_BUILD_HOOK = process.env.NETLIFY_BUILD_HOOK;
 
 // Constants
 const SITE_ASSETS_BUCKET = 'site-assets';
+
+// Verify required environment variables
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('Missing required environment variables for Supabase connection');
+}
+
+// Initialize Supabase client only if we have required environment variables
+const supabase = supabaseUrl && supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;
+
+// Netlify API for build hooks
+const NETLIFY_BUILD_HOOK = process.env.NETLIFY_BUILD_HOOK;
 
 /**
  * Netlify function to update site assets based on admin settings
@@ -20,6 +29,17 @@ export async function handler(event, context) {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
+  }
+
+  // Check if Supabase is properly configured
+  if (!supabase) {
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ 
+        error: 'Missing Supabase environment variables',
+        message: 'Please configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your Netlify environment variables.'
+      })
+    };
   }
 
   // Require authentication
