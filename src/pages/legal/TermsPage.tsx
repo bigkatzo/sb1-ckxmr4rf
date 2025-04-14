@@ -12,35 +12,6 @@ export function TermsPage() {
         </p>
       </section>
 
-      <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-4 text-blue-400">About Us - Who You're Dealing With</h2>
-        <div className="text-gray-300 mb-4">
-          <p className="mb-4">
-            store.fun works with Logic Group LLC to provide you with a seamless shopping experience that combines traditional e-commerce with Web3 technology:
-          </p>
-          <ul className="space-y-4">
-            <li className="flex items-start">
-              <div className="text-gray-400 mr-3 mt-1">•</div>
-              <div>
-                <span className="font-semibold">store.fun:</span> Your primary point of contact for all platform services. We handle the website, user interface, customer support, and product curation. For any questions or concerns, always start by contacting us at <span className="text-blue-400">support@store.fun</span>.
-              </div>
-            </li>
-            <li className="flex items-start">
-              <div className="text-gray-400 mr-3 mt-1">•</div>
-              <div>
-                <span className="font-semibold">Logic Group LLC:</span> Our payment processing and fulfillment partner established in 2023. Based in the United States, they process both traditional and cryptocurrency payments and handle shipping logistics.
-              </div>
-            </li>
-            <li className="flex items-start">
-              <div className="text-gray-400 mr-3 mt-1">•</div>
-              <div>
-                <span className="font-semibold">Our service commitment:</span> While Logic Group LLC handles the technical aspects of payments and shipping, store.fun remains your direct point of contact. We work closely with Logic Group LLC to ensure all issues are resolved quickly and efficiently.
-              </div>
-            </li>
-          </ul>
-        </div>
-      </section>
-
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">2. Definitions</h2>
         <ul className="list-disc pl-6 text-gray-300 space-y-2">
@@ -51,7 +22,6 @@ export function TermsPage() {
           <li>"NFT" refers to Non-Fungible Tokens on the Solana blockchain</li>
           <li>"SOL" refers to the Solana cryptocurrency</li>
           <li>"Content" refers to all materials and information on the platform</li>
-          <li>"Logic Group LLC" refers to our payment processing and fulfillment partner</li>
         </ul>
       </section>
 

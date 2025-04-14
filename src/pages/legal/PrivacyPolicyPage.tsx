@@ -34,33 +34,6 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-4 text-blue-400">Who We Are</h2>
-        <div className="text-gray-300 mb-4">
-          <p className="mb-4">store.fun is your direct service provider. We work with Logic Group LLC as our trusted payment processing and operations partner:</p>
-          <ul className="space-y-4">
-            <li className="flex items-start">
-              <div className="text-gray-400 mr-3 mt-1">•</div>
-              <div>
-                <span className="font-semibold">Logic Group LLC:</span> A U.S.-based e-commerce operations company established in 2023, specializing in payment processing, logistics, and fulfillment services.
-              </div>
-            </li>
-            <li className="flex items-start">
-              <div className="text-gray-400 mr-3 mt-1">•</div>
-              <div>
-                <span className="font-semibold">Our relationship:</span> store.fun maintains full control over the platform experience, customer service, and product curation, while Logic Group LLC handles the behind-the-scenes payment processing and shipping logistics. This partnership allows us to offer both traditional and blockchain payment options with the highest level of security and reliability.
-              </div>
-            </li>
-            <li className="flex items-start">
-              <div className="text-gray-400 mr-3 mt-1">•</div>
-              <div>
-                <span className="font-semibold">Customer service assurance:</span> store.fun is always your first point of contact. We directly handle all support inquiries and coordinate with Logic Group LLC on payment and shipping matters to ensure prompt resolution of any issues.
-              </div>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
         <h2 className="text-xl font-semibold mb-4 text-blue-400">Our Privacy Approach</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-4">store.fun implements the following privacy practices:</p>
