@@ -467,10 +467,14 @@ export function SiteSettings() {
                       alt="OG Preview" 
                       className="max-h-32 rounded border border-gray-700" 
                     />
+                    <p className="mt-1 text-xs text-gray-500 break-all">
+                      URL: {settings.og_image_url}
+                    </p>
                   </div>
                 )}
                 <p className="mt-1 text-xs text-gray-400">
-                  This image will be displayed when your site is shared on social media
+                  This image will be displayed when your site is shared on social media.
+                  <br />For proper sharing, make sure to save changes and rebuild site.
                 </p>
               </div>
 
@@ -504,10 +508,14 @@ export function SiteSettings() {
                       alt="Twitter Preview" 
                       className="max-h-32 rounded border border-gray-700" 
                     />
+                    <p className="mt-1 text-xs text-gray-500 break-all">
+                      URL: {settings.twitter_image_url}
+                    </p>
                   </div>
                 )}
                 <p className="mt-1 text-xs text-gray-400">
-                  Specific image for Twitter sharing (optional, falls back to OG image)
+                  Specific image for Twitter sharing (optional, falls back to OG image).
+                  <br />For proper sharing, make sure to save changes and rebuild site.
                 </p>
               </div>
             </div>

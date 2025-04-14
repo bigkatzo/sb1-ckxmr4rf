@@ -230,6 +230,11 @@ async function updateManifestJson(settings) {
 async function updateHtmlMetaTags(settings) {
   const indexPath = path.join(process.cwd(), 'index.html');
   console.log(`Updating meta tags in ${indexPath}`);
+  console.log('Settings for sharing images:');
+  console.log(`- OG image: ${settings.og_image_url || 'not set'}`);
+  console.log(`- Twitter image: ${settings.twitter_image_url || 'not set'}`);
+  console.log(`- Icon 512: ${settings.icon_512_url || 'not set'}`);
+  console.log(`- Site URL: ${process.env.SITE_URL || process.env.URL || 'not set'}`);
   
   if (!fs.existsSync(indexPath)) {
     console.warn(`${indexPath} not found, skipping meta tag updates`);
@@ -352,19 +357,29 @@ async function updateHtmlMetaTags(settings) {
     ogTags['og:url'] = siteUrl;
   }
   
-  // Always ensure we have an og:image - use a default if not provided
+  // Handle image URLs - always use the actual full URLs
+  console.log('Checking available OG image source:', settings.og_image_url);
+  
+  // Always ensure we have an og:image with absolute URL
   if (settings.og_image_url) {
+    // Make sure the URL is absolute
     ogTags['og:image'] = settings.og_image_url;
     // Add image dimensions if known
     ogTags['og:image:width'] = '1200';
     ogTags['og:image:height'] = '630';
     ogTags['og:image:alt'] = settings.site_name || 'store.fun';
+    
+    // Log the absolute URL for debugging
+    console.log(`Using OG image: ${ogTags['og:image']}`);
   } else if (settings.icon_512_url) {
     // Fallback to large app icon if OG image is not available
     ogTags['og:image'] = settings.icon_512_url;
     ogTags['og:image:width'] = '512';
     ogTags['og:image:height'] = '512';
     ogTags['og:image:alt'] = settings.site_name || 'store.fun';
+    
+    // Log the fallback image
+    console.log(`Using fallback OG image (icon): ${ogTags['og:image']}`);
   }
   
   // Add Twitter card meta tags
@@ -374,41 +389,80 @@ async function updateHtmlMetaTags(settings) {
     'twitter:description': settings.site_description || 'Merch Marketplace'
   };
   
-  // Always ensure we have a twitter:image
+  console.log('Checking available Twitter image source:', settings.twitter_image_url);
+  
+  // Always ensure we have a twitter:image with absolute URL
   if (settings.twitter_image_url) {
     twitterTags['twitter:image'] = settings.twitter_image_url;
+    console.log(`Using Twitter image: ${twitterTags['twitter:image']}`);
   } else if (settings.og_image_url) {
     twitterTags['twitter:image'] = settings.og_image_url;
+    console.log(`Using OG image for Twitter: ${twitterTags['twitter:image']}`);
   } else if (settings.icon_512_url) {
     // Fallback to large app icon
     twitterTags['twitter:image'] = settings.icon_512_url;
+    console.log(`Using fallback Twitter image (icon): ${twitterTags['twitter:image']}`);
   }
   
   // Apply all Open Graph tags
   let ogTagsHtml = '';
   for (const [property, content] of Object.entries(ogTags)) {
-    // Check if tag already exists
-    const tagRegex = new RegExp(`<meta property="${property}".*?>`, 'i');
-    const newTag = `<meta property="${property}" content="${content}">`;
-    
-    if (tagRegex.test(html)) {
-      html = html.replace(tagRegex, newTag);
+    // Special handling for og:image since it may have an empty content attribute in the template
+    if (property === 'og:image') {
+      const emptyTagRegex = /<meta property="og:image" content="".*?>/i;
+      const tagRegex = /<meta property="og:image" content=".*?".*?>/i;
+      const newTag = `<meta property="og:image" content="${content}">`;
+      
+      if (emptyTagRegex.test(html)) {
+        html = html.replace(emptyTagRegex, newTag);
+        console.log(`Replaced empty og:image with: ${content}`);
+      } else if (tagRegex.test(html)) {
+        html = html.replace(tagRegex, newTag);
+        console.log(`Replaced existing og:image with: ${content}`);
+      } else {
+        ogTagsHtml += `    ${newTag}\n`;
+      }
     } else {
-      ogTagsHtml += `    ${newTag}\n`;
+      // Handle other Open Graph tags
+      const tagRegex = new RegExp(`<meta property="${property}".*?>`, 'i');
+      const newTag = `<meta property="${property}" content="${content}">`;
+      
+      if (tagRegex.test(html)) {
+        html = html.replace(tagRegex, newTag);
+      } else {
+        ogTagsHtml += `    ${newTag}\n`;
+      }
     }
   }
   
   // Apply all Twitter tags
   let twitterTagsHtml = '';
   for (const [name, content] of Object.entries(twitterTags)) {
-    // Check if tag already exists
-    const tagRegex = new RegExp(`<meta name="${name}".*?>`, 'i');
-    const newTag = `<meta name="${name}" content="${content}">`;
-    
-    if (tagRegex.test(html)) {
-      html = html.replace(tagRegex, newTag);
+    // Special handling for twitter:image
+    if (name === 'twitter:image') {
+      const emptyTagRegex = /<meta name="twitter:image" content="".*?>/i;
+      const tagRegex = /<meta name="twitter:image" content=".*?".*?>/i;
+      const newTag = `<meta name="twitter:image" content="${content}">`;
+      
+      if (emptyTagRegex.test(html)) {
+        html = html.replace(emptyTagRegex, newTag);
+        console.log(`Replaced empty twitter:image with: ${content}`);
+      } else if (tagRegex.test(html)) {
+        html = html.replace(tagRegex, newTag);
+        console.log(`Replaced existing twitter:image with: ${content}`);
+      } else {
+        twitterTagsHtml += `    ${newTag}\n`;
+      }
     } else {
-      twitterTagsHtml += `    ${newTag}\n`;
+      // Handle other Twitter tags
+      const tagRegex = new RegExp(`<meta name="${name}".*?>`, 'i');
+      const newTag = `<meta name="${name}" content="${content}">`;
+      
+      if (tagRegex.test(html)) {
+        html = html.replace(tagRegex, newTag);
+      } else {
+        twitterTagsHtml += `    ${newTag}\n`;
+      }
     }
   }
   
@@ -571,4 +625,25 @@ async function generateDefaultIcons() {
       fs.writeFileSync(iconPath, '');
     }
   }
+}
+
+/**
+ * Ensure a URL is absolute
+ * @param {string} url - The URL to check
+ * @param {string} baseUrl - The base URL to use for relative URLs
+ * @returns {string} - The absolute URL
+ */
+function ensureAbsoluteUrl(url, baseUrl) {
+  // If the URL is already absolute, return it
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // If the URL is relative, prepend the base URL
+  if (baseUrl) {
+    return new URL(url, baseUrl).toString();
+  }
+  
+  // If no base URL is provided, return the URL as is
+  return url;
 } 

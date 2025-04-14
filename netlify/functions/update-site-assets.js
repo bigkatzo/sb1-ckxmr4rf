@@ -159,7 +159,15 @@ export async function handler(event, context) {
       PWA_DISPLAY: 'standalone',
       PWA_ORIENTATION: 'portrait'
     };
-
+    
+    // Debug log to check actual image URLs
+    console.log('Metadata image URLs being used:');
+    console.log(`OG Image: ${metaSettings.OG_IMAGE_URL}`);
+    console.log(`Twitter Image: ${metaSettings.TWITTER_IMAGE_URL}`);
+    console.log(`Favicon: ${metaSettings.FAVICON_URL}`);
+    console.log(`Icon 192: ${metaSettings.ICON_192_URL}`);
+    console.log(`Icon 512: ${metaSettings.ICON_512_URL}`);
+    
     // Store the metadata in Supabase for the build process to access
     const { error: metaError } = await supabase
       .from('build_metadata')
