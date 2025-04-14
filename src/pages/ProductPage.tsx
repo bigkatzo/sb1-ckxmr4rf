@@ -4,6 +4,7 @@ import { ProductModal } from '../components/products/ProductModal';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
 import { ProductModalSkeleton } from '../components/ui/Skeletons';
 import { useEffect, useState, useRef } from 'react';
+import SEO from '../components/SEO';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
@@ -76,12 +77,26 @@ export function ProductPage() {
     });
   };
 
+  // Get product image for SEO
+  const productImage = enrichedProduct.images?.[0]?.url || enrichedProduct.mainImage?.url || '';
+  const productTitle = `${enrichedProduct.name} | ${enrichedProduct.collectionName || 'store.fun'}`;
+  const productDescription = enrichedProduct.description || `${enrichedProduct.name} - Available at store.fun`;
+
   return (
-    <ProductModal
-      product={enrichedProduct}
-      onClose={handleClose}
-      categoryIndex={categoryIndex}
-      loading={loading} // Pass loading state to modal
-    />
+    <>
+      <SEO 
+        title={productTitle}
+        description={productDescription}
+        image={productImage}
+        productName={enrichedProduct.name}
+        type="product"
+      />
+      <ProductModal
+        product={enrichedProduct}
+        onClose={handleClose}
+        categoryIndex={categoryIndex}
+        loading={loading} // Pass loading state to modal
+      />
+    </>
   );
 }

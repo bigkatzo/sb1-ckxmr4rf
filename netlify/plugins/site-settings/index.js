@@ -354,22 +354,83 @@ async function updateHtmlMetaTags(settings) {
   const metaCharsetEndIndex = headContent.indexOf('>') + 1;
   headContent = headContent.substring(0, metaCharsetEndIndex) + newIconLinks + headContent.substring(metaCharsetEndIndex);
   
-  // Update OG images
+  // Update OG images - Make this more robust
   if (settings.og_image_url) {
     console.log(`Setting OG image: ${settings.og_image_url}`);
-    headContent = headContent.replace(
-      /<meta property="og:image" content=".*?">/,
-      `<meta property="og:image" content="${settings.og_image_url}">`
-    );
+    
+    // Replace all OG image tags
+    const ogImageRegex = /<meta property="og:image".*?>/g;
+    let ogImageFound = false;
+    
+    headContent = headContent.replace(ogImageRegex, (match) => {
+      // Only replace the first occurrence
+      if (!ogImageFound) {
+        ogImageFound = true;
+        return `<meta property="og:image" content="${settings.og_image_url}">`;
+      }
+      return match;
+    });
+    
+    // If no OG image tag was found, add one
+    if (!ogImageFound) {
+      headContent += `\n    <meta property="og:image" content="${settings.og_image_url}">`;
+    }
+    
+    // Also ensure og:image:width and height are set
+    if (!headContent.includes('og:image:width')) {
+      headContent += `\n    <meta property="og:image:width" content="1200">`;
+    }
+    
+    if (!headContent.includes('og:image:height')) {
+      headContent += `\n    <meta property="og:image:height" content="630">`;
+    }
   }
   
-  // Update Twitter images
+  // Update Twitter images - Make this more robust
   if (settings.twitter_image_url) {
     console.log(`Setting Twitter image: ${settings.twitter_image_url}`);
-    headContent = headContent.replace(
-      /<meta name="twitter:image" content=".*?">/,
-      `<meta name="twitter:image" content="${settings.twitter_image_url}">`
-    );
+    
+    // Replace all Twitter image tags
+    const twitterImageRegex = /<meta name="twitter:image".*?>/g;
+    let twitterImageFound = false;
+    
+    headContent = headContent.replace(twitterImageRegex, (match) => {
+      // Only replace the first occurrence
+      if (!twitterImageFound) {
+        twitterImageFound = true;
+        return `<meta name="twitter:image" content="${settings.twitter_image_url}">`;
+      }
+      return match;
+    });
+    
+    // If no Twitter image tag was found, add one
+    if (!twitterImageFound) {
+      headContent += `\n    <meta name="twitter:image" content="${settings.twitter_image_url}">`;
+    }
+    
+    // Ensure twitter:card is set
+    const twitterCardRegex = /<meta name="twitter:card".*?>/;
+    if (!twitterCardRegex.test(headContent)) {
+      headContent += `\n    <meta name="twitter:card" content="summary_large_image">`;
+    }
+  } else if (settings.og_image_url) {
+    // Fall back to OG image for Twitter if Twitter image is not set
+    console.log(`Using OG image for Twitter: ${settings.og_image_url}`);
+    
+    const twitterImageRegex = /<meta name="twitter:image".*?>/g;
+    let twitterImageFound = false;
+    
+    headContent = headContent.replace(twitterImageRegex, (match) => {
+      if (!twitterImageFound) {
+        twitterImageFound = true;
+        return `<meta name="twitter:image" content="${settings.og_image_url}">`;
+      }
+      return match;
+    });
+    
+    if (!twitterImageFound) {
+      headContent += `\n    <meta name="twitter:image" content="${settings.og_image_url}">`;
+    }
   }
   
   // Create new HTML with updated head

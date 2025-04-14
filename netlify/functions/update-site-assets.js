@@ -153,7 +153,7 @@ export async function handler(event, context) {
       ICON_512_URL: settings.icon_512_url,
       MS_TILE_IMAGE: settings.icon_512_url || settings.icon_192_url, // Use largest icon for MS tiles
       OG_IMAGE_URL: settings.og_image_url,
-      TWITTER_IMAGE_URL: settings.twitter_image_url,
+      TWITTER_IMAGE_URL: settings.twitter_image_url || settings.og_image_url, // Fall back to OG image
       SITE_URL: process.env.SITE_URL || process.env.URL || '',
       PWA_ENABLED: true,
       PWA_DISPLAY: 'standalone',
@@ -161,12 +161,14 @@ export async function handler(event, context) {
     };
     
     // Debug log to check actual image URLs
-    console.log('Metadata image URLs being used:');
-    console.log(`OG Image: ${metaSettings.OG_IMAGE_URL}`);
-    console.log(`Twitter Image: ${metaSettings.TWITTER_IMAGE_URL}`);
-    console.log(`Favicon: ${metaSettings.FAVICON_URL}`);
-    console.log(`Icon 192: ${metaSettings.ICON_192_URL}`);
-    console.log(`Icon 512: ${metaSettings.ICON_512_URL}`);
+    console.log('=== Metadata image URLs being used: ===');
+    console.log(`OG Image: ${metaSettings.OG_IMAGE_URL || 'NOT SET'}`);
+    console.log(`Twitter Image: ${metaSettings.TWITTER_IMAGE_URL || 'NOT SET'}`);
+    console.log(`Favicon: ${metaSettings.FAVICON_URL || 'NOT SET'}`);
+    console.log(`Apple Touch Icon: ${metaSettings.APPLE_TOUCH_ICON_URL || 'NOT SET'}`);
+    console.log(`Icon 192: ${metaSettings.ICON_192_URL || 'NOT SET'}`);
+    console.log(`Icon 512: ${metaSettings.ICON_512_URL || 'NOT SET'}`);
+    console.log('=======================================');
     
     // Store the metadata in Supabase for the build process to access
     const { error: metaError } = await supabase
