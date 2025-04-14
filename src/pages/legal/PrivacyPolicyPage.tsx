@@ -276,7 +276,6 @@ export function PrivacyPolicyPage() {
           <ul className="list-disc pl-6 space-y-2">
             <li>Standard contractual clauses approved by relevant data protection authorities</li>
             <li>Data processing agreements with our service providers</li>
-            <li>Privacy Shield certification where applicable</li>
             <li>Adequacy decisions issued by relevant authorities</li>
           </ul>
           <p className="mt-4">
@@ -296,15 +295,26 @@ export function PrivacyPolicyPage() {
             <li>Protect against fraudulent or illegal activity</li>
           </ul>
           <p className="mt-4">
-            Specific retention periods:
+            Standard retention periods:
           </p>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Account information: Duration of account plus 7 years</li>
-            <li>Transaction records: 7 years (tax/regulatory requirements)</li>
-            <li>Communication records: 3 years</li>
+            <li>Account information: Duration of account plus up to 7 years</li>
+            <li>Transaction records: Up to 7 years (tax/regulatory requirements)</li>
+            <li>Communication records: Up to 3 years</li>
             <li>Marketing preferences: Until consent withdrawal</li>
             <li>Technical logs: 12 months</li>
           </ul>
+          <div className="bg-gray-900 p-4 rounded-lg mt-4">
+            <h4 className="text-blue-300 text-base font-medium mb-2">Shorter Retention Request</h4>
+            <p className="text-gray-300 mb-2">
+              We understand that some users prefer shorter data retention periods. If you'd like your data to be retained for a shorter period:
+            </p>
+            <ul className="list-disc pl-6 text-gray-300 space-y-1">
+              <li>Contact us at support@store.fun with the subject line "Data Retention Request"</li>
+              <li>Specify your preferred retention period for non-essential data</li>
+              <li>We'll implement custom retention settings for your account while still complying with minimum legal requirements</li>
+            </ul>
+          </div>
         </div>
       </section>
 
