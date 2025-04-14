@@ -1,5 +1,25 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+
+// Define the site settings type
+type SiteSettings = {
+  site_name?: string;
+  site_description?: string;
+  homepage_tagline?: string;
+  seo_title?: string;
+  seo_description?: string;
+  theme_primary_color?: string;
+  theme_secondary_color?: string;
+  theme_background_color?: string;
+  theme_text_color?: string;
+  favicon_url?: string;
+  icon_192_url?: string;
+  icon_512_url?: string;
+  apple_touch_icon_url?: string;
+  og_image_url?: string;
+  twitter_image_url?: string;
+};
 
 type SEOProps = {
   title?: string;
@@ -8,64 +28,115 @@ type SEOProps = {
   productName?: string;
   collectionName?: string;
   type?: 'website' | 'product' | 'collection';
+  pathname?: string;
+  useDefault?: boolean;
 };
 
 /**
  * Dynamic SEO component that updates page meta tags
  */
 export default function SEO({
-  title,
-  description,
-  image,
+  title = '',
+  description = '',
+  image = '/og.png',
   productName,
   collectionName,
-  type = 'website'
+  type = 'website',
+  pathname,
+  useDefault = true
 }: SEOProps) {
   const location = useLocation();
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>({});
+  
+  // Fetch site settings when component mounts
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const { data } = await supabase
+          .from('site_settings')
+          .select('*')
+          .single();
+          
+        if (data) {
+          setSiteSettings(data);
+        }
+      } catch (error) {
+        console.error('Error fetching site settings:', error);
+      }
+    }
+    
+    fetchSettings();
+  }, []);
+  
+  const seoTitle = siteSettings?.seo_title || '';
+  const seoDescription = siteSettings?.seo_description || '';
+  const siteDescription = siteSettings?.site_description || '';
+  const homepageTagline = siteSettings?.homepage_tagline || '';
+  
+  // Use the provided title, then fallback to SEO title, then site name
+  let pageTitle = title;
+  if (!pageTitle && useDefault) {
+    pageTitle = seoTitle || siteSettings?.site_name || '';
+  }
+  
+  // Use the provided description, SEO description, homepage tagline (for homepage), or site description
+  let pageDescription = description;
+  if (!pageDescription && useDefault) {
+    if (location.pathname === '/' || pathname === '/') {
+      // On homepage, prefer homepage_tagline, then seo_description, then site_description
+      pageDescription = homepageTagline || seoDescription || siteDescription || '';
+    } else {
+      // On other pages, prefer seo_description, then site_description
+      pageDescription = seoDescription || siteDescription || '';
+    }
+  }
+  
+  const isProduct = type === 'product';
+  const isCollection = type === 'collection';
   
   useEffect(() => {
     // Update page title
-    if (title) {
-      document.title = title;
+    if (pageTitle) {
+      document.title = pageTitle;
     }
     
     // Update meta descriptions
-    if (description) {
+    if (pageDescription) {
       // Update standard description
       const metaDescription = document.querySelector('meta[name="description"]');
       if (metaDescription) {
-        metaDescription.setAttribute('content', description);
+        metaDescription.setAttribute('content', pageDescription);
       }
       
       // Update og:description
       const ogDescription = document.querySelector('meta[property="og:description"]');
       if (ogDescription) {
-        ogDescription.setAttribute('content', description);
+        ogDescription.setAttribute('content', pageDescription);
       }
       
       // Update twitter:description
       const twitterDescription = document.querySelector('meta[name="twitter:description"]');
       if (twitterDescription) {
-        twitterDescription.setAttribute('content', description);
+        twitterDescription.setAttribute('content', pageDescription);
       }
     }
     
     // Update Open Graph type
     const ogType = document.querySelector('meta[property="og:type"]');
     if (ogType) {
-      ogType.setAttribute('content', type === 'product' ? 'product' : 'website');
+      ogType.setAttribute('content', isProduct ? 'product' : 'website');
     }
     
     // Update Open Graph title
-    if (title) {
+    if (pageTitle) {
       const ogTitle = document.querySelector('meta[property="og:title"]');
       if (ogTitle) {
-        ogTitle.setAttribute('content', title);
+        ogTitle.setAttribute('content', pageTitle);
       }
       
       const twitterTitle = document.querySelector('meta[name="twitter:title"]');
       if (twitterTitle) {
-        twitterTitle.setAttribute('content', title);
+        twitterTitle.setAttribute('content', pageTitle);
       }
     }
     
@@ -111,12 +182,12 @@ export default function SEO({
     }
     
     // Add structured data for products
-    if (type === 'product' && productName && image) {
+    if (isProduct && productName && image) {
       const productData = {
         '@context': 'https://schema.org/',
         '@type': 'Product',
         name: productName,
-        description: description,
+        description: pageDescription,
         image: image.startsWith('http') ? image : window.location.origin + image,
         url: canonicalUrl
       };
@@ -132,12 +203,12 @@ export default function SEO({
     }
     
     // Add structured data for collections
-    if (type === 'collection' && collectionName && image) {
+    if (isCollection && collectionName && image) {
       const collectionData = {
         '@context': 'https://schema.org/',
         '@type': 'CollectionPage',
         name: collectionName,
-        description: description,
+        description: pageDescription,
         image: image.startsWith('http') ? image : window.location.origin + image,
         url: canonicalUrl
       };
@@ -160,7 +231,7 @@ export default function SEO({
         jsonLd.remove();
       }
     };
-  }, [title, description, image, location.pathname, type, productName, collectionName]);
+  }, [pageTitle, pageDescription, image, location.pathname, isProduct, isCollection, productName, collectionName]);
   
   // This component doesn't render anything
   return null;

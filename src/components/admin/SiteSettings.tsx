@@ -10,6 +10,9 @@ const SITE_ASSETS_BUCKET = 'site-assets';
 type SiteSettings = {
   site_name: string;
   site_description: string;
+  homepage_tagline: string;
+  seo_title: string;
+  seo_description: string;
   theme_primary_color: string;
   theme_secondary_color: string;
   theme_background_color: string;
@@ -26,6 +29,9 @@ type SiteSettings = {
 const DEFAULT_SETTINGS: SiteSettings = {
   site_name: 'store.fun',
   site_description: 'Merch Marketplace',
+  homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
+  seo_title: '',
+  seo_description: '',
   theme_primary_color: '#8b5cf6', // purple-600
   theme_secondary_color: '#4f46e5', // indigo-600
   theme_background_color: '#000000',
@@ -341,6 +347,21 @@ export function SiteSettings() {
                     Briefly describe your site for search engines and social media
                   </p>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Homepage Tagline
+                  </label>
+                  <textarea
+                    value={settings.homepage_tagline}
+                    onChange={(e) => setSettings({...settings, homepage_tagline: e.target.value})}
+                    rows={3}
+                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    A brief tagline to describe your site's purpose or theme
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -437,6 +458,36 @@ export function SiteSettings() {
             <h3 className="text-lg font-medium mb-4">SEO & Social Media</h3>
             
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  SEO Title
+                </label>
+                <input
+                  type="text"
+                  value={settings.seo_title}
+                  onChange={(e) => setSettings({...settings, seo_title: e.target.value})}
+                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Title for SEO purposes, typically 50-60 characters
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  SEO Description
+                </label>
+                <textarea
+                  value={settings.seo_description}
+                  onChange={(e) => setSettings({...settings, seo_description: e.target.value})}
+                  rows={3}
+                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Description for SEO purposes, typically 150-160 characters
+                </p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   OG Image (1200×630 recommended)

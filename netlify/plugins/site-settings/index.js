@@ -23,6 +23,9 @@ export const onPreBuild = async ({ utils }) => {
       const defaultSettings = {
         site_name: 'store.fun',
         site_description: 'Merch Marketplace',
+        homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
+        seo_title: '',
+        seo_description: '',
         theme_primary_color: '#8b5cf6',
         theme_secondary_color: '#4f46e5',
         theme_background_color: '#000000',
@@ -56,6 +59,9 @@ export const onPreBuild = async ({ utils }) => {
       const defaultSettings = {
         site_name: 'store.fun',
         site_description: 'Merch Marketplace',
+        homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
+        seo_title: '',
+        seo_description: '',
         theme_primary_color: '#8b5cf6',
         theme_secondary_color: '#4f46e5',
         theme_background_color: '#000000',
@@ -76,6 +82,9 @@ export const onPreBuild = async ({ utils }) => {
       const defaultSettings = {
         site_name: 'store.fun',
         site_description: 'Merch Marketplace',
+        homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
+        seo_title: '',
+        seo_description: '',
         theme_primary_color: '#8b5cf6',
         theme_secondary_color: '#4f46e5',
         theme_background_color: '#000000',
@@ -268,30 +277,37 @@ async function updateHtmlMetaTags(settings) {
   
   // Update title
   if (settings.site_name) {
+    // Use SEO title if available, otherwise fall back to site_name
+    const pageTitle = settings.seo_title || `${settings.site_name} | ${settings.site_description}`;
     html = html.replace(
       /<title>.*?<\/title>/,
-      `<title>${settings.site_name}</title>`
+      `<title>${pageTitle}</title>`
     );
   }
   
   // Update description
-  if (settings.site_description) {
-    // Update standard description meta
+  // SEO description takes precedence, then site_description
+  const descriptionContent = settings.seo_description || settings.site_description;
+  if (descriptionContent) {
+    // Update standard description
     html = html.replace(
       /<meta name="description" content=".*?">/,
-      `<meta name="description" content="${settings.site_description}">`
+      `<meta name="description" content="${descriptionContent}">`
     );
-    
-    // Update OG description
+  }
+  
+  // Update SEO description (if available) or fall back to site_description
+  if (descriptionContent) {
+    // Update og:description
     html = html.replace(
       /<meta property="og:description" content=".*?">/,
-      `<meta property="og:description" content="${settings.site_description}">`
+      `<meta property="og:description" content="${descriptionContent}">`
     );
     
-    // Update Twitter description
+    // Update twitter:description
     html = html.replace(
       /<meta name="twitter:description" content=".*?">/,
-      `<meta name="twitter:description" content="${settings.site_description}">`
+      `<meta name="twitter:description" content="${descriptionContent}">`
     );
   }
   
@@ -303,16 +319,17 @@ async function updateHtmlMetaTags(settings) {
       `<meta property="og:site_name" content="${settings.site_name}">`
     );
     
-    // Update OG title
+    // Update OG title with SEO title if available, otherwise use site_name
+    const ogTitle = settings.seo_title || `${settings.site_name} | ${settings.site_description}`;
     html = html.replace(
       /<meta property="og:title" content=".*?">/,
-      `<meta property="og:title" content="${settings.site_name}">`
+      `<meta property="og:title" content="${ogTitle}">`
     );
     
     // Update Twitter title
     html = html.replace(
       /<meta name="twitter:title" content=".*?">/,
-      `<meta name="twitter:title" content="${settings.site_name}">`
+      `<meta name="twitter:title" content="${ogTitle}">`
     );
     
     // Also update apple-mobile-web-app-title
@@ -320,6 +337,27 @@ async function updateHtmlMetaTags(settings) {
       /<meta name="apple-mobile-web-app-title" content=".*?">/,
       `<meta name="apple-mobile-web-app-title" content="${settings.site_name}">`
     );
+  }
+  
+  // Update homepage tagline if available (this will be used by the SEO component)
+  if (settings.homepage_tagline) {
+    // Add a custom meta tag for the homepage tagline that can be read by the SEO component
+    const homepageTaglineTag = `<meta name="homepage-tagline" content="${settings.homepage_tagline}">`;
+    
+    // Check if the tag already exists
+    if (!html.includes('name="homepage-tagline"')) {
+      // Add it before the closing head tag
+      html = html.replace(
+        /<\/head>/,
+        `  ${homepageTaglineTag}\n</head>`
+      );
+    } else {
+      // Update existing tag
+      html = html.replace(
+        /<meta name="homepage-tagline" content=".*?">/,
+        homepageTaglineTag
+      );
+    }
   }
   
   // Update theme color
