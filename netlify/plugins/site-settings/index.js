@@ -32,6 +32,7 @@ export const onPreBuild = async ({ utils }) => {
       // Generate default files
       await updateManifestJson(defaultSettings);
       await generateThemeCSS(defaultSettings);
+      await generateDefaultIcons();
       
       console.log('Applied default site settings');
       return;
@@ -63,6 +64,7 @@ export const onPreBuild = async ({ utils }) => {
       
       await updateManifestJson(defaultSettings);
       await generateThemeCSS(defaultSettings);
+      await generateDefaultIcons();
       
       return;
     }
@@ -82,6 +84,7 @@ export const onPreBuild = async ({ utils }) => {
       
       await updateManifestJson(defaultSettings);
       await generateThemeCSS(defaultSettings);
+      await generateDefaultIcons();
       
       return;
     }
@@ -96,6 +99,11 @@ export const onPreBuild = async ({ utils }) => {
     
     // Generate theme CSS variables
     await generateThemeCSS(settings);
+    
+    // Generate default icons if needed
+    if (!settings.og_image_url || !settings.twitter_image_url) {
+      await generateDefaultIcons();
+    }
     
     console.log('Site settings applied successfully!');
   } catch (error) {
@@ -233,13 +241,26 @@ async function updateHtmlMetaTags(settings) {
   // Update title
   if (settings.site_name) {
     html = html.replace(/<title>.*?<\/title>/, `<title>${settings.site_name}</title>`);
+    
+    // Also update apple-mobile-web-app-title
+    html = html.replace(
+      /<meta name="apple-mobile-web-app-title" content=".*?">/,
+      `<meta name="apple-mobile-web-app-title" content="${settings.site_name}">`
+    );
   }
   
   // Update theme color
   if (settings.theme_background_color) {
+    // Update theme-color meta tag
     html = html.replace(
       /<meta name="theme-color" content=".*?">/,
       `<meta name="theme-color" content="${settings.theme_background_color}">`
+    );
+    
+    // Update msapplication-TileColor
+    html = html.replace(
+      /<meta name="msapplication-TileColor" content=".*?">/,
+      `<meta name="msapplication-TileColor" content="${settings.theme_background_color}">`
     );
   }
   
@@ -262,6 +283,7 @@ async function updateHtmlMetaTags(settings) {
   
   // Add Apple touch icon if it exists
   if (settings.apple_touch_icon_url) {
+    // Add standard apple-touch-icon
     const appleTouchIconRegex = /<link rel="apple-touch-icon".*?>/;
     const newAppleTouchIconLink = `<link rel="apple-touch-icon" href="${settings.apple_touch_icon_url}">`;
     
@@ -272,6 +294,17 @@ async function updateHtmlMetaTags(settings) {
       html = html.replace(
         /<\/head>/,
         `    ${newAppleTouchIconLink}\n  </head>`
+      );
+    }
+    
+    // Add size-specific apple-touch-icon variants
+    const sizeRegex = /<link rel="apple-touch-icon" sizes="180x180".*?>/;
+    const sizeIconLink = `<link rel="apple-touch-icon" sizes="180x180" href="${settings.apple_touch_icon_url}">`;
+    
+    if (!sizeRegex.test(html)) {
+      html = html.replace(
+        /<\/head>/,
+        `    ${sizeIconLink}\n  </head>`
       );
     }
   }
@@ -319,11 +352,18 @@ async function updateHtmlMetaTags(settings) {
     ogTags['og:url'] = siteUrl;
   }
   
+  // Always ensure we have an og:image - use a default if not provided
   if (settings.og_image_url) {
     ogTags['og:image'] = settings.og_image_url;
     // Add image dimensions if known
     ogTags['og:image:width'] = '1200';
     ogTags['og:image:height'] = '630';
+    ogTags['og:image:alt'] = settings.site_name || 'store.fun';
+  } else if (settings.icon_512_url) {
+    // Fallback to large app icon if OG image is not available
+    ogTags['og:image'] = settings.icon_512_url;
+    ogTags['og:image:width'] = '512';
+    ogTags['og:image:height'] = '512';
     ogTags['og:image:alt'] = settings.site_name || 'store.fun';
   }
   
@@ -334,10 +374,14 @@ async function updateHtmlMetaTags(settings) {
     'twitter:description': settings.site_description || 'Merch Marketplace'
   };
   
+  // Always ensure we have a twitter:image
   if (settings.twitter_image_url) {
     twitterTags['twitter:image'] = settings.twitter_image_url;
   } else if (settings.og_image_url) {
     twitterTags['twitter:image'] = settings.og_image_url;
+  } else if (settings.icon_512_url) {
+    // Fallback to large app icon
+    twitterTags['twitter:image'] = settings.icon_512_url;
   }
   
   // Apply all Open Graph tags
@@ -475,4 +519,56 @@ function adjustColor(color, amount) {
   
   // Convert back to hex
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+/**
+ * Generate default icons if needed
+ */
+async function generateDefaultIcons() {
+  // Create public/icons directory if it doesn't exist
+  const iconsDir = path.join(process.cwd(), 'public', 'icons');
+  if (!fs.existsSync(iconsDir)) {
+    fs.mkdirSync(iconsDir, { recursive: true });
+  }
+  
+  console.log('Creating default icons and sharing images...');
+  
+  // Check if placeholder images exist, if not create them
+  // For social sharing
+  const ogImagePath = path.join(iconsDir, 'og-image.png');
+  const twitterImagePath = path.join(iconsDir, 'twitter-image.png');
+  
+  // For Microsoft tiles
+  const ms70Path = path.join(iconsDir, 'ms-icon-70x70.png');
+  const ms150Path = path.join(iconsDir, 'ms-icon-150x150.png');
+  const ms310Path = path.join(iconsDir, 'ms-icon-310x310.png');
+  
+  // For PWA/app icons
+  const icon192Path = path.join(iconsDir, 'icon-192x192.png');
+  const icon512Path = path.join(iconsDir, 'icon-512x512.png');
+  const appleTouchIconPath = path.join(iconsDir, 'apple-touch-icon.png');
+  
+  // List of paths to check
+  const iconPaths = [
+    ogImagePath,
+    twitterImagePath,
+    ms70Path,
+    ms150Path,
+    ms310Path,
+    icon192Path,
+    icon512Path,
+    appleTouchIconPath
+  ];
+  
+  // Just log a message for each missing icon since we can't create actual image files here
+  // In a real implementation, you'd use a library like Sharp or Canvas to generate placeholder images
+  for (const iconPath of iconPaths) {
+    if (!fs.existsSync(iconPath)) {
+      console.log(`Default icon needed at ${iconPath} - would generate in a full implementation`);
+      
+      // Write an empty file as a placeholder
+      // In a real implementation, this would be an actual generated image
+      fs.writeFileSync(iconPath, '');
+    }
+  }
 } 

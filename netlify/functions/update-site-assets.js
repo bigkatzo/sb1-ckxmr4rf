@@ -151,6 +151,7 @@ export async function handler(event, context) {
       APPLE_TOUCH_ICON_URL: settings.apple_touch_icon_url,
       ICON_192_URL: settings.icon_192_url,
       ICON_512_URL: settings.icon_512_url,
+      MS_TILE_IMAGE: settings.icon_512_url || settings.icon_192_url, // Use largest icon for MS tiles
       OG_IMAGE_URL: settings.og_image_url,
       TWITTER_IMAGE_URL: settings.twitter_image_url,
       SITE_URL: process.env.SITE_URL || process.env.URL || '',
