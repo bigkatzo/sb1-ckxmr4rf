@@ -111,9 +111,9 @@ function AppContent() {
     <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
       <ScrollBehavior />
       <Navbar />
-      <main className="flex-1 pt-14">
+      <main className="flex-1 pt-12">
         <NotificationsWrapper />
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4 w-full">
           <Outlet />
         </div>
       </main>
