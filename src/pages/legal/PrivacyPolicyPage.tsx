@@ -34,6 +34,33 @@ export function PrivacyPolicyPage() {
       </section>
 
       <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
+        <h2 className="text-xl font-semibold mb-4 text-blue-400">Who We Are</h2>
+        <div className="text-gray-300 mb-4">
+          <p className="mb-4">store.fun is your direct service provider. We work with Logic Group LLC as our trusted payment processing and operations partner:</p>
+          <ul className="space-y-4">
+            <li className="flex items-start">
+              <div className="text-gray-400 mr-3 mt-1">•</div>
+              <div>
+                <span className="font-semibold">Logic Group LLC:</span> A U.S.-based e-commerce operations company established in 2023, specializing in payment processing, logistics, and fulfillment services.
+              </div>
+            </li>
+            <li className="flex items-start">
+              <div className="text-gray-400 mr-3 mt-1">•</div>
+              <div>
+                <span className="font-semibold">Our relationship:</span> store.fun maintains full control over the platform experience, customer service, and product curation, while Logic Group LLC handles the behind-the-scenes payment processing and shipping logistics. This partnership allows us to offer both traditional and blockchain payment options with the highest level of security and reliability.
+              </div>
+            </li>
+            <li className="flex items-start">
+              <div className="text-gray-400 mr-3 mt-1">•</div>
+              <div>
+                <span className="font-semibold">Customer service assurance:</span> store.fun is always your first point of contact. We directly handle all support inquiries and coordinate with Logic Group LLC on payment and shipping matters to ensure prompt resolution of any issues.
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
         <h2 className="text-xl font-semibold mb-4 text-blue-400">Our Privacy Approach</h2>
         <div className="text-gray-300 mb-4">
           <p className="mb-4">store.fun implements the following privacy practices:</p>
@@ -150,18 +177,19 @@ export function PrivacyPolicyPage() {
         <div className="text-gray-300 mb-4">
           <h3 className="text-lg font-medium mb-2">5.1 Traditional Payments</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Credit card processing is managed through Stripe</li>
+            <li>Credit card processing is managed through Stripe in partnership with Logic Group LLC</li>
             <li>store.fun does not collect or store any credit card information</li>
             <li>Payment data is protected with industry-standard security measures</li>
-            <li>For payment-related inquiries, contact us at support@store.fun</li>
+            <li>For payment-related inquiries, contact us directly at support@store.fun – we'll work with our payment partner to resolve your issue promptly</li>
           </ul>
 
           <h3 className="text-lg font-medium mb-2 mt-4">5.2 Blockchain Payments</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Cryptocurrency payments are processed through the Solana blockchain</li>
+            <li>Cryptocurrency payments are processed through the Solana blockchain with a secure interface provided by store.fun</li>
             <li>store.fun provides the secure technical interface for wallet connections</li>
             <li>Transaction data is publicly visible on the blockchain</li>
             <li>We do not have access to private keys or wallet credentials</li>
+            <li>In case of any transaction issues, contact us at support@store.fun for immediate assistance</li>
           </ul>
         </div>
       </section>
@@ -356,7 +384,7 @@ export function PrivacyPolicyPage() {
             <li>Right to equal service and price</li>
           </ul>
           <p className="mt-4">
-            To exercise these rights, contact us using the information in Section 15.
+            To exercise these rights, contact us using the information in Section 17. We're committed to responding to all privacy requests within 30 days.
           </p>
         </div>
       </section>
@@ -410,6 +438,9 @@ export function PrivacyPolicyPage() {
             <li>General Support: support@store.fun</li>
             <li>Telegram: @storedotfun</li>
           </ul>
+          <p className="mt-4">
+            <strong>Response Time Commitment:</strong> We strive to respond to all privacy and data-related inquiries within 24-48 hours during business days. Your privacy concerns are our priority.
+          </p>
         </div>
       </section>
     </LegalPage>

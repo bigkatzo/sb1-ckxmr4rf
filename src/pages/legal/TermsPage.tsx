@@ -12,6 +12,35 @@ export function TermsPage() {
         </p>
       </section>
 
+      <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
+        <h2 className="text-xl font-semibold mb-4 text-blue-400">About Us - Who You're Dealing With</h2>
+        <div className="text-gray-300 mb-4">
+          <p className="mb-4">
+            store.fun works with Logic Group LLC to provide you with a seamless shopping experience that combines traditional e-commerce with Web3 technology:
+          </p>
+          <ul className="space-y-4">
+            <li className="flex items-start">
+              <div className="text-gray-400 mr-3 mt-1">•</div>
+              <div>
+                <span className="font-semibold">store.fun:</span> Your primary point of contact for all platform services. We handle the website, user interface, customer support, and product curation. For any questions or concerns, always start by contacting us at <span className="text-blue-400">support@store.fun</span>.
+              </div>
+            </li>
+            <li className="flex items-start">
+              <div className="text-gray-400 mr-3 mt-1">•</div>
+              <div>
+                <span className="font-semibold">Logic Group LLC:</span> Our payment processing and fulfillment partner established in 2023. Based in the United States, they process both traditional and cryptocurrency payments and handle shipping logistics.
+              </div>
+            </li>
+            <li className="flex items-start">
+              <div className="text-gray-400 mr-3 mt-1">•</div>
+              <div>
+                <span className="font-semibold">Our service commitment:</span> While Logic Group LLC handles the technical aspects of payments and shipping, store.fun remains your direct point of contact. We work closely with Logic Group LLC to ensure all issues are resolved quickly and efficiently.
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">2. Definitions</h2>
         <ul className="list-disc pl-6 text-gray-300 space-y-2">
@@ -22,6 +51,7 @@ export function TermsPage() {
           <li>"NFT" refers to Non-Fungible Tokens on the Solana blockchain</li>
           <li>"SOL" refers to the Solana cryptocurrency</li>
           <li>"Content" refers to all materials and information on the platform</li>
+          <li>"Logic Group LLC" refers to our payment processing and fulfillment partner</li>
         </ul>
       </section>
 
@@ -51,19 +81,19 @@ export function TermsPage() {
         <div className="text-gray-300 mb-4">
           <h3 className="text-lg font-medium mb-2">4.1 Operating Partner</h3>
           <p className="mb-4">
-            store.fun is operated by Logic Group LLC, handling payments and financial operations on the platform. For payment-related inquiries, please contact us at <a href="mailto:support@store.fun" className="text-blue-400 hover:text-blue-300">support@store.fun</a> and we'll ensure your concerns are addressed promptly.
+            store.fun is operated in partnership with Logic Group LLC, a U.S.-based e-commerce operations company established in 2023. Logic Group LLC handles payments and fulfillment operations on the platform. For payment-related inquiries, please contact us at <a href="mailto:support@store.fun" className="text-blue-400 hover:text-blue-300">support@store.fun</a> and we'll ensure your concerns are addressed promptly, working directly with Logic Group LLC when necessary.
           </p>
           <p className="mb-4">
-            store.fun is your primary point of contact for all platform services. Logic Group LLC supports us behind the scenes with payment processing and fulfillment logistics, allowing us to create the best possible experience for you.
+            store.fun is your primary point of contact for all platform services. Logic Group LLC supports us behind the scenes with payment processing and fulfillment logistics, allowing us to create the best possible experience for you. We maintain oversight of all operations to ensure quality service.
           </p>
 
           <h3 className="text-lg font-medium mb-2">4.2 Traditional Payments</h3>
           <ul className="list-disc pl-6 space-y-2">
             <li>Credit card payments are processed through Stripe on behalf of Logic Group LLC</li>
-            <li>All applicable fees and taxes will be clearly displayed</li>
+            <li>All applicable fees and taxes will be clearly displayed before checkout</li>
             <li>Prices are shown in USD</li>
-            <li>Refunds are processed through the original payment method</li>
-            <li>All payment disputes should be directed to Logic Group LLC</li>
+            <li>Refunds are processed through the original payment method, typically within 5-7 business days</li>
+            <li>All payment disputes should be directed to store.fun at support@store.fun</li>
           </ul>
 
           <h3 className="text-lg font-medium mb-2 mt-4">4.3 Blockchain Payments</h3>
@@ -74,11 +104,12 @@ export function TermsPage() {
             <div className="bg-gray-900 p-4 rounded-lg mb-4">
               <h4 className="text-blue-300 text-base font-medium mb-2">What You Should Know</h4>
               <ul className="list-disc pl-6 text-gray-300 space-y-2">
-                <li>Cryptocurrency payments are processed through the Solana blockchain and managed by Logic Group LLC</li>
-                <li>Prices are shown in SOL</li>
-                <li>You'll need to pay transaction fees (gas fees)</li>
+                <li>Cryptocurrency payments are processed through the Solana blockchain via our secure interface</li>
+                <li>Prices are shown in SOL with real-time USD equivalent values displayed</li>
+                <li>You'll need to pay transaction fees (gas fees) which are minimal on Solana</li>
                 <li>Blockchain transactions are irreversible once confirmed</li>
                 <li>Always double-check wallet addresses before confirming transactions</li>
+                <li>For any payment issues, contact support@store.fun immediately with your transaction details</li>
               </ul>
             </div>
             
@@ -89,8 +120,8 @@ export function TermsPage() {
                 <li>The platform may temporarily pause crypto payments during network congestion</li>
                 <li>Make sure your wallet is compatible with Solana blockchain</li>
                 <li>Transaction confirmation times depend on network conditions</li>
-                <li>In case of blockchain forks or upgrades, we'll choose which chain to support</li>
-                <li>We cannot be responsible for losses due to blockchain network issues</li>
+                <li>In case of blockchain forks or upgrades, we'll choose which chain to support based on community consensus and security considerations</li>
+                <li>While we implement best practices for secure transactions, blockchain networks operate independently of store.fun</li>
               </ul>
             </div>
           </div>
@@ -140,11 +171,21 @@ export function TermsPage() {
           <p className="mb-4">All returns, refunds, and related customer service are handled by store.fun:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>Products are made to order and generally non-returnable as per store.fun's policies</li>
-            <li>Defective items will be replaced or refunded by store.fun</li>
-            <li>Claims must be submitted to store.fun with photographic evidence</li>
-            <li>Refunds will be processed by store.fun in the original payment method</li>
-            <li>Shipping costs refund policies are determined by store.fun</li>
+            <li>Defective items will be replaced or refunded by store.fun - we stand behind our products' quality</li>
+            <li>Claims must be submitted to store.fun with photographic evidence within 14 days of delivery</li>
+            <li>Refunds will be processed by store.fun in the original payment method:</li>
+            <ul className="list-disc pl-6 space-y-2 mt-2 ml-2">
+              <li>Credit card refunds typically take 5-7 business days to appear on your statement</li>
+              <li>SOL refunds will be calculated based on the USD value at time of purchase, sent to your original wallet address</li>
+            </ul>
+            <li>For urgent refund inquiries, contact us at support@store.fun with your order number</li>
           </ul>
+          <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-700/30 mt-4">
+            <h4 className="text-blue-300 text-base font-medium mb-2">Our Quality Promise</h4>
+            <p className="text-gray-300">
+              While our products are made to order, we're committed to your satisfaction. If you're not happy with your purchase due to quality issues, we'll work with you to make it right through replacement, refund, or store credit.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -164,6 +205,7 @@ export function TermsPage() {
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">9. Prohibited Activities</h2>
         <div className="text-gray-300 mb-4">
+          <p className="mb-2">You agree not to:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>Use the platform for any illegal purpose</li>
             <li>Attempt to gain unauthorized access</li>
@@ -172,6 +214,8 @@ export function TermsPage() {
             <li>Engage in fraudulent activities</li>
             <li>Scrape or harvest data</li>
             <li>Impersonate others</li>
+            <li>Manipulate blockchain transactions</li>
+            <li>Create multiple accounts to abuse promotions or token-gated access</li>
           </ul>
         </div>
       </section>
@@ -191,6 +235,12 @@ export function TermsPage() {
             <li>Technical malfunctions of the platform interface</li>
           </ul>
           <p className="mt-4">For all matters related to payments, orders, shipping, and customer service, please contact us at support@store.fun and we'll be happy to assist you.</p>
+          <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-700/30 mt-4">
+            <h4 className="text-blue-300 text-base font-medium mb-2">Our Support Commitment</h4>
+            <p className="text-gray-300">
+              While the above limitations are necessary legal protections, we're committed to providing excellent customer service. If you experience any issues with our platform, payments, or products, we'll work diligently to help resolve them in a fair and timely manner.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -311,21 +361,28 @@ export function TermsPage() {
           <div>
             <h3 className="text-lg font-medium mb-2 text-blue-300">Who handles my payment and shipping?</h3>
             <p className="text-gray-300">
-              store.fun handles all aspects of your shopping experience, including payment processing and shipping operations. We're your direct point of contact for any questions or concerns, and you can always reach us at support@store.fun for assistance.
+              store.fun handles all aspects of your shopping experience, with payment processing and shipping logistics supported by our partner, Logic Group LLC. We're your direct point of contact for any questions or concerns, and you can always reach us at support@store.fun for assistance.
             </p>
           </div>
           
           <div>
             <h3 className="text-lg font-medium mb-2 text-blue-300">Is my wallet safe when connecting to store.fun?</h3>
             <p className="text-gray-300">
-              Yes! We only request limited permissions to verify ownership and process transactions. We never access your private keys or request permissions to move funds without your explicit approval for each transaction.
+              Yes! We only request limited permissions to verify ownership and process transactions. We never access your private keys or request permissions to move funds without your explicit approval for each transaction. We implement industry best practices for wallet connectivity and transaction security.
             </p>
           </div>
           
           <div>
             <h3 className="text-lg font-medium mb-2 text-blue-300">What happens if there's a problem with my order?</h3>
             <p className="text-gray-300">
-              We're here to help! Contact us at support@store.fun with details about your order issue, and we'll work with our operations team to resolve it quickly. If you receive a defective item, please include photos of the issue to help us process a replacement or refund.
+              We're here to help! Contact us at support@store.fun with details about your order issue, and we'll work with our operations team to resolve it quickly. If you receive a defective item, please include photos of the issue to help us process a replacement or refund. We aim to respond to all support inquiries within 24 hours.
+            </p>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-2 text-blue-300">How do refunds work with cryptocurrency payments?</h3>
+            <p className="text-gray-300">
+              For cryptocurrency refunds, we calculate the refund based on the USD value of your purchase at the time it was made, not the current market value of SOL. Refunds are sent to the same wallet address that made the original purchase. This helps protect you from cryptocurrency price fluctuations during the refund process.
             </p>
           </div>
           
@@ -349,6 +406,9 @@ export function TermsPage() {
             <li>General Support: support@store.fun</li>
             <li>Telegram: @storedotfun</li>
           </ul>
+          <p className="mt-4">
+            <strong>Response Time Commitment:</strong> We strive to respond to all inquiries within 24-48 hours during business days. Your questions and concerns are important to us.
+          </p>
         </div>
       </section>
     </LegalPage>
