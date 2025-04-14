@@ -32,6 +32,11 @@
   to = "/.netlify/functions/update-site-assets"
   status = 200
 
+[[redirects]]
+  from = "/api/upload-site-asset"
+  to = "/.netlify/functions/upload-site-asset"
+  status = 200
+
 # Handle SPA routing
 [[redirects]]
   from = "/*"

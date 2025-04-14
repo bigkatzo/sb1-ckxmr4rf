@@ -177,62 +177,57 @@ export function SiteSettings() {
       const fileExt = file.name.substring(file.name.lastIndexOf('.'));
       const fileName = `${fileType.replace('_url', '')}-${Date.now()}${fileExt}`;
       
-      // Try to directly upload the file - don't attempt to create bucket from frontend
-      const { error: uploadError } = await supabase.storage
-        .from(SITE_ASSETS_BUCKET)
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
-      
-      if (uploadError) {
-        console.error('Error uploading file:', uploadError);
+      // Use the serverless function to upload with admin privileges
+      if (session?.access_token) {
+        // Read the file as base64
+        const fileReader = new FileReader();
+        fileReader.readAsDataURL(file);
         
-        // Special handling for row-level security errors
-        if (uploadError.message?.includes('bucket not found') || 
-            uploadError.message?.includes('violates row-level security policy')) {
-          toast.error('Storage bucket needs to be configured by an administrator. Please contact support.');
-          
-          // Try to call the serverless function to create the bucket with admin privileges
+        fileReader.onload = async () => {
           try {
-            if (session?.access_token) {
-              toast.info('Attempting to configure storage bucket...');
-              
-              const response = await fetch('/api/update-site-assets', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session.access_token}`
-                }
-              });
-              
-              if (response.ok) {
-                toast.success('Storage configured successfully. Please try uploading again.');
-              } else {
-                toast.error('Failed to configure storage. Please contact an administrator.');
-              }
+            const fileBase64 = fileReader.result as string;
+            
+            const response = await fetch('/api/upload-site-asset', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({
+                fileBase64,
+                fileName,
+                contentType: file.type
+              })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+              console.error('Error uploading file via function:', result);
+              toast.error(`Failed to upload file: ${result.error || result.message || 'Unknown error'}`);
+              return;
             }
-          } catch (e) {
-            console.error('Error calling update-site-assets:', e);
+            
+            // Update the settings with the new URL
+            setSettings({
+              ...settings,
+              [fileType]: result.url
+            });
+            
+            toast.success(`${fileType.replace('_url', '').replace(/_/g, ' ')} uploaded successfully`);
+          } catch (err) {
+            console.error('Error in file upload process:', err);
+            toast.error('Failed to process file upload');
           }
-        } else {
-          toast.error(`Failed to upload file: ${uploadError.message}`);
-        }
-        return;
+        };
+        
+        fileReader.onerror = () => {
+          console.error('Error reading file');
+          toast.error('Error reading file');
+        };
+      } else {
+        toast.error('You need to be logged in to upload files');
       }
-      
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from(SITE_ASSETS_BUCKET)
-        .getPublicUrl(fileName);
-      
-      // Update the settings with the new URL
-      setSettings({
-        ...settings,
-        [fileType]: publicUrl
-      });
-      
-      toast.success(`${fileType.replace('_url', '').replace(/_/g, ' ')} uploaded successfully`);
     } catch (err) {
       console.error('Unexpected error:', err);
       toast.error('An unexpected error occurred');
