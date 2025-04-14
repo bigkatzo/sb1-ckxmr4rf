@@ -1,3 +1,2 @@
 name: site-settings
-inputs: []
-description: Plugin to apply site settings from the admin dashboard during build 
+inputs: [] 
