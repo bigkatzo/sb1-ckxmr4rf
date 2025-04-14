@@ -152,57 +152,77 @@ async function updateManifestJson(settings) {
     }
   ];
   
-  // Add icons if they exist
-  // 192x192 icon - standard PWA icon size
-  if (settings.icon_192_url) {
-    manifest.icons.push({
-      src: settings.icon_192_url,
-      sizes: '192x192',
-      type: 'image/png',
-      purpose: 'any maskable'
-    });
-  } else {
-    // Add default icon
-    manifest.icons.push({
-      src: '/icons/icon-192x192.png',
-      sizes: '192x192',
-      type: 'image/png',
-      purpose: 'any maskable'
-    });
-  }
+  // Add comprehensive icon set based on uploaded assets or fallbacks
   
-  // 512x512 icon - larger size for high-res devices
-  if (settings.icon_512_url) {
-    manifest.icons.push({
-      src: settings.icon_512_url,
-      sizes: '512x512',
-      type: 'image/png',
-      purpose: 'any maskable'
-    });
-  } else {
-    // Add default icon
-    manifest.icons.push({
-      src: '/icons/icon-512x512.png',
-      sizes: '512x512',
-      type: 'image/png',
-      purpose: 'any maskable'
-    });
-  }
+  // Standard sizes array to define all icons we need
+  const iconSizes = [
+    // Standard PWA icons
+    { size: '192x192', purpose: 'any' },
+    { size: '512x512', purpose: 'any' },
+    
+    // Maskable icons (better on Android)
+    { size: '192x192', purpose: 'maskable' },
+    { size: '512x512', purpose: 'maskable' },
+    
+    // Additional standard sizes
+    { size: '48x48', purpose: 'any' },
+    { size: '72x72', purpose: 'any' },
+    { size: '96x96', purpose: 'any' },
+    { size: '128x128', purpose: 'any' },
+    { size: '144x144', purpose: 'any' },
+    { size: '152x152', purpose: 'any' },
+    { size: '384x384', purpose: 'any' },
+    
+    // Special sizes for crypto wallets
+    { size: '196x196', purpose: 'any' }
+  ];
   
-  // Add favicon as a smaller icon if available
-  if (settings.favicon_url && !settings.favicon_url.endsWith('.svg') && !settings.favicon_url.endsWith('.ico')) {
-    manifest.icons.push({
-      src: settings.favicon_url,
-      sizes: '48x48',
-      type: 'image/png',
-      purpose: 'any'
-    });
-  }
+  // Map of custom icon URLs from settings
+  const iconUrlMap = {
+    '16x16': settings.favicon_url,
+    '32x32': settings.favicon_url,
+    '48x48': settings.favicon_url,
+    '96x96': settings.favicon_url,
+    '128x128': settings.icon_192_url, // Downscaled from 192
+    '144x144': settings.icon_192_url, // Downscaled from 192
+    '152x152': settings.apple_touch_icon_url || settings.icon_192_url,
+    '192x192': settings.icon_192_url,
+    '196x196': settings.icon_192_url, // For crypto wallets
+    '384x384': settings.icon_512_url, // Downscaled from 512
+    '512x512': settings.icon_512_url
+  };
   
-  // Add apple touch icon if available
+  // Generate the complete icons array for the manifest
+  iconSizes.forEach(({ size, purpose }) => {
+    const dimensions = size.split('x')[0]; // Get first number (assuming square)
+    
+    // Source URL - either from uploaded assets or fallback to local
+    const sourceUrl = iconUrlMap[size] || `/icons/icon-${size}.png`;
+    
+    // For maskable icons use the maskable version if we're generating locally
+    const finalUrl = purpose === 'maskable' && !iconUrlMap[size] 
+      ? `/icons/maskable-${size}.png` 
+      : sourceUrl;
+    
+    manifest.icons.push({
+      src: finalUrl,
+      sizes: size,
+      type: 'image/png',
+      purpose: purpose
+    });
+  });
+  
+  // Add apple touch icon separately if available
   if (settings.apple_touch_icon_url) {
     manifest.icons.push({
       src: settings.apple_touch_icon_url,
+      sizes: '180x180',
+      type: 'image/png',
+      purpose: 'any'
+    });
+  } else {
+    manifest.icons.push({
+      src: '/icons/apple-touch-icon.png',
       sizes: '180x180',
       type: 'image/png',
       purpose: 'any'
@@ -214,6 +234,12 @@ async function updateManifestJson(settings) {
   manifest.scope = '/';
   manifest.prefer_related_applications = false;
   
+  // Add crypto wallet related settings
+  manifest.crypto = {
+    payment_handler_origin: process.env.SITE_URL || process.env.URL || '',
+    supported_chains: ["solana"] // Add other supported chains as needed
+  };
+  
   // Use any custom manifest settings that might have been set
   if (settings.manifest_json) {
     Object.assign(manifest, settings.manifest_json);
@@ -221,7 +247,10 @@ async function updateManifestJson(settings) {
   
   // Write manifest file
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-  console.log('Updated manifest.json');
+  console.log('Updated manifest.json with comprehensive icon coverage');
+
+  // Also create a separate browserconfig.xml for Microsoft tiles
+  await createBrowserConfig(settings);
 }
 
 /**
@@ -446,7 +475,7 @@ async function updateHtmlMetaTags(settings) {
 }
 
 /**
- * Create browserconfig.xml file for Microsoft tiles
+ * Create a comprehensive browserconfig.xml file for Microsoft tiles
  */
 async function createBrowserConfig(settings) {
   const publicDir = path.join(process.cwd(), 'public');
@@ -455,25 +484,39 @@ async function createBrowserConfig(settings) {
   }
   
   const browserConfigPath = path.join(publicDir, 'browserconfig.xml');
-  console.log(`Creating browserconfig.xml at ${browserConfigPath}`);
+  console.log(`Creating comprehensive browserconfig.xml at ${browserConfigPath}`);
   
-  // Use MS tile image if available, or fall back to icon_512_url or icon_192_url
-  const tileImage = settings.ms_tile_image || settings.icon_512_url || settings.icon_192_url || '/icons/ms-icon-150x150.png';
+  // Source URLs for Microsoft tiles - use uploaded images or fall back to local files
+  const tileImages = {
+    square70x70logo: settings.favicon_url || '/icons/ms-icon-70x70.png',
+    square150x150logo: settings.icon_192_url || '/icons/ms-icon-150x150.png',
+    square310x310logo: settings.icon_512_url || '/icons/ms-icon-310x310.png',
+    wide310x150logo: settings.icon_512_url || '/icons/ms-icon-310x310.png',
+    TileImage: settings.icon_192_url || '/icons/ms-icon-144x144.png'
+  };
   
+  // Configure browser config with all possible tile options
   const browserConfig = `<?xml version="1.0" encoding="utf-8"?>
 <browserconfig>
   <msapplication>
     <tile>
-      <square70x70logo src="${tileImage}"/>
-      <square150x150logo src="${tileImage}"/>
-      <square310x310logo src="${tileImage}"/>
+      <square70x70logo src="${tileImages.square70x70logo}"/>
+      <square150x150logo src="${tileImages.square150x150logo}"/>
+      <square310x310logo src="${tileImages.square310x310logo}"/>
+      <wide310x150logo src="${tileImages.wide310x150logo}"/>
+      <TileImage src="${tileImages.TileImage}"/>
       <TileColor>${settings.theme_background_color || '#000000'}</TileColor>
     </tile>
+    <notification>
+      <polling-uri src="${process.env.SITE_URL || ''}"/>
+      <frequency>30</frequency>
+      <cycle>1</cycle>
+    </notification>
   </msapplication>
 </browserconfig>`;
   
   fs.writeFileSync(browserConfigPath, browserConfig);
-  console.log('Created browserconfig.xml');
+  console.log('Created comprehensive browserconfig.xml');
 }
 
 /**
