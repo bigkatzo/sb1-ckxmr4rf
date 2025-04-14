@@ -53,6 +53,24 @@ export function ReturnsAndFAQPage() {
       )
     },
     {
+      title: "Afraid of Doxxing?",
+      content: (
+        <div className="space-y-4">
+          <p className="text-gray-300">
+            We take your privacy seriously:
+          </p>
+          <ul className="list-disc pl-6 space-y-2 text-gray-300">
+            <li>Your personal contact information and shipping address are collected solely for delivery purposes</li>
+            <li>This information is only shared with shipping carriers - nothing more</li>
+            <li>Shipping providers have no access to your wallet address, transaction details, or any blockchain information</li>
+            <li>Your blockchain activity and wallet address remain completely separate from your shipping details</li>
+            <li>We maintain strict separation between your Web3 identity and your physical shipping information</li>
+            <li>Your on-chain activity remains disconnected from your personal details</li>
+          </ul>
+        </div>
+      )
+    },
+    {
       title: "Shipping Policy",
       content: (
         <div className="space-y-4">
