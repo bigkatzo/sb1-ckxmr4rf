@@ -1,57 +1,55 @@
-const fs = require('fs');
-const path = require('path');
-const { createClient } = require('@supabase/supabase-js');
+import fs from 'fs';
+import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
 // Define the plugin
-module.exports = {
-  onPreBuild: async ({ utils }) => {
-    console.log('Starting Site Settings Plugin');
+export const onPreBuild = async ({ utils }) => {
+  console.log('Starting Site Settings Plugin');
+  
+  try {
+    // Initialize Supabase client with service role key
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    try {
-      // Initialize Supabase client with service role key
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        return utils.build.failBuild('Missing Supabase environment variables');
-      }
-      
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      
-      // Fetch site settings
-      const { data: settings, error: settingsError } = await supabase
-        .from('site_settings')
-        .select('*')
-        .eq('id', 1)
-        .single();
-      
-      if (settingsError) {
-        console.warn('Error fetching site settings:', settingsError);
-        console.log('Continuing with default settings');
-        return;
-      }
-      
-      if (!settings) {
-        console.log('No site settings found. Using defaults.');
-        return;
-      }
-      
-      console.log('Found site settings, updating files...');
-      
-      // Update manifest.json
-      await updateManifestJson(settings);
-      
-      // Update HTML meta tags
-      await updateHtmlMetaTags(settings);
-      
-      // Generate theme CSS variables
-      await generateThemeCSS(settings);
-      
-      console.log('Site settings applied successfully!');
-    } catch (error) {
-      console.error('Error in site settings plugin:', error);
-      utils.build.failBuild(`Site settings plugin error: ${error.message}`);
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return utils.build.failBuild('Missing Supabase environment variables');
     }
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Fetch site settings
+    const { data: settings, error: settingsError } = await supabase
+      .from('site_settings')
+      .select('*')
+      .eq('id', 1)
+      .single();
+    
+    if (settingsError) {
+      console.warn('Error fetching site settings:', settingsError);
+      console.log('Continuing with default settings');
+      return;
+    }
+    
+    if (!settings) {
+      console.log('No site settings found. Using defaults.');
+      return;
+    }
+    
+    console.log('Found site settings, updating files...');
+    
+    // Update manifest.json
+    await updateManifestJson(settings);
+    
+    // Update HTML meta tags
+    await updateHtmlMetaTags(settings);
+    
+    // Generate theme CSS variables
+    await generateThemeCSS(settings);
+    
+    console.log('Site settings applied successfully!');
+  } catch (error) {
+    console.error('Error in site settings plugin:', error);
+    utils.build.failBuild(`Site settings plugin error: ${error.message}`);
   }
 };
 
