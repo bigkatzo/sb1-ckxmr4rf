@@ -4,6 +4,9 @@ import { toast } from 'react-toastify';
 import { Upload, Palette, Share2, PenSquare, Save, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
+// Constants
+const SITE_ASSETS_BUCKET = 'site-assets';
+
 type SiteSettings = {
   site_name: string;
   site_description: string;
@@ -170,27 +173,51 @@ export function SiteSettings() {
     if (!file) return;
     
     try {
-      // Upload to Supabase Storage
-      const fileName = `site-assets/${fileType.replace('_url', '')}`;
-      const filePath = `${fileName}-${Date.now()}${file.name.substring(file.name.lastIndexOf('.'))}`;
+      // Create a unique filename
+      const fileExt = file.name.substring(file.name.lastIndexOf('.'));
+      const fileName = `${fileType.replace('_url', '')}-${Date.now()}${fileExt}`;
       
+      // Check if the bucket exists, create if needed
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(bucket => bucket.name === SITE_ASSETS_BUCKET);
+      
+      if (!bucketExists) {
+        // Try to create the bucket, but this may fail if user doesn't have permissions
+        try {
+          const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
+            public: true
+          });
+          
+          if (createError) {
+            console.error('Error creating bucket:', createError);
+            toast.error('Storage bucket not configured. Please contact an administrator.');
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to create bucket:', err);
+          toast.error('Storage bucket not configured. Please contact an administrator.');
+          return;
+        }
+      }
+      
+      // Upload to Supabase Storage
       const { error } = await supabase.storage
-        .from('public')
-        .upload(filePath, file, {
+        .from(SITE_ASSETS_BUCKET)
+        .upload(fileName, file, {
           cacheControl: '3600',
           upsert: true
         });
       
       if (error) {
         console.error('Error uploading file:', error);
-        toast.error('Failed to upload file');
+        toast.error(`Failed to upload file: ${error.message}`);
         return;
       }
       
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('public')
-        .getPublicUrl(filePath);
+        .from(SITE_ASSETS_BUCKET)
+        .getPublicUrl(fileName);
       
       // Update the settings with the new URL
       setSettings({

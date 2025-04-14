@@ -9,6 +9,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Netlify API for build hooks
 const NETLIFY_BUILD_HOOK = process.env.NETLIFY_BUILD_HOOK;
 
+// Constants
+const SITE_ASSETS_BUCKET = 'site-assets';
+
 /**
  * Netlify function to update site assets based on admin settings
  * This function updates the manifest.json file and triggers a rebuild
@@ -64,9 +67,43 @@ export async function handler(event, context) {
     // Generate the manifest.json content
     const manifestContent = generateManifestJson(settings);
     
+    // Ensure the site-assets bucket exists
+    try {
+      // Check if bucket exists
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(bucket => bucket.name === SITE_ASSETS_BUCKET);
+      
+      if (!bucketExists) {
+        // Create the bucket
+        const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
+          public: true
+        });
+        
+        if (createError) {
+          console.error('Error creating bucket:', createError);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({
+              error: 'Failed to create site-assets bucket',
+              details: createError
+            })
+          };
+        }
+      }
+    } catch (bucketError) {
+      console.error('Error checking/creating bucket:', bucketError);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'Failed to check/create site-assets bucket',
+          details: bucketError.message
+        })
+      };
+    }
+    
     // Store the manifest.json in Supabase Storage for access during build
     const { error: uploadError } = await supabase.storage
-      .from('site-assets')
+      .from(SITE_ASSETS_BUCKET)
       .upload('manifest.json', 
         new Blob([JSON.stringify(manifestContent, null, 2)], { type: 'application/json' }),
         { upsert: true }
