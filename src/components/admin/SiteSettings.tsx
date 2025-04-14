@@ -177,40 +177,47 @@ export function SiteSettings() {
       const fileExt = file.name.substring(file.name.lastIndexOf('.'));
       const fileName = `${fileType.replace('_url', '')}-${Date.now()}${fileExt}`;
       
-      // Check if the bucket exists, create if needed
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const bucketExists = buckets?.some(bucket => bucket.name === SITE_ASSETS_BUCKET);
-      
-      if (!bucketExists) {
-        // Try to create the bucket, but this may fail if user doesn't have permissions
-        try {
-          const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
-            public: true
-          });
-          
-          if (createError) {
-            console.error('Error creating bucket:', createError);
-            toast.error('Storage bucket not configured. Please contact an administrator.');
-            return;
-          }
-        } catch (err) {
-          console.error('Failed to create bucket:', err);
-          toast.error('Storage bucket not configured. Please contact an administrator.');
-          return;
-        }
-      }
-      
-      // Upload to Supabase Storage
-      const { error } = await supabase.storage
+      // Try to directly upload the file - don't attempt to create bucket from frontend
+      const { error: uploadError } = await supabase.storage
         .from(SITE_ASSETS_BUCKET)
         .upload(fileName, file, {
           cacheControl: '3600',
           upsert: true
         });
       
-      if (error) {
-        console.error('Error uploading file:', error);
-        toast.error(`Failed to upload file: ${error.message}`);
+      if (uploadError) {
+        console.error('Error uploading file:', uploadError);
+        
+        // Special handling for row-level security errors
+        if (uploadError.message?.includes('bucket not found') || 
+            uploadError.message?.includes('violates row-level security policy')) {
+          toast.error('Storage bucket needs to be configured by an administrator. Please contact support.');
+          
+          // Try to call the serverless function to create the bucket with admin privileges
+          try {
+            if (session?.access_token) {
+              toast.info('Attempting to configure storage bucket...');
+              
+              const response = await fetch('/api/update-site-assets', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`
+                }
+              });
+              
+              if (response.ok) {
+                toast.success('Storage configured successfully. Please try uploading again.');
+              } else {
+                toast.error('Failed to configure storage. Please contact an administrator.');
+              }
+            }
+          } catch (e) {
+            console.error('Error calling update-site-assets:', e);
+          }
+        } else {
+          toast.error(`Failed to upload file: ${uploadError.message}`);
+        }
         return;
       }
       
