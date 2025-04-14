@@ -7,9 +7,9 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# Register site settings plugin
+# Register site settings plugin with explicit path
 [[plugins]]
-  package = "./netlify/plugins/site-settings"
+  package = "netlify/plugins/site-settings"
 
 # Global function configuration - simpler approach
 [functions]
