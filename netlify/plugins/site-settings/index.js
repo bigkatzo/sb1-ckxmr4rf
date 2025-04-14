@@ -225,27 +225,66 @@ async function updateManifestJson(settings) {
 }
 
 /**
- * Update HTML meta tags in index.html
+ * Update HTML meta tags and links with settings
  */
 async function updateHtmlMetaTags(settings) {
   const indexPath = path.join(process.cwd(), 'index.html');
-  console.log(`Updating meta tags in ${indexPath}`);
-  console.log('Settings for sharing images:');
-  console.log(`- OG image: ${settings.og_image_url || 'not set'}`);
-  console.log(`- Twitter image: ${settings.twitter_image_url || 'not set'}`);
-  console.log(`- Icon 512: ${settings.icon_512_url || 'not set'}`);
-  console.log(`- Site URL: ${process.env.SITE_URL || process.env.URL || 'not set'}`);
-  
   if (!fs.existsSync(indexPath)) {
-    console.warn(`${indexPath} not found, skipping meta tag updates`);
+    console.log('index.html not found, skipping meta tag updates');
     return;
   }
   
+  console.log(`Updating meta tags in ${indexPath}`);
   let html = fs.readFileSync(indexPath, 'utf8');
   
   // Update title
   if (settings.site_name) {
-    html = html.replace(/<title>.*?<\/title>/, `<title>${settings.site_name}</title>`);
+    html = html.replace(
+      /<title>.*?<\/title>/,
+      `<title>${settings.site_name}</title>`
+    );
+  }
+  
+  // Update description
+  if (settings.site_description) {
+    // Update standard description meta
+    html = html.replace(
+      /<meta name="description" content=".*?">/,
+      `<meta name="description" content="${settings.site_description}">`
+    );
+    
+    // Update OG description
+    html = html.replace(
+      /<meta property="og:description" content=".*?">/,
+      `<meta property="og:description" content="${settings.site_description}">`
+    );
+    
+    // Update Twitter description
+    html = html.replace(
+      /<meta name="twitter:description" content=".*?">/,
+      `<meta name="twitter:description" content="${settings.site_description}">`
+    );
+  }
+  
+  // Update site name
+  if (settings.site_name) {
+    // Update OG site name
+    html = html.replace(
+      /<meta property="og:site_name" content=".*?">/,
+      `<meta property="og:site_name" content="${settings.site_name}">`
+    );
+    
+    // Update OG title
+    html = html.replace(
+      /<meta property="og:title" content=".*?">/,
+      `<meta property="og:title" content="${settings.site_name}">`
+    );
+    
+    // Update Twitter title
+    html = html.replace(
+      /<meta name="twitter:title" content=".*?">/,
+      `<meta name="twitter:title" content="${settings.site_name}">`
+    );
     
     // Also update apple-mobile-web-app-title
     html = html.replace(
@@ -269,214 +308,111 @@ async function updateHtmlMetaTags(settings) {
     );
   }
   
-  // Update favicon
+  // Clear out all existing icon references and replace with the ones from Supabase
+  // Create a new head section with all the correct URLs
+  const headStart = html.indexOf('<head>') + 6;
+  const headEnd = html.indexOf('</head>');
+  let headContent = html.substring(headStart, headEnd);
+  
+  // Replace all favicon and icon links
+  // Remove all existing icon links
+  headContent = headContent.replace(/<link rel="icon".*?>/g, '');
+  headContent = headContent.replace(/<link rel="apple-touch-icon".*?>/g, '');
+  headContent = headContent.replace(/<link rel="mask-icon".*?>/g, '');
+  
+  // Add back the ones from settings
+  let newIconLinks = '';
+  
+  // Add favicon
   if (settings.favicon_url) {
-    // Replace the existing favicon link
-    const faviconRegex = /<link rel="icon".*?>/;
-    const newFaviconLink = `<link rel="icon" href="${settings.favicon_url}">`;
+    console.log(`Setting favicon URL: ${settings.favicon_url}`);
     
-    if (faviconRegex.test(html)) {
-      html = html.replace(faviconRegex, newFaviconLink);
+    if (settings.favicon_url.endsWith('.svg')) {
+      newIconLinks += `\n    <link rel="icon" href="${settings.favicon_url}" type="image/svg+xml">`;
+      newIconLinks += `\n    <link rel="mask-icon" href="${settings.favicon_url}" color="${settings.theme_primary_color || '#8b5cf6'}">`;
+    } else if (settings.favicon_url.endsWith('.ico')) {
+      newIconLinks += `\n    <link rel="icon" href="${settings.favicon_url}" type="image/x-icon">`;
     } else {
-      // If no favicon link exists, add it after charset meta
-      html = html.replace(
-        /<meta charset=".*?">/,
-        `<meta charset="UTF-8">\n    ${newFaviconLink}`
-      );
+      // Assume PNG/JPG
+      newIconLinks += `\n    <link rel="icon" href="${settings.favicon_url}">`;
+      newIconLinks += `\n    <link rel="icon" type="image/png" sizes="32x32" href="${settings.favicon_url}">`;
+      newIconLinks += `\n    <link rel="icon" type="image/png" sizes="16x16" href="${settings.favicon_url}">`;
     }
+  } else {
+    // Use default emoji favicon
+    newIconLinks += `\n    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">`;
   }
   
-  // Add Apple touch icon if it exists
+  // Add Apple Touch Icon
   if (settings.apple_touch_icon_url) {
-    // Add standard apple-touch-icon
-    const appleTouchIconRegex = /<link rel="apple-touch-icon".*?>/;
-    const newAppleTouchIconLink = `<link rel="apple-touch-icon" href="${settings.apple_touch_icon_url}">`;
-    
-    if (appleTouchIconRegex.test(html)) {
-      html = html.replace(appleTouchIconRegex, newAppleTouchIconLink);
-    } else {
-      // If no apple touch icon exists, add it before the closing head tag
-      html = html.replace(
-        /<\/head>/,
-        `    ${newAppleTouchIconLink}\n  </head>`
-      );
-    }
-    
-    // Add size-specific apple-touch-icon variants
-    const sizeRegex = /<link rel="apple-touch-icon" sizes="180x180".*?>/;
-    const sizeIconLink = `<link rel="apple-touch-icon" sizes="180x180" href="${settings.apple_touch_icon_url}">`;
-    
-    if (!sizeRegex.test(html)) {
-      html = html.replace(
-        /<\/head>/,
-        `    ${sizeIconLink}\n  </head>`
-      );
-    }
+    console.log(`Setting Apple Touch Icon URL: ${settings.apple_touch_icon_url}`);
+    newIconLinks += `\n    <link rel="apple-touch-icon" href="${settings.apple_touch_icon_url}">`;
+    newIconLinks += `\n    <link rel="apple-touch-icon" sizes="180x180" href="${settings.apple_touch_icon_url}">`;
   }
   
-  // Add meta description
-  if (settings.site_description) {
-    const descriptionRegex = /<meta name="description".*?>/;
-    const newDescription = `<meta name="description" content="${settings.site_description}">`;
-    
-    if (descriptionRegex.test(html)) {
-      html = html.replace(descriptionRegex, newDescription);
-    } else {
-      // If no description meta exists, add it before the closing head tag
-      html = html.replace(
-        /<\/head>/,
-        `    ${newDescription}\n  </head>`
-      );
-    }
-  }
+  // Insert all new icon links after meta charset
+  const metaCharsetEndIndex = headContent.indexOf('>') + 1;
+  headContent = headContent.substring(0, metaCharsetEndIndex) + newIconLinks + headContent.substring(metaCharsetEndIndex);
   
-  // Add canonical URL meta tag
-  const canonicalRegex = /<link rel="canonical".*?>/;
-  const siteUrl = process.env.SITE_URL || process.env.URL || '';
-  if (siteUrl) {
-    const newCanonical = `<link rel="canonical" href="${siteUrl}">`;
-    if (canonicalRegex.test(html)) {
-      html = html.replace(canonicalRegex, newCanonical);
-    } else {
-      html = html.replace(
-        /<\/head>/,
-        `    ${newCanonical}\n  </head>`
-      );
-    }
-  }
-  
-  // Add Open Graph meta tags
-  const ogTags = {
-    'og:title': settings.site_name || 'store.fun',
-    'og:description': settings.site_description || 'Merch Marketplace',
-    'og:type': 'website',
-    'og:site_name': settings.site_name || 'store.fun'
-  };
-  
-  if (siteUrl) {
-    ogTags['og:url'] = siteUrl;
-  }
-  
-  // Handle image URLs - always use the actual full URLs
-  console.log('Checking available OG image source:', settings.og_image_url);
-  
-  // Always ensure we have an og:image with absolute URL
+  // Update OG images
   if (settings.og_image_url) {
-    // Make sure the URL is absolute
-    ogTags['og:image'] = settings.og_image_url;
-    // Add image dimensions if known
-    ogTags['og:image:width'] = '1200';
-    ogTags['og:image:height'] = '630';
-    ogTags['og:image:alt'] = settings.site_name || 'store.fun';
-    
-    // Log the absolute URL for debugging
-    console.log(`Using OG image: ${ogTags['og:image']}`);
-  } else if (settings.icon_512_url) {
-    // Fallback to large app icon if OG image is not available
-    ogTags['og:image'] = settings.icon_512_url;
-    ogTags['og:image:width'] = '512';
-    ogTags['og:image:height'] = '512';
-    ogTags['og:image:alt'] = settings.site_name || 'store.fun';
-    
-    // Log the fallback image
-    console.log(`Using fallback OG image (icon): ${ogTags['og:image']}`);
-  }
-  
-  // Add Twitter card meta tags
-  const twitterTags = {
-    'twitter:card': 'summary_large_image',
-    'twitter:title': settings.site_name || 'store.fun',
-    'twitter:description': settings.site_description || 'Merch Marketplace'
-  };
-  
-  console.log('Checking available Twitter image source:', settings.twitter_image_url);
-  
-  // Always ensure we have a twitter:image with absolute URL
-  if (settings.twitter_image_url) {
-    twitterTags['twitter:image'] = settings.twitter_image_url;
-    console.log(`Using Twitter image: ${twitterTags['twitter:image']}`);
-  } else if (settings.og_image_url) {
-    twitterTags['twitter:image'] = settings.og_image_url;
-    console.log(`Using OG image for Twitter: ${twitterTags['twitter:image']}`);
-  } else if (settings.icon_512_url) {
-    // Fallback to large app icon
-    twitterTags['twitter:image'] = settings.icon_512_url;
-    console.log(`Using fallback Twitter image (icon): ${twitterTags['twitter:image']}`);
-  }
-  
-  // Apply all Open Graph tags
-  let ogTagsHtml = '';
-  for (const [property, content] of Object.entries(ogTags)) {
-    // Special handling for og:image since it may have an empty content attribute in the template
-    if (property === 'og:image') {
-      const emptyTagRegex = /<meta property="og:image" content="".*?>/i;
-      const tagRegex = /<meta property="og:image" content=".*?".*?>/i;
-      const newTag = `<meta property="og:image" content="${content}">`;
-      
-      if (emptyTagRegex.test(html)) {
-        html = html.replace(emptyTagRegex, newTag);
-        console.log(`Replaced empty og:image with: ${content}`);
-      } else if (tagRegex.test(html)) {
-        html = html.replace(tagRegex, newTag);
-        console.log(`Replaced existing og:image with: ${content}`);
-      } else {
-        ogTagsHtml += `    ${newTag}\n`;
-      }
-    } else {
-      // Handle other Open Graph tags
-      const tagRegex = new RegExp(`<meta property="${property}".*?>`, 'i');
-      const newTag = `<meta property="${property}" content="${content}">`;
-      
-      if (tagRegex.test(html)) {
-        html = html.replace(tagRegex, newTag);
-      } else {
-        ogTagsHtml += `    ${newTag}\n`;
-      }
-    }
-  }
-  
-  // Apply all Twitter tags
-  let twitterTagsHtml = '';
-  for (const [name, content] of Object.entries(twitterTags)) {
-    // Special handling for twitter:image
-    if (name === 'twitter:image') {
-      const emptyTagRegex = /<meta name="twitter:image" content="".*?>/i;
-      const tagRegex = /<meta name="twitter:image" content=".*?".*?>/i;
-      const newTag = `<meta name="twitter:image" content="${content}">`;
-      
-      if (emptyTagRegex.test(html)) {
-        html = html.replace(emptyTagRegex, newTag);
-        console.log(`Replaced empty twitter:image with: ${content}`);
-      } else if (tagRegex.test(html)) {
-        html = html.replace(tagRegex, newTag);
-        console.log(`Replaced existing twitter:image with: ${content}`);
-      } else {
-        twitterTagsHtml += `    ${newTag}\n`;
-      }
-    } else {
-      // Handle other Twitter tags
-      const tagRegex = new RegExp(`<meta name="${name}".*?>`, 'i');
-      const newTag = `<meta name="${name}" content="${content}">`;
-      
-      if (tagRegex.test(html)) {
-        html = html.replace(tagRegex, newTag);
-      } else {
-        twitterTagsHtml += `    ${newTag}\n`;
-      }
-    }
-  }
-  
-  // Add all new tags before closing head
-  if (ogTagsHtml || twitterTagsHtml) {
-    html = html.replace(
-      /<\/head>/,
-      `${ogTagsHtml}${twitterTagsHtml}  </head>`
+    console.log(`Setting OG image: ${settings.og_image_url}`);
+    headContent = headContent.replace(
+      /<meta property="og:image" content=".*?">/,
+      `<meta property="og:image" content="${settings.og_image_url}">`
     );
   }
   
+  // Update Twitter images
+  if (settings.twitter_image_url) {
+    console.log(`Setting Twitter image: ${settings.twitter_image_url}`);
+    headContent = headContent.replace(
+      /<meta name="twitter:image" content=".*?">/,
+      `<meta name="twitter:image" content="${settings.twitter_image_url}">`
+    );
+  }
+  
+  // Create new HTML with updated head
+  const newHtml = html.substring(0, headStart) + headContent + html.substring(headEnd);
+  
   // Write the updated HTML
-  fs.writeFileSync(indexPath, html);
-  console.log('Updated index.html meta tags');
+  fs.writeFileSync(indexPath, newHtml);
+  
+  console.log('Updated index.html with settings');
+  
+  // Also create browserconfig.xml for Microsoft tiles
+  await createBrowserConfig(settings);
+}
+
+/**
+ * Create browserconfig.xml file for Microsoft tiles
+ */
+async function createBrowserConfig(settings) {
+  const publicDir = path.join(process.cwd(), 'public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+  
+  const browserConfigPath = path.join(publicDir, 'browserconfig.xml');
+  console.log(`Creating browserconfig.xml at ${browserConfigPath}`);
+  
+  // Use MS tile image if available, or fall back to icon_512_url or icon_192_url
+  const tileImage = settings.ms_tile_image || settings.icon_512_url || settings.icon_192_url || '/icons/ms-icon-150x150.png';
+  
+  const browserConfig = `<?xml version="1.0" encoding="utf-8"?>
+<browserconfig>
+  <msapplication>
+    <tile>
+      <square70x70logo src="${tileImage}"/>
+      <square150x150logo src="${tileImage}"/>
+      <square310x310logo src="${tileImage}"/>
+      <TileColor>${settings.theme_background_color || '#000000'}</TileColor>
+    </tile>
+  </msapplication>
+</browserconfig>`;
+  
+  fs.writeFileSync(browserConfigPath, browserConfig);
+  console.log('Created browserconfig.xml');
 }
 
 /**

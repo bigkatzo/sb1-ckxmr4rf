@@ -253,6 +253,9 @@ function generateManifestJson(settings) {
   // Add icons if they exist
   // 192x192 icon - standard PWA icon size
   if (settings.icon_192_url) {
+    // Log the actual URL being used
+    console.log(`Using icon_192_url: ${settings.icon_192_url}`);
+    
     manifest.icons.push({
       src: settings.icon_192_url,
       sizes: '192x192',
@@ -263,6 +266,9 @@ function generateManifestJson(settings) {
 
   // 512x512 icon - larger size for high-res devices
   if (settings.icon_512_url) {
+    // Log the actual URL being used
+    console.log(`Using icon_512_url: ${settings.icon_512_url}`);
+    
     manifest.icons.push({
       src: settings.icon_512_url,
       sizes: '512x512',
@@ -273,6 +279,9 @@ function generateManifestJson(settings) {
   
   // Add favicon as a smaller icon if available
   if (settings.favicon_url && !settings.favicon_url.endsWith('.svg') && !settings.favicon_url.endsWith('.ico')) {
+    // Log the actual URL being used
+    console.log(`Using favicon_url for manifest: ${settings.favicon_url}`);
+    
     manifest.icons.push({
       src: settings.favicon_url,
       sizes: '48x48',
@@ -283,6 +292,9 @@ function generateManifestJson(settings) {
   
   // Add apple touch icon if available
   if (settings.apple_touch_icon_url) {
+    // Log the actual URL being used
+    console.log(`Using apple_touch_icon_url: ${settings.apple_touch_icon_url}`);
+    
     manifest.icons.push({
       src: settings.apple_touch_icon_url,
       sizes: '180x180',
