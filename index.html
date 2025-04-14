@@ -40,6 +40,49 @@
     <!-- This image URL will be dynamically replaced during build -->
     <meta name="twitter:image" content="" />
     <title>store.fun</title>
+    <!-- Debug script for admin only -->
+    <script>
+      // This will show the actual icon URLs for debugging purposes
+      // Only visible to site admins (check URL includes /admin)
+      document.addEventListener('DOMContentLoaded', function() {
+        if (window.location.pathname.includes('/admin')) {
+          var debugDiv = document.createElement('div');
+          debugDiv.style.position = 'fixed';
+          debugDiv.style.bottom = '0';
+          debugDiv.style.left = '0';
+          debugDiv.style.right = '0';
+          debugDiv.style.background = 'rgba(0,0,0,0.8)';
+          debugDiv.style.color = 'white';
+          debugDiv.style.padding = '10px';
+          debugDiv.style.fontSize = '12px';
+          debugDiv.style.zIndex = '9999';
+          debugDiv.style.maxHeight = '200px';
+          debugDiv.style.overflow = 'auto';
+          
+          var iconInfo = '<h3>Icon URLs Currently Used:</h3><ul>';
+          
+          // Get all icon links
+          document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"], link[rel="mask-icon"]').forEach(function(link) {
+            iconInfo += '<li><strong>' + link.getAttribute('rel') + '</strong>: ' + link.getAttribute('href') + '</li>';
+          });
+          
+          // Get manifest
+          iconInfo += '<li><strong>manifest.json</strong>: ' + document.querySelector('link[rel="manifest"]').getAttribute('href') + '</li>';
+          
+          // Get meta images
+          document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]').forEach(function(meta) {
+            var prop = meta.getAttribute('property') || meta.getAttribute('name');
+            iconInfo += '<li><strong>' + prop + '</strong>: ' + meta.getAttribute('content') + '</li>';
+          });
+          
+          iconInfo += '</ul><p>If these are still showing local paths (/icons/...) instead of Supabase URLs, your site settings are not being applied.</p>';
+          iconInfo += '<button onclick="this.parentNode.style.display=\'none\'" style="padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>';
+          
+          debugDiv.innerHTML = iconInfo;
+          document.body.appendChild(debugDiv);
+        }
+      });
+    </script>
   </head>
   <body>
     <div id="root" class="bg-gray-950"></div>

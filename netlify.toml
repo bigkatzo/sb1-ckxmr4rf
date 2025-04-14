@@ -309,4 +309,30 @@
   for = "/api/version"
   [headers.values]
     Cache-Control = "no-store, no-cache, must-revalidate"
-    Pragma = "no-cache" 
+    Pragma = "no-cache"
+
+# Add proper cache control headers for icons
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+    
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+    
+[[headers]]
+  for = "/*.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+    
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+    
+[[headers]]
+  for = "/browserconfig.xml"
+  [headers.values]
+    Cache-Control = "public, max-age=3600" 
