@@ -5,6 +5,13 @@ export function PrivacyPolicyPage() {
     <LegalPage title="Privacy Policy">
       <p className="text-gray-400 mb-6">Last updated: {new Date().toLocaleDateString()}</p>
 
+      <section className="bg-blue-900/30 p-6 rounded-lg mb-8 border border-blue-700 shadow-lg">
+        <h2 className="text-xl font-semibold mb-4 text-blue-400">Afraid of Doxxing?</h2>
+        <p className="text-gray-300 mb-4">
+          We take your privacy seriously. Your personal contact information and shipping address are collected solely for delivery purposes and are only shared with shipping carriers - nothing more. These shipping providers have no access to your wallet address, transaction details, or any blockchain information. Similarly, your blockchain activity and wallet address are completely separate from your shipping details. We maintain strict separation between your Web3 identity and your physical shipping information, ensuring that your on-chain activity remains disconnected from your personal details.
+        </p>
+      </section>
+
       <section className="bg-gray-800 p-6 rounded-lg mb-8 border border-gray-700">
         <h2 className="text-xl font-semibold mb-4 text-blue-400">Privacy at a Glance</h2>
         <p className="text-gray-300 mb-4">Your privacy matters to us. Here's our approach in simple terms:</p>
@@ -13,8 +20,9 @@ export function PrivacyPolicyPage() {
           <li><span className="font-semibold text-green-400">✓</span> We never sell your personal information</li>
           <li><span className="font-semibold text-green-400">✓</span> We use robust security measures to protect your data</li>
           <li><span className="font-semibold text-green-400">✓</span> Your wallet's private keys remain under your control</li>
-          <li><span className="font-semibold text-green-400">✓</span> We're your primary point of contact for all support needs</li>
+          <li><span className="font-semibold text-green-400">✓</span> We maintain strict separation between your Web3 identity and shipping details</li>
           <li><span className="font-semibold text-green-400">✓</span> Your shipping and contact information is shared only with shipping carriers and only for delivery purposes</li>
+          <li><span className="font-semibold text-green-400">✓</span> Shipping providers have no access to your blockchain data or wallet address</li>
           <li><span className="font-semibold text-yellow-400">!</span> Public wallet addresses and blockchain transactions are visible on-chain</li>
         </ul>
         <p className="text-gray-400 mt-4 text-sm italic">This summary gives you the highlights. The full policy below provides all the details you need.</p>
@@ -27,6 +35,9 @@ export function PrivacyPolicyPage() {
         </p>
         <p className="text-gray-300 mb-4">
           We understand that privacy concerns can be heightened when using blockchain technology. That's why we've designed our platform with privacy at its core – giving you control over your information while enjoying a seamless shopping experience that bridges traditional e-commerce with Web3.
+        </p>
+        <p className="text-gray-300 mb-4">
+          We maintain a strict separation between your Web3 identity and your physical shipping information. Your on-chain activity and wallet address remain completely disconnected from your personal details, protecting you from potential doxxing concerns.
         </p>
         <p className="text-gray-300 mb-4">
           As your primary service provider, we're committed to protecting your privacy every step of the way. If you have questions at any point, our team is here to help at <span className="text-blue-400">support@store.fun</span>.
@@ -47,7 +58,7 @@ export function PrivacyPolicyPage() {
             <li className="flex items-start">
               <div className="text-gray-400 mr-3 mt-1">•</div>
               <div>
-                <span className="font-semibold">Data segregation:</span> We separate on-chain blockchain data from personal information to enhance privacy while maintaining necessary functionality.
+                <span className="font-semibold">Data segregation:</span> We separate on-chain blockchain data from personal information to enhance privacy while maintaining necessary functionality. Your shipping details are never linked to your blockchain identity.
               </div>
             </li>
             <li className="flex items-start">
@@ -60,6 +71,12 @@ export function PrivacyPolicyPage() {
               <div className="text-gray-400 mr-3 mt-1">•</div>
               <div>
                 <span className="font-semibold">Blockchain-specific security:</span> We utilize specialized security protocols designed for the unique requirements of blockchain commerce.
+              </div>
+            </li>
+            <li className="flex items-start">
+              <div className="text-gray-400 mr-3 mt-1">•</div>
+              <div>
+                <span className="font-semibold">Protection from doxxing:</span> We implement strict barriers between your Web3 identity and shipping information. Shipping carriers never see your wallet address or transaction data.
               </div>
             </li>
           </ul>
@@ -98,8 +115,8 @@ export function PrivacyPolicyPage() {
             <li>Order history and preferences</li>
             <li>Technical usage data</li>
           </ul>
-          <p className="mt-4">
-            <strong>Important:</strong> Your shipping address and personal contact information are collected solely for the purpose of providing this information to shipping carriers to facilitate delivery of your orders. This information is never used for marketing, sold to third parties, or used for any purpose other than order fulfillment and shipping.
+          <p className="mt-4 bg-blue-900/30 p-4 rounded-lg border border-blue-700">
+            <strong className="text-blue-400">Anti-Doxxing Protection:</strong> Your shipping address and personal contact information are collected solely for the purpose of providing this information to shipping carriers to facilitate delivery of your orders. This information is never used for marketing, sold to third parties, or used for any purpose other than order fulfillment and shipping. Most importantly, we maintain complete separation between your shipping details and your blockchain identity, ensuring your Web3 activity cannot be linked to your physical address.
           </p>
 
           <h3 className="text-lg font-medium mb-2 mt-4">3.2 Blockchain Data</h3>
@@ -113,6 +130,9 @@ export function PrivacyPolicyPage() {
             <li>Historical token transactions relevant to platform functionality</li>
             <li>On-chain verification data to confirm ownership and eligibility for special offers</li>
           </ul>
+          <p className="mt-4 bg-blue-900/30 p-4 rounded-lg border border-blue-700">
+            <strong className="text-blue-400">Privacy Protection:</strong> Your blockchain data and wallet address are completely separate from your shipping details. Shipping providers have no access to your wallet address, transaction details, or any blockchain information.
+          </p>
 
           <h3 className="text-lg font-medium mb-2 mt-4">3.3 Technical Information</h3>
           <ul className="list-disc pl-6 space-y-2">
@@ -181,6 +201,12 @@ export function PrivacyPolicyPage() {
         <p className="text-gray-300 mt-4">
           We strictly limit the sharing of your personal information to what is necessary for the specific purpose. Your shipping and contact details are only shared with shipping carriers to complete deliveries and are never sold, rented, or shared for marketing or any other purposes.
         </p>
+        <div className="bg-blue-900/30 p-4 rounded-lg border border-blue-700 mt-4">
+          <h3 className="text-lg font-medium mb-2 text-blue-400">Protection Against Doxxing</h3>
+          <p className="text-gray-300">
+            We maintain strict separation between your Web3 identity and your physical shipping information. Shipping providers only receive the information necessary to deliver your package and have no access to your wallet address, transaction details, or any blockchain information. Similarly, your blockchain activity remains completely disconnected from your personal details. This strict separation ensures that your on-chain activity cannot be linked to your physical identity.
+          </p>
+        </div>
       </section>
 
       <section className="mb-8">
@@ -231,6 +257,13 @@ export function PrivacyPolicyPage() {
           </p>
           <p className="text-gray-300 ml-7">
             We understand that trust is earned. That's why we regularly conduct security audits and keep our security measures up to date with evolving threats. We're committed to maintaining the highest standards of data protection to safeguard your information. Your trust is our priority, and we're here to address any concerns you may have about your data security.
+          </p>
+        </div>
+        
+        <div className="bg-blue-900/30 p-4 rounded-lg border border-blue-700 mt-6">
+          <h3 className="text-lg font-medium mb-2 text-blue-400">Data Segregation for Privacy</h3>
+          <p className="text-gray-300">
+            Our system architecture is specifically designed to maintain strict separation between your Web3 identity and your shipping information. We utilize separate databases with robust access controls to ensure that your blockchain activity cannot be linked to your physical address or personal details. This technical segregation protects against potential doxxing and ensures your privacy across both traditional and blockchain environments.
           </p>
         </div>
         
