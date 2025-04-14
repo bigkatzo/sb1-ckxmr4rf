@@ -46,7 +46,7 @@ export function HomePage() {
   const seoTitle = `${siteSettings.site_name} | ${siteSettings.site_description}`;
 
   return (
-    <div className="space-y-8 sm:space-y-12 scroll-smooth">
+    <div className="space-y-6 sm:space-y-10 scroll-smooth">
       {/* Default SEO for homepage */}
       <SEO 
         title={seoTitle}
