@@ -11,13 +11,11 @@
 [[plugins]]
   package = "./netlify/plugins/site-settings"
 
-# Edge Functions configuration
-[edge_functions]
-  bundle = true
-
+# Edge Function settings - correctly formatted per Netlify docs
+# https://docs.netlify.com/edge-functions/declarations/
 [[edge_functions]]
-  path = "/*"
   function = "dynamic-meta"
+  path = "/*"
 
 # Global function configuration - simpler approach
 [functions]
