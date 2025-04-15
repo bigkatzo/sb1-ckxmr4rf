@@ -1,6 +1,7 @@
 import sharp from 'sharp';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 // Define all sizes needed for comprehensive icon coverage
 const sizes = [
@@ -53,8 +54,8 @@ async function generateIcons() {
     const svgBuffer = await fs.readFile(inputSvg);
     
     // Ensure output directory exists
-    if (!fs.existsSync(outputDir)) {
-      await fs.mkdir(outputDir, { recursive: true });
+    if (!existsSync(outputDir)) {
+      mkdirSync(outputDir, { recursive: true });
     }
     
     // Generate each size

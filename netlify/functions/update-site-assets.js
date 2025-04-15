@@ -158,6 +158,17 @@ export async function handler(event, context) {
       MANIFEST_JSON: manifestContent
     };
     
+    // Log the exact manifestContent being stored to debug issues with icon URLs
+    console.log('=== manifest.json icons stored in build_metadata: ===');
+    if (manifestContent && manifestContent.icons) {
+      manifestContent.icons.forEach((icon, index) => {
+        console.log(`Icon ${index}:`, JSON.stringify(icon));
+      });
+    } else {
+      console.log('No icons in manifestContent!');
+    }
+    console.log('=======================================');
+    
     // Debug log to check actual image URLs
     console.log('=== Metadata image URLs being used: ===');
     console.log(`OG Image: ${metaSettings.OG_IMAGE_URL || 'NOT SET'}`);
@@ -257,17 +268,29 @@ function generateManifestJson(settings) {
     }
   ];
 
-  // Add icons if they exist
-  // 192x192 icon - standard PWA icon size
+  // Check if we have Supabase uploaded icons - if so, always prefer those
+  const hasCustomIcons = !!(settings.icon_192_url || settings.icon_512_url);
+  console.log(`Has custom icons uploaded to Supabase: ${hasCustomIcons}`);
+
+  // Add icons if they exist, starting with Supabase custom uploaded ones
   if (settings.icon_192_url) {
     // Log the actual URL being used
     console.log(`Using icon_192_url: ${settings.icon_192_url}`);
     
+    // Add regular version
     manifest.icons.push({
       src: settings.icon_192_url,
       sizes: '192x192',
       type: 'image/png',
-      purpose: 'any maskable'
+      purpose: 'any'
+    });
+    
+    // Add maskable version (same URL but different purpose)
+    manifest.icons.push({
+      src: settings.icon_192_url,
+      sizes: '192x192',
+      type: 'image/png',
+      purpose: 'maskable'
     });
   }
 
@@ -276,24 +299,20 @@ function generateManifestJson(settings) {
     // Log the actual URL being used
     console.log(`Using icon_512_url: ${settings.icon_512_url}`);
     
+    // Add regular version
     manifest.icons.push({
       src: settings.icon_512_url,
       sizes: '512x512',
       type: 'image/png',
-      purpose: 'any maskable'
-    });
-  }
-  
-  // Add favicon as a smaller icon if available
-  if (settings.favicon_url && !settings.favicon_url.endsWith('.svg') && !settings.favicon_url.endsWith('.ico')) {
-    // Log the actual URL being used
-    console.log(`Using favicon_url for manifest: ${settings.favicon_url}`);
-    
-    manifest.icons.push({
-      src: settings.favicon_url,
-      sizes: '48x48',
-      type: 'image/png',
       purpose: 'any'
+    });
+    
+    // Add maskable version (same URL but different purpose)
+    manifest.icons.push({
+      src: settings.icon_512_url,
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'maskable'
     });
   }
   
@@ -305,6 +324,19 @@ function generateManifestJson(settings) {
     manifest.icons.push({
       src: settings.apple_touch_icon_url,
       sizes: '180x180',
+      type: 'image/png',
+      purpose: 'any'
+    });
+  }
+  
+  // Add favicon as a smaller icon if available
+  if (settings.favicon_url && !settings.favicon_url.endsWith('.svg') && !settings.favicon_url.endsWith('.ico')) {
+    // Log the actual URL being used
+    console.log(`Using favicon_url for manifest: ${settings.favicon_url}`);
+    
+    manifest.icons.push({
+      src: settings.favicon_url,
+      sizes: '48x48',
       type: 'image/png',
       purpose: 'any'
     });

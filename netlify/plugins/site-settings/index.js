@@ -48,132 +48,154 @@ export const onPreBuild = async ({ utils }) => {
     // if the storage bucket creation failed in the Netlify function
     let buildMetadata = null;
     try {
+      console.log('Attempting to fetch build metadata from Supabase...');
       const { data: metaData, error: metaError } = await supabase
         .from('build_metadata')
         .select('data')
         .eq('id', 'site-settings')
         .single();
-        
+      
+      console.log('Raw metaData response:', JSON.stringify(metaData));
+      
+      if (metaError) {
+        console.warn('Error fetching build metadata:', metaError);
+      }
+      
       if (!metaError && metaData?.data) {
         console.log('Found build metadata, using it for site settings');
         buildMetadata = metaData.data;
+        
+        // DEBUG: Log the manifest JSON from metadata
+        if (buildMetadata.MANIFEST_JSON) {
+          console.log('MANIFEST_JSON exists in build_metadata with icons:');
+          console.log(JSON.stringify(buildMetadata.MANIFEST_JSON.icons, null, 2));
+        } else {
+          console.warn('MANIFEST_JSON is missing from build_metadata');
+        }
       }
     } catch (metaError) {
-      console.warn('Error fetching build metadata:', metaError);
+      console.warn('Exception fetching build metadata:', metaError);
     }
     
-    // Fetch site settings
-    const { data: settings, error: settingsError } = await supabase
-      .from('site_settings')
-      .select('*')
-      .eq('id', 1)
-      .single();
-    
-    if (settingsError) {
-      console.warn('Error fetching site settings:', settingsError);
+    // Try to get site settings from Supabase
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('*')
+        .eq('id', 1)
+        .single();
       
-      // If we have build metadata, try to use that instead
-      if (buildMetadata) {
-        console.log('Using build metadata as fallback for site settings');
+      if (error) {
+        console.warn('Error fetching site settings from Supabase:', error);
         
-        const fallbackSettings = {
-          site_name: buildMetadata.SITE_NAME || 'store.fun',
-          site_description: buildMetadata.SITE_DESCRIPTION || 'Merch Marketplace',
-          homepage_tagline: buildMetadata.HOMEPAGE_TAGLINE || 'Discover and shop unique merchandise collections at store.fun',
-          seo_title: buildMetadata.SEO_TITLE || '',
-          seo_description: buildMetadata.SEO_DESCRIPTION || '',
-          theme_primary_color: buildMetadata.THEME_PRIMARY_COLOR || '#8b5cf6',
-          theme_secondary_color: buildMetadata.THEME_SECONDARY_COLOR || '#4f46e5',
-          theme_background_color: buildMetadata.THEME_COLOR || '#000000',
-          theme_text_color: buildMetadata.THEME_TEXT_COLOR || '#ffffff',
-          favicon_url: buildMetadata.FAVICON_URL,
-          apple_touch_icon_url: buildMetadata.APPLE_TOUCH_ICON_URL,
-          icon_192_url: buildMetadata.ICON_192_URL,
-          icon_512_url: buildMetadata.ICON_512_URL,
-          og_image_url: buildMetadata.OG_IMAGE_URL,
-          twitter_image_url: buildMetadata.TWITTER_IMAGE_URL
-        };
-        
-        // If we have a manifest JSON in the build metadata, use that directly
-        const manifestFromMetadata = buildMetadata.MANIFEST_JSON;
-        
-        await updateManifestJson(fallbackSettings, manifestFromMetadata);
-        await updateHtmlMetaTags(fallbackSettings);
-        await generateThemeCSS(fallbackSettings);
-        
-        console.log('Applied site settings from build metadata');
-        return;
+        // If we have build metadata, use that as a fallback for site settings
+        if (buildMetadata) {
+          console.log('Using build metadata as fallback for site settings');
+          
+          const fallbackSettings = {
+            site_name: buildMetadata.SITE_NAME || 'store.fun',
+            site_description: buildMetadata.SITE_DESCRIPTION || 'Merch Marketplace',
+            homepage_tagline: buildMetadata.HOMEPAGE_TAGLINE || 'Discover and shop unique merchandise collections at store.fun',
+            seo_title: buildMetadata.SEO_TITLE || '',
+            seo_description: buildMetadata.SEO_DESCRIPTION || '',
+            theme_primary_color: buildMetadata.THEME_PRIMARY_COLOR || '#8b5cf6',
+            theme_secondary_color: buildMetadata.THEME_SECONDARY_COLOR || '#4f46e5',
+            theme_background_color: buildMetadata.THEME_COLOR || '#000000',
+            theme_text_color: buildMetadata.THEME_TEXT_COLOR || '#ffffff',
+            favicon_url: buildMetadata.FAVICON_URL,
+            apple_touch_icon_url: buildMetadata.APPLE_TOUCH_ICON_URL,
+            icon_192_url: buildMetadata.ICON_192_URL,
+            icon_512_url: buildMetadata.ICON_512_URL,
+            og_image_url: buildMetadata.OG_IMAGE_URL,
+            twitter_image_url: buildMetadata.TWITTER_IMAGE_URL
+          };
+          
+          // If we have a manifest JSON in the build metadata, use that directly
+          const manifestFromMetadata = buildMetadata.MANIFEST_JSON;
+          
+          console.log('Using manifestFromMetadata from buildMetadata fallback:', 
+            manifestFromMetadata ? 'YES' : 'NO');
+          
+          await updateManifestJson(fallbackSettings, manifestFromMetadata);
+          await updateHtmlMetaTags(fallbackSettings);
+          await generateThemeCSS(fallbackSettings);
+          
+          console.log('Applied site settings from build metadata');
+          return;
+        }
       }
       
       console.log('Continuing with default settings');
       
-      // Apply default settings
-      const defaultSettings = {
-        site_name: 'store.fun',
-        site_description: 'Merch Marketplace',
-        homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
-        seo_title: '',
-        seo_description: '',
-        theme_primary_color: '#8b5cf6',
-        theme_secondary_color: '#4f46e5',
-        theme_background_color: '#000000',
-        theme_text_color: '#ffffff'
-      };
-      
-      await updateManifestJson(defaultSettings);
-      await generateThemeCSS(defaultSettings);
-      await generateDefaultIcons();
-      
-      return;
+      // If we have settings, update manifest.json, CSS, and HTML
+      if (data) {
+        const settings = {
+          site_name: data.site_name || 'store.fun',
+          site_description: data.site_description || 'Merch Marketplace',
+          homepage_tagline: data.homepage_tagline || '',
+          seo_title: data.seo_title || '',
+          seo_description: data.seo_description || '',
+          theme_primary_color: data.theme_primary_color || '#8b5cf6',
+          theme_secondary_color: data.theme_secondary_color || '#4f46e5',
+          theme_background_color: data.theme_background_color || '#000000',
+          theme_text_color: data.theme_text_color || '#ffffff',
+          favicon_url: data.favicon_url || '',
+          apple_touch_icon_url: data.apple_touch_icon_url || '',
+          icon_192_url: data.icon_192_url || '',
+          icon_512_url: data.icon_512_url || '',
+          og_image_url: data.og_image_url || '',
+          twitter_image_url: data.twitter_image_url || '',
+          manifest_json: data.manifest_json || null
+        };
+        
+        console.log('Site settings from database:');
+        console.log('name:', settings.site_name);
+        console.log('favicon_url:', settings.favicon_url);
+        console.log('icon_192_url:', settings.icon_192_url);
+        console.log('icon_512_url:', settings.icon_512_url);
+        
+        // If we have build metadata with a manifest JSON, pass it to updateManifestJson
+        const manifestFromMetadata = buildMetadata?.MANIFEST_JSON;
+        
+        console.log('Using manifestFromMetadata from buildMetadata?', 
+          manifestFromMetadata ? 'YES' : 'NO');
+          
+        // Update manifest.json
+        await updateManifestJson(settings, manifestFromMetadata);
+        
+        // Update HTML meta tags
+        await updateHtmlMetaTags(settings);
+        
+        // Generate theme CSS variables
+        await generateThemeCSS(settings);
+        
+        console.log('Applied site settings from Supabase');
+      } else {
+        console.log('No site settings found, using defaults');
+        
+        const defaultSettings = {
+          site_name: 'store.fun',
+          site_description: 'Merch Marketplace',
+          homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
+          theme_primary_color: '#8b5cf6',
+          theme_secondary_color: '#4f46e5',
+          theme_background_color: '#000000',
+          theme_text_color: '#ffffff'
+        };
+        
+        await updateManifestJson(defaultSettings);
+        await generateThemeCSS(defaultSettings);
+        await generateDefaultIcons();
+        
+        console.log('Applied default site settings');
+      }
+    } catch (error) {
+      console.error('Error setting up site settings:', error);
+      utils.build.failBuild('Failed to apply site settings', { error });
     }
-    
-    if (!settings) {
-      console.log('No site settings found. Using defaults.');
-      
-      // Apply default settings
-      const defaultSettings = {
-        site_name: 'store.fun',
-        site_description: 'Merch Marketplace',
-        homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
-        seo_title: '',
-        seo_description: '',
-        theme_primary_color: '#8b5cf6',
-        theme_secondary_color: '#4f46e5',
-        theme_background_color: '#000000',
-        theme_text_color: '#ffffff'
-      };
-      
-      await updateManifestJson(defaultSettings);
-      await generateThemeCSS(defaultSettings);
-      await generateDefaultIcons();
-      
-      return;
-    }
-    
-    console.log('Found site settings, updating files...');
-    
-    // If we have build metadata with a manifest JSON, pass it to updateManifestJson
-    const manifestFromMetadata = buildMetadata?.MANIFEST_JSON;
-    
-    // Update manifest.json
-    await updateManifestJson(settings, manifestFromMetadata);
-    
-    // Update HTML meta tags
-    await updateHtmlMetaTags(settings);
-    
-    // Generate theme CSS variables
-    await generateThemeCSS(settings);
-    
-    // Generate default icons if needed
-    if (!settings.og_image_url || !settings.twitter_image_url) {
-      await generateDefaultIcons();
-    }
-    
-    console.log('Site settings applied successfully!');
   } catch (error) {
     console.error('Error in site settings plugin:', error);
-    // Don't fail the build, just log the error
-    console.log('Continuing with build despite site settings error');
+    utils.build.failBuild('Failed to run site settings plugin', { error });
   }
 };
 
@@ -190,15 +212,54 @@ async function updateManifestJson(settings, manifestFromMetadata = null) {
   const manifestPath = path.join(publicDir, 'manifest.json');
   console.log(`Updating manifest.json at ${manifestPath}`);
   
-  // If we have a full manifest from metadata, use it directly
+  // DEBUG: Log what we're getting for manifestFromMetadata
+  console.log('DEBUG manifestFromMetadata:');
+  console.log('Type:', typeof manifestFromMetadata);
+  console.log('Is null?', manifestFromMetadata === null);
   if (manifestFromMetadata) {
-    console.log('Using manifest from build metadata');
-    fs.writeFileSync(manifestPath, JSON.stringify(manifestFromMetadata, null, 2));
-    console.log('Updated manifest.json from build metadata');
+    console.log('Has icons?', Array.isArray(manifestFromMetadata.icons));
+    if (Array.isArray(manifestFromMetadata.icons)) {
+      console.log('First icon src:', manifestFromMetadata.icons[0]?.src);
+    }
+  }
+  
+  // If we have a full manifest from metadata, verify it has Supabase URLs before using it
+  if (manifestFromMetadata) {
+    console.log('Found manifest from build metadata');
     
-    // Still create browserconfig.xml
-    await createBrowserConfig(settings);
-    return;
+    // Check if it has proper icon URLs (not local paths)
+    let hasProperUrls = true;
+    let containsLocalPaths = false;
+    
+    if (manifestFromMetadata.icons && Array.isArray(manifestFromMetadata.icons)) {
+      for (const icon of manifestFromMetadata.icons) {
+        if (icon.src && typeof icon.src === 'string') {
+          // Check if this is a local path by looking for "/icons/" prefix
+          if (icon.src.startsWith('/icons/')) {
+            console.log(`Found local path in manifest: ${icon.src}`);
+            containsLocalPaths = true;
+          } else if (icon.src.includes('supabase.co') || icon.src.includes('supabase.in')) {
+            console.log(`Found Supabase URL in manifest: ${icon.src}`);
+          }
+        }
+      }
+    } else {
+      console.log('Manifest has no icons array or it is invalid');
+      hasProperUrls = false;
+    }
+    
+    // Only use the manifest from metadata if it doesn't contain local paths or has at least one Supabase URL
+    if (hasProperUrls && !containsLocalPaths) {
+      console.log('Using manifest from build metadata (has proper URLs)');
+      fs.writeFileSync(manifestPath, JSON.stringify(manifestFromMetadata, null, 2));
+      console.log('Updated manifest.json from build metadata');
+      
+      // Still create browserconfig.xml
+      await createBrowserConfig(settings);
+      return;
+    } else {
+      console.log('Not using manifest from metadata because it contains local paths or is missing proper URLs');
+    }
   }
   
   // Otherwise create manifest content
@@ -271,13 +332,31 @@ async function updateManifestJson(settings, manifestFromMetadata = null) {
   iconSizes.forEach(({ size, purpose }) => {
     const dimensions = size.split('x')[0]; // Get first number (assuming square)
     
-    // Source URL - either from uploaded assets or fallback to local
-    const sourceUrl = iconUrlMap[size] || `/icons/icon-${size}.png`;
+    // Check if we have this size from uploaded assets
+    const uploadedUrl = iconUrlMap[size];
+    
+    // If we have a custom uploaded URL for this size, always use it
+    if (uploadedUrl) {
+      console.log(`Using CUSTOM Supabase URL for ${size} icon: ${uploadedUrl}`);
+      manifest.icons.push({
+        src: uploadedUrl,
+        sizes: size,
+        type: 'image/png',
+        purpose: purpose
+      });
+      return; // Skip to next iteration
+    }
+    
+    // Otherwise use local fallback
+    // Source URL - fallback to local
+    const sourceUrl = `/icons/icon-${size}.png`;
     
     // For maskable icons use the maskable version if we're generating locally
-    const finalUrl = purpose === 'maskable' && !iconUrlMap[size] 
+    const finalUrl = purpose === 'maskable' 
       ? `/icons/maskable-${size}.png` 
       : sourceUrl;
+    
+    console.log(`Using LOCAL icon for ${size} (${purpose}): ${finalUrl}`);
     
     manifest.icons.push({
       src: finalUrl,
