@@ -18,8 +18,9 @@ END $$;
 -- Ensure buckets exist and are configured correctly
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES 
-  ('collection-images', 'collection-images', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
-  ('product-images', 'product-images', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+  ('collection-images', 'collection-images', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']),
+  ('product-images', 'product-images', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']),
+  ('site-assets', 'site-assets', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
 ON CONFLICT (id) DO UPDATE 
 SET 
   public = EXCLUDED.public,
@@ -63,8 +64,8 @@ BEGIN
   END IF;
 
   -- Check mime type
-  IF NEW.content_type NOT IN ('image/jpeg', 'image/png', 'image/webp', 'image/gif') THEN
-    RAISE EXCEPTION 'Invalid file type. Only JPEG, PNG, WebP and GIF images are allowed';
+  IF NEW.content_type NOT IN ('image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml') THEN
+    RAISE EXCEPTION 'Invalid file type. Only JPEG, PNG, WebP, GIF and SVG images are allowed';
   END IF;
 
   -- Ensure file path is valid

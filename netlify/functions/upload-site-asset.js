@@ -49,6 +49,15 @@ function errorResponse(statusCode, message, details = null) {
   };
 }
 
+// Allowed MIME types for uploads
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml' // Explicitly allow SVG files
+];
+
 /**
  * Upload site asset function
  */
@@ -104,6 +113,15 @@ export async function handler(event, context) {
     }
     
     console.log(`Processing upload: ${fileName} (${contentType}), base64 data length: ${fileBase64.length}`);
+    
+    // Validate MIME type
+    if (!ALLOWED_MIME_TYPES.includes(contentType)) {
+      return errorResponse(415, 'Upload failed', {
+        error: 'invalid_mime_type',
+        message: `mime type ${contentType} is not supported`,
+        statusCode: '415'
+      });
+    }
     
     // Verify admin
     try {
