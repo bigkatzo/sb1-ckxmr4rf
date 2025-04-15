@@ -237,6 +237,18 @@ export default async (request, context) => {
   const siteDescription = settings.site_description || DEFAULT_SITE_DESCRIPTION;
   const defaultOgImage = settings.og_image_url || DEFAULT_OG_IMAGE;
   
+  // Log settings for debugging
+  console.log('Edge Function using settings:', {
+    siteName,
+    siteDescription,
+    ogImage: defaultOgImage,
+    seo_title: settings.seo_title,
+    templates: {
+      product_title: settings.product_title_template?.substring(0, 30) + '...',
+      collection_title: settings.collection_title_template?.substring(0, 30) + '...',
+    }
+  });
+  
   // Parse the path to determine what we're rendering
   let pageData = {
     title: siteName,
