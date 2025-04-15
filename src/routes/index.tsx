@@ -8,6 +8,8 @@ import {
   ProductModalSkeleton,
   OrderPageSkeleton
 } from '../components/ui/Skeletons';
+import { AnimatedLayout } from '../components/layout/AnimatedLayout';
+import { ProductPageTransition } from '../components/ui/ProductPageTransition';
 
 // Lazy load routes that aren't needed immediately
 const CollectionPage = lazy(() => import('../pages/CollectionPage').then(module => ({ default: module.CollectionPage })));
@@ -61,58 +63,72 @@ const TrackingPageLoader = () => (
   </div>
 );
 
+// Product page component with transition effect
+const ProductPageWithTransition = () => (
+  <ProductPageTransition>
+    <Suspense fallback={<ProductModalSkeleton />}>
+      <ProductPage />
+    </Suspense>
+  </ProductPageTransition>
+);
+
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <App />,
     children: [
       {
-        index: true,
-        element: <HomePage />
-      },
-      {
-        path: 'orders',
-        element: <Suspense fallback={<OrderPageSkeleton />}><OrdersPage /></Suspense>
-      },
-      {
-        path: 'tracking/:trackingNumber',
-        element: <Suspense fallback={<TrackingPageLoader />}><TrackingPage /></Suspense>
-      },
-      {
-        path: ':slug',
-        element: <Suspense fallback={<CollectionSkeleton />}><CollectionPage /></Suspense>
-      },
-      {
-        path: ':collectionSlug/:productSlug',
-        element: <Suspense fallback={<ProductModalSkeleton />}><ProductPage /></Suspense>
-      },
-      {
-        path: 'merchant/signin',
-        element: <Suspense fallback={<PageLoader />}><SignInPage /></Suspense>
-      },
-      {
-        path: 'merchant/register',
-        element: <Suspense fallback={<PageLoader />}><RegisterPage /></Suspense>
-      },
-      {
-        path: 'merchant/dashboard',
-        element: <Suspense fallback={<PageLoader />}><ProtectedRoute><DashboardPage /></ProtectedRoute></Suspense>
-      },
-      {
-        path: 'merchant/admin',
-        element: <Suspense fallback={<PageLoader />}><ProtectedRoute><AdminDashboard /></ProtectedRoute></Suspense>
-      },
-      {
-        path: 'privacy',
-        element: <Suspense fallback={<PageLoader />}><PrivacyPolicyPage /></Suspense>
-      },
-      {
-        path: 'terms',
-        element: <Suspense fallback={<PageLoader />}><TermsPage /></Suspense>
-      },
-      {
-        path: 'returns-faq',
-        element: <Suspense fallback={<PageLoader />}><ReturnsAndFAQPage /></Suspense>
+        element: <AnimatedLayout />,
+        children: [
+          {
+            index: true,
+            element: <HomePage />
+          },
+          {
+            path: 'orders',
+            element: <Suspense fallback={<OrderPageSkeleton />}><OrdersPage /></Suspense>
+          },
+          {
+            path: 'tracking/:trackingNumber',
+            element: <Suspense fallback={<TrackingPageLoader />}><TrackingPage /></Suspense>
+          },
+          {
+            path: ':slug',
+            element: <Suspense fallback={<CollectionSkeleton />}><CollectionPage /></Suspense>
+          },
+          {
+            path: ':collectionSlug/:productSlug',
+            element: <ProductPageWithTransition />
+          },
+          {
+            path: 'merchant/signin',
+            element: <Suspense fallback={<PageLoader />}><SignInPage /></Suspense>
+          },
+          {
+            path: 'merchant/register',
+            element: <Suspense fallback={<PageLoader />}><RegisterPage /></Suspense>
+          },
+          {
+            path: 'merchant/dashboard',
+            element: <Suspense fallback={<PageLoader />}><ProtectedRoute><DashboardPage /></ProtectedRoute></Suspense>
+          },
+          {
+            path: 'merchant/admin',
+            element: <Suspense fallback={<PageLoader />}><ProtectedRoute><AdminDashboard /></ProtectedRoute></Suspense>
+          },
+          {
+            path: 'privacy',
+            element: <Suspense fallback={<PageLoader />}><PrivacyPolicyPage /></Suspense>
+          },
+          {
+            path: 'terms',
+            element: <Suspense fallback={<PageLoader />}><TermsPage /></Suspense>
+          },
+          {
+            path: 'returns-faq',
+            element: <Suspense fallback={<PageLoader />}><ReturnsAndFAQPage /></Suspense>
+          }
+        ]
       }
     ]
   }
