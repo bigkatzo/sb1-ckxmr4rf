@@ -739,6 +739,7 @@ async function handleSupabaseStorageRequest(request) {
 async function handleLcpImageRequest(request) {
   const startTime = Date.now();
   const cache = await caches.open(CACHE_NAMES.IMAGES);
+  const url = new URL(request.url);
   
   try {
     // Check cache first with a fast path return
@@ -748,160 +749,276 @@ async function handleLcpImageRequest(request) {
       recordMetric('IMAGES', 'hit', Date.now() - startTime);
       
       // Once we've returned the cached version, try to update it in the background
-      // This ensures we have a fresh version for next time without delaying this response
+      // but with very low priority so it doesn't interfere with critical resources
       setTimeout(() => {
         updateLcpImageCache(request, cache).catch(err => {
           console.warn('Background LCP image update failed:', err);
         });
-      }, 50);
+      }, 3000); // Delay by 3 seconds to allow critical content to load first
       
       return cachedResponse;
     }
     
-    // No cache hit, fetch from network with safety but WITHOUT custom headers that could cause CORS issues
+    // No cache hit - try different fetch strategies in sequence
+    
+    // 1. First attempt: Try a no-frills fetch without any signal or special headers
     try {
-      // Use a plain fetch without any custom headers that could trigger CORS issues
-      const networkResponse = await fetch(request.clone(), {
-        // Don't add any custom headers that could cause CORS problems
-        // Longer timeout for LCP images on slower connections
-        signal: AbortSignal.timeout(5000)
+      console.log('Attempting simple fetch for LCP image:', url.toString());
+      const simpleResponse = await fetch(request.clone());
+      
+      if (simpleResponse.ok) {
+        // Cache the successful response
+        const cachedResponse = cacheSuccessfulResponse(simpleResponse.clone(), request);
+        
+        // Return the network response
+        recordMetric('IMAGES', 'miss', Date.now() - startTime);
+        return simpleResponse;
+      }
+    } catch (e) {
+      console.warn('Simple fetch for LCP image failed:', e);
+    }
+    
+    // 2. Second attempt: If it's a Supabase storage URL, try the base object URL instead of render
+    if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/v1/render/image/public/')) {
+      try {
+        // Convert from render endpoint to direct object URL
+        const pathMatch = url.pathname.match(/\/storage\/v1\/render\/image\/public\/(.+)/);
+        if (pathMatch && pathMatch[1]) {
+          const objectPath = pathMatch[1];
+          // Strip query parameters from path if they got included
+          const cleanPath = objectPath.split('?')[0];
+          const baseUrl = `https://${url.hostname}/storage/v1/object/public/${cleanPath}`;
+          
+          console.log('Trying base object URL:', baseUrl);
+          const baseResponse = await fetch(baseUrl, { 
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (baseResponse.ok) {
+            // Cache this response but mapped to original request
+            cacheSuccessfulResponse(baseResponse.clone(), request);
+            
+            recordMetric('IMAGES', 'object-fallback', Date.now() - startTime);
+            return baseResponse;
+          }
+        }
+      } catch (e) {
+        console.warn('Base object URL fetch failed:', e);
+      }
+    }
+    
+    // 3. Try the network with a longer timeout but no custom headers that might cause CORS issues
+    try {
+      // Create a controller that aborts after 8 seconds
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
+      try {
+        console.log('Trying fetch with longer timeout for LCP image');
+        const response = await fetch(request.clone(), {
+          signal: controller.signal
+        });
+        
+        // Clear the timeout to prevent memory leaks
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          // Cache the successful response
+          cacheSuccessfulResponse(response.clone(), request);
+          
+          recordMetric('IMAGES', 'long-timeout', Date.now() - startTime);
+          return response;
+        }
+      } catch (e) {
+        // Clear the timeout to prevent memory leaks
+        clearTimeout(timeoutId);
+        console.warn('Long timeout fetch failed:', e);
+      }
+    } catch (e) {
+      console.warn('Long timeout setup failed:', e);
+    }
+    
+    // 4. As a last desperate measure, try using a direct <img> fetch through fetch API
+    // This sometimes works when CORS is the issue
+    try {
+      console.log('Attempting direct image URL fetch as last resort');
+      // Override CORS mode to no-cors as a last resort
+      const lastResponse = await fetch(request.clone(), { 
+        mode: 'no-cors',
+        cache: 'no-store'
       });
       
-      if (!networkResponse.ok) {
-        throw new Error(`Network response error: ${networkResponse.status}`);
+      // We can't read the body with no-cors, but we can return it for the browser to use
+      if (lastResponse.type === 'opaque') {
+        recordMetric('IMAGES', 'opaque', Date.now() - startTime);
+        return lastResponse;
       }
-      
-      // Cache the response
-      try {
-        // Use a more robust cloning method
-        const responseToCache = new Response(
-          networkResponse.clone().body,
-          {
-            status: networkResponse.status,
-            statusText: networkResponse.statusText,
-            headers: new Headers(networkResponse.headers)
-          }
-        );
-        
-        // Add cache headers
-        responseToCache.headers.set('X-Cache-Time', Date.now().toString());
-        responseToCache.headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
-        responseToCache.headers.set('X-Cache-Type', 'IMAGES');
-        
-        await cache.put(request, responseToCache);
-      } catch (cacheError) {
-        console.warn('Failed to cache LCP image:', cacheError);
-        // Continue even if caching fails
-      }
-      
-      recordMetric('IMAGES', 'miss', Date.now() - startTime);
-      return networkResponse;
-    } catch (networkError) {
-      console.warn('Network fetch for LCP image failed:', networkError);
-      
-      // Try a second attempt with a completely vanilla fetch (no signal, no headers)
-      try {
-        console.log('Trying backup fetch strategy for LCP image');
-        const backupResponse = await fetch(request.clone());
-        
-        if (backupResponse.ok) {
-          // Cache this successful response
-          try {
-            const backupCache = new Response(
-              backupResponse.clone().body,
-              {
-                status: backupResponse.status,
-                statusText: backupResponse.statusText,
-                headers: new Headers(backupResponse.headers)
-              }
-            );
-            
-            backupCache.headers.set('X-Cache-Time', Date.now().toString());
-            await cache.put(request, backupCache);
-          } catch (e) {
-            // Ignore caching errors
-          }
-          
-          return backupResponse;
-        }
-      } catch (backupError) {
-        console.warn('Backup fetch also failed:', backupError);
-      }
-      
-      // If network fetch fails but we have a cached response from a previous visit, use it
-      const fallbackCachedResponse = await cache.match(request);
-      if (fallbackCachedResponse) {
-        console.log('Using cached fallback for failed LCP image fetch');
-        recordMetric('IMAGES', 'error-with-fallback', Date.now() - startTime);
-        return fallbackCachedResponse;
-      }
-      
-      // If all else fails, fetch directly bypassing our custom logic
-      console.log('Attempting direct fetch for LCP image as last resort');
-      return fetch(request);
+    } catch (e) {
+      console.warn('Final direct fetch attempt failed:', e);
     }
+    
+    // If we still don't have a response, check cache once more
+    // Another thread might have updated the cache while we were trying
+    const finalCachedResponse = await cache.match(request);
+    if (finalCachedResponse) {
+      console.log('Using last-chance cached response for LCP image');
+      recordMetric('IMAGES', 'last-chance-hit', Date.now() - startTime);
+      return finalCachedResponse;
+    }
+    
+    // If all else fails, return an empty successful response to prevent blocking
+    console.error('All LCP image fetch strategies failed - returning empty response');
+    recordMetric('IMAGES', 'empty-fallback', Date.now() - startTime);
+    return new Response('', {
+      status: 200,
+      headers: new Headers({
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'no-store'
+      })
+    });
   } catch (error) {
-    console.error('LCP image request failed:', error);
+    console.error('LCP image request handler failed:', error);
     recordMetric('IMAGES', 'error', Date.now() - startTime);
-    // Last resort - pass the request to the browser
-    return fetch(request);
+    
+    // If anything in our handler fails, pass through to the browser
+    try {
+      return fetch(request);
+    } catch (e) {
+      // If that also fails, return an empty response
+      return new Response('', {
+        status: 200,
+        headers: { 'Content-Type': 'image/svg+xml' }
+      });
+    }
+  }
+  
+  // Helper function to cache a successful response
+  async function cacheSuccessfulResponse(response, originalRequest) {
+    try {
+      // Create a proper clone with the right headers
+      const responseToCache = new Response(
+        response.clone().body,
+        {
+          status: response.status,
+          statusText: response.statusText,
+          headers: new Headers(response.headers)
+        }
+      );
+      
+      // Add cache metadata
+      responseToCache.headers.set('X-Cache-Time', Date.now().toString());
+      responseToCache.headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
+      responseToCache.headers.set('X-Cache-Type', 'IMAGES');
+      
+      // Store in cache
+      await cache.put(originalRequest, responseToCache);
+      return responseToCache;
+    } catch (e) {
+      console.warn('Failed to cache LCP image response:', e);
+      return response;
+    }
   }
 }
 
-// Background update for LCP images cache - using a gentler approach
+// Background update for LCP images cache
 async function updateLcpImageCache(request, cache) {
   try {
-    // Use a separate fetch WITHOUT problematic headers
-    const networkResponse = await fetch(request.clone(), {
-      // No cache-busting headers - these can cause CORS issues
-      // Longer timeout for background updates
-      signal: AbortSignal.timeout(10000)
-    });
+    const url = new URL(request.url);
     
-    if (!networkResponse.ok) return;
-    
-    try {
-      // Create a new response with appropriate cache headers
-      const now = Date.now();
-      const headers = new Headers(networkResponse.headers);
-      headers.set('X-Cache-Time', now.toString());
-      headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
-      headers.set('X-Cache-Type', 'IMAGES');
-      headers.set('Cache-Control', `public, max-age=${CACHE_TTLS.IMAGES}`);
+    // For Supabase storage, try the simplest approach first without custom headers
+    if (url.hostname.includes('supabase.co')) {
+      console.log('Updating cached Supabase image in background');
       
-      const cachedResponse = new Response(networkResponse.body, {
-        status: networkResponse.status,
-        statusText: networkResponse.statusText,
-        headers
+      // Try a very simple fetch first
+      try {
+        const response = await fetch(request.clone());
+        if (response.ok) {
+          // Cache the successful response
+          const cachedResponse = new Response(
+            response.clone().body,
+            {
+              status: response.status,
+              statusText: response.statusText,
+              headers: new Headers(response.headers)
+            }
+          );
+          
+          cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
+          cachedResponse.headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
+          
+          await cache.put(request, cachedResponse);
+          console.log('Successfully updated LCP image in background');
+          return;
+        }
+      } catch (e) {
+        console.warn('Simple fetch for background update failed:', e);
+      }
+      
+      // If it's a render endpoint, try the object URL instead
+      if (url.pathname.includes('/storage/v1/render/image/public/')) {
+        try {
+          const pathMatch = url.pathname.match(/\/storage\/v1\/render\/image\/public\/(.+)/);
+          if (pathMatch && pathMatch[1]) {
+            const objectPath = pathMatch[1].split('?')[0]; // Remove query params
+            const baseUrl = `https://${url.hostname}/storage/v1/object/public/${objectPath}`;
+            
+            const baseResponse = await fetch(baseUrl);
+            if (baseResponse.ok) {
+              // Cache this response mapped to the original request
+              const cachedResponse = new Response(
+                baseResponse.clone().body,
+                {
+                  status: baseResponse.status,
+                  statusText: baseResponse.statusText,
+                  headers: new Headers(baseResponse.headers)
+                }
+              );
+              
+              cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
+              await cache.put(request, cachedResponse);
+              console.log('Updated LCP image with object URL in background');
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('Object URL fetch for background update failed:', e);
+        }
+      }
+    }
+    
+    // For non-Supabase URLs, use a standard fetch with longer timeout
+    console.log('Updating standard LCP image in background');
+    try {
+      // Use a controller to limit the timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
+      const response = await fetch(request.clone(), {
+        signal: controller.signal
       });
       
-      await cache.put(request, cachedResponse);
-      console.log('LCP image updated in background');
-    } catch (cacheError) {
-      console.warn('Failed to update LCP image in cache:', cacheError);
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const cachedResponse = new Response(
+          response.clone().body,
+          {
+            status: response.status,
+            statusText: response.statusText,
+            headers: new Headers(response.headers)
+          }
+        );
+        
+        cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
+        await cache.put(request, cachedResponse);
+        console.log('Updated standard LCP image in background');
+      }
+    } catch (e) {
+      console.warn('Standard fetch for background update failed:', e);
     }
   } catch (error) {
     console.warn('Background LCP image update failed:', error);
-    
-    // Try one more time with a vanilla fetch
-    try {
-      const fallbackResponse = await fetch(request.clone());
-      if (fallbackResponse.ok) {
-        const headers = new Headers(fallbackResponse.headers);
-        headers.set('X-Cache-Time', Date.now().toString());
-        
-        const cachedResponse = new Response(fallbackResponse.body, {
-          status: fallbackResponse.status,
-          statusText: fallbackResponse.statusText,
-          headers
-        });
-        
-        await cache.put(request, cachedResponse);
-        console.log('LCP image updated with fallback method');
-      }
-    } catch (e) {
-      // Give up silently
-    }
   }
 }
 
