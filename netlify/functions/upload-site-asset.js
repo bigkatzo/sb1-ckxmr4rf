@@ -248,17 +248,61 @@ export async function handler(event, context) {
       
       // Upload the file
       console.log(`Uploading file: ${fileName} (${fileData.length} bytes, ${contentType})`);
+      
+      // First, try with the newer API method
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(SITE_ASSETS_BUCKET)
         .upload(fileName, fileData, {
           contentType,
-          upsert: true, // Always use upsert
-          cacheControl: '3600'
+          upsert: true,
+          cacheControl: '3600',
+          // Explicitly avoid setting any owner fields - these might cause conflicts
+          // between different Supabase versions
         });
         
       if (uploadError) {
-        console.error('Upload failed:', uploadError);
-        return errorResponse(500, 'Upload failed', uploadError);
+        console.error('Upload failed with standard method:', uploadError);
+        
+        // If the error mentions "column owner", try the upload with a different approach
+        if (uploadError.message && uploadError.message.includes('column "owner"')) {
+          console.log('Detected "owner" column error, attempting alternative upload method');
+          
+          // Try a direct fetch request to bypass schema issues
+          const formData = new FormData();
+          formData.append('file', fileData);
+          
+          const uploadUrl = `${supabaseUrl}/storage/v1/object/${SITE_ASSETS_BUCKET}/${fileName}`;
+          
+          try {
+            const response = await fetch(uploadUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'Content-Type': contentType
+              },
+              body: fileData
+            });
+            
+            if (!response.ok) {
+              console.error('Alternative upload method also failed:', await response.text());
+              return errorResponse(500, 'All upload methods failed', {
+                firstError: uploadError,
+                secondError: await response.text()
+              });
+            }
+            
+            console.log('Alternative upload succeeded');
+          } catch (altUploadError) {
+            console.error('Alternative upload method also failed:', altUploadError);
+            return errorResponse(500, 'All upload methods failed', {
+              firstError: uploadError,
+              secondError: altUploadError
+            });
+          }
+        } else {
+          // This is some other error, not related to "owner" column
+          return errorResponse(500, 'Upload failed', uploadError);
+        }
       }
       
       console.log('Upload successful, getting public URL');
@@ -297,7 +341,6 @@ export async function handler(event, context) {
         stack: fileProcessError.stack
       });
     }
-    
   } catch (error) {
     console.error('Unexpected top-level error:', error);
     return errorResponse(500, 'Unexpected error', { 
