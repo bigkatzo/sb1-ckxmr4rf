@@ -313,18 +313,155 @@ async function preloadNavigationResources() {
   }
 }
 
+// Define types for preloading
+interface PreloadOptions {
+  // Maximum number of images to preload at once
+  maxConcurrent?: number;
+  // Maximum amount of time (ms) to spend preloading
+  timeout?: number;
+  // Priority categories to preload (in order)
+  categories?: Array<'lcp' | 'featured' | 'upcoming' | 'latest'>;
+}
+
+// Function to preload LCP images and critical resources
+const preloadLCPImages = async () => {
+  try {
+    // Fetch featured collections - these likely contain LCP images
+    const { data: featuredCollections } = await supabase
+      .from('collections')
+      .select('image_url')
+      .eq('status', 'active') 
+      .eq('featured', true)
+      .order('launch_date', { ascending: false })
+      .limit(1);
+
+    // If we have a featured collection, preload its image immediately
+    if (featuredCollections && featuredCollections.length > 0) {
+      const lcpImageUrl = featuredCollections[0].image_url;
+      
+      if (lcpImageUrl) {
+        // Create a high-priority preload link
+        const link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'image';
+        link.href = lcpImageUrl;
+        link.fetchPriority = 'high';
+        
+        // Enable responsive loading hints
+        link.setAttribute('imagesizes', '100vw');
+        
+        // Add to document head for immediate loading
+        document.head.appendChild(link);
+        
+        // Also trigger an image prefetch to ensure caching
+        const img = new Image();
+        img.src = lcpImageUrl;
+      }
+    }
+  } catch (error) {
+    console.error('Error preloading LCP images:', error);
+  }
+};
+
 /**
- * Set up the cache preloader to run on initial load and periodically refresh
+ * Set up cache preloader system
+ * 
+ * This module handles preloading of critical images and assets
+ * to improve perceived performance
  */
-export function setupCachePreloader() {
-  // Run immediately
-  preloadCriticalData();
+export function setupCachePreloader(options: PreloadOptions = {}) {
+  const {
+    maxConcurrent = 3,
+    timeout = 5000,
+    categories = ['lcp', 'featured', 'upcoming']
+  } = options;
   
-  // Then refresh periodically
-  const refreshInterval = setInterval(() => {
-    preloadCriticalData();
-  }, 5 * 60 * 1000); // Every 5 minutes
+  // Track preloading state
+  let isPreloading = false;
+  let preloadTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  
+  // Begin preloading 
+  const startPreloading = async () => {
+    if (isPreloading) return;
+    
+    isPreloading = true;
+    
+    // Set timeout to stop preloading after specified time
+    preloadTimeoutId = setTimeout(() => {
+      isPreloading = false;
+    }, timeout);
+    
+    try {
+      // First prioritize LCP images
+      if (categories.includes('lcp')) {
+        await preloadLCPImages();
+      }
+      
+      // Then preload featured collections if requested
+      if (categories.includes('featured')) {
+        // Fetch more featured collections
+        const { data: featuredCollections } = await supabase
+          .from('collections')
+          .select('image_url')
+          .eq('status', 'active')
+          .eq('featured', true)
+          .order('launch_date', { ascending: false })
+          .range(1, maxConcurrent);
+          
+        // Preload these with medium priority
+        if (featuredCollections && featuredCollections.length > 0) {
+          // Preload each image
+          featuredCollections.forEach(collection => {
+            if (collection.image_url) {
+              const img = new Image();
+              img.src = collection.image_url;
+            }
+          });
+        }
+      }
+      
+      // More preloading could be added here for other categories
+      
+    } catch (error) {
+      console.error('Error in cache preloader:', error);
+    } finally {
+      isPreloading = false;
+      if (preloadTimeoutId) {
+        clearTimeout(preloadTimeoutId);
+        preloadTimeoutId = null;
+      }
+    }
+  };
+  
+  // Start preloading on page load
+  if (typeof window !== 'undefined') {
+    // Start immediately for LCP images
+    preloadLCPImages();
+    
+    // Use requestIdleCallback for the rest if available
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => {
+        startPreloading();
+      });
+    } else {
+      // Fallback to setTimeout
+      setTimeout(() => {
+        startPreloading();
+      }, 100);
+    }
+    
+    // Also preload on route changes
+    window.addEventListener('popstate', () => {
+      startPreloading();
+    });
+  }
   
   // Return cleanup function
-  return () => clearInterval(refreshInterval);
+  return () => {
+    isPreloading = false;
+    if (preloadTimeoutId) {
+      clearTimeout(preloadTimeoutId);
+      preloadTimeoutId = null;
+    }
+  };
 } 

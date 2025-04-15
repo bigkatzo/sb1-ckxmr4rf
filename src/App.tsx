@@ -21,28 +21,38 @@ validateEnvironmentVariables();
 function AppContent() {
   // Initialize cache system
   useEffect(() => {
-    // Set up cache preloader
-    const cleanupPreloader = setupCachePreloader();
+    // Set up cache preloader with high priority for LCP images
+    const cleanupPreloader = setupCachePreloader({
+      maxConcurrent: 3,
+      timeout: 5000,
+      categories: ['lcp', 'featured', 'upcoming']
+    });
     
     // Set up realtime cache invalidation
     const cleanup = setupRealtimeInvalidation(supabase);
     
-    // Set up service worker
-    setupServiceWorker().catch(err => {
-      console.error('Failed to set up service worker:', err);
-    });
-
+    // Set up service worker - defer this to not block main thread
+    const serviceWorkerTimer = setTimeout(() => {
+      setupServiceWorker().catch(err => {
+        console.error('Failed to set up service worker:', err);
+      });
+    }, 3000); // Delay service worker setup to prioritize rendering
+    
     // Expose realtime debugging utilities in development
     if (import.meta.env.DEV) {
       exposeRealtimeDebugger();
     }
     
-    // Set up realtime health
-    setupRealtimeHealth();
+    // Set up realtime health with delay to avoid blocking LCP
+    const realtimeTimer = setTimeout(() => {
+      setupRealtimeHealth();
+    }, 2000);
     
     return () => {
       cleanupPreloader();
       cleanup();
+      clearTimeout(serviceWorkerTimer);
+      clearTimeout(realtimeTimer);
     };
   }, []);
 
@@ -52,19 +62,24 @@ function AppContent() {
 export function App() {
   // Initialize realtime debugger when app mounts
   useEffect(() => {
-    // Force immediate connection to Supabase realtime
-    try {
-      const realtimeClient = (supabase.realtime as any);
-      if (realtimeClient && typeof realtimeClient.connect === 'function') {
-        console.log('Forcing initial Supabase realtime connection...');
-        realtimeClient.connect();
+    // Delay non-critical operations to prioritize LCP
+    const timer = setTimeout(() => {
+      // Force immediate connection to Supabase realtime
+      try {
+        const realtimeClient = (supabase.realtime as any);
+        if (realtimeClient && typeof realtimeClient.connect === 'function') {
+          console.log('Forcing initial Supabase realtime connection...');
+          realtimeClient.connect();
+        }
+      } catch (err) {
+        console.error('Error establishing initial Supabase connection:', err);
       }
-    } catch (err) {
-      console.error('Error establishing initial Supabase connection:', err);
-    }
+      
+      exposeRealtimeDebugger();
+      console.log('Supabase realtime debugger initialized. Try window.debugRealtime() in the console.');
+    }, 2000); // Delay connection to prioritize rendering
     
-    exposeRealtimeDebugger();
-    console.log('Supabase realtime debugger initialized. Try window.debugRealtime() in the console.');
+    return () => clearTimeout(timer);
   }, []);
 
   return (

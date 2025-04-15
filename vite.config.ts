@@ -5,6 +5,14 @@ import { resolve } from 'path';
 import fs from 'fs';
 import type { Plugin } from 'vite';
 
+// Try to import imagetools, but don't fail if not available
+let imagetools;
+try {
+  imagetools = require('vite-imagetools');
+} catch (e) {
+  console.warn('vite-imagetools not found, image optimization disabled');
+}
+
 // Custom plugin to handle service worker
 const serviceWorkerPlugin = (): Plugin => {
   return {
@@ -90,7 +98,10 @@ const lazyLoadPlugin = (): Plugin => {
           code.includes('Modal') ||
           code.includes('Drawer') ||
           code.includes('recharts') ||
-          code.includes('framer-motion')
+          code.includes('framer-motion') ||
+          // Add Stripe to lazy-loaded components
+          code.includes('@stripe/react-stripe-js') ||
+          code.includes('loadStripe')
         )
       ) {
         // Add React.lazy imports for heavy components
@@ -121,6 +132,17 @@ export default defineConfig({
         Buffer: true
       }
     }),
+    // Only add imagetools if available
+    ...(imagetools ? [
+      imagetools.imagetools({
+        defaultDirectives: new URLSearchParams({
+          format: 'webp',
+          quality: '80',
+          w: '1920',
+          as: 'picture',
+        }),
+      })
+    ] : []),
     lazyLoadPlugin(),
     serviceWorkerPlugin()
   ],
@@ -150,45 +172,57 @@ export default defineConfig({
         format: 'es', // Ensure ES modules format
         // Improve tree-shaking
         hoistTransitiveImports: true,
-        manualChunks: {
-          // Core React dependencies
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          
-          // Split Solana dependencies into smaller chunks
-          'vendor-solana-core': ['@solana/web3.js'],
-          'vendor-solana-token': ['@solana/spl-token'],
-          'vendor-solana-wallet': [
-            '@solana/wallet-adapter-base',
-            '@solana/wallet-adapter-react',
-            '@solana/wallet-adapter-react-ui',
-            '@solana/wallet-adapter-wallets'
-          ],
-          
-          // Split Metaplex into smaller chunks
-          'vendor-metaplex-core': ['@metaplex-foundation/js'],
-          'vendor-metaplex-mpl-token': ['@metaplex-foundation/mpl-token-metadata'],
-          'vendor-metaplex-mpl-candy': [
-            '@metaplex-foundation/mpl-candy-machine',
-            '@metaplex-foundation/mpl-candy-guard'
-          ],
-          'vendor-metaplex-bubblegum': ['@metaplex-foundation/mpl-bubblegum'],
-          
-          // UI dependencies - split further for better optimization
-          'vendor-ui-core': ['lucide-react', '@headlessui/react', '@radix-ui/react-tooltip'],
-          'vendor-ui-notifications': ['react-toastify'],
-          'vendor-ui-upload': ['react-dropzone'],
-          
-          // Utility libraries
-          'vendor-utils': ['date-fns', 'uuid', 'bs58', 'buffer'],
-          
-          // Data visualization - lazily loaded
-          'vendor-charts': ['recharts'],
-          
-          // DnD functionality - lazily loaded
-          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
-          
-          // Payment processing
-          'vendor-payment': ['@stripe/react-stripe-js', '@stripe/stripe-js'],
+        manualChunks: (id) => {
+          // More granular chunking strategy based on imports
+          if (id.includes('node_modules')) {
+            // Core React dependencies
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react';
+            }
+            
+            // Solana dependencies
+            if (id.includes('@solana/web3.js')) {
+              return 'vendor-solana-core';
+            }
+            if (id.includes('@solana/spl-token')) {
+              return 'vendor-solana-token';
+            }
+            if (id.includes('@solana/wallet-adapter')) {
+              return 'vendor-solana-wallet';
+            }
+            
+            // Metaplex dependencies
+            if (id.includes('@metaplex-foundation/js')) {
+              return 'vendor-metaplex-core';
+            }
+            if (id.includes('@metaplex-foundation/mpl-token-metadata')) {
+              return 'vendor-metaplex-mpl-token';
+            }
+            if (id.includes('@metaplex-foundation/mpl-candy')) {
+              return 'vendor-metaplex-mpl-candy';
+            }
+            if (id.includes('@metaplex-foundation/mpl-bubblegum')) {
+              return 'vendor-metaplex-bubblegum';
+            }
+            
+            // UI dependencies
+            if (id.includes('lucide-react') || id.includes('@headlessui') || id.includes('@radix-ui')) {
+              return 'vendor-ui-core';
+            }
+            
+            // Stripe - lazy load
+            if (id.includes('stripe')) {
+              return 'vendor-payment';
+            }
+            
+            // Utility libraries
+            if (id.includes('date-fns') || id.includes('uuid') || id.includes('bs58') || id.includes('buffer')) {
+              return 'vendor-utils';
+            }
+            
+            // Default vendor chunk
+            return 'vendor';
+          }
         }
       }
     }
@@ -218,13 +252,8 @@ export default defineConfig({
       'date-fns',
       'uuid',
       'bs58',
-      'buffer',
-      'recharts',
-      
-      // DnD
-      '@dnd-kit/core',
-      '@dnd-kit/sortable',
-      '@dnd-kit/utilities'
+      'buffer'
+      // Exclude heavy libraries like recharts, Stripe, etc.
     ],
     esbuildOptions: {
       target: 'esnext',

@@ -129,8 +129,15 @@ export function OptimizedImage({
         }
       }
 
+      // Add responsive size parameter for large images
+      let optimalWidth = width;
+      if (width > 1200 && !priority) {
+        // Use a more reasonable size for non-priority images
+        optimalWidth = Math.min(width, 1200);
+      }
+
       const params = new URLSearchParams({
-        width: width.toString(),
+        width: optimalWidth.toString(),
         quality: quality.toString(),
         cache: '604800' // 1 week cache
       });
@@ -140,25 +147,31 @@ export function OptimizedImage({
       return `${baseUrl}?${params.toString()}`;
     }
     return src;
-  }, [src, width, quality]);
+  }, [src, width, quality, priority]);
 
   // Only generate responsive sizes if explicitly not provided by the parent component
   // This ensures we don't override specific sizing requirements in different components
   const responsiveSizes = sizes || 
     (width && height ? `(max-width: 640px) ${Math.min(width, 640)}px, ${width}px` : '100vw');
 
-  // Preload high priority images
+  // Improved preload logic for high priority images
   useEffect(() => {
     // Only preload images that are truly important - limit to absolute priorities
-    // This prevents excessive preloads that can block rendering
-    const shouldPreload = (isLCP || priority) || (propFetchPriority === 'high');
+    const shouldPreload = (isLCP || priority) && typeof window !== 'undefined';
     
-    if (shouldPreload && typeof window !== 'undefined' && !document.querySelector(`link[rel="preload"][href="${optimizedSrc}"]`)) {
+    if (shouldPreload && !document.querySelector(`link[rel="preload"][href="${optimizedSrc}"]`)) {
       const linkEl = document.createElement('link');
       linkEl.rel = 'preload';
       linkEl.as = 'image';
       linkEl.href = optimizedSrc;
       linkEl.fetchPriority = 'high';
+      
+      // Add sizes and type hints if available to improve browser loading
+      if (sizes) {
+        linkEl.setAttribute('imagesizes', sizes);
+      }
+      
+      // Add preload to document head
       document.head.appendChild(linkEl);
       
       return () => {
@@ -169,7 +182,7 @@ export function OptimizedImage({
         }
       };
     }
-  }, [optimizedSrc, isLCP, priority, propFetchPriority]);
+  }, [optimizedSrc, isLCP, priority, sizes]);
 
   const handleImageError = () => {
     // If render endpoint fails, fall back to original URL with cache control
