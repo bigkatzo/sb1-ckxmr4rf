@@ -54,27 +54,35 @@ export function HomePage() {
         type="website"
       />
       
-      <FeaturedCollection />
+      <div style={{ minHeight: '30vh', aspectRatio: '16/9' }}>
+        <FeaturedCollection />
+      </div>
       
       <section>
         <SectionHeader
           title="Best Sellers"
         />
-        <BestSellers />
+        <div style={{ minHeight: '20vh' }}>
+          <BestSellers />
+        </div>
       </section>
 
       <section>
         <SectionHeader
           title="Coming Soon"
         />
-        <CollectionScroller filter="upcoming" />
+        <div style={{ minHeight: '25vh' }}>
+          <CollectionScroller filter="upcoming" />
+        </div>
       </section>
 
       <section>
         <SectionHeader
           title="Latest Drops"
         />
-        <CollectionGrid filter="latest" />
+        <div style={{ minHeight: '30vh' }}>
+          <CollectionGrid filter="latest" />
+        </div>
       </section>
     </div>
   );

@@ -349,29 +349,53 @@ const preloadLCPImages = async () => {
             + '?width=1200&quality=80&format=webp&cache=604800';
         }
         
-        // Create a high-priority preload link
+        // Aggressive preloading approach - add link tag right in the head ASAP
         const link = document.createElement('link');
         link.rel = 'preload';
         link.as = 'image';
         link.href = optimizedLcpUrl;
         link.fetchPriority = 'high';
+        link.crossOrigin = 'anonymous'; // Add cross-origin support
         
         // Enable responsive loading hints
         link.setAttribute('imagesizes', '100vw');
         
-        // Add to document head for immediate loading
-        document.head.appendChild(link);
+        // Add to document head with highest priority
+        document.head.prepend(link); // Use prepend instead of appendChild for higher priority
         
-        // Also trigger an image prefetch to ensure caching
+        // Also start loading the image in parallel for failsafe
         const img = new Image();
         img.src = optimizedLcpUrl;
+        img.crossOrigin = 'anonymous';
+        img.fetchPriority = 'high'; // Make sure to set high priority
+        img.sizes = '100vw';
         
         // Add loading complete callback
         img.onload = () => {
           console.log('LCP image preloaded successfully');
           // Preload next image after first one loads
-          preloadNextImportantImage();
+          setTimeout(() => {
+            preloadNextImportantImage();
+          }, 50); // Small delay to avoid competition with main resources
         };
+
+        // Also try to create an in-memory cache of the image
+        fetch(optimizedLcpUrl, { 
+          mode: 'cors',
+          priority: 'high',
+          cache: 'force-cache',
+          headers: {
+            'Accept': 'image/*'
+          }
+        })
+        .then(response => response.blob())
+        .then(blob => {
+          const objectURL = URL.createObjectURL(blob);
+          const tempImg = new Image();
+          tempImg.src = objectURL;
+          tempImg.onload = () => URL.revokeObjectURL(objectURL);
+        })
+        .catch(err => console.warn('Failed to cache LCP image:', err));
       }
     }
   } catch (error) {
@@ -409,6 +433,7 @@ const preloadNextImportantImage = async () => {
         link.as = 'image';
         link.href = optimizedUrl;
         link.fetchPriority = 'auto';
+        link.crossOrigin = 'anonymous';
         
         document.head.appendChild(link);
       }
@@ -426,16 +451,24 @@ const preloadNextImportantImage = async () => {
  */
 export function setupCachePreloader(options: PreloadOptions = {}) {
   const {
-    maxConcurrent = 3,
+    maxConcurrent = 2,
     timeout = 5000,
-    categories = ['lcp', 'featured', 'upcoming']
+    categories = ['lcp', 'featured']
   } = options;
   
   // Track preloading state
   let isPreloading = false;
   let preloadTimeoutId: ReturnType<typeof setTimeout> | null = null;
   
-  // Begin preloading 
+  // Begin preloading immediately for LCP
+  if (typeof window !== 'undefined' && categories.includes('lcp')) {
+    // Execute LCP preloading immediately without delay
+    preloadLCPImages().catch(err => {
+      console.warn('LCP preloading failed:', err);
+    });
+  }
+  
+  // Begin preloading for other resources with slight delay
   const startPreloading = async () => {
     if (isPreloading) return;
     
@@ -447,11 +480,6 @@ export function setupCachePreloader(options: PreloadOptions = {}) {
     }, timeout);
     
     try {
-      // First prioritize LCP images
-      if (categories.includes('lcp')) {
-        await preloadLCPImages();
-      }
-      
       // Then preload featured collections if requested
       if (categories.includes('featured')) {
         // Fetch more featured collections
@@ -461,7 +489,7 @@ export function setupCachePreloader(options: PreloadOptions = {}) {
           .eq('status', 'active')
           .eq('featured', true)
           .order('launch_date', { ascending: false })
-          .range(1, maxConcurrent);
+          .range(2, 2 + maxConcurrent);
           
         // Preload these with medium priority
         if (featuredCollections && featuredCollections.length > 0) {
@@ -490,19 +518,16 @@ export function setupCachePreloader(options: PreloadOptions = {}) {
   
   // Start preloading on page load
   if (typeof window !== 'undefined') {
-    // Start immediately for LCP images
-    preloadLCPImages();
-    
     // Use requestIdleCallback for the rest if available
     if ('requestIdleCallback' in window) {
       (window as any).requestIdleCallback(() => {
         startPreloading();
-      });
+      }, { timeout: 2000 });
     } else {
       // Fallback to setTimeout
       setTimeout(() => {
         startPreloading();
-      }, 100);
+      }, 500);
     }
     
     // Also preload on route changes

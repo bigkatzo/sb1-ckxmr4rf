@@ -285,7 +285,8 @@ export function FeaturedCollection() {
 
   if (loading) {
     return (
-      <div className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl animate-pulse bg-gray-800" />
+      <div className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl animate-pulse bg-gray-800" 
+           style={{ aspectRatio: '16/9' }} />
     );
   }
 
@@ -317,7 +318,9 @@ export function FeaturedCollection() {
           className="flex h-full"
           style={{ 
             transform: `translateX(${translateX}%)`,
-            transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`
+            transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`,
+            height: '100%',
+            width: '100%'
           }}
         >
           {collections.map((collection, index) => {
@@ -348,6 +351,7 @@ export function FeaturedCollection() {
                       priority={index === currentIndex}
                       loading={index === currentIndex ? "eager" : "lazy"} 
                       fetchPriority={index === currentIndex ? "high" : "auto"}
+                      style={{ aspectRatio: '16/9' }}
                     />
                   ) : (
                     <ImageIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-600" />

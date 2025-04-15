@@ -213,12 +213,19 @@ export function OptimizedImage({
     'scale-down': 'object-scale-down',
   }[objectFit];
 
+  // Calculate aspect ratio for placeholder
+  const aspectRatio = height && width ? `${width}/${height}` : undefined;
+  const containerStyle = aspectRatio ? { aspectRatio } : undefined;
+
   return (
-    <div className="relative w-full h-full">
+    <div 
+      className="relative w-full h-full overflow-hidden" 
+      style={containerStyle}
+    >
       {isLoading && (
         <div 
           className="absolute inset-0 bg-gray-800 animate-pulse" 
-          style={height && width ? { aspectRatio: `${width}/${height}` } : undefined}
+          style={containerStyle}
         />
       )}
       
@@ -236,7 +243,7 @@ export function OptimizedImage({
         loading={loadingStrategy}
         fetchPriority={fetchPriorityValue}
         sizes={responsiveSizes}
-        style={height && width ? { aspectRatio: `${width}/${height}` } : undefined}
+        style={containerStyle}
         onLoad={() => {
           setIsLoading(false);
           if (onLoad) onLoad();
