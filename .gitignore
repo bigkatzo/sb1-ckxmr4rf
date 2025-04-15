@@ -50,3 +50,4 @@ netlify/functions/manifest.json
 
 # Auto-generated types
 src/types/database.types.ts
+public/manifest.json
