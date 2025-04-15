@@ -743,47 +743,105 @@ async function handleLcpImageRequest(request) {
       return cachedResponse;
     }
     
-    // No cache hit, fetch from network
-    const networkResponse = await fetch(request.clone());
-    if (!networkResponse.ok) {
-      throw new Error(`Network response error: ${networkResponse.status}`);
+    // No cache hit, fetch from network with safety
+    try {
+      const networkResponse = await fetch(request.clone(), {
+        // Add cache control headers to prevent browser caching conflicts
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        },
+        // Shorter timeout for LCP images
+        signal: AbortSignal.timeout(3000)
+      });
+      
+      if (!networkResponse.ok) {
+        throw new Error(`Network response error: ${networkResponse.status}`);
+      }
+      
+      // Cache the response
+      try {
+        // Use a more robust cloning method
+        const responseToCache = new Response(
+          networkResponse.clone().body,
+          {
+            status: networkResponse.status,
+            statusText: networkResponse.statusText,
+            headers: new Headers(networkResponse.headers)
+          }
+        );
+        
+        // Add cache headers
+        responseToCache.headers.set('X-Cache-Time', Date.now().toString());
+        responseToCache.headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
+        responseToCache.headers.set('X-Cache-Type', 'IMAGES');
+        
+        await cache.put(request, responseToCache);
+      } catch (cacheError) {
+        console.warn('Failed to cache LCP image:', cacheError);
+        // Continue even if caching fails
+      }
+      
+      recordMetric('IMAGES', 'miss', Date.now() - startTime);
+      return networkResponse;
+    } catch (networkError) {
+      console.warn('Network fetch for LCP image failed:', networkError);
+      // If network fetch fails but we have a cached response from a previous visit, use it
+      const fallbackCachedResponse = await cache.match(request);
+      if (fallbackCachedResponse) {
+        console.log('Using cached fallback for failed LCP image fetch');
+        recordMetric('IMAGES', 'error-with-fallback', Date.now() - startTime);
+        return fallbackCachedResponse;
+      }
+      
+      // If all else fails, fetch directly bypassing our custom logic
+      console.log('Attempting direct fetch for LCP image as last resort');
+      return fetch(request);
     }
-    
-    // Cache the response
-    const responseToCache = await efficientResponseClone(networkResponse.clone(), 'IMAGES');
-    await cache.put(request, responseToCache);
-    
-    recordMetric('IMAGES', 'miss', Date.now() - startTime);
-    return networkResponse;
   } catch (error) {
     console.error('LCP image request failed:', error);
     recordMetric('IMAGES', 'error', Date.now() - startTime);
-    throw error;
+    // Last resort - pass the request to the browser
+    return fetch(request);
   }
 }
 
 // Background update for LCP images cache
 async function updateLcpImageCache(request, cache) {
   try {
-    const networkResponse = await fetch(request.clone());
-    if (!networkResponse.ok) return;
-    
-    // Create a new response with appropriate cache headers
-    const now = Date.now();
-    const headers = new Headers(networkResponse.headers);
-    headers.set('X-Cache-Time', now.toString());
-    headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
-    headers.set('X-Cache-Type', 'IMAGES');
-    headers.set('Cache-Control', `public, max-age=${CACHE_TTLS.IMAGES}`);
-    
-    const cachedResponse = new Response(networkResponse.body, {
-      status: networkResponse.status,
-      statusText: networkResponse.statusText,
-      headers
+    // Use a separate fetch with timeout to avoid hanging
+    const networkResponse = await fetch(request.clone(), {
+      // Add cache busting to ensure fresh content
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      },
+      // Use a longer timeout for background updates
+      signal: AbortSignal.timeout(5000)
     });
     
-    await cache.put(request, cachedResponse);
-    console.log('LCP image updated in background');
+    if (!networkResponse.ok) return;
+    
+    try {
+      // Create a new response with appropriate cache headers
+      const now = Date.now();
+      const headers = new Headers(networkResponse.headers);
+      headers.set('X-Cache-Time', now.toString());
+      headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
+      headers.set('X-Cache-Type', 'IMAGES');
+      headers.set('Cache-Control', `public, max-age=${CACHE_TTLS.IMAGES}`);
+      
+      const cachedResponse = new Response(networkResponse.body, {
+        status: networkResponse.status,
+        statusText: networkResponse.statusText,
+        headers
+      });
+      
+      await cache.put(request, cachedResponse);
+      console.log('LCP image updated in background');
+    } catch (cacheError) {
+      console.warn('Failed to update LCP image in cache:', cacheError);
+    }
   } catch (error) {
     console.warn('Background LCP image update failed:', error);
   }
