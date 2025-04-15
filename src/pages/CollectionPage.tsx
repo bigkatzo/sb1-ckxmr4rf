@@ -110,7 +110,7 @@ export function CollectionPage() {
   return (
     <div 
       ref={pageRef}
-      className={`space-y-6 sm:space-y-8 ${loading && !isInitialLoad && !location.state?.returnedFromProduct ? 'opacity-60' : ''}`}
+      className={`space-y-4 sm:space-y-5 md:space-y-6 ${loading && !isInitialLoad && !location.state?.returnedFromProduct ? 'opacity-60' : ''}`}
     >
       {/* Only show skeleton on initial load */}
       {loading && isInitialLoad ? (

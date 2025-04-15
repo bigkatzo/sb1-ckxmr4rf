@@ -177,7 +177,7 @@ export function OrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold">Your Orders</h1>
         <SupportMessage />
@@ -190,7 +190,7 @@ export function OrdersPage() {
           <p className="text-gray-400">You haven't placed any orders yet</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {orders.map((order) => (
             <div key={order.id} className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-purple-500/20 transition-all">
               {/* Order Number Header */}

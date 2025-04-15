@@ -59,7 +59,7 @@ export function BestSellers() {
       <div className="relative group">
         <div
           ref={scrollRef}
-          className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
+          className="flex gap-1.5 sm:gap-2 md:gap-3 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
         >
           {products.map((product, index) => (
             <div key={product.id} className="flex-shrink-0 w-[140px] sm:w-[200px] snap-start">

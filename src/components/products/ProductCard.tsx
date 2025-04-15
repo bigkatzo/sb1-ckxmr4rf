@@ -79,10 +79,10 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
         )}
       </div>
       
-      <div className="p-3">
+      <div className="px-2.5 py-2">
         <h3 className="font-medium text-sm text-white line-clamp-1">{product.name}</h3>
         
-        <div className="mt-2 flex items-center justify-between">
+        <div className="mt-1.5 flex items-center justify-between">
           <span className="text-sm font-semibold text-white">
             {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
           </span>
