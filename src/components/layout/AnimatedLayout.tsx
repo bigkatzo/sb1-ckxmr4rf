@@ -12,7 +12,7 @@ import { ScrollBehavior } from '../ui/ScrollBehavior';
 import { HowItWorksModal } from '../HowItWorksModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHowItWorks } from '../../contexts/HowItWorksContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 function TransactionStatusWrapper() {
   const { status, resetStatus } = usePayment();
@@ -51,6 +51,8 @@ function NotificationsWrapper() {
 export function AnimatedLayout() {
   const location = useLocation();
   const { isOpen } = useHowItWorks();
+  const [prevPathname, setPrevPathname] = useState('');
+  const [isNavigating, setIsNavigating] = useState(false);
   
   // Add effect to handle body scroll
   useEffect(() => {
@@ -65,17 +67,42 @@ export function AnimatedLayout() {
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
+  
+  // Detect navigation changes
+  useEffect(() => {
+    if (prevPathname && prevPathname !== location.pathname) {
+      setIsNavigating(true);
+      
+      // Reset navigating state after transition
+      const timer = setTimeout(() => {
+        setIsNavigating(false);
+      }, 300); // Slightly longer than animation duration
+      
+      return () => clearTimeout(timer);
+    }
+    
+    setPrevPathname(location.pathname);
+  }, [location.pathname, prevPathname]);
+  
+  // Calculate container height for less layout shift
+  // This helps minimize CLS (Cumulative Layout Shift)
+  const getContainerMinHeight = () => {
+    // Use a min height based on viewport to avoid jumps
+    return 'min-h-[80vh]';
+  };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden">
+    <div className={`min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden ${isNavigating ? 'pointer-events-none' : ''}`}>
       <ScrollBehavior />
       <Navbar />
       <main className="flex-1 pt-14">
         <NotificationsWrapper />
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full">
+        <div className={`max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full ${getContainerMinHeight()}`}>
           <AnimatePresence
             mode="wait"
             initial={false}
+            // Prevent re-renders during transitions for better performance
+            onExitComplete={() => window.scrollTo(0, 0)}
           >
             <PageTransition key={location.pathname}>
               <Outlet />

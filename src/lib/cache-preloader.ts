@@ -59,7 +59,33 @@ export async function preloadCriticalData() {
             staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE
           }
         );
+        
+        // Preload collection slug for faster navigation
+        cacheManager.set(
+          `collection_slug:${collection.slug}`,
+          collection.id,
+          CACHE_DURATIONS.STATIC.TTL,
+          {
+            staleTime: CACHE_DURATIONS.STATIC.STALE
+          }
+        );
       });
+      
+      // Preload collections overview data for faster home page and navigation
+      cacheManager.set(
+        'collections_overview',
+        featuredCollections.map(collection => ({
+          id: collection.id,
+          name: collection.name,
+          slug: collection.slug,
+          imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
+          featured: collection.featured,
+        })),
+        CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+        {
+          staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+        }
+      );
     }
     
     // Preload bestsellers (semi-dynamic data)
@@ -198,14 +224,92 @@ export async function preloadCriticalData() {
             staleTime: CACHE_DURATIONS.REALTIME.STALE
           }
         );
+        
+        // Cache product slug for faster navigation
+        cacheManager.set(
+          `product_slug:${product.collectionSlug}:${product.slug}`,
+          product.id,
+          CACHE_DURATIONS.STATIC.TTL,
+          {
+            staleTime: CACHE_DURATIONS.STATIC.STALE
+          }
+        );
       });
+      
+      // Cache product preview data for faster collection browsing
+      const productPreviews = transformedProducts.map(product => ({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        imageUrl: product.imageUrl,
+        slug: product.slug,
+        collectionSlug: product.collectionSlug,
+        stock: product.stock > 0
+      }));
+      
+      cacheManager.set(
+        'product_previews',
+        productPreviews,
+        CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+        {
+          staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+        }
+      );
     }
+    
+    // Preload navigation resources
+    preloadNavigationResources();
     
     console.log('Cache preloaded successfully');
     return true;
   } catch (err) {
     console.error('Error preloading cache:', err);
     return false;
+  }
+}
+
+/**
+ * Preload frequently accessed navigation resources
+ */
+async function preloadNavigationResources() {
+  try {
+    // Preload routes configuration for faster routing
+    const routeConfig = {
+      home: '/',
+      orders: '/orders',
+      tracking: '/tracking',
+      collections: {},
+      legal: {
+        privacy: '/privacy',
+        terms: '/terms',
+        returns: '/returns-faq'
+      }
+    };
+    
+    cacheManager.set(
+      'route_config',
+      routeConfig,
+      CACHE_DURATIONS.STATIC.TTL,
+      {
+        staleTime: CACHE_DURATIONS.STATIC.STALE
+      }
+    );
+    
+    // Preload navigation link states
+    cacheManager.set(
+      'navigation_state',
+      {
+        lastVisited: null,
+        frequentlyAccessed: []
+      },
+      CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+      {
+        staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE
+      }
+    );
+    
+  } catch (err) {
+    console.error('Error preloading navigation resources:', err);
   }
 }
 

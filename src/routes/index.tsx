@@ -6,6 +6,18 @@ import { ProtectedRoute } from '../components/merchant/ProtectedRoute';
 import { AnimatedLayout } from '../components/layout/AnimatedLayout';
 import { ProductPageTransition } from '../components/ui/ProductPageTransition';
 
+// Preload function for frequently accessed routes
+const preloadHomePage = () => import('../pages/HomePage');
+const preloadCollectionPage = () => import('../pages/CollectionPage');
+const preloadProductPage = () => import('../pages/ProductPage');
+
+// Trigger preloads after initial render
+setTimeout(() => {
+  preloadHomePage();
+  preloadCollectionPage();
+  preloadProductPage();
+}, 2000);
+
 // Lazy load routes that aren't needed immediately
 const CollectionPage = lazy(() => import('../pages/CollectionPage').then(module => ({ default: module.CollectionPage })));
 const ProductPage = lazy(() => import('../pages/ProductPage').then(module => ({ default: module.ProductPage })));
@@ -47,6 +59,19 @@ const SmoothOrdersPage = () => (
     <OrdersPage />
   </Suspense>
 );
+
+// Preload adjacent routes based on current route
+const prefetchAdjacentRoutes = (currentRoute: string) => {
+  // For home page, preload collections
+  if (currentRoute === '/') {
+    preloadCollectionPage();
+  }
+  
+  // For collection page, preload product page
+  if (currentRoute.split('/').length === 2 && currentRoute !== '/') {
+    preloadProductPage();
+  }
+};
 
 export const router = createBrowserRouter([
   {
@@ -109,3 +134,23 @@ export const router = createBrowserRouter([
     ]
   }
 ]);
+
+// Initialize router prefetching
+window.addEventListener('load', () => {
+  // Start route preloading system
+  let lastPathname = window.location.pathname;
+  
+  // Call the prefetch function initially
+  prefetchAdjacentRoutes(lastPathname);
+  
+  // Listen for route changes to prefetch related routes
+  const observer = new MutationObserver(() => {
+    const currentPathname = window.location.pathname;
+    if (currentPathname !== lastPathname) {
+      lastPathname = currentPathname;
+      prefetchAdjacentRoutes(currentPathname);
+    }
+  });
+  
+  observer.observe(document.body, { childList: true, subtree: true });
+});
