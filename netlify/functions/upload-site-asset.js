@@ -28,174 +28,150 @@ const supabase = supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey)
   : null;
 
+// Helper function to log and return errors
+function errorResponse(statusCode, message, details = null) {
+  console.error(message, details);
+  return {
+    statusCode,
+    body: JSON.stringify({
+      error: message,
+      details: details || undefined
+    })
+  };
+}
+
 /**
- * Simplified upload function
+ * Upload site asset function
  */
 export async function handler(event, context) {
-  console.log('Upload function started');
+  console.log('Upload function starting');
   
   // Only allow POST
   if (event.httpMethod !== 'POST') {
-    return { 
-      statusCode: 405, 
-      body: JSON.stringify({ error: 'Method not allowed' }) 
-    };
-  }
-
-  // Check auth
-  const token = event.headers.authorization?.split(' ')[1];
-  if (!token) {
-    return { 
-      statusCode: 401, 
-      body: JSON.stringify({ error: 'Missing authentication token' }) 
-    };
+    return errorResponse(405, 'Method not allowed');
   }
 
   try {
+    // Check auth
+    const token = event.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return errorResponse(401, 'Missing authentication token');
+    }
+    
     // Parse request
     const req = JSON.parse(event.body);
     const { fileBase64, fileName, contentType } = req;
     
     if (!fileBase64 || !fileName || !contentType) {
-      return { 
-        statusCode: 400, 
-        body: JSON.stringify({ error: 'Missing required fields' }) 
-      };
+      return errorResponse(400, 'Missing required fields');
     }
     
     console.log(`Processing upload: ${fileName} (${contentType})`);
     
     // Verify admin
-    const auth = await supabase.auth.getUser(token);
-    if (auth.error || !auth.data.user) {
-      return { 
-        statusCode: 401, 
-        body: JSON.stringify({ error: 'Invalid token' }) 
-      };
+    const { data: userData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !userData.user) {
+      return errorResponse(401, 'Invalid authentication', authError);
     }
     
-    const userId = auth.data.user.id;
+    const userId = userData.user.id;
     console.log(`User authenticated: ${userId}`);
     
     // Check admin role
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('role')
       .eq('id', userId)
       .single();
       
+    if (profileError) {
+      return errorResponse(500, 'Error fetching user profile', profileError);
+    }  
+    
     if (profile?.role !== 'admin') {
-      return { 
-        statusCode: 403, 
-        body: JSON.stringify({ error: 'Admin access required' }) 
-      };
+      return errorResponse(403, 'Admin access required');
     }
     
     console.log('Admin verified');
     
     // Process file
     const base64Data = fileBase64.replace(/^data:[^;]+;base64,/, '');
-    const fileBuffer = Buffer.from(base64Data, 'base64');
+    const fileData = Buffer.from(base64Data, 'base64');
     
-    if (fileBuffer.length === 0) {
-      return { 
-        statusCode: 400, 
-        body: JSON.stringify({ error: 'Empty file' }) 
-      };
+    if (fileData.length === 0) {
+      return errorResponse(400, 'Empty file');
     }
     
-    console.log(`File decoded: ${fileBuffer.length} bytes`);
+    console.log(`File decoded: ${fileData.length} bytes`);
     
-    // Ensure bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
+    // Check if bucket exists
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    if (bucketsError) {
+      return errorResponse(500, 'Error listing buckets', bucketsError);
+    }
+    
     const bucketExists = buckets?.some(b => b.name === SITE_ASSETS_BUCKET);
     
     if (!bucketExists) {
-      await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
+      const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
         public: true
       });
+      if (createError) {
+        return errorResponse(500, 'Failed to create bucket', createError);
+      }
       console.log(`Bucket created: ${SITE_ASSETS_BUCKET}`);
     } else {
       console.log(`Bucket exists: ${SITE_ASSETS_BUCKET}`);
     }
     
-    // Try multiple upload approaches
-    let uploadResult;
-    let errorMessages = [];
+    // Check if file exists first (for update case)
+    console.log(`Checking if file exists: ${fileName}`);
+    const { data: existingFiles, error: listError } = await supabase.storage
+      .from(SITE_ASSETS_BUCKET)
+      .list('', { 
+        search: fileName 
+      });
+      
+    const fileExists = existingFiles?.some(file => file.name === fileName);
+    console.log(`File exists check: ${fileExists}`);
     
-    // Approach 1: Standard upload
-    try {
-      console.log('Trying standard upload...');
-      uploadResult = await supabase.storage
+    // If file exists, try removing it first (better update handling)
+    if (fileExists) {
+      console.log(`File exists, removing first: ${fileName}`);
+      const { error: removeError } = await supabase.storage
         .from(SITE_ASSETS_BUCKET)
-        .upload(fileName, fileBuffer, {
-          contentType,
-          upsert: true
-        });
-      
-      if (uploadResult.error) {
-        errorMessages.push(`Standard upload failed: ${uploadResult.error.message}`);
-        console.log(errorMessages[errorMessages.length - 1]);
-      } else {
-        console.log('Standard upload succeeded');
-      }
-    } catch (err) {
-      errorMessages.push(`Standard upload exception: ${err.message}`);
-      console.log(errorMessages[errorMessages.length - 1]);
-    }
-    
-    // If standard approach failed, try alternative
-    if (!uploadResult || uploadResult.error) {
-      try {
-        console.log('Trying alternative upload...');
-        // Convert to Blob for older Supabase versions
-        const blob = new Blob([fileBuffer], { type: contentType });
-        uploadResult = await supabase.storage
-          .from(SITE_ASSETS_BUCKET)
-          .upload(fileName, blob, {
-            upsert: true
-          });
+        .remove([fileName]);
         
-        if (uploadResult.error) {
-          errorMessages.push(`Alternative upload failed: ${uploadResult.error.message}`);
-          console.log(errorMessages[errorMessages.length - 1]);
-        } else {
-          console.log('Alternative upload succeeded');
-        }
-      } catch (err) {
-        errorMessages.push(`Alternative upload exception: ${err.message}`);
-        console.log(errorMessages[errorMessages.length - 1]);
+      if (removeError) {
+        console.log(`Warning: Could not remove existing file: ${removeError.message}`);
+        // Continue anyway, as upsert might still work
+      } else {
+        console.log('Existing file removed successfully');
       }
     }
     
-    // Check final result
-    if (uploadResult && !uploadResult.error) {
-      console.log('Upload successful, generating URL');
-      // Generate URL - try multiple approaches
+    // Upload the file
+    console.log(`Uploading file: ${fileName}`);
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(SITE_ASSETS_BUCKET)
+      .upload(fileName, fileData, {
+        contentType,
+        upsert: true, // Always use upsert
+        cacheControl: '3600'
+      });
       
-      // Approach 1: getPublicUrl
-      try {
-        const { data } = supabase.storage
-          .from(SITE_ASSETS_BUCKET)
-          .getPublicUrl(fileName);
-          
-        if (data?.publicUrl) {
-          console.log('URL generated via getPublicUrl');
-          return {
-            statusCode: 200,
-            body: JSON.stringify({
-              success: true,
-              url: data.publicUrl,
-              path: uploadResult.data?.path || fileName
-            })
-          };
-        }
-      } catch (err) {
-        console.log(`getPublicUrl failed: ${err.message}`);
-      }
+    if (uploadError) {
+      return errorResponse(500, 'Upload failed', uploadError);
+    }
+    
+    console.log('Upload successful, getting public URL');
+    const { data: urlData } = await supabase.storage
+      .from(SITE_ASSETS_BUCKET)
+      .getPublicUrl(fileName);
       
-      // Approach 2: Manual URL construction
-      console.log('Falling back to manual URL construction');
+    if (!urlData?.publicUrl) {
+      // Construct fallback URL manually
+      console.log('No public URL returned, constructing manually');
       const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
       
       return {
@@ -203,29 +179,22 @@ export async function handler(event, context) {
         body: JSON.stringify({
           success: true,
           url: fallbackUrl,
-          path: fileName
-        })
-      };
-    } else {
-      // All upload attempts failed
-      console.log('All upload attempts failed');
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: 'Upload failed after multiple attempts',
-          details: errorMessages
+          path: uploadData?.path || fileName
         })
       };
     }
-  } catch (error) {
-    console.error('Unhandled error:', error);
+    
+    console.log(`Public URL: ${urlData.publicUrl}`);
     return {
-      statusCode: 500,
+      statusCode: 200,
       body: JSON.stringify({
-        error: 'Unexpected error',
-        message: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        success: true,
+        url: urlData.publicUrl,
+        path: uploadData?.path || fileName
       })
     };
+    
+  } catch (error) {
+    return errorResponse(500, 'Unexpected error', { message: error.message, stack: error.stack });
   }
 } 
