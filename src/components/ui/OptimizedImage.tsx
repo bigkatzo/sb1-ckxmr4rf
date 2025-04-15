@@ -217,7 +217,7 @@ export function OptimizedImage({
     <div className="relative w-full h-full">
       {isLoading && (
         <div 
-          className="absolute inset-0 bg-gray-800 animate-pulse transform-gpu" 
+          className="absolute inset-0 bg-gray-800 animate-pulse" 
           style={height && width ? { aspectRatio: `${width}/${height}` } : undefined}
         />
       )}
@@ -229,7 +229,7 @@ export function OptimizedImage({
         height={height}
         className={`
           w-full h-full ${objectFitClass} 
-          transition-all duration-300 ease-out transform-gpu
+          transition-opacity duration-300 ease-out
           ${isLoading ? 'opacity-0' : 'opacity-100'}
           ${className}
         `}

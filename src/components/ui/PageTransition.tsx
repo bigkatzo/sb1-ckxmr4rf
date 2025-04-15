@@ -10,26 +10,21 @@ export function PageTransition({ children }: PageTransitionProps) {
   const location = useLocation();
   
   // Animation variants for page transitions
-  // Optimized with minimal movement and improved performance
+  // Simplified for better performance
   const variants = {
     initial: { 
-      opacity: 0.95, 
-      y: 0,
-      scale: 0.999
+      opacity: 0.95
     },
     animate: { 
-      opacity: 1, 
-      y: 0,
-      scale: 1,
+      opacity: 1,
       transition: { 
         duration: 0.15,
-        ease: [0.25, 1, 0.5, 1], // Custom cubic-bezier for smoother motion
-        opacity: { duration: 0.1 } // Faster opacity transition
+        ease: "easeOut",
+        opacity: { duration: 0.1 }
       }
     },
     exit: { 
       opacity: 0,
-      scale: 0.999,
       transition: { 
         duration: 0.10,
         ease: "easeIn"
@@ -44,18 +39,6 @@ export function PageTransition({ children }: PageTransitionProps) {
       animate="animate"
       exit="exit"
       variants={variants}
-      // Improve CLS with a layout prop
-      layout="position"
-      // Reduce DOM operations with layoutId
-      layoutId={`page-${location.pathname.split('/')[1] || 'home'}`}
-      style={{
-        willChange: 'transform, opacity',
-        backfaceVisibility: 'hidden',
-        WebkitBackfaceVisibility: 'hidden',
-        perspective: 1000,
-        WebkitPerspective: 1000,
-        transform: 'translate3d(0,0,0)'
-      }}
       className="w-full"
     >
       {children}
