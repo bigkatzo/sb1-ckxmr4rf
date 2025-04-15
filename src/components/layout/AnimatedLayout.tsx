@@ -52,11 +52,6 @@ export function AnimatedLayout() {
   const location = useLocation();
   const { isOpen } = useHowItWorks();
   
-  // Scroll to top when location changes
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
-  
   // Add effect to handle body scroll
   useEffect(() => {
     if (isOpen) {
