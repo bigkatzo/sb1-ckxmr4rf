@@ -46,7 +46,7 @@ export function HomePage() {
   const seoTitle = `${siteSettings.site_name} | ${siteSettings.site_description}`;
 
   return (
-    <div className="space-y-0 scroll-smooth">
+    <div className="scroll-smooth">
       {/* Default SEO for homepage */}
       <SEO 
         title={seoTitle}
@@ -54,35 +54,27 @@ export function HomePage() {
         type="website"
       />
       
-      <div style={{ minHeight: '30vh', aspectRatio: '16/9' }}>
-        <FeaturedCollection />
-      </div>
+      <FeaturedCollection />
       
       <section className="mt-4 sm:mt-6 md:mt-8">
         <SectionHeader
           title="Best Sellers"
         />
-        <div style={{ minHeight: '20vh' }}>
-          <BestSellers />
-        </div>
+        <BestSellers />
       </section>
 
       <section className="mt-4 sm:mt-6 md:mt-8">
         <SectionHeader
           title="Coming Soon"
         />
-        <div style={{ minHeight: '25vh' }}>
-          <CollectionScroller filter="upcoming" />
-        </div>
+        <CollectionScroller filter="upcoming" />
       </section>
 
       <section className="mt-4 sm:mt-6 md:mt-8">
         <SectionHeader
           title="Latest Drops"
         />
-        <div style={{ minHeight: '30vh' }}>
-          <CollectionGrid filter="latest" />
-        </div>
+        <CollectionGrid filter="latest" />
       </section>
     </div>
   );
