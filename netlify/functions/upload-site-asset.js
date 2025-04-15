@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import fetch from 'node-fetch'; // Ensure proper fetch is available
+const https = require('https');
 
 // Check Supabase client version
 let supabaseVersion;
@@ -12,6 +14,13 @@ try {
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Set up a custom agent with keepalive for all requests
+const agent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  rejectUnauthorized: false // Only use in development, not recommended for production
+});
 
 // DEBUG: Log environment variables availability (not values for security)
 console.log('Environment variables check:', {
@@ -30,7 +39,15 @@ const SITE_ASSETS_BUCKET = 'site-assets';
 
 // Initialize Supabase client only if we have required environment variables
 const supabase = supabaseUrl && supabaseServiceKey 
-  ? createClient(supabaseUrl, supabaseServiceKey)
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        persistSession: false
+      },
+      global: {
+        fetch: fetch,
+        headers: {} 
+      }
+    })
   : null;
 
 if (!supabase) {
@@ -222,126 +239,107 @@ export async function handler(event, context) {
       // Try uploading directly without checking if the file exists first
       console.log(`Uploading file: ${fileName} (${fileData.length} bytes, ${contentType})`);
       
-      // Try multiple upload methods in sequence until one works
-      let uploadSuccess = false;
-      let uploadError = null;
-      
-      // Method 1: Standard Supabase SDK upload
+      // Simplify the approach to just use the Supabase SDK with explicit options
+      // to avoid any schema compatibility issues
       try {
-        console.log('Trying upload method 1: Supabase SDK');
-        const { data, error } = await supabase.storage
+        console.log('Attempting SDK upload with explicit options');
+        
+        // Try to avoid schema issues by using explicit minimal options
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from(SITE_ASSETS_BUCKET)
           .upload(fileName, fileData, {
             contentType,
             upsert: true,
+            duplex: 'half',
             cacheControl: '3600'
           });
           
-        if (error) {
-          console.error('Upload method 1 failed:', error);
-          uploadError = error;
+        if (uploadError) {
+          console.error('Upload failed:', JSON.stringify(uploadError));
+          
+          // If the error is about the "owner" column, we need to try a different approach
+          if (uploadError.message && uploadError.message.includes('owner')) {
+            console.log('Detected schema issue with "owner" column, attempting raw upload');
+            
+            // Setup direct HTTP request using node-fetch
+            const url = `${supabaseUrl}/storage/v1/object/${SITE_ASSETS_BUCKET}/${fileName}`;
+            console.log(`Using direct URL: ${url}`);
+            
+            try {
+              // Create manual raw HTTP request
+              const rawResponse = await fetch(url, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                  'Content-Type': contentType,
+                  'Cache-Control': 'max-age=3600',
+                  'x-upsert': 'true'
+                },
+                body: fileData,
+                agent // Use the custom agent
+              });
+              
+              if (!rawResponse.ok) {
+                const errorText = await rawResponse.text();
+                console.error(`Raw upload failed (${rawResponse.status}): ${errorText}`);
+                return errorResponse(500, 'Upload failed', {
+                  status: rawResponse.status,
+                  statusText: rawResponse.statusText,
+                  error: errorText
+                });
+              }
+              
+              console.log('Raw upload succeeded');
+            } catch (rawError) {
+              console.error('Exception during raw upload:', rawError);
+              return errorResponse(500, 'Upload failed', rawError);
+            }
+          } else {
+            // If it's some other error, just report it
+            return errorResponse(500, 'Upload failed', uploadError);
+          }
         } else {
-          console.log('Upload method 1 succeeded');
-          uploadSuccess = true;
+          console.log('Upload succeeded via SDK');
         }
-      } catch (e) {
-        console.error('Exception in upload method 1:', e);
-        uploadError = e;
-      }
-      
-      // Method 2: Direct POST request if method 1 failed
-      if (!uploadSuccess) {
+        
+        // Generate the public URL - if we get here, the upload succeeded one way or another
+        console.log('Getting public URL');
+        let publicUrl = null;
+        
         try {
-          console.log('Trying upload method 2: Direct POST');
-          const uploadUrl = `${supabaseUrl}/storage/v1/object/${SITE_ASSETS_BUCKET}/${fileName}`;
+          const { data: urlData } = await supabase.storage
+            .from(SITE_ASSETS_BUCKET)
+            .getPublicUrl(fileName);
           
-          const response = await fetch(uploadUrl, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-              'Content-Type': contentType,
-              'x-upsert': 'true'
-            },
-            body: fileData
-          });
-          
-          if (!response.ok) {
-            const errText = await response.text();
-            console.error(`Upload method 2 failed (${response.status}):`, errText);
-            uploadError = { method: 'POST', status: response.status, text: errText };
-          } else {
-            console.log('Upload method 2 succeeded');
-            uploadSuccess = true;
+          if (urlData && urlData.publicUrl) {
+            publicUrl = urlData.publicUrl;
+            console.log(`Got public URL from SDK: ${publicUrl}`);
           }
-        } catch (e) {
-          console.error('Exception in upload method 2:', e);
-          uploadError = e;
+        } catch (urlError) {
+          console.error('Error getting public URL from SDK:', urlError);
         }
-      }
-      
-      // Method 3: Direct PUT request if methods 1 and 2 failed
-      if (!uploadSuccess) {
-        try {
-          console.log('Trying upload method 3: Direct PUT');
-          const putUrl = `${supabaseUrl}/storage/v1/object/${SITE_ASSETS_BUCKET}/${fileName}`;
-          
-          const putResponse = await fetch(putUrl, {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-              'Content-Type': contentType
-            },
-            body: fileData
-          });
-          
-          if (!putResponse.ok) {
-            const errText = await putResponse.text();
-            console.error(`Upload method 3 failed (${putResponse.status}):`, errText);
-            uploadError = { method: 'PUT', status: putResponse.status, text: errText };
-          } else {
-            console.log('Upload method 3 succeeded');
-            uploadSuccess = true;
-          }
-        } catch (e) {
-          console.error('Exception in upload method 3:', e);
-          uploadError = e;
+        
+        // Fallback to constructing the URL manually if needed
+        if (!publicUrl) {
+          publicUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
+          console.log(`Constructed fallback URL: ${publicUrl}`);
         }
-      }
-      
-      if (!uploadSuccess) {
-        return errorResponse(500, 'All upload methods failed', {
-          error: uploadError
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            url: publicUrl,
+            path: fileName
+          })
+        };
+      } catch (uploadException) {
+        console.error('Unexpected exception during upload process:', uploadException);
+        return errorResponse(500, 'Unexpected upload error', {
+          message: uploadException.message,
+          stack: uploadException.stack
         });
       }
-      
-      // Generate the public URL
-      console.log('Upload successful, getting public URL');
-      let publicUrl = null;
-      
-      try {
-        const { data: urlData } = await supabase.storage
-          .from(SITE_ASSETS_BUCKET)
-          .getPublicUrl(fileName);
-        
-        publicUrl = urlData?.publicUrl;
-      } catch (e) {
-        console.error('Error getting public URL:', e);
-      }
-      
-      if (!publicUrl) {
-        console.log('No public URL returned, constructing manually');
-        publicUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
-      }
-      
-      console.log(`Final public URL: ${publicUrl}`);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          success: true,
-          url: publicUrl,
-          path: fileName
-        })
-      };
     } catch (fileProcessError) {
       console.error('Error processing file:', fileProcessError);
       return errorResponse(500, 'File processing error', {
