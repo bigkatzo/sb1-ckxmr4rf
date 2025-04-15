@@ -758,16 +758,13 @@ async function handleLcpImageRequest(request) {
       return cachedResponse;
     }
     
-    // No cache hit, fetch from network with safety
+    // No cache hit, fetch from network with safety but WITHOUT custom headers that could cause CORS issues
     try {
+      // Use a plain fetch without any custom headers that could trigger CORS issues
       const networkResponse = await fetch(request.clone(), {
-        // Add cache control headers to prevent browser caching conflicts
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        },
-        // Shorter timeout for LCP images
-        signal: AbortSignal.timeout(3000)
+        // Don't add any custom headers that could cause CORS problems
+        // Longer timeout for LCP images on slower connections
+        signal: AbortSignal.timeout(5000)
       });
       
       if (!networkResponse.ok) {
@@ -801,6 +798,36 @@ async function handleLcpImageRequest(request) {
       return networkResponse;
     } catch (networkError) {
       console.warn('Network fetch for LCP image failed:', networkError);
+      
+      // Try a second attempt with a completely vanilla fetch (no signal, no headers)
+      try {
+        console.log('Trying backup fetch strategy for LCP image');
+        const backupResponse = await fetch(request.clone());
+        
+        if (backupResponse.ok) {
+          // Cache this successful response
+          try {
+            const backupCache = new Response(
+              backupResponse.clone().body,
+              {
+                status: backupResponse.status,
+                statusText: backupResponse.statusText,
+                headers: new Headers(backupResponse.headers)
+              }
+            );
+            
+            backupCache.headers.set('X-Cache-Time', Date.now().toString());
+            await cache.put(request, backupCache);
+          } catch (e) {
+            // Ignore caching errors
+          }
+          
+          return backupResponse;
+        }
+      } catch (backupError) {
+        console.warn('Backup fetch also failed:', backupError);
+      }
+      
       // If network fetch fails but we have a cached response from a previous visit, use it
       const fallbackCachedResponse = await cache.match(request);
       if (fallbackCachedResponse) {
@@ -821,18 +848,14 @@ async function handleLcpImageRequest(request) {
   }
 }
 
-// Background update for LCP images cache
+// Background update for LCP images cache - using a gentler approach
 async function updateLcpImageCache(request, cache) {
   try {
-    // Use a separate fetch with timeout to avoid hanging
+    // Use a separate fetch WITHOUT problematic headers
     const networkResponse = await fetch(request.clone(), {
-      // Add cache busting to ensure fresh content
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      },
-      // Use a longer timeout for background updates
-      signal: AbortSignal.timeout(5000)
+      // No cache-busting headers - these can cause CORS issues
+      // Longer timeout for background updates
+      signal: AbortSignal.timeout(10000)
     });
     
     if (!networkResponse.ok) return;
@@ -859,6 +882,26 @@ async function updateLcpImageCache(request, cache) {
     }
   } catch (error) {
     console.warn('Background LCP image update failed:', error);
+    
+    // Try one more time with a vanilla fetch
+    try {
+      const fallbackResponse = await fetch(request.clone());
+      if (fallbackResponse.ok) {
+        const headers = new Headers(fallbackResponse.headers);
+        headers.set('X-Cache-Time', Date.now().toString());
+        
+        const cachedResponse = new Response(fallbackResponse.body, {
+          status: fallbackResponse.status,
+          statusText: fallbackResponse.statusText,
+          headers
+        });
+        
+        await cache.put(request, cachedResponse);
+        console.log('LCP image updated with fallback method');
+      }
+    } catch (e) {
+      // Give up silently
+    }
   }
 }
 
@@ -869,88 +912,122 @@ async function handleProductImageRequest(request) {
   const url = new URL(request.url);
   
   try {
-    // Check if image already has optimization parameters
-    let imageUrl = request.url;
-    
-    // Apply aggressive optimization if not already present
-    if (!url.searchParams.has('format') && !url.searchParams.has('width')) {
-      // Create a URL with optimized parameters
-      const optimizedUrl = new URL(request.url);
-      
-      // Clear any existing params
-      Array.from(optimizedUrl.searchParams.keys()).forEach(key => {
-        if (!['priority', 'fetchpriority'].includes(key)) {
-          optimizedUrl.searchParams.delete(key);
-        }
-      });
-      
-      // Set optimal size - product thumbnails should be small
-      optimizedUrl.searchParams.set('width', '320');
-      optimizedUrl.searchParams.set('quality', '65');
-      optimizedUrl.searchParams.set('format', 'webp');
-      optimizedUrl.searchParams.set('cache', '604800');
-      
-      imageUrl = optimizedUrl.toString();
-    }
-    
-    // Create a new request with the optimized URL
-    const optimizedRequest = new Request(imageUrl, {
-      method: request.method,
-      headers: request.headers,
-      mode: request.mode,
-      credentials: request.credentials,
-      redirect: request.redirect
-    });
-    
-    // Check cache for the optimized request
-    const cachedResponse = await cache.match(optimizedRequest);
+    // Check cache first
+    const cachedResponse = await cache.match(request);
     if (cachedResponse) {
       recordMetric('IMAGES', 'hit', Date.now() - startTime);
       return cachedResponse;
     }
     
-    // Fetch the optimized image
-    try {
-      const response = await fetch(optimizedRequest.clone(), {
-        mode: 'cors',
-        credentials: 'omit'
+    // The problem is with the way we're modifying the request URL
+    // Let's check if this is a Supabase storage URL for rendering
+    const isRenderEndpoint = url.pathname.includes('/storage/v1/render/image');
+    
+    // Don't try to modify render endpoint URLs - they're already optimized
+    // The 400 errors suggest we're creating invalid parameters
+    if (isRenderEndpoint) {
+      // Just try to fetch the original request without modifying it
+      try {
+        const response = await fetch(request.clone());
+        if (response.ok) {
+          // Cache the successful response
+          const cachedResponse = new Response(response.clone().body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: new Headers(response.headers)
+          });
+          
+          cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
+          await cache.put(request, cachedResponse);
+          
+          recordMetric('IMAGES', 'miss', Date.now() - startTime);
+          return response;
+        }
+      } catch (e) {
+        console.warn('Error fetching render endpoint image:', e);
+      }
+      
+      // If we fail with the optimized URL, try fetching the base storage URL
+      // Extract the file path from the render URL
+      const pathMatch = url.pathname.match(/\/render\/image\/public\/(.+)/);
+      if (pathMatch && pathMatch[1]) {
+        const basePath = pathMatch[1];
+        const baseUrl = new URL(`https://${url.hostname}/storage/v1/object/public/${basePath}`);
+        
+        try {
+          console.log('Trying base storage URL:', baseUrl.toString());
+          const baseResponse = await fetch(baseUrl.toString());
+          if (baseResponse.ok) {
+            return baseResponse;
+          }
+        } catch (baseError) {
+          console.warn('Failed to fetch base storage URL:', baseError);
+        }
+      }
+    } else {
+      // Handle regular storage URLs (not render endpoints)
+      // For these we can try to optimize, but more safely
+      let optimizedUrl;
+      
+      // Check if URL is already a storage path
+      if (url.pathname.includes('/storage/v1/object/public/')) {
+        // Convert to render endpoint with safe parameters
+        const pathMatch = url.pathname.match(/\/object\/public\/(.+)/);
+        if (pathMatch && pathMatch[1]) {
+          const imagePath = pathMatch[1];
+          optimizedUrl = new URL(`https://${url.hostname}/storage/v1/render/image/public/${imagePath}`);
+          
+          // Add safe render parameters
+          optimizedUrl.searchParams.set('width', '400');
+          optimizedUrl.searchParams.set('quality', '80');
+          
+          try {
+            console.log('Trying optimized render URL:', optimizedUrl.toString());
+            const optimizedResponse = await fetch(optimizedUrl.toString());
+            if (optimizedResponse.ok) {
+              // Cache the optimized response
+              const cachedResponse = new Response(optimizedResponse.clone().body, {
+                status: optimizedResponse.status,
+                statusText: optimizedResponse.statusText,
+                headers: new Headers(optimizedResponse.headers)
+              });
+              
+              cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
+              await cache.put(request, cachedResponse);
+              
+              recordMetric('IMAGES', 'miss', Date.now() - startTime);
+              return optimizedResponse;
+            }
+          } catch (optimizeError) {
+            console.warn('Failed to fetch optimized URL:', optimizeError);
+          }
+        }
+      }
+    }
+    
+    // Last resort - fetch the original request
+    console.log('Falling back to original request:', request.url);
+    const fallbackResponse = await fetch(request.clone());
+    if (fallbackResponse.ok) {
+      // Cache the fallback response
+      const cachedResponse = new Response(fallbackResponse.clone().body, {
+        status: fallbackResponse.status,
+        statusText: fallbackResponse.statusText,
+        headers: new Headers(fallbackResponse.headers)
       });
       
-      if (response.ok) {
-        // Cache the optimized response
-        const cachedResponse = new Response(response.clone().body, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: new Headers(response.headers)
-        });
-        
-        // Add cache metadata
-        cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
-        cachedResponse.headers.set('X-Cache-Version', CACHE_CONFIG.IMAGES.version);
-        
-        // Store in cache
-        await cache.put(optimizedRequest, cachedResponse.clone());
-        
-        recordMetric('IMAGES', 'miss', Date.now() - startTime);
-        return response;
-      }
+      cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
+      await cache.put(request, cachedResponse);
       
-      // If fetching optimized version fails, try original request
-      const originalResponse = await fetch(request.clone());
-      if (originalResponse.ok) {
-        return originalResponse;
-      }
-      
-      throw new Error('Failed to fetch product image');
-    } catch (fetchError) {
-      console.error('Error fetching product image:', fetchError);
-      // Try original request as fallback
-      return fetch(request.clone());
+      return fallbackResponse;
     }
+    
+    // If we've tried everything and still failed, throw an error
+    throw new Error('Failed to fetch product image');
   } catch (error) {
-    console.error('Product image request failed:', error);
+    console.error('Error fetching product image:', error);
     recordMetric('IMAGES', 'error', Date.now() - startTime);
-    // Last resort - pass through to browser
+    // Always pass through to browser as last resort
     return fetch(request);
   }
 }
