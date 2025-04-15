@@ -44,7 +44,7 @@ type SEOProps = {
 export default function SEO({
   title = '',
   description = '',
-  image = '/og.png',
+  image = '/icons/og-default-image.png',
   productName,
   collectionName,
   type = 'website',
@@ -202,21 +202,24 @@ export default function SEO({
     }
     
     // Update images if provided
-    if (image) {
-      // Ensure image is an absolute URL
-      const imageUrl = image.startsWith('http') ? image : window.location.origin + image;
-      
-      // Update OG image
-      const ogImage = document.querySelector('meta[property="og:image"]');
-      if (ogImage) {
-        ogImage.setAttribute('content', imageUrl);
-      }
-      
-      // Update Twitter image
-      const twitterImage = document.querySelector('meta[name="twitter:image"]');
-      if (twitterImage) {
-        twitterImage.setAttribute('content', imageUrl);
-      }
+    // Use og_image_url from site settings if available, otherwise use the provided image or fallback to default
+    const ogImageUrl = siteSettings?.og_image_url || image || '/icons/og-default-image.png';
+    const twitterImageUrl = siteSettings?.twitter_image_url || ogImageUrl || '/icons/twitter-default-image.png';
+    
+    // Ensure image URLs are absolute
+    const fullOgImageUrl = ogImageUrl.startsWith('http') ? ogImageUrl : window.location.origin + ogImageUrl;
+    const fullTwitterImageUrl = twitterImageUrl.startsWith('http') ? twitterImageUrl : window.location.origin + twitterImageUrl;
+    
+    // Update OG image
+    const ogImage = document.querySelector('meta[property="og:image"]');
+    if (ogImage) {
+      ogImage.setAttribute('content', fullOgImageUrl);
+    }
+    
+    // Update Twitter image
+    const twitterImage = document.querySelector('meta[name="twitter:image"]');
+    if (twitterImage) {
+      twitterImage.setAttribute('content', fullTwitterImageUrl);
     }
     
     // Update canonical URL

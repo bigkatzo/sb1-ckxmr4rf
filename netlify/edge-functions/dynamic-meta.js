@@ -10,6 +10,9 @@ const DEFAULT_SITE_NAME = 'store.fun';
 const DEFAULT_SITE_DESCRIPTION = 'The #1 Commerce Marketplace on Solana';
 // Use a proper Supabase URL for the default OG image that we know exists
 const DEFAULT_OG_IMAGE = 'https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/og_image-1744669770840.png';
+// Fallback to local default images if Supabase URL doesn't work
+const LOCAL_DEFAULT_OG_IMAGE = '/icons/og-default-image.png';
+const LOCAL_DEFAULT_TWITTER_IMAGE = '/icons/twitter-default-image.png';
 
 // Bot/crawler user agents to target
 const BOT_USER_AGENTS = [
@@ -57,7 +60,8 @@ async function getSiteSettings() {
     return {
       site_name: DEFAULT_SITE_NAME,
       site_description: DEFAULT_SITE_DESCRIPTION,
-      og_image_url: DEFAULT_OG_IMAGE
+      og_image_url: DEFAULT_OG_IMAGE,
+      twitter_image_url: DEFAULT_OG_IMAGE
     };
   }
 
@@ -73,9 +77,14 @@ async function getSiteSettings() {
       return {
         site_name: DEFAULT_SITE_NAME,
         site_description: DEFAULT_SITE_DESCRIPTION,
-        og_image_url: DEFAULT_OG_IMAGE
+        og_image_url: DEFAULT_OG_IMAGE,
+        twitter_image_url: DEFAULT_OG_IMAGE
       };
     }
+
+    // Ensure we have valid OG image URLs - use fallbacks if not set
+    data.og_image_url = data.og_image_url || DEFAULT_OG_IMAGE;
+    data.twitter_image_url = data.twitter_image_url || data.og_image_url || DEFAULT_OG_IMAGE;
 
     return data;
   } catch (err) {
@@ -83,7 +92,8 @@ async function getSiteSettings() {
     return {
       site_name: DEFAULT_SITE_NAME,
       site_description: DEFAULT_SITE_DESCRIPTION,
-      og_image_url: DEFAULT_OG_IMAGE
+      og_image_url: DEFAULT_OG_IMAGE,
+      twitter_image_url: DEFAULT_OG_IMAGE
     };
   }
 }
