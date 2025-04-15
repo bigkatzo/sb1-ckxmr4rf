@@ -20,6 +20,11 @@ console.log('Environment variables check:', {
   nodeEnv: process.env.NODE_ENV
 });
 
+// Ensure we have the required environment variables
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('CRITICAL ERROR: Missing required environment variables for Supabase');
+}
+
 // Constants
 const SITE_ASSETS_BUCKET = 'site-assets';
 
@@ -28,9 +33,13 @@ const supabase = supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey)
   : null;
 
+if (!supabase) {
+  console.error('CRITICAL ERROR: Failed to initialize Supabase client');
+}
+
 // Helper function to log and return errors
 function errorResponse(statusCode, message, details = null) {
-  console.error(message, details);
+  console.error('ERROR:', message, details);
   return {
     statusCode,
     body: JSON.stringify({
@@ -44,11 +53,22 @@ function errorResponse(statusCode, message, details = null) {
  * Upload site asset function
  */
 export async function handler(event, context) {
-  console.log('Upload function starting');
+  console.log('Upload function starting with event:', {
+    method: event.httpMethod,
+    path: event.path,
+    hasAuth: !!event.headers.authorization,
+    hasBody: !!event.body,
+    bodyLength: event.body ? event.body.length : 0
+  });
   
   // Only allow POST
   if (event.httpMethod !== 'POST') {
     return errorResponse(405, 'Method not allowed');
+  }
+
+  // Check if Supabase client is available
+  if (!supabase) {
+    return errorResponse(500, 'Supabase client not initialized - missing environment variables');
   }
 
   try {
@@ -58,143 +78,214 @@ export async function handler(event, context) {
       return errorResponse(401, 'Missing authentication token');
     }
     
+    console.log('Auth token received, length:', token.length);
+    
     // Parse request
-    const req = JSON.parse(event.body);
+    let req;
+    try {
+      req = JSON.parse(event.body);
+      console.log('Successfully parsed request body');
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return errorResponse(400, 'Invalid JSON in request body', {
+        parseError: parseError.message,
+        bodyStart: event.body.substring(0, 100) + '...'
+      });
+    }
+    
     const { fileBase64, fileName, contentType } = req;
     
     if (!fileBase64 || !fileName || !contentType) {
-      return errorResponse(400, 'Missing required fields');
+      return errorResponse(400, 'Missing required fields', {
+        hasFileBase64: !!fileBase64,
+        hasFileName: !!fileName,
+        hasContentType: !!contentType
+      });
     }
     
-    console.log(`Processing upload: ${fileName} (${contentType})`);
+    console.log(`Processing upload: ${fileName} (${contentType}), base64 data length: ${fileBase64.length}`);
     
     // Verify admin
-    const { data: userData, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !userData.user) {
-      return errorResponse(401, 'Invalid authentication', authError);
-    }
-    
-    const userId = userData.user.id;
-    console.log(`User authenticated: ${userId}`);
-    
-    // Check admin role
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
+    try {
+      console.log('Verifying user authentication with token');
+      const { data: userData, error: authError } = await supabase.auth.getUser(token);
       
-    if (profileError) {
-      return errorResponse(500, 'Error fetching user profile', profileError);
-    }  
-    
-    if (profile?.role !== 'admin') {
-      return errorResponse(403, 'Admin access required');
+      if (authError) {
+        console.error('Authentication error:', authError);
+        return errorResponse(401, 'Invalid authentication', authError);
+      }
+      
+      if (!userData || !userData.user) {
+        console.error('No user data returned from auth');
+        return errorResponse(401, 'Invalid authentication - no user found');
+      }
+      
+      const userId = userData.user.id;
+      console.log(`User authenticated: ${userId}`);
+      
+      // Check admin role
+      console.log(`Checking admin role for user: ${userId}`);
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        return errorResponse(500, 'Error fetching user profile', profileError);
+      }
+      
+      if (!profile) {
+        console.error('No profile found for user');
+        return errorResponse(403, 'No user profile found');
+      }
+      
+      console.log(`User role from database: ${profile.role}`);
+      
+      if (profile.role !== 'admin') {
+        console.error('User is not an admin');
+        return errorResponse(403, 'Admin access required');
+      }
+      
+      console.log('User verified as admin');
+    } catch (authCheckError) {
+      console.error('Unexpected error during authentication check:', authCheckError);
+      return errorResponse(500, 'Authentication check failed', {
+        message: authCheckError.message,
+        stack: authCheckError.stack
+      });
     }
-    
-    console.log('Admin verified');
     
     // Process file
-    const base64Data = fileBase64.replace(/^data:[^;]+;base64,/, '');
-    const fileData = Buffer.from(base64Data, 'base64');
-    
-    if (fileData.length === 0) {
-      return errorResponse(400, 'Empty file');
-    }
-    
-    console.log(`File decoded: ${fileData.length} bytes`);
-    
-    // Check if bucket exists
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-    if (bucketsError) {
-      return errorResponse(500, 'Error listing buckets', bucketsError);
-    }
-    
-    const bucketExists = buckets?.some(b => b.name === SITE_ASSETS_BUCKET);
-    
-    if (!bucketExists) {
-      const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
-        public: true
-      });
-      if (createError) {
-        return errorResponse(500, 'Failed to create bucket', createError);
-      }
-      console.log(`Bucket created: ${SITE_ASSETS_BUCKET}`);
-    } else {
-      console.log(`Bucket exists: ${SITE_ASSETS_BUCKET}`);
-    }
-    
-    // Check if file exists first (for update case)
-    console.log(`Checking if file exists: ${fileName}`);
-    const { data: existingFiles, error: listError } = await supabase.storage
-      .from(SITE_ASSETS_BUCKET)
-      .list('', { 
-        search: fileName 
-      });
+    try {
+      console.log('Processing file data from base64');
+      const base64Data = fileBase64.replace(/^data:[^;]+;base64,/, '');
+      console.log(`Base64 data length after stripping header: ${base64Data.length}`);
       
-    const fileExists = existingFiles?.some(file => file.name === fileName);
-    console.log(`File exists check: ${fileExists}`);
-    
-    // If file exists, try removing it first (better update handling)
-    if (fileExists) {
-      console.log(`File exists, removing first: ${fileName}`);
-      const { error: removeError } = await supabase.storage
-        .from(SITE_ASSETS_BUCKET)
-        .remove([fileName]);
-        
-      if (removeError) {
-        console.log(`Warning: Could not remove existing file: ${removeError.message}`);
-        // Continue anyway, as upsert might still work
+      const fileData = Buffer.from(base64Data, 'base64');
+      
+      if (fileData.length === 0) {
+        return errorResponse(400, 'Empty file');
+      }
+      
+      console.log(`File decoded: ${fileData.length} bytes`);
+      
+      // Check if bucket exists
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      if (bucketsError) {
+        console.error('Error listing buckets:', bucketsError);
+        return errorResponse(500, 'Error listing buckets', bucketsError);
+      }
+      
+      console.log(`Buckets data:`, buckets ? `Found ${buckets.length} buckets` : 'No buckets found');
+      const bucketExists = buckets?.some(b => b.name === SITE_ASSETS_BUCKET);
+      console.log(`Bucket '${SITE_ASSETS_BUCKET}' exists: ${bucketExists}`);
+      
+      if (!bucketExists) {
+        console.log(`Creating bucket: ${SITE_ASSETS_BUCKET}`);
+        const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
+          public: true
+        });
+        if (createError) {
+          console.error('Failed to create bucket:', createError);
+          return errorResponse(500, 'Failed to create bucket', createError);
+        }
+        console.log(`Bucket created: ${SITE_ASSETS_BUCKET}`);
       } else {
-        console.log('Existing file removed successfully');
+        console.log(`Bucket exists: ${SITE_ASSETS_BUCKET}`);
       }
-    }
-    
-    // Upload the file
-    console.log(`Uploading file: ${fileName}`);
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(SITE_ASSETS_BUCKET)
-      .upload(fileName, fileData, {
-        contentType,
-        upsert: true, // Always use upsert
-        cacheControl: '3600'
-      });
       
-    if (uploadError) {
-      return errorResponse(500, 'Upload failed', uploadError);
-    }
-    
-    console.log('Upload successful, getting public URL');
-    const { data: urlData } = await supabase.storage
-      .from(SITE_ASSETS_BUCKET)
-      .getPublicUrl(fileName);
+      // Check if file exists first (for update case)
+      console.log(`Checking if file exists: ${fileName}`);
+      const { data: existingFiles, error: listError } = await supabase.storage
+        .from(SITE_ASSETS_BUCKET)
+        .list('', { 
+          search: fileName 
+        });
+        
+      if (listError) {
+        console.error('Error listing files:', listError);
+        return errorResponse(500, 'Error listing files', listError);
+      }
+        
+      const fileExists = existingFiles?.some(file => file.name === fileName);
+      console.log(`File exists check: ${fileExists}`);
       
-    if (!urlData?.publicUrl) {
-      // Construct fallback URL manually
-      console.log('No public URL returned, constructing manually');
-      const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
+      // If file exists, try removing it first (better update handling)
+      if (fileExists) {
+        console.log(`File exists, removing first: ${fileName}`);
+        const { error: removeError } = await supabase.storage
+          .from(SITE_ASSETS_BUCKET)
+          .remove([fileName]);
+          
+        if (removeError) {
+          console.error(`Error removing existing file:`, removeError);
+          console.log(`Warning: Could not remove existing file: ${removeError.message}`);
+          // Continue anyway, as upsert might still work
+        } else {
+          console.log('Existing file removed successfully');
+        }
+      }
       
+      // Upload the file
+      console.log(`Uploading file: ${fileName} (${fileData.length} bytes, ${contentType})`);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(SITE_ASSETS_BUCKET)
+        .upload(fileName, fileData, {
+          contentType,
+          upsert: true, // Always use upsert
+          cacheControl: '3600'
+        });
+        
+      if (uploadError) {
+        console.error('Upload failed:', uploadError);
+        return errorResponse(500, 'Upload failed', uploadError);
+      }
+      
+      console.log('Upload successful, getting public URL');
+      const { data: urlData } = await supabase.storage
+        .from(SITE_ASSETS_BUCKET)
+        .getPublicUrl(fileName);
+        
+      if (!urlData?.publicUrl) {
+        console.log('No public URL returned, constructing manually');
+        const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
+        
+        console.log(`Returning fallback URL: ${fallbackUrl}`);
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            url: fallbackUrl,
+            path: uploadData?.path || fileName
+          })
+        };
+      }
+      
+      console.log(`Public URL: ${urlData.publicUrl}`);
       return {
         statusCode: 200,
         body: JSON.stringify({
           success: true,
-          url: fallbackUrl,
+          url: urlData.publicUrl,
           path: uploadData?.path || fileName
         })
       };
+    } catch (fileProcessError) {
+      console.error('Error processing file:', fileProcessError);
+      return errorResponse(500, 'File processing error', {
+        message: fileProcessError.message,
+        stack: fileProcessError.stack
+      });
     }
     
-    console.log(`Public URL: ${urlData.publicUrl}`);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        url: urlData.publicUrl,
-        path: uploadData?.path || fileName
-      })
-    };
-    
   } catch (error) {
-    return errorResponse(500, 'Unexpected error', { message: error.message, stack: error.stack });
+    console.error('Unexpected top-level error:', error);
+    return errorResponse(500, 'Unexpected error', { 
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
   }
 } 
