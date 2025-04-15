@@ -10,22 +10,22 @@ export function PageTransition({ children }: PageTransitionProps) {
   const location = useLocation();
   
   // Animation variants for page transitions
-  // Keeping it subtle and fast for a minimalist feel
+  // Optimized to minimize double loading appearance
   const variants = {
-    initial: { opacity: 0, y: 10 },
+    initial: { opacity: 0.85, y: 5 },
     animate: { 
       opacity: 1, 
       y: 0,
       transition: { 
-        duration: 0.3,
+        duration: 0.2,
         ease: [0.25, 0.1, 0.25, 1.0] // Smooth easing
       }
     },
     exit: { 
       opacity: 0,
-      y: -10,
+      y: -5,
       transition: { 
-        duration: 0.2,
+        duration: 0.15,
         ease: [0.25, 0.1, 0.25, 1.0]
       }
     }

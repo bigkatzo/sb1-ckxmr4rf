@@ -73,7 +73,10 @@ export function AnimatedLayout() {
       <main className="flex-1 pt-14">
         <NotificationsWrapper />
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full">
-          <AnimatePresence mode="wait">
+          <AnimatePresence
+            mode="wait"
+            initial={false}
+          >
             <PageTransition key={location.pathname}>
               <Outlet />
             </PageTransition>

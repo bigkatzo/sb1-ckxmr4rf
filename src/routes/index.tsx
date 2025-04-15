@@ -3,11 +3,6 @@ import { lazy, Suspense } from 'react';
 import { App } from '../App';
 import { HomePage } from '../pages/HomePage';
 import { ProtectedRoute } from '../components/merchant/ProtectedRoute';
-import { 
-  CollectionSkeleton, 
-  ProductModalSkeleton,
-  OrderPageSkeleton
-} from '../components/ui/Skeletons';
 import { AnimatedLayout } from '../components/layout/AnimatedLayout';
 import { ProductPageTransition } from '../components/ui/ProductPageTransition';
 
@@ -31,45 +26,26 @@ const PageLoader = () => (
   </div>
 );
 
-// Add a specific loading component for tracking page
-const TrackingPageLoader = () => (
-  <div className="container mx-auto px-4 py-8">
-    <div className="max-w-3xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8 animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-            <div className="h-6 bg-gray-200 rounded w-2/3"></div>
-          </div>
-          <div>
-            <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-            <div className="h-6 bg-gray-200 rounded w-2/3"></div>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="space-y-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="border-l-2 border-gray-200 pl-8 pb-8">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
 // Product page component with transition effect
 const ProductPageWithTransition = () => (
   <ProductPageTransition>
-    <Suspense fallback={<ProductModalSkeleton />}>
+    <Suspense fallback={null}>
       <ProductPage />
     </Suspense>
   </ProductPageTransition>
+);
+
+// Wrap suspense components with minimal or no fallback for smoother transitions
+const SmoothCollectionPage = () => (
+  <Suspense fallback={null}>
+    <CollectionPage />
+  </Suspense>
+);
+
+const SmoothOrdersPage = () => (
+  <Suspense fallback={null}>
+    <OrdersPage />
+  </Suspense>
 );
 
 export const router = createBrowserRouter([
@@ -86,15 +62,15 @@ export const router = createBrowserRouter([
           },
           {
             path: 'orders',
-            element: <Suspense fallback={<OrderPageSkeleton />}><OrdersPage /></Suspense>
+            element: <SmoothOrdersPage />
           },
           {
             path: 'tracking/:trackingNumber',
-            element: <Suspense fallback={<TrackingPageLoader />}><TrackingPage /></Suspense>
+            element: <Suspense fallback={null}><TrackingPage /></Suspense>
           },
           {
             path: ':slug',
-            element: <Suspense fallback={<CollectionSkeleton />}><CollectionPage /></Suspense>
+            element: <SmoothCollectionPage />
           },
           {
             path: ':collectionSlug/:productSlug',
