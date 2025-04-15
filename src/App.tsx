@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
 import { WalletProvider } from './contexts/WalletContext';
@@ -45,7 +46,7 @@ function AppContent() {
     };
   }, []);
 
-  return null; // AnimatedLayout is rendered via Outlet in the router
+  return <Outlet />; // Render the Outlet to show nested routes
 }
 
 export function App() {
