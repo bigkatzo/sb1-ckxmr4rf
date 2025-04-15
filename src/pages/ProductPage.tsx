@@ -5,7 +5,7 @@ import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
 import { ProductModalSkeleton } from '../components/ui/Skeletons';
 import { useEffect, useState, useRef } from 'react';
 import SEO from '../components/SEO';
-import { preloadPageResources } from '../lib/service-worker';
+import { preloadPageResources, prefetchGallery } from '../lib/service-worker';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
@@ -56,10 +56,30 @@ export function ProductPage() {
         
         // Preload a few more product images to prepare for carousel
         if (product.images.length > 1) {
-          // Load the second image with lower priority
+          // Initialize intelligent gallery prefetching for the entire image set
+          prefetchGallery(productSlug, product.images, 0);
+          
+          // Also explicitly load the second image with high priority
           const secondImg = new Image();
           secondImg.src = product.images[1];
-          secondImg.fetchPriority = 'auto';
+          secondImg.fetchPriority = 'high';
+          
+          // If there are more images, preload the third with lower priority 
+          if (product.images.length >= 3) {
+            const thirdImgLink = document.createElement('link');
+            thirdImgLink.rel = 'preload';
+            thirdImgLink.as = 'image';
+            thirdImgLink.href = product.images[2];
+            thirdImgLink.fetchPriority = 'low';
+            document.head.appendChild(thirdImgLink);
+            
+            // Clean up preload link after a timeout
+            setTimeout(() => {
+              if (document.head.contains(thirdImgLink)) {
+                document.head.removeChild(thirdImgLink);
+              }
+            }, 3000);
+          }
         }
       }
     }

@@ -11,6 +11,7 @@ import { ProductModalSkeleton } from '../ui/Skeletons';
 import { ProductNotes } from './ProductNotes';
 import type { Product as BaseProduct } from '../../types/variants';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
+import { prefetchGallery, updateGalleryImage } from '../../lib/service-worker';
 
 // Create a local Set to track preloaded images for this component instance
 const preloadedImages = new Set<string>();
@@ -116,6 +117,29 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   
   // Safe check for variants
   const hasVariants = !!product.variants && product.variants.length > 0;
+
+  // Initialize service worker gallery prefetching
+  useEffect(() => {
+    if (images.length <= 1) return;
+    
+    // Use the new service worker prefetching implementation 
+    prefetchGallery(product.id || product.slug, images, selectedImageIndex);
+    
+    // Also use the client-side preloader for immediate benefit
+    // This provides a dual-approach ensuring optimal experience
+    preloadGallery(images, selectedImageIndex, 2);
+  }, [product.id, product.slug, images]);
+  
+  // Update service worker when selected image changes
+  useEffect(() => {
+    if (images.length <= 1) return;
+    
+    // Inform service worker about image change for priority adjustment
+    updateGalleryImage(product.id || product.slug, selectedImageIndex);
+    
+    // Also update client-side preloader
+    preloadGallery(images, selectedImageIndex, 2);
+  }, [selectedImageIndex, product.id, product.slug, images.length]);
 
   useEffect(() => {
     // Lock body scroll when modal is open

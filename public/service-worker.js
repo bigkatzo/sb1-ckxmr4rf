@@ -344,35 +344,6 @@ function isProductImage(url) {
          url.pathname.includes('product-images');
 }
 
-// Unified image caching helper to reduce code duplication
-async function cacheImage(response, request, cache) {
-  if (!response || !response.ok) return null;
-  
-  try {
-    // Create a proper clone with the right headers
-    const cachedResponse = new Response(
-      response.clone().body,
-      {
-        status: response.status,
-        statusText: response.statusText,
-        headers: new Headers(response.headers)
-      }
-    );
-    
-    // Add cache metadata
-    cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
-    cachedResponse.headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
-    cachedResponse.headers.set('X-Cache-Type', 'IMAGES');
-    
-    // Store in cache
-    await cache.put(request, cachedResponse);
-    return cachedResponse;
-  } catch (e) {
-    console.warn('Failed to cache image response:', e);
-    return null;
-  }
-}
-
 // Advanced but efficient image fetch with fallbacks
 async function fetchImageWithFallbacks(request, options = {}) {
   const url = new URL(request.url);
@@ -449,6 +420,245 @@ async function fetchImageWithFallbacks(request, options = {}) {
   // All attempts failed
   return null;
 }
+
+// Unified image caching helper to reduce code duplication
+async function cacheImage(response, request, cache) {
+  if (!response || !response.ok) return null;
+  
+  try {
+    // Create a proper clone with the right headers
+    const cachedResponse = new Response(
+      response.clone().body,
+      {
+        status: response.status,
+        statusText: response.statusText,
+        headers: new Headers(response.headers)
+      }
+    );
+    
+    // Add cache metadata
+    cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
+    cachedResponse.headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
+    cachedResponse.headers.set('X-Cache-Type', 'IMAGES');
+    
+    // Store in cache
+    await cache.put(request, cachedResponse);
+    return cachedResponse;
+  } catch (e) {
+    console.warn('Failed to cache image response:', e);
+    return null;
+  }
+}
+
+// Product gallery prefetching implementation
+// Industry-standard optimization for handling product image galleries
+const GALLERY_PREFETCH = {
+  // Queue of gallery images to prefetch with their priorities
+  queue: new Map(), // Map<url, {priority, productId, index}>
+  activeRequests: 0,
+  maxConcurrentRequests: 4,
+  // Track which galleries have been prefetched
+  prefetchedGalleries: new Set(),
+  // Track which images are being processed
+  processingImages: new Set(),
+  
+  // Initialize prefetching for a specific product gallery
+  async initGallery(productId, imageUrls, currentIndex = 0) {
+    // Don't prefetch the same gallery multiple times
+    if (this.prefetchedGalleries.has(productId)) {
+      return;
+    }
+    
+    this.prefetchedGalleries.add(productId);
+    
+    if (!imageUrls || !imageUrls.length) {
+      return;
+    }
+    
+    console.log(`Initializing prefetch for product gallery: ${productId} with ${imageUrls.length} images`);
+    
+    // Always prioritize the first few images
+    // Add with different priorities based on position relative to current view
+    imageUrls.forEach((url, index) => {
+      let priority = 5; // Default medium priority
+      
+      // Current image gets highest priority (though it's likely already loaded)
+      if (index === currentIndex) {
+        priority = 10;
+      } 
+      // Next image gets high priority
+      else if (index === currentIndex + 1) {
+        priority = 9;
+      }
+      // Previous image gets medium-high priority
+      else if (index === currentIndex - 1 && index >= 0) {
+        priority = 8;
+      }
+      // Next 2 images get medium priority
+      else if (index === currentIndex + 2 || index === currentIndex + 3) {
+        priority = 7;
+      }
+      // Previous 2 images get medium-low priority
+      else if ((index === currentIndex - 2 || index === currentIndex - 3) && index >= 0) {
+        priority = 6;
+      }
+      // The rest get low priority
+      else {
+        priority = 3;
+      }
+      
+      // Add to queue if not already being processed
+      if (!this.processingImages.has(url)) {
+        this.queue.set(url, {
+          priority, 
+          productId, 
+          index
+        });
+      }
+    });
+    
+    // Start processing the queue
+    this.processQueue();
+  },
+  
+  // Update which image is currently viewed, shifting priorities
+  updateCurrentImage(productId, imageIndex) {
+    // Find all queued images for this product and update priorities
+    for (const [url, info] of this.queue.entries()) {
+      if (info.productId === productId) {
+        let newPriority = 3; // Default low priority
+        
+        // Determine new priority based on distance from current image
+        const distance = Math.abs(info.index - imageIndex);
+        
+        if (distance === 0) {
+          newPriority = 10; // Current image
+        } else if (distance === 1) {
+          newPriority = 9; // Adjacent image
+        } else if (distance === 2) {
+          newPriority = 7; // 2 away
+        } else if (distance === 3) {
+          newPriority = 5; // 3 away
+        } else if (distance <= 5) {
+          newPriority = 4; // 4-5 away
+        }
+        
+        // Update priority
+        this.queue.set(url, {
+          ...info,
+          priority: newPriority
+        });
+      }
+    }
+    
+    // Process queue with updated priorities
+    this.processQueue();
+  },
+  
+  // Process the prefetch queue based on priorities
+  async processQueue() {
+    // Don't start new requests if at concurrency limit
+    if (this.activeRequests >= this.maxConcurrentRequests) {
+      return;
+    }
+    
+    // Get highest priority items from the queue
+    const queueEntries = Array.from(this.queue.entries())
+      .sort((a, b) => b[1].priority - a[1].priority);
+    
+    // Nothing to process
+    if (queueEntries.length === 0) {
+      return;
+    }
+    
+    // Take the highest priority items that can be processed
+    const freeSlots = this.maxConcurrentRequests - this.activeRequests;
+    const itemsToProcess = queueEntries.slice(0, freeSlots);
+    
+    for (const [url, info] of itemsToProcess) {
+      // Remove from queue
+      this.queue.delete(url);
+      
+      // Mark as processing
+      this.processingImages.add(url);
+      
+      // Increment active requests
+      this.activeRequests++;
+      
+      // Prefetch the image
+      this.prefetchImage(url, info.priority >= 9)
+        .finally(() => {
+          // Decrement active requests
+          this.activeRequests--;
+          
+          // Remove from processing set
+          this.processingImages.delete(url);
+          
+          // Continue processing queue
+          this.processQueue();
+        });
+    }
+  },
+  
+  // Prefetch and cache a single image
+  async prefetchImage(url, isHighPriority = false) {
+    try {
+      const cache = await caches.open(CACHE_NAMES.IMAGES);
+      
+      // Check if already cached
+      const cachedResponse = await cache.match(url);
+      if (cachedResponse) {
+        console.log(`Gallery image already cached: ${url}`);
+        return cachedResponse;
+      }
+      
+      console.log(`Prefetching gallery image${isHighPriority ? ' (high priority)' : ''}: ${url}`);
+      
+      // Create a request object from the URL
+      const request = new Request(url);
+      
+      // Fetch the image with appropriate priority
+      const fetchOptions = {
+        priority: isHighPriority ? 'high' : 'low',
+        timeout: isHighPriority ? 5000 : 3000,
+        useNoCorsFallback: true
+      };
+      
+      // Special handling for problematic URLs with dashes 
+      const urlObj = new URL(url);
+      if (urlObj.pathname.includes('-d') && 
+          urlObj.pathname.includes('product-images') &&
+          urlObj.pathname.includes('/storage/v1/render/image/public/')) {
+        
+        const response = await fetchImageWithFallbacks(request, fetchOptions);
+        
+        if (response && response.type !== 'opaque') {
+          await cacheImage(response.clone(), request, cache);
+          return response;
+        } else if (response) {
+          return response;
+        }
+      } else {
+        // Standard approach for non-problematic URLs
+        const response = await fetchImageWithFallbacks(request, fetchOptions);
+        
+        if (response && response.type !== 'opaque') {
+          await cacheImage(response.clone(), request, cache);
+          return response;
+        } else if (response) {
+          return response;
+        }
+      }
+      
+      // If all attempts failed
+      console.warn(`All prefetch attempts failed for gallery image: ${url}`);
+      return null;
+    } catch (e) {
+      console.error(`Error in prefetchImage: ${url}`, e);
+      return null;
+    }
+  }
+};
 
 // Specialized handler for LCP image requests - prioritizes speed over freshness
 async function handleLcpImageRequest(request) {
@@ -701,6 +911,30 @@ self.addEventListener('message', (event) => {
           prioritizeImagePattern(event.data.pattern)
             .then(() => console.log(`Prioritized images matching ${event.data.pattern}`))
             .catch(error => console.error(`Failed to prioritize images: ${error}`));
+        }
+        break;
+        
+      case 'PREFETCH_GALLERY':
+        // Initialize prefetching for a product image gallery
+        if (event.data.productId && event.data.imageUrls) {
+          GALLERY_PREFETCH.initGallery(
+            event.data.productId, 
+            event.data.imageUrls, 
+            event.data.currentIndex || 0
+          ).catch(error => console.error(`Failed to initialize gallery prefetch: ${error}`));
+          
+          // Send acknowledgment to client
+          sendMessageToClients({ 
+            type: 'GALLERY_PREFETCH_STARTED', 
+            productId: event.data.productId 
+          });
+        }
+        break;
+        
+      case 'UPDATE_GALLERY_IMAGE':
+        // Update which image in a gallery is currently being viewed
+        if (event.data.productId !== undefined && event.data.imageIndex !== undefined) {
+          GALLERY_PREFETCH.updateCurrentImage(event.data.productId, event.data.imageIndex);
         }
         break;
     }

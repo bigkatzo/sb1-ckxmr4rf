@@ -129,6 +129,69 @@ export function preloadPageResources(type: 'product' | 'collection', slug: strin
 }
 
 /**
+ * Prefetch an entire product image gallery to optimize user experience
+ * This function initializes progressive prefetching of all gallery images
+ * with intelligent prioritization based on the current viewing position
+ * 
+ * @param productId Unique identifier for the product
+ * @param imageUrls Array of all image URLs in the gallery
+ * @param currentIndex The index of the image currently being viewed
+ * @returns boolean indicating whether the prefetch was initiated
+ */
+export function prefetchGallery(
+  productId: string | number,
+  imageUrls: string[],
+  currentIndex: number = 0
+): boolean {
+  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+    return false;
+  }
+  
+  if (!productId || !imageUrls || !imageUrls.length) {
+    return false;
+  }
+  
+  navigator.serviceWorker.controller.postMessage({
+    type: 'PREFETCH_GALLERY',
+    productId: productId.toString(),
+    imageUrls,
+    currentIndex
+  });
+  
+  return true;
+}
+
+/**
+ * Update the current viewing position in a product gallery
+ * This allows the service worker to adjust prefetching priorities
+ * based on the user's current position in the gallery
+ * 
+ * @param productId Unique identifier for the product
+ * @param imageIndex The index of the image currently being viewed
+ * @returns boolean indicating whether the update was sent
+ */
+export function updateGalleryImage(
+  productId: string | number,
+  imageIndex: number
+): boolean {
+  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+    return false;
+  }
+  
+  if (productId === undefined || imageIndex === undefined) {
+    return false;
+  }
+  
+  navigator.serviceWorker.controller.postMessage({
+    type: 'UPDATE_GALLERY_IMAGE',
+    productId: productId.toString(),
+    imageIndex
+  });
+  
+  return true;
+}
+
+/**
  * Invalidate all URLs with a specific prefix in the service worker cache
  */
 export function invalidateUrlsByPrefix(prefix: string): void {
@@ -327,6 +390,8 @@ declare global {
       invalidateUrl: typeof invalidateUrl;
       invalidateUrlsByPrefix: typeof invalidateUrlsByPrefix;
       getCurrentVersion: typeof getCurrentVersion;
+      prefetchGallery: typeof prefetchGallery;
+      updateGalleryImage: typeof updateGalleryImage;
     };
   }
 }
@@ -338,6 +403,8 @@ if (import.meta.env.DEV || localStorage.getItem('debug_sw')) {
     forceClearCaches,
     invalidateUrl,
     invalidateUrlsByPrefix,
-    getCurrentVersion
+    getCurrentVersion,
+    prefetchGallery,
+    updateGalleryImage
   };
 } 
