@@ -314,10 +314,16 @@ export function FeaturedCollection() {
         onMouseDown={handleMouseDown}
       >
         <div 
-          className="flex h-full will-change-transform scroll-smooth"
+          className="flex h-full will-change-transform backface-visibility-hidden"
           style={{ 
             transform: `translateX(${translateX}%)`,
-            transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.2, 0.82, 0.2, 1)`
+            transition: isDragging ? 'none' : `transform ${transitionDuration}ms cubic-bezier(0.25, 1, 0.5, 1)`,
+            willChange: 'transform',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            WebkitPerspective: 1000,
+            perspective: 1000,
+            WebkitTransform: `translate3d(${translateX}%, 0, 0)`,
           }}
         >
           {collections.map((collection, index) => {
@@ -343,7 +349,7 @@ export function FeaturedCollection() {
                       width={1200}
                       height={675}
                       quality={80}
-                      className="absolute inset-0 h-full w-full object-cover"
+                      className="absolute inset-0 h-full w-full object-cover transform-gpu will-change-transform"
                       sizes="100vw"
                       priority={index === currentIndex}
                       loading={index === currentIndex ? "eager" : "lazy"} 
