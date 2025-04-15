@@ -5,6 +5,7 @@ import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
 import { ProductModalSkeleton } from '../components/ui/Skeletons';
 import { useEffect, useState, useRef } from 'react';
 import SEO from '../components/SEO';
+import { preloadPageResources } from '../lib/service-worker';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
@@ -16,6 +17,21 @@ export function ProductPage() {
   // Keep track of the previous route to detect changes
   const prevRouteRef = useRef<string>('');
   const currentRoute = `${collectionSlug}/${productSlug}`;
+  
+  // Preload resources for product page
+  useEffect(() => {
+    if (collectionSlug && productSlug) {
+      // Tell service worker to preload product-related resources
+      preloadPageResources('product', productSlug);
+      
+      // Preload main product image if available
+      if (product?.images?.length > 0 && product.images[0]) {
+        const img = new Image();
+        img.src = product.images[0];
+        img.fetchPriority = 'high';
+      }
+    }
+  }, [collectionSlug, productSlug, product]);
   
   // Reset isInitialLoad when route parameters change or location changes
   useEffect(() => {

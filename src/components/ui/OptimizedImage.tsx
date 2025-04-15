@@ -120,7 +120,7 @@ export function OptimizedImage({
       const isPng = src.toLowerCase().endsWith('.png');
       const isJpg = src.toLowerCase().match(/\.(jpg|jpeg)$/i) !== null;
       
-      // Only attempt format conversion for larger images (>400px) and if browser supports WebP
+      // Only attempt format conversion for larger images (>200px) and if browser supports WebP
       // Supabase storage only supports WebP conversion
       if (width > 200 && (typeof window === 'undefined' || supportsWebP())) {
         // Convert JPGs or PNGs without transparency to WebP
@@ -129,9 +129,16 @@ export function OptimizedImage({
         }
       }
 
-      // Add responsive size parameter for large images
+      // Add responsive size parameter for large images - more aggressive for product images
       let optimalWidth = width;
-      if (width > 1000 && !priority) {
+      
+      // Check if this is a product image
+      const isProductImage = src.includes('product-images');
+      
+      if (isProductImage && width > 400) {
+        // Product images are often thumbnails, they can be much smaller
+        optimalWidth = Math.min(width, 400);
+      } else if (width > 1000 && !priority) {
         // Use a more reasonable size for non-priority images
         optimalWidth = Math.min(width, 1000);
       } else if (width > 1500 && priority) {
@@ -141,7 +148,9 @@ export function OptimizedImage({
 
       const params = new URLSearchParams({
         width: optimalWidth.toString(),
-        quality: priority ? quality.toString() : Math.min(quality, 80).toString(),
+        quality: isProductImage ? Math.min(quality, 70).toString() : 
+                 priority ? quality.toString() : 
+                 Math.min(quality, 80).toString(),
         cache: '604800' // 1 week cache
       });
       

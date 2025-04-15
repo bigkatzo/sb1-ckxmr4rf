@@ -894,76 +894,159 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Listen for messages from the client
+// Listen for message events from the client
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-  
-  // Handle cache invalidation messages
-  if (event.data && event.data.type === 'INVALIDATE_CACHE') {
-    const { cacheName, url } = event.data;
-    
-    if (cacheName && url) {
-      // Invalidate specific URL in specific cache
-      caches.open(cacheName).then(cache => {
-        cache.delete(url).then(success => {
-          console.log(`Invalidated ${url} in ${cacheName}: ${success}`);
+  if (event.data && event.data.type) {
+    switch (event.data.type) {
+      case 'SKIP_WAITING':
+        self.skipWaiting();
+        break;
+        
+      case 'INVALIDATE_CACHE':
+        if (event.data.cacheName && event.data.url) {
+          invalidateCacheEntry(event.data.cacheName, event.data.url)
+            .then(() => sendMessageToClients({ type: 'INVALIDATED', url: event.data.url }))
+            .catch(error => console.error('Failed to invalidate cache:', error));
+        }
+        break;
+        
+      case 'CLEAR_ALL_CACHES':
+        clearAllCaches()
+          .then(() => sendMessageToClients({ type: 'CACHES_CLEARED' }))
+          .catch(error => console.error('Failed to clear caches:', error));
+        break;
+        
+      case 'GET_VERSION':
+        // Respond with version info to the client that sent the message
+        event.ports[0].postMessage({
+          type: 'VERSION_INFO',
+          version: APP_VERSION
         });
-      });
-    } else if (cacheName) {
-      // Invalidate entire cache
-      caches.delete(cacheName).then(success => {
-        console.log(`Deleted cache ${cacheName}: ${success}`);
-      });
+        break;
+        
+      case 'GET_METRICS':
+        // Send cache metrics to client
+        event.ports[0].postMessage({
+          type: 'METRICS',
+          metrics: metrics
+        });
+        break;
+
+      case 'PRELOAD_PAGE':
+        // Preload resources for a specific page type
+        if (event.data.pageType && event.data.slug) {
+          preloadPageResources(event.data.pageType, event.data.slug)
+            .then(() => console.log(`Preloaded resources for ${event.data.pageType} ${event.data.slug}`))
+            .catch(error => console.error(`Failed to preload resources: ${error}`));
+        }
+        break;
+        
+      case 'PRIORITIZE_IMAGES':
+        // Prioritize images with a specific pattern
+        if (event.data.pattern) {
+          prioritizeImagePattern(event.data.pattern)
+            .then(() => console.log(`Prioritized images matching ${event.data.pattern}`))
+            .catch(error => console.error(`Failed to prioritize images: ${error}`));
+        }
+        break;
     }
   }
+});
 
-  // Handle clear all caches message
-  if (event.data && event.data.type === 'CLEAR_ALL_CACHES') {
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          return caches.delete(cacheName).then(success => {
-            console.log(`Deleted cache ${cacheName}: ${success}`);
-          });
-        })
-      );
-    });
-  }
-
-  // Handle version check request
-  if (event.data && event.data.type === 'GET_VERSION') {
-    event.ports[0].postMessage({
-      type: 'VERSION_INFO',
-      version: APP_VERSION
-    });
-  }
-  
-  // Add metrics reporting endpoint
-  if (event.data && event.data.type === 'GET_METRICS') {
-    // Calculate hit rates and average timings
-    const stats = Object.keys(CACHE_NAMES).reduce((acc, type) => {
-      const total = metrics.hits[type] + metrics.misses[type];
-      const hitRate = total > 0 ? (metrics.hits[type] / total) * 100 : 0;
-      const avgTiming = metrics.timing[type].length > 0 
-        ? metrics.timing[type].reduce((a, b) => a + b) / metrics.timing[type].length 
-        : 0;
-      
-      acc[type] = {
-        hitRate: hitRate.toFixed(2) + '%',
-        avgResponseTime: avgTiming.toFixed(2) + 'ms',
-        hits: metrics.hits[type],
-        misses: metrics.misses[type],
-        errors: metrics.errors[type]
-      };
-      return acc;
-    }, {});
+// Preload resources for specific page types
+async function preloadPageResources(pageType, slug) {
+  try {
+    const urls = [];
     
-    // Send metrics back to client
-    event.source.postMessage({
-      type: 'METRICS_REPORT',
-      stats
-    });
+    // Add common API URLs
+    if (pageType === 'product') {
+      urls.push(`/api/products/${slug}`);
+      urls.push(`/api/products/${slug}/variants`);
+      urls.push(`/api/products/${slug}/related`);
+    } else if (pageType === 'collection') {
+      urls.push(`/api/collections/${slug}`);
+      urls.push(`/api/collections/${slug}/products`);
+      urls.push(`/api/collections/${slug}/categories`);
+    }
+    
+    // Preload each URL with network-first strategy
+    for (const url of urls) {
+      try {
+        const cache = await caches.open(CACHE_NAMES.API);
+        const cachedResponse = await cache.match(url);
+        
+        // Always try to fetch fresh data, fall back to cached
+        fetch(url)
+          .then(response => {
+            if (response.ok) {
+              cache.put(url, response.clone());
+              return response;
+            }
+            return cachedResponse || response;
+          })
+          .catch(() => {
+            // Return cached response if available as fallback
+            return cachedResponse;
+          });
+      } catch (err) {
+        console.warn(`Failed to preload ${url}:`, err);
+      }
+    }
+  } catch (error) {
+    console.error('Error in preloadPageResources:', error);
   }
-}); 
+}
+
+// Prioritize images with a certain pattern by updating their cache headers
+async function prioritizeImagePattern(pattern) {
+  try {
+    const cache = await caches.open(CACHE_NAMES.IMAGES);
+    const keys = await cache.keys();
+    
+    // Find matching image URLs
+    for (const request of keys) {
+      if (request.url.includes(pattern)) {
+        try {
+          const response = await cache.match(request);
+          if (response) {
+            // Create a new response with high priority cache headers
+            const headers = new Headers(response.headers);
+            headers.set('X-Priority', 'high');
+            headers.set('Cache-Control', 'public, max-age=86400'); // 1 day cache
+            
+            const enhancedResponse = new Response(response.body, {
+              status: response.status,
+              statusText: response.statusText,
+              headers
+            });
+            
+            // Update the cache with the enhanced response
+            await cache.put(request, enhancedResponse);
+          }
+        } catch (err) {
+          console.warn(`Failed to prioritize ${request.url}:`, err);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error in prioritizeImagePattern:', error);
+  }
+}
+
+// Helper function to send messages to all clients
+async function sendMessageToClients(message) {
+  const clients = await self.clients.matchAll();
+  clients.forEach(client => client.postMessage(message));
+}
+
+// Helper function to invalidate a specific cache entry
+async function invalidateCacheEntry(cacheName, url) {
+  const cache = await caches.open(cacheName);
+  return cache.delete(url);
+}
+
+// Helper function to clear all caches
+async function clearAllCaches() {
+  const cacheNames = await caches.keys();
+  return Promise.all(cacheNames.map(name => caches.delete(name)));
+} 

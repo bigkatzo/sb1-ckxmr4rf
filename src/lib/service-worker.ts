@@ -103,6 +103,32 @@ export function invalidateUrl(url: string, cacheName = CACHE_NAMES.API): void {
 }
 
 /**
+ * Preload critical resources for product and collection pages
+ */
+export function preloadPageResources(type: 'product' | 'collection', slug: string): void {
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'PRELOAD_PAGE',
+      pageType: type,
+      slug: slug
+    });
+    
+    // Also tell the service worker to prioritize product images
+    if (type === 'product') {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'PRIORITIZE_IMAGES',
+        pattern: `product-images/${slug}`
+      });
+    } else if (type === 'collection') {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'PRIORITIZE_IMAGES',
+        pattern: `collection-images/${slug}`
+      });
+    }
+  }
+}
+
+/**
  * Invalidate all URLs with a specific prefix in the service worker cache
  */
 export function invalidateUrlsByPrefix(prefix: string): void {

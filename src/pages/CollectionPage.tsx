@@ -11,6 +11,7 @@ import { createCategoryIndices } from '../utils/category-mapping';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
 import type { Category, Product } from '../types/index';
 import SEO from '../components/SEO';
+import { preloadPageResources } from '../lib/service-worker';
 
 export function CollectionPage() {
   const { slug } = useParams();
@@ -20,6 +21,14 @@ export function CollectionPage() {
   const prevRouteRef = useRef<string>('');
   
   const { collection, loading, error } = useCollection(slug || '');
+  
+  // Preload collection resources
+  useEffect(() => {
+    if (slug) {
+      // Tell service worker to prioritize collection resources
+      preloadPageResources('collection', slug);
+    }
+  }, [slug]);
   
   // Reset isInitialLoad when route parameters change or location changes
   useEffect(() => {
@@ -133,11 +142,11 @@ export function CollectionPage() {
               <OptimizedImage
                 src={collection.imageUrl}
                 alt={collection.name}
-                width={1920}
-                height={820}
-                quality={85}
+                width={1500}
+                height={640}
+                quality={80}
                 className="absolute inset-0 h-full w-full object-cover"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1920px"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1500px"
                 priority
               />
             ) : (
