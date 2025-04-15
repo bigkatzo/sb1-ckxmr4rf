@@ -25,14 +25,19 @@ WHERE id = 1;
 -- Grant access to the public view
 GRANT SELECT ON public_site_settings TO anon, authenticated;
 
--- Fix RLS to ensure site settings access is properly handled
-CREATE OR REPLACE FUNCTION auth.is_admin()
-RETURNS boolean AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM auth.users 
-    WHERE 
-      id = auth.uid() 
-      AND role = 'admin'
-  );
-$$ LANGUAGE sql SECURITY DEFINER; 
+-- Create site_settings_admin_policy if it doesn't exist
+-- This avoids overriding the existing auth.is_admin() function
+DO $$ 
+BEGIN
+  -- Check if the policy already exists
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM pg_policies 
+    WHERE schemaname = 'public' 
+    AND tablename = 'site_settings' 
+    AND policyname = 'site_settings_admin_policy'
+  ) THEN
+    -- Create policy using the existing auth.is_admin() function
+    EXECUTE 'CREATE POLICY "site_settings_admin_policy" ON site_settings USING (auth.is_admin()) WITH CHECK (auth.is_admin())';
+  END IF;
+END $$; 

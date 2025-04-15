@@ -44,6 +44,24 @@ export const onPreBuild = async ({ utils }) => {
     // Create Supabase client - moved below environment variable check
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
+    // Try to fetch build metadata first - this might have the manifest JSON directly
+    // if the storage bucket creation failed in the Netlify function
+    let buildMetadata = null;
+    try {
+      const { data: metaData, error: metaError } = await supabase
+        .from('build_metadata')
+        .select('data')
+        .eq('id', 'site-settings')
+        .single();
+        
+      if (!metaError && metaData?.data) {
+        console.log('Found build metadata, using it for site settings');
+        buildMetadata = metaData.data;
+      }
+    } catch (metaError) {
+      console.warn('Error fetching build metadata:', metaError);
+    }
+    
     // Fetch site settings
     const { data: settings, error: settingsError } = await supabase
       .from('site_settings')
@@ -53,6 +71,40 @@ export const onPreBuild = async ({ utils }) => {
     
     if (settingsError) {
       console.warn('Error fetching site settings:', settingsError);
+      
+      // If we have build metadata, try to use that instead
+      if (buildMetadata) {
+        console.log('Using build metadata as fallback for site settings');
+        
+        const fallbackSettings = {
+          site_name: buildMetadata.SITE_NAME || 'store.fun',
+          site_description: buildMetadata.SITE_DESCRIPTION || 'Merch Marketplace',
+          homepage_tagline: buildMetadata.HOMEPAGE_TAGLINE || 'Discover and shop unique merchandise collections at store.fun',
+          seo_title: buildMetadata.SEO_TITLE || '',
+          seo_description: buildMetadata.SEO_DESCRIPTION || '',
+          theme_primary_color: buildMetadata.THEME_PRIMARY_COLOR || '#8b5cf6',
+          theme_secondary_color: buildMetadata.THEME_SECONDARY_COLOR || '#4f46e5',
+          theme_background_color: buildMetadata.THEME_COLOR || '#000000',
+          theme_text_color: buildMetadata.THEME_TEXT_COLOR || '#ffffff',
+          favicon_url: buildMetadata.FAVICON_URL,
+          apple_touch_icon_url: buildMetadata.APPLE_TOUCH_ICON_URL,
+          icon_192_url: buildMetadata.ICON_192_URL,
+          icon_512_url: buildMetadata.ICON_512_URL,
+          og_image_url: buildMetadata.OG_IMAGE_URL,
+          twitter_image_url: buildMetadata.TWITTER_IMAGE_URL
+        };
+        
+        // If we have a manifest JSON in the build metadata, use that directly
+        const manifestFromMetadata = buildMetadata.MANIFEST_JSON;
+        
+        await updateManifestJson(fallbackSettings, manifestFromMetadata);
+        await updateHtmlMetaTags(fallbackSettings);
+        await generateThemeCSS(fallbackSettings);
+        
+        console.log('Applied site settings from build metadata');
+        return;
+      }
+      
       console.log('Continuing with default settings');
       
       // Apply default settings
@@ -100,8 +152,11 @@ export const onPreBuild = async ({ utils }) => {
     
     console.log('Found site settings, updating files...');
     
+    // If we have build metadata with a manifest JSON, pass it to updateManifestJson
+    const manifestFromMetadata = buildMetadata?.MANIFEST_JSON;
+    
     // Update manifest.json
-    await updateManifestJson(settings);
+    await updateManifestJson(settings, manifestFromMetadata);
     
     // Update HTML meta tags
     await updateHtmlMetaTags(settings);
@@ -125,7 +180,7 @@ export const onPreBuild = async ({ utils }) => {
 /**
  * Update the manifest.json file with settings
  */
-async function updateManifestJson(settings) {
+async function updateManifestJson(settings, manifestFromMetadata = null) {
   // Create public directory if it doesn't exist
   const publicDir = path.join(process.cwd(), 'public');
   if (!fs.existsSync(publicDir)) {
@@ -135,7 +190,18 @@ async function updateManifestJson(settings) {
   const manifestPath = path.join(publicDir, 'manifest.json');
   console.log(`Updating manifest.json at ${manifestPath}`);
   
-  // Create manifest content
+  // If we have a full manifest from metadata, use it directly
+  if (manifestFromMetadata) {
+    console.log('Using manifest from build metadata');
+    fs.writeFileSync(manifestPath, JSON.stringify(manifestFromMetadata, null, 2));
+    console.log('Updated manifest.json from build metadata');
+    
+    // Still create browserconfig.xml
+    await createBrowserConfig(settings);
+    return;
+  }
+  
+  // Otherwise create manifest content
   const manifest = {
     name: settings.site_name || 'store.fun',
     short_name: settings.site_name || 'store.fun',

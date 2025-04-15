@@ -87,63 +87,59 @@ export async function handler(event, context) {
     // Generate the manifest.json content
     const manifestContent = generateManifestJson(settings);
     
-    // Ensure the site-assets bucket exists
+    // Flag to track if storage is working
+    let storageIsWorking = false;
+    
+    // Try to use storage, but continue even if it fails
     try {
       // Check if bucket exists
       const { data: buckets } = await supabase.storage.listBuckets();
       const bucketExists = buckets?.some(bucket => bucket.name === SITE_ASSETS_BUCKET);
       
       if (!bucketExists) {
-        // Create the bucket
+        // Try to create the bucket
         const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
           public: true
         });
         
         if (createError) {
-          console.error('Error creating bucket:', createError);
-          return {
-            statusCode: 500,
-            body: JSON.stringify({
-              error: 'Failed to create site-assets bucket',
-              details: createError
-            })
-          };
+          console.error('Warning: Could not create site-assets bucket:', createError);
+          console.log('Continuing with operation using build_metadata table only');
+        } else {
+          storageIsWorking = true;
+        }
+      } else {
+        storageIsWorking = true;
+      }
+      
+      // Only attempt storage upload if the bucket exists/was created
+      if (storageIsWorking) {
+        // Store the manifest.json in Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from(SITE_ASSETS_BUCKET)
+          .upload('manifest.json', 
+            new Blob([JSON.stringify(manifestContent, null, 2)], { type: 'application/json' }),
+            { upsert: true }
+          );
+
+        if (uploadError) {
+          console.error('Warning: Could not upload manifest.json to storage:', uploadError);
+          console.log('Continuing with operation using build_metadata table only');
+          storageIsWorking = false;
         }
       }
-    } catch (bucketError) {
-      console.error('Error checking/creating bucket:', bucketError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: 'Failed to check/create site-assets bucket',
-          details: bucketError.message
-        })
-      };
-    }
-    
-    // Store the manifest.json in Supabase Storage for access during build
-    const { error: uploadError } = await supabase.storage
-      .from(SITE_ASSETS_BUCKET)
-      .upload('manifest.json', 
-        new Blob([JSON.stringify(manifestContent, null, 2)], { type: 'application/json' }),
-        { upsert: true }
-      );
-
-    if (uploadError) {
-      console.error('Error uploading manifest.json:', uploadError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: 'Failed to upload manifest.json',
-          details: uploadError
-        })
-      };
+    } catch (storageError) {
+      console.error('Storage operation failed, continuing with build_metadata only:', storageError);
+      storageIsWorking = false;
     }
 
     // Generate metadata for the build process
     const metaSettings = {
       SITE_NAME: settings.site_name,
       SITE_DESCRIPTION: settings.site_description,
+      HOMEPAGE_TAGLINE: settings.homepage_tagline || 'Discover and shop unique merchandise collections at store.fun',
+      SEO_TITLE: settings.seo_title || '',
+      SEO_DESCRIPTION: settings.seo_description || '',
       THEME_COLOR: settings.theme_background_color,
       THEME_PRIMARY_COLOR: settings.theme_primary_color,
       THEME_SECONDARY_COLOR: settings.theme_secondary_color,
@@ -157,7 +153,9 @@ export async function handler(event, context) {
       SITE_URL: process.env.SITE_URL || process.env.URL || '',
       PWA_ENABLED: true,
       PWA_DISPLAY: 'standalone',
-      PWA_ORIENTATION: 'portrait'
+      PWA_ORIENTATION: 'portrait',
+      // Store the manifest directly in the build_metadata as a backup/alternative to storage
+      MANIFEST_JSON: manifestContent
     };
     
     // Debug log to check actual image URLs
@@ -181,6 +179,13 @@ export async function handler(event, context) {
 
     if (metaError) {
       console.error('Error storing build metadata:', metaError);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'Failed to store build metadata',
+          details: metaError
+        })
+      };
     }
 
     // Trigger a Netlify build if a build hook is configured
@@ -205,7 +210,7 @@ export async function handler(event, context) {
       statusCode: 200,
       body: JSON.stringify({
         message: 'Site assets updated successfully',
-        manifest: manifestContent,
+        storageIsWorking,
         buildTriggered,
         buildHookConfigured: !!NETLIFY_BUILD_HOOK
       })
