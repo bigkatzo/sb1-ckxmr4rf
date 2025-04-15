@@ -29,345 +29,202 @@ const supabase = supabaseUrl && supabaseServiceKey
   : null;
 
 /**
- * Netlify function to upload site assets with admin privileges
+ * Simplified upload function
  */
 export async function handler(event, context) {
-  console.log('Upload site asset function called');
+  console.log('Upload function started');
   
-  // Only allow POST requests
+  // Only allow POST
   if (event.httpMethod !== 'POST') {
-    console.log('Method not allowed:', event.httpMethod);
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
-
-  // Check if Supabase is properly configured
-  if (!supabase) {
-    console.error('Supabase client not initialized - missing environment variables');
     return { 
-      statusCode: 500, 
-      body: JSON.stringify({ 
-        error: 'Missing Supabase environment variables',
-        message: 'Please configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your Netlify environment variables.'
-      })
+      statusCode: 405, 
+      body: JSON.stringify({ error: 'Method not allowed' }) 
     };
   }
 
-  // Require authentication
+  // Check auth
   const token = event.headers.authorization?.split(' ')[1];
   if (!token) {
-    console.log('No authorization token provided');
-    return { statusCode: 401, body: 'Unauthorized' };
+    return { 
+      statusCode: 401, 
+      body: JSON.stringify({ error: 'Missing authentication token' }) 
+    };
   }
 
   try {
-    console.log('Starting upload process with authorization');
+    // Parse request
+    const req = JSON.parse(event.body);
+    const { fileBase64, fileName, contentType } = req;
     
-    // Verify the user is an admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (!fileBase64 || !fileName || !contentType) {
+      return { 
+        statusCode: 400, 
+        body: JSON.stringify({ error: 'Missing required fields' }) 
+      };
+    }
     
-    if (authError || !user) {
-      console.error('Auth error or no user found:', authError);
+    console.log(`Processing upload: ${fileName} (${contentType})`);
+    
+    // Verify admin
+    const auth = await supabase.auth.getUser(token);
+    if (auth.error || !auth.data.user) {
       return { 
         statusCode: 401, 
-        body: JSON.stringify({ 
-          error: 'Unauthorized',
-          message: 'Invalid authentication token'
-        }) 
+        body: JSON.stringify({ error: 'Invalid token' }) 
       };
     }
-
-    console.log('User verified:', user.id);
-
-    // Check if user is an admin
-    const { data: profile, error: profileError } = await supabase
+    
+    const userId = auth.data.user.id;
+    console.log(`User authenticated: ${userId}`);
+    
+    // Check admin role
+    const { data: profile } = await supabase
       .from('user_profiles')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
-
-    if (profileError) {
-      console.error('Error fetching user profile:', profileError);
-      return { 
-        statusCode: 403, 
-        body: JSON.stringify({
-          error: 'Profile fetch failed',
-          message: 'Could not verify admin status'
-        })
-      };
-    }
-    
+      
     if (profile?.role !== 'admin') {
-      console.error('User not admin:', profile);
       return { 
         statusCode: 403, 
-        body: JSON.stringify({
-          error: 'Forbidden',
-          message: 'Admin access required'
-        })
-      };
-    }
-
-    console.log('Admin check passed');
-
-    // Parse the request body
-    let requestBody;
-    try {
-      requestBody = JSON.parse(event.body);
-      console.log('Request body parsed successfully');
-    } catch (e) {
-      console.error('Error parsing request body:', e);
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          error: 'Invalid request',
-          message: 'Request body must be valid JSON'
-        })
-      };
-    }
-
-    // Validate the request
-    const { fileBase64, fileName, contentType } = requestBody;
-    if (!fileBase64) {
-      console.error('Missing fileBase64 in request');
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          error: 'Invalid request',
-          message: 'fileBase64 is required'
-        })
+        body: JSON.stringify({ error: 'Admin access required' }) 
       };
     }
     
-    if (!fileName) {
-      console.error('Missing fileName in request');
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          error: 'Invalid request',
-          message: 'fileName is required'
-        })
+    console.log('Admin verified');
+    
+    // Process file
+    const base64Data = fileBase64.replace(/^data:[^;]+;base64,/, '');
+    const fileBuffer = Buffer.from(base64Data, 'base64');
+    
+    if (fileBuffer.length === 0) {
+      return { 
+        statusCode: 400, 
+        body: JSON.stringify({ error: 'Empty file' }) 
       };
     }
     
-    if (!contentType) {
-      console.error('Missing contentType in request');
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          error: 'Invalid request',
-          message: 'contentType is required'
-        })
-      };
-    }
-
-    console.log('Request validation passed:', { fileName, contentType });
-
-    // Decode the base64 file
-    let fileData;
-    try {
-      // Remove data URL prefix if present (e.g., "data:image/png;base64,")
-      const base64Data = fileBase64.replace(/^data:[^;]+;base64,/, '');
-      fileData = Buffer.from(base64Data, 'base64');
-      console.log('File decoded successfully, size:', fileData.length);
-      
-      // Check if file data is valid
-      if (fileData.length === 0) {
-        throw new Error('Decoded file has zero bytes');
-      }
-    } catch (e) {
-      console.error('Error decoding base64 data:', e);
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          error: 'Invalid file data',
-          message: 'Could not decode base64 data: ' + e.message
-        })
-      };
-    }
-
-    // Ensure the site-assets bucket exists
-    try {
-      console.log('Checking if bucket exists:', SITE_ASSETS_BUCKET);
-      // Check if bucket exists
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      
-      if (bucketsError) {
-        console.error('Error listing buckets:', bucketsError);
-        throw new Error('Could not list storage buckets: ' + bucketsError.message);
-      }
-      
-      console.log('Buckets available:', buckets ? buckets.map(b => b.name).join(', ') : 'none');
-      const bucketExists = buckets?.some(bucket => bucket.name === SITE_ASSETS_BUCKET);
-      
-      if (!bucketExists) {
-        console.log('Bucket does not exist, creating:', SITE_ASSETS_BUCKET);
-        // Create the bucket
-        const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
-          public: true
-        });
-        
-        if (createError) {
-          console.error('Error creating bucket:', createError);
-          return {
-            statusCode: 500,
-            body: JSON.stringify({
-              error: 'Failed to create storage bucket',
-              details: createError
-            })
-          };
-        }
-        console.log('Bucket created successfully');
-      } else {
-        console.log('Bucket already exists, updating policy');
-        // Update the bucket to be public if it already exists
-        const { error: updateError } = await supabase.storage.updateBucket(SITE_ASSETS_BUCKET, {
-          public: true
-        });
-        
-        if (updateError) {
-          console.warn('Warning: Could not update bucket policy:', updateError);
-        } else {
-          console.log('Bucket policy updated successfully');
-        }
-      }
-    } catch (bucketError) {
-      console.error('Error checking/creating bucket:', bucketError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: 'Failed to check/create storage bucket',
-          details: bucketError.message
-        })
-      };
+    console.log(`File decoded: ${fileBuffer.length} bytes`);
+    
+    // Ensure bucket exists
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(b => b.name === SITE_ASSETS_BUCKET);
+    
+    if (!bucketExists) {
+      await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
+        public: true
+      });
+      console.log(`Bucket created: ${SITE_ASSETS_BUCKET}`);
+    } else {
+      console.log(`Bucket exists: ${SITE_ASSETS_BUCKET}`);
     }
     
-    // Upload the file
-    console.log('Uploading file to Supabase storage');
-    let uploadData;
-    let uploadError;
+    // Try multiple upload approaches
+    let uploadResult;
+    let errorMessages = [];
     
+    // Approach 1: Standard upload
     try {
-      // Use a more direct approach that worked in previous versions
-      console.log('Using simplified upload approach');
-      
-      // Convert fileData to File or Blob if needed
-      // Some versions of Supabase expect different formats
-      const upload = await supabase.storage
+      console.log('Trying standard upload...');
+      uploadResult = await supabase.storage
         .from(SITE_ASSETS_BUCKET)
-        .upload(fileName, fileData, {
+        .upload(fileName, fileBuffer, {
           contentType,
           upsert: true
         });
       
-      uploadData = upload.data;
-      uploadError = upload.error;
-      
-      console.log('Upload response:', upload);
-    } catch (directError) {
-      console.error('Direct exception during upload:', directError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: 'Upload operation failed with exception',
-          details: directError.message,
-          stack: directError.stack
-        })
-      };
+      if (uploadResult.error) {
+        errorMessages.push(`Standard upload failed: ${uploadResult.error.message}`);
+        console.log(errorMessages[errorMessages.length - 1]);
+      } else {
+        console.log('Standard upload succeeded');
+      }
+    } catch (err) {
+      errorMessages.push(`Standard upload exception: ${err.message}`);
+      console.log(errorMessages[errorMessages.length - 1]);
     }
-
-    if (uploadError) {
-      console.error('Error from Supabase uploading file:', uploadError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: 'Failed to upload file',
-          details: uploadError
-        })
-      };
-    }
-
-    console.log('File uploaded successfully, getting public URL');
     
-    // Get the public URL - use simpler approach
-    try {
-      // Direct URL construction approach as fallback
-      const { data } = supabase.storage
-        .from(SITE_ASSETS_BUCKET)
-        .getPublicUrl(fileName);
-      
-      const publicUrl = data?.publicUrl;
-      
-      if (!publicUrl) {
-        console.warn('No public URL returned from getPublicUrl, constructing manually');
-        // Fallback URL construction - may need adjustment based on your Supabase project
-        const manualUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
+    // If standard approach failed, try alternative
+    if (!uploadResult || uploadResult.error) {
+      try {
+        console.log('Trying alternative upload...');
+        // Convert to Blob for older Supabase versions
+        const blob = new Blob([fileBuffer], { type: contentType });
+        uploadResult = await supabase.storage
+          .from(SITE_ASSETS_BUCKET)
+          .upload(fileName, blob, {
+            upsert: true
+          });
         
-        console.log('Operation successful with manual URL, returning response');
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            success: true,
-            url: manualUrl,
-            path: uploadData?.path || fileName
-          })
-        };
+        if (uploadResult.error) {
+          errorMessages.push(`Alternative upload failed: ${uploadResult.error.message}`);
+          console.log(errorMessages[errorMessages.length - 1]);
+        } else {
+          console.log('Alternative upload succeeded');
+        }
+      } catch (err) {
+        errorMessages.push(`Alternative upload exception: ${err.message}`);
+        console.log(errorMessages[errorMessages.length - 1]);
+      }
+    }
+    
+    // Check final result
+    if (uploadResult && !uploadResult.error) {
+      console.log('Upload successful, generating URL');
+      // Generate URL - try multiple approaches
+      
+      // Approach 1: getPublicUrl
+      try {
+        const { data } = supabase.storage
+          .from(SITE_ASSETS_BUCKET)
+          .getPublicUrl(fileName);
+          
+        if (data?.publicUrl) {
+          console.log('URL generated via getPublicUrl');
+          return {
+            statusCode: 200,
+            body: JSON.stringify({
+              success: true,
+              url: data.publicUrl,
+              path: uploadResult.data?.path || fileName
+            })
+          };
+        }
+      } catch (err) {
+        console.log(`getPublicUrl failed: ${err.message}`);
       }
       
-      console.log('Public URL retrieved:', publicUrl);
-      console.log('Operation successful, returning response');
+      // Approach 2: Manual URL construction
+      console.log('Falling back to manual URL construction');
+      const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
       
       return {
         statusCode: 200,
         body: JSON.stringify({
           success: true,
-          url: publicUrl,
-          path: uploadData?.path || fileName
+          url: fallbackUrl,
+          path: fileName
         })
       };
-    } catch (urlError) {
-      console.error('Error getting public URL:', urlError);
-      
-      // Fallback URL construction as last resort
-      try {
-        console.warn('Attempting fallback URL construction');
-        const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
-        
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            success: true,
-            url: fallbackUrl,
-            path: fileName,
-            note: 'Used fallback URL construction due to getPublicUrl error'
-          })
-        };
-      } catch (fallbackError) {
-        return {
-          statusCode: 500,
-          body: JSON.stringify({
-            error: 'Failed to get public URL for uploaded file',
-            details: urlError.message
-          })
-        };
-      }
+    } else {
+      // All upload attempts failed
+      console.log('All upload attempts failed');
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'Upload failed after multiple attempts',
+          details: errorMessages
+        })
+      };
     }
   } catch (error) {
-    console.error('Unhandled error in upload-site-asset function:', error);
-    // Log more detailed error info
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      cause: error.cause
-    });
-    
+    console.error('Unhandled error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ 
-        error: 'An unexpected error occurred',
-        details: error.message,
-        errorType: error.name,
-        stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+      body: JSON.stringify({
+        error: 'Unexpected error',
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       })
     };
   }
