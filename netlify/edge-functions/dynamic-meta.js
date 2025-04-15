@@ -191,7 +191,20 @@ function processTemplate(template, data, siteName) {
 
 // Generate HTML meta tags for a page
 function generateMetaTags(pageData) {
-  const { title, description, image, url, type = 'website' } = pageData;
+  const { 
+    title, 
+    description, 
+    image, 
+    url, 
+    type = 'website',
+    siteName,
+    appleTouchIcon
+  } = pageData;
+  
+  // Determine image dimensions - use reasonable defaults if not specified
+  const imageWidth = pageData.imageWidth || 1200;
+  const imageHeight = pageData.imageHeight || 630;
+  const imageAlt = pageData.imageAlt || title;
   
   return `
     <!-- Primary Meta Tags -->
@@ -205,6 +218,11 @@ function generateMetaTags(pageData) {
     <meta property="og:title" content="${title}">
     <meta property="og:description" content="${description}">
     <meta property="og:image" content="${image}">
+    <meta property="og:image:width" content="${imageWidth}">
+    <meta property="og:image:height" content="${imageHeight}">
+    <meta property="og:image:alt" content="${imageAlt}">
+    <meta property="og:site_name" content="${siteName}">
+    <meta property="og:locale" content="en_US">
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
@@ -212,6 +230,9 @@ function generateMetaTags(pageData) {
     <meta property="twitter:title" content="${title}">
     <meta property="twitter:description" content="${description}">
     <meta property="twitter:image" content="${image}">
+    
+    <!-- Apple Touch Icon (prioritized by Phantom Wallet) -->
+    <link rel="apple-touch-icon" href="${appleTouchIcon}">
   `;
 }
 
@@ -236,12 +257,14 @@ export default async (request, context) => {
   const siteName = settings.site_name || DEFAULT_SITE_NAME;
   const siteDescription = settings.site_description || DEFAULT_SITE_DESCRIPTION;
   const defaultOgImage = settings.og_image_url || DEFAULT_OG_IMAGE;
+  const appleTouchIcon = settings.apple_touch_icon_url || defaultOgImage;
   
   // Log settings for debugging
   console.log('Edge Function using settings:', {
     siteName,
     siteDescription,
     ogImage: defaultOgImage,
+    appleTouchIcon,
     seo_title: settings.seo_title,
     templates: {
       product_title: settings.product_title_template?.substring(0, 30) + '...',
@@ -255,7 +278,9 @@ export default async (request, context) => {
     description: siteDescription,
     image: defaultOgImage,
     url: request.url,
-    type: 'website'
+    type: 'website',
+    siteName,
+    appleTouchIcon
   };
   
   // Collection page pattern: /collections/[slug] or /[slug]
@@ -291,7 +316,9 @@ export default async (request, context) => {
           description,
           image: collection.image_url || collection.imageUrl || defaultOgImage,
           url: request.url,
-          type: 'website'
+          type: 'website',
+          siteName,
+          appleTouchIcon
         };
       }
     }
@@ -319,7 +346,9 @@ export default async (request, context) => {
         description,
         image: productImage,
         url: request.url,
-        type: 'product'
+        type: 'product',
+        siteName,
+        appleTouchIcon
       };
     }
   }
