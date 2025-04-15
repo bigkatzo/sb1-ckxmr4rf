@@ -19,6 +19,10 @@ type SiteSettings = {
   apple_touch_icon_url?: string;
   og_image_url?: string;
   twitter_image_url?: string;
+  product_title_template?: string;
+  product_description_template?: string;
+  collection_title_template?: string;
+  collection_description_template?: string;
 };
 
 type SEOProps = {
@@ -30,6 +34,8 @@ type SEOProps = {
   type?: 'website' | 'product' | 'collection';
   pathname?: string;
   useDefault?: boolean;
+  product?: any;
+  collection?: any;
 };
 
 /**
@@ -43,7 +49,9 @@ export default function SEO({
   collectionName,
   type = 'website',
   pathname,
-  useDefault = true
+  useDefault = true,
+  product = null,
+  collection = null
 }: SEOProps) {
   const location = useLocation();
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({});
@@ -72,17 +80,70 @@ export default function SEO({
   const seoDescription = siteSettings?.seo_description || '';
   const siteDescription = siteSettings?.site_description || '';
   const homepageTagline = siteSettings?.homepage_tagline || '';
+  const siteName = siteSettings?.site_name || 'store.fun';
   
-  // Use the provided title, then fallback to SEO title, then site name
+  // Process templates using the provided data
+  function processTemplate(template: string, data: any): string {
+    if (!template) return '';
+    
+    try {
+      // Replace site_name variable
+      let processedTemplate = template.replace(/\${site_name}/g, siteName);
+      
+      // Create a function to evaluate the template with the provided data
+      const evaluateTemplate = new Function(
+        ...Object.keys(data),
+        `try { 
+          return \`${processedTemplate}\`; 
+        } catch (e) { 
+          console.error('Template error:', e); 
+          return ''; 
+        }`
+      );
+      
+      // Call the function with the data values
+      return evaluateTemplate(...Object.values(data));
+    } catch (error) {
+      console.error('Error processing template:', error);
+      return '';
+    }
+  }
+
+  // If this is a product page and we have a template, use it
   let pageTitle = title;
   if (!pageTitle && useDefault) {
-    pageTitle = seoTitle || siteSettings?.site_name || '';
+    if (type === 'product' && siteSettings?.product_title_template && product) {
+      pageTitle = processTemplate(siteSettings.product_title_template, {
+        product: product || { name: productName, collectionName },
+        collection: collection,
+        site_name: siteName
+      });
+    } else if (type === 'collection' && siteSettings?.collection_title_template && collection) {
+      pageTitle = processTemplate(siteSettings.collection_title_template, {
+        collection: collection || { name: collectionName },
+        site_name: siteName
+      });
+    } else {
+      // Default fallback
+      pageTitle = seoTitle || siteSettings?.site_name || '';
+    }
   }
   
   // Use the provided description, SEO description, homepage tagline (for homepage), or site description
   let pageDescription = description;
   if (!pageDescription && useDefault) {
-    if (location.pathname === '/' || pathname === '/') {
+    if (type === 'product' && siteSettings?.product_description_template && product) {
+      pageDescription = processTemplate(siteSettings.product_description_template, {
+        product: product || { name: productName, description },
+        collection: collection,
+        site_name: siteName
+      });
+    } else if (type === 'collection' && siteSettings?.collection_description_template && collection) {
+      pageDescription = processTemplate(siteSettings.collection_description_template, {
+        collection: collection || { name: collectionName, description },
+        site_name: siteName
+      });
+    } else if (location.pathname === '/' || pathname === '/') {
       // On homepage, prefer homepage_tagline, then seo_description, then site_description
       pageDescription = homepageTagline || seoDescription || siteDescription || '';
     } else {

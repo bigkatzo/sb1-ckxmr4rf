@@ -90,6 +90,7 @@ export function ProductPage() {
         image={productImage}
         productName={enrichedProduct.name}
         type="product"
+        product={enrichedProduct}
       />
       <ProductModal
         product={enrichedProduct}

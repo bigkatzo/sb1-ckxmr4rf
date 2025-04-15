@@ -124,6 +124,7 @@ export function CollectionPage() {
             image={collection.imageUrl || ''}
             collectionName={collection.name}
             type="collection"
+            collection={collection}
           />
 
           {/* Hero Section */}

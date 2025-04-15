@@ -4,9 +4,7 @@ import { toast } from 'react-toastify';
 import { Upload, Palette, Share2, PenSquare, Save, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Constants
-const SITE_ASSETS_BUCKET = 'site-assets';
-
+// Type definitions
 type SiteSettings = {
   site_name: string;
   site_description: string;
@@ -24,6 +22,11 @@ type SiteSettings = {
   og_image_url: string;
   twitter_image_url: string;
   manifest_json: any;
+  // SEO Template fields
+  product_title_template: string;
+  product_description_template: string;
+  collection_title_template: string;
+  collection_description_template: string;
 };
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -42,7 +45,12 @@ const DEFAULT_SETTINGS: SiteSettings = {
   apple_touch_icon_url: '',
   og_image_url: '',
   twitter_image_url: '',
-  manifest_json: null
+  manifest_json: null,
+  // Default SEO templates
+  product_title_template: '${product.name} | ${product.collectionName || site_name}',
+  product_description_template: '${product.description || `${product.name} - Available at ${site_name}`}',
+  collection_title_template: '${collection.name} | ${site_name}',
+  collection_description_template: '${collection.description || `Explore ${collection.name} collection at ${site_name}`}'
 };
 
 export function SiteSettings() {
@@ -486,6 +494,76 @@ export function SiteSettings() {
                 <p className="mt-1 text-xs text-gray-400">
                   Description for SEO purposes, typically 150-160 characters
                 </p>
+              </div>
+
+              <div className="pt-4 border-t border-gray-700">
+                <h4 className="text-md font-medium mb-3">SEO Templates</h4>
+                <p className="text-sm text-gray-400 mb-4">
+                  Define how product and collection pages appear in search results and social shares.
+                  Use variables like ${'{product.name}'}, ${'{collection.name}'}, ${'{site_name}'} in your templates.
+                </p>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Product Title Template
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.product_title_template}
+                      onChange={(e) => setSettings({...settings, product_title_template: e.target.value})}
+                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Template for product page titles. Example: "${'{product.name}'} | ${'{product.collectionName}'}"
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Product Description Template
+                    </label>
+                    <textarea
+                      value={settings.product_description_template}
+                      onChange={(e) => setSettings({...settings, product_description_template: e.target.value})}
+                      rows={3}
+                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Template for product meta descriptions.
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Collection Title Template
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.collection_title_template}
+                      onChange={(e) => setSettings({...settings, collection_title_template: e.target.value})}
+                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Template for collection page titles. Example: "${'{collection.name}'} | ${'{site_name}'}"
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Collection Description Template
+                    </label>
+                    <textarea
+                      value={settings.collection_description_template}
+                      onChange={(e) => setSettings({...settings, collection_description_template: e.target.value})}
+                      rows={3}
+                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Template for collection meta descriptions.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>
