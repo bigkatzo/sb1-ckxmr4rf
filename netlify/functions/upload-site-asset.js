@@ -175,25 +175,46 @@ export async function handler(event, context) {
     }
 
     // Get the public URL
-    const { data: { publicUrl } } = supabase.storage
+    const { data } = supabase.storage
       .from(SITE_ASSETS_BUCKET)
       .getPublicUrl(fileName);
+    
+    const publicUrl = data?.publicUrl;
+    
+    if (!publicUrl) {
+      console.error('Error getting public URL');
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'Failed to get public URL for uploaded file'
+        })
+      };
+    }
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
         url: publicUrl,
-        path: uploadData.path
+        path: uploadData?.path || fileName
       })
     };
   } catch (error) {
     console.error('Error in upload-site-asset function:', error);
+    // Log more detailed error info
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause
+    });
+    
     return {
       statusCode: 500,
       body: JSON.stringify({ 
         error: 'An unexpected error occurred',
-        details: error.message
+        details: error.message,
+        errorType: error.name
       })
     };
   }
