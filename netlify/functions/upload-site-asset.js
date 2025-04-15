@@ -176,19 +176,19 @@ export async function handler(event, context) {
     }
     
     // Process file
+    console.log('Processing file data from base64');
+    const base64Data = fileBase64.replace(/^data:[^;]+;base64,/, '');
+    console.log(`Base64 data length after stripping header: ${base64Data.length}`);
+    
+    const fileData = Buffer.from(base64Data, 'base64');
+    
+    if (fileData.length === 0) {
+      return errorResponse(400, 'Empty file');
+    }
+    
+    console.log(`File decoded: ${fileData.length} bytes`);
+    
     try {
-      console.log('Processing file data from base64');
-      const base64Data = fileBase64.replace(/^data:[^;]+;base64,/, '');
-      console.log(`Base64 data length after stripping header: ${base64Data.length}`);
-      
-      const fileData = Buffer.from(base64Data, 'base64');
-      
-      if (fileData.length === 0) {
-        return errorResponse(400, 'Empty file');
-      }
-      
-      console.log(`File decoded: ${fileData.length} bytes`);
-      
       // Check if bucket exists
       const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       if (bucketsError) {
@@ -202,136 +202,144 @@ export async function handler(event, context) {
       
       if (!bucketExists) {
         console.log(`Creating bucket: ${SITE_ASSETS_BUCKET}`);
-        const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
-          public: true
-        });
-        if (createError) {
-          console.error('Failed to create bucket:', createError);
-          return errorResponse(500, 'Failed to create bucket', createError);
+        try {
+          const { error: createError } = await supabase.storage.createBucket(SITE_ASSETS_BUCKET, {
+            public: true
+          });
+          if (createError) {
+            console.error('Failed to create bucket:', createError);
+            return errorResponse(500, 'Failed to create bucket', createError);
+          }
+          console.log(`Bucket created: ${SITE_ASSETS_BUCKET}`);
+        } catch (bucketCreateError) {
+          console.error('Error creating bucket:', bucketCreateError);
+          // Continue anyway, the bucket might actually exist
         }
-        console.log(`Bucket created: ${SITE_ASSETS_BUCKET}`);
       } else {
         console.log(`Bucket exists: ${SITE_ASSETS_BUCKET}`);
       }
       
-      // Check if file exists first (for update case)
-      console.log(`Checking if file exists: ${fileName}`);
-      const { data: existingFiles, error: listError } = await supabase.storage
-        .from(SITE_ASSETS_BUCKET)
-        .list('', { 
-          search: fileName 
-        });
-        
-      if (listError) {
-        console.error('Error listing files:', listError);
-        return errorResponse(500, 'Error listing files', listError);
-      }
-        
-      const fileExists = existingFiles?.some(file => file.name === fileName);
-      console.log(`File exists check: ${fileExists}`);
-      
-      // If file exists, try removing it first (better update handling)
-      if (fileExists) {
-        console.log(`File exists, removing first: ${fileName}`);
-        const { error: removeError } = await supabase.storage
-          .from(SITE_ASSETS_BUCKET)
-          .remove([fileName]);
-          
-        if (removeError) {
-          console.error(`Error removing existing file:`, removeError);
-          console.log(`Warning: Could not remove existing file: ${removeError.message}`);
-          // Continue anyway, as upsert might still work
-        } else {
-          console.log('Existing file removed successfully');
-        }
-      }
-      
-      // Upload the file
+      // Try uploading directly without checking if the file exists first
       console.log(`Uploading file: ${fileName} (${fileData.length} bytes, ${contentType})`);
       
-      // First, try with the newer API method
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(SITE_ASSETS_BUCKET)
-        .upload(fileName, fileData, {
-          contentType,
-          upsert: true,
-          cacheControl: '3600',
-          // Explicitly avoid setting any owner fields - these might cause conflicts
-          // between different Supabase versions
-        });
-        
-      if (uploadError) {
-        console.error('Upload failed with standard method:', uploadError);
-        
-        // If the error mentions "column owner", try the upload with a different approach
-        if (uploadError.message && uploadError.message.includes('column "owner"')) {
-          console.log('Detected "owner" column error, attempting alternative upload method');
+      // Try multiple upload methods in sequence until one works
+      let uploadSuccess = false;
+      let uploadError = null;
+      
+      // Method 1: Standard Supabase SDK upload
+      try {
+        console.log('Trying upload method 1: Supabase SDK');
+        const { data, error } = await supabase.storage
+          .from(SITE_ASSETS_BUCKET)
+          .upload(fileName, fileData, {
+            contentType,
+            upsert: true,
+            cacheControl: '3600'
+          });
           
-          // Try a direct fetch request to bypass schema issues
-          const formData = new FormData();
-          formData.append('file', fileData);
-          
+        if (error) {
+          console.error('Upload method 1 failed:', error);
+          uploadError = error;
+        } else {
+          console.log('Upload method 1 succeeded');
+          uploadSuccess = true;
+        }
+      } catch (e) {
+        console.error('Exception in upload method 1:', e);
+        uploadError = e;
+      }
+      
+      // Method 2: Direct POST request if method 1 failed
+      if (!uploadSuccess) {
+        try {
+          console.log('Trying upload method 2: Direct POST');
           const uploadUrl = `${supabaseUrl}/storage/v1/object/${SITE_ASSETS_BUCKET}/${fileName}`;
           
-          try {
-            const response = await fetch(uploadUrl, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${supabaseServiceKey}`,
-                'Content-Type': contentType
-              },
-              body: fileData
-            });
-            
-            if (!response.ok) {
-              console.error('Alternative upload method also failed:', await response.text());
-              return errorResponse(500, 'All upload methods failed', {
-                firstError: uploadError,
-                secondError: await response.text()
-              });
-            }
-            
-            console.log('Alternative upload succeeded');
-          } catch (altUploadError) {
-            console.error('Alternative upload method also failed:', altUploadError);
-            return errorResponse(500, 'All upload methods failed', {
-              firstError: uploadError,
-              secondError: altUploadError
-            });
+          const response = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Content-Type': contentType,
+              'x-upsert': 'true'
+            },
+            body: fileData
+          });
+          
+          if (!response.ok) {
+            const errText = await response.text();
+            console.error(`Upload method 2 failed (${response.status}):`, errText);
+            uploadError = { method: 'POST', status: response.status, text: errText };
+          } else {
+            console.log('Upload method 2 succeeded');
+            uploadSuccess = true;
           }
-        } else {
-          // This is some other error, not related to "owner" column
-          return errorResponse(500, 'Upload failed', uploadError);
+        } catch (e) {
+          console.error('Exception in upload method 2:', e);
+          uploadError = e;
         }
       }
       
-      console.log('Upload successful, getting public URL');
-      const { data: urlData } = await supabase.storage
-        .from(SITE_ASSETS_BUCKET)
-        .getPublicUrl(fileName);
-        
-      if (!urlData?.publicUrl) {
-        console.log('No public URL returned, constructing manually');
-        const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
-        
-        console.log(`Returning fallback URL: ${fallbackUrl}`);
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            success: true,
-            url: fallbackUrl,
-            path: uploadData?.path || fileName
-          })
-        };
+      // Method 3: Direct PUT request if methods 1 and 2 failed
+      if (!uploadSuccess) {
+        try {
+          console.log('Trying upload method 3: Direct PUT');
+          const putUrl = `${supabaseUrl}/storage/v1/object/${SITE_ASSETS_BUCKET}/${fileName}`;
+          
+          const putResponse = await fetch(putUrl, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Content-Type': contentType
+            },
+            body: fileData
+          });
+          
+          if (!putResponse.ok) {
+            const errText = await putResponse.text();
+            console.error(`Upload method 3 failed (${putResponse.status}):`, errText);
+            uploadError = { method: 'PUT', status: putResponse.status, text: errText };
+          } else {
+            console.log('Upload method 3 succeeded');
+            uploadSuccess = true;
+          }
+        } catch (e) {
+          console.error('Exception in upload method 3:', e);
+          uploadError = e;
+        }
       }
       
-      console.log(`Public URL: ${urlData.publicUrl}`);
+      if (!uploadSuccess) {
+        return errorResponse(500, 'All upload methods failed', {
+          error: uploadError
+        });
+      }
+      
+      // Generate the public URL
+      console.log('Upload successful, getting public URL');
+      let publicUrl = null;
+      
+      try {
+        const { data: urlData } = await supabase.storage
+          .from(SITE_ASSETS_BUCKET)
+          .getPublicUrl(fileName);
+        
+        publicUrl = urlData?.publicUrl;
+      } catch (e) {
+        console.error('Error getting public URL:', e);
+      }
+      
+      if (!publicUrl) {
+        console.log('No public URL returned, constructing manually');
+        publicUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
+      }
+      
+      console.log(`Final public URL: ${publicUrl}`);
       return {
         statusCode: 200,
         body: JSON.stringify({
           success: true,
-          url: urlData.publicUrl,
-          path: uploadData?.path || fileName
+          url: publicUrl,
+          path: fileName
         })
       };
     } catch (fileProcessError) {
