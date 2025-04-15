@@ -329,10 +329,19 @@ function isLcpCandidate(url) {
                       url.pathname.includes('hero') ||
                       url.pathname.includes('featured');
                       
+  // Check for product images which might be LCP on product pages 
+  const isProductImage = url.pathname.includes('product-images');
+                      
   // Check for render endpoint which is used for our optimized images
   const isOptimized = url.pathname.includes('/storage/v1/render/image');
   
-  return (isHighPriority || isHeroImage) && isOptimized;
+  return ((isHighPriority && (isHeroImage || isProductImage)) || isHeroImage) && isOptimized;
+}
+
+// Helper to detect if image is a product image
+function isProductImage(url) {
+  return url.hostname.includes('supabase.co') && 
+         url.pathname.includes('product-images');
 }
 
 // Main fetch handler
@@ -355,6 +364,12 @@ self.addEventListener('fetch', (event) => {
     // Use special LCP-optimized handling for important images
     if (isLcpCandidate(url)) {
       event.respondWith(handleLcpImageRequest(event.request));
+      return;
+    }
+    
+    // Special handling for product images to aggressively optimize
+    if (isProductImage(url)) {
+      event.respondWith(handleProductImageRequest(event.request));
       return;
     }
     
@@ -844,6 +859,99 @@ async function updateLcpImageCache(request, cache) {
     }
   } catch (error) {
     console.warn('Background LCP image update failed:', error);
+  }
+}
+
+// Specialized handler for product image requests with aggressive optimization
+async function handleProductImageRequest(request) {
+  const startTime = Date.now();
+  const cache = await caches.open(CACHE_NAMES.IMAGES);
+  const url = new URL(request.url);
+  
+  try {
+    // Check if image already has optimization parameters
+    let imageUrl = request.url;
+    
+    // Apply aggressive optimization if not already present
+    if (!url.searchParams.has('format') && !url.searchParams.has('width')) {
+      // Create a URL with optimized parameters
+      const optimizedUrl = new URL(request.url);
+      
+      // Clear any existing params
+      Array.from(optimizedUrl.searchParams.keys()).forEach(key => {
+        if (!['priority', 'fetchpriority'].includes(key)) {
+          optimizedUrl.searchParams.delete(key);
+        }
+      });
+      
+      // Set optimal size - product thumbnails should be small
+      optimizedUrl.searchParams.set('width', '320');
+      optimizedUrl.searchParams.set('quality', '65');
+      optimizedUrl.searchParams.set('format', 'webp');
+      optimizedUrl.searchParams.set('cache', '604800');
+      
+      imageUrl = optimizedUrl.toString();
+    }
+    
+    // Create a new request with the optimized URL
+    const optimizedRequest = new Request(imageUrl, {
+      method: request.method,
+      headers: request.headers,
+      mode: request.mode,
+      credentials: request.credentials,
+      redirect: request.redirect
+    });
+    
+    // Check cache for the optimized request
+    const cachedResponse = await cache.match(optimizedRequest);
+    if (cachedResponse) {
+      recordMetric('IMAGES', 'hit', Date.now() - startTime);
+      return cachedResponse;
+    }
+    
+    // Fetch the optimized image
+    try {
+      const response = await fetch(optimizedRequest.clone(), {
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (response.ok) {
+        // Cache the optimized response
+        const cachedResponse = new Response(response.clone().body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: new Headers(response.headers)
+        });
+        
+        // Add cache metadata
+        cachedResponse.headers.set('X-Cache-Time', Date.now().toString());
+        cachedResponse.headers.set('X-Cache-Version', CACHE_CONFIG.IMAGES.version);
+        
+        // Store in cache
+        await cache.put(optimizedRequest, cachedResponse.clone());
+        
+        recordMetric('IMAGES', 'miss', Date.now() - startTime);
+        return response;
+      }
+      
+      // If fetching optimized version fails, try original request
+      const originalResponse = await fetch(request.clone());
+      if (originalResponse.ok) {
+        return originalResponse;
+      }
+      
+      throw new Error('Failed to fetch product image');
+    } catch (fetchError) {
+      console.error('Error fetching product image:', fetchError);
+      // Try original request as fallback
+      return fetch(request.clone());
+    }
+  } catch (error) {
+    console.error('Product image request failed:', error);
+    recordMetric('IMAGES', 'error', Date.now() - startTime);
+    // Last resort - pass through to browser
+    return fetch(request);
   }
 }
 

@@ -120,9 +120,8 @@ export function OptimizedImage({
       const isPng = src.toLowerCase().endsWith('.png');
       const isJpg = src.toLowerCase().match(/\.(jpg|jpeg)$/i) !== null;
       
-      // Only attempt format conversion for larger images (>200px) and if browser supports WebP
-      // Supabase storage only supports WebP conversion
-      if (width > 200 && (typeof window === 'undefined' || supportsWebP())) {
+      // Always attempt WebP conversion unless explicitly disabled or transparency needed
+      if ((typeof window === 'undefined' || supportsWebP())) {
         // Convert JPGs or PNGs without transparency to WebP
         if (isJpg || (isPng && !mightHaveTransparency)) {
           format = 'webp';
@@ -135,22 +134,22 @@ export function OptimizedImage({
       // Check if this is a product image
       const isProductImage = src.includes('product-images');
       
-      if (isProductImage && width > 400) {
+      if (isProductImage && width > 320) {
         // Product images are often thumbnails, they can be much smaller
-        optimalWidth = Math.min(width, 400);
-      } else if (width > 1000 && !priority) {
+        optimalWidth = Math.min(width, isLCP ? 640 : 320);
+      } else if (width > 800 && !priority) {
         // Use a more reasonable size for non-priority images
-        optimalWidth = Math.min(width, 1000);
-      } else if (width > 1500 && priority) {
+        optimalWidth = Math.min(width, 800);
+      } else if (width > 1200 && priority) {
         // Even for priority images, cap the size to avoid excessive data
-        optimalWidth = Math.min(width, 1500);
+        optimalWidth = Math.min(width, 1200);
       }
 
       const params = new URLSearchParams({
         width: optimalWidth.toString(),
-        quality: isProductImage ? Math.min(quality, 70).toString() : 
+        quality: isProductImage ? Math.min(quality, 65).toString() : 
                  priority ? quality.toString() : 
-                 Math.min(quality, 80).toString(),
+                 Math.min(quality, 75).toString(),
         cache: '604800' // 1 week cache
       });
       
@@ -159,7 +158,7 @@ export function OptimizedImage({
       return `${baseUrl}?${params.toString()}`;
     }
     return src;
-  }, [src, width, quality, priority]);
+  }, [src, width, quality, priority, isLCP]);
 
   // Only generate responsive sizes if explicitly not provided by the parent component
   // This ensures we don't override specific sizing requirements in different components
@@ -172,19 +171,32 @@ export function OptimizedImage({
     const shouldPreload = (isLCP || priority) && typeof window !== 'undefined';
     
     if (shouldPreload && !document.querySelector(`link[rel="preload"][href="${optimizedSrc}"]`)) {
+      // For very important images, add preload link in document head
       const linkEl = document.createElement('link');
       linkEl.rel = 'preload';
       linkEl.as = 'image';
       linkEl.href = optimizedSrc;
       linkEl.fetchPriority = 'high';
+      linkEl.crossOrigin = 'anonymous';
       
       // Add sizes and type hints if available to improve browser loading
       if (sizes) {
         linkEl.setAttribute('imagesizes', sizes);
       }
       
-      // Add preload to document head
-      document.head.appendChild(linkEl);
+      // When preloading product images, inject at top of head for highest priority
+      if (src.includes('product-images')) {
+        document.head.insertBefore(linkEl, document.head.firstChild);
+      } else {
+        // Otherwise just append to head
+        document.head.appendChild(linkEl);
+      }
+      
+      // Also directly fetch for Safari and other browsers with limited support
+      const img = new Image();
+      img.src = optimizedSrc;
+      img.fetchPriority = 'high';
+      if (sizes) img.sizes = sizes;
       
       return () => {
         // Only attempt to remove if the element still exists
@@ -194,7 +206,7 @@ export function OptimizedImage({
         }
       };
     }
-  }, [optimizedSrc, isLCP, priority, sizes]);
+  }, [optimizedSrc, isLCP, priority, sizes, src]);
 
   const handleImageError = () => {
     // If render endpoint fails, fall back to original URL with cache control

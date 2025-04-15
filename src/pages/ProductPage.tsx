@@ -18,6 +18,30 @@ export function ProductPage() {
   const prevRouteRef = useRef<string>('');
   const currentRoute = `${collectionSlug}/${productSlug}`;
   
+  // Immediately preload possible LCP image from URL params before product data loads
+  useEffect(() => {
+    if (collectionSlug && productSlug) {
+      // Direct preload attempt based on URL pattern even before product data loads
+      const possibleImageUrl = `https://sakysysfksculqobozxi.supabase.co/storage/v1/render/image/public/product-images/${productSlug}?width=640&quality=80&format=webp`;
+      
+      // Create link element for preload
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = possibleImageUrl;
+      link.fetchPriority = 'high';
+      link.crossOrigin = 'anonymous';
+      
+      // Insert at start of head for maximum priority
+      document.head.insertBefore(link, document.head.firstChild);
+      
+      // Also create an image element to ensure load
+      const img = new Image();
+      img.src = possibleImageUrl;
+      img.fetchPriority = 'high';
+    }
+  }, [collectionSlug, productSlug]);
+  
   // Preload resources for product page
   useEffect(() => {
     if (collectionSlug && productSlug) {
@@ -29,6 +53,14 @@ export function ProductPage() {
         const img = new Image();
         img.src = product.images[0];
         img.fetchPriority = 'high';
+        
+        // Preload a few more product images to prepare for carousel
+        if (product.images.length > 1) {
+          // Load the second image with lower priority
+          const secondImg = new Image();
+          secondImg.src = product.images[1];
+          secondImg.fetchPriority = 'auto';
+        }
       }
     }
   }, [collectionSlug, productSlug, product]);
