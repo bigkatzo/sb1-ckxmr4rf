@@ -317,6 +317,24 @@ function isSupabaseStorageUrl(url) {
           url.pathname.includes('/storage/v1/render'));
 }
 
+// Helper to identify LCP candidate images
+function isLcpCandidate(url) {
+  // Check for images with high priority markers
+  const isHighPriority = url.searchParams.has('priority') || 
+                         url.searchParams.has('fetchpriority') ||
+                         url.searchParams.get('fetchpriority') === 'high';
+  
+  // Check for collection hero images which are typically LCP
+  const isHeroImage = url.pathname.includes('collection-images') || 
+                      url.pathname.includes('hero') ||
+                      url.pathname.includes('featured');
+                      
+  // Check for render endpoint which is used for our optimized images
+  const isOptimized = url.pathname.includes('/storage/v1/render/image');
+  
+  return (isHighPriority || isHeroImage) && isOptimized;
+}
+
 // Main fetch handler
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
@@ -333,6 +351,13 @@ self.addEventListener('fetch', (event) => {
       event.respondWith(fetch(event.request));
       return;
     }
+    
+    // Use special LCP-optimized handling for important images
+    if (isLcpCandidate(url)) {
+      event.respondWith(handleLcpImageRequest(event.request));
+      return;
+    }
+    
     event.respondWith(handleSupabaseStorageRequest(event.request));
     return;
   }
@@ -692,6 +717,75 @@ async function handleSupabaseStorageRequest(request) {
       if (cachedResponse) return cachedResponse.clone();
       throw error;
     }
+  }
+}
+
+// Specialized handler for LCP image requests - prioritizes speed over freshness
+async function handleLcpImageRequest(request) {
+  const startTime = Date.now();
+  const cache = await caches.open(CACHE_NAMES.IMAGES);
+  
+  try {
+    // Check cache first with a fast path return
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) {
+      // Return cached response immediately without freshness check
+      recordMetric('IMAGES', 'hit', Date.now() - startTime);
+      
+      // Once we've returned the cached version, try to update it in the background
+      // This ensures we have a fresh version for next time without delaying this response
+      setTimeout(() => {
+        updateLcpImageCache(request, cache).catch(err => {
+          console.warn('Background LCP image update failed:', err);
+        });
+      }, 50);
+      
+      return cachedResponse;
+    }
+    
+    // No cache hit, fetch from network
+    const networkResponse = await fetch(request.clone());
+    if (!networkResponse.ok) {
+      throw new Error(`Network response error: ${networkResponse.status}`);
+    }
+    
+    // Cache the response
+    const responseToCache = await efficientResponseClone(networkResponse.clone(), 'IMAGES');
+    await cache.put(request, responseToCache);
+    
+    recordMetric('IMAGES', 'miss', Date.now() - startTime);
+    return networkResponse;
+  } catch (error) {
+    console.error('LCP image request failed:', error);
+    recordMetric('IMAGES', 'error', Date.now() - startTime);
+    throw error;
+  }
+}
+
+// Background update for LCP images cache
+async function updateLcpImageCache(request, cache) {
+  try {
+    const networkResponse = await fetch(request.clone());
+    if (!networkResponse.ok) return;
+    
+    // Create a new response with appropriate cache headers
+    const now = Date.now();
+    const headers = new Headers(networkResponse.headers);
+    headers.set('X-Cache-Time', now.toString());
+    headers.set('X-Cache-TTL', CACHE_TTLS.IMAGES.toString());
+    headers.set('X-Cache-Type', 'IMAGES');
+    headers.set('Cache-Control', `public, max-age=${CACHE_TTLS.IMAGES}`);
+    
+    const cachedResponse = new Response(networkResponse.body, {
+      status: networkResponse.status,
+      statusText: networkResponse.statusText,
+      headers
+    });
+    
+    await cache.put(request, cachedResponse);
+    console.log('LCP image updated in background');
+  } catch (error) {
+    console.warn('Background LCP image update failed:', error);
   }
 }
 

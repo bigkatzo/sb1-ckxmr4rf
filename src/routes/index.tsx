@@ -1,22 +1,48 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { App } from '../App';
+// Only import HomePage directly since it's critical
 import { HomePage } from '../pages/HomePage';
 import { ProtectedRoute } from '../components/merchant/ProtectedRoute';
 import { AnimatedLayout } from '../components/layout/AnimatedLayout';
 import { ProductPageTransition } from '../components/ui/ProductPageTransition';
 
-// Preload function for frequently accessed routes
+// Improved preload function for frequently accessed routes
+// Uses requestIdleCallback for better performance
 const preloadHomePage = () => import('../pages/HomePage');
 const preloadCollectionPage = () => import('../pages/CollectionPage');
 const preloadProductPage = () => import('../pages/ProductPage');
 
-// Trigger preloads after initial render
-setTimeout(() => {
-  preloadHomePage();
-  preloadCollectionPage();
-  preloadProductPage();
-}, 2000);
+// Trigger preloads after initial render with priority ordering
+// Use idle callback when available to not block main thread
+if (typeof window !== 'undefined') {
+  if ('requestIdleCallback' in window) {
+    // Preload home page immediately in case of navigation
+    // This happens after the direct import renders
+    (window as any).requestIdleCallback(() => {
+      preloadHomePage();
+    }, { timeout: 1000 });
+    
+    // Preload collection page after a short delay
+    setTimeout(() => {
+      (window as any).requestIdleCallback(() => {
+        preloadCollectionPage();
+      }, { timeout: 1000 });
+    }, 1500);
+    
+    // Preload product page last
+    setTimeout(() => {
+      (window as any).requestIdleCallback(() => {
+        preloadProductPage();
+      }, { timeout: 1000 });
+    }, 3000);
+  } else {
+    // Fallback for browsers without requestIdleCallback
+    setTimeout(() => preloadHomePage(), 1000);
+    setTimeout(() => preloadCollectionPage(), 2000);
+    setTimeout(() => preloadProductPage(), 3500);
+  }
+}
 
 // Lazy load routes that aren't needed immediately
 const CollectionPage = lazy(() => import('../pages/CollectionPage').then(module => ({ default: module.CollectionPage })));
@@ -60,16 +86,32 @@ const SmoothOrdersPage = () => (
   </Suspense>
 );
 
-// Preload adjacent routes based on current route
+// Improved preload adjacent routes based on current route
+// Now uses visibility state to avoid preloading when tab is not visible
 const prefetchAdjacentRoutes = (currentRoute: string) => {
+  // Skip preloading if page is not visible to save resources
+  if (document.visibilityState !== 'visible') return;
+  
   // For home page, preload collections
   if (currentRoute === '/') {
-    preloadCollectionPage();
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => {
+        preloadCollectionPage();
+      }, { timeout: 1000 });
+    } else {
+      setTimeout(() => preloadCollectionPage(), 500);
+    }
   }
   
   // For collection page, preload product page
   if (currentRoute.split('/').length === 2 && currentRoute !== '/') {
-    preloadProductPage();
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => {
+        preloadProductPage();
+      }, { timeout: 1000 });
+    } else {
+      setTimeout(() => preloadProductPage(), 500);
+    }
   }
 };
 
@@ -135,22 +177,35 @@ export const router = createBrowserRouter([
   }
 ]);
 
-// Initialize router prefetching
-window.addEventListener('load', () => {
-  // Start route preloading system
-  let lastPathname = window.location.pathname;
-  
-  // Call the prefetch function initially
-  prefetchAdjacentRoutes(lastPathname);
-  
-  // Listen for route changes to prefetch related routes
-  const observer = new MutationObserver(() => {
-    const currentPathname = window.location.pathname;
-    if (currentPathname !== lastPathname) {
-      lastPathname = currentPathname;
-      prefetchAdjacentRoutes(currentPathname);
+// Initialize router prefetching with visibility detection
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => {
+    // Start route preloading system
+    let lastPathname = window.location.pathname;
+    
+    // Call the prefetch function initially if page is visible
+    if (document.visibilityState === 'visible') {
+      prefetchAdjacentRoutes(lastPathname);
     }
+    
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        prefetchAdjacentRoutes(window.location.pathname);
+      }
+    });
+    
+    // Listen for route changes to prefetch related routes
+    const observer = new MutationObserver(() => {
+      const currentPathname = window.location.pathname;
+      if (currentPathname !== lastPathname) {
+        lastPathname = currentPathname;
+        if (document.visibilityState === 'visible') {
+          prefetchAdjacentRoutes(currentPathname);
+        }
+      }
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
   });
-  
-  observer.observe(document.body, { childList: true, subtree: true });
-});
+}

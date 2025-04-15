@@ -323,8 +323,6 @@ export function FeaturedCollection() {
           {collections.map((collection, index) => {
             const isUpcoming = new Date(collection.launchDate) > new Date();
             const isNew = !isUpcoming && (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000);
-            // Only use priority loading for the first/current visible slide
-            const isPriority = index === 0;
             
             return (
               <div 
@@ -342,14 +340,14 @@ export function FeaturedCollection() {
                     <OptimizedImage
                       src={collection.imageUrl}
                       alt={collection.name}
-                      width={1920}
-                      height={1080}
-                      quality={85}
+                      width={1200}
+                      height={675}
+                      quality={80}
                       className="absolute inset-0 h-full w-full object-cover"
                       sizes="100vw"
-                      priority={isPriority}
-                      loading={isPriority ? "eager" : "lazy"} 
-                      fetchPriority={isPriority ? "high" : "auto"}
+                      priority={index === currentIndex}
+                      loading={index === currentIndex ? "eager" : "lazy"} 
+                      fetchPriority={index === currentIndex ? "high" : "auto"}
                     />
                   ) : (
                     <ImageIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-600" />

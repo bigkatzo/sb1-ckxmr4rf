@@ -122,7 +122,7 @@ export function OptimizedImage({
       
       // Only attempt format conversion for larger images (>400px) and if browser supports WebP
       // Supabase storage only supports WebP conversion
-      if (width > 400 && supportsWebP()) {
+      if (width > 200 && (typeof window === 'undefined' || supportsWebP())) {
         // Convert JPGs or PNGs without transparency to WebP
         if (isJpg || (isPng && !mightHaveTransparency)) {
           format = 'webp';
@@ -131,14 +131,17 @@ export function OptimizedImage({
 
       // Add responsive size parameter for large images
       let optimalWidth = width;
-      if (width > 1200 && !priority) {
+      if (width > 1000 && !priority) {
         // Use a more reasonable size for non-priority images
-        optimalWidth = Math.min(width, 1200);
+        optimalWidth = Math.min(width, 1000);
+      } else if (width > 1500 && priority) {
+        // Even for priority images, cap the size to avoid excessive data
+        optimalWidth = Math.min(width, 1500);
       }
 
       const params = new URLSearchParams({
         width: optimalWidth.toString(),
-        quality: quality.toString(),
+        quality: priority ? quality.toString() : Math.min(quality, 80).toString(),
         cache: '604800' // 1 week cache
       });
       

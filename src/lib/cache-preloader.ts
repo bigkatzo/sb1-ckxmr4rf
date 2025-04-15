@@ -340,11 +340,20 @@ const preloadLCPImages = async () => {
       const lcpImageUrl = featuredCollections[0].image_url;
       
       if (lcpImageUrl) {
+        // Optimize image URL with size parameters for faster loading
+        let optimizedLcpUrl = lcpImageUrl;
+        if (lcpImageUrl.includes('/storage/v1/object/public/')) {
+          // Convert to render endpoint with optimized size
+          optimizedLcpUrl = lcpImageUrl
+            .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+            + '?width=1200&quality=80&format=webp&cache=604800';
+        }
+        
         // Create a high-priority preload link
         const link = document.createElement('link');
         link.rel = 'preload';
         link.as = 'image';
-        link.href = lcpImageUrl;
+        link.href = optimizedLcpUrl;
         link.fetchPriority = 'high';
         
         // Enable responsive loading hints
@@ -355,11 +364,57 @@ const preloadLCPImages = async () => {
         
         // Also trigger an image prefetch to ensure caching
         const img = new Image();
-        img.src = lcpImageUrl;
+        img.src = optimizedLcpUrl;
+        
+        // Add loading complete callback
+        img.onload = () => {
+          console.log('LCP image preloaded successfully');
+          // Preload next image after first one loads
+          preloadNextImportantImage();
+        };
       }
     }
   } catch (error) {
     console.error('Error preloading LCP images:', error);
+  }
+};
+
+// Preload the next most important image (2nd featured collection)
+const preloadNextImportantImage = async () => {
+  try {
+    // Fetch the second featured collection
+    const { data: featuredCollections } = await supabase
+      .from('collections')
+      .select('image_url')
+      .eq('status', 'active')
+      .eq('featured', true)
+      .order('launch_date', { ascending: false })
+      .range(1, 1);
+    
+    if (featuredCollections && featuredCollections.length > 0) {
+      const nextImageUrl = featuredCollections[0].image_url;
+      
+      if (nextImageUrl) {
+        // Optimize the URL similar to LCP image but with lower priority
+        let optimizedUrl = nextImageUrl;
+        if (nextImageUrl.includes('/storage/v1/object/public/')) {
+          optimizedUrl = nextImageUrl
+            .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+            + '?width=1200&quality=75&format=webp&cache=604800';
+        }
+        
+        // Preload with medium priority
+        const link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'image';
+        link.href = optimizedUrl;
+        link.fetchPriority = 'auto';
+        
+        document.head.appendChild(link);
+      }
+    }
+  } catch (error) {
+    console.error('Error preloading next important image:', error);
   }
 };
 
