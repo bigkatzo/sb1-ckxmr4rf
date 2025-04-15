@@ -645,6 +645,14 @@ async function updateHtmlMetaTags(settings) {
     }
   }
   
+  // Update HTML meta tags in index.html
+  // Replace manifest link with cache-busting version
+  const manifestLinkRegex = /<link rel="manifest" href="\/manifest\.json.*?">/;
+  const buildTimestamp = Date.now(); // Use timestamp for cache busting
+  const newManifestLink = `<link rel="manifest" href="/manifest.json?v=${buildTimestamp}">`;
+  
+  headContent = headContent.replace(manifestLinkRegex, newManifestLink);
+  
   // Create new HTML with updated head
   const newHtml = html.substring(0, headStart) + headContent + html.substring(headEnd);
   

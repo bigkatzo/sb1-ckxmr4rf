@@ -198,6 +198,29 @@ export async function handler(event, context) {
         })
       };
     }
+    
+    // Verify the build metadata was stored correctly
+    try {
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('build_metadata')
+        .select('data')
+        .eq('id', 'site-settings')
+        .single();
+        
+      if (verifyError) {
+        console.error('Error verifying build metadata was saved:', verifyError);
+      } else if (verifyData && verifyData.data) {
+        console.log('✅ Verified build metadata was saved successfully');
+        console.log('Saved manifest.json has icons:', 
+          verifyData.data.MANIFEST_JSON && 
+          verifyData.data.MANIFEST_JSON.icons && 
+          verifyData.data.MANIFEST_JSON.icons.length);
+      } else {
+        console.warn('⚠️ Build metadata may not have been saved correctly');
+      }
+    } catch (verifyErr) {
+      console.error('Exception verifying build metadata:', verifyErr);
+    }
 
     // Trigger a Netlify build if a build hook is configured
     let buildTriggered = false;
