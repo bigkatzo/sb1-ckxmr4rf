@@ -46,7 +46,7 @@ export function HomePage() {
   const seoTitle = `${siteSettings.site_name} | ${siteSettings.site_description}`;
 
   return (
-    <div className="space-y-4 sm:space-y-6 md:space-y-8 lg:space-y-10 scroll-smooth">
+    <div className="space-y-0 scroll-smooth">
       {/* Default SEO for homepage */}
       <SEO 
         title={seoTitle}
@@ -58,7 +58,7 @@ export function HomePage() {
         <FeaturedCollection />
       </div>
       
-      <section>
+      <section className="mt-4 sm:mt-6 md:mt-8">
         <SectionHeader
           title="Best Sellers"
         />
@@ -67,7 +67,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section>
+      <section className="mt-4 sm:mt-6 md:mt-8">
         <SectionHeader
           title="Coming Soon"
         />
@@ -76,7 +76,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section>
+      <section className="mt-4 sm:mt-6 md:mt-8">
         <SectionHeader
           title="Latest Drops"
         />
