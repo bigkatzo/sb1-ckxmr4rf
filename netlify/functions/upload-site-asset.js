@@ -1,5 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Check Supabase client version
+let supabaseVersion;
+try {
+  supabaseVersion = require('@supabase/supabase-js/package.json').version;
+  console.log('Supabase client version:', supabaseVersion);
+} catch (e) {
+  console.log('Could not determine Supabase client version');
+}
+
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -238,16 +247,22 @@ export async function handler(event, context) {
     let uploadError;
     
     try {
-      const result = await supabase.storage
+      // Use a more direct approach that worked in previous versions
+      console.log('Using simplified upload approach');
+      
+      // Convert fileData to File or Blob if needed
+      // Some versions of Supabase expect different formats
+      const upload = await supabase.storage
         .from(SITE_ASSETS_BUCKET)
         .upload(fileName, fileData, {
           contentType,
-          cacheControl: '3600',
           upsert: true
         });
       
-      uploadData = result.data;
-      uploadError = result.error;
+      uploadData = upload.data;
+      uploadError = upload.error;
+      
+      console.log('Upload response:', upload);
     } catch (directError) {
       console.error('Direct exception during upload:', directError);
       return {
@@ -273,40 +288,69 @@ export async function handler(event, context) {
 
     console.log('File uploaded successfully, getting public URL');
     
-    // Get the public URL
-    let publicUrl;
+    // Get the public URL - use simpler approach
     try {
+      // Direct URL construction approach as fallback
       const { data } = supabase.storage
         .from(SITE_ASSETS_BUCKET)
         .getPublicUrl(fileName);
       
-      publicUrl = data?.publicUrl;
-      
-      console.log('Public URL retrieved:', publicUrl);
+      const publicUrl = data?.publicUrl;
       
       if (!publicUrl) {
-        throw new Error('No public URL returned from Supabase');
+        console.warn('No public URL returned from getPublicUrl, constructing manually');
+        // Fallback URL construction - may need adjustment based on your Supabase project
+        const manualUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
+        
+        console.log('Operation successful with manual URL, returning response');
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            url: manualUrl,
+            path: uploadData?.path || fileName
+          })
+        };
       }
-    } catch (urlError) {
-      console.error('Error getting public URL:', urlError);
+      
+      console.log('Public URL retrieved:', publicUrl);
+      console.log('Operation successful, returning response');
+      
       return {
-        statusCode: 500,
+        statusCode: 200,
         body: JSON.stringify({
-          error: 'Failed to get public URL for uploaded file',
-          details: urlError.message
+          success: true,
+          url: publicUrl,
+          path: uploadData?.path || fileName
         })
       };
+    } catch (urlError) {
+      console.error('Error getting public URL:', urlError);
+      
+      // Fallback URL construction as last resort
+      try {
+        console.warn('Attempting fallback URL construction');
+        const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${SITE_ASSETS_BUCKET}/${fileName}`;
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            url: fallbackUrl,
+            path: fileName,
+            note: 'Used fallback URL construction due to getPublicUrl error'
+          })
+        };
+      } catch (fallbackError) {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            error: 'Failed to get public URL for uploaded file',
+            details: urlError.message
+          })
+        };
+      }
     }
-
-    console.log('Operation successful, returning response');
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        url: publicUrl,
-        path: uploadData?.path || fileName
-      })
-    };
   } catch (error) {
     console.error('Unhandled error in upload-site-asset function:', error);
     // Log more detailed error info
