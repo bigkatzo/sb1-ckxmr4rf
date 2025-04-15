@@ -3,9 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 // Configuration
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || Deno.env.get('VITE_SUPABASE_URL');
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+// These are just fallbacks if we can't reach the database
+// The actual values will be fetched from site_settings
 const DEFAULT_SITE_NAME = 'store.fun';
-const DEFAULT_SITE_DESCRIPTION = 'Merch Marketplace';
-const DEFAULT_OG_IMAGE = 'https://store.fun/icons/og-image.png';
+const DEFAULT_SITE_DESCRIPTION = 'The #1 Commerce Marketplace on Solana';
+// Use a proper Supabase URL for the default OG image that we know exists
+const DEFAULT_OG_IMAGE = 'https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/og_image-1744669770840.png';
 
 // Bot/crawler user agents to target
 const BOT_USER_AGENTS = [
@@ -273,7 +277,7 @@ export default async (request, context) => {
         pageData = {
           title,
           description,
-          image: collection.image_url || defaultOgImage,
+          image: collection.image_url || collection.imageUrl || defaultOgImage,
           url: request.url,
           type: 'website'
         };
