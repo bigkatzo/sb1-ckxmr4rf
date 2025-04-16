@@ -113,34 +113,49 @@ async function callDasApi<T>(method: string, params: any[]): Promise<T> {
   
   // Setup request
   const url = `${DAS_API_URL}/?api-key=${HELIUS_API_KEY}`;
+  const requestBody = {
+    jsonrpc: '2.0',
+    id: 'helius-das',
+    method,
+    params,
+  };
+  
+  console.log(`Making DAS API call: ${method}`, { params: JSON.stringify(params, null, 2) });
   
   try {
-    console.log(`Making DAS API call: ${method}`);
-    
     // Make the request
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 'helius-das',
-        method,
-        params,
-      }),
+      body: JSON.stringify(requestBody),
     });
     
     // Check for response errors
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('DAS API HTTP error:', {
+        status: response.status,
+        statusText: response.statusText,
+        responseBody: errorText.substring(0, 200) // Log part of the response to help debug
+      });
       throw new Error(`DAS API request failed: ${response.status} ${response.statusText}`);
     }
     
     // Parse response
     const result = await response.json();
     
+    // Debug the response
+    console.log(`DAS API ${method} response:`, {
+      success: !result.error,
+      errorDetails: result.error || 'none',
+      dataPreview: result.result ? `Found ${result.result.items?.length || 0} items` : 'No data'
+    });
+    
     // Check for JSON-RPC errors
     if (result.error) {
+      console.error('DAS API JSON-RPC error:', result.error);
       throw new Error(`DAS API error: ${result.error.message || JSON.stringify(result.error)}`);
     }
     
@@ -152,7 +167,12 @@ async function callDasApi<T>(method: string, params: any[]): Promise<T> {
     
     return result.result as T;
   } catch (error) {
-    console.error('DAS API call failed:', error);
+    console.error('DAS API call failed:', {
+      method,
+      params: JSON.stringify(params),
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    });
     throw error;
   }
 }
@@ -175,6 +195,7 @@ export async function getAssetsByOwner(
     {
       page,
       limit,
+      sortBy: { sortBy: "created", sortDirection: "desc" },
       displayOptions: {
         showFungible,
       },
@@ -201,6 +222,7 @@ export async function getAssetsByGroup(
     {
       page,
       limit,
+      sortBy: { sortBy: "created", sortDirection: "desc" },
     },
   ]);
 }
@@ -218,6 +240,7 @@ export async function searchAssets(
 ): Promise<DasAssetsResponse> {
   const { page = 1, limit = 1000 } = options;
   
+  // Use proper format according to Helius docs
   return callDasApi<DasAssetsResponse>('searchAssets', [
     {
       ownerAddress,
@@ -229,6 +252,7 @@ export async function searchAssets(
       ],
       page,
       limit,
+      sortBy: { sortBy: "created", sortDirection: "desc" },
     },
   ]);
 } 

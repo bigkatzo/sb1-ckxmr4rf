@@ -25,6 +25,11 @@ const CIRCUIT_BREAKER_RESET_TIMEOUT = 60000; // 1 minute timeout before retry
 // Add flag to use DAS API
 const USE_DAS_API = true; // Set to true to use the Helius DAS API, false to use Metaplex
 
+// Track DAS API failures to automatically fallback to Metaplex if needed
+let dasApiFailed = false;
+let lastDasFailureTime = 0;
+const DAS_RETRY_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
 // Function to check and update circuit breaker
 function checkCircuitBreaker(): boolean {
   const now = Date.now();
@@ -113,6 +118,26 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
   });
 };
 
+// Function to check if we should try DAS API again after failure
+function shouldTryDasApi(): boolean {
+  if (!USE_DAS_API) return false;
+  
+  if (dasApiFailed) {
+    // If DAS API failed before, only try again after retry interval
+    return (Date.now() - lastDasFailureTime) > DAS_RETRY_INTERVAL;
+  }
+  
+  // If DAS API hasn't failed, use it
+  return true;
+}
+
+// Record DAS API failure
+function recordDasApiFailure() {
+  dasApiFailed = true;
+  lastDasFailureTime = Date.now();
+  console.warn(`DAS API temporarily disabled. Will retry after ${DAS_RETRY_INTERVAL / 60000} minutes.`);
+}
+
 // Function with retry mechanism - more conservative to save RPC calls
 async function retryOperation<T>(
   operation: () => Promise<T>, 
@@ -154,79 +179,91 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
   }
   
   try {
-    // Choose API method based on flag
-    if (USE_DAS_API) {
-      console.log('Using DAS API to fetch NFTs...');
-      const response = await getAssetsByOwner(walletAddress);
-      
-      // Record the success in our circuit breaker
-      recordSuccess();
-      
-      // Convert DAS response to format compatible with existing code
-      const nfts = response.items.map(convertDasAssetToMetaplexFormat);
-      
-      // Only cache successful results
-      nftCache[cacheKey] = {
-        timestamp: now,
-        nfts
-      };
-      
-      return nfts;
-    } else {
-      // Original Metaplex implementation
-      // ... existing code for Metaplex ...
-      const walletPublicKey = new PublicKey(walletAddress);
-    
-      // Only use the retry mechanism when we actually need to make the API call
-      console.log('Fetching all NFTs with Metaplex...');
-      
-      // For empty results, only retry if we get 0 NFTs (which is likely an API issue)
-      const nfts = await retryOperation(
-        async () => {
-          console.log('Making API call to Metaplex...');
-          try {
-            // Add a 15 second timeout to prevent hanging connections
-            const results = await withTimeout(
-              METAPLEX.nfts().findAllByOwner({ owner: walletPublicKey }),
-              15000, // 15 second timeout
-              'API call to Metaplex timed out after 15 seconds'
-            );
-            
-            console.log(`API call succeeded, found ${results.length} NFTs`);
-            
-            // Only trigger a retry if we get 0 NFTs (likely an API failure)
-            if (results.length === 0) {
-              throw new Error('Received 0 NFTs from API, likely a temporary issue');
-            }
-            
-            // Record the success in our circuit breaker
-            recordSuccess();
-            
-            return results;
-          } catch (error) {
-            // Add more detailed error logging
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error('Metaplex API call failed:', {
-              error: errorMessage,
-              stack: error instanceof Error ? error.stack : 'No stack trace',
-              walletAddress: walletPublicKey.toBase58()
-            });
-            
-            throw error;
-          }
-        },
-        3,  // Max 3 retries
-        3000  // Start with 3 second delay
-      );
-      
-      // Only cache successful results
-      nftCache[cacheKey] = {
-        timestamp: now,
-        nfts
-      };
-      
-      return nfts;
+    // Choose API method based on DAS availability
+    if (shouldTryDasApi()) {
+      try {
+        console.log('Using DAS API to fetch NFTs...');
+        const response = await getAssetsByOwner(walletAddress);
+        
+        // Record the success in our circuit breaker
+        recordSuccess();
+        
+        // Reset DAS failure flag on success
+        if (dasApiFailed) {
+          console.log('DAS API is working again, enabling it');
+          dasApiFailed = false;
+        }
+        
+        // Convert DAS response to format compatible with existing code
+        const nfts = response.items.map(convertDasAssetToMetaplexFormat);
+        
+        // Only cache successful results
+        nftCache[cacheKey] = {
+          timestamp: now,
+          nfts
+        };
+        
+        return nfts;
+      } catch (error) {
+        console.error('DAS API failed, falling back to Metaplex:', error);
+        recordDasApiFailure();
+        // Fall through to Metaplex implementation
+      }
     }
+    
+    // Metaplex implementation (fallback)
+    console.log('Using Metaplex fallback to fetch NFTs...');
+    const walletPublicKey = new PublicKey(walletAddress);
+  
+    // Only use the retry mechanism when we actually need to make the API call
+    console.log('Fetching all NFTs with Metaplex...');
+    
+    // For empty results, only retry if we get 0 NFTs (which is likely an API issue)
+    const nfts = await retryOperation(
+      async () => {
+        console.log('Making API call to Metaplex...');
+        try {
+          // Add a 15 second timeout to prevent hanging connections
+          const results = await withTimeout(
+            METAPLEX.nfts().findAllByOwner({ owner: walletPublicKey }),
+            15000, // 15 second timeout
+            'API call to Metaplex timed out after 15 seconds'
+          );
+          
+          console.log(`API call succeeded, found ${results.length} NFTs`);
+          
+          // Only trigger a retry if we get 0 NFTs (likely an API failure)
+          if (results.length === 0) {
+            throw new Error('Received 0 NFTs from API, likely a temporary issue');
+          }
+          
+          // Record the success in our circuit breaker
+          recordSuccess();
+          
+          return results;
+        } catch (error) {
+          // Add more detailed error logging
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error('Metaplex API call failed:', {
+            error: errorMessage,
+            stack: error instanceof Error ? error.stack : 'No stack trace',
+            walletAddress: walletPublicKey.toBase58()
+          });
+          
+          throw error;
+        }
+      },
+      3,  // Max 3 retries
+      3000  // Start with 3 second delay
+    );
+    
+    // Only cache successful results
+    nftCache[cacheKey] = {
+      timestamp: now,
+      nfts
+    };
+    
+    return nfts;
   } catch (error) {
     // Record the failure in our circuit breaker
     recordFailure(error);
@@ -317,13 +354,25 @@ export async function verifyNFTHolding(
     console.log('Min amount required:', minAmount);
 
     // Use DAS API direct collection verification if enabled (most efficient)
-    if (USE_DAS_API) {
+    if (shouldTryDasApi()) {
       try {
-        return await verifyCollectionWithDasApi(walletAddress, cleanCollectionAddress, minAmount);
+        console.log('Verifying collection directly with DAS API...');
+        const result = await verifyCollectionWithDasApi(walletAddress, cleanCollectionAddress, minAmount);
+        
+        // Reset DAS failure flag on success
+        if (dasApiFailed) {
+          console.log('DAS API is working again, enabling it');
+          dasApiFailed = false;
+        }
+        
+        return result;
       } catch (error) {
         console.error('DAS API verification failed, falling back to standard method:', error);
+        recordDasApiFailure();
         // Fall through to standard method below
       }
+    } else {
+      console.log('Using standard verification method (DAS API disabled)');
     }
 
     // Standard verification method (works with both DAS and Metaplex)
@@ -460,45 +509,58 @@ export async function batchVerifyNFTHoldings(
   }
   
   try {
-    if (USE_DAS_API) {
-      // Use DAS API for more efficient batch verification
-      console.log('Using DAS API for batch verification');
-      
-      // Get all NFTs in one call
-      const response = await getAssetsByOwner(walletAddress);
-      
-      // Group NFTs by collection
-      const collectionCounts: Record<string, number> = {};
-      
-      response.items.forEach(asset => {
-        const collectionGrouping = asset.grouping?.find(g => g.group_key === 'collection');
-        if (collectionGrouping) {
-          const collectionAddress = collectionGrouping.group_value;
-          collectionCounts[collectionAddress] = (collectionCounts[collectionAddress] || 0) + 1;
-        }
-      });
-      
-      // Generate results for each requested collection
-      const results: Record<string, NFTVerificationResult> = {};
-      
-      collectionsConfig.forEach(config => {
-        const { collectionAddress, minAmount = 1, identifier } = config;
-        const key = identifier || collectionAddress;
-        const nftCount = collectionCounts[collectionAddress] || 0;
+    if (shouldTryDasApi()) {
+      try {
+        // Use DAS API for more efficient batch verification
+        console.log('Using DAS API for batch verification');
         
-        results[key] = {
-          isValid: nftCount >= minAmount,
-          balance: nftCount,
-          error: nftCount >= minAmount ? undefined : 
-                 `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
-        };
-      });
-      
-      return results;
+        // Get all NFTs in one call
+        const response = await getAssetsByOwner(walletAddress);
+        
+        // Reset DAS failure flag on success
+        if (dasApiFailed) {
+          console.log('DAS API is working again, enabling it');
+          dasApiFailed = false;
+        }
+        
+        // Group NFTs by collection
+        const collectionCounts: Record<string, number> = {};
+        
+        response.items.forEach(asset => {
+          const collectionGrouping = asset.grouping?.find(g => g.group_key === 'collection');
+          if (collectionGrouping) {
+            const collectionAddress = collectionGrouping.group_value;
+            collectionCounts[collectionAddress] = (collectionCounts[collectionAddress] || 0) + 1;
+          }
+        });
+        
+        // Generate results for each requested collection
+        const results: Record<string, NFTVerificationResult> = {};
+        
+        collectionsConfig.forEach(config => {
+          const { collectionAddress, minAmount = 1, identifier } = config;
+          const key = identifier || collectionAddress;
+          const nftCount = collectionCounts[collectionAddress] || 0;
+          
+          results[key] = {
+            isValid: nftCount >= minAmount,
+            balance: nftCount,
+            error: nftCount >= minAmount ? undefined : 
+                   `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
+          };
+        });
+        
+        return results;
+      } catch (error) {
+        console.error('DAS API batch verification failed, falling back to standard method:', error);
+        recordDasApiFailure();
+        // Fall through to standard verification
+      }
+    } else {
+      console.log('Using standard batch verification (DAS API disabled)');
     }
     
-    // If DAS API is disabled, fall back to original implementation
-    // ... existing batch verification code ...
+    // If DAS API is disabled or failed, fall back to original implementation
     // Fetch all NFTs once
     let nfts: any[];
     
