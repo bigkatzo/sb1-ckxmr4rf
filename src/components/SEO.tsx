@@ -14,6 +14,7 @@ type SiteSettings = {
   theme_background_color?: string;
   theme_text_color?: string;
   favicon_url?: string;
+  favicon_96_url?: string;
   icon_192_url?: string;
   icon_512_url?: string;
   apple_touch_icon_url?: string;
@@ -202,9 +203,24 @@ export default function SEO({
     }
     
     // Update images if provided
-    // Use og_image_url from site settings if available, otherwise use the provided image or fallback to default
-    const ogImageUrl = siteSettings?.og_image_url || image || '/icons/og-default-image.png';
-    const twitterImageUrl = siteSettings?.twitter_image_url || ogImageUrl || '/icons/twitter-default-image.png';
+    // For product/collection pages, use their images as priority for OG/Twitter
+    // Then fall back to site settings, then default image
+    let ogImageUrl: string;
+    let twitterImageUrl: string;
+
+    if (isProduct && product?.images && product.images.length > 0) {
+      // Use product's first image
+      ogImageUrl = product.images[0];
+      twitterImageUrl = product.images[0];
+    } else if (isCollection && collection?.image) {
+      // Use collection image
+      ogImageUrl = collection.image;
+      twitterImageUrl = collection.image;
+    } else {
+      // Fallback to global settings or provided image
+      ogImageUrl = siteSettings?.og_image_url || image || '/icons/og-default-image.png';
+      twitterImageUrl = siteSettings?.twitter_image_url || ogImageUrl || '/icons/twitter-default-image.png';
+    }
     
     // Ensure image URLs are absolute
     const fullOgImageUrl = ogImageUrl.startsWith('http') ? ogImageUrl : window.location.origin + ogImageUrl;

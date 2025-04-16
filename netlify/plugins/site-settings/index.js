@@ -318,7 +318,7 @@ async function updateManifestJson(settings, manifestFromMetadata = null) {
     '16x16': settings.favicon_url,
     '32x32': settings.favicon_url,
     '48x48': settings.favicon_url,
-    '96x96': settings.favicon_url,
+    '96x96': settings.favicon_96_url || settings.favicon_url, // Use specific 96x96 icon if available
     '128x128': settings.icon_192_url, // Downscaled from 192
     '144x144': settings.icon_192_url, // Downscaled from 192
     '152x152': settings.apple_touch_icon_url || settings.icon_192_url,
@@ -520,51 +520,46 @@ async function updateHtmlMetaTags(settings) {
     );
   }
   
-  // Clear out all existing icon references and replace with the ones from Supabase
-  // Create a new head section with all the correct URLs
-  const headStart = html.indexOf('<head>') + 6;
-  const headEnd = html.indexOf('</head>');
-  let headContent = html.substring(headStart, headEnd);
-  
-  // Replace all favicon and icon links
-  // Remove all existing icon links
-  headContent = headContent.replace(/<link rel="icon".*?>/g, '');
-  headContent = headContent.replace(/<link rel="apple-touch-icon".*?>/g, '');
-  headContent = headContent.replace(/<link rel="mask-icon".*?>/g, '');
-  
-  // Add back the ones from settings
-  let newIconLinks = '';
-  
-  // Add favicon
+  // Update favicons if available
   if (settings.favicon_url) {
-    console.log(`Setting favicon URL: ${settings.favicon_url}`);
+    // Update standard favicon link
+    html = html.replace(
+      /<link rel="icon" href="[^"]*">/,
+      `<link rel="icon" href="${settings.favicon_url}">`
+    );
     
-    if (settings.favicon_url.endsWith('.svg')) {
-      newIconLinks += `\n    <link rel="icon" href="${settings.favicon_url}" type="image/svg+xml">`;
-      newIconLinks += `\n    <link rel="mask-icon" href="${settings.favicon_url}" color="${settings.theme_primary_color || '#8b5cf6'}">`;
-    } else if (settings.favicon_url.endsWith('.ico')) {
-      newIconLinks += `\n    <link rel="icon" href="${settings.favicon_url}" type="image/x-icon">`;
+    // Update 16x16 favicon link
+    html = html.replace(
+      /<link rel="icon" type="image\/png" sizes="16x16" href="[^"]*">/,
+      `<link rel="icon" type="image/png" sizes="16x16" href="${settings.favicon_url}">`
+    );
+    
+    // Update 32x32 favicon link
+    html = html.replace(
+      /<link rel="icon" type="image\/png" sizes="32x32" href="[^"]*">/,
+      `<link rel="icon" type="image/png" sizes="32x32" href="${settings.favicon_url}">`
+    );
+  }
+  
+  // Update 96x96 favicon link if available
+  if (settings.favicon_96_url) {
+    const favicon96Tag = `<link rel="icon" type="image/png" sizes="96x96" href="${settings.favicon_96_url}">`;
+    
+    // Check if the 96x96 favicon link already exists
+    if (html.includes('sizes="96x96"')) {
+      // Update existing tag
+      html = html.replace(
+        /<link rel="icon" type="image\/png" sizes="96x96" href="[^"]*">/,
+        favicon96Tag
+      );
     } else {
-      // Assume PNG/JPG
-      newIconLinks += `\n    <link rel="icon" href="${settings.favicon_url}">`;
-      newIconLinks += `\n    <link rel="icon" type="image/png" sizes="32x32" href="${settings.favicon_url}">`;
-      newIconLinks += `\n    <link rel="icon" type="image/png" sizes="16x16" href="${settings.favicon_url}">`;
+      // Add it after the 32x32 favicon
+      html = html.replace(
+        /<link rel="icon" type="image\/png" sizes="32x32" href="[^"]*">/,
+        `<link rel="icon" type="image/png" sizes="32x32" href="${settings.favicon_url || '/icons/favicon-32x32.png'}">\n    ${favicon96Tag}`
+      );
     }
-  } else {
-    // Use default emoji favicon
-    newIconLinks += `\n    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">`;
   }
-  
-  // Add Apple Touch Icon
-  if (settings.apple_touch_icon_url) {
-    console.log(`Setting Apple Touch Icon URL: ${settings.apple_touch_icon_url}`);
-    newIconLinks += `\n    <link rel="apple-touch-icon" href="${settings.apple_touch_icon_url}">`;
-    newIconLinks += `\n    <link rel="apple-touch-icon" sizes="180x180" href="${settings.apple_touch_icon_url}">`;
-  }
-  
-  // Insert all new icon links after meta charset
-  const metaCharsetEndIndex = headContent.indexOf('>') + 1;
-  headContent = headContent.substring(0, metaCharsetEndIndex) + newIconLinks + headContent.substring(metaCharsetEndIndex);
   
   // Update OG images - Make this more robust
   if (settings.og_image_url) {
@@ -574,7 +569,7 @@ async function updateHtmlMetaTags(settings) {
     const ogImageRegex = /<meta property="og:image".*?>/g;
     let ogImageFound = false;
     
-    headContent = headContent.replace(ogImageRegex, (match) => {
+    html = html.replace(ogImageRegex, (match) => {
       // Only replace the first occurrence
       if (!ogImageFound) {
         ogImageFound = true;
@@ -585,16 +580,16 @@ async function updateHtmlMetaTags(settings) {
     
     // If no OG image tag was found, add one
     if (!ogImageFound) {
-      headContent += `\n    <meta property="og:image" content="${settings.og_image_url}">`;
+      html += `\n    <meta property="og:image" content="${settings.og_image_url}">`;
     }
     
     // Also ensure og:image:width and height are set
-    if (!headContent.includes('og:image:width')) {
-      headContent += `\n    <meta property="og:image:width" content="1200">`;
+    if (!html.includes('og:image:width')) {
+      html += `\n    <meta property="og:image:width" content="1200">`;
     }
     
-    if (!headContent.includes('og:image:height')) {
-      headContent += `\n    <meta property="og:image:height" content="630">`;
+    if (!html.includes('og:image:height')) {
+      html += `\n    <meta property="og:image:height" content="630">`;
     }
   }
   
@@ -606,7 +601,7 @@ async function updateHtmlMetaTags(settings) {
     const twitterImageRegex = /<meta name="twitter:image".*?>/g;
     let twitterImageFound = false;
     
-    headContent = headContent.replace(twitterImageRegex, (match) => {
+    html = html.replace(twitterImageRegex, (match) => {
       // Only replace the first occurrence
       if (!twitterImageFound) {
         twitterImageFound = true;
@@ -617,13 +612,13 @@ async function updateHtmlMetaTags(settings) {
     
     // If no Twitter image tag was found, add one
     if (!twitterImageFound) {
-      headContent += `\n    <meta name="twitter:image" content="${settings.twitter_image_url}">`;
+      html += `\n    <meta name="twitter:image" content="${settings.twitter_image_url}">`;
     }
     
     // Ensure twitter:card is set
     const twitterCardRegex = /<meta name="twitter:card".*?>/;
-    if (!twitterCardRegex.test(headContent)) {
-      headContent += `\n    <meta name="twitter:card" content="summary_large_image">`;
+    if (!twitterCardRegex.test(html)) {
+      html += `\n    <meta name="twitter:card" content="summary_large_image">`;
     }
   } else if (settings.og_image_url) {
     // Fall back to OG image for Twitter if Twitter image is not set
@@ -632,7 +627,7 @@ async function updateHtmlMetaTags(settings) {
     const twitterImageRegex = /<meta name="twitter:image".*?>/g;
     let twitterImageFound = false;
     
-    headContent = headContent.replace(twitterImageRegex, (match) => {
+    html = html.replace(twitterImageRegex, (match) => {
       if (!twitterImageFound) {
         twitterImageFound = true;
         return `<meta name="twitter:image" content="${settings.og_image_url}">`;
@@ -641,7 +636,7 @@ async function updateHtmlMetaTags(settings) {
     });
     
     if (!twitterImageFound) {
-      headContent += `\n    <meta name="twitter:image" content="${settings.og_image_url}">`;
+      html += `\n    <meta name="twitter:image" content="${settings.og_image_url}">`;
     }
   }
   
@@ -651,13 +646,10 @@ async function updateHtmlMetaTags(settings) {
   const buildTimestamp = Date.now(); // Use timestamp for cache busting
   const newManifestLink = `<link rel="manifest" href="/manifest.json?v=${buildTimestamp}">`;
   
-  headContent = headContent.replace(manifestLinkRegex, newManifestLink);
-  
-  // Create new HTML with updated head
-  const newHtml = html.substring(0, headStart) + headContent + html.substring(headEnd);
+  html = html.replace(manifestLinkRegex, newManifestLink);
   
   // Write the updated HTML
-  fs.writeFileSync(indexPath, newHtml);
+  fs.writeFileSync(indexPath, html);
   
   console.log('Updated index.html with settings');
   

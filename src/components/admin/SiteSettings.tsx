@@ -16,6 +16,7 @@ type SiteSettings = {
   theme_background_color: string;
   theme_text_color: string;
   favicon_url: string;
+  favicon_96_url: string;
   icon_192_url: string;
   icon_512_url: string;
   apple_touch_icon_url: string;
@@ -40,6 +41,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   theme_background_color: '#000000',
   theme_text_color: '#ffffff',
   favicon_url: '',
+  favicon_96_url: '',
   icon_192_url: '',
   icon_512_url: '',
   apple_touch_icon_url: '',
@@ -659,12 +661,12 @@ export function SiteSettings() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Favicon (PNG recommended for best compatibility)
+                  Favicon
                 </label>
                 <div className="flex flex-wrap items-center gap-3 mb-2">
                   <input
                     type="file"
-                    accept=".png,.ico,.svg,image/*"
+                    accept="image/png,image/x-icon"
                     id="favicon"
                     className="hidden"
                     onChange={(e) => handleFileUpload(e, 'favicon_url')}
@@ -677,7 +679,7 @@ export function SiteSettings() {
                     Choose File
                   </label>
                   <span className="text-sm text-gray-400">
-                    {settings.favicon_url ? 'Icon uploaded' : 'No icon selected'}
+                    {settings.favicon_url ? 'Favicon uploaded' : 'No favicon selected'}
                   </span>
                 </div>
                 {settings.favicon_url && (
@@ -691,8 +693,45 @@ export function SiteSettings() {
                   </div>
                 )}
                 <p className="mt-1 text-xs text-gray-400">
-                  This icon appears in browser tabs. PNG format is recommended for best compatibility across browsers, 
-                  especially Safari. For best results, upload a square image (at least 32×32 pixels).
+                  Small icon shown in browser tabs and bookmarks
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  96×96 PNG Favicon
+                </label>
+                <div className="flex flex-wrap items-center gap-3 mb-2">
+                  <input
+                    type="file"
+                    accept="image/png"
+                    id="favicon-96"
+                    className="hidden"
+                    onChange={(e) => handleFileUpload(e, 'favicon_96_url')}
+                  />
+                  <label 
+                    htmlFor="favicon-96"
+                    className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    <Upload className="h-4 w-4 mr-1.5" />
+                    Choose File
+                  </label>
+                  <span className="text-sm text-gray-400">
+                    {settings.favicon_96_url ? '96×96 icon uploaded' : 'No 96×96 icon selected'}
+                  </span>
+                </div>
+                {settings.favicon_96_url && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <img 
+                      src={settings.favicon_96_url} 
+                      alt="96×96 Favicon Preview" 
+                      className="h-10 w-10 rounded border border-gray-700" 
+                    />
+                    <span className="text-xs text-gray-400">Current 96×96 icon</span>
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-gray-400">
+                  Medium-size icon used by some browsers and Google (96×96 PNG recommended)
                 </p>
               </div>
 
