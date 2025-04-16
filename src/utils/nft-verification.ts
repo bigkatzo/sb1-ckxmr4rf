@@ -8,6 +8,36 @@ export interface NFTVerificationResult {
   balance?: number;
 }
 
+// Helper function to add delay between retries
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Function with retry mechanism
+async function retryOperation<T>(
+  operation: () => Promise<T>, 
+  maxRetries: number = 3, 
+  delayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.warn(`Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+      
+      if (attempt < maxRetries) {
+        // Exponential backoff: wait longer between successive retries
+        const backoffDelay = delayMs * Math.pow(2, attempt - 1);
+        console.log(`Retrying in ${backoffDelay}ms...`);
+        await sleep(backoffDelay);
+      }
+    }
+  }
+  
+  throw lastError || new Error('Operation failed after retries');
+}
+
 export async function verifyNFTHolding(
   walletAddress: string,
   collectionAddress: string,
@@ -31,8 +61,15 @@ export async function verifyNFTHolding(
     const walletPublicKey = new PublicKey(walletAddress);
     
     // Use the proven approach: get all NFTs owned by the wallet
+    // With retry mechanism for reliability
     console.log('Fetching all NFTs for wallet...');
-    const nfts = await metaplex.nfts().findAllByOwner({ owner: walletPublicKey });
+    
+    const nfts = await retryOperation(
+      async () => metaplex.nfts().findAllByOwner({ owner: walletPublicKey }),
+      3,  // Max 3 retries
+      1000  // Start with 1 second delay
+    );
+    
     console.log(`Found ${nfts.length} total NFTs in wallet`);
     
     // Debug each NFT's model type
