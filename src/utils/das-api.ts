@@ -195,10 +195,9 @@ export async function getAssetsByOwner(
     page?: number;
     limit?: number;
     showFungible?: boolean;
-    collectionAddress?: string;
   } = {}
 ): Promise<DasAssetsResponse> {
-  const { page = 1, limit = 1000, showFungible = false, collectionAddress } = options;
+  const { page = 1, limit = 1000, showFungible = false } = options;
   
   // Create params with the fields the API actually supports
   const params = {
