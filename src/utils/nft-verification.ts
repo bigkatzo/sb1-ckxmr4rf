@@ -262,8 +262,20 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
  */
 function convertDasAssetToMetaplexFormat(asset: DasAsset): any {
   // Extract collection address from grouping if available
-  const collectionGrouping = asset.grouping?.find(g => g.group_key === 'collection');
-  const collectionAddress = collectionGrouping?.group_value || null;
+  let collectionAddress = null;
+  
+  // First try to get from the collection grouping
+  if (asset.grouping) {
+    const collectionGrouping = asset.grouping.find(g => g.group_key === 'collection');
+    if (collectionGrouping) {
+      collectionAddress = collectionGrouping.group_value;
+    }
+  }
+  
+  // If not found in grouping, check the ownership section for collection info
+  if (!collectionAddress && asset.collection?.address) {
+    collectionAddress = asset.collection.address;
+  }
   
   // Create a minimal compatible object that works with our existing filtering logic
   return {
@@ -297,11 +309,17 @@ async function verifyCollectionWithDasApi(
     console.log('Wallet:', walletAddress);
     console.log('Collection:', collectionAddress);
     
-    // Use searchAssets to directly query for the specific collection
+    // Use the updated searchAssets function which now uses the filter parameter
     const response = await searchAssets(walletAddress, collectionAddress);
     
+    // Validate response format
+    if (!response || !Array.isArray(response.items)) {
+      console.error('Invalid DAS API response format:', response);
+      throw new Error('DAS API returned an invalid response format');
+    }
+    
     // Count the assets from this collection
-    const nftCount = response.total;
+    const nftCount = response.items.length;
     
     console.log(`Found ${nftCount} NFTs from collection ${collectionAddress}`);
     
@@ -486,22 +504,58 @@ export async function batchVerifyNFTHoldings(
   try {
     if (shouldTryDasApi()) {
       try {
-        // Use DAS API for more efficient batch verification
+        // Use DAS API for efficient batch verification
         console.log('Using DAS API for batch verification');
         
         // Get all NFTs in one call
         const response = await getAssetsByOwner(walletAddress);
         
+        // Validate the response format
+        if (!response || !Array.isArray(response.items)) {
+          console.error('Invalid DAS API response format:', response);
+          throw new Error('DAS API returned an invalid response format');
+        }
+        
         // Group NFTs by collection
         const collectionCounts: Record<string, number> = {};
         
         response.items.forEach(asset => {
-          const collectionGrouping = asset.grouping?.find(g => g.group_key === 'collection');
-          if (collectionGrouping) {
-            const collectionAddress = collectionGrouping.group_value;
+          // Extract collection address
+          let collectionAddress = null;
+          // First try to get from the collection filter
+          if (asset.grouping) {
+            const collectionGrouping = asset.grouping.find(g => g.group_key === 'collection');
+            if (collectionGrouping) {
+              collectionAddress = collectionGrouping.group_value;
+            }
+          }
+          
+          if (collectionAddress) {
             collectionCounts[collectionAddress] = (collectionCounts[collectionAddress] || 0) + 1;
           }
         });
+        
+        // For any collections not found in the initial scan, perform individual lookups
+        const missingCollections = collectionsConfig.filter(
+          config => !(config.collectionAddress in collectionCounts)
+        );
+        
+        if (missingCollections.length > 0) {
+          console.log(`Performing individual lookups for ${missingCollections.length} collections`);
+          
+          // For each missing collection, make a separate API call with specific filter
+          for (const config of missingCollections) {
+            try {
+              const collectionResponse = await searchAssets(walletAddress, config.collectionAddress);
+              if (collectionResponse && Array.isArray(collectionResponse.items)) {
+                collectionCounts[config.collectionAddress] = collectionResponse.items.length;
+              }
+            } catch (error) {
+              console.error(`Failed to check collection ${config.collectionAddress}:`, error);
+              // Continue with other collections even if one fails
+            }
+          }
+        }
         
         // Generate results for each requested collection
         const results: Record<string, NFTVerificationResult> = {};

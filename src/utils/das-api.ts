@@ -69,6 +69,12 @@ export interface DasAsset {
   };
   mutable: boolean;
   burnt: boolean;
+  // New field for collection data in the updated API
+  collection?: {
+    address: string;
+    verified: boolean;
+    name?: string;
+  };
 }
 
 export interface DasAssetsResponse {
@@ -95,7 +101,7 @@ const apiCache: DasApiCache = {};
 /**
  * Make a call to the DAS API with proper error handling and caching
  */
-async function callDasApi<T>(method: string, params: any[]): Promise<T> {
+async function callDasApi<T>(method: string, params: any): Promise<T> {
   // Generate cache key based on request
   const cacheKey = `${method}-${JSON.stringify(params)}`;
   const now = Date.now();
@@ -120,7 +126,7 @@ async function callDasApi<T>(method: string, params: any[]): Promise<T> {
     params,
   };
   
-  console.log(`Making DAS API call: ${method}`, { params: JSON.stringify(params, null, 2) });
+  console.log(`Making DAS API call: ${method}`, params);
   
   try {
     // Make the request
@@ -149,14 +155,19 @@ async function callDasApi<T>(method: string, params: any[]): Promise<T> {
     // Debug the response
     console.log(`DAS API ${method} response:`, {
       success: !result.error,
-      errorDetails: result.error || 'none',
-      dataPreview: result.result ? `Found ${result.result.items?.length || 0} items` : 'No data'
+      errorDetails: result.error || 'none'
     });
     
     // Check for JSON-RPC errors
     if (result.error) {
       console.error('DAS API JSON-RPC error:', result.error);
       throw new Error(`DAS API error: ${result.error.message || JSON.stringify(result.error)}`);
+    }
+    
+    // Ensure the result is valid
+    if (result.result === undefined) {
+      console.error('DAS API returned an undefined result', result);
+      throw new Error('DAS API returned an invalid response format');
     }
     
     // Cache successful result
@@ -169,9 +180,7 @@ async function callDasApi<T>(method: string, params: any[]): Promise<T> {
   } catch (error) {
     console.error('DAS API call failed:', {
       method,
-      params: JSON.stringify(params),
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : 'No stack trace'
+      error: error instanceof Error ? error.message : String(error)
     });
     throw error;
   }
@@ -186,20 +195,32 @@ export async function getAssetsByOwner(
     page?: number;
     limit?: number;
     showFungible?: boolean;
+    collectionAddress?: string;
   } = {}
 ): Promise<DasAssetsResponse> {
-  const { page = 1, limit = 1000, showFungible = false } = options;
+  const { page = 1, limit = 1000, showFungible = false, collectionAddress } = options;
   
-  return callDasApi<DasAssetsResponse>('getAssetsByOwner', [
+  // Updated format to match the example JSON-RPC format
+  const params = {
     ownerAddress,
-    {
-      page,
-      limit,
-      displayOptions: {
-        showFungible
-      }
+    page,
+    limit,
+    displayOptions: {
+      showFungible,
+      showCollectionMetadata: true
     }
-  ]);
+  };
+  
+  // Add collection filter if provided
+  if (collectionAddress) {
+    Object.assign(params, {
+      filter: {
+        verifiedCollectionAddress: collectionAddress
+      }
+    });
+  }
+  
+  return callDasApi<DasAssetsResponse>('getAssetsByOwner', params);
 }
 
 /**
@@ -215,14 +236,12 @@ export async function getAssetsByGroup(
 ): Promise<DasAssetsResponse> {
   const { page = 1, limit = 1000 } = options;
   
-  return callDasApi<DasAssetsResponse>('getAssetsByGroup', [
+  return callDasApi<DasAssetsResponse>('getAssetsByGroup', {
     groupKey,
     groupValue,
-    {
-      page,
-      limit
-    }
-  ]);
+    page,
+    limit
+  });
 }
 
 /**
@@ -238,19 +257,10 @@ export async function searchAssets(
 ): Promise<DasAssetsResponse> {
   const { page = 1, limit = 1000 } = options;
   
-  // Fix format based on error message - simplify the request structure
-  return callDasApi<DasAssetsResponse>('searchAssets', [
-    {
-      ownerAddress,
-      grouping: [
-        {
-          groupKey: "collection",
-          groupValue: collectionAddress
-        }
-      ],
-      page,
-      limit
-      // Remove the sortBy parameter that's causing issues
-    }
-  ]);
+  // Use the new format for filtering by collection address
+  return getAssetsByOwner(ownerAddress, {
+    page,
+    limit,
+    collectionAddress
+  });
 } 
