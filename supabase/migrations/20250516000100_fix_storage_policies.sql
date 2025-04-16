@@ -1,5 +1,45 @@
 -- Fix storage policies to ensure all buckets work correctly
--- This migration recreates storage policies to ensure proper access to all buckets
+-- This migration adds missing columns and fixes policies
+
+-- First, check and add the missing columns if they don't exist
+DO $$ 
+BEGIN
+    -- Check if owner column exists in objects table
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'storage' 
+        AND table_name = 'objects' 
+        AND column_name = 'owner'
+    ) THEN
+        -- Add the owner column
+        ALTER TABLE storage.objects ADD COLUMN owner uuid;
+    END IF;
+    
+    -- Check if owner_id column exists in objects table
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'storage' 
+        AND table_name = 'objects' 
+        AND column_name = 'owner_id'
+    ) THEN
+        -- Add the owner_id column
+        ALTER TABLE storage.objects ADD COLUMN owner_id uuid;
+    END IF;
+    
+    -- Check if user_metadata column exists in objects table
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'storage' 
+        AND table_name = 'objects' 
+        AND column_name = 'user_metadata'
+    ) THEN
+        -- Add the user_metadata column
+        ALTER TABLE storage.objects ADD COLUMN user_metadata jsonb DEFAULT '{}'::jsonb;
+    END IF;
+END $$;
 
 -- Ensure all buckets exist and are configured correctly
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
