@@ -98,17 +98,44 @@ const CACHE_EXPIRY = 10 * 60 * 1000;
 // Initialize cache
 const apiCache: DasApiCache = {};
 
+// Rate limit settings
+const RATE_LIMIT_DELAY = 200; // 200ms delay between API calls
+let lastApiCallTime = 0;
+
+// Toggle for verbose logging
+const VERBOSE_LOGGING = false;
+
 /**
- * Make a call to the DAS API with proper error handling and caching
+ * Helper function for controlled logging
+ */
+function logInfo(message: string, data?: any): void {
+  if (VERBOSE_LOGGING || !data) {
+    console.log(message, data || '');
+  } else {
+    console.log(message);
+  }
+}
+
+/**
+ * Make a call to the DAS API with proper error handling, caching, and rate limiting
  */
 async function callDasApi<T>(method: string, params: any): Promise<T> {
+  // Rate limiting - ensure minimum time between API calls
+  const now = Date.now();
+  const timeSinceLastCall = now - lastApiCallTime;
+  if (timeSinceLastCall < RATE_LIMIT_DELAY) {
+    const delayNeeded = RATE_LIMIT_DELAY - timeSinceLastCall;
+    logInfo(`Rate limiting: Waiting ${delayNeeded}ms before next API call`);
+    await new Promise(resolve => setTimeout(resolve, delayNeeded));
+  }
+  lastApiCallTime = Date.now();
+  
   // Generate cache key based on request
   const cacheKey = `${method}-${JSON.stringify(params)}`;
-  const now = Date.now();
   
   // Check cache first
-  if (apiCache[cacheKey] && now - apiCache[cacheKey].timestamp < CACHE_EXPIRY) {
-    console.log(`Using cached DAS API response for ${method}`);
+  if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < CACHE_EXPIRY) {
+    logInfo(`Using cached DAS API response for ${method}`);
     return apiCache[cacheKey].data as T;
   }
   
@@ -126,7 +153,7 @@ async function callDasApi<T>(method: string, params: any): Promise<T> {
     params,
   };
   
-  console.log(`Making DAS API call: ${method}`, params);
+  logInfo(`Making DAS API call: ${method}`, VERBOSE_LOGGING ? params : null);
   
   try {
     // Make the request
@@ -137,6 +164,13 @@ async function callDasApi<T>(method: string, params: any): Promise<T> {
       },
       body: JSON.stringify(requestBody),
     });
+    
+    // Handle rate limit responses (429 Too Many Requests)
+    if (response.status === 429) {
+      console.warn('Rate limit exceeded on DAS API, will retry after delay');
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+      return callDasApi(method, params); // Retry the request
+    }
     
     // Check for response errors
     if (!response.ok) {
@@ -153,7 +187,7 @@ async function callDasApi<T>(method: string, params: any): Promise<T> {
     const result = await response.json();
     
     // Debug the response
-    console.log(`DAS API ${method} response:`, {
+    logInfo(`DAS API ${method} response:`, {
       success: !result.error,
       errorDetails: result.error || 'none'
     });
@@ -172,7 +206,7 @@ async function callDasApi<T>(method: string, params: any): Promise<T> {
     
     // Cache successful result
     apiCache[cacheKey] = {
-      timestamp: now,
+      timestamp: Date.now(),
       data: result.result,
     };
     
@@ -235,6 +269,59 @@ export async function getAssetsByGroup(
 }
 
 /**
+ * Get all assets owned by an address with pagination support for large wallets
+ * This automatically handles fetching multiple pages if needed
+ */
+export async function getAllAssetsByOwner(
+  ownerAddress: string,
+  options: {
+    showFungible?: boolean;
+    maxPages?: number;
+  } = {}
+): Promise<DasAsset[]> {
+  const { showFungible = false, maxPages = 5 } = options;
+  let allAssets: DasAsset[] = [];
+  let currentPage = 1;
+  let hasMorePages = true;
+  
+  logInfo(`Fetching all assets for wallet ${ownerAddress} with pagination`);
+  
+  while (hasMorePages && currentPage <= maxPages) {
+    try {
+      logInfo(`Fetching assets page ${currentPage}`);
+      const response = await getAssetsByOwner(ownerAddress, {
+        page: currentPage,
+        limit: 1000,
+        showFungible
+      });
+      
+      if (!response || !Array.isArray(response.items) || response.items.length === 0) {
+        // No more items or invalid response
+        hasMorePages = false;
+      } else {
+        // Add these items to our collection
+        allAssets = [...allAssets, ...response.items];
+        logInfo(`Added ${response.items.length} items from page ${currentPage}, total: ${allAssets.length}`);
+        
+        // Check if we've reached the end
+        if (response.items.length < 1000) {
+          hasMorePages = false;
+        } else {
+          // Move to next page
+          currentPage++;
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching page ${currentPage}:`, error);
+      hasMorePages = false; // Stop pagination on error
+    }
+  }
+  
+  logInfo(`Finished fetching assets, found ${allAssets.length} total assets`);
+  return allAssets;
+}
+
+/**
  * Search for assets with specific criteria
  */
 export async function searchAssets(
@@ -247,18 +334,18 @@ export async function searchAssets(
 ): Promise<DasAssetsResponse> {
   console.log(`Searching assets for wallet ${ownerAddress} and collection ${collectionAddress}`);
   
-  // Get all NFTs and then filter them client-side
-  const allAssets = await getAssetsByOwner(ownerAddress, options);
+  // Get all NFTs with pagination support for large wallets
+  const allAssets = await getAllAssetsByOwner(ownerAddress);
   
-  if (!allAssets || !Array.isArray(allAssets.items)) {
+  if (!allAssets || allAssets.length === 0) {
     console.log('No assets found or invalid response format');
     return { items: [], total: 0, limit: options.limit || 1000, page: options.page || 1 };
   }
   
-  console.log(`Found ${allAssets.items.length} total assets, filtering for collection ${collectionAddress}`);
+  console.log(`Found ${allAssets.length} total assets, filtering for collection ${collectionAddress}`);
   
   // Filter for the specific collection
-  const filteredItems = allAssets.items.filter(asset => {
+  const filteredItems = allAssets.filter(asset => {
     // Check grouping for collection
     if (asset.grouping) {
       const collectionGrouping = asset.grouping.find(g => g.group_key === 'collection');

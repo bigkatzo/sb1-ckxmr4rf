@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { METAPLEX } from '../config/solana';
-import { getAssetsByOwner, searchAssets, DasAsset } from './das-api';
+import { searchAssets, DasAsset, getAllAssetsByOwner, DasAssetsResponse } from './das-api';
 
 // Circuit breaker state
 interface CircuitBreakerState {
@@ -24,6 +24,9 @@ const CIRCUIT_BREAKER_RESET_TIMEOUT = 60000; // 1 minute timeout before retry
 
 // Add flag to use DAS API
 const USE_DAS_API = true; // Set to true to use the Helius DAS API, false to use Metaplex
+
+// Toggle for verbose logging (should match setting in das-api.ts)
+const VERBOSE_LOGGING = false;
 
 // Function to check and update circuit breaker
 function checkCircuitBreaker(): boolean {
@@ -163,15 +166,29 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
     if (shouldTryDasApi()) {
       try {
         console.log('Using DAS API to fetch NFTs...');
-        const response = await getAssetsByOwner(walletAddress);
         
-        console.log(`DAS API returned ${response.items.length} NFTs`);
+        // Use the pagination helper with a timeout
+        const fetchWithTimeout = async () => {
+          const timeoutPromise = new Promise<DasAsset[]>((_, reject) => {
+            setTimeout(() => reject(new Error('DAS API request timed out after 30 seconds')), 30000);
+          });
+          
+          return Promise.race([
+            getAllAssetsByOwner(walletAddress),
+            timeoutPromise
+          ]);
+        };
+        
+        // Try with retries
+        const assets = await retryOperation(fetchWithTimeout);
+        
+        console.log(`DAS API returned ${assets.length} NFTs`);
         
         // Record the success in our circuit breaker
         recordSuccess();
         
         // Convert DAS response to format compatible with existing code
-        const nfts = response.items.map(convertDasAssetToMetaplexFormat);
+        const nfts = assets.map(convertDasAssetToMetaplexFormat);
         
         // Only cache successful results
         nftCache[cacheKey] = {
@@ -309,13 +326,36 @@ async function verifyCollectionWithDasApi(
     console.log('Wallet:', walletAddress);
     console.log('Collection:', collectionAddress);
     
-    // Use the updated searchAssets function which now filters client-side
-    const response = await searchAssets(walletAddress, collectionAddress);
+    // Implement timeout protection
+    const timeoutPromise = new Promise<DasAssetsResponse>((_, reject) => {
+      setTimeout(() => reject(new Error('Collection verification timed out after 30 seconds')), 30000);
+    });
+    
+    // Use retryOperation for resilience
+    const fetchAssetsWithRetries = async () => {
+      return searchAssets(walletAddress, collectionAddress);
+    };
+    
+    // Race between the actual request and the timeout
+    const response = await Promise.race([
+      retryOperation(fetchAssetsWithRetries),
+      timeoutPromise
+    ]);
     
     // Validate response format
     if (!response || !Array.isArray(response.items)) {
       console.error('Invalid DAS API response format:', response);
       throw new Error('DAS API returned an invalid response format');
+    }
+    
+    // Handle the special case where no NFTs are found efficiently
+    if (response.items.length === 0 && minAmount > 0) {
+      console.log('No matching NFTs found, returning early with negative result');
+      return {
+        isValid: false,
+        balance: 0,
+        error: `You need ${minAmount} NFT(s) from this collection, but have none`
+      };
     }
     
     // Count the assets from this collection
@@ -507,16 +547,26 @@ export async function batchVerifyNFTHoldings(
         // Use DAS API for efficient batch verification
         console.log('Using DAS API for batch verification');
         
-        // Get all NFTs in one call
-        const response = await getAssetsByOwner(walletAddress);
+        // Get all NFTs in one call with pagination support
+        const assets = await getAllAssetsByOwner(walletAddress);
         
         // Validate the response format
-        if (!response || !Array.isArray(response.items)) {
-          console.error('Invalid DAS API response format:', response);
-          throw new Error('DAS API returned an invalid response format');
+        if (!assets || assets.length === 0) {
+          console.log('No assets found for wallet');
+          // Return results with zero counts - doesn't need to be treated as an error
+          return collectionsConfig.reduce((results, config) => {
+            const key = config.identifier || config.collectionAddress;
+            const minAmount = config.minAmount || 1;
+            results[key] = {
+              isValid: false, // Zero counts means requirements aren't met
+              balance: 0,
+              error: `You need ${minAmount} NFT(s) from this collection, but have none`
+            };
+            return results;
+          }, {} as Record<string, NFTVerificationResult>);
         }
         
-        console.log(`Got ${response.items.length} total NFTs, starting collection matching`);
+        console.log(`Got ${assets.length} total NFTs, starting collection matching`);
         
         // Process each asset to categorize by collection
         const collectionCounts: Record<string, number> = {};
@@ -527,7 +577,7 @@ export async function batchVerifyNFTHoldings(
         });
         
         // Loop through each asset and check if it matches any of our target collections
-        response.items.forEach(asset => {
+        assets.forEach(asset => {
           // Option 1: Check grouping for collection
           if (asset.grouping) {
             const collectionGrouping = asset.grouping.find(g => g.group_key === 'collection');
