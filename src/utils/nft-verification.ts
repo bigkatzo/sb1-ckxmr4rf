@@ -2,6 +2,76 @@ import { PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
 import { Metaplex } from '@metaplex-foundation/js';
 
+// Circuit breaker state
+interface CircuitBreakerState {
+  failures: number;
+  lastFailure: number;
+  isOpen: boolean;
+  resetTime: number;
+}
+
+// Initialize circuit breaker (closed by default)
+const circuitBreaker: CircuitBreakerState = {
+  failures: 0,
+  lastFailure: 0,
+  isOpen: false,
+  resetTime: 0
+};
+
+// Circuit breaker configuration
+const CIRCUIT_BREAKER_THRESHOLD = 5; // Open after 5 failures
+const CIRCUIT_BREAKER_RESET_TIMEOUT = 60000; // 1 minute timeout before retry
+
+// Function to check and update circuit breaker
+function checkCircuitBreaker(): boolean {
+  const now = Date.now();
+  
+  // Check if it's time to try resetting the circuit breaker
+  if (circuitBreaker.isOpen && now > circuitBreaker.resetTime) {
+    console.log('Circuit breaker reset time reached, attempting to close');
+    circuitBreaker.isOpen = false;
+    circuitBreaker.failures = 0;
+    return false; // Allow the operation to proceed
+  }
+  
+  // If circuit is open, block the operation
+  return circuitBreaker.isOpen;
+}
+
+// Function to record a failure
+function recordFailure(error: any): void {
+  const now = Date.now();
+  circuitBreaker.failures++;
+  circuitBreaker.lastFailure = now;
+  
+  // Log details about the error to help debugging
+  console.error('API failure recorded:', {
+    failureCount: circuitBreaker.failures,
+    errorType: error?.constructor?.name || typeof error,
+    errorMessage: error instanceof Error ? error.message : String(error),
+    errorStack: error instanceof Error ? error.stack : 'No stack trace'
+  });
+  
+  // Check if we should open the circuit breaker
+  if (circuitBreaker.failures >= CIRCUIT_BREAKER_THRESHOLD) {
+    console.warn(`Circuit breaker opened after ${circuitBreaker.failures} failures`);
+    circuitBreaker.isOpen = true;
+    circuitBreaker.resetTime = now + CIRCUIT_BREAKER_RESET_TIMEOUT;
+    console.log(`Circuit will attempt to reset at ${new Date(circuitBreaker.resetTime).toISOString()}`);
+  }
+}
+
+// Function to record a success
+function recordSuccess(): void {
+  // On success, reduce the failure count (but don't go below 0)
+  circuitBreaker.failures = Math.max(0, circuitBreaker.failures - 1);
+  
+  // If we've had a success after partial failures, log it
+  if (circuitBreaker.failures > 0) {
+    console.log(`API call succeeded. Reducing failure count to ${circuitBreaker.failures}`);
+  }
+}
+
 export interface NFTVerificationResult {
   isValid: boolean;
   error?: string;
@@ -21,11 +91,30 @@ const nftCache: Record<string, NFTCacheEntry> = {};
 // Helper function to add delay between retries
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper function to add timeout to any promise
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(errorMessage));
+    }, timeoutMs);
+    
+    promise
+      .then(result => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      })
+      .catch(error => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+};
+
 // Function with retry mechanism - more conservative to save RPC calls
 async function retryOperation<T>(
   operation: () => Promise<T>, 
-  maxRetries: number = 2, // Reduced from 3 to 2 retries
-  delayMs: number = 2000  // Increased initial delay to 2 seconds
+  maxRetries: number = 3, // Increased from 2 to 3 retries
+  delayMs: number = 3000  // Increased initial delay to 3 seconds
 ): Promise<T> {
   let lastError: Error | null = null;
   
@@ -37,14 +126,16 @@ async function retryOperation<T>(
       console.warn(`Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
       
       if (attempt < maxRetries) {
-        // Exponential backoff: wait longer between successive retries
-        const backoffDelay = delayMs * Math.pow(1.5, attempt - 1); // Reduced factor from 2 to 1.5
-        console.log(`Retrying in ${backoffDelay}ms...`);
+        // Exponential backoff with random jitter to prevent thundering herd
+        const jitter = Math.random() * 2000; // Add up to 2s of random jitter
+        const backoffDelay = delayMs * Math.pow(1.5, attempt - 1) + jitter; 
+        console.log(`Retrying in ${Math.round(backoffDelay)}ms...`);
         await sleep(backoffDelay);
       }
     }
   }
   
+  console.error('All retry attempts failed:', lastError);
   throw lastError || new Error('Operation failed after retries');
 }
 
@@ -73,36 +164,25 @@ export async function verifyNFTHolding(
     
     let nfts: any[];
     
-    if (cachedData && (now - cachedData.timestamp < CACHE_EXPIRY)) {
+    // Only use cache for successful responses and if not expired
+    if (cachedData && now - cachedData.timestamp < CACHE_EXPIRY) {
       console.log('Using cached NFT data');
       nfts = cachedData.nfts;
     } else {
-      const connection = SOLANA_CONNECTION;
-      const metaplex = Metaplex.make(connection);
-      const walletPublicKey = new PublicKey(walletAddress);
-      
-      // Only use the retry mechanism when we actually need to make the API call
-      console.log('Fetching all NFTs for wallet...');
-      
-      // For empty results, only retry if we get 0 NFTs (which is likely an API issue)
-      nfts = await retryOperation(
-        async () => {
-          const results = await metaplex.nfts().findAllByOwner({ owner: walletPublicKey });
-          // Only trigger a retry if we get 0 NFTs (likely an API failure)
-          if (results.length === 0) {
-            throw new Error('Received 0 NFTs from API, likely a temporary issue');
-          }
-          return results;
-        },
-        2,  // Max 2 retries
-        2000  // Start with 2 second delay
-      );
-      
-      // Cache the results
-      nftCache[cacheKey] = {
-        timestamp: now,
-        nfts
-      };
+      try {
+        // No valid cache, fetch fresh data with error handling
+        nfts = await fetchNFTs(walletAddress);
+      } catch (fetchError) {
+        console.error('Error fetching NFTs:', fetchError);
+        // Return a helpful error message rather than failing silently
+        return {
+          isValid: false,
+          error: fetchError instanceof Error 
+            ? `Unable to verify NFT ownership: ${fetchError.message}`
+            : 'Unable to verify NFT ownership due to API connection issues',
+          balance: 0
+        };
+      }
     }
     
     console.log(`Found ${nfts.length} total NFTs in wallet`);
@@ -189,5 +269,81 @@ export async function verifyNFTHolding(
       error: error instanceof Error ? error.message : 'Failed to verify NFT balance',
       balance: 0
     };
+  }
+}
+
+// Helper function to fetch NFTs with proper error handling and caching
+async function fetchNFTs(walletAddress: string): Promise<any[]> {
+  const cacheKey = `${walletAddress}-nfts`;
+  const now = Date.now();
+  
+  // Check circuit breaker first
+  if (checkCircuitBreaker()) {
+    const nextRetryTime = new Date(circuitBreaker.resetTime).toLocaleTimeString();
+    throw new Error(`Too many API failures, temporarily pausing requests until ${nextRetryTime}`);
+  }
+  
+  try {
+    const connection = SOLANA_CONNECTION;
+    const metaplex = Metaplex.make(connection);
+    const walletPublicKey = new PublicKey(walletAddress);
+    
+    // Only use the retry mechanism when we actually need to make the API call
+    console.log('Fetching all NFTs for wallet...');
+    
+    // For empty results, only retry if we get 0 NFTs (which is likely an API issue)
+    const nfts = await retryOperation(
+      async () => {
+        console.log('Making API call to Metaplex...');
+        try {
+          // Add a 15 second timeout to prevent hanging connections
+          const results = await withTimeout(
+            metaplex.nfts().findAllByOwner({ owner: walletPublicKey }),
+            15000, // 15 second timeout
+            'API call to Metaplex timed out after 15 seconds'
+          );
+          
+          console.log(`API call succeeded, found ${results.length} NFTs`);
+          
+          // Only trigger a retry if we get 0 NFTs (likely an API failure)
+          if (results.length === 0) {
+            throw new Error('Received 0 NFTs from API, likely a temporary issue');
+          }
+          
+          // Record the success in our circuit breaker
+          recordSuccess();
+          
+          return results;
+        } catch (error) {
+          // Add more detailed error logging
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error('Metaplex API call failed:', {
+            error: errorMessage,
+            stack: error instanceof Error ? error.stack : 'No stack trace',
+            walletAddress: walletPublicKey.toBase58()
+          });
+          
+          throw error;
+        }
+      },
+      3,  // Max 3 retries
+      3000  // Start with 3 second delay
+    );
+    
+    // Only cache successful results
+    nftCache[cacheKey] = {
+      timestamp: now,
+      nfts
+    };
+    
+    return nfts;
+  } catch (error) {
+    // Record the failure in our circuit breaker
+    recordFailure(error);
+    
+    // Don't cache failures - just log and propagate the error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`NFT fetch failed for ${walletAddress}: ${errorMessage}`);
+    throw error; // Re-throw to allow the caller to handle the error
   }
 }
