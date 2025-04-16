@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 
-export type StorageBucket = 'collection-images' | 'product-images';
+export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets';
 
 export interface UploadResult {
   path: string;
@@ -198,7 +198,11 @@ export async function uploadImage(
       // Add tracking metadata
       lastAccessed: new Date().toISOString(),
       uploadedAt: new Date().toISOString(),
-      associatedEntity: bucket === 'collection-images' ? 'collection' : 'product'
+      associatedEntity: bucket === 'collection-images' 
+        ? 'collection' 
+        : bucket === 'product-images' 
+          ? 'product' 
+          : 'site'
     };
 
     const { data: uploadData, error: uploadError } = await supabase.storage
