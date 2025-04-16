@@ -25,7 +25,7 @@ const CIRCUIT_BREAKER_RESET_TIMEOUT = 60000; // 1 minute timeout before retry
 // Add flag to use DAS API
 const USE_DAS_API = true; // Set to true to use the Helius DAS API, false to use Metaplex
 
-// Toggle for verbose logging (should match setting in das-api.ts)
+// Toggle for verbose logging
 const VERBOSE_LOGGING = false;
 
 // Function to check and update circuit breaker
@@ -34,7 +34,7 @@ function checkCircuitBreaker(): boolean {
   
   // Check if it's time to try resetting the circuit breaker
   if (circuitBreaker.isOpen && now > circuitBreaker.resetTime) {
-    console.log('Circuit breaker reset time reached, attempting to close');
+    if (VERBOSE_LOGGING) console.log('Circuit breaker reset time reached, attempting to close');
     circuitBreaker.isOpen = false;
     circuitBreaker.failures = 0;
     return false; // Allow the operation to proceed
@@ -54,8 +54,7 @@ function recordFailure(error: any): void {
   console.error('API failure recorded:', {
     failureCount: circuitBreaker.failures,
     errorType: error?.constructor?.name || typeof error,
-    errorMessage: error instanceof Error ? error.message : String(error),
-    errorStack: error instanceof Error ? error.stack : 'No stack trace'
+    errorMessage: error instanceof Error ? error.message : String(error)
   });
   
   // Check if we should open the circuit breaker
@@ -63,7 +62,6 @@ function recordFailure(error: any): void {
     console.warn(`Circuit breaker opened after ${circuitBreaker.failures} failures`);
     circuitBreaker.isOpen = true;
     circuitBreaker.resetTime = now + CIRCUIT_BREAKER_RESET_TIMEOUT;
-    console.log(`Circuit will attempt to reset at ${new Date(circuitBreaker.resetTime).toISOString()}`);
   }
 }
 
@@ -73,7 +71,7 @@ function recordSuccess(): void {
   circuitBreaker.failures = Math.max(0, circuitBreaker.failures - 1);
   
   // If we've had a success after partial failures, log it
-  if (circuitBreaker.failures > 0) {
+  if (circuitBreaker.failures > 0 && VERBOSE_LOGGING) {
     console.log(`API call succeeded. Reducing failure count to ${circuitBreaker.failures}`);
   }
 }
@@ -165,7 +163,7 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
     // Choose API method based on DAS availability
     if (shouldTryDasApi()) {
       try {
-        console.log('Using DAS API to fetch NFTs...');
+        if (VERBOSE_LOGGING) console.log('Using DAS API to fetch NFTs...');
         
         // Use the pagination helper with a timeout
         const fetchWithTimeout = async () => {
@@ -182,7 +180,7 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
         // Try with retries
         const assets = await retryOperation(fetchWithTimeout);
         
-        console.log(`DAS API returned ${assets.length} NFTs`);
+        if (VERBOSE_LOGGING) console.log(`DAS API returned ${assets.length} NFTs`);
         
         // Record the success in our circuit breaker
         recordSuccess();
@@ -201,24 +199,23 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
         // Handle the error with more details
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error('DAS API call failed, falling back to Metaplex:', { 
-          error: errorMessage,
-          stack: error instanceof Error ? error.stack : 'No stack trace'
+          error: errorMessage
         });
         // Fall through to Metaplex implementation
       }
     }
     
     // Metaplex implementation (fallback)
-    console.log('Using Metaplex fallback to fetch NFTs...');
+    if (VERBOSE_LOGGING) console.log('Using Metaplex fallback to fetch NFTs...');
     const walletPublicKey = new PublicKey(walletAddress);
   
     // Only use the retry mechanism when we actually need to make the API call
-    console.log('Fetching all NFTs with Metaplex...');
+    if (VERBOSE_LOGGING) console.log('Fetching all NFTs with Metaplex...');
     
     // For empty results, only retry if we get 0 NFTs (which is likely an API issue)
     const nfts = await retryOperation(
       async () => {
-        console.log('Making API call to Metaplex...');
+        if (VERBOSE_LOGGING) console.log('Making API call to Metaplex...');
         try {
           // Add a 15 second timeout to prevent hanging connections
           const results = await withTimeout(
@@ -227,11 +224,11 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
             'API call to Metaplex timed out after 15 seconds'
           );
           
-          console.log(`API call succeeded, found ${results.length} NFTs`);
+          if (VERBOSE_LOGGING) console.log(`API call succeeded, found ${results.length} NFTs`);
           
           // Allow empty results if we've tried multiple times
           // Only trigger a retry if it's the first attempt, otherwise accept empty results
-          if (results.length === 0) {
+          if (results.length === 0 && VERBOSE_LOGGING) {
             console.log("User may have no NFTs, not treating as an error after multiple attempts");
           }
           
@@ -244,7 +241,6 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
           const errorMessage = error instanceof Error ? error.message : String(error);
           console.error('Metaplex API call failed:', {
             error: errorMessage,
-            stack: error instanceof Error ? error.stack : 'No stack trace',
             walletAddress: walletPublicKey.toBase58()
           });
           
@@ -322,9 +318,11 @@ async function verifyCollectionWithDasApi(
   minAmount: number = 1
 ): Promise<NFTVerificationResult> {
   try {
-    console.log('Verifying collection directly with DAS API...');
-    console.log('Wallet:', walletAddress);
-    console.log('Collection:', collectionAddress);
+    if (VERBOSE_LOGGING) {
+      console.log('Verifying collection directly with DAS API...');
+      console.log('Wallet:', walletAddress);
+      console.log('Collection:', collectionAddress);
+    }
     
     // Implement timeout protection
     const timeoutPromise = new Promise<DasAssetsResponse>((_, reject) => {
@@ -350,7 +348,7 @@ async function verifyCollectionWithDasApi(
     
     // Handle the special case where no NFTs are found efficiently
     if (response.items.length === 0 && minAmount > 0) {
-      console.log('No matching NFTs found, returning early with negative result');
+      if (VERBOSE_LOGGING) console.log('No matching NFTs found, returning early with negative result');
       return {
         isValid: false,
         balance: 0,
@@ -361,7 +359,7 @@ async function verifyCollectionWithDasApi(
     // Count the assets from this collection
     const nftCount = response.items.length;
     
-    console.log(`Found ${nftCount} NFTs from collection ${collectionAddress}`);
+    if (VERBOSE_LOGGING) console.log(`Found ${nftCount} NFTs from collection ${collectionAddress}`);
     
     return {
       isValid: nftCount >= minAmount,
@@ -389,14 +387,16 @@ export async function verifyNFTHolding(
     // Clean up the collection address (trim whitespace)
     const cleanCollectionAddress = collectionAddress.trim();
     
-    console.log('Verifying NFT holding for wallet:', walletAddress);
-    console.log('Collection address:', cleanCollectionAddress);
-    console.log('Min amount required:', minAmount);
+    if (VERBOSE_LOGGING) {
+      console.log('Verifying NFT holding for wallet:', walletAddress);
+      console.log('Collection address:', cleanCollectionAddress);
+      console.log('Min amount required:', minAmount);
+    }
 
     // Use DAS API direct collection verification if enabled (most efficient)
     if (shouldTryDasApi()) {
       try {
-        console.log('Verifying collection directly with DAS API...');
+        if (VERBOSE_LOGGING) console.log('Verifying collection directly with DAS API...');
         const result = await verifyCollectionWithDasApi(walletAddress, cleanCollectionAddress, minAmount);
         
         return result;
@@ -404,7 +404,7 @@ export async function verifyNFTHolding(
         console.error('DAS API verification failed, falling back to standard method:', error);
         // Fall through to standard method below
       }
-    } else {
+    } else if (VERBOSE_LOGGING) {
       console.log('Using standard verification method (DAS API disabled)');
     }
 
@@ -418,7 +418,7 @@ export async function verifyNFTHolding(
     
     // Only use cache for successful responses and if not expired
     if (cachedData && now - cachedData.timestamp < CACHE_EXPIRY) {
-      console.log('Using cached NFT data');
+      if (VERBOSE_LOGGING) console.log('Using cached NFT data');
       nfts = cachedData.nfts;
     } else {
       try {
@@ -437,36 +437,36 @@ export async function verifyNFTHolding(
       }
     }
     
-    console.log(`Found ${nfts.length} total NFTs in wallet`);
+    if (VERBOSE_LOGGING) {
+      console.log(`Found ${nfts.length} total NFTs in wallet`);
+      console.log('NFT models:', nfts.map(nft => nft.model));
     
-    // Debug each NFT's model type
-    console.log('NFT models:', nfts.map(nft => nft.model));
-    
-    // Log only a subset of NFTs to reduce log size (only if there are many)
-    if (nfts.length > 20) {
-      console.log(`Showing first 5 of ${nfts.length} NFTs:`);
-      nfts.slice(0, 5).forEach((nft, i) => {
-        console.log(`NFT #${i+1}:`, {
-          model: nft.model,
-          name: nft.name,
-          mint: nft.address.toBase58(),
-          hasCollection: !!nft.collection,
-          collection: nft.collection ? nft.collection.address.toBase58() : 'No collection',
-          verified: nft.collection ? nft.collection.verified : false
+      // Log only a subset of NFTs to reduce log size (only if there are many)
+      if (nfts.length > 20) {
+        console.log(`Showing first 5 of ${nfts.length} NFTs:`);
+        nfts.slice(0, 5).forEach((nft, i) => {
+          console.log(`NFT #${i+1}:`, {
+            model: nft.model,
+            name: nft.name,
+            mint: nft.address.toBase58(),
+            hasCollection: !!nft.collection,
+            collection: nft.collection ? nft.collection.address.toBase58() : 'No collection',
+            verified: nft.collection ? nft.collection.verified : false
+          });
         });
-      });
-    } else {
-      // Log all NFTs if there aren't too many
-      nfts.forEach((nft, i) => {
-        console.log(`NFT #${i+1}:`, {
-          model: nft.model,
-          name: nft.name,
-          mint: nft.address.toBase58(),
-          hasCollection: !!nft.collection,
-          collection: nft.collection ? nft.collection.address.toBase58() : 'No collection',
-          verified: nft.collection ? nft.collection.verified : false
+      } else {
+        // Log all NFTs if there aren't too many
+        nfts.forEach((nft, i) => {
+          console.log(`NFT #${i+1}:`, {
+            model: nft.model,
+            name: nft.name,
+            mint: nft.address.toBase58(),
+            hasCollection: !!nft.collection,
+            collection: nft.collection ? nft.collection.address.toBase58() : 'No collection',
+            verified: nft.collection ? nft.collection.verified : false
+          });
         });
-      });
+      }
     }
     
     // Filter NFTs by collection
@@ -487,7 +487,7 @@ export async function verifyNFTHolding(
       const isFromCollection = nftCollectionAddress === cleanCollectionAddress;
       
       // Only log matches to reduce verbosity
-      if (isFromCollection) {
+      if (isFromCollection && VERBOSE_LOGGING) {
         console.log(`Found matching NFT ${nft.address.toBase58()}:`, {
           name: nft.name,
           collection: nftCollectionAddress,
@@ -500,12 +500,15 @@ export async function verifyNFTHolding(
     });
 
     const nftCount = collectionNfts.length;
-    console.log('NFT verification final result:', {
-      collection: cleanCollectionAddress,
-      found: nftCount,
-      required: minAmount,
-      nfts: collectionNfts.map(nft => nft.address.toBase58()).slice(0, 5) // Only log first 5 for brevity
-    });
+    
+    if (VERBOSE_LOGGING) {
+      console.log('NFT verification final result:', {
+        collection: cleanCollectionAddress,
+        found: nftCount,
+        required: minAmount,
+        nfts: collectionNfts.map(nft => nft.address.toBase58()).slice(0, 5) // Only log first 5 for brevity
+      });
+    }
 
     return {
       isValid: nftCount >= minAmount,
@@ -545,14 +548,14 @@ export async function batchVerifyNFTHoldings(
     if (shouldTryDasApi()) {
       try {
         // Use DAS API for efficient batch verification
-        console.log('Using DAS API for batch verification');
+        if (VERBOSE_LOGGING) console.log('Using DAS API for batch verification');
         
         // Get all NFTs in one call with pagination support
         const assets = await getAllAssetsByOwner(walletAddress);
         
         // Validate the response format
         if (!assets || assets.length === 0) {
-          console.log('No assets found for wallet');
+          if (VERBOSE_LOGGING) console.log('No assets found for wallet');
           // Return results with zero counts - doesn't need to be treated as an error
           return collectionsConfig.reduce((results, config) => {
             const key = config.identifier || config.collectionAddress;
@@ -566,7 +569,7 @@ export async function batchVerifyNFTHoldings(
           }, {} as Record<string, NFTVerificationResult>);
         }
         
-        console.log(`Got ${assets.length} total NFTs, starting collection matching`);
+        if (VERBOSE_LOGGING) console.log(`Got ${assets.length} total NFTs, starting collection matching`);
         
         // Process each asset to categorize by collection
         const collectionCounts: Record<string, number> = {};
@@ -593,7 +596,7 @@ export async function batchVerifyNFTHoldings(
           }
         });
         
-        console.log('Collection counts:', collectionCounts);
+        if (VERBOSE_LOGGING) console.log('Collection counts:', collectionCounts);
         
         // Generate results for each requested collection
         const results: Record<string, NFTVerificationResult> = {};
@@ -616,7 +619,7 @@ export async function batchVerifyNFTHoldings(
         console.error('DAS API batch verification failed, falling back to standard method:', error);
         // Fall through to standard verification
       }
-    } else {
+    } else if (VERBOSE_LOGGING) {
       console.log('Using standard batch verification (DAS API disabled)');
     }
     

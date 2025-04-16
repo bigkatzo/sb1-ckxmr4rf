@@ -109,10 +109,8 @@ const VERBOSE_LOGGING = false;
  * Helper function for controlled logging
  */
 function logInfo(message: string, data?: any): void {
-  if (VERBOSE_LOGGING || !data) {
+  if (VERBOSE_LOGGING) {
     console.log(message, data || '');
-  } else {
-    console.log(message);
   }
 }
 
@@ -185,12 +183,6 @@ async function callDasApi<T>(method: string, params: any): Promise<T> {
     
     // Parse response
     const result = await response.json();
-    
-    // Debug the response
-    logInfo(`DAS API ${method} response:`, {
-      success: !result.error,
-      errorDetails: result.error || 'none'
-    });
     
     // Check for JSON-RPC errors
     if (result.error) {
@@ -317,7 +309,6 @@ export async function getAllAssetsByOwner(
     }
   }
   
-  logInfo(`Finished fetching assets, found ${allAssets.length} total assets`);
   return allAssets;
 }
 
@@ -332,17 +323,14 @@ export async function searchAssets(
     limit?: number;
   } = {}
 ): Promise<DasAssetsResponse> {
-  console.log(`Searching assets for wallet ${ownerAddress} and collection ${collectionAddress}`);
+  logInfo(`Searching assets for wallet ${ownerAddress} and collection ${collectionAddress}`);
   
   // Get all NFTs with pagination support for large wallets
   const allAssets = await getAllAssetsByOwner(ownerAddress);
   
   if (!allAssets || allAssets.length === 0) {
-    console.log('No assets found or invalid response format');
     return { items: [], total: 0, limit: options.limit || 1000, page: options.page || 1 };
   }
-  
-  console.log(`Found ${allAssets.length} total assets, filtering for collection ${collectionAddress}`);
   
   // Filter for the specific collection
   const filteredItems = allAssets.filter(asset => {
@@ -350,21 +338,17 @@ export async function searchAssets(
     if (asset.grouping) {
       const collectionGrouping = asset.grouping.find(g => g.group_key === 'collection');
       if (collectionGrouping && collectionGrouping.group_value === collectionAddress) {
-        console.log(`Found matching NFT with id ${asset.id} from grouping`);
         return true;
       }
     }
     
     // Also check the collection field if it exists
     if (asset.collection && asset.collection.address === collectionAddress) {
-      console.log(`Found matching NFT with id ${asset.id} from collection field`);
       return true;
     }
     
     return false;
   });
-  
-  console.log(`Filtered to ${filteredItems.length} assets matching collection ${collectionAddress}`);
   
   return {
     items: filteredItems,
