@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
-import { SOLANA_CONNECTION } from '../config/solana';
-import { Metaplex } from '@metaplex-foundation/js';
+import { METAPLEX } from '../config/solana';
+import { getAssetsByOwner, searchAssets, DasAsset } from './das-api';
 
 // Circuit breaker state
 interface CircuitBreakerState {
@@ -21,6 +21,9 @@ const circuitBreaker: CircuitBreakerState = {
 // Circuit breaker configuration
 const CIRCUIT_BREAKER_THRESHOLD = 5; // Open after 5 failures
 const CIRCUIT_BREAKER_RESET_TIMEOUT = 60000; // 1 minute timeout before retry
+
+// Add flag to use DAS API
+const USE_DAS_API = true; // Set to true to use the Helius DAS API, false to use Metaplex
 
 // Function to check and update circuit breaker
 function checkCircuitBreaker(): boolean {
@@ -139,6 +142,162 @@ async function retryOperation<T>(
   throw lastError || new Error('Operation failed after retries');
 }
 
+// Helper function to fetch NFTs with proper error handling and caching
+async function fetchNFTs(walletAddress: string): Promise<any[]> {
+  const cacheKey = `${walletAddress}-nfts`;
+  const now = Date.now();
+  
+  // Check circuit breaker first
+  if (checkCircuitBreaker()) {
+    const nextRetryTime = new Date(circuitBreaker.resetTime).toLocaleTimeString();
+    throw new Error(`Too many API failures, temporarily pausing requests until ${nextRetryTime}`);
+  }
+  
+  try {
+    // Choose API method based on flag
+    if (USE_DAS_API) {
+      console.log('Using DAS API to fetch NFTs...');
+      const response = await getAssetsByOwner(walletAddress);
+      
+      // Record the success in our circuit breaker
+      recordSuccess();
+      
+      // Convert DAS response to format compatible with existing code
+      const nfts = response.items.map(convertDasAssetToMetaplexFormat);
+      
+      // Only cache successful results
+      nftCache[cacheKey] = {
+        timestamp: now,
+        nfts
+      };
+      
+      return nfts;
+    } else {
+      // Original Metaplex implementation
+      // ... existing code for Metaplex ...
+      const walletPublicKey = new PublicKey(walletAddress);
+    
+      // Only use the retry mechanism when we actually need to make the API call
+      console.log('Fetching all NFTs with Metaplex...');
+      
+      // For empty results, only retry if we get 0 NFTs (which is likely an API issue)
+      const nfts = await retryOperation(
+        async () => {
+          console.log('Making API call to Metaplex...');
+          try {
+            // Add a 15 second timeout to prevent hanging connections
+            const results = await withTimeout(
+              METAPLEX.nfts().findAllByOwner({ owner: walletPublicKey }),
+              15000, // 15 second timeout
+              'API call to Metaplex timed out after 15 seconds'
+            );
+            
+            console.log(`API call succeeded, found ${results.length} NFTs`);
+            
+            // Only trigger a retry if we get 0 NFTs (likely an API failure)
+            if (results.length === 0) {
+              throw new Error('Received 0 NFTs from API, likely a temporary issue');
+            }
+            
+            // Record the success in our circuit breaker
+            recordSuccess();
+            
+            return results;
+          } catch (error) {
+            // Add more detailed error logging
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error('Metaplex API call failed:', {
+              error: errorMessage,
+              stack: error instanceof Error ? error.stack : 'No stack trace',
+              walletAddress: walletPublicKey.toBase58()
+            });
+            
+            throw error;
+          }
+        },
+        3,  // Max 3 retries
+        3000  // Start with 3 second delay
+      );
+      
+      // Only cache successful results
+      nftCache[cacheKey] = {
+        timestamp: now,
+        nfts
+      };
+      
+      return nfts;
+    }
+  } catch (error) {
+    // Record the failure in our circuit breaker
+    recordFailure(error);
+    
+    // Don't cache failures - just log and propagate the error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`NFT fetch failed for ${walletAddress}: ${errorMessage}`);
+    throw error; // Re-throw to allow the caller to handle the error
+  }
+}
+
+/**
+ * Convert a DAS asset to a format compatible with the existing Metaplex-based code
+ */
+function convertDasAssetToMetaplexFormat(asset: DasAsset): any {
+  // Extract collection address from grouping if available
+  const collectionGrouping = asset.grouping?.find(g => g.group_key === 'collection');
+  const collectionAddress = collectionGrouping?.group_value || null;
+  
+  // Create a minimal compatible object that works with our existing filtering logic
+  return {
+    model: 'nft', // Use 'nft' model type to be compatible with existing filters
+    address: {
+      toBase58: () => asset.id
+    },
+    name: asset.content?.metadata?.name || '',
+    collection: collectionAddress ? {
+      address: {
+        toBase58: () => collectionAddress
+      },
+      verified: true, // Assume verified for DAS responses
+    } : null,
+    // Include the raw DAS asset for potential future use
+    _dasAsset: asset
+  };
+}
+
+/**
+ * Verify NFT collection ownership using direct DAS API search (most efficient method)
+ * This bypasses fetching all NFTs when we only need to check a specific collection
+ */
+async function verifyCollectionWithDasApi(
+  walletAddress: string,
+  collectionAddress: string,
+  minAmount: number = 1
+): Promise<NFTVerificationResult> {
+  try {
+    console.log('Verifying collection directly with DAS API...');
+    console.log('Wallet:', walletAddress);
+    console.log('Collection:', collectionAddress);
+    
+    // Use searchAssets to directly query for the specific collection
+    const response = await searchAssets(walletAddress, collectionAddress);
+    
+    // Count the assets from this collection
+    const nftCount = response.total;
+    
+    console.log(`Found ${nftCount} NFTs from collection ${collectionAddress}`);
+    
+    return {
+      isValid: nftCount >= minAmount,
+      balance: nftCount,
+      error: nftCount >= minAmount ? undefined : 
+             `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
+    };
+  } catch (error) {
+    console.error('DAS collection verification failed:', error);
+    throw error;
+  }
+}
+
 export async function verifyNFTHolding(
   walletAddress: string,
   collectionAddress: string,
@@ -157,6 +316,17 @@ export async function verifyNFTHolding(
     console.log('Collection address:', cleanCollectionAddress);
     console.log('Min amount required:', minAmount);
 
+    // Use DAS API direct collection verification if enabled (most efficient)
+    if (USE_DAS_API) {
+      try {
+        return await verifyCollectionWithDasApi(walletAddress, cleanCollectionAddress, minAmount);
+      } catch (error) {
+        console.error('DAS API verification failed, falling back to standard method:', error);
+        // Fall through to standard method below
+      }
+    }
+
+    // Standard verification method (works with both DAS and Metaplex)
     // Check cache first before making RPC calls
     const cacheKey = `${walletAddress}-nfts`;
     const now = Date.now();
@@ -272,78 +442,134 @@ export async function verifyNFTHolding(
   }
 }
 
-// Helper function to fetch NFTs with proper error handling and caching
-async function fetchNFTs(walletAddress: string): Promise<any[]> {
-  const cacheKey = `${walletAddress}-nfts`;
-  const now = Date.now();
-  
-  // Check circuit breaker first
-  if (checkCircuitBreaker()) {
-    const nextRetryTime = new Date(circuitBreaker.resetTime).toLocaleTimeString();
-    throw new Error(`Too many API failures, temporarily pausing requests until ${nextRetryTime}`);
+/**
+ * Batch verify multiple collections using the DAS API directly
+ * This is much more efficient than the previous method
+ */
+export async function batchVerifyNFTHoldings(
+  walletAddress: string,
+  collectionsConfig: Array<{
+    collectionAddress: string;
+    minAmount?: number;
+    identifier?: string;
+  }>
+): Promise<Record<string, NFTVerificationResult>> {
+  // Basic validation
+  if (!walletAddress || !collectionsConfig.length) {
+    return {};
   }
   
   try {
-    const connection = SOLANA_CONNECTION;
-    const metaplex = Metaplex.make(connection);
-    const walletPublicKey = new PublicKey(walletAddress);
-    
-    // Only use the retry mechanism when we actually need to make the API call
-    console.log('Fetching all NFTs for wallet...');
-    
-    // For empty results, only retry if we get 0 NFTs (which is likely an API issue)
-    const nfts = await retryOperation(
-      async () => {
-        console.log('Making API call to Metaplex...');
-        try {
-          // Add a 15 second timeout to prevent hanging connections
-          const results = await withTimeout(
-            metaplex.nfts().findAllByOwner({ owner: walletPublicKey }),
-            15000, // 15 second timeout
-            'API call to Metaplex timed out after 15 seconds'
-          );
-          
-          console.log(`API call succeeded, found ${results.length} NFTs`);
-          
-          // Only trigger a retry if we get 0 NFTs (likely an API failure)
-          if (results.length === 0) {
-            throw new Error('Received 0 NFTs from API, likely a temporary issue');
-          }
-          
-          // Record the success in our circuit breaker
-          recordSuccess();
-          
-          return results;
-        } catch (error) {
-          // Add more detailed error logging
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          console.error('Metaplex API call failed:', {
-            error: errorMessage,
-            stack: error instanceof Error ? error.stack : 'No stack trace',
-            walletAddress: walletPublicKey.toBase58()
-          });
-          
-          throw error;
+    if (USE_DAS_API) {
+      // Use DAS API for more efficient batch verification
+      console.log('Using DAS API for batch verification');
+      
+      // Get all NFTs in one call
+      const response = await getAssetsByOwner(walletAddress);
+      
+      // Group NFTs by collection
+      const collectionCounts: Record<string, number> = {};
+      
+      response.items.forEach(asset => {
+        const collectionGrouping = asset.grouping?.find(g => g.group_key === 'collection');
+        if (collectionGrouping) {
+          const collectionAddress = collectionGrouping.group_value;
+          collectionCounts[collectionAddress] = (collectionCounts[collectionAddress] || 0) + 1;
         }
-      },
-      3,  // Max 3 retries
-      3000  // Start with 3 second delay
-    );
+      });
+      
+      // Generate results for each requested collection
+      const results: Record<string, NFTVerificationResult> = {};
+      
+      collectionsConfig.forEach(config => {
+        const { collectionAddress, minAmount = 1, identifier } = config;
+        const key = identifier || collectionAddress;
+        const nftCount = collectionCounts[collectionAddress] || 0;
+        
+        results[key] = {
+          isValid: nftCount >= minAmount,
+          balance: nftCount,
+          error: nftCount >= minAmount ? undefined : 
+                 `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
+        };
+      });
+      
+      return results;
+    }
     
-    // Only cache successful results
-    nftCache[cacheKey] = {
-      timestamp: now,
-      nfts
-    };
+    // If DAS API is disabled, fall back to original implementation
+    // ... existing batch verification code ...
+    // Fetch all NFTs once
+    let nfts: any[];
     
-    return nfts;
+    try {
+      nfts = await fetchNFTs(walletAddress);
+    } catch (error) {
+      // Create error results for all collections
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return collectionsConfig.reduce((results, config) => {
+        const key = config.identifier || config.collectionAddress;
+        results[key] = {
+          isValid: false,
+          error: `Unable to verify NFT ownership: ${errorMessage}`,
+          balance: 0
+        };
+        return results;
+      }, {} as Record<string, NFTVerificationResult>);
+    }
+    
+    // Process verification for each collection
+    const results: Record<string, NFTVerificationResult> = {};
+    
+    for (const config of collectionsConfig) {
+      const { collectionAddress, minAmount = 1, identifier } = config;
+      const key = identifier || collectionAddress;
+      
+      // Clean address
+      const cleanCollectionAddress = collectionAddress.trim();
+      
+      // Process this collection
+      // Filter NFTs by collection
+      const collectionNfts = nfts.filter((nft) => {
+        // Check if this is an NFT-like object
+        if (!nft || (nft.model !== 'nft' && nft.model !== 'metadata')) {
+          return false;
+        }
+        
+        const collection = nft.collection;
+        if (!collection) {
+          return false;
+        }
+        
+        // Check if this NFT belongs to the target collection
+        const nftCollectionAddress = collection.address.toBase58();
+        return nftCollectionAddress === cleanCollectionAddress;
+      });
+
+      const nftCount = collectionNfts.length;
+      
+      // Store result for this collection
+      results[key] = {
+        isValid: nftCount >= minAmount,
+        balance: nftCount,
+        error: nftCount >= minAmount ? undefined : 
+               `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
+      };
+    }
+    
+    return results;
   } catch (error) {
-    // Record the failure in our circuit breaker
-    recordFailure(error);
+    console.error('Error in batch NFT verification:', error);
     
-    // Don't cache failures - just log and propagate the error
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`NFT fetch failed for ${walletAddress}: ${errorMessage}`);
-    throw error; // Re-throw to allow the caller to handle the error
+    // Return error state for all collections
+    return collectionsConfig.reduce((results, config) => {
+      const key = config.identifier || config.collectionAddress;
+      results[key] = {
+        isValid: false,
+        error: error instanceof Error ? error.message : 'Failed to verify NFT balances',
+        balance: 0
+      };
+      return results;
+    }, {} as Record<string, NFTVerificationResult>);
   }
 }

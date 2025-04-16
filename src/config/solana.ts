@@ -1,7 +1,8 @@
 import { Connection, Commitment } from '@solana/web3.js';
+import { Metaplex } from '@metaplex-foundation/js';
 
 const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY;
-const HELIUS_API_KEY = import.meta.env.VITE_HELIUS_API_KEY;
+export const HELIUS_API_KEY = import.meta.env.VITE_HELIUS_API_KEY;
 
 // Primary RPC endpoint with fallbacks
 const RPC_ENDPOINTS = {
@@ -16,6 +17,25 @@ const RPC_ENDPOINTS = {
     'https://rpc.ankr.com/solana',
     'https://solana.public-rpc.com'
   ]
+};
+
+// Metaplex-specific RPC configuration
+// These endpoints tend to be better optimized for NFT metadata operations
+const METAPLEX_RPC_ENDPOINTS = {
+  primary: HELIUS_API_KEY
+    ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+    : ALCHEMY_API_KEY
+      ? `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+      : 'https://api.mainnet-beta.solana.com',
+  fallbacks: [
+    // Quicknode has good NFT support if you have an API key
+    process.env.QUICKNODE_API_KEY
+      ? `https://withered-white-rain.solana-mainnet.quiknode.pro/${process.env.QUICKNODE_API_KEY}/`
+      : null,
+    // These are generally reliable for NFT operations
+    'https://solana-api.projectserum.com',
+    'https://rpc.ankr.com/solana'
+  ].filter(Boolean) as string[] // Filter out null values
 };
 
 // Enhanced configuration for Metaplex operations
@@ -80,3 +100,56 @@ async function createConnectionWithRetry(): Promise<Connection> {
 
 // Export connection with retry logic
 export const SOLANA_CONNECTION = await createConnectionWithRetry();
+
+/**
+ * Creates a Metaplex instance with fallback capabilities
+ * This function will try multiple RPC endpoints if the primary one fails
+ */
+export async function createMetaplexWithFallback(): Promise<Metaplex> {
+  // First try to create with the primary endpoint
+  try {
+    console.log('Initializing Metaplex with primary endpoint');
+    const metaplex = Metaplex.make(SOLANA_CONNECTION);
+    
+    // Test the connection with a simple API call
+    // This helps verify the RPC endpoint is working well with Metaplex
+    await metaplex.rpc().getLatestBlockhash();
+    console.log('✅ Metaplex initialized with primary endpoint');
+    return metaplex;
+  } catch (error) {
+    console.warn('Failed to initialize Metaplex with primary endpoint:', error);
+  }
+  
+  // Try fallback endpoints
+  for (let i = 0; i < METAPLEX_RPC_ENDPOINTS.fallbacks.length; i++) {
+    const endpoint = METAPLEX_RPC_ENDPOINTS.fallbacks[i];
+    try {
+      // Add exponential backoff with jitter
+      const backoff = Math.min(1000 * Math.pow(2, i), 5000);
+      const jitter = Math.random() * 500;
+      await new Promise(resolve => setTimeout(resolve, backoff + jitter));
+      
+      console.log(`Trying Metaplex with fallback endpoint #${i+1}`);
+      
+      // Create new connection for this specific endpoint
+      const fallbackConnection = new Connection(endpoint, CONNECTION_CONFIG);
+      
+      // Create and test Metaplex instance
+      const metaplex = Metaplex.make(fallbackConnection);
+      await metaplex.rpc().getLatestBlockhash();
+      
+      console.log(`✅ Metaplex successfully initialized with fallback endpoint #${i+1}`);
+      return metaplex;
+    } catch (error) {
+      console.warn(`Fallback endpoint #${i+1} failed for Metaplex:`, error);
+    }
+  }
+  
+  // If all fallbacks fail, return one with the primary connection
+  // The application can handle any subsequent failures
+  console.warn('⚠️ All Metaplex fallbacks failed, using primary endpoint');
+  return Metaplex.make(SOLANA_CONNECTION);
+}
+
+// Create and export a pre-initialized Metaplex instance
+export const METAPLEX = await createMetaplexWithFallback();
