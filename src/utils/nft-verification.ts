@@ -309,7 +309,7 @@ async function verifyCollectionWithDasApi(
     console.log('Wallet:', walletAddress);
     console.log('Collection:', collectionAddress);
     
-    // Use the updated searchAssets function which now uses the filter parameter
+    // Use the updated searchAssets function which now filters client-side
     const response = await searchAssets(walletAddress, collectionAddress);
     
     // Validate response format
@@ -516,46 +516,34 @@ export async function batchVerifyNFTHoldings(
           throw new Error('DAS API returned an invalid response format');
         }
         
-        // Group NFTs by collection
+        console.log(`Got ${response.items.length} total NFTs, starting collection matching`);
+        
+        // Process each asset to categorize by collection
         const collectionCounts: Record<string, number> = {};
         
+        // Initialize counts to 0 for all collections we're checking
+        collectionsConfig.forEach(config => {
+          collectionCounts[config.collectionAddress] = 0;
+        });
+        
+        // Loop through each asset and check if it matches any of our target collections
         response.items.forEach(asset => {
-          // Extract collection address
-          let collectionAddress = null;
-          // First try to get from the collection filter
+          // Option 1: Check grouping for collection
           if (asset.grouping) {
             const collectionGrouping = asset.grouping.find(g => g.group_key === 'collection');
-            if (collectionGrouping) {
-              collectionAddress = collectionGrouping.group_value;
+            if (collectionGrouping && collectionCounts.hasOwnProperty(collectionGrouping.group_value)) {
+              collectionCounts[collectionGrouping.group_value]++;
+              return; // Found a match, move to next asset
             }
           }
           
-          if (collectionAddress) {
-            collectionCounts[collectionAddress] = (collectionCounts[collectionAddress] || 0) + 1;
+          // Option 2: Check dedicated collection field
+          if (asset.collection && collectionCounts.hasOwnProperty(asset.collection.address)) {
+            collectionCounts[asset.collection.address]++;
           }
         });
         
-        // For any collections not found in the initial scan, perform individual lookups
-        const missingCollections = collectionsConfig.filter(
-          config => !(config.collectionAddress in collectionCounts)
-        );
-        
-        if (missingCollections.length > 0) {
-          console.log(`Performing individual lookups for ${missingCollections.length} collections`);
-          
-          // For each missing collection, make a separate API call with specific filter
-          for (const config of missingCollections) {
-            try {
-              const collectionResponse = await searchAssets(walletAddress, config.collectionAddress);
-              if (collectionResponse && Array.isArray(collectionResponse.items)) {
-                collectionCounts[config.collectionAddress] = collectionResponse.items.length;
-              }
-            } catch (error) {
-              console.error(`Failed to check collection ${config.collectionAddress}:`, error);
-              // Continue with other collections even if one fails
-            }
-          }
-        }
+        console.log('Collection counts:', collectionCounts);
         
         // Generate results for each requested collection
         const results: Record<string, NFTVerificationResult> = {};
