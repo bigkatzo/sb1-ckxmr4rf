@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
-import { Metaplex, Nft } from '@metaplex-foundation/js';
+import { Metaplex } from '@metaplex-foundation/js';
 
 export interface NFTVerificationResult {
   isValid: boolean;
@@ -64,19 +64,20 @@ export async function verifyNFTHolding(
         return false;
       }
       
-      // Check if this NFT belongs to the target collection and is verified
+      // Check if this NFT belongs to the target collection
+      // No longer requiring verification status
       const nftCollectionAddress = collection.address.toBase58();
       const isFromCollection = nftCollectionAddress === cleanCollectionAddress;
-      const isVerified = collection.verified === true;
       
       console.log(`Checking NFT ${nft.address.toBase58()}:`, {
         collectionMatches: isFromCollection,
         expected: cleanCollectionAddress,
         actual: nftCollectionAddress,
-        isVerified: isVerified
+        verified: collection.verified
       });
       
-      return isFromCollection && isVerified;
+      // Only check collection match, not verification status
+      return isFromCollection;
     });
 
     const nftCount = collectionNfts.length;
@@ -91,7 +92,7 @@ export async function verifyNFTHolding(
       isValid: nftCount >= minAmount,
       balance: nftCount,
       error: nftCount >= minAmount ? undefined : 
-             `You need ${minAmount} verified NFT(s) from this collection, but only have ${nftCount}`
+             `You need ${minAmount} NFT(s) from this collection, but only have ${nftCount}`
     };
 
   } catch (error) {
