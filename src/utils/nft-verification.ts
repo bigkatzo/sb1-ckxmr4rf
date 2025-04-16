@@ -25,11 +25,6 @@ const CIRCUIT_BREAKER_RESET_TIMEOUT = 60000; // 1 minute timeout before retry
 // Add flag to use DAS API
 const USE_DAS_API = true; // Set to true to use the Helius DAS API, false to use Metaplex
 
-// Track DAS API failures to automatically fallback to Metaplex if needed
-let dasApiFailed = false;
-let lastDasFailureTime = 0;
-const DAS_RETRY_INTERVAL = 10 * 60 * 1000; // 10 minutes
-
 // Function to check and update circuit breaker
 function checkCircuitBreaker(): boolean {
   const now = Date.now();
@@ -118,24 +113,9 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
   });
 };
 
-// Function to check if we should try DAS API again after failure
+// Function to check if we should try DAS API
 function shouldTryDasApi(): boolean {
-  if (!USE_DAS_API) return false;
-  
-  if (dasApiFailed) {
-    // If DAS API failed before, only try again after retry interval
-    return (Date.now() - lastDasFailureTime) > DAS_RETRY_INTERVAL;
-  }
-  
-  // If DAS API hasn't failed, use it
-  return true;
-}
-
-// Record DAS API failure
-function recordDasApiFailure() {
-  dasApiFailed = true;
-  lastDasFailureTime = Date.now();
-  console.warn(`DAS API temporarily disabled. Will retry after ${DAS_RETRY_INTERVAL / 60000} minutes.`);
+  return USE_DAS_API;
 }
 
 // Function with retry mechanism - more conservative to save RPC calls
@@ -185,14 +165,10 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
         console.log('Using DAS API to fetch NFTs...');
         const response = await getAssetsByOwner(walletAddress);
         
+        console.log(`DAS API returned ${response.items.length} NFTs`);
+        
         // Record the success in our circuit breaker
         recordSuccess();
-        
-        // Reset DAS failure flag on success
-        if (dasApiFailed) {
-          console.log('DAS API is working again, enabling it');
-          dasApiFailed = false;
-        }
         
         // Convert DAS response to format compatible with existing code
         const nfts = response.items.map(convertDasAssetToMetaplexFormat);
@@ -205,8 +181,12 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
         
         return nfts;
       } catch (error) {
-        console.error('DAS API failed, falling back to Metaplex:', error);
-        recordDasApiFailure();
+        // Handle the error with more details
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('DAS API call failed, falling back to Metaplex:', { 
+          error: errorMessage,
+          stack: error instanceof Error ? error.stack : 'No stack trace'
+        });
         // Fall through to Metaplex implementation
       }
     }
@@ -232,9 +212,10 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
           
           console.log(`API call succeeded, found ${results.length} NFTs`);
           
-          // Only trigger a retry if we get 0 NFTs (likely an API failure)
+          // Allow empty results if we've tried multiple times
+          // Only trigger a retry if it's the first attempt, otherwise accept empty results
           if (results.length === 0) {
-            throw new Error('Received 0 NFTs from API, likely a temporary issue');
+            console.log("User may have no NFTs, not treating as an error after multiple attempts");
           }
           
           // Record the success in our circuit breaker
@@ -253,7 +234,8 @@ async function fetchNFTs(walletAddress: string): Promise<any[]> {
           throw error;
         }
       },
-      3,  // Max 3 retries
+      // Reduce retries for empty results to improve performance
+      1,  // Max 1 retry (reduced from 3)
       3000  // Start with 3 second delay
     );
     
@@ -359,16 +341,9 @@ export async function verifyNFTHolding(
         console.log('Verifying collection directly with DAS API...');
         const result = await verifyCollectionWithDasApi(walletAddress, cleanCollectionAddress, minAmount);
         
-        // Reset DAS failure flag on success
-        if (dasApiFailed) {
-          console.log('DAS API is working again, enabling it');
-          dasApiFailed = false;
-        }
-        
         return result;
       } catch (error) {
         console.error('DAS API verification failed, falling back to standard method:', error);
-        recordDasApiFailure();
         // Fall through to standard method below
       }
     } else {
@@ -517,12 +492,6 @@ export async function batchVerifyNFTHoldings(
         // Get all NFTs in one call
         const response = await getAssetsByOwner(walletAddress);
         
-        // Reset DAS failure flag on success
-        if (dasApiFailed) {
-          console.log('DAS API is working again, enabling it');
-          dasApiFailed = false;
-        }
-        
         // Group NFTs by collection
         const collectionCounts: Record<string, number> = {};
         
@@ -553,7 +522,6 @@ export async function batchVerifyNFTHoldings(
         return results;
       } catch (error) {
         console.error('DAS API batch verification failed, falling back to standard method:', error);
-        recordDasApiFailure();
         // Fall through to standard verification
       }
     } else {

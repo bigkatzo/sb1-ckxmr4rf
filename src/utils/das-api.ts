@@ -195,11 +195,10 @@ export async function getAssetsByOwner(
     {
       page,
       limit,
-      sortBy: { sortBy: "created", sortDirection: "desc" },
       displayOptions: {
-        showFungible,
-      },
-    },
+        showFungible
+      }
+    }
   ]);
 }
 
@@ -221,9 +220,8 @@ export async function getAssetsByGroup(
     groupValue,
     {
       page,
-      limit,
-      sortBy: { sortBy: "created", sortDirection: "desc" },
-    },
+      limit
+    }
   ]);
 }
 
@@ -240,19 +238,19 @@ export async function searchAssets(
 ): Promise<DasAssetsResponse> {
   const { page = 1, limit = 1000 } = options;
   
-  // Use proper format according to Helius docs
+  // Fix format based on error message - simplify the request structure
   return callDasApi<DasAssetsResponse>('searchAssets', [
     {
       ownerAddress,
       grouping: [
         {
-          groupKey: 'collection',
-          groupValue: collectionAddress,
-        },
+          groupKey: "collection",
+          groupValue: collectionAddress
+        }
       ],
       page,
-      limit,
-      sortBy: { sortBy: "created", sortDirection: "desc" },
-    },
+      limit
+      // Remove the sortBy parameter that's causing issues
+    }
   ]);
 } 
