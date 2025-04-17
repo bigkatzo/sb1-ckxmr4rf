@@ -116,7 +116,27 @@ async function getCollection(slug) {
       return null;
     }
 
-    return data;
+    // Ensure we have a proper image URL to use in meta tags
+    let collectionImage = null;
+    
+    // Check different possible image URL fields
+    if (data.image_url) {
+      collectionImage = data.image_url;
+    } else if (data.imageUrl) {
+      collectionImage = data.imageUrl;
+    } else if (data.banner_url) {
+      collectionImage = data.banner_url;
+    } else if (data.banner_image_url) {
+      collectionImage = data.banner_image_url;
+    }
+    
+    // Enhance the collection object with a consistent image field
+    const enhancedCollection = {
+      ...data,
+      image: collectionImage
+    };
+
+    return enhancedCollection;
   } catch (err) {
     console.error('Unexpected error:', err);
     return null;
@@ -129,51 +149,62 @@ async function getProduct(productSlug, collectionSlug) {
   if (!supabase) return null;
 
   try {
-    // First get the collection id
-    const { data: collection, error: collectionError } = await supabase
-      .from('collections')
-      .select('id, name')
-      .eq('slug', collectionSlug)
-      .eq('visible', true)
-      .single();
-
-    if (collectionError || !collection) {
-      console.error(`Error fetching collection ${collectionSlug}:`, collectionError);
-      return null;
-    }
-
-    // Then get the product using collection id and product slug
-    const { data: product, error: productError } = await supabase
+    // Try to get product directly from products table
+    const { data, error } = await supabase
       .from('products')
-      .select('*, category:categories(name)')
-      .eq('collection_id', collection.id)
+      .select(`
+        *,
+        collections!inner (
+          name,
+          slug
+        )
+      `)
       .eq('slug', productSlug)
+      .eq('collections.slug', collectionSlug)
       .eq('visible', true)
       .single();
 
-    if (productError) {
-      console.error(`Error fetching product ${productSlug}:`, productError);
+    if (error) {
+      console.error(`Error fetching product ${productSlug} in ${collectionSlug}:`, error);
       return null;
     }
 
-    // Add collection name to product
-    product.collectionName = collection.name;
-
-    // Get product images
-    const { data: images, error: imagesError } = await supabase
-      .from('product_images')
-      .select('url')
-      .eq('product_id', product.id)
-      .order('position', { ascending: true });
-
-    if (!imagesError && images && images.length > 0) {
-      product.images = images;
-      product.mainImage = images[0];
+    // Process images to ensure they're usable by the meta tags
+    let productImage = null;
+    
+    // Check for main image
+    if (data.main_image_url) {
+      productImage = data.main_image_url;
+    } 
+    // Check for images array
+    else if (data.images && data.images.length > 0) {
+      // If images is a string (JSON), parse it
+      if (typeof data.images === 'string') {
+        try {
+          const parsedImages = JSON.parse(data.images);
+          if (parsedImages && parsedImages.length > 0) {
+            productImage = parsedImages[0].url || parsedImages[0];
+          }
+        } catch (e) {
+          console.error('Failed to parse images JSON:', e);
+        }
+      } 
+      // If images is already an array
+      else if (Array.isArray(data.images) && data.images.length > 0) {
+        productImage = data.images[0].url || data.images[0];
+      }
     }
+    
+    // Add collection name reference
+    const enhancedProduct = {
+      ...data,
+      collectionName: data.collections?.name || collectionSlug,
+      mainImage: { url: productImage }
+    };
 
-    return product;
+    return enhancedProduct;
   } catch (err) {
-    console.error('Unexpected error:', err);
+    console.error('Unexpected error fetching product:', err);
     return null;
   }
 }
@@ -324,7 +355,7 @@ export default async (request, context) => {
         pageData = {
           title,
           description,
-          image: collection.image_url || collection.imageUrl || defaultOgImage,
+          image: collection.image || collection.image_url || collection.imageUrl || defaultOgImage,
           url: request.url,
           type: 'website',
           siteName,
