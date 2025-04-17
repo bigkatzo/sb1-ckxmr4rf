@@ -11,18 +11,6 @@
 [[plugins]]
   package = "./netlify/plugins/site-settings"
 
-# Generate sitemap during build
-[[plugins]]
-  package = "@netlify/plugin-functions-core"
-
-# Define build hooks for generating dynamic sitemap
-[[plugins]]
-  package = "@netlify/plugin-functions-install-core"
-
-# Function to generate sitemap
-[functions."generate-sitemap"]
-  schedule = "@daily"
-
 # Edge Function settings - correctly formatted per Netlify docs
 # https://docs.netlify.com/edge-functions/declarations/
 [[edge_functions]]
