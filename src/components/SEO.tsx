@@ -261,6 +261,54 @@ export default function SEO({
       document.head.appendChild(newOgUrl);
     }
     
+    // Update favicon links if available in site settings
+    if (siteSettings?.favicon_url) {
+      // Update standard favicon
+      const standardFavicon = document.querySelector('link[rel="icon"]:not([sizes])');
+      if (standardFavicon) {
+        standardFavicon.setAttribute('href', siteSettings.favicon_url);
+      }
+      
+      // Update 16x16 favicon
+      const favicon16 = document.querySelector('link[rel="icon"][sizes="16x16"]');
+      if (favicon16) {
+        favicon16.setAttribute('href', siteSettings.favicon_url);
+      }
+      
+      // Update 32x32 favicon
+      const favicon32 = document.querySelector('link[rel="icon"][sizes="32x32"]');
+      if (favicon32) {
+        favicon32.setAttribute('href', siteSettings.favicon_url);
+      }
+      
+      // Update 96x96 favicon if available, otherwise use the standard favicon
+      const favicon96 = document.querySelector('link[rel="icon"][sizes="96x96"]');
+      if (favicon96) {
+        favicon96.setAttribute('href', siteSettings.favicon_96_url || siteSettings.favicon_url);
+      }
+      
+      // Remove the SVG emoji fallback if we have real favicons
+      const svgFavicon = document.querySelector('link[rel="icon"][type="image/svg+xml"]');
+      if (svgFavicon) {
+        svgFavicon.remove();
+      }
+    }
+    
+    // Update Apple Touch Icons if available in site settings
+    if (siteSettings?.apple_touch_icon_url) {
+      // Update standard Apple touch icon
+      const appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]:not([sizes])');
+      if (appleTouchIcon) {
+        appleTouchIcon.setAttribute('href', siteSettings.apple_touch_icon_url);
+      }
+      
+      // Update sized Apple touch icons
+      const appleTouchIcon180 = document.querySelector('link[rel="apple-touch-icon"][sizes="180x180"]');
+      if (appleTouchIcon180) {
+        appleTouchIcon180.setAttribute('href', siteSettings.apple_touch_icon_url);
+      }
+    }
+    
     // Add structured data for products
     if (isProduct && productName && image) {
       const productData = {
@@ -311,7 +359,7 @@ export default function SEO({
         jsonLd.remove();
       }
     };
-  }, [pageTitle, pageDescription, image, location.pathname, isProduct, isCollection, productName, collectionName]);
+  }, [pageTitle, pageDescription, image, location.pathname, isProduct, isCollection, productName, collectionName, siteSettings?.favicon_url, siteSettings?.favicon_96_url, siteSettings?.apple_touch_icon_url]);
   
   // This component doesn't render anything
   return null;
