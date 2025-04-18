@@ -19,11 +19,42 @@ try {
 
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Supabase
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY // Use service key for admin access
-);
+// Check required environment variables
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const HELIUS_API_KEY = process.env.VITE_HELIUS_API_KEY;
+const ALCHEMY_API_KEY = process.env.VITE_ALCHEMY_API_KEY;
+
+// Build RPC URL with proper API key
+const getRpcUrl = () => {
+  if (HELIUS_API_KEY) {
+    return `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
+  } else if (ALCHEMY_API_KEY) {
+    return `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+  } else {
+    return 'https://api.mainnet-beta.solana.com'; // Public fallback
+  }
+};
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error(
+    'Missing required environment variables for Supabase:',
+    !SUPABASE_URL ? 'VITE_SUPABASE_URL' : '',
+    !SUPABASE_KEY ? 'SUPABASE_SERVICE_ROLE_KEY' : ''
+  );
+}
+
+// Initialize Supabase with fallback error handling
+let supabase;
+try {
+  supabase = createClient(
+    SUPABASE_URL || 'https://placeholder-url.supabase.co',
+    SUPABASE_KEY || 'placeholder-key-for-initialization'
+  );
+} catch (err) {
+  console.error('Failed to initialize Supabase client:', err.message);
+  // We'll handle this in the handler function
+}
 
 let SOLANA_CONNECTION;
 const LAMPORTS_PER_SOL = 1000000000;
@@ -32,9 +63,13 @@ const LAMPORTS_PER_SOL = 1000000000;
 try {
   if (Connection) {
     SOLANA_CONNECTION = new Connection(
-      process.env.VITE_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
-      'confirmed'
+      getRpcUrl(),
+      'confirmed' // Use confirmed commitment level for faster verification
     );
+    
+    // Log the RPC endpoint being used (without exposing full API key)
+    const rpcUrl = getRpcUrl();
+    console.log(`Using Solana RPC: ${rpcUrl.substring(0, rpcUrl.indexOf('?') > 0 ? rpcUrl.indexOf('?') : rpcUrl.length)}`);
   }
 } catch (err) {
   console.error('Failed to initialize Solana connection:', err.message);
@@ -293,6 +328,18 @@ async function processPendingTransactions(limit = 20) {
 }
 
 exports.handler = async (event, context) => {
+  // Check if Supabase client is available
+  if (!supabase) {
+    console.error('Supabase client is not initialized');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ 
+        success: false,
+        message: 'Scheduled verification skipped - Database connection unavailable'
+      })
+    };
+  }
+
   // Check if Solana is available
   if (!SOLANA_CONNECTION) {
     console.log('Solana connection is not available for scheduled function');

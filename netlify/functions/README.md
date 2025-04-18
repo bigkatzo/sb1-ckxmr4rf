@@ -1,6 +1,51 @@
-# Netlify Functions
+# Netlify Functions for Store.fun
 
-This directory contains serverless functions deployed to Netlify. These functions serve as backend API endpoints and webhook handlers for the application.
+This directory contains serverless functions used for secure transaction verification and other server-side operations.
+
+## Required Environment Variables
+
+The following environment variables must be set in your Netlify dashboard (Site settings > Build & deploy > Environment):
+
+### Critical Environment Variables
+
+- `VITE_SUPABASE_URL` - The URL of your Supabase instance
+- `SUPABASE_SERVICE_ROLE_KEY` - The service role key for Supabase (admin access)
+
+### Blockchain RPC Configuration 
+
+Use at least one of these for better performance (in order of preference):
+
+- `VITE_HELIUS_API_KEY` - Helius API key for Solana RPC access (preferred)
+- `VITE_ALCHEMY_API_KEY` - Alchemy API key for Solana RPC access (alternative)
+
+If neither is provided, functions will fall back to public RPC endpoints, which may have rate limits or reliability issues.
+
+### Optional Environment Variables
+
+- `ADMIN_API_KEY` - For authenticating admin API requests to manual verification functions
+
+## Function Descriptions
+
+- `verify-transaction.js` - Verifies individual blockchain transactions and updates order status
+- `verify-pending-transactions.js` - Scheduled function to verify pending transactions in batch
+- `handle-pending-payment.js` - Allows manual intervention for orders stuck in pending_payment status
+- `monitor-pending-payments.js` - Reports on orders in pending_payment status
+
+## Scheduling
+
+The `verify-pending-transactions` function is scheduled to run hourly through the `netlify.toml` configuration.
+
+## Fallback Behavior
+
+These functions include graceful degradation:
+
+1. If Solana libraries are unavailable, the functions accept blockchain-confirmed transactions
+2. If Supabase connection fails, transactions remain pending for later verification
+3. If RPC endpoints have issues, multiple fallbacks are attempted
+
+## Logging
+
+All functions include detailed logging for troubleshooting and monitoring.
 
 ## Function Types
 
