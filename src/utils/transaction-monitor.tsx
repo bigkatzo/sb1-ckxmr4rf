@@ -96,8 +96,14 @@ export async function monitorTransaction(
 
         if (status?.confirmationStatus === 'finalized') {
           // Get auth token for API call
-          const { data: { session } } = await supabase.auth.getSession();
-          const authToken = session?.access_token || '';
+          let authToken = '';
+          try {
+            const { data } = await supabase.auth.getSession();
+            authToken = data.session?.access_token || '';
+          } catch (error) {
+            console.warn('Failed to get auth session:', error);
+            // Continue without auth token
+          }
           
           // Instead of verifying on client, call server-side verification
           try {

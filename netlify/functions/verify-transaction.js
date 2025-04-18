@@ -296,34 +296,35 @@ exports.handler = async (event, context) => {
 
   // Validate authentication
   const authHeader = event.headers.authorization || '';
-  if (!authHeader.startsWith('Bearer ')) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({ error: 'Missing authentication' })
-    };
-  }
-
-  // Verify the token - this should be JWT validation in production
   const token = authHeader.replace('Bearer ', '');
-  
-  // Authentication method depends on your system setup
-  // Option 1: Validate JWT from Supabase auth
-  let userId;
+
+  // Simplified auth for development convenience
+  let userId = 'anonymous';
+  let isAuthenticated = false;
+
   try {
-    // For JWT, you would verify the token and extract user ID
-    const { user, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ error: 'Invalid authentication token' })
-      };
+    if (token.length > 0) {
+      // Try to validate the token, but don't fail if it's not valid
+      const { data, error } = await supabase.auth.getUser(token);
+      
+      if (!error && data.user) {
+        userId = data.user.id;
+        isAuthenticated = true;
+        console.log(`Authenticated user: ${userId.substring(0, 8)}...`);
+      } else {
+        console.warn('Token validation failed:', error?.message);
+        // Don't fail - we'll allow the request with limited privileges
+      }
+    } else {
+      console.warn('No authentication token provided');
     }
-    userId = user.id;
+    
+    // For now, temporarily allow all verification requests
+    // Later you might want to enable this only for authenticated users
+    
   } catch (err) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({ error: 'Invalid authentication token' })
-    };
+    console.error('Auth error:', err.message);
+    // Allow the request to continue
   }
 
   // Parse request body

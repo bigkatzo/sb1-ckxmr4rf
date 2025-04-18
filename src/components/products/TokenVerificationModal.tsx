@@ -434,6 +434,16 @@ export function TokenVerificationModal({
           recipient: product.collectionId // Collection address as recipient
         };
         
+        // Make sure we're getting a fresh auth token
+        let authToken = '';
+        try {
+          const { data } = await supabase.auth.getSession();
+          authToken = data.session?.access_token || '';
+          console.log('Auth token retrieved for verification', authToken ? 'successfully' : 'failed');
+        } catch (error) {
+          console.warn('Failed to get authentication session', error);
+        }
+
         // Wait for transaction confirmation using server-side verification
         const confirmed = await monitorTransaction(signature, (status: TransactionStatus) => {
           if (status.error) {
