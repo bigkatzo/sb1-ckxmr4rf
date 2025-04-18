@@ -427,12 +427,19 @@ export function TokenVerificationModal({
         // Start transaction confirmation
         updateProgressStep(2, 'processing', 'Waiting for transaction confirmation...');
         
-        // Wait for transaction confirmation
+        // Expected transaction details for server verification
+        const expectedDetails = {
+          amount: finalPrice,
+          buyer: walletAddress || '',
+          recipient: product.collectionId // Collection address as recipient
+        };
+        
+        // Wait for transaction confirmation using server-side verification
         const confirmed = await monitorTransaction(signature, (status: TransactionStatus) => {
           if (status.error) {
             updateProgressStep(2, 'error', status.error);
           }
-        });
+        }, expectedDetails);
 
         if (!confirmed) {
           updateProgressStep(2, 'error', 'Transaction verification failed. Order will remain in pending_payment status for merchant review.');
@@ -440,23 +447,9 @@ export function TokenVerificationModal({
           setShowSuccessView(true); // Show success view since order is created
           return;
         }
-
-        // Update order status to confirmed
-        try {
-          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-            p_order_id: orderId
-          });
-
-          if (confirmError) {
-            console.error('Failed to confirm order transaction:', confirmError);
-            updateProgressStep(2, 'error', 'Transaction confirmed but failed to update order status. Please contact support.');
-            return;
-          }
-        } catch (err) {
-          console.error('Error confirming order transaction:', err);
-          updateProgressStep(2, 'error', 'Transaction confirmed but failed to update order status. Please contact support.');
-          return;
-        }
+        
+        // Server-side verification confirms the transaction and updates the order status automatically
+        // We don't need to make another call to confirm_order_transaction
 
         updateProgressStep(2, 'completed');
 

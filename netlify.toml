@@ -348,4 +348,13 @@
   to = "/sitemap.xml"
   status = 200
   force = true
-  priority = 95 
+  priority = 95
+
+# Configure scheduled functions for secure transaction verification
+[[functions]]
+  directory = "netlify/functions"
+
+# Regularly check and verify pending transactions
+[[scheduled-functions]]
+  function = "verify-pending-transactions"
+  schedule = "@hourly" 

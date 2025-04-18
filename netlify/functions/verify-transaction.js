@@ -1,0 +1,321 @@
+/**
+ * VERIFY TRANSACTION
+ * 
+ * Server-side verification of blockchain transactions
+ * This function handles all payment verification instead of doing it client-side
+ * 
+ * Security features:
+ * - Requires valid authentication
+ * - Performs on-chain verification via RPC
+ * - Verifies expected amount, buyer address, and recipient
+ * - Updates the order status only if verification passes
+ */
+
+const { Connection, PublicKey } = require('@solana/web3.js');
+const { createClient } = require('@supabase/supabase-js');
+
+// Initialize Supabase
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY // Use service key for admin access
+);
+
+// Initialize Solana connection
+const SOLANA_CONNECTION = new Connection(
+  process.env.VITE_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
+  'confirmed'
+);
+
+const LAMPORTS_PER_SOL = 1000000000;
+
+// Securely verify transaction details against the blockchain
+async function verifyTransactionDetails(
+  signature,
+  expectedDetails
+) {
+  try {
+    const tx = await SOLANA_CONNECTION.getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      commitment: 'finalized'
+    });
+
+    if (!tx || !tx.meta || tx.meta.err) {
+      return { 
+        isValid: false, 
+        error: tx?.meta?.err 
+          ? typeof tx.meta.err === 'string' 
+            ? `Transaction failed: ${tx.meta.err}`
+            : 'Transaction failed with an error'
+          : 'Transaction not found' 
+      };
+    }
+
+    // Get pre and post balances
+    const preBalances = tx.meta.preBalances;
+    const postBalances = tx.meta.postBalances;
+    
+    // Get accounts involved in the transaction
+    const accounts = tx.transaction.message.getAccountKeys().keySegments().flat();
+    
+    // Find the transfer by looking at balance changes
+    const transfers = accounts.map((account, index) => {
+      const balanceChange = (postBalances[index] - preBalances[index]) / LAMPORTS_PER_SOL;
+      return {
+        address: account.toBase58(),
+        change: balanceChange
+      };
+    });
+
+    // Find the recipient (positive balance change) and sender (negative balance change)
+    const recipient = transfers.find(t => t.change > 0);
+    const sender = transfers.find(t => t.change < 0);
+
+    if (!recipient || !sender) {
+      return { 
+        isValid: false, 
+        error: 'Could not identify transfer details'
+      };
+    }
+    
+    const details = {
+      amount: recipient.change,
+      buyer: sender.address,
+      recipient: recipient.address
+    };
+
+    // If we have expected details, verify them
+    if (expectedDetails) {
+      if (Math.abs(details.amount - expectedDetails.amount) > 0.00001) { // Allow small rounding differences
+        return {
+          isValid: false,
+          error: `Amount mismatch: expected ${expectedDetails.amount} SOL, got ${details.amount} SOL`,
+          details
+        };
+      }
+
+      if (details.buyer.toLowerCase() !== expectedDetails.buyer.toLowerCase()) {
+        return {
+          isValid: false,
+          error: `Buyer mismatch: expected ${expectedDetails.buyer}, got ${details.buyer}`,
+          details
+        };
+      }
+
+      if (details.recipient.toLowerCase() !== expectedDetails.recipient.toLowerCase()) {
+        return {
+          isValid: false,
+          error: `Recipient mismatch: expected ${expectedDetails.recipient}, got ${details.recipient}`,
+          details
+        };
+      }
+    }
+
+    return { isValid: true, details };
+  } catch (error) {
+    console.error('Error verifying transaction:', error);
+    return { 
+      isValid: false, 
+      error: error instanceof Error ? error.message : 'Failed to verify transaction' 
+    };
+  }
+}
+
+// Verify and update the order status
+async function confirmOrderPayment(orderId, signature, verification) {
+  try {
+    if (!verification.isValid) {
+      // Log verification failure
+      const { error: logError } = await supabase.rpc('update_transaction_status', {
+        p_signature: signature,
+        p_status: 'failed',
+        p_details: {
+          error: verification.error,
+          verification: verification.details || null
+        }
+      });
+      
+      if (logError) {
+        console.error('Failed to log verification failure:', logError);
+      }
+      
+      return {
+        success: false,
+        error: verification.error || 'Transaction verification failed'
+      };
+    }
+    
+    // Update transaction log with success
+    const { error: updateError } = await supabase.rpc('update_transaction_status', {
+      p_signature: signature,
+      p_status: 'confirmed',
+      p_details: {
+        ...verification.details,
+        confirmedAt: new Date().toISOString()
+      }
+    });
+    
+    if (updateError) {
+      console.error('Failed to update transaction status:', updateError);
+      return {
+        success: false,
+        error: 'Failed to update transaction status'
+      };
+    }
+    
+    // Update order status
+    const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
+      p_transaction_signature: signature,
+      p_status: 'confirmed'
+    });
+    
+    if (confirmError) {
+      console.error('Failed to confirm order payment:', confirmError);
+      return {
+        success: false,
+        error: 'Failed to confirm order payment'
+      };
+    }
+    
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Error confirming order payment:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+exports.handler = async (event, context) => {
+  // Only allow POST requests
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Method not allowed' })
+    };
+  }
+
+  // Validate authentication
+  const authHeader = event.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: 'Missing authentication' })
+    };
+  }
+
+  // Verify the token - this should be JWT validation in production
+  const token = authHeader.replace('Bearer ', '');
+  
+  // Authentication method depends on your system setup
+  // Option 1: Validate JWT from Supabase auth
+  let userId;
+  try {
+    // For JWT, you would verify the token and extract user ID
+    const { user, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ error: 'Invalid authentication token' })
+      };
+    }
+    userId = user.id;
+  } catch (err) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: 'Invalid authentication token' })
+    };
+  }
+
+  // Parse request body
+  let requestBody;
+  try {
+    requestBody = JSON.parse(event.body);
+  } catch (err) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid request body' })
+    };
+  }
+
+  // Validate request parameters
+  const { orderId, signature, expectedDetails } = requestBody;
+  
+  if (!signature) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Missing transaction signature' })
+    };
+  }
+
+  // For non-Solana transactions (like Stripe), handle differently
+  if (signature.startsWith('pi_') || signature.startsWith('free_')) {
+    // Handle alternate payment methods
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        success: true,
+        message: 'Non-blockchain transaction requires separate verification'
+      })
+    };
+  }
+
+  try {
+    // 1. Verify the transaction details on-chain
+    const verification = await verifyTransactionDetails(signature, expectedDetails);
+    
+    // 2. Confirm the order payment status if orderId is provided
+    let confirmationResult = { success: true };
+    if (orderId) {
+      confirmationResult = await confirmOrderPayment(orderId, signature, verification);
+    }
+    
+    if (!verification.isValid) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          success: false,
+          error: verification.error || 'Transaction verification failed',
+          details: verification.details || {}
+        })
+      };
+    }
+    
+    if (!confirmationResult.success) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          success: false,
+          error: confirmationResult.error || 'Failed to confirm order',
+          verification: {
+            isValid: verification.isValid,
+            details: verification.details
+          }
+        })
+      };
+    }
+    
+    // Everything was successful
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        success: true,
+        verification: {
+          isValid: verification.isValid,
+          details: verification.details
+        }
+      })
+    };
+  } catch (err) {
+    console.error('Error in verify-transaction function:', err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ 
+        error: 'Internal server error',
+        details: err.message 
+      })
+    };
+  }
+}; 

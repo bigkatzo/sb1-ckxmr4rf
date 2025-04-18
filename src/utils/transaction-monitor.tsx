@@ -1,7 +1,6 @@
 import { SOLANA_CONNECTION } from '../config/solana';
 import { toast } from 'react-toastify';
 import { supabase } from '../lib/supabase';
-import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 
 // Keep track of processed signatures to prevent duplicate processing
 const processedSignatures = new Set<string>();
@@ -14,110 +13,24 @@ interface TransactionStatus {
   paymentConfirmed?: boolean;
 }
 
+// This function is no longer used - verification happens on the server side now
+// Keeping the interface type for reference
 interface TransactionDetails {
   amount: number;
   buyer: string;
   recipient: string;
 }
 
-interface Transfer {
-  address: string;
-  change: number;
-}
-
 const MAX_RETRIES = 30;
 const INITIAL_DELAY = 1000;
 
-async function verifyTransactionDetails(
-  signature: string,
-  expectedDetails?: TransactionDetails
-): Promise<{ isValid: boolean; error?: string; details?: TransactionDetails }> {
-  try {
-    const tx = await SOLANA_CONNECTION.getTransaction(signature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: 'finalized'
-    });
-
-    if (!tx || !tx.meta || tx.meta.err) {
-      return { 
-        isValid: false, 
-        error: tx?.meta?.err 
-          ? typeof tx.meta.err === 'string' 
-            ? `Transaction failed: ${tx.meta.err}`
-            : 'Transaction failed with an error'
-          : 'Transaction not found' 
-      };
-    }
-
-    // Get pre and post balances
-    const preBalances = tx.meta.preBalances;
-    const postBalances = tx.meta.postBalances;
-    
-    // Get accounts involved in the transaction
-    const accounts = tx.transaction.message.getAccountKeys().keySegments().flat();
-    
-    // Find the transfer by looking at balance changes
-    const transfers: Transfer[] = accounts.map((account: PublicKey, index: number) => {
-      const balanceChange = (postBalances[index] - preBalances[index]) / LAMPORTS_PER_SOL;
-      return {
-        address: account.toBase58(),
-        change: balanceChange
-      };
-    });
-
-    // Find the recipient (positive balance change) and sender (negative balance change)
-    const recipient = transfers.find((t: Transfer) => t.change > 0);
-    const sender = transfers.find((t: Transfer) => t.change < 0);
-
-    if (!recipient || !sender) {
-      return { 
-        isValid: false, 
-        error: 'Could not identify transfer details'
-      };
-    }
-    
-    const details = {
-      amount: recipient.change,
-      buyer: sender.address,
-      recipient: recipient.address
-    };
-
-    // If we have expected details, verify them
-    if (expectedDetails) {
-      if (Math.abs(details.amount - expectedDetails.amount) > 0.00001) { // Allow small rounding differences
-        return {
-          isValid: false,
-          error: `Amount mismatch: expected ${expectedDetails.amount} SOL, got ${details.amount} SOL`,
-          details
-        };
-      }
-
-      if (details.buyer.toLowerCase() !== expectedDetails.buyer.toLowerCase()) {
-        return {
-          isValid: false,
-          error: `Buyer mismatch: expected ${expectedDetails.buyer}, got ${details.buyer}`,
-          details
-        };
-      }
-
-      if (details.recipient.toLowerCase() !== expectedDetails.recipient.toLowerCase()) {
-        return {
-          isValid: false,
-          error: `Recipient mismatch: expected ${expectedDetails.recipient}, got ${details.recipient}`,
-          details
-        };
-      }
-    }
-
-    return { isValid: true, details };
-  } catch (error) {
-    console.error('Error verifying transaction:', error);
-    return { 
-      isValid: false, 
-      error: error instanceof Error ? error.message : 'Failed to verify transaction' 
-    };
-  }
-}
+// Remove or comment out the unused function
+// async function verifyTransactionDetails(
+//   signature: string,
+//   expectedDetails?: TransactionDetails
+// ): Promise<{ isValid: boolean; error?: string; details?: TransactionDetails }> {
+//   // Function body removed as it's unused
+// }
 
 export async function monitorTransaction(
   signature: string,
@@ -173,7 +86,7 @@ export async function monitorTransaction(
 
     while (attempts < MAX_RETRIES) {
       try {
-        // Check transaction status
+        // Check transaction status on Solana network first to avoid unnecessary server calls
         const statuses = await SOLANA_CONNECTION.getSignatureStatuses([signature], {
           searchTransactionHistory: true
         });
@@ -182,28 +95,34 @@ export async function monitorTransaction(
         console.log(`Status check ${attempts + 1}:`, status);
 
         if (status?.confirmationStatus === 'finalized') {
-          // Verify transaction details
-          const verification = await verifyTransactionDetails(signature, expectedDetails);
-
-          if (!verification.isValid) {
-            const errorMessage = verification.error || 'Transaction verification failed';
+          // Get auth token for API call
+          const { data: { session } } = await supabase.auth.getSession();
+          const authToken = session?.access_token || '';
+          
+          // Instead of verifying on client, call server-side verification
+          const response = await fetch('/.netlify/functions/verify-transaction', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+              signature,
+              expectedDetails,
+              orderId: null  // Will be set if we know the order ID
+            })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to verify transaction on server');
+          }
+          
+          const verificationResult = await response.json();
+          
+          if (!verificationResult.success) {
+            const errorMessage = verificationResult.error || 'Transaction verification failed';
             
-            // Update transaction log with failure
-            try {
-              await supabase.rpc('update_transaction_status', {
-                p_signature: signature,
-                p_status: 'failed',
-                p_details: {
-                  error: errorMessage,
-                  verification: verification.details || null,
-                  attempts: attempts + 1
-                }
-              });
-              console.log('Transaction status updated to failed:', errorMessage);
-            } catch (updateError) {
-              console.error('Failed to update transaction status:', updateError);
-            }
-
             toast.update(toastId, {
               render: errorMessage,
               type: 'error',
@@ -222,119 +141,37 @@ export async function monitorTransaction(
             return false;
           }
 
-          // Update transaction log with success
-          try {
-            await supabase.rpc('update_transaction_status', {
-              p_signature: signature,
-              p_status: 'confirmed',
-              p_details: {
-                ...verification.details,
-                confirmationAttempts: attempts + 1,
-                confirmedAt: new Date().toISOString()
-              }
-            });
-            console.log('Transaction status updated to confirmed');
+          // Get order status for the transaction to check if we need to update it
+          const { data: orders, error: orderError } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('transaction_signature', signature)
+            .in('status', ['pending_payment', 'confirmed']);
+
+          if (!orderError && orders && orders.length > 0) {
+            const order = orders[0];
             
-            // Get order status for the transaction
-            const { data: orders, error: orderError } = await supabase
-              .from('orders')
-              .select('id, status')
-              .eq('transaction_signature', signature)
-              .in('status', ['pending_payment', 'confirmed']);
-
-            if (orderError) {
-              console.error('Failed to get order for transaction:', orderError);
-              // Continue since transaction was confirmed
-            } else if (orders && orders.length > 0) {
-              // Handle case where there might be multiple orders (shouldn't happen, but let's be safe)
-              const order = orders[0];
+            // Only send order ID for confirmation if still in pending_payment status
+            if (order.status === 'pending_payment') {
+              // Make another call to server to confirm the order
+              const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({
+                  signature,
+                  orderId: order.id
+                })
+              });
               
-              // Only attempt to confirm if the order is in pending_payment status
-              if (order.status === 'pending_payment') {
-                // Update order with transaction confirmation
-                try {
-                  const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-                    p_order_id: order.id
-                  });
-
-                  if (confirmError) {
-                    console.error('Failed to confirm order transaction:', confirmError);
-                    // If the error is because the order is already confirmed, that's okay
-                    if (confirmError.message.includes('not in pending_payment status')) {
-                      console.log('Order is already confirmed through another process');
-                    } else {
-                      // For other errors, we should retry once more directly
-                      try {
-                        const { error: retryError } = await supabase
-                          .from('orders')
-                          .update({ 
-                            status: 'confirmed',
-                            payment_confirmed_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString()
-                          })
-                          .eq('id', order.id)
-                          .eq('status', 'pending_payment');
-                          
-                        if (retryError) {
-                          console.error('Retry update failed:', retryError);
-                          toast.warning(
-                            'Payment confirmed, but there was an issue updating the order. Please contact support.',
-                            { autoClose: false }
-                          );
-                        } else {
-                          console.log('Order confirmed via direct update');
-                        }
-                      } catch (retryError) {
-                        console.error('Exception in retry update:', retryError);
-                        toast.warning(
-                          'Payment confirmed, but there was an issue updating the order. Please contact support.',
-                          { autoClose: false }
-                        );
-                      }
-                    }
-                  } else {
-                    console.log('Order confirmed successfully:', order.id);
-                  }
-                } catch (confirmError) {
-                  console.error('Error confirming order transaction:', confirmError);
-                  // Continue since transaction was confirmed
-                }
-              } else {
-                console.log('Order is already confirmed:', order.id);
-              }
-            } else {
-              console.log('No order found for transaction, logging for recovery check');
-              // Only log creation attempt if no order exists
-              try {
-                const { error: logError } = await supabase.rpc('log_order_creation_attempt', {
-                  p_signature: signature
-                });
-                
-                if (logError) {
-                  console.warn('Failed to log order creation attempt:', logError);
-                } else {
-                  console.log('Order creation attempt logged successfully');
-                }
-              } catch (logError) {
-                console.warn('Exception logging order creation attempt:', logError);
+              if (!confirmResponse.ok) {
+                const errorData = await confirmResponse.json();
+                console.error('Failed to confirm order on server:', errorData);
+                // Continue anyway since the transaction is valid
               }
             }
-          } catch (updateError) {
-            console.error('Failed to update transaction status:', updateError);
-            toast.warning(
-              'Payment confirmed, but there was an issue recording it. Please contact support with your transaction ID.',
-              { autoClose: false }
-            );
-            
-            onStatusUpdate({
-              processing: false,
-              success: true,
-              paymentConfirmed: true,
-              error: 'Payment confirmed, but there was an issue recording it. Please contact support.',
-              signature
-            });
-            
-            return true;
           }
 
           const solscanUrl = `https://solscan.io/tx/${signature}`;
@@ -377,15 +214,6 @@ export async function monitorTransaction(
       } catch (error) {
         console.error(`Error checking transaction status (attempt ${attempts + 1}):`, error);
         
-        // Update transaction log with error
-        await supabase.rpc('update_transaction_status', {
-          p_signature: signature,
-          p_status: 'failed',
-          p_details: {
-            error: error instanceof Error ? error.message : 'Unknown error'
-          }
-        });
-
         if (attempts === MAX_RETRIES - 1) {
           throw error;
         }
