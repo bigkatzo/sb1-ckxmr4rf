@@ -367,19 +367,34 @@ exports.handler = async (event, context) => {
     const authHeader = event.headers.authorization || '';
     const token = authHeader.replace('Bearer ', '');
     
-    // Check if token matches admin API key (if set)
-    // But don't fail if no admin key is set (development mode)
-    if (process.env.ADMIN_API_KEY && token !== process.env.ADMIN_API_KEY) {
-      console.warn('Invalid API key for manual verification');
-      // Allow with warning for now (development mode)
-    } else if (token.length > 0) {
-      console.log('Authorized admin verification request');
+    // For manual verification, enforce API key when available
+    if (process.env.ADMIN_API_KEY) {
+      if (token !== process.env.ADMIN_API_KEY) {
+        console.error('Invalid API key for manual verification');
+        return {
+          statusCode: 401,
+          body: JSON.stringify({ 
+            error: 'Invalid API key',
+            message: 'Manual verification requires proper authorization'
+          })
+        };
+      } else {
+        console.log('Authorized admin verification request');
+      }
+    } else if (token.length === 0) {
+      // If ADMIN_API_KEY is not set in environment, at least require some token
+      console.error('No authorization token provided for manual verification');
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ 
+          error: 'Missing authentication',
+          message: 'Authorization required for manual verification'
+        })
+      };
     } else {
-      console.warn('No authorization token provided for manual verification');
+      // When no ADMIN_API_KEY is configured, log but allow with warning
+      console.warn('No ADMIN_API_KEY configured for verification, accepting request with warning');
     }
-    
-    // Allow the request to proceed for development purposes
-    // In production, you might want to enforce this more strictly
   }
 
   try {
