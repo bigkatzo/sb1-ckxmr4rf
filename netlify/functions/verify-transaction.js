@@ -37,10 +37,20 @@ const getRpcUrl = () => {
   } else if (ALCHEMY_API_KEY) {
     return `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
   } else {
-    return 'https://api.mainnet-beta.solana.com'; // Public fallback
+    // Default to public endpoint as last resort
+    console.warn('No Helius or Alchemy API key found, using public endpoint with rate limits');
+    return 'https://api.mainnet-beta.solana.com'; 
   }
 };
 
+// Log API key status for debugging
+if (!HELIUS_API_KEY && !ALCHEMY_API_KEY) {
+  console.warn('Missing API keys for RPC providers. Using public endpoint with rate limits.');
+} else {
+  console.log(`Using RPC provider: ${HELIUS_API_KEY ? 'Helius' : 'Alchemy'}`);
+}
+
+// Check if required environment variables are missing
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error(
     'Missing required environment variables for Supabase:',
@@ -95,10 +105,25 @@ async function verifyTransactionDetails(
       };
     }
 
-    const tx = await SOLANA_CONNECTION.getTransaction(signature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: 'finalized'
-    });
+    let tx;
+    try {
+      tx = await SOLANA_CONNECTION.getTransaction(signature, {
+        maxSupportedTransactionVersion: 0,
+        commitment: 'finalized'
+      });
+    } catch (rpcError) {
+      // Handle specific RPC errors
+      if (rpcError.message && rpcError.message.includes('Unauthorized')) {
+        console.error('RPC authorization error:', rpcError.message);
+        return {
+          isValid: false,
+          error: 'RPC authentication failed. Please try again later or contact support.',
+        };
+      }
+      
+      // Re-throw other errors to be caught by the outer catch
+      throw rpcError;
+    }
 
     if (!tx || !tx.meta || tx.meta.err) {
       return { 
