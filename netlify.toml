@@ -350,11 +350,7 @@
   force = true
   priority = 95
 
-# Configure scheduled functions for secure transaction verification
-[[functions]]
-  directory = "netlify/functions"
-
-# Regularly check and verify pending transactions
+# Configure scheduled functions for transaction verification
 [[scheduled-functions]]
   function = "verify-pending-transactions"
   schedule = "@hourly" 
