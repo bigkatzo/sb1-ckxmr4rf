@@ -20,7 +20,8 @@
 # Global function configuration - simpler approach
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@solana/*", "@particle-network/*", "@fractalwagmi/*", "@project-serum/*", "@metaplex-*", "solana-*"]
+  external_node_modules = ["@solana/web3.js", "@particle-network/*", "@fractalwagmi/*", "@project-serum/*", "@metaplex-*", "solana-*"]
+  included_files = ["netlify/functions/package.json"]
 
 # API endpoints for tracking functions
 [[redirects]]

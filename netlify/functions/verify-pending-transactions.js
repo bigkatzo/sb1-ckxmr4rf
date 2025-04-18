@@ -6,7 +6,17 @@
  * or be triggered manually by an admin
  */
 
-const { Connection, PublicKey } = require('@solana/web3.js');
+let Connection, PublicKey;
+try {
+  // Try to import Solana packages, but handle the case where they're not available
+  const solanaWeb3 = require('@solana/web3.js');
+  Connection = solanaWeb3.Connection;
+  PublicKey = solanaWeb3.PublicKey;
+} catch (err) {
+  console.error('Failed to load @solana/web3.js:', err.message);
+  // We'll handle this later in the code
+}
+
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Supabase
@@ -15,17 +25,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY // Use service key for admin access
 );
 
-// Initialize Solana connection
-const SOLANA_CONNECTION = new Connection(
-  process.env.VITE_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
-  'confirmed'
-);
-
+let SOLANA_CONNECTION;
 const LAMPORTS_PER_SOL = 1000000000;
+
+// Initialize Solana connection if possible
+try {
+  if (Connection) {
+    SOLANA_CONNECTION = new Connection(
+      process.env.VITE_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
+      'confirmed'
+    );
+  }
+} catch (err) {
+  console.error('Failed to initialize Solana connection:', err.message);
+  // We'll handle this later in the code
+}
 
 // Securely verify transaction details against the blockchain
 async function verifyTransactionDetails(signature) {
   try {
+    // Check if we have Solana libraries available
+    if (!SOLANA_CONNECTION) {
+      return { 
+        isValid: false, 
+        error: 'Solana verification is not available. Please try again later.' 
+      };
+    }
+
     const tx = await SOLANA_CONNECTION.getTransaction(signature, {
       maxSupportedTransactionVersion: 0,
       commitment: 'finalized'
@@ -88,6 +114,16 @@ async function verifyTransactionDetails(signature) {
 // Process a batch of pending transactions
 async function processPendingTransactions(limit = 20) {
   try {
+    // Check if Solana verification is available
+    if (!SOLANA_CONNECTION) {
+      console.log('Solana verification unavailable, skipping pending transaction check');
+      return {
+        success: false,
+        error: 'Solana verification unavailable',
+        message: 'Scheduled verification skipped - Solana libraries not available'
+      };
+    }
+
     // Get pending payment orders with Solana transactions
     const { data: pendingOrders, error: ordersError } = await supabase
       .from('orders')
@@ -257,6 +293,18 @@ async function processPendingTransactions(limit = 20) {
 }
 
 exports.handler = async (event, context) => {
+  // Check if Solana is available
+  if (!SOLANA_CONNECTION) {
+    console.log('Solana connection is not available for scheduled function');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ 
+        success: false,
+        message: 'Scheduled verification skipped - Solana libraries not available'
+      })
+    };
+  }
+
   // For scheduled functions, the event will be different
   const isScheduled = event.headers === undefined;
   

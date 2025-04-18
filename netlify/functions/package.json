@@ -1,0 +1,10 @@
+{
+  "name": "storedotfun-netlify-functions",
+  "version": "1.0.0",
+  "description": "Server-side functions for Store.fun",
+  "main": "index.js",
+  "dependencies": {
+    "@solana/web3.js": "^1.73.3",
+    "@supabase/supabase-js": "^2.12.0"
+  }
+} 
