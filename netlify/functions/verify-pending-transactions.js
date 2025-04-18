@@ -20,18 +20,20 @@ try {
 const { createClient } = require('@supabase/supabase-js');
 
 // Check required environment variables
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const HELIUS_API_KEY = process.env.VITE_HELIUS_API_KEY;
-const ALCHEMY_API_KEY = process.env.VITE_ALCHEMY_API_KEY;
+const HELIUS_API_KEY = process.env.VITE_HELIUS_API_KEY || process.env.HELIUS_API_KEY;
+const ALCHEMY_API_KEY = process.env.VITE_ALCHEMY_API_KEY || process.env.ALCHEMY_API_KEY;
 
 // Build RPC URL with proper API key
 const getRpcUrl = () => {
-  if (HELIUS_API_KEY) {
+  if (HELIUS_API_KEY && HELIUS_API_KEY !== 'your-helius-api-key') {
     return `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
-  } else if (ALCHEMY_API_KEY) {
+  } else if (ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'your-alchemy-api-key') {
     return `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
   } else {
+    // Default to public endpoint as last resort
+    console.warn('No valid Helius or Alchemy API key found, using public endpoint with rate limits');
     return 'https://api.mainnet-beta.solana.com'; // Public fallback
   }
 };
