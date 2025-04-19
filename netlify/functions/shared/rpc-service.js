@@ -139,20 +139,49 @@ async function verifyTransaction(connection, signature) {
       };
     }
     
-    let tx;
+    // First check transaction status - EXACTLY like the frontend does
     try {
-      // Use a timeout to prevent hanging requests
-      const fetchPromise = connection.getTransaction(signature, {
-        maxSupportedTransactionVersion: 0,
-        commitment: 'finalized'
+      // Check if transaction is confirmed
+      const statuses = await connection.getSignatureStatuses([signature], {
+        searchTransactionHistory: true
       });
       
-      // Apply timeout to avoid hanging function - same timeout as frontend network-test.ts
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('RPC request timed out')), 5000)
-      );
+      const status = statuses.value?.[0];
       
-      tx = await Promise.race([fetchPromise, timeoutPromise]);
+      if (!status) {
+        return {
+          isValid: false,
+          error: 'Transaction not found'
+        };
+      }
+      
+      if (status.err) {
+        return {
+          isValid: false,
+          error: typeof status.err === 'string' 
+            ? `Transaction failed: ${status.err}`
+            : 'Transaction failed with an error'
+        };
+      }
+      
+      if (status.confirmationStatus !== 'finalized') {
+        return {
+          isValid: false,
+          error: `Transaction is not finalized (status: ${status.confirmationStatus})`
+        };
+      }
+      
+      // If we get here, the transaction is confirmed, now get the details
+      const tx = await connection.getTransaction(signature);
+      
+      if (!tx || !tx.meta) {
+        return { 
+          isValid: false, 
+          error: 'Transaction details not available'
+        };
+      }
+      
+      return { isValid: true, transaction: tx };
     } catch (rpcError) {
       console.error('RPC error details:', {
         message: rpcError.message,
@@ -160,7 +189,7 @@ async function verifyTransaction(connection, signature) {
         code: rpcError.code
       });
       
-      // Handle specific RPC errors
+      // Handle all types of RPC errors
       if (rpcError.message && (
           rpcError.message.includes('Unauthorized') || 
           rpcError.message.includes('authentication') ||
@@ -170,38 +199,18 @@ async function verifyTransaction(connection, signature) {
           isValid: false,
           error: 'RPC authentication failed. Please try again later or contact support.'
         };
-      }
-      
-      if (rpcError.message && rpcError.message.includes('timed out')) {
+      } else if (rpcError.message && rpcError.message.includes('timed out')) {
         return {
           isValid: false,
           error: 'RPC request timed out. Please try again later.'
         };
+      } else {
+        return {
+          isValid: false,
+          error: `RPC error: ${rpcError.message}`
+        };
       }
-      
-      return {
-        isValid: false,
-        error: `RPC error: ${rpcError.message}`
-      };
     }
-    
-    if (!tx || !tx.meta) {
-      return { 
-        isValid: false, 
-        error: 'Transaction not found or invalid'
-      };
-    }
-    
-    if (tx.meta.err) {
-      return { 
-        isValid: false, 
-        error: typeof tx.meta.err === 'string' 
-          ? `Transaction failed: ${tx.meta.err}`
-          : 'Transaction failed with an error'
-      };
-    }
-    
-    return { isValid: true, transaction: tx };
   } catch (error) {
     console.error('Error verifying transaction:', error);
     return { 
@@ -212,7 +221,7 @@ async function verifyTransaction(connection, signature) {
 }
 
 /**
- * Gets the latest blockhash with retry logic - matches frontend implementation
+ * Gets the latest blockhash with retry logic
  * @param {Connection} connection - Solana connection
  * @param {number} maxRetries - Maximum number of retry attempts
  * @param {number} delayMs - Base delay between attempts in ms
@@ -225,21 +234,14 @@ async function getLatestBlockhashWithRetry(connection, maxRetries = 3, delayMs =
     try {
       console.log(`Getting latest blockhash (attempt ${attempt + 1}/${maxRetries})`);
       
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash({
-        commitment: 'finalized'
-      });
-
-      if (!blockhash || !lastValidBlockHeight) {
-        throw new Error('Invalid blockhash response');
-      }
-
+      const blockhashInfo = await connection.getLatestBlockhash();
+      
       console.log('Got valid blockhash:', {
-        blockhash: blockhash.slice(0, 8) + '...',
-        lastValidBlockHeight,
+        blockhash: blockhashInfo.blockhash.slice(0, 8) + '...',
         attempt: attempt + 1
       });
 
-      return { blockhash, lastValidBlockHeight };
+      return blockhashInfo;
     } catch (error) {
       console.error(`Blockhash fetch attempt ${attempt + 1} failed:`, error);
       lastError = error instanceof Error ? error : new Error('Unknown error');
