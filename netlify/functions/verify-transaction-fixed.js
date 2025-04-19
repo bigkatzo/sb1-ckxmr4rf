@@ -1,14 +1,8 @@
 /**
- * VERIFY TRANSACTION
+ * VERIFY TRANSACTION (FIXED VERSION)
  * 
- * Server-side verification of blockchain transactions
- * This function handles all payment verification instead of doing it client-side
- * 
- * Security features:
- * - Requires valid authentication
- * - Performs on-chain verification via RPC
- * - Verifies expected amount, buyer address, and recipient
- * - Updates the order status only if verification passes
+ * Server-side verification of blockchain transactions with improved error handling
+ * This version ensures proper handling of environment variables and RPC connections
  */
 
 let Connection, PublicKey;
@@ -24,13 +18,36 @@ try {
 
 const { createClient } = require('@supabase/supabase-js');
 
-// Check required environment variables
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const HELIUS_API_KEY = process.env.VITE_HELIUS_API_KEY || process.env.HELIUS_API_KEY;
-const ALCHEMY_API_KEY = process.env.VITE_ALCHEMY_API_KEY || process.env.ALCHEMY_API_KEY;
+// Environment variables with multiple fallbacks
+const ENV = {
+  // Supabase
+  SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+  SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  
+  // Helius API Key (with placeholder check)
+  HELIUS_API_KEY: (process.env.HELIUS_API_KEY && process.env.HELIUS_API_KEY !== 'your-helius-api-key') 
+    ? process.env.HELIUS_API_KEY 
+    : (process.env.VITE_HELIUS_API_KEY && process.env.VITE_HELIUS_API_KEY !== 'your-helius-api-key')
+      ? process.env.VITE_HELIUS_API_KEY
+      : '',
+  
+  // Alchemy API Key (with placeholder check)
+  ALCHEMY_API_KEY: (process.env.ALCHEMY_API_KEY && process.env.ALCHEMY_API_KEY !== 'your-alchemy-api-key')
+    ? process.env.ALCHEMY_API_KEY
+    : (process.env.VITE_ALCHEMY_API_KEY && process.env.VITE_ALCHEMY_API_KEY !== 'your-alchemy-api-key')
+      ? process.env.VITE_ALCHEMY_API_KEY
+      : ''
+};
 
-// Build RPC URL with proper API key
+// Log environment variable status (sanitized)
+console.log('Environment check:', {
+  hasHeliusKey: !!ENV.HELIUS_API_KEY,
+  hasAlchemyKey: !!ENV.ALCHEMY_API_KEY,
+  hasSupabaseUrl: !!ENV.SUPABASE_URL,
+  hasSupabaseKey: !!ENV.SUPABASE_KEY
+});
+
+// Function to get the best available RPC URL
 const getRpcUrl = () => {
   // Add validation to detect and fix common API key issues
   const sanitizeApiKey = (key) => {
@@ -48,61 +65,47 @@ const getRpcUrl = () => {
     return trimmedKey;
   };
 
-  const heliusKey = sanitizeApiKey(HELIUS_API_KEY);
-  const alchemyKey = sanitizeApiKey(ALCHEMY_API_KEY);
+  const heliusKey = sanitizeApiKey(ENV.HELIUS_API_KEY);
+  const alchemyKey = sanitizeApiKey(ENV.ALCHEMY_API_KEY);
   
-  if (heliusKey && heliusKey !== 'your-helius-api-key') {
+  // Log when using fallback for debugging
+  if (!heliusKey && !alchemyKey) {
+    console.warn('No valid RPC API keys found, using public endpoint with rate limits');
+    return 'https://api.mainnet-beta.solana.com';
+  }
+  
+  if (heliusKey) {
     console.log(`Using Helius RPC with key: ${heliusKey.substring(0, 4)}...${heliusKey.length > 8 ? heliusKey.substring(heliusKey.length - 4) : ''}`);
     return `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
-  } else if (alchemyKey && alchemyKey !== 'your-alchemy-api-key') {
+  } else if (alchemyKey) {
     console.log(`Using Alchemy RPC with key: ${alchemyKey.substring(0, 4)}...${alchemyKey.length > 8 ? alchemyKey.substring(alchemyKey.length - 4) : ''}`);
     return `https://solana-mainnet.g.alchemy.com/v2/${alchemyKey}`;
-  } else {
-    // Default to public endpoint as last resort
-    console.warn('No valid RPC API keys found, using public endpoint with rate limits');
-    return 'https://api.mainnet-beta.solana.com'; 
   }
 };
-
-// Log API key status for debugging
-if (!HELIUS_API_KEY && !ALCHEMY_API_KEY) {
-  console.warn('Missing API keys for RPC providers. Using public endpoint with rate limits.');
-} else {
-  console.log(`Using RPC provider: ${HELIUS_API_KEY ? 'Helius' : 'Alchemy'}`);
-}
-
-// Check if required environment variables are missing
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error(
-    'Missing required environment variables for Supabase:',
-    !SUPABASE_URL ? 'VITE_SUPABASE_URL' : '',
-    !SUPABASE_KEY ? 'SUPABASE_SERVICE_ROLE_KEY' : ''
-  );
-}
 
 // Initialize Supabase with better error handling
 let supabase;
 try {
   // Validate Supabase credentials before initializing
-  if (!SUPABASE_URL || SUPABASE_URL === 'https://placeholder-url.supabase.co') {
+  if (!ENV.SUPABASE_URL || ENV.SUPABASE_URL === 'https://placeholder-url.supabase.co') {
     console.error('Missing or invalid SUPABASE_URL environment variable');
   }
   
-  if (!SUPABASE_KEY || SUPABASE_KEY === 'placeholder-key-for-initialization') {
+  if (!ENV.SUPABASE_KEY || ENV.SUPABASE_KEY === 'placeholder-key-for-initialization') {
     console.error('Missing or invalid SUPABASE_SERVICE_ROLE_KEY environment variable');
   }
   
   // Only create client if we have reasonable values
-  if (SUPABASE_URL && SUPABASE_KEY && 
-      SUPABASE_URL !== 'https://placeholder-url.supabase.co' && 
-      SUPABASE_KEY !== 'placeholder-key-for-initialization') {
-    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  if (ENV.SUPABASE_URL && ENV.SUPABASE_KEY && 
+      ENV.SUPABASE_URL !== 'https://placeholder-url.supabase.co' && 
+      ENV.SUPABASE_KEY !== 'placeholder-key-for-initialization') {
+    supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_KEY);
     console.log('Supabase client initialized successfully');
   } else {
     console.warn('Using fallback Supabase values - database operations will likely fail');
     supabase = createClient(
-      SUPABASE_URL || 'https://placeholder-url.supabase.co',
-      SUPABASE_KEY || 'placeholder-key-for-initialization'
+      ENV.SUPABASE_URL || 'https://placeholder-url.supabase.co',
+      ENV.SUPABASE_KEY || 'placeholder-key-for-initialization'
     );
   }
 } catch (err) {
@@ -113,38 +116,21 @@ try {
 let SOLANA_CONNECTION;
 const LAMPORTS_PER_SOL = 1000000000;
 
-// Initialize Solana connection if possible
+// Initialize Solana connection with better error handling
 try {
   if (Connection) {
-    // Debug log to check environment variables
-    console.log('Environment variable check:', {
-      hasHeliusKey: !!HELIUS_API_KEY,
-      hasAlchemyKey: !!ALCHEMY_API_KEY,
-      heliusKeyValid: HELIUS_API_KEY && HELIUS_API_KEY !== 'your-helius-api-key',
-      alchemyKeyValid: ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'your-alchemy-api-key',
-      hasSupabaseUrl: !!SUPABASE_URL,
-      hasSupabaseKey: !!SUPABASE_KEY
-    });
-    
-    SOLANA_CONNECTION = new Connection(
-      getRpcUrl(),
-      'confirmed' // Use confirmed commitment level for faster verification
-    );
-    
-    // Log the RPC endpoint being used (without exposing full API key)
     const rpcUrl = getRpcUrl();
-    console.log(`Using Solana RPC: ${rpcUrl.substring(0, rpcUrl.indexOf('?') > 0 ? rpcUrl.indexOf('?') : rpcUrl.length)}`);
+    SOLANA_CONNECTION = new Connection(rpcUrl, 'confirmed');
+    console.log(`Solana connection initialized with RPC: ${rpcUrl.split('?')[0]}`);
+  } else {
+    console.error('Solana web3 library not available');
   }
 } catch (err) {
   console.error('Failed to initialize Solana connection:', err.message);
-  // We'll handle this later in the code
 }
 
 // Securely verify transaction details against the blockchain
-async function verifyTransactionDetails(
-  signature,
-  expectedDetails
-) {
+async function verifyTransactionDetails(signature, expectedDetails) {
   try {
     // Check if we have Solana libraries available
     if (!SOLANA_CONNECTION) {
@@ -156,32 +142,63 @@ async function verifyTransactionDetails(
 
     let tx;
     try {
-      tx = await SOLANA_CONNECTION.getTransaction(signature, {
+      // Use a timeout to prevent hanging requests
+      const fetchPromise = SOLANA_CONNECTION.getTransaction(signature, {
         maxSupportedTransactionVersion: 0,
         commitment: 'finalized'
       });
+      
+      // Apply timeout of 10 seconds to avoid hanging function
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('RPC request timed out')), 10000)
+      );
+      
+      tx = await Promise.race([fetchPromise, timeoutPromise]);
     } catch (rpcError) {
+      console.error('RPC error details:', {
+        message: rpcError.message,
+        name: rpcError.name,
+        code: rpcError.code
+      });
+      
       // Handle specific RPC errors
-      if (rpcError.message && rpcError.message.includes('Unauthorized')) {
-        console.error('RPC authorization error:', rpcError.message);
+      if (rpcError.message && (
+          rpcError.message.includes('Unauthorized') || 
+          rpcError.message.includes('authentication') ||
+          rpcError.message.includes('API key')
+      )) {
         return {
           isValid: false,
-          error: 'RPC authentication failed. Please try again later or contact support.',
+          error: 'RPC authentication failed. Please try again later or contact support.'
         };
       }
       
-      // Re-throw other errors to be caught by the outer catch
-      throw rpcError;
+      if (rpcError.message && rpcError.message.includes('timed out')) {
+        return {
+          isValid: false,
+          error: 'RPC request timed out. Please try again later.'
+        };
+      }
+      
+      return {
+        isValid: false,
+        error: `RPC error: ${rpcError.message}`
+      };
     }
 
-    if (!tx || !tx.meta || tx.meta.err) {
+    if (!tx || !tx.meta) {
       return { 
         isValid: false, 
-        error: tx?.meta?.err 
-          ? typeof tx.meta.err === 'string' 
-            ? `Transaction failed: ${tx.meta.err}`
-            : 'Transaction failed with an error'
-          : 'Transaction not found' 
+        error: 'Transaction not found or invalid'
+      };
+    }
+    
+    if (tx.meta.err) {
+      return { 
+        isValid: false, 
+        error: typeof tx.meta.err === 'string' 
+          ? `Transaction failed: ${tx.meta.err}`
+          : 'Transaction failed with an error'
       };
     }
 
@@ -257,20 +274,32 @@ async function verifyTransactionDetails(
 
 // Verify and update the order status
 async function confirmOrderPayment(orderId, signature, verification) {
+  if (!supabase) {
+    console.warn('Supabase client not initialized, cannot confirm order payment');
+    return {
+      success: false,
+      error: 'Database connection not available'
+    };
+  }
+  
   try {
     if (!verification.isValid) {
       // Log verification failure
-      const { error: logError } = await supabase.rpc('update_transaction_status', {
-        p_signature: signature,
-        p_status: 'failed',
-        p_details: {
-          error: verification.error,
-          verification: verification.details || null
+      try {
+        const { error: logError } = await supabase.rpc('update_transaction_status', {
+          p_signature: signature,
+          p_status: 'failed',
+          p_details: {
+            error: verification.error,
+            verification: verification.details || null
+          }
+        });
+        
+        if (logError) {
+          console.error('Failed to log verification failure:', logError);
         }
-      });
-      
-      if (logError) {
-        console.error('Failed to log verification failure:', logError);
+      } catch (dbError) {
+        console.error('Database error when logging verification failure:', dbError);
       }
       
       return {
@@ -280,34 +309,50 @@ async function confirmOrderPayment(orderId, signature, verification) {
     }
     
     // Update transaction log with success
-    const { error: updateError } = await supabase.rpc('update_transaction_status', {
-      p_signature: signature,
-      p_status: 'confirmed',
-      p_details: {
-        ...verification.details,
-        confirmedAt: new Date().toISOString()
+    try {
+      const { error: updateError } = await supabase.rpc('update_transaction_status', {
+        p_signature: signature,
+        p_status: 'confirmed',
+        p_details: {
+          ...verification.details,
+          confirmedAt: new Date().toISOString()
+        }
+      });
+      
+      if (updateError) {
+        console.error('Failed to update transaction status:', updateError);
+        return {
+          success: false,
+          error: 'Failed to update transaction status'
+        };
       }
-    });
-    
-    if (updateError) {
-      console.error('Failed to update transaction status:', updateError);
+    } catch (dbError) {
+      console.error('Database error when updating transaction status:', dbError);
       return {
         success: false,
-        error: 'Failed to update transaction status'
+        error: 'Database error when updating transaction'
       };
     }
     
     // Update order status
-    const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
-      p_transaction_signature: signature,
-      p_status: 'confirmed'
-    });
-    
-    if (confirmError) {
-      console.error('Failed to confirm order payment:', confirmError);
+    try {
+      const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
+        p_transaction_signature: signature,
+        p_status: 'confirmed'
+      });
+      
+      if (confirmError) {
+        console.error('Failed to confirm order payment:', confirmError);
+        return {
+          success: false,
+          error: 'Failed to confirm order payment'
+        };
+      }
+    } catch (dbError) {
+      console.error('Database error when confirming order payment:', dbError);
       return {
         success: false,
-        error: 'Failed to confirm order payment'
+        error: 'Database error when confirming order'
       };
     }
     
@@ -324,6 +369,12 @@ async function confirmOrderPayment(orderId, signature, verification) {
 }
 
 exports.handler = async (event, context) => {
+  console.log('Function invoked:', { 
+    httpMethod: event.httpMethod,
+    hasAuthHeader: !!event.headers.authorization,
+    path: event.path
+  });
+  
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
@@ -352,8 +403,6 @@ exports.handler = async (event, context) => {
   // Check if Solana is available
   if (!SOLANA_CONNECTION) {
     console.error('Solana connection is not available. Returning temporary success.');
-    // For now, we'll return a temporary success to prevent blocking users
-    // In a production environment, you might want to queue this for later verification
     return {
       statusCode: 200,
       body: JSON.stringify({ 
@@ -375,30 +424,26 @@ exports.handler = async (event, context) => {
 
   try {
     // Always validate the token when provided
-    if (token.length > 0) {
-      const { data, error } = await supabase.auth.getUser(token);
-      
-      if (!error && data.user) {
-        userId = data.user.id;
-        console.log(`Authenticated user: ${userId.substring(0, 8)}...`);
-      } else {
-        // Keep track of authentication failures in logs
-        console.warn('Token validation failed:', error?.message);
+    if (token && token.length > 0) {
+      try {
+        const { data, error } = await supabase.auth.getUser(token);
         
-        // We rely on blockchain verification for security, so we'll continue
-        // This ensures transactions can be verified even if auth token expires
-        console.log('Proceeding with blockchain verification without user authentication');
+        if (!error && data.user) {
+          userId = data.user.id;
+          console.log(`Authenticated user: ${userId.substring(0, 8)}...`);
+        } else {
+          // Keep track of authentication failures in logs
+          console.warn('Token validation failed:', error?.message);
+          console.log('Proceeding with blockchain verification without user authentication');
+        }
+      } catch (authError) {
+        console.error('Auth error:', authError.message);
       }
     } else {
       console.warn('No authentication token provided, relying on blockchain verification');
     }
-    
-    // We're relying on blockchain verification and signature validation as the
-    // primary security measure, so we continue processing even without authentication
-    
   } catch (err) {
-    console.error('Auth error:', err.message);
-    // Continue with blockchain verification
+    console.error('Auth processing error:', err.message);
   }
 
   // Parse request body
@@ -435,12 +480,19 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    console.log(`Verifying transaction: ${signature.substring(0, 12)}...`);
+    
     // 1. Verify the transaction details on-chain
     const verification = await verifyTransactionDetails(signature, expectedDetails);
     
+    console.log('Verification result:', {
+      isValid: verification.isValid,
+      hasError: !!verification.error
+    });
+    
     // 2. Confirm the order payment status if orderId is provided
     let confirmationResult = { success: true };
-    if (orderId) {
+    if (orderId && verification.isValid) {
       confirmationResult = await confirmOrderPayment(orderId, signature, verification);
     }
     
@@ -486,7 +538,7 @@ exports.handler = async (event, context) => {
       statusCode: 500,
       body: JSON.stringify({ 
         error: 'Internal server error',
-        details: err.message 
+        details: err instanceof Error ? err.message : 'Unknown error' 
       })
     };
   }
