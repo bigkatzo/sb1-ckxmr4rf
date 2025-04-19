@@ -419,7 +419,16 @@ export function TokenVerificationModal({
           p_amount_sol: finalPrice
         });
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          // Check if this is the error about order not being in draft status
+          // This can happen if the server already processed the order
+          if (updateError.message && updateError.message.includes('not in draft status')) {
+            console.log('Order already processed by server, continuing with transaction monitoring');
+            // We can continue without treating this as an error
+          } else {
+            throw updateError;
+          }
+        }
         
         // Payment initiated successfully
         updateProgressStep(1, 'completed');

@@ -83,6 +83,9 @@ export async function monitorTransaction(
 
   let attempts = 0;
   const toastId = toast.loading('Processing transaction...');
+  
+  // Flag to track if server has already processed the order
+  let serverProcessedOrder = false;
 
   try {
     // Initial processing status
@@ -93,23 +96,44 @@ export async function monitorTransaction(
       signature
     });
 
-    // If we have an orderId, immediately link the transaction signature to the order
-    // This ensures the server can find the order when verifying the transaction
+    // If we have an orderId, check if it's already been processed by the server
     if (orderId) {
       try {
-        console.log(`Linking transaction ${signature} to order ${orderId}`);
-        const { error } = await supabase
+        // Check current order status first
+        const { data: orderData, error: orderError } = await supabase
           .from('orders')
-          .update({ transaction_signature: signature })
-          .eq('id', orderId);
+          .select('status, transaction_signature')
+          .eq('id', orderId)
+          .single();
           
-        if (error) {
-          console.error('Failed to link transaction to order:', error);
-        } else {
-          console.log(`Successfully linked transaction ${signature} to order ${orderId}`);
+        if (!orderError && orderData) {
+          // If order is already in pending_payment or confirmed status with our signature,
+          // the server has likely already processed it
+          if ((orderData.status === 'pending_payment' || orderData.status === 'confirmed') && 
+              orderData.transaction_signature === signature) {
+            console.log(`Order ${orderId} already processed by server (status: ${orderData.status})`);
+            serverProcessedOrder = true;
+          } else if (orderData.status === 'draft') {
+            // If still in draft, link the transaction
+            try {
+              console.log(`Linking transaction ${signature} to order ${orderId}`);
+              const { error } = await supabase
+                .from('orders')
+                .update({ transaction_signature: signature })
+                .eq('id', orderId);
+                
+              if (error) {
+                console.error('Failed to link transaction to order:', error);
+              } else {
+                console.log(`Successfully linked transaction ${signature} to order ${orderId}`);
+              }
+            } catch (linkError) {
+              console.error('Error linking transaction to order:', linkError);
+            }
+          }
         }
-      } catch (linkError) {
-        console.error('Error linking transaction to order:', linkError);
+      } catch (checkError) {
+        console.error('Error checking order status:', checkError);
       }
     }
 
@@ -160,26 +184,49 @@ export async function monitorTransaction(
               if (response.status === 502 || response.status === 401 || response.status === 403) {
                 console.warn(`Server-side verification unavailable (${response.status}), falling back to blockchain confirmation only`);
                 
-                // Attempt to manually update transaction status
-                try {
-                  console.log('Attempting to update transaction status (attempt 1/5)');
-                  const { error } = await supabase.rpc('update_transaction_status', {
-                    p_signature: signature,
-                    p_status: 'confirmed',
-                    p_details: {
-                      confirmedAt: new Date().toISOString(),
-                      manuallyConfirmed: true,
-                      clientConfirmed: true
+                // If the server couldn't process and we have an orderId, try to update manually if not already processed
+                if (orderId && !serverProcessedOrder) {
+                  try {
+                    console.log('Attempting to update transaction status (attempt 1/5)');
+                    
+                    // Check current order status first
+                    const { data: currentOrder, error: checkError } = await supabase
+                      .from('orders')
+                      .select('status')
+                      .eq('id', orderId)
+                      .single();
+                      
+                    if (!checkError && currentOrder) {
+                      if (currentOrder.status === 'draft') {
+                        // Update from draft to pending_payment
+                        const { error } = await supabase.rpc('update_order_transaction', {
+                          p_order_id: orderId,
+                          p_transaction_signature: signature,
+                          p_amount_sol: expectedDetails?.amount || 0
+                        });
+                        
+                        if (error) {
+                          console.error('Failed to update order status:', error);
+                        } else {
+                          console.log('Transaction status updated successfully');
+                        }
+                      } else if (currentOrder.status === 'pending_payment') {
+                        // Update from pending_payment to confirmed
+                        const { error } = await supabase.rpc('confirm_order_payment', {
+                          p_transaction_signature: signature,
+                          p_status: 'confirmed'
+                        });
+                        
+                        if (error) {
+                          console.error('Failed to confirm order payment:', error);
+                        } else {
+                          console.log('Order payment confirmed successfully');
+                        }
+                      }
                     }
-                  });
-                  
-                  if (error) {
-                    console.error('Failed to update transaction status:', error);
-                  } else {
-                    console.log('Transaction status updated successfully');
+                  } catch (dbError) {
+                    console.error('Error updating transaction status:', dbError);
                   }
-                } catch (dbError) {
-                  console.error('Error updating transaction status:', dbError);
                 }
                 
                 // Directly update the UI as success since the transaction is finalized on Solana
@@ -259,39 +306,17 @@ export async function monitorTransaction(
               return false;
             }
 
-            // Get order status for the transaction to check if we need to update it
-            const { data: orders, error: orderError } = await supabase
-              .from('orders')
-              .select('id, status')
-              .eq('transaction_signature', signature)
-              .in('status', ['pending_payment', 'confirmed']);
-
-            if (!orderError && orders && orders.length > 0) {
-              const order = orders[0];
-              
-              // Only send order ID for confirmation if still in pending_payment status
-              if (order.status === 'pending_payment') {
-                // Make another call to server to confirm the order
-                const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`
-                  },
-                  body: JSON.stringify({
-                    signature,
-                    orderId: order.id
-                  })
-                });
-                
-                if (!confirmResponse.ok) {
-                  const errorData = await confirmResponse.json().catch(() => ({ error: 'Failed to confirm order on server' }));
-                  console.error('Failed to confirm order on server:', errorData);
-                  // Continue anyway since the transaction is valid
-                }
-              }
+            // Show order update results in console
+            if (verificationResult.ordersUpdated && verificationResult.ordersUpdated.length > 0) {
+              console.log(`Successfully updated ${verificationResult.ordersUpdated.length} orders:`, verificationResult.ordersUpdated);
+              serverProcessedOrder = true;
+            }
+            
+            if (verificationResult.ordersFailed && verificationResult.ordersFailed.length > 0) {
+              console.warn(`Failed to update ${verificationResult.ordersFailed.length} orders:`, verificationResult.ordersFailed);
             }
 
+            // Success - transaction verified and orders updated
             const solscanUrl = `https://solscan.io/tx/${signature}`;
             toast.update(toastId, {
               render: () => (

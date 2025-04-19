@@ -132,31 +132,73 @@ async function verifyPendingTransactions() {
             let updatedCount = 0;
             for (const order of relatedOrders) {
               try {
-                // Use direct_update_order_status for consistent behavior
-                const { data: updateResult, error: orderError } = await supabase.rpc('direct_update_order_status', {
-                  p_order_id: order.id,
-                  p_status: 'confirmed'
-                });
-                
-                if (orderError) {
-                  console.error(`Failed to update order ${order.id}:`, orderError);
+                // For orders in DRAFT status, first transition to PENDING_PAYMENT
+                if (order.status === 'draft') {
+                  console.log(`Order ${order.id} is in DRAFT status, transitioning to PENDING_PAYMENT first`);
                   
-                  // Try fallback direct update method
-                  const { error: directError } = await supabase
-                    .from('orders')
-                    .update({ status: 'confirmed' })
-                    .eq('id', order.id)
-                    .eq('status', 'pending_payment');
-                    
-                  if (!directError) {
-                    console.log(`Successfully updated order ${order.id} with fallback method`);
-                    updatedCount++;
-                  } else {
-                    console.error(`Failed to update order ${order.id} with fallback method:`, directError);
+                  // Use update_order_transaction to move from DRAFT to PENDING_PAYMENT
+                  const { error: transitionError } = await supabase.rpc('update_order_transaction', {
+                    p_order_id: order.id,
+                    p_transaction_signature: tx.signature,
+                    p_amount_sol: tx.amount || 0
+                  });
+                  
+                  if (transitionError) {
+                    console.error(`Failed to transition order ${order.id} from DRAFT to PENDING_PAYMENT:`, transitionError);
+                    continue;
                   }
-                } else {
-                  console.log(`Successfully updated order ${order.id} to confirmed`);
+                  
+                  console.log(`Successfully transitioned order ${order.id} from DRAFT to PENDING_PAYMENT`);
+                  
+                  // Refresh order data to get the updated status
+                  const { data: refreshedOrder, error: refreshError } = await supabase
+                    .from('orders')
+                    .select('id, status')
+                    .eq('id', order.id)
+                    .single();
+                    
+                  if (refreshError) {
+                    console.error(`Failed to refresh order ${order.id} data:`, refreshError);
+                    continue;
+                  }
+                  
+                  // Update local reference to use the refreshed data
+                  order.status = refreshedOrder.status;
+                }
+                
+                // Now proceed with confirmation if order is in PENDING_PAYMENT
+                if (order.status === 'pending_payment') {
+                  // Use direct_update_order_status for consistent behavior
+                  const { data: updateResult, error: orderError } = await supabase.rpc('direct_update_order_status', {
+                    p_order_id: order.id,
+                    p_status: 'confirmed'
+                  });
+                  
+                  if (orderError) {
+                    console.error(`Failed to update order ${order.id}:`, orderError);
+                    
+                    // Try fallback direct update method
+                    const { error: directError } = await supabase
+                      .from('orders')
+                      .update({ status: 'confirmed' })
+                      .eq('id', order.id)
+                      .eq('status', 'pending_payment');
+                      
+                    if (!directError) {
+                      console.log(`Successfully updated order ${order.id} with fallback method`);
+                      updatedCount++;
+                    } else {
+                      console.error(`Failed to update order ${order.id} with fallback method:`, directError);
+                    }
+                  } else {
+                    console.log(`Successfully updated order ${order.id} to CONFIRMED status`);
+                    updatedCount++;
+                  }
+                } else if (order.status === 'confirmed') {
+                  console.log(`Order ${order.id} is already in CONFIRMED status, no update needed`);
                   updatedCount++;
+                } else {
+                  console.warn(`Order ${order.id} is in unexpected status: ${order.status}, not updating`);
                 }
               } catch (orderError) {
                 console.error(`Error processing order ${order.id}:`, orderError);
