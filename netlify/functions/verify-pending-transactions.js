@@ -52,53 +52,46 @@ const LAMPORTS_PER_SOL = 1000000000;
 // Process all pending transactions using frontend-matched RPC implementation
 async function verifyPendingTransactions() {
   if (!supabase) {
-    console.error('Supabase client not initialized, cannot verify pending transactions');
     return {
       success: false,
-      error: 'Database connection not available'
+      error: 'Supabase client not initialized'
     };
   }
   
   try {
-    // Get pending transactions from the database
-    const { data: pendingTxs, error: queryError } = await supabase
-      .from('payment_transactions')
-      .select('*')
-      .in('status', ['pending', 'processing'])
-      .order('created_at', { ascending: false })
-      .limit(50);
+    // Find pending/unconfirmed transactions
+    console.log('Looking for pending transactions...');
     
+    const { data: pendingTxs, error: queryError } = await supabase
+      .from('transactions')
+      .select('signature, product_id, amount, buyer_address, retry_count, status, order_id')
+      .or('status->success.is.null,status->success.eq.false')
+      .lt('retry_count', 5);
+      
     if (queryError) {
-      console.error('Error fetching pending transactions:', queryError);
+      console.error('Failed to query pending transactions:', queryError);
       return {
         success: false,
-        error: 'Failed to fetch pending transactions'
+        error: queryError.message
       };
     }
     
     if (!pendingTxs || pendingTxs.length === 0) {
-      console.log('No pending transactions to verify');
+      console.log('No pending transactions found');
       return {
         success: true,
-        verified: 0
+        verified: 0,
+        failed: 0,
+        total: 0
       };
     }
     
     console.log(`Found ${pendingTxs.length} pending transactions to verify`);
     
-    // Check if we have Solana connection
-    if (!SOLANA_CONNECTION) {
-      console.error('Solana connection not available, cannot verify transactions');
-      return {
-        success: false,
-        error: 'Blockchain connection not available'
-      };
-    }
-    
     let verifiedCount = 0;
     let failedCount = 0;
     
-    // Process each pending transaction
+    // Process each pending transaction using the improved verify-transaction logic
     for (const tx of pendingTxs) {
       try {
         console.log(`Verifying transaction ${tx.signature}...`);
@@ -107,68 +100,90 @@ async function verifyPendingTransactions() {
         const result = await verifyTransaction(SOLANA_CONNECTION, tx.signature);
         
         if (result.isValid) {
-          // Transaction is valid, update status to confirmed
-          const { error: updateError } = await supabase.rpc('update_transaction_status', {
-            p_signature: tx.signature,
-            p_status: 'confirmed',
-            p_details: {
-              verifiedAt: new Date().toISOString(),
-              automated: true
-            }
-          });
-          
-          if (updateError) {
-            console.error(`Failed to update transaction ${tx.signature}:`, updateError);
-            failedCount++;
-          } else {
-            console.log(`Successfully verified transaction ${tx.signature}`);
-            verifiedCount++;
+          // Find all orders associated with this transaction
+          const { data: relatedOrders, error: findError } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('transaction_signature', tx.signature)
+            .in('status', ['pending_payment', 'draft']);
             
-            // Update associated order if exists
-            if (tx.order_id) {
-              console.log(`Attempting to confirm order payment for order ${tx.order_id} with signature: ${tx.signature}`);
-              
-              const { data: confirmData, error: orderError } = await supabase.rpc('confirm_order_payment', {
-                p_transaction_signature: tx.signature,
-                p_status: 'confirmed'
-              });
-              
-              if (orderError) {
-                console.error(`Failed to update order for transaction ${tx.signature}:`, orderError);
-              } else {
-                console.log('Order payment confirmation result:', confirmData);
-                
-                // Additional check to verify if the order was updated
-                const { data: orderCheck, error: orderCheckError } = await supabase
-                  .from('orders')
-                  .select('id, status')
-                  .eq('id', tx.order_id)
-                  .single();
-                  
-                if (orderCheckError) {
-                  console.warn(`Could not verify order ${tx.order_id} status after confirmation:`, orderCheckError);
-                } else {
-                  console.log(`Order ${tx.order_id} status after confirmation attempt:`, orderCheck);
-                  
-                  // If order still in pending_payment, try direct update
-                  if (orderCheck && orderCheck.status === 'pending_payment') {
-                    console.log(`Order ${tx.order_id} status still pending, trying direct update`);
-                    
-                    // Exactly match the frontend implementation from useMerchantOrders.ts
-                    const { error: directUpdateError } = await supabase
-                      .from('orders')
-                      .update({ status: 'confirmed' })
-                      .eq('id', tx.order_id)
-                      .eq('status', 'pending_payment');
-                      
-                    if (directUpdateError) {
-                      console.error(`Direct order update failed for order ${tx.order_id}:`, directUpdateError);
-                    } else {
-                      console.log(`Direct order update succeeded for order ${tx.order_id} using exact frontend approach`);
-                    }
-                  }
-                }
+          if (findError) {
+            console.error(`Failed to find orders for transaction ${tx.signature}:`, findError);
+          } else if (relatedOrders && relatedOrders.length > 0) {
+            console.log(`Found ${relatedOrders.length} orders to update for transaction ${tx.signature}`);
+            
+            // Update transaction status to confirmed
+            const { error: updateError } = await supabase.rpc('update_transaction_status', {
+              p_signature: tx.signature,
+              p_status: 'confirmed',
+              p_details: {
+                verifiedAt: new Date().toISOString(),
+                automated: true
               }
+            });
+            
+            if (updateError) {
+              console.error(`Failed to update transaction ${tx.signature}:`, updateError);
+            } else {
+              console.log(`Updated transaction ${tx.signature} status to confirmed`);
+            }
+            
+            // Update each associated order
+            let updatedCount = 0;
+            for (const order of relatedOrders) {
+              try {
+                // Use direct_update_order_status for consistent behavior
+                const { data: updateResult, error: orderError } = await supabase.rpc('direct_update_order_status', {
+                  p_order_id: order.id,
+                  p_status: 'confirmed'
+                });
+                
+                if (orderError) {
+                  console.error(`Failed to update order ${order.id}:`, orderError);
+                  
+                  // Try fallback direct update method
+                  const { error: directError } = await supabase
+                    .from('orders')
+                    .update({ status: 'confirmed' })
+                    .eq('id', order.id)
+                    .eq('status', 'pending_payment');
+                    
+                  if (!directError) {
+                    console.log(`Successfully updated order ${order.id} with fallback method`);
+                    updatedCount++;
+                  } else {
+                    console.error(`Failed to update order ${order.id} with fallback method:`, directError);
+                  }
+                } else {
+                  console.log(`Successfully updated order ${order.id} to confirmed`);
+                  updatedCount++;
+                }
+              } catch (orderError) {
+                console.error(`Error processing order ${order.id}:`, orderError);
+              }
+            }
+            
+            console.log(`Updated ${updatedCount} of ${relatedOrders.length} orders for transaction ${tx.signature}`);
+            verifiedCount++;
+          } else {
+            console.log(`No pending orders found for verified transaction ${tx.signature}`);
+            
+            // Still mark transaction as verified even if no orders were found
+            const { error: updateError } = await supabase.rpc('update_transaction_status', {
+              p_signature: tx.signature,
+              p_status: 'confirmed',
+              p_details: {
+                verifiedAt: new Date().toISOString(),
+                automated: true,
+                noOrdersFound: true
+              }
+            });
+            
+            if (updateError) {
+              console.error(`Failed to update transaction ${tx.signature}:`, updateError);
+            } else {
+              console.log(`Updated transaction ${tx.signature} status to confirmed (no orders found)`);
+              verifiedCount++;
             }
           }
         } else {

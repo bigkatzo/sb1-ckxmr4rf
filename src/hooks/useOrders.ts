@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
 import type { Order, OrderTracking } from '../types/orders';
@@ -34,93 +34,72 @@ export function useOrders() {
   const [error, setError] = useState<string | null>(null);
   const { walletAddress } = useWallet();
 
-  const fetchOrders = useCallback(async () => {
-    try {
-      console.log('Fetching orders, wallet address:', walletAddress);
-      setLoading(true);
-      setError(null);
-
-      // Only fetch orders if wallet is connected
-      if (!walletAddress) {
-        console.log('No wallet address, clearing orders');
-        setOrders([]);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('user_orders')
-        .select('*')
-        .eq('wallet_address', walletAddress)
-        .order('created_at', { ascending: false })
-        .throwOnError();
-
-      console.log('Orders query result:', { data, error });
-
-      if (error) throw error;
-
-      const transformedOrders: Order[] = (data as OrderRow[] || []).map(order => ({
-        id: order.id,
-        order_number: order.order_number,
-        status: order.status,
-        createdAt: new Date(order.created_at),
-        updatedAt: new Date(order.updated_at),
-        product_id: order.product_id,
-        collection_id: order.collection_id,
-        product_name: order.product_name,
-        product_sku: order.product_sku,
-        collection_name: order.collection_name,
-        amountSol: order.amount_sol,
-        category_name: order.category_name,
-        shippingAddress: order.shipping_address,
-        contactInfo: order.contact_info,
-        walletAddress: order.wallet_address,
-        transactionSignature: order.transaction_signature,
-        variant_selections: order.variant_selections || [],
-        product_snapshot: order.product_snapshot,
-        collection_snapshot: order.collection_snapshot,
-        payment_metadata: order.payment_metadata,
-        tracking: order.tracking
-      }));
-
-      console.log('Transformed orders:', transformedOrders);
-      setOrders(transformedOrders);
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch orders');
-      setOrders([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [walletAddress]);
-
+  // Fetch orders when wallet changes
   useEffect(() => {
-    void fetchOrders();
+    if (!walletAddress) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
 
-    // Set up realtime subscription for the specific wallet
-    const channel = supabase.channel('user_orders')
+    setLoading(true);
+    fetchOrders();
+
+    // Set up realtime subscription to order changes
+    const orderSubscription = supabase
+      .channel('orders-channel')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'user_orders',
+          table: 'orders',
           filter: `wallet_address=eq.${walletAddress}`
         },
-        () => {
-          void fetchOrders();
+        (payload) => {
+          console.log(`Realtime update received for: ${payload.table}:${payload.new.id}`);
+          
+          // Refresh orders when changes detected
+          fetchOrders();
         }
       )
       .subscribe();
 
+    // Cleanup subscription
     return () => {
-      void channel.unsubscribe();
+      supabase.removeChannel(orderSubscription);
     };
-  }, [fetchOrders, walletAddress]);
+  }, [walletAddress]);
 
-  return { 
-    orders, 
-    loading, 
-    error, 
-    refreshOrders: fetchOrders
+  // Fetch orders function (extracted for reuse)
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('wallet_address', walletAddress)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching orders:', error);
+        setError(error.message);
+      } else {
+        setOrders(data || []);
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Exception fetching orders:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error fetching orders');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Expose refresh function to manually trigger data refresh
+  const refreshOrders = () => {
+    setLoading(true);
+    fetchOrders();
+  };
+
+  return { orders, loading, error, refreshOrders };
 }

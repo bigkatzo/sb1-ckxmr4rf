@@ -548,47 +548,82 @@ exports.handler = async (event, context) => {
       hasError: !!verification.error
     });
     
-    // 2. Confirm the order payment status if orderId is provided
-    let confirmationResult = { success: true };
-    if (orderId && verification.isValid) {
-      console.log(`🔄 Attempting to confirm order payment for order ${orderId} with transaction ${signature.substring(0, 12)}...`);
-      confirmationResult = await confirmOrderPayment(orderId, signature, verification);
-      console.log(`✅ Order confirmation result for ${orderId}: ${confirmationResult.success ? 'SUCCESS' : 'FAILED'}`);
-      if (!confirmationResult.success) {
-        console.error(`❌ Order confirmation FAILED for ${orderId}: ${confirmationResult.error}`);
+    // 2. Find related orders even if orderId is not provided
+    // This ensures we always attempt to update all orders associated with this transaction
+    let orderIds = [];
+    
+    if (orderId) {
+      // If an orderId was explicitly provided, use it
+      orderIds.push(orderId);
+    } else if (verification.isValid) {
+      // If no orderId but transaction is valid, find all related orders
+      try {
+        const { data: relatedOrders, error: findError } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('transaction_signature', signature)
+          .in('status', ['pending_payment', 'draft']);
+          
+        if (!findError && relatedOrders && relatedOrders.length > 0) {
+          console.log(`Found ${relatedOrders.length} related orders for transaction ${signature.substring(0, 12)}`);
+          orderIds = relatedOrders.map(order => order.id);
+        } else {
+          console.log(`No related orders found for transaction ${signature.substring(0, 12)}`);
+        }
+      } catch (findError) {
+        console.error('Error finding related orders:', findError);
       }
-    } else if (orderId) {
-      console.warn(`⚠️ Not confirming order ${orderId} because verification failed`);
-    } else {
-      console.log('ℹ️ No orderId provided, skipping order confirmation');
     }
     
+    // 3. Attempt to update all related orders if transaction is valid
+    let updatedOrders = [];
+    let failedOrders = [];
+    
+    if (verification.isValid && orderIds.length > 0) {
+      console.log(`Attempting to update ${orderIds.length} orders for transaction ${signature.substring(0, 12)}`);
+      
+      for (const currentOrderId of orderIds) {
+        try {
+          console.log(`Confirming order payment for ${currentOrderId}`);
+          const confirmResult = await confirmOrderPayment(currentOrderId, signature, verification);
+          
+          if (confirmResult.success) {
+            updatedOrders.push(currentOrderId);
+          } else {
+            failedOrders.push({
+              id: currentOrderId,
+              error: confirmResult.error
+            });
+          }
+        } catch (confirmError) {
+          console.error(`Error confirming order ${currentOrderId}:`, confirmError);
+          failedOrders.push({
+            id: currentOrderId,
+            error: confirmError.message || 'Unknown error'
+          });
+        }
+      }
+    } else if (!verification.isValid && orderIds.length > 0) {
+      console.warn(`Not updating orders because transaction verification failed`);
+    } else if (verification.isValid && orderIds.length === 0) {
+      console.log(`Transaction is valid but no orders to update`);
+    }
+    
+    // 4. Return comprehensive response with verification and order update results
     if (!verification.isValid) {
       return {
         statusCode: 400,
         body: JSON.stringify({
           success: false,
           error: verification.error || 'Transaction verification failed',
-          details: verification.details || {}
+          details: verification.details || {},
+          ordersUpdated: updatedOrders,
+          ordersFailed: failedOrders
         })
       };
     }
     
-    if (!confirmationResult.success) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          success: false,
-          error: confirmationResult.error || 'Failed to confirm order',
-          verification: {
-            isValid: verification.isValid,
-            details: verification.details
-          }
-        })
-      };
-    }
-    
-    // Everything was successful
+    // Everything was successful or partially successful
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -596,7 +631,10 @@ exports.handler = async (event, context) => {
         verification: {
           isValid: verification.isValid,
           details: verification.details
-        }
+        },
+        ordersUpdated: updatedOrders,
+        ordersFailed: failedOrders,
+        totalOrdersProcessed: orderIds.length
       })
     };
   } catch (err) {

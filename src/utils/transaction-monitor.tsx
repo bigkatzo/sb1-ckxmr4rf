@@ -111,7 +111,7 @@ export async function monitorTransaction(
         console.log(`Status check ${attempts + 1}:`, status);
 
         if (status?.confirmationStatus === 'finalized') {
-          // Instead of verifying on client, call server-side verification
+          // Transaction is finalized on Solana, send to server for verification and order update
           try {
             const authToken = await getAuthToken();
             
@@ -122,7 +122,9 @@ export async function monitorTransaction(
             
             console.log('Auth token retrieved for verification successfully');
 
-            // First verify the transaction without updating order
+            // Single call to verify transaction and update any associated orders
+            // The server will now handle finding and updating all related orders
+            console.log('Sending transaction to server for verification and order updates');
             const response = await fetch('/.netlify/functions/verify-transaction', {
               method: 'POST',
               headers: {
@@ -131,8 +133,8 @@ export async function monitorTransaction(
               },
               body: JSON.stringify({
                 signature,
-                expectedDetails,
-                orderId: null  // Initial verification without order ID
+                expectedDetails
+                // No need to explicitly include orderId - server will find related orders
               })
             });
             
@@ -241,45 +243,16 @@ export async function monitorTransaction(
               return false;
             }
 
-            // Get order status for the transaction to check if we need to update it
-            const { data: orders, error: orderError } = await supabase
-              .from('orders')
-              .select('id, status')
-              .eq('transaction_signature', signature)
-              .in('status', ['pending_payment', 'confirmed']);
-
-            let orderUpdated = false;
+            // Show order update results in console
+            if (verificationResult.ordersUpdated && verificationResult.ordersUpdated.length > 0) {
+              console.log(`Successfully updated ${verificationResult.ordersUpdated.length} orders:`, verificationResult.ordersUpdated);
+            }
             
-            if (!orderError && orders && orders.length > 0) {
-              const order = orders[0];
-              
-              // Always attempt to confirm the order with a second call regardless of status
-              // This ensures the order status gets updated even if transaction is verified
-              console.log(`Attempting to update transaction status (attempt ${attempts+1}/5)`);
-              const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${authToken}`
-                },
-                body: JSON.stringify({
-                  signature,
-                  orderId: order.id
-                })
-              });
-              
-              if (!confirmResponse.ok) {
-                const errorData = await confirmResponse.json().catch(() => ({ error: 'Failed to confirm order on server' }));
-                console.error('Failed to confirm order on server:', errorData);
-                // Continue anyway since the transaction is valid
-              } else {
-                orderUpdated = true;
-                console.log('Transaction status updated successfully');
-              }
-            } else {
-              console.warn('No matching order found for transaction:', signature);
+            if (verificationResult.ordersFailed && verificationResult.ordersFailed.length > 0) {
+              console.warn(`Failed to update ${verificationResult.ordersFailed.length} orders:`, verificationResult.ordersFailed);
             }
 
+            // Success - transaction verified and orders updated
             const solscanUrl = `https://solscan.io/tx/${signature}`;
             toast.update(toastId, {
               render: () => (
