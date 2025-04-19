@@ -556,19 +556,125 @@ exports.handler = async (event, context) => {
       // If an orderId was explicitly provided, use it
       orderIds.push(orderId);
     } else if (verification.isValid) {
-      // If no orderId but transaction is valid, find all related orders
+      // If no orderId but transaction is valid, find all related orders with expanded search
       try {
-        const { data: relatedOrders, error: findError } = await supabase
+        // First check for exact transaction_signature match
+        const { data: exactOrders, error: exactError } = await supabase
           .from('orders')
-          .select('id')
+          .select('id, status, transaction_signature')
           .eq('transaction_signature', signature)
           .in('status', ['pending_payment', 'draft']);
           
-        if (!findError && relatedOrders && relatedOrders.length > 0) {
-          console.log(`Found ${relatedOrders.length} related orders for transaction ${signature.substring(0, 12)}`);
-          orderIds = relatedOrders.map(order => order.id);
+        if (!exactError && exactOrders && exactOrders.length > 0) {
+          console.log(`Found ${exactOrders.length} orders with exact transaction signature match`);
+          orderIds = exactOrders.map(order => order.id);
         } else {
+          // If no exact match, try a broader search - look for recently created orders that might match this transaction
+          console.log('No exact transaction signature matches found, trying broader search');
+          
+          // Look for orders with same buyer in pending_payment status
+          // This handles cases where the order and transaction were created in close timing
+          if (verification.details && verification.details.buyer) {
+            const buyerAddress = verification.details.buyer;
+            const { data: buyerOrders, error: buyerError } = await supabase
+              .from('orders')
+              .select('id, status, transaction_signature, wallet_address, created_at')
+              .eq('wallet_address', buyerAddress)
+              .in('status', ['pending_payment', 'draft'])
+              .is('transaction_signature', null) // Look for orders without transaction_signature
+              .order('created_at', { ascending: false })
+              .limit(5); // Limit to most recent orders
+            
+            if (!buyerError && buyerOrders && buyerOrders.length > 0) {
+              console.log(`Found ${buyerOrders.length} recent orders from buyer ${buyerAddress.substring(0, 8)}...`);
+              
+              // Link the transaction to the most recent order from this buyer
+              const mostRecentOrder = buyerOrders[0];
+              console.log(`Linking transaction ${signature.substring(0, 12)}... to order ${mostRecentOrder.id}`);
+              
+              // Update the order with this transaction signature
+              const { error: updateError } = await supabase
+                .from('orders')
+                .update({ transaction_signature: signature })
+                .eq('id', mostRecentOrder.id)
+                .is('transaction_signature', null); // Only update if signature is not already set
+                
+              if (updateError) {
+                console.error('Failed to link transaction to order:', updateError);
+              } else {
+                console.log(`Successfully linked transaction to order ${mostRecentOrder.id}`);
+                orderIds.push(mostRecentOrder.id);
+              }
+            } else {
+              console.log(`No matching orders found for buyer ${buyerAddress.substring(0, 8)}...`);
+            }
+          }
+          
+          // If we still don't have an order, check if there's a transaction log entry we can use
+          if (orderIds.length === 0) {
+            const { data: txData, error: txError } = await supabase
+              .from('transaction_logs')
+              .select('product_id, signature')
+              .eq('signature', signature)
+              .single();
+              
+            if (!txError && txData && txData.product_id) {
+              console.log(`Found transaction log entry for product ${txData.product_id}`);
+              
+              // Look for recent orders for this product
+              const { data: productOrders, error: productError } = await supabase
+                .from('orders')
+                .select('id, status, product_id, transaction_signature')
+                .eq('product_id', txData.product_id)
+                .in('status', ['pending_payment', 'draft'])
+                .is('transaction_signature', null) // Look for orders without transaction_signature
+                .order('created_at', { ascending: false })
+                .limit(3);
+                
+              if (!productError && productOrders && productOrders.length > 0) {
+                console.log(`Found ${productOrders.length} recent orders for product ${txData.product_id}`);
+                
+                // Link the transaction to the most recent order for this product
+                const recentProductOrder = productOrders[0];
+                console.log(`Linking transaction ${signature.substring(0, 12)}... to order ${recentProductOrder.id}`);
+                
+                // Update the order with this transaction signature
+                const { error: linkError } = await supabase
+                  .from('orders')
+                  .update({ transaction_signature: signature })
+                  .eq('id', recentProductOrder.id)
+                  .is('transaction_signature', null);
+                  
+                if (linkError) {
+                  console.error('Failed to link transaction to product order:', linkError);
+                } else {
+                  console.log(`Successfully linked transaction to product order ${recentProductOrder.id}`);
+                  orderIds.push(recentProductOrder.id);
+                }
+              }
+            }
+          }
+        }
+        
+        // Try one more time to find orders with the transaction signature
+        // This handles cases where we just linked the signature in previous steps
+        if (orderIds.length === 0) {
+          const { data: finalCheck, error: finalError } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('transaction_signature', signature)
+            .in('status', ['pending_payment', 'draft', 'confirmed']);
+            
+          if (!finalError && finalCheck && finalCheck.length > 0) {
+            console.log(`Found ${finalCheck.length} orders in final check`);
+            orderIds = finalCheck.map(order => order.id);
+          }
+        }
+        
+        if (orderIds.length === 0) {
           console.log(`No related orders found for transaction ${signature.substring(0, 12)}`);
+        } else {
+          console.log(`Found ${orderIds.length} related orders for transaction ${signature.substring(0, 12)}`);
         }
       } catch (findError) {
         console.error('Error finding related orders:', findError);

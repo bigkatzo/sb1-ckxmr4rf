@@ -445,11 +445,16 @@ export function TokenVerificationModal({
         }
 
         // Wait for transaction confirmation using server-side verification
-        const confirmed = await monitorTransaction(signature, (status: TransactionStatus) => {
-          if (status.error) {
-            updateProgressStep(2, 'error', status.error);
-          }
-        }, expectedDetails);
+        const confirmed = await monitorTransaction(
+          signature, 
+          (status: TransactionStatus) => {
+            if (status.error) {
+              updateProgressStep(2, 'error', status.error);
+            }
+          }, 
+          expectedDetails,
+          orderId // Pass the orderId to ensure transaction is linked to order
+        );
 
         if (!confirmed) {
           updateProgressStep(2, 'error', 'Transaction verification failed. Order will remain in pending_payment status for merchant review.');

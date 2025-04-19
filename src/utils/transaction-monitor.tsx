@@ -1,7 +1,6 @@
 import { SOLANA_CONNECTION } from '../config/solana';
 import { toast } from 'react-toastify';
 import { supabase } from '../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
 
 // Keep track of processed signatures to prevent duplicate processing
 const processedSignatures = new Set<string>();
@@ -25,21 +24,6 @@ interface TransactionDetails {
 const MAX_RETRIES = 30;
 const INITIAL_DELAY = 1000;
 
-// Helper function to get auth token
-async function getAuthToken(): Promise<string | null> {
-  try {
-    const supabase = createClient(
-      import.meta.env.VITE_SUPABASE_URL || '',
-      import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-    );
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token || null;
-  } catch (error) {
-    console.warn('Failed to get auth session:', error);
-    return null;
-  }
-}
-
 // Remove or comment out the unused function
 // async function verifyTransactionDetails(
 //   signature: string,
@@ -48,10 +32,22 @@ async function getAuthToken(): Promise<string | null> {
 //   // Function body removed as it's unused
 // }
 
+// Add getAuthToken helper function if it doesn't exist
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || null;
+  } catch (error) {
+    console.error('Failed to get auth session:', error);
+    return null;
+  }
+}
+
 export async function monitorTransaction(
   signature: string,
   onStatusUpdate: (status: TransactionStatus) => void,
-  expectedDetails?: TransactionDetails
+  expectedDetails?: TransactionDetails,
+  orderId?: string // Add orderId parameter to explicitly link transaction to order
 ): Promise<boolean> {
   // Add defensive check for signature
   if (!signature || typeof signature !== 'string') {
@@ -97,6 +93,26 @@ export async function monitorTransaction(
       signature
     });
 
+    // If we have an orderId, immediately link the transaction signature to the order
+    // This ensures the server can find the order when verifying the transaction
+    if (orderId) {
+      try {
+        console.log(`Linking transaction ${signature} to order ${orderId}`);
+        const { error } = await supabase
+          .from('orders')
+          .update({ transaction_signature: signature })
+          .eq('id', orderId);
+          
+        if (error) {
+          console.error('Failed to link transaction to order:', error);
+        } else {
+          console.log(`Successfully linked transaction ${signature} to order ${orderId}`);
+        }
+      } catch (linkError) {
+        console.error('Error linking transaction to order:', linkError);
+      }
+    }
+
     // Initial delay to allow transaction to propagate
     await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -133,8 +149,8 @@ export async function monitorTransaction(
               },
               body: JSON.stringify({
                 signature,
-                expectedDetails
-                // No need to explicitly include orderId - server will find related orders
+                expectedDetails,
+                orderId // Include orderId if available
               })
             });
             
@@ -243,16 +259,39 @@ export async function monitorTransaction(
               return false;
             }
 
-            // Show order update results in console
-            if (verificationResult.ordersUpdated && verificationResult.ordersUpdated.length > 0) {
-              console.log(`Successfully updated ${verificationResult.ordersUpdated.length} orders:`, verificationResult.ordersUpdated);
-            }
-            
-            if (verificationResult.ordersFailed && verificationResult.ordersFailed.length > 0) {
-              console.warn(`Failed to update ${verificationResult.ordersFailed.length} orders:`, verificationResult.ordersFailed);
+            // Get order status for the transaction to check if we need to update it
+            const { data: orders, error: orderError } = await supabase
+              .from('orders')
+              .select('id, status')
+              .eq('transaction_signature', signature)
+              .in('status', ['pending_payment', 'confirmed']);
+
+            if (!orderError && orders && orders.length > 0) {
+              const order = orders[0];
+              
+              // Only send order ID for confirmation if still in pending_payment status
+              if (order.status === 'pending_payment') {
+                // Make another call to server to confirm the order
+                const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                  },
+                  body: JSON.stringify({
+                    signature,
+                    orderId: order.id
+                  })
+                });
+                
+                if (!confirmResponse.ok) {
+                  const errorData = await confirmResponse.json().catch(() => ({ error: 'Failed to confirm order on server' }));
+                  console.error('Failed to confirm order on server:', errorData);
+                  // Continue anyway since the transaction is valid
+                }
+              }
             }
 
-            // Success - transaction verified and orders updated
             const solscanUrl = `https://solscan.io/tx/${signature}`;
             toast.update(toastId, {
               render: () => (
