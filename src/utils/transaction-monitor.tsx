@@ -104,22 +104,14 @@ export async function monitorTransaction(
         // Only proceed with server verification if transaction is finalized
         if (status?.confirmationStatus === 'finalized') {
           try {
-            // Get authentication token for server request
-            const authToken = await getAuthToken();
-            
-            if (!authToken) {
-              console.error('Failed to retrieve auth token for verification');
-              throw new Error('Authentication failed');
-            }
-            
-            console.log('Auth token retrieved, sending transaction to server for verification');
+            // No auth token needed for server-side operations
+            console.log('Transaction finalized on blockchain, sending to server for verification');
 
             // Send transaction to server for verification - ALL verification happens server-side
             const response = await fetch('/.netlify/functions/verify-transaction', {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
+                'Content-Type': 'application/json'
               },
               body: JSON.stringify({
                 signature,

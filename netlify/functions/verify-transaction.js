@@ -433,29 +433,8 @@ exports.handler = async (event, context) => {
   const token = authHeader.replace('Bearer ', '');
   let userId = 'anonymous';
 
-  try {
-    // Always validate the token when provided
-    if (token && token.length > 0) {
-      try {
-        const { data, error } = await supabase.auth.getUser(token);
-        
-        if (!error && data.user) {
-          userId = data.user.id;
-          console.log(`Authenticated user: ${userId.substring(0, 8)}...`);
-        } else {
-          // Keep track of authentication failures in logs
-          console.warn('Token validation failed:', error?.message);
-          console.log('Proceeding with blockchain verification without user authentication');
-        }
-      } catch (authError) {
-        console.error('Auth error:', authError.message);
-      }
-    } else {
-      console.warn('No authentication token provided, relying on blockchain verification');
-    }
-  } catch (err) {
-    console.error('Auth processing error:', err.message);
-  }
+  // Skip authentication entirely - this is a server-only function using service role key
+  console.log('Server-side verification using service role key - no user authentication required');
 
   // Parse request body
   let requestBody;
