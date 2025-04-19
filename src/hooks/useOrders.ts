@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
-import type { Order, OrderTracking } from '../types/orders';
+import type { Order, OrderTracking, ShippingAddress, ContactInfo, OrderVariant, ProductSnapshot, CollectionSnapshot, PaymentMetadata } from '../types/orders';
 
 // Define the database row type for type safety
 interface OrderRow {
@@ -17,14 +17,14 @@ interface OrderRow {
   collection_name: string;
   amount_sol: number;
   category_name: string;
-  shipping_address: any;
-  contact_info: any;
+  shipping_address: ShippingAddress;
+  contact_info: ContactInfo;
   wallet_address: string;
-  transaction_signature: string;
-  variant_selections: any[];
-  product_snapshot: any;
-  collection_snapshot: any;
-  payment_metadata: any;
+  transaction_signature: string | null;
+  variant_selections: OrderVariant[];
+  product_snapshot: ProductSnapshot;
+  collection_snapshot: CollectionSnapshot;
+  payment_metadata: PaymentMetadata | null;
   tracking: OrderTracking | null;
 }
 
@@ -84,7 +84,32 @@ export function useOrders() {
         console.error('Error fetching orders:', error);
         setError(error.message);
       } else {
-        setOrders(data || []);
+        // Convert database rows to Order objects
+        const mappedOrders: Order[] = (data || []).map((row: OrderRow) => ({
+          id: row.id,
+          order_number: row.order_number,
+          status: row.status,
+          createdAt: new Date(row.created_at),
+          updatedAt: new Date(row.updated_at),
+          product_id: row.product_id,
+          collection_id: row.collection_id,
+          product_name: row.product_name,
+          product_sku: row.product_sku,
+          collection_name: row.collection_name,
+          amountSol: row.amount_sol,
+          category_name: row.category_name,
+          shippingAddress: row.shipping_address,
+          contactInfo: row.contact_info,
+          walletAddress: row.wallet_address,
+          transactionSignature: row.transaction_signature || undefined,
+          variant_selections: row.variant_selections,
+          product_snapshot: row.product_snapshot,
+          collection_snapshot: row.collection_snapshot,
+          payment_metadata: row.payment_metadata || undefined,
+          tracking: row.tracking
+        }));
+        
+        setOrders(mappedOrders);
         setError(null);
       }
     } catch (err) {
