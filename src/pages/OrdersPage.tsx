@@ -16,6 +16,26 @@ import {
 } from '../utils/transactions';
 import { SupportMessage } from '../components/ui/SupportMessage';
 
+// Helper function to safely parse dates
+const safeParseDate = (date: any): Date => {
+  if (!date) return new Date(); // Default to current date if no date provided
+  if (date instanceof Date) return date;
+  try {
+    if (typeof date === 'string') {
+      const parsed = new Date(date);
+      // Check if the parsed date is valid
+      if (isNaN(parsed.getTime())) {
+        console.warn('Invalid date string:', date);
+        return new Date();
+      }
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('Error parsing date:', error);
+  }
+  return new Date();
+};
+
 export function OrdersPage() {
   const { walletAddress } = useWallet();
   const { orders, loading, error } = useOrders();
@@ -209,7 +229,7 @@ export function OrdersPage() {
                   </div>
                   {/* Mobile Date */}
                   <div className="sm:hidden">
-                    <span className="text-[10px] text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                    <span className="text-[10px] text-gray-400">{formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}</span>
                   </div>
 
                   {/* Desktop Layout - All inline */}
@@ -220,7 +240,7 @@ export function OrdersPage() {
                         <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
                       </div>
                       <span className="text-gray-600">•</span>
-                      <span className="text-xs text-gray-400">{formatDistanceToNow(order.createdAt, { addSuffix: true })}</span>
+                      <span className="text-xs text-gray-400">{formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}</span>
                     </div>
                     <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
                       {getStatusIcon(order.status)}
