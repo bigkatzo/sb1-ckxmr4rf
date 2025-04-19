@@ -128,7 +128,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
       
       setImages(newImages);
       setPreviews(newPreviews);
-      setValue('imageFiles', newImages);
+      setValue('imageFiles', newImages, { shouldDirty: true, shouldTouch: true });
     }
   };
   
@@ -139,8 +139,8 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
     
     setRemovedImages(newRemovedImages);
     setExistingImages(newExistingImages);
-    setValue('removedImages', newRemovedImages);
-    setValue('existingImages', newExistingImages);
+    setValue('removedImages', newRemovedImages, { shouldDirty: true, shouldTouch: true });
+    setValue('existingImages', newExistingImages, { shouldDirty: true, shouldTouch: true });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -162,7 +162,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
       const newExistingImages = arrayMove(existingImages, oldIndex, newIndex);
       
       setExistingImages(newExistingImages);
-      setValue('existingImages', newExistingImages);
+      setValue('existingImages', newExistingImages, { shouldDirty: true, shouldTouch: true });
     } else if (!isActiveExisting && !isOverExisting) {
       // Both are new images
       const oldIndex = previews.indexOf(activeId);
@@ -174,7 +174,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
         
         setImages(newImages);
         setPreviews(newPreviews);
-        setValue('imageFiles', newImages);
+        setValue('imageFiles', newImages, { shouldDirty: true, shouldTouch: true });
       }
     }
   };
