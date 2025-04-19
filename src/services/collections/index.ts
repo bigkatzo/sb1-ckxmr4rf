@@ -26,18 +26,6 @@ export async function createCollection(data: FormData) {
       const slug = data.get('slug') as string || generateSlug(name as string);
       if (!slug) throw new Error('Invalid collection ID');
 
-      // Handle image upload first if present
-      const imageFile = data.get('image') as File;
-      let imageUrl = '';
-      
-      if (imageFile && imageFile instanceof File) {
-        try {
-          imageUrl = await uploadCollectionImage(imageFile);
-        } catch (uploadError) {
-          throw new Error('Failed to upload collection image. Please try again.');
-        }
-      }
-
       // Parse tags with fallback
       let tags = [];
       try {
@@ -47,6 +35,18 @@ export async function createCollection(data: FormData) {
         }
       } catch (e) {
         throw new Error('Invalid tags format');
+      }
+      
+      // Handle image upload AFTER validation has passed
+      const imageFile = data.get('image') as File;
+      let imageUrl = '';
+      
+      if (imageFile && imageFile instanceof File) {
+        try {
+          imageUrl = await uploadCollectionImage(imageFile);
+        } catch (uploadError) {
+          throw new Error('Failed to upload collection image. Please try again.');
+        }
       }
 
       const collectionData = {
@@ -134,8 +134,31 @@ export async function updateCollection(id: string, data: FormData) {
         throw new Error('Collection not found or access denied');
       }
     }
+    
+    // Validate required fields before handling image upload
+    const name = data.get('name');
+    if (!name) throw new Error('Collection name is required');
+    
+    const launchDate = data.get('launchDate');
+    if (!launchDate) throw new Error('Launch date is required');
+    const parsedDate = parseFormDate(launchDate as string);
+    if (!parsedDate) throw new Error('Invalid launch date format');
+    
+    const slug = data.get('slug') as string;
+    if (!slug) throw new Error('Slug is required');
+    
+    // Parse tags
+    let tags = [];
+    try {
+      const tagsStr = data.get('tags');
+      if (tagsStr) {
+        tags = JSON.parse(tagsStr as string);
+      }
+    } catch (e) {
+      throw new Error('Invalid tags format');
+    }
 
-    // Handle image upload if present
+    // Handle image upload AFTER validation has passed
     const imageFile = data.get('image') as File;
     let imageUrl = existingCollection.image_url;
     
@@ -150,14 +173,14 @@ export async function updateCollection(id: string, data: FormData) {
     }
 
     const updateData = {
-      name: data.get('name') as string,
+      name: name as string,
       description: data.get('description') as string,
       image_url: imageUrl,
-      launch_date: parseFormDate(data.get('launchDate') as string).toISOString(),
-      slug: data.get('slug') as string,
+      launch_date: parsedDate.toISOString(),
+      slug,
       visible: data.get('visible') === 'true',
       sale_ended: data.get('sale_ended') === 'true',
-      tags: JSON.parse(data.get('tags') as string || '[]'),
+      tags,
       updated_at: new Date().toISOString()
     };
 

@@ -131,15 +131,23 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       const imageFiles = data.imageFiles;
       if (Array.isArray(imageFiles) && imageFiles.length > 0) {
         setUploading(true);
+        console.log(`Preparing to upload ${imageFiles.length} image files`);
         imageFiles.forEach((file, index) => {
+          console.log(`Adding image${index} to form data:`, file.name);
           formData.append(`image${index}`, file);
         });
+      } else {
+        console.log('No image files to upload');
       }
 
       // Add current images if editing
       if (initialData?.images) {
         formData.append('currentImages', JSON.stringify(data.existingImages || []));
         formData.append('removedImages', JSON.stringify(data.removedImages || []));
+      } else {
+        // Ensure these fields are always included, even for new products
+        formData.append('currentImages', JSON.stringify([]));
+        formData.append('removedImages', JSON.stringify([]));
       }
 
       // Add variant data

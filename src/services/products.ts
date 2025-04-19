@@ -3,20 +3,7 @@ import { uploadProductImages } from './products/upload';
 
 export async function createProduct(collectionId: string, data: FormData) {
   try {
-    // Upload images first
-    const images: string[] = [];
-    for (let i = 0; data.get(`image${i}`); i++) {
-      const imageFile = data.get(`image${i}`) as File;
-      if (imageFile instanceof File) {
-        const imageUrls = await uploadProductImages([imageFile]);
-        images.push(...imageUrls);
-      }
-    }
-
-    // Parse variant data
-    const variants = JSON.parse(data.get('variants') as string || '[]');
-    const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
-
+    // Validate critical form fields first
     // Get category ID
     const categoryId = data.get('categoryId');
     if (!categoryId) {
@@ -35,6 +22,10 @@ export async function createProduct(collectionId: string, data: FormData) {
     if (isNaN(price)) {
       throw new Error('Invalid price value');
     }
+
+    // Parse variant data
+    const variants = JSON.parse(data.get('variants') as string || '[]');
+    const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
 
     // Handle notes according to database constraint
     const shippingNote = data.get('notes.shipping');
@@ -57,6 +48,29 @@ export async function createProduct(collectionId: string, data: FormData) {
     // Handle free notes
     const freeNotesValue = data.get('freeNotes');
     const freeNotes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
+
+    // Upload images AFTER all validation has passed
+    const images: string[] = [];
+    console.log('Starting image processing for product creation');
+    
+    // Debug: List all form data keys to see what's present
+    console.log('Form data keys:', Array.from(data.keys()));
+    
+    for (let i = 0; data.get(`image${i}`); i++) {
+      const imageFile = data.get(`image${i}`) as File;
+      console.log(`Processing image ${i}:`, imageFile instanceof File ? 'Valid file' : 'Not a file');
+      if (imageFile instanceof File) {
+        try {
+          const imageUrls = await uploadProductImages([imageFile]);
+          console.log(`Image ${i} uploaded successfully:`, imageUrls);
+          images.push(...imageUrls);
+        } catch (uploadError) {
+          console.error(`Error uploading image ${i}:`, uploadError);
+          throw new Error(`Failed to upload image: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+        }
+      }
+    }
+    console.log('Completed image processing, total images:', images.length);
 
     const { error } = await supabase
       .from('products')
@@ -100,13 +114,29 @@ export async function updateProduct(id: string, data: FormData) {
       throw new Error(`Failed to fetch current product: ${fetchError.message}`);
     }
     
+    // Validate critical form fields first
+    const name = data.get('name') as string;
+    if (!name) {
+      throw new Error('Name is required');
+    }
+    
+    const price = parseFloat(data.get('price') as string);
+    if (isNaN(price)) {
+      throw new Error('Invalid price value');
+    }
+    
+    const categoryId = data.get('categoryId') as string;
+    if (!categoryId) {
+      throw new Error('Category is required');
+    }
+    
     // Prepare basic product data
     const updateData: Record<string, any> = {
-      name: data.get('name') as string,
+      name,
       description: data.get('description') as string,
-      price: parseFloat(data.get('price') as string) || 0,
+      price,
       quantity: data.get('stock') ? parseInt(data.get('stock') as string, 10) : null,
-      category_id: data.get('categoryId') as string,
+      category_id: categoryId,
       minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
       visible: data.get('visible') === 'true',
       price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
@@ -141,7 +171,21 @@ export async function updateProduct(id: string, data: FormData) {
       updateData.free_notes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
     }
     
-    // 1. Process image changes if any
+    // 1. Process variant data if provided
+    if (data.get('variants') !== null) {
+      const variantsStr = data.get('variants') as string;
+      const variants = JSON.parse(variantsStr || '[]');
+      updateData.variants = variants;
+    }
+    
+    // 2. Process variant prices if provided
+    if (data.get('variantPrices') !== null) {
+      const pricesStr = data.get('variantPrices') as string;
+      const variantPrices = JSON.parse(pricesStr || '{}');
+      updateData.variant_prices = variantPrices;
+    }
+    
+    // 3. Process image changes if any (AFTER all validation has passed)
     if (data.get('currentImages') !== null || data.get('image0') !== null) {
       // Upload any new images first
       const newImageUrls: string[] = [];
@@ -180,20 +224,6 @@ export async function updateProduct(id: string, data: FormData) {
       }
       
       updateData.images = finalImages;
-    }
-    
-    // 2. Process variant data if provided
-    if (data.get('variants') !== null) {
-      const variantsStr = data.get('variants') as string;
-      const variants = JSON.parse(variantsStr || '[]');
-      updateData.variants = variants;
-    }
-    
-    // 3. Process variant prices if provided
-    if (data.get('variantPrices') !== null) {
-      const pricesStr = data.get('variantPrices') as string;
-      const variantPrices = JSON.parse(pricesStr || '{}');
-      updateData.variant_prices = variantPrices;
     }
     
     // Perform the update with all necessary fields
