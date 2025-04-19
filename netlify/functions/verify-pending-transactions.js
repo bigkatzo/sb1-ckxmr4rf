@@ -153,19 +153,17 @@ async function verifyPendingTransactions() {
                   if (orderCheck && orderCheck.status === 'pending_payment') {
                     console.log(`Order ${tx.order_id} status still pending, trying direct update`);
                     
+                    // Exactly match the frontend implementation from useMerchantOrders.ts
                     const { error: directUpdateError } = await supabase
                       .from('orders')
-                      .update({ 
-                        status: 'confirmed',
-                        updated_at: new Date().toISOString()
-                      })
+                      .update({ status: 'confirmed' })
                       .eq('id', tx.order_id)
                       .eq('status', 'pending_payment');
                       
                     if (directUpdateError) {
                       console.error(`Direct order update failed for order ${tx.order_id}:`, directUpdateError);
                     } else {
-                      console.log(`Direct order update succeeded for order ${tx.order_id}`);
+                      console.log(`Direct order update succeeded for order ${tx.order_id} using exact frontend approach`);
                     }
                   }
                 }

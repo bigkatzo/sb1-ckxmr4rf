@@ -301,22 +301,17 @@ async function confirmOrderPayment(orderId, signature, verification) {
         // Update order directly using SQL - matching frontend fallback approach
         const { error: updateError } = await supabase.rpc('direct_update_order_status', {
           p_order_id: orderId,
-          p_status: 'confirmed',
-          p_payment_confirmed_at: new Date().toISOString()
+          p_status: 'confirmed'
         });
         
         if (updateError) {
           console.error('Direct order update via RPC failed:', updateError);
           
-          // Last resort: Update order using regular data API
-          console.log('Attempting last-resort direct table update');
+          // Last resort: Exactly match what the frontend does in useMerchantOrders.ts
+          console.log('Attempting last-resort direct table update using exact frontend approach');
           const { error: directUpdateError } = await supabase
             .from('orders')
-            .update({
-              status: 'confirmed',
-              updated_at: new Date().toISOString(),
-              payment_confirmed_at: new Date().toISOString(),
-            })
+            .update({ status: 'confirmed' })
             .eq('id', orderId)
             .eq('status', 'pending_payment');
             
@@ -324,7 +319,7 @@ async function confirmOrderPayment(orderId, signature, verification) {
             console.error('Last-resort direct update failed:', directUpdateError);
             return { success: false, error: 'All order update methods failed' };
           } else {
-            console.log('Last-resort direct update succeeded');
+            console.log('Last-resort direct update succeeded using exact frontend approach');
           }
         } else {
           console.log('Direct order status update via RPC succeeded');

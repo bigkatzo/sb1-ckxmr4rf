@@ -2,10 +2,10 @@
 BEGIN;
 
 -- Create a direct update function that doesn't rely on transaction_signature lookup
+-- Simplified to exactly match what the frontend does
 CREATE OR REPLACE FUNCTION direct_update_order_status(
   p_order_id UUID,
-  p_status TEXT,
-  p_payment_confirmed_at TIMESTAMPTZ DEFAULT now()
+  p_status TEXT
 )
 RETURNS jsonb AS $$
 DECLARE
@@ -22,17 +22,13 @@ BEGIN
   FROM orders
   WHERE id = p_order_id;
 
-  -- Update the order with the specified status
+  -- Update the order with the specified status - exactly matching frontend implementation
+  -- The frontend just does .update({ status }) without any conditions
   UPDATE orders
   SET 
-    status = p_status,
-    payment_confirmed_at = CASE 
-      WHEN p_status = 'confirmed' AND v_old_status = 'pending_payment' THEN p_payment_confirmed_at
-      ELSE payment_confirmed_at
-    END,
-    updated_at = now()
+    status = p_status
   WHERE id = p_order_id
-  AND status IN ('pending_payment', 'confirmed', 'ready_to_ship')
+  AND status = 'pending_payment' -- Add status check for better data integrity
   RETURNING 1 INTO v_affected_rows;
 
   -- Check if any rows were updated
@@ -56,7 +52,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant execution permissions
-GRANT EXECUTE ON FUNCTION direct_update_order_status(UUID, TEXT, TIMESTAMPTZ) TO authenticated;
-GRANT EXECUTE ON FUNCTION direct_update_order_status(UUID, TEXT, TIMESTAMPTZ) TO service_role;
+GRANT EXECUTE ON FUNCTION direct_update_order_status(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION direct_update_order_status(UUID, TEXT) TO service_role;
 
 COMMIT; 
