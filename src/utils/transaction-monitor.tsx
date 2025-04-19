@@ -1,6 +1,7 @@
 import { SOLANA_CONNECTION } from '../config/solana';
 import { toast } from 'react-toastify';
 import { supabase } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 // Keep track of processed signatures to prevent duplicate processing
 const processedSignatures = new Set<string>();
@@ -23,6 +24,21 @@ interface TransactionDetails {
 
 const MAX_RETRIES = 30;
 const INITIAL_DELAY = 1000;
+
+// Helper function to get auth token
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const supabase = createClient(
+      import.meta.env.VITE_SUPABASE_URL || '',
+      import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+    );
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || null;
+  } catch (error) {
+    console.warn('Failed to get auth session:', error);
+    return null;
+  }
+}
 
 // Remove or comment out the unused function
 // async function verifyTransactionDetails(
@@ -95,18 +111,18 @@ export async function monitorTransaction(
         console.log(`Status check ${attempts + 1}:`, status);
 
         if (status?.confirmationStatus === 'finalized') {
-          // Get auth token for API call
-          let authToken = '';
-          try {
-            const { data } = await supabase.auth.getSession();
-            authToken = data.session?.access_token || '';
-          } catch (error) {
-            console.warn('Failed to get auth session:', error);
-            // Continue without auth token
-          }
-          
           // Instead of verifying on client, call server-side verification
           try {
+            const authToken = await getAuthToken();
+            
+            if (!authToken) {
+              console.error('Failed to retrieve auth token for verification');
+              throw new Error('Authentication failed');
+            }
+            
+            console.log('Auth token retrieved for verification successfully');
+
+            // First verify the transaction without updating order
             const response = await fetch('/.netlify/functions/verify-transaction', {
               method: 'POST',
               headers: {
@@ -116,7 +132,7 @@ export async function monitorTransaction(
               body: JSON.stringify({
                 signature,
                 expectedDetails,
-                orderId: null  // Will be set if we know the order ID
+                orderId: null  // Initial verification without order ID
               })
             });
             
@@ -232,30 +248,36 @@ export async function monitorTransaction(
               .eq('transaction_signature', signature)
               .in('status', ['pending_payment', 'confirmed']);
 
+            let orderUpdated = false;
+            
             if (!orderError && orders && orders.length > 0) {
               const order = orders[0];
               
-              // Only send order ID for confirmation if still in pending_payment status
-              if (order.status === 'pending_payment') {
-                // Make another call to server to confirm the order
-                const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`
-                  },
-                  body: JSON.stringify({
-                    signature,
-                    orderId: order.id
-                  })
-                });
-                
-                if (!confirmResponse.ok) {
-                  const errorData = await confirmResponse.json().catch(() => ({ error: 'Failed to confirm order on server' }));
-                  console.error('Failed to confirm order on server:', errorData);
-                  // Continue anyway since the transaction is valid
-                }
+              // Always attempt to confirm the order with a second call regardless of status
+              // This ensures the order status gets updated even if transaction is verified
+              console.log(`Attempting to update transaction status (attempt ${attempts+1}/5)`);
+              const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({
+                  signature,
+                  orderId: order.id
+                })
+              });
+              
+              if (!confirmResponse.ok) {
+                const errorData = await confirmResponse.json().catch(() => ({ error: 'Failed to confirm order on server' }));
+                console.error('Failed to confirm order on server:', errorData);
+                // Continue anyway since the transaction is valid
+              } else {
+                orderUpdated = true;
+                console.log('Transaction status updated successfully');
               }
+            } else {
+              console.warn('No matching order found for transaction:', signature);
             }
 
             const solscanUrl = `https://solscan.io/tx/${signature}`;
