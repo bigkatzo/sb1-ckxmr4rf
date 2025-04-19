@@ -24,7 +24,7 @@ const { createConnectionWithRetry, verifyTransaction } = require('./shared/rpc-s
 const ENV = {
   // Supabase
   SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-  SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   
   // Helius API Key
   HELIUS_API_KEY: process.env.HELIUS_API_KEY || process.env.VITE_HELIUS_API_KEY || '',
@@ -38,8 +38,9 @@ let supabase;
 try {
   supabase = createClient(
     ENV.SUPABASE_URL || 'https://placeholder-url.supabase.co',
-    ENV.SUPABASE_KEY || 'placeholder-key-for-initialization'
+    ENV.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key-for-initialization'
   );
+  console.log('Supabase client initialized successfully with service role permissions');
 } catch (err) {
   console.error('Failed to initialize Supabase client:', err.message);
   // We'll handle this in the handler function

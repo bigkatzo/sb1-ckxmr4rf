@@ -26,7 +26,7 @@ const { createConnectionWithRetry, verifyTransaction } = require('./shared/rpc-s
 const ENV = {
   // Supabase
   SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-  SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   
   // Helius API Key
   HELIUS_API_KEY: process.env.HELIUS_API_KEY || process.env.VITE_HELIUS_API_KEY || '',
@@ -43,21 +43,22 @@ try {
     console.error('Missing or invalid SUPABASE_URL environment variable');
   }
   
-  if (!ENV.SUPABASE_KEY || ENV.SUPABASE_KEY === 'placeholder-key-for-initialization') {
+  if (!ENV.SUPABASE_SERVICE_ROLE_KEY || ENV.SUPABASE_SERVICE_ROLE_KEY === 'placeholder-key-for-initialization') {
     console.error('Missing or invalid SUPABASE_SERVICE_ROLE_KEY environment variable');
   }
   
   // Only create client if we have reasonable values
-  if (ENV.SUPABASE_URL && ENV.SUPABASE_KEY && 
+  if (ENV.SUPABASE_URL && ENV.SUPABASE_SERVICE_ROLE_KEY && 
       ENV.SUPABASE_URL !== 'https://placeholder-url.supabase.co' && 
-      ENV.SUPABASE_KEY !== 'placeholder-key-for-initialization') {
-    supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_KEY);
-    console.log('Supabase client initialized successfully');
+      ENV.SUPABASE_SERVICE_ROLE_KEY !== 'placeholder-key-for-initialization') {
+    supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY);
+    console.log('Supabase client initialized successfully with service role permissions');
+    console.log(`Connected to database: ${ENV.SUPABASE_URL}`);
   } else {
     console.warn('Using fallback Supabase values - database operations will likely fail');
     supabase = createClient(
       ENV.SUPABASE_URL || 'https://placeholder-url.supabase.co',
-      ENV.SUPABASE_KEY || 'placeholder-key-for-initialization'
+      ENV.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key-for-initialization'
     );
   }
 } catch (err) {
@@ -264,7 +265,7 @@ async function confirmOrderPayment(orderId, signature, verification) {
     
     // STEP 2: Try to use the confirm_order_payment RPC function if order is pending_payment
     if (orderData.status === 'pending_payment') {
-      console.log(`Attempting to confirm order ${orderId} payment with signature: ${signature}`);
+      console.log(`Attempting to confirm order ${orderId} payment with signature: ${signature} (via RPC function with service role)`);
       
       try {
         const { data: confirmData, error: confirmError } = await supabase.rpc('confirm_order_payment', {
@@ -299,6 +300,7 @@ async function confirmOrderPayment(orderId, signature, verification) {
       
       try {
         // Update order directly using SQL - matching frontend fallback approach
+        console.log(`Using direct_update_order_status RPC with service role permissions for order ${orderId}`);
         const { data: updateData, error: updateError } = await supabase.rpc('direct_update_order_status', {
           p_order_id: orderId,
           p_status: 'confirmed'
@@ -308,7 +310,7 @@ async function confirmOrderPayment(orderId, signature, verification) {
           console.error('Direct order update via RPC failed:', updateError);
           
           // Last resort: Exactly match what the frontend does in useMerchantOrders.ts
-          console.log('Attempting last-resort direct table update using exact frontend approach');
+          console.log('Attempting last-resort direct table update using exact frontend approach with service role');
           const { error: directUpdateError } = await supabase
             .from('orders')
             .update({ status: 'confirmed' })
@@ -450,7 +452,29 @@ exports.handler = async (event, context) => {
   if (!SOLANA_CONNECTION && Connection) {
     try {
       console.log('Initializing Solana connection with robust WebSocket support...');
+      
+      // Log which API keys are available
+      if (ENV.HELIUS_API_KEY) {
+        console.log(`Using Helius RPC with key: ${ENV.HELIUS_API_KEY.substring(0, 4)}...${ENV.HELIUS_API_KEY.substring(ENV.HELIUS_API_KEY.length - 4)}`);
+      } else {
+        console.warn('Helius API key not found');
+      }
+      
+      if (ENV.ALCHEMY_API_KEY) {
+        console.log(`Alchemy API key available: ${ENV.ALCHEMY_API_KEY.substring(0, 4)}...${ENV.ALCHEMY_API_KEY.substring(ENV.ALCHEMY_API_KEY.length - 4)}`);
+      } else {
+        console.warn('Alchemy API key not found - fallback may not work');
+      }
+      
       SOLANA_CONNECTION = await createConnectionWithRetry(ENV);
+      
+      // Validate we have a working connection
+      try {
+        const blockHeight = await SOLANA_CONNECTION.getBlockHeight();
+        console.log(`✅ Connected successfully, current block height: ${blockHeight}`);
+      } catch (connErr) {
+        console.error('Connection test failed:', connErr.message);
+      }
     } catch (err) {
       console.error('Failed to initialize Solana connection:', err.message);
     }

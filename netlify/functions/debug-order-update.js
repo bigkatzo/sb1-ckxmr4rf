@@ -9,11 +9,11 @@ const { createClient } = require('@supabase/supabase-js');
 // Environment variables with multiple fallbacks
 const ENV = {
   SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-  SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
 };
 
 // Initialize Supabase client
-const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_KEY);
+const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY);
 
 exports.handler = async (event, context) => {
   console.log('Function invoked:', { 
