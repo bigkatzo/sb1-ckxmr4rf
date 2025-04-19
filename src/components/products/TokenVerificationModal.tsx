@@ -289,39 +289,75 @@ export function TokenVerificationModal({
           // For 100% discount, create order directly without payment
           updateProgressStep(0, 'processing', 'Creating your free order...');
         
-          const { data: createdOrderId, error: createError } = await supabase.rpc('create_order', {
-            p_product_id: product.id,
-            p_variants: formattedVariantSelections,
-            p_shipping_info: formattedShippingInfo,
-            p_wallet_address: walletAddress,
-            p_payment_metadata: paymentMetadata
+          const response = await fetch('/.netlify/functions/create-order', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              productId: product.id,
+              variants: formattedVariantSelections,
+              shippingInfo: formattedShippingInfo,
+              walletAddress,
+              paymentMetadata
+            })
           });
 
-          if (createError) throw createError;
-          orderId = createdOrderId;
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create order');
+          }
+
+          const data = await response.json();
+          orderId = data.orderId;
           updateProgressStep(0, 'completed');
 
           // Generate unique transaction signature for free orders
           updateProgressStep(1, 'processing', 'Processing free order...');
           const uniqueSignature = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
 
-          // Update order with unique transaction signature for free orders
-          const { error: updateError } = await supabase.rpc('update_order_transaction', {
-            p_order_id: orderId,
-            p_transaction_signature: uniqueSignature,
-            p_amount_sol: 0
+          // Call the serverless function instead
+          const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              orderId,
+              transactionSignature: uniqueSignature,
+              amountSol: 0
+            })
           });
 
-          if (updateError) throw updateError;
+          if (!updateResponse.ok) {
+            const errorData = await updateResponse.json();
+            throw new Error(errorData.error || 'Failed to update order transaction');
+          }
+
           updateProgressStep(1, 'completed');
 
           // Confirm the order immediately since it's free
           updateProgressStep(2, 'processing', 'Confirming order...');
-          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-            p_order_id: orderId
+          const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              orderId,
+              signature: uniqueSignature,  // For free orders
+              expectedDetails: {
+                amount: 0,
+                buyer: walletAddress || '',
+                recipient: product.collectionId
+              }
+            })
           });
 
-          if (confirmError) throw confirmError;
+          if (!confirmResponse.ok) {
+            const errorData = await confirmResponse.json();
+            throw new Error(errorData.error || 'Failed to confirm order transaction');
+          }
 
           // Fetch order number
           const { data: orderData, error: fetchError } = await supabase
@@ -362,16 +398,27 @@ export function TokenVerificationModal({
       // Retry order creation up to 3 times
       for (let i = 0; i < 3; i++) {
         try {
-          const { data: order, error } = await supabase.rpc('create_order', {
-            p_product_id: product.id,
-            p_variants: formattedVariantSelections,
-            p_shipping_info: formattedShippingInfo,
-            p_wallet_address: walletAddress,
-            p_payment_metadata: paymentMetadata // Add payment metadata
+          const response = await fetch('/.netlify/functions/create-order', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              productId: product.id,
+              variants: formattedVariantSelections,
+              shippingInfo: formattedShippingInfo,
+              walletAddress,
+              paymentMetadata
+            })
           });
 
-          if (error) throw error;
-          orderId = order;
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create order');
+          }
+
+          const data = await response.json();
+          orderId = data.orderId;
           updateProgressStep(0, 'completed');
           break;
         } catch (err) {
@@ -401,14 +448,21 @@ export function TokenVerificationModal({
         
         // Update order to pending_payment status even if payment fails
         try {
-          const { error: updateError } = await supabase.rpc('update_order_transaction', {
-            p_order_id: orderId,
-            p_transaction_signature: 'rejected', // Use a special value for rejected transactions
-            p_amount_sol: finalPrice
+          const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              orderId,
+              transactionSignature: 'rejected', // Use a special value for rejected transactions
+              amountSol: finalPrice
+            })
           });
 
-          if (updateError) {
-            console.error('Failed to update order status:', updateError);
+          if (!updateResponse.ok) {
+            const errorData = await updateResponse.json();
+            console.error('Failed to update order status:', errorData.error);
           }
         } catch (err) {
           console.error('Error updating order status:', err);
@@ -421,20 +475,28 @@ export function TokenVerificationModal({
 
       // Update order with transaction signature
       try {
-        const { error: updateError } = await supabase.rpc('update_order_transaction', {
-          p_order_id: orderId,
-          p_transaction_signature: signature,
-          p_amount_sol: finalPrice
+        const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            orderId,
+            transactionSignature: signature,
+            amountSol: finalPrice
+          })
         });
 
-        if (updateError) {
+        if (!updateResponse.ok) {
+          const errorData = await updateResponse.json();
+          
           // Check if this is the error about order not being in draft status
           // This can happen if the server already processed the order
-          if (updateError.message && updateError.message.includes('not in draft status')) {
+          if (errorData.error && errorData.error.includes('not in draft status')) {
             console.log('Order already processed by server, continuing with transaction monitoring');
             // We can continue without treating this as an error
           } else {
-            throw updateError;
+            throw new Error(errorData.error || 'Failed to update order transaction');
           }
         }
         

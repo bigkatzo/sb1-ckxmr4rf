@@ -1,6 +1,39 @@
-# Netlify Functions for Store.fun
+# Server-Side Order Processing Functions
 
-This directory contains serverless functions used for secure transaction verification and other server-side operations.
+This directory contains serverless functions that handle all order processing operations securely on the server side.
+
+## Security Approach
+
+Our approach follows these key principles:
+
+1. **Server-Side Security**: All database operations that modify data must go through serverless functions
+2. **Service Role Credentials**: Functions use service role credentials, not user credentials
+3. **Permission Boundaries**: Database functions themselves use `SECURITY INVOKER` to require appropriate permissions
+4. **Front-End Independence**: Any front-end user (authenticated or anonymous) calls the same secure endpoints
+
+## Functions
+
+- `create-order.js` - Creates orders securely with server-side validation
+- `update-order-transaction.js` - Updates order transaction information securely
+- `verify-transaction.js` - Verifies individual blockchain transactions and updates order status
+- `verify-pending-transactions.js` - Background job to verify pending transactions
+
+## Workflow
+
+1. Front-end collects order information
+2. Front-end calls `create-order` serverless function
+3. Serverless function uses service role to call `create_order` RPC
+4. Front-end initiates payment on Solana
+5. Front-end calls `update-order-transaction` with transaction signature
+6. Front-end calls `verify-transaction` to confirm transaction
+7. Server verifies the transaction and updates order status
+
+## Security Benefits
+
+- Even authenticated users cannot bypass validation rules
+- All database operations use server-side permission checks
+- All transactions are properly audited and logged
+- Service interruptions are handled gracefully with background jobs
 
 ## Required Environment Variables
 
