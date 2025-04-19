@@ -221,9 +221,7 @@ async function confirmOrderPayment(orderId, signature, verification) {
       };
     }
     
-    // In the frontend, the following steps are performed in sequence:
-    
-    // STEP 1: First look up the order to determine its current state
+    // Check the current order status
     console.log(`Looking up order ${orderId} with transaction signature ${signature}`);
     let orderData;
     
@@ -247,27 +245,55 @@ async function confirmOrderPayment(orderId, signature, verification) {
         console.error('Order not found:', orderId);
         return { success: false, error: 'Order not found' };
       }
-      
-      // Check if signature matches
-      if (orderData.transaction_signature && 
-          orderData.transaction_signature !== signature &&
-          orderData.transaction_signature !== 'pending') {
-        console.error('Transaction signature mismatch:', {
-          orderSignature: orderData.transaction_signature,
-          providedSignature: signature
-        });
-        return { success: false, error: 'Transaction signature mismatch' };
-      }
     } catch (error) {
       console.error('Error fetching order:', error);
       return { success: false, error: 'Failed to fetch order' };
     }
     
-    // STEP 2: Try to use the confirm_order_payment RPC function if order is pending_payment
-    if (orderData.status === 'pending_payment') {
-      console.log(`Attempting to confirm order ${orderId} payment with signature: ${signature} (via RPC function with service role)`);
+    // STEP 1: Handle order in DRAFT status - must transition to PENDING_PAYMENT first
+    if (orderData.status === 'draft') {
+      console.log(`Order ${orderId} is in DRAFT status, transitioning to PENDING_PAYMENT first`);
       
       try {
+        // Use update_order_transaction to transition from DRAFT to PENDING_PAYMENT
+        const { error: updateError } = await supabase.rpc('update_order_transaction', {
+          p_order_id: orderId,
+          p_transaction_signature: signature,
+          p_amount_sol: verification.details?.amount || 0
+        });
+        
+        if (updateError) {
+          console.error('Failed to transition from DRAFT to PENDING_PAYMENT:', updateError);
+          return { success: false, error: 'Failed to update order to PENDING_PAYMENT status' };
+        }
+        
+        console.log(`Successfully transitioned order ${orderId} from DRAFT to PENDING_PAYMENT`);
+        
+        // Refresh order data after transition
+        const { data: refreshedData, error: refreshError } = await supabase
+          .from('orders')
+          .select('id, status, transaction_signature')
+          .eq('id', orderId)
+          .single();
+          
+        if (refreshError) {
+          console.error('Failed to refresh order data after transition:', refreshError);
+        } else {
+          orderData = refreshedData;
+          console.log('Updated order status after transition:', orderData);
+        }
+      } catch (error) {
+        console.error('Error updating order status:', error);
+        return { success: false, error: 'Failed to update order status' };
+      }
+    }
+    
+    // STEP 2: Handle order in PENDING_PAYMENT status - transition to CONFIRMED
+    if (orderData.status === 'pending_payment') {
+      console.log(`Order ${orderId} is in PENDING_PAYMENT status, transitioning to CONFIRMED`);
+      
+      try {
+        // First try to use confirm_order_payment RPC
         const { data: confirmData, error: confirmError } = await supabase.rpc('confirm_order_payment', {
           p_transaction_signature: signature,
           p_status: 'confirmed'
@@ -275,140 +301,67 @@ async function confirmOrderPayment(orderId, signature, verification) {
         
         if (confirmError) {
           console.error('Failed to confirm order payment with RPC:', confirmError);
-          // Don't return error yet, try the direct update approach
-        } else {
-          console.log('Order payment confirmation result:', confirmData);
-          // Check if order status is now confirmed
-          const { data: refreshedOrder, error: refreshError } = await supabase
-            .from('orders')
-            .select('id, status')
-            .eq('id', orderId)
-            .single();
+          
+          // Try direct_update_order_status as a backup
+          const { data: updateData, error: updateError } = await supabase.rpc('direct_update_order_status', {
+            p_order_id: orderId,
+            p_status: 'confirmed'
+          });
+          
+          if (updateError) {
+            console.error('Direct order update via RPC failed:', updateError);
             
-          if (!refreshError && refreshedOrder && refreshedOrder.status === 'confirmed') {
-            console.log('Order successfully confirmed via RPC function');
-            return { success: true };
-          }
-        }
-      } catch (rpcError) {
-        console.error('Exception in confirm_order_payment RPC call:', rpcError);
-        // Continue to next approach
-      }
-      
-      // STEP 3: If RPC function fails, try direct update approach
-      console.log(`Trying direct SQL update for order ${orderId}`);
-      
-      try {
-        // Update order directly using SQL - matching frontend fallback approach
-        console.log(`Using direct_update_order_status RPC with service role permissions for order ${orderId}`);
-        const { data: updateData, error: updateError } = await supabase.rpc('direct_update_order_status', {
-          p_order_id: orderId,
-          p_status: 'confirmed'
-        });
-        
-        if (updateError) {
-          console.error('Direct order update via RPC failed:', updateError);
-          
-          // Last resort: Exactly match what the frontend does in useMerchantOrders.ts
-          console.log('Attempting last-resort direct table update using exact frontend approach with service role');
-          const { error: directUpdateError } = await supabase
-            .from('orders')
-            .update({ status: 'confirmed' })
-            .eq('id', orderId)
-            .eq('status', 'pending_payment');
-            
-          if (directUpdateError) {
-            console.error('Last-resort direct update failed:', directUpdateError);
-            return { success: false, error: 'All order update methods failed' };
-          } else {
-            console.log('Last-resort direct update succeeded using exact frontend approach', updateData);
-          }
-        } else {
-          console.log('Direct order status update via RPC succeeded', updateData);
-        }
-      } catch (updateError) {
-        console.error('Error in direct update approaches:', updateError);
-        
-        // EMERGENCY FALLBACK: Try direct update without status condition as last resort
-        try {
-          console.log('EMERGENCY FALLBACK: Attempting direct update without status condition');
-          const { data: emergencyData, error: emergencyError } = await supabase
-            .from('orders')
-            .update({ status: 'confirmed' })
-            .eq('id', orderId);
-          
-          if (emergencyError) {
-            console.error('Emergency direct update failed:', emergencyError);
-            return { success: false, error: 'All update approaches including emergency update failed' };
-          } else {
-            console.log('Emergency direct update succeeded');
-          }
-        } catch (directError) {
-          console.error('Emergency direct update exception:', directError);
-          return { success: false, error: 'All update approaches failed with exceptions' };
-        }
-      }
-    } else if (orderData.status === 'confirmed') {
-      console.log('Order is already confirmed, no action needed');
-    } else {
-      console.warn(`Order is in unexpected status: ${orderData.status}, not updating`);
-    }
-    
-    // Final check to see if order update succeeded
-    try {
-      const { data: finalOrder, error: finalError } = await supabase
-        .from('orders')
-        .select('id, status')
-        .eq('id', orderId)
-        .single();
-        
-      if (finalError) {
-        console.warn('Could not perform final order status check:', finalError);
-      } else {
-        console.log('Final order status:', finalOrder);
-        if (finalOrder.status !== 'confirmed') {
-          console.warn('Order status is still not confirmed after all update attempts');
-          
-          // CRITICAL OVERRIDE: Force update as last resort if all else failed
-          console.log('CRITICAL OVERRIDE: Forcing order status update without conditions');
-          try {
-            const { error: forceError } = await supabase
+            // Last resort: direct table update
+            const { error: directUpdateError } = await supabase
               .from('orders')
               .update({ status: 'confirmed' })
-              .eq('id', orderId);
+              .eq('id', orderId)
+              .eq('status', 'pending_payment');
               
-            if (forceError) {
-              console.error('Critical force update failed:', forceError);
-              return { success: false, error: 'Critical force update failed after all other methods' };
+            if (directUpdateError) {
+              console.error('Last-resort direct update failed:', directUpdateError);
+              return { success: false, error: 'All update methods failed to confirm order' };
             } else {
-              console.log('Critical force update succeeded for order:', orderId);
-              // Double-check final status after force update
-              const { data: forcedOrder } = await supabase
-                .from('orders')
-                .select('id, status')
-                .eq('id', orderId)
-                .single();
-              
-              console.log('Status after forced update:', forcedOrder);
-              if (forcedOrder && forcedOrder.status !== 'confirmed') {
-                return { success: false, error: 'Order status could not be updated despite all attempts' };
-              }
+              console.log('Successfully confirmed order via direct update');
             }
-          } catch (forceError) {
-            console.error('Exception in critical force update:', forceError);
-            return { success: false, error: 'Failed to force update order status' };
+          } else {
+            console.log('Successfully confirmed order via confirm_order_payment RPC');
+          }
+        } else {
+          console.log('Successfully confirmed order via confirm_order_payment RPC');
+        }
+        
+        // Final check to confirm the update was successful
+        const { data: finalOrder, error: finalError } = await supabase
+          .from('orders')
+          .select('id, status')
+          .eq('id', orderId)
+          .single();
+          
+        if (finalError) {
+          console.warn('Could not perform final order status check:', finalError);
+        } else {
+          console.log('Final order status:', finalOrder);
+          if (finalOrder.status !== 'confirmed') {
+            console.warn('Order status is still not confirmed after all update attempts');
+            return { success: false, error: 'Failed to update order status to CONFIRMED' };
           }
         }
+        
+        return { success: true };
+      } catch (error) {
+        console.error('Error confirming order payment:', error);
+        return { success: false, error: 'Error confirming order payment' };
       }
-    } catch (error) {
-      console.warn('Error in final order status check:', error);
+    } else if (orderData.status === 'confirmed') {
+      console.log(`Order ${orderId} is already in CONFIRMED status, no action needed`);
+      return { success: true };
+    } else {
+      console.warn(`Order ${orderId} is in unexpected status: ${orderData.status}, not updating`);
+      return { success: false, error: `Cannot update order in ${orderData.status} status` };
     }
-    
-    return {
-      success: true
-    };
   } catch (error) {
-    console.error('Error confirming order payment:', error);
+    console.error('Error in confirmOrderPayment:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -572,8 +525,7 @@ exports.handler = async (event, context) => {
           // If no exact match, try a broader search - look for recently created orders that might match this transaction
           console.log('No exact transaction signature matches found, trying broader search');
           
-          // Look for orders with same buyer in pending_payment status
-          // This handles cases where the order and transaction were created in close timing
+          // Buyer-based order lookup
           if (verification.details && verification.details.buyer) {
             const buyerAddress = verification.details.buyer;
             const { data: buyerOrders, error: buyerError } = await supabase
@@ -592,18 +544,47 @@ exports.handler = async (event, context) => {
               const mostRecentOrder = buyerOrders[0];
               console.log(`Linking transaction ${signature.substring(0, 12)}... to order ${mostRecentOrder.id}`);
               
-              // Update the order with this transaction signature
-              const { error: updateError } = await supabase
-                .from('orders')
-                .update({ transaction_signature: signature })
-                .eq('id', mostRecentOrder.id)
-                .is('transaction_signature', null); // Only update if signature is not already set
+              // For orders in DRAFT status, use update_order_transaction to move to PENDING_PAYMENT
+              if (mostRecentOrder.status === 'draft') {
+                console.log(`Order ${mostRecentOrder.id} is in DRAFT status, transitioning to PENDING_PAYMENT via update_order_transaction`);
                 
-              if (updateError) {
-                console.error('Failed to link transaction to order:', updateError);
+                // Always use the consistent method for draft -> pending_payment transition
+                try {
+                  const { error: updateError } = await supabase.rpc('update_order_transaction', {
+                    p_order_id: mostRecentOrder.id,
+                    p_transaction_signature: signature,
+                    p_amount_sol: verification.details.amount || 0
+                  });
+                  
+                  if (updateError) {
+                    console.error(`Failed to update order from DRAFT to PENDING_PAYMENT: ${updateError.message}`);
+                  } else {
+                    console.log(`Successfully updated order ${mostRecentOrder.id} to PENDING_PAYMENT status`);
+                    orderIds.push(mostRecentOrder.id);
+                  }
+                } catch (error) {
+                  console.error(`Error updating order ${mostRecentOrder.id} status:`, error);
+                }
               } else {
-                console.log(`Successfully linked transaction to order ${mostRecentOrder.id}`);
-                orderIds.push(mostRecentOrder.id);
+                // For orders already in PENDING_PAYMENT, just update the signature
+                console.log(`Order ${mostRecentOrder.id} is already in PENDING_PAYMENT status, just updating transaction signature`);
+                
+                try {
+                  const { error: updateError } = await supabase
+                    .from('orders')
+                    .update({ transaction_signature: signature })
+                    .eq('id', mostRecentOrder.id)
+                    .eq('status', 'pending_payment');
+                  
+                  if (updateError) {
+                    console.error(`Failed to update transaction signature: ${updateError.message}`);
+                  } else {
+                    console.log(`Successfully linked transaction signature to order ${mostRecentOrder.id}`);
+                    orderIds.push(mostRecentOrder.id);
+                  }
+                } catch (error) {
+                  console.error(`Error linking transaction to order ${mostRecentOrder.id}:`, error);
+                }
               }
             } else {
               console.log(`No matching orders found for buyer ${buyerAddress.substring(0, 8)}...`);
@@ -619,37 +600,67 @@ exports.handler = async (event, context) => {
               .single();
               
             if (!txError && txData && txData.product_id) {
-              console.log(`Found transaction log entry for product ${txData.product_id}`);
+              const productId = txData.product_id;
+              console.log(`Found transaction log entry for product ${productId}`);
               
               // Look for recent orders for this product
               const { data: productOrders, error: productError } = await supabase
                 .from('orders')
                 .select('id, status, product_id, transaction_signature')
-                .eq('product_id', txData.product_id)
+                .eq('product_id', productId)
                 .in('status', ['pending_payment', 'draft'])
-                .is('transaction_signature', null) // Look for orders without transaction_signature
+                .is('transaction_signature', null)
                 .order('created_at', { ascending: false })
                 .limit(3);
                 
               if (!productError && productOrders && productOrders.length > 0) {
-                console.log(`Found ${productOrders.length} recent orders for product ${txData.product_id}`);
+                console.log(`Found ${productOrders.length} recent orders for product ${productId}`);
                 
                 // Link the transaction to the most recent order for this product
                 const recentProductOrder = productOrders[0];
                 console.log(`Linking transaction ${signature.substring(0, 12)}... to order ${recentProductOrder.id}`);
                 
-                // Update the order with this transaction signature
-                const { error: linkError } = await supabase
-                  .from('orders')
-                  .update({ transaction_signature: signature })
-                  .eq('id', recentProductOrder.id)
-                  .is('transaction_signature', null);
+                // For orders in DRAFT status, use update_order_transaction to move to PENDING_PAYMENT
+                if (recentProductOrder.status === 'draft') {
+                  console.log(`Order ${recentProductOrder.id} is in DRAFT status, transitioning to PENDING_PAYMENT via update_order_transaction`);
                   
-                if (linkError) {
-                  console.error('Failed to link transaction to product order:', linkError);
+                  // Always use the consistent method for draft -> pending_payment transition
+                  try {
+                    const { error: updateError } = await supabase.rpc('update_order_transaction', {
+                      p_order_id: recentProductOrder.id,
+                      p_transaction_signature: signature,
+                      p_amount_sol: verification.details?.amount || 0
+                    });
+                    
+                    if (updateError) {
+                      console.error(`Failed to update order from DRAFT to PENDING_PAYMENT: ${updateError.message}`);
+                    } else {
+                      console.log(`Successfully updated order ${recentProductOrder.id} to PENDING_PAYMENT status`);
+                      orderIds.push(recentProductOrder.id);
+                    }
+                  } catch (error) {
+                    console.error(`Error updating order ${recentProductOrder.id} status:`, error);
+                  }
                 } else {
-                  console.log(`Successfully linked transaction to product order ${recentProductOrder.id}`);
-                  orderIds.push(recentProductOrder.id);
+                  // For orders already in PENDING_PAYMENT, just update the signature
+                  console.log(`Order ${recentProductOrder.id} is already in PENDING_PAYMENT status, just updating transaction signature`);
+                  
+                  try {
+                    const { error: updateError } = await supabase
+                      .from('orders')
+                      .update({ transaction_signature: signature })
+                      .eq('id', recentProductOrder.id)
+                      .eq('status', 'pending_payment');
+                    
+                    if (updateError) {
+                      console.error(`Failed to update transaction signature: ${updateError.message}`);
+                    } else {
+                      console.log(`Successfully linked transaction signature to order ${recentProductOrder.id}`);
+                      orderIds.push(recentProductOrder.id);
+                    }
+                  } catch (error) {
+                    console.error(`Error linking transaction to order ${recentProductOrder.id}:`, error);
+                  }
                 }
               }
             }
