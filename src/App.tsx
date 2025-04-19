@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
 import { WalletProvider } from './contexts/WalletContext';
 import { ModalProvider } from './contexts/ModalContext';
@@ -19,6 +19,8 @@ import { setupRealtimeHealth } from './lib/realtime/subscriptions';
 validateEnvironmentVariables();
 
 function AppContent() {
+  const { session } = useAuth();
+  
   // Initialize cache system
   useEffect(() => {
     // Set up cache preloader with high priority for LCP images
@@ -31,7 +33,27 @@ function AppContent() {
     // Set up realtime cache invalidation with delay
     let cleanup = () => {};
     const invalidationTimer = setTimeout(() => {
-      cleanup = setupRealtimeInvalidation(supabase);
+      // Get userId from session if available
+      const userId = session?.user?.id;
+      
+      // Get shopId from user's metadata if available
+      const shopId = session?.user?.user_metadata?.shop_id;
+      
+      // Set up more targeted realtime subscriptions
+      cleanup = setupRealtimeInvalidation(supabase, {
+        userId,
+        shopId,
+        // Only subscribe to tables relevant to the current user's context
+        tables: userId ? [
+          'products',
+          'orders',
+          'users',
+          'shops',
+          'inventory',
+          ...(userId ? ['user_preferences'] : []),
+          ...(shopId ? ['shop_settings'] : [])
+        ] : ['products', 'shops'] // Limited scope for anonymous users
+      });
     }, 2000);
     
     // Set up service worker - defer this to not block main thread
@@ -62,7 +84,7 @@ function AppContent() {
       clearTimeout(invalidationTimer);
       if (realtimeTimer) clearTimeout(realtimeTimer);
     };
-  }, []);
+  }, [session]); // Add session as dependency
 
   return <Outlet />; // Render the Outlet to show nested routes
 }

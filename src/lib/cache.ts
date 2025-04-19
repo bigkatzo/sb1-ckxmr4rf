@@ -849,43 +849,82 @@ export const cacheManager = new EnhancedCacheManager({
   websocketUrl: process.env.CACHE_WEBSOCKET_URL || undefined
 });
 
-export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
+export const setupRealtimeInvalidation = (supabase: any, options: {
+  tables?: string[];
+  userId?: string;
+  shopId?: string;
+} = {}): (() => void) => {
   // Skip redundant WebSocket connection - we will use Supabase channels directly
   // This avoids duplicate connections that might conflict
   
-  // Listen for database changes using Supabase's built-in realtime
+  // Set default tables to monitor if none provided
+  const tablesToMonitor = options.tables || [
+    'products',
+    'orders',
+    'users',
+    'shops'
+  ];
+  
+  // Create subscription configurations based on tables and user context
+  const subscriptionConfigs = tablesToMonitor.map(table => {
+    const config: any = { 
+      event: '*', 
+      schema: 'public',
+      table 
+    };
+    
+    // Apply user-specific filters where appropriate
+    if (options.userId && ['users', 'user_preferences', 'user_settings'].includes(table)) {
+      config.filter = `id=eq.${options.userId}`;
+    }
+    
+    // Apply shop-specific filters where appropriate
+    if (options.shopId && ['products', 'orders', 'inventory'].includes(table)) {
+      config.filter = `shop_id=eq.${options.shopId}`;
+    }
+    
+    return config;
+  });
+  
+  // Create channel with specific table subscriptions
   const channel = supabase.channel('cache-invalidation', {
     config: {
       broadcast: { self: true },
       presence: { key: '' },
     }
-  })
-  .on('postgres_changes', { event: '*', schema: 'public' }, (payload: any) => {
-    try {
-      const { table, new: record, old: oldRecord } = payload;
-      const recordId = record?.id || oldRecord?.id;
-      
-      if (!recordId) {
-        console.warn('Invalid realtime payload - missing record ID:', payload);
-        return;
-      }
+  });
+  
+  // Add each subscription to the channel
+  subscriptionConfigs.forEach(config => {
+    channel.on('postgres_changes', config, (payload: any) => {
+      try {
+        const { table, new: record, old: oldRecord } = payload;
+        const recordId = record?.id || oldRecord?.id;
+        
+        if (!recordId) {
+          console.warn('Invalid realtime payload - missing record ID:', payload);
+          return;
+        }
 
-      if (!table) {
-        console.warn('Invalid realtime payload - missing table:', payload);
-        return;
+        if (!table) {
+          console.warn('Invalid realtime payload - missing table:', payload);
+          return;
+        }
+        
+        const key = `${table}:${recordId}`;
+        console.log('Realtime update received for:', key);
+        // Use global cacheManager instead of creating a new one
+        if (typeof cacheManager.invalidateKey === 'function') {
+          cacheManager.invalidateKey(key);
+        }
+      } catch (err) {
+        console.error('Error processing realtime update:', err);
       }
-      
-      const key = `${table}:${recordId}`;
-      console.log('Realtime update received for:', key);
-      // Use global cacheManager instead of creating a new one
-      if (typeof cacheManager.invalidateKey === 'function') {
-        cacheManager.invalidateKey(key);
-      }
-    } catch (err) {
-      console.error('Error processing realtime update:', err);
-    }
-  })
-  .subscribe((status: string) => {
+    });
+  });
+  
+  // Subscribe to the channel
+  channel.subscribe((status: string) => {
     console.log('Realtime subscription status:', status);
   });
     
@@ -898,7 +937,7 @@ export const setupRealtimeInvalidation = (supabase: any): (() => void) => {
 /**
  * Helper function to test real-time updates
  */
-export const testRealtimeUpdates = async (supabase: any): Promise<() => void> => {
+export const testRealtimeUpdates = async (supabase: any, tableToTest = 'products'): Promise<() => void> => {
   try {
     // Log connection details for diagnostics
     console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
@@ -918,7 +957,7 @@ export const testRealtimeUpdates = async (supabase: any): Promise<() => void> =>
       }
     })
     .on('postgres_changes', 
-      { event: '*', schema: 'public' },
+      { event: '*', schema: 'public', table: tableToTest },
       (payload: any) => {
         console.log('Received real-time update:', payload);
       }
