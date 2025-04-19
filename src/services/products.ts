@@ -56,20 +56,42 @@ export async function createProduct(collectionId: string, data: FormData) {
     // Debug: List all form data keys to see what's present
     console.log('Form data keys:', Array.from(data.keys()));
     
-    for (let i = 0; data.get(`image${i}`); i++) {
-      const imageFile = data.get(`image${i}`) as File;
-      console.log(`Processing image ${i}:`, imageFile instanceof File ? 'Valid file' : 'Not a file');
-      if (imageFile instanceof File) {
-        try {
-          const imageUrls = await uploadProductImages([imageFile]);
-          console.log(`Image ${i} uploaded successfully:`, imageUrls);
-          images.push(...imageUrls);
-        } catch (uploadError) {
-          console.error(`Error uploading image ${i}:`, uploadError);
-          throw new Error(`Failed to upload image: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+    // IMPROVED IMAGE PROCESSING: More robust check for images
+    for (let i = 0; i < 10; i++) { // Check up to 10 possible images
+      try {
+        const imageKey = `image${i}`;
+        const imageFile = data.get(imageKey);
+        
+        if (!imageFile) {
+          console.log(`No image found for ${imageKey}, stopping image processing`);
+          break; // No more images to process
         }
+        
+        console.log(`Processing ${imageKey}:`, 
+          typeof imageFile, 
+          imageFile instanceof File ? 'Valid File object' : 'Not a File object',
+          'constructor:', imageFile.constructor?.name || 'unknown'
+        );
+        
+        // Try to process the image regardless of instanceof check
+        if (imageFile instanceof File || (imageFile as any).name) {
+          try {
+            console.log(`Uploading ${imageKey} with name:`, (imageFile as any).name);
+            const imageUrls = await uploadProductImages([imageFile as File]);
+            console.log(`${imageKey} uploaded successfully:`, imageUrls);
+            images.push(...imageUrls);
+          } catch (uploadError) {
+            console.error(`Error uploading ${imageKey}:`, uploadError);
+            throw new Error(`Failed to upload image: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+          }
+        } else {
+          console.warn(`${imageKey} exists but is not a valid File object:`, imageFile);
+        }
+      } catch (error) {
+        console.error(`Error processing image${i}:`, error);
       }
     }
+    
     console.log('Completed image processing, total images:', images.length);
 
     const { error } = await supabase

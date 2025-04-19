@@ -94,6 +94,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     setError(null);
 
     try {
+      console.log("Form submission data:", data);
       const formData = new FormData();
 
       // Add all form state data
@@ -127,13 +128,20 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       // Make sure freeNotes is included (it can be an empty string)
       formData.append('freeNotes', data.freeNotes || '');
 
-      // Handle image files
+      // Handle image files - CRITICAL FIX: Ensure images are properly processed
       const imageFiles = data.imageFiles;
+      console.log("Image files from form:", imageFiles);
+      
       if (Array.isArray(imageFiles) && imageFiles.length > 0) {
         setUploading(true);
         console.log(`Preparing to upload ${imageFiles.length} image files`);
-        imageFiles.forEach((file, index) => {
-          console.log(`Adding image${index} to form data:`, file.name);
+        
+        // Extra validation to ensure we have valid File objects
+        const validFiles = imageFiles.filter(file => file instanceof File);
+        console.log(`Found ${validFiles.length} valid File objects out of ${imageFiles.length} items`);
+        
+        validFiles.forEach((file, index) => {
+          console.log(`Adding image${index} to form data:`, file.name, file.type, file.size);
           formData.append(`image${index}`, file);
         });
       } else {
@@ -154,6 +162,9 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       formData.append('variants', JSON.stringify(data.variants || []));
       formData.append('variantPrices', JSON.stringify(data.variantPrices || {}));
 
+      // DEBUG: Verify final FormData contents
+      console.log("FormData keys:", Array.from(formData.keys()));
+      
       await onSubmit(formData);
       onClose();
     } catch (error) {

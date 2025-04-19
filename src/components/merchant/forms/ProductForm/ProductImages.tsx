@@ -44,7 +44,7 @@ function SortableImage({ id, src, onRemove }: SortableImageProps) {
 }
 
 export function ProductImages({ initialExistingImages = [] }: ProductImagesProps) {
-  const { register, setValue } = useFormContext();
+  const { register, setValue, getValues } = useFormContext();
   
   // Local state for UI
   const [images, setImages] = useState<File[]>([]);
@@ -64,7 +64,12 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
     setValue('existingImages', initialExistingImages);
     setValue('removedImages', []);
     setExistingImages(initialExistingImages);
-  }, [initialExistingImages, register, setValue]);
+
+    // Debug: return cleanup function that logs the final image values
+    return () => {
+      console.log('Final imageFiles value:', getValues('imageFiles'));
+    };
+  }, [initialExistingImages, register, setValue, getValues]);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -101,9 +106,12 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
         const newImages = [...images, ...acceptedFiles];
         const newPreviews = [...previews, ...acceptedFiles.map(file => URL.createObjectURL(file))];
         
+        console.log('Dropzone received files:', acceptedFiles.map(f => f.name));
+        console.log('Setting imageFiles with total count:', newImages.length);
+        
         setImages(newImages);
         setPreviews(newPreviews);
-        setValue('imageFiles', newImages);
+        setValue('imageFiles', newImages, { shouldDirty: true, shouldTouch: true });
       }
     }
   });
