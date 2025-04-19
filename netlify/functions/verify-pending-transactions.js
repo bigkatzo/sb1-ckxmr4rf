@@ -125,13 +125,50 @@ async function verifyPendingTransactions() {
             
             // Update associated order if exists
             if (tx.order_id) {
-              const { error: orderError } = await supabase.rpc('confirm_order_payment', {
+              console.log(`Attempting to confirm order payment for order ${tx.order_id} with signature: ${tx.signature}`);
+              
+              const { data: confirmData, error: orderError } = await supabase.rpc('confirm_order_payment', {
                 p_transaction_signature: tx.signature,
                 p_status: 'confirmed'
               });
               
               if (orderError) {
                 console.error(`Failed to update order for transaction ${tx.signature}:`, orderError);
+              } else {
+                console.log('Order payment confirmation result:', confirmData);
+                
+                // Additional check to verify if the order was updated
+                const { data: orderCheck, error: orderCheckError } = await supabase
+                  .from('orders')
+                  .select('id, status')
+                  .eq('id', tx.order_id)
+                  .single();
+                  
+                if (orderCheckError) {
+                  console.warn(`Could not verify order ${tx.order_id} status after confirmation:`, orderCheckError);
+                } else {
+                  console.log(`Order ${tx.order_id} status after confirmation attempt:`, orderCheck);
+                  
+                  // If order still in pending_payment, try direct update
+                  if (orderCheck && orderCheck.status === 'pending_payment') {
+                    console.log(`Order ${tx.order_id} status still pending, trying direct update`);
+                    
+                    const { error: directUpdateError } = await supabase
+                      .from('orders')
+                      .update({ 
+                        status: 'confirmed',
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq('id', tx.order_id)
+                      .eq('status', 'pending_payment');
+                      
+                    if (directUpdateError) {
+                      console.error(`Direct order update failed for order ${tx.order_id}:`, directUpdateError);
+                    } else {
+                      console.log(`Direct order update succeeded for order ${tx.order_id}`);
+                    }
+                  }
+                }
               }
             }
           }

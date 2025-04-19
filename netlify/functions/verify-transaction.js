@@ -158,7 +158,7 @@ async function verifyTransactionDetails(signature, expectedDetails) {
   }
 }
 
-// Verify and update the order status
+// Verify and update the order status using approach from frontend
 async function confirmOrderPayment(orderId, signature, verification) {
   if (!supabase) {
     console.warn('Supabase client not initialized, cannot confirm order payment');
@@ -220,26 +220,144 @@ async function confirmOrderPayment(orderId, signature, verification) {
       };
     }
     
-    // Update order status
+    // In the frontend, the following steps are performed in sequence:
+    
+    // STEP 1: First look up the order to determine its current state
+    console.log(`Looking up order ${orderId} with transaction signature ${signature}`);
+    let orderData;
+    
     try {
-      const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
-        p_transaction_signature: signature,
-        p_status: 'confirmed'
-      });
-      
-      if (confirmError) {
-        console.error('Failed to confirm order payment:', confirmError);
-        return {
-          success: false,
-          error: 'Failed to confirm order payment'
-        };
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, status, transaction_signature')
+        .eq('id', orderId)
+        .single();
+        
+      if (error) {
+        console.error('Error fetching order details:', error);
+        return { success: false, error: 'Failed to fetch order details' };
       }
-    } catch (dbError) {
-      console.error('Database error when confirming order payment:', dbError);
-      return {
-        success: false,
-        error: 'Database error when confirming order'
-      };
+      
+      orderData = data;
+      console.log('Current order status:', orderData);
+      
+      // Validate order exists and has matching signature
+      if (!orderData) {
+        console.error('Order not found:', orderId);
+        return { success: false, error: 'Order not found' };
+      }
+      
+      // Check if signature matches
+      if (orderData.transaction_signature && 
+          orderData.transaction_signature !== signature &&
+          orderData.transaction_signature !== 'pending') {
+        console.error('Transaction signature mismatch:', {
+          orderSignature: orderData.transaction_signature,
+          providedSignature: signature
+        });
+        return { success: false, error: 'Transaction signature mismatch' };
+      }
+    } catch (error) {
+      console.error('Error fetching order:', error);
+      return { success: false, error: 'Failed to fetch order' };
+    }
+    
+    // STEP 2: Try to use the confirm_order_payment RPC function if order is pending_payment
+    if (orderData.status === 'pending_payment') {
+      console.log(`Attempting to confirm order ${orderId} payment with signature: ${signature}`);
+      
+      try {
+        const { data: confirmData, error: confirmError } = await supabase.rpc('confirm_order_payment', {
+          p_transaction_signature: signature,
+          p_status: 'confirmed'
+        });
+        
+        if (confirmError) {
+          console.error('Failed to confirm order payment with RPC:', confirmError);
+          // Don't return error yet, try the direct update approach
+        } else {
+          console.log('Order payment confirmation result:', confirmData);
+          // Check if order status is now confirmed
+          const { data: refreshedOrder, error: refreshError } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('id', orderId)
+            .single();
+            
+          if (!refreshError && refreshedOrder && refreshedOrder.status === 'confirmed') {
+            console.log('Order successfully confirmed via RPC function');
+            return { success: true };
+          }
+        }
+      } catch (rpcError) {
+        console.error('Exception in confirm_order_payment RPC call:', rpcError);
+        // Continue to next approach
+      }
+      
+      // STEP 3: If RPC function fails, try direct update approach
+      console.log(`Trying direct SQL update for order ${orderId}`);
+      
+      try {
+        // Update order directly using SQL - matching frontend fallback approach
+        const { error: updateError } = await supabase.rpc('direct_update_order_status', {
+          p_order_id: orderId,
+          p_status: 'confirmed',
+          p_payment_confirmed_at: new Date().toISOString()
+        });
+        
+        if (updateError) {
+          console.error('Direct order update via RPC failed:', updateError);
+          
+          // Last resort: Update order using regular data API
+          console.log('Attempting last-resort direct table update');
+          const { error: directUpdateError } = await supabase
+            .from('orders')
+            .update({
+              status: 'confirmed',
+              updated_at: new Date().toISOString(),
+              payment_confirmed_at: new Date().toISOString(),
+            })
+            .eq('id', orderId)
+            .eq('status', 'pending_payment');
+            
+          if (directUpdateError) {
+            console.error('Last-resort direct update failed:', directUpdateError);
+            return { success: false, error: 'All order update methods failed' };
+          } else {
+            console.log('Last-resort direct update succeeded');
+          }
+        } else {
+          console.log('Direct order status update via RPC succeeded');
+        }
+      } catch (updateError) {
+        console.error('Error in direct update approaches:', updateError);
+        return { success: false, error: 'All update approaches failed with exceptions' };
+      }
+    } else if (orderData.status === 'confirmed') {
+      console.log('Order is already confirmed, no action needed');
+    } else {
+      console.warn(`Order is in unexpected status: ${orderData.status}, not updating`);
+    }
+    
+    // Final check to see if order update succeeded
+    try {
+      const { data: finalOrder, error: finalError } = await supabase
+        .from('orders')
+        .select('id, status')
+        .eq('id', orderId)
+        .single();
+        
+      if (finalError) {
+        console.warn('Could not perform final order status check:', finalError);
+      } else {
+        console.log('Final order status:', finalOrder);
+        if (finalOrder.status !== 'confirmed') {
+          console.warn('Order status is still not confirmed after all update attempts');
+          return { success: false, error: 'Failed to update order status despite multiple attempts' };
+        }
+      }
+    } catch (error) {
+      console.warn('Error in final order status check:', error);
     }
     
     return {
