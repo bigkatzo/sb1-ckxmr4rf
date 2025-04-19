@@ -330,7 +330,7 @@ const preloadLCPImages = async () => {
     const { data: featuredCollections } = await supabase
       .from('collections')
       .select('image_url')
-      .eq('status', 'active') 
+      .eq('visible', true) 
       .eq('featured', true)
       .order('launch_date', { ascending: false })
       .limit(1);
@@ -410,7 +410,7 @@ const preloadNextImportantImage = async () => {
     const { data: featuredCollections } = await supabase
       .from('collections')
       .select('image_url')
-      .eq('status', 'active')
+      .eq('visible', true)
       .eq('featured', true)
       .order('launch_date', { ascending: false })
       .range(1, 1);
@@ -486,7 +486,7 @@ export function setupCachePreloader(options: PreloadOptions = {}) {
         const { data: featuredCollections } = await supabase
           .from('collections')
           .select('image_url')
-          .eq('status', 'active')
+          .eq('visible', true)
           .eq('featured', true)
           .order('launch_date', { ascending: false })
           .range(2, 2 + maxConcurrent);
