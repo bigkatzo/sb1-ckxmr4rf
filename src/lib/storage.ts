@@ -37,10 +37,10 @@ export function normalizeStorageUrl(url: string): string {
       return url;
     }
     
-    // If it's an object URL, check if it's an image before converting
+    // If it's an object URL, convert it to a render URL for images
     if (path.includes('/storage/v1/object/public/')) {
       // Check if the file is an image by extension
-      const isImage = /\.(jpg|jpeg|png|gif|webp|avif)$/i.test(path);
+      const isImage = /\.(jpg|jpeg|png|gif|webp|avif|svg)$/i.test(path);
       
       if (isImage) {
         // Convert to render URL for images
@@ -48,15 +48,23 @@ export function normalizeStorageUrl(url: string): string {
         return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
       }
       
-      // For non-images, return the original object URL
-      return url;
+      // For non-images, still try the render endpoint as Supabase may have changed its access policies
+      // This is a more aggressive approach to fix broken URLs
+      path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+      return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
     }
     
     // For other URLs, return as is
     return url;
   } catch (error) {
     console.error('Error normalizing URL:', error);
-    // If URL parsing fails, return the original URL
+    
+    // If URL parsing fails but it looks like a Supabase storage URL, try a simple string replace
+    if (typeof url === 'string' && url.includes('/storage/v1/object/public/')) {
+      return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+    }
+    
+    // Otherwise return the original URL
     return url;
   }
 }

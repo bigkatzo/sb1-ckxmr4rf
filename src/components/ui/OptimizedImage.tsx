@@ -209,20 +209,52 @@ export function OptimizedImage({
   }, [optimizedSrc, isLCP, priority, sizes, src]);
 
   const handleImageError = () => {
-    // If render endpoint fails, fall back to original URL with cache control
-    if (src.includes('/storage/v1/render/image/public/')) {
-      const fallbackUrl = new URL(src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/'));
+    console.warn(`Image load failed for ${optimizedSrc}`);
+    
+    try {
+      // Try different strategies to recover from image load failures
+      let fallbackUrl: URL | null = null;
+      let imgElement = document.querySelector(`img[src="${optimizedSrc}"]`) as HTMLImageElement;
       
-      // Set cache control for the fallback URL
-      fallbackUrl.searchParams.set('cache', '604800'); // 1 week cache
-      
-      // Fall back to original format
-      console.warn(`Image conversion failed for ${optimizedSrc}, using original format`);
-      const img = document.querySelector(`img[src="${optimizedSrc}"]`) as HTMLImageElement;
-      if (img) {
-        img.src = fallbackUrl.toString();
+      if (!imgElement) {
+        // If we can't find the image element, stop further processing
+        setIsLoading(false);
+        return;
       }
+      
+      // Strategy 1: If we're using render endpoint with params, try without params
+      if (optimizedSrc.includes('/storage/v1/render/image/public/') && optimizedSrc.includes('?')) {
+        const baseUrl = optimizedSrc.split('?')[0];
+        console.log('Trying render endpoint without params:', baseUrl);
+        imgElement.src = baseUrl;
+        return; // Exit and wait for potential second error
+      }
+      
+      // Strategy 2: If we're using render endpoint without params, try object endpoint
+      if (optimizedSrc.includes('/storage/v1/render/image/public/') && !optimizedSrc.includes('?')) {
+        fallbackUrl = new URL(optimizedSrc.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/'));
+        console.log('Trying object endpoint:', fallbackUrl.toString());
+        imgElement.src = fallbackUrl.toString();
+        return; // Exit and wait for potential third error
+      }
+      
+      // Strategy 3: For older URLs directly using object endpoint, try the render endpoint
+      if (optimizedSrc.includes('/storage/v1/object/public/')) {
+        fallbackUrl = new URL(optimizedSrc.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/'));
+        console.log('Trying render endpoint from object URL:', fallbackUrl.toString());
+        imgElement.src = fallbackUrl.toString();
+        return;
+      }
+      
+      // Final fallback: Try loading the original src directly if it's different from the optimized src
+      if (src !== optimizedSrc) {
+        console.log('Final fallback to original URL:', src);
+        imgElement.src = src;
+      }
+    } catch (error) {
+      console.error('Error in image fallback:', error);
     }
+    
     setIsLoading(false);
   };
 
