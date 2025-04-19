@@ -299,7 +299,7 @@ async function confirmOrderPayment(orderId, signature, verification) {
       
       try {
         // Update order directly using SQL - matching frontend fallback approach
-        const { error: updateError } = await supabase.rpc('direct_update_order_status', {
+        const { data: updateData, error: updateError } = await supabase.rpc('direct_update_order_status', {
           p_order_id: orderId,
           p_status: 'confirmed'
         });
@@ -319,14 +319,32 @@ async function confirmOrderPayment(orderId, signature, verification) {
             console.error('Last-resort direct update failed:', directUpdateError);
             return { success: false, error: 'All order update methods failed' };
           } else {
-            console.log('Last-resort direct update succeeded using exact frontend approach');
+            console.log('Last-resort direct update succeeded using exact frontend approach', updateData);
           }
         } else {
-          console.log('Direct order status update via RPC succeeded');
+          console.log('Direct order status update via RPC succeeded', updateData);
         }
       } catch (updateError) {
         console.error('Error in direct update approaches:', updateError);
-        return { success: false, error: 'All update approaches failed with exceptions' };
+        
+        // EMERGENCY FALLBACK: Try direct update without status condition as last resort
+        try {
+          console.log('EMERGENCY FALLBACK: Attempting direct update without status condition');
+          const { data: emergencyData, error: emergencyError } = await supabase
+            .from('orders')
+            .update({ status: 'confirmed' })
+            .eq('id', orderId);
+          
+          if (emergencyError) {
+            console.error('Emergency direct update failed:', emergencyError);
+            return { success: false, error: 'All update approaches including emergency update failed' };
+          } else {
+            console.log('Emergency direct update succeeded');
+          }
+        } catch (directError) {
+          console.error('Emergency direct update exception:', directError);
+          return { success: false, error: 'All update approaches failed with exceptions' };
+        }
       }
     } else if (orderData.status === 'confirmed') {
       console.log('Order is already confirmed, no action needed');
@@ -348,7 +366,36 @@ async function confirmOrderPayment(orderId, signature, verification) {
         console.log('Final order status:', finalOrder);
         if (finalOrder.status !== 'confirmed') {
           console.warn('Order status is still not confirmed after all update attempts');
-          return { success: false, error: 'Failed to update order status despite multiple attempts' };
+          
+          // CRITICAL OVERRIDE: Force update as last resort if all else failed
+          console.log('CRITICAL OVERRIDE: Forcing order status update without conditions');
+          try {
+            const { error: forceError } = await supabase
+              .from('orders')
+              .update({ status: 'confirmed' })
+              .eq('id', orderId);
+              
+            if (forceError) {
+              console.error('Critical force update failed:', forceError);
+              return { success: false, error: 'Critical force update failed after all other methods' };
+            } else {
+              console.log('Critical force update succeeded for order:', orderId);
+              // Double-check final status after force update
+              const { data: forcedOrder } = await supabase
+                .from('orders')
+                .select('id, status')
+                .eq('id', orderId)
+                .single();
+              
+              console.log('Status after forced update:', forcedOrder);
+              if (forcedOrder && forcedOrder.status !== 'confirmed') {
+                return { success: false, error: 'Order status could not be updated despite all attempts' };
+              }
+            }
+          } catch (forceError) {
+            console.error('Exception in critical force update:', forceError);
+            return { success: false, error: 'Failed to force update order status' };
+          }
         }
       }
     } catch (error) {
@@ -502,7 +549,16 @@ exports.handler = async (event, context) => {
     // 2. Confirm the order payment status if orderId is provided
     let confirmationResult = { success: true };
     if (orderId && verification.isValid) {
+      console.log(`🔄 Attempting to confirm order payment for order ${orderId} with transaction ${signature.substring(0, 12)}...`);
       confirmationResult = await confirmOrderPayment(orderId, signature, verification);
+      console.log(`✅ Order confirmation result for ${orderId}: ${confirmationResult.success ? 'SUCCESS' : 'FAILED'}`);
+      if (!confirmationResult.success) {
+        console.error(`❌ Order confirmation FAILED for ${orderId}: ${confirmationResult.error}`);
+      }
+    } else if (orderId) {
+      console.warn(`⚠️ Not confirming order ${orderId} because verification failed`);
+    } else {
+      console.log('ℹ️ No orderId provided, skipping order confirmation');
     }
     
     if (!verification.isValid) {
