@@ -6,7 +6,17 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useFormContext } from 'react-hook-form';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useContext } from 'react';
+
+// Create context for direct image file access
+import React from 'react';
+export const ProductImagesContext = React.createContext<{
+  imageFiles: File[];
+  setImageFiles: (files: File[]) => void;
+}>({
+  imageFiles: [],
+  setImageFiles: () => {}
+});
 
 interface ProductImagesProps {
   initialExistingImages?: string[];
@@ -45,25 +55,12 @@ function SortableImage({ id, src, onRemove }: SortableImageProps) {
 
 export function ProductImages({ initialExistingImages = [] }: ProductImagesProps) {
   const { register, setValue } = useFormContext();
+  const { imageFiles, setImageFiles } = useContext(ProductImagesContext);
   
   // Local state for UI
-  const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>(initialExistingImages);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
-  
-  // Stable function to update form values
-  const updateFormValues = useCallback((newImages: File[]) => {
-    // Ensure we're passing actual File objects to the form
-    const validImages = newImages.filter(file => file instanceof File);
-    console.log('updateFormValues with', validImages.length, 'files');
-    
-    setValue('imageFiles', validImages, { 
-      shouldDirty: true, 
-      shouldTouch: true,
-      shouldValidate: true 
-    });
-  }, [setValue]);
   
   // Register the image fields with react-hook-form
   useEffect(() => {
@@ -73,7 +70,6 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
     register('removedImages');
     
     // Initialize values
-    setValue('imageFiles', [], { shouldDirty: false });
     setValue('existingImages', initialExistingImages, { shouldDirty: false });
     setValue('removedImages', [], { shouldDirty: false });
     setExistingImages(initialExistingImages);
@@ -106,21 +102,24 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
       });
 
       // Check total number of images
-      if (acceptedFiles.length + images.length + existingImages.length > 10) {
+      if (acceptedFiles.length + imageFiles.length + existingImages.length > 10) {
         toast.error('Maximum 10 images allowed');
         return;
       }
 
       // Handle accepted files
       if (acceptedFiles.length > 0) {
-        const newImages = [...images, ...acceptedFiles];
+        const newImages = [...imageFiles, ...acceptedFiles];
         const newPreviews = [...previews, ...acceptedFiles.map(file => URL.createObjectURL(file))];
         
         console.log('Dropzone received files:', acceptedFiles.map(f => f.name));
+        console.log('Total image files:', newImages.length);
         
-        setImages(newImages);
+        setImageFiles(newImages);
         setPreviews(newPreviews);
-        updateFormValues(newImages);
+        
+        // Just for React Hook Form validation state
+        setValue('imageFiles', newImages, { shouldDirty: true, shouldTouch: true });
       }
     }
   });
@@ -132,12 +131,12 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
     } catch (error) {
       console.error('Error revoking URL:', error);
     } finally {
-      const newImages = images.filter((_, i) => i !== index);
+      const newImages = imageFiles.filter((_, i) => i !== index);
       const newPreviews = previews.filter((_, i) => i !== index);
       
-      setImages(newImages);
+      setImageFiles(newImages);
       setPreviews(newPreviews);
-      updateFormValues(newImages);
+      setValue('imageFiles', newImages, { shouldDirty: true, shouldTouch: true });
     }
   };
   
@@ -178,25 +177,15 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
       const newIndex = previews.indexOf(overId);
       
       if (oldIndex !== -1 && newIndex !== -1) {
-        const newImages = arrayMove(images, oldIndex, newIndex);
+        const newImages = arrayMove(imageFiles, oldIndex, newIndex);
         const newPreviews = arrayMove(previews, oldIndex, newIndex);
         
-        setImages(newImages);
+        setImageFiles(newImages);
         setPreviews(newPreviews);
-        updateFormValues(newImages);
+        setValue('imageFiles', newImages, { shouldDirty: true, shouldTouch: true });
       }
     }
   };
-
-  // Force update parent form when component unmounts (not common, but can help in some edge cases)
-  useEffect(() => {
-    return () => {
-      if (images.length > 0) {
-        // Try to set the form value one more time before unmounting
-        updateFormValues(images);
-      }
-    };
-  }, [images, updateFormValues]);
 
   return (
     <div>
@@ -248,3 +237,4 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
     </div>
   );
 }
+

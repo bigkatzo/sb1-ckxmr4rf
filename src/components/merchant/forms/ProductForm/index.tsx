@@ -3,7 +3,7 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ModalForm } from '../../../ui/Modal/ModalForm';
 import { ProductBasicInfo } from './ProductBasicInfo';
-import { ProductImages } from './ProductImages';
+import { ProductImages, ProductImagesContext } from './ProductImages';
 import { ProductVariants } from './ProductVariants';
 import { productSchema, ProductFormValues } from './schema';
 import type { Category } from '../../../../types/index';
@@ -25,8 +25,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   const [error, setError] = useState<string | null>(null);
   const initializedRef = useRef(false);
   
-  // Use a ref to hold actual image files since the form may lose them
-  const imageFilesRef = useRef<File[]>([]);
+  // Store image files directly in component state
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   
   // Initialize default values for the form using useMemo to prevent recreation on each render
   const defaultValues = useMemo<ProductFormValues>(() => ({
@@ -88,18 +88,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     };
   }, [initialData, methods]);
 
-  // Listen for imageFiles changes and store in ref
-  useEffect(() => {
-    const subscription = methods.watch((value, { name }) => {
-      if (name === 'imageFiles' && Array.isArray(value.imageFiles)) {
-        console.log('Storing imageFiles in ref:', value.imageFiles.length);
-        imageFilesRef.current = value.imageFiles.filter(file => file instanceof File);
-      }
-    });
-    
-    return () => subscription.unsubscribe();
-  }, [methods]);
-
   // Create a submit handler that processes the form data
   const processSubmit = async (data: any) => {
     // Prevent multiple submissions
@@ -143,14 +131,13 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       // Make sure freeNotes is included (it can be an empty string)
       formData.append('freeNotes', data.freeNotes || '');
 
-      // Handle image files - CRITICAL FIX: Use our ref instead of relying on form data
-      console.log("Image files from form ref:", imageFilesRef.current);
+      // DIRECT ACCESS TO IMAGE FILES: Use our component state directly
+      console.log("Image files from direct state:", imageFiles.length, "files");
       
-      if (imageFilesRef.current.length > 0) {
+      if (imageFiles.length > 0) {
         setUploading(true);
-        console.log(`Preparing to upload ${imageFilesRef.current.length} image files from ref`);
         
-        imageFilesRef.current.forEach((file, index) => {
+        imageFiles.forEach((file, index) => {
           console.log(`Adding image${index} to form data:`, file.name, file.type, file.size);
           formData.append(`image${index}`, file);
         });
@@ -186,64 +173,72 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     }
   };
 
+  // Provide the context value for ProductImages
+  const imagesContextValue = useMemo(() => ({
+    imageFiles,
+    setImageFiles
+  }), [imageFiles]);
+
   return (
     <FormProvider {...methods}>
-      <ModalForm
-        isOpen={true}
-        onClose={onClose}
-        onSubmit={methods.handleSubmit(processSubmit)}
-        title={initialData ? 'Edit Product' : 'New Product'}
-        submitLabel={initialData ? 'Update Product' : 'Create Product'}
-        className="sm:min-w-[600px] sm:max-w-2xl"
-        isLoading={loading || uploading || isLoading}
-        error={error}
-        submitButton={
-          <button
-            type="submit"
-            disabled={loading || uploading || isLoading}
-            className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
-          >
-            {(loading || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
-            {loading ? 'Saving...' : 
-             uploading ? 'Uploading...' : 
-             initialData ? 'Update Product' : 'Create Product'}
-          </button>
-        }
-      >
-        <ProductImages
-          initialExistingImages={initialData?.images}
-        />
+      <ProductImagesContext.Provider value={imagesContextValue}>
+        <ModalForm
+          isOpen={true}
+          onClose={onClose}
+          onSubmit={methods.handleSubmit(processSubmit)}
+          title={initialData ? 'Edit Product' : 'New Product'}
+          submitLabel={initialData ? 'Update Product' : 'Create Product'}
+          className="sm:min-w-[600px] sm:max-w-2xl"
+          isLoading={loading || uploading || isLoading}
+          error={error}
+          submitButton={
+            <button
+              type="submit"
+              disabled={loading || uploading || isLoading}
+              className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
+            >
+              {(loading || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
+              {loading ? 'Saving...' : 
+                uploading ? 'Uploading...' : 
+                initialData ? 'Update Product' : 'Create Product'}
+            </button>
+          }
+        >
+          <ProductImages
+            initialExistingImages={initialData?.images}
+          />
 
-        <ProductBasicInfo 
-          categories={categories}
-        />
+          <ProductBasicInfo 
+            categories={categories}
+          />
 
-        <div>
-          <label className="block text-sm font-medium text-white mb-1">
-            Product Visibility
-          </label>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <Toggle
-                checked={methods.watch('visible') ?? false}
-                onCheckedChange={(newValue: boolean) => {
-                  methods.setValue('visible', newValue, { shouldDirty: true });
-                }}
-                size="md"
-              />
-              <span className="text-sm text-white">Show in storefront</span>
+          <div>
+            <label className="block text-sm font-medium text-white mb-1">
+              Product Visibility
+            </label>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Toggle
+                  checked={methods.watch('visible') ?? false}
+                  onCheckedChange={(newValue: boolean) => {
+                    methods.setValue('visible', newValue, { shouldDirty: true });
+                  }}
+                  size="md"
+                />
+                <span className="text-sm text-white">Show in storefront</span>
+              </div>
+              <p className="text-xs text-gray-400 ml-11">
+                When disabled, this product will be hidden from the storefront
+              </p>
             </div>
-            <p className="text-xs text-gray-400 ml-11">
-              When disabled, this product will be hidden from the storefront
-            </p>
           </div>
-        </div>
 
-        <ProductVariants
-          initialVariants={initialData?.variants}
-          initialPrices={initialData?.variantPrices}
-        />
-      </ModalForm>
+          <ProductVariants
+            initialVariants={initialData?.variants}
+            initialPrices={initialData?.variantPrices}
+          />
+        </ModalForm>
+      </ProductImagesContext.Provider>
     </FormProvider>
   );
 }
