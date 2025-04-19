@@ -25,6 +25,9 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   const [error, setError] = useState<string | null>(null);
   const initializedRef = useRef(false);
   
+  // Use a ref to hold actual image files since the form may lose them
+  const imageFilesRef = useRef<File[]>([]);
+  
   // Initialize default values for the form using useMemo to prevent recreation on each render
   const defaultValues = useMemo<ProductFormValues>(() => ({
     name: initialData?.name || '',
@@ -85,6 +88,18 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     };
   }, [initialData, methods]);
 
+  // Listen for imageFiles changes and store in ref
+  useEffect(() => {
+    const subscription = methods.watch((value, { name }) => {
+      if (name === 'imageFiles' && Array.isArray(value.imageFiles)) {
+        console.log('Storing imageFiles in ref:', value.imageFiles.length);
+        imageFilesRef.current = value.imageFiles.filter(file => file instanceof File);
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [methods]);
+
   // Create a submit handler that processes the form data
   const processSubmit = async (data: any) => {
     // Prevent multiple submissions
@@ -128,19 +143,14 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       // Make sure freeNotes is included (it can be an empty string)
       formData.append('freeNotes', data.freeNotes || '');
 
-      // Handle image files - CRITICAL FIX: Ensure images are properly processed
-      const imageFiles = data.imageFiles;
-      console.log("Image files from form:", imageFiles);
+      // Handle image files - CRITICAL FIX: Use our ref instead of relying on form data
+      console.log("Image files from form ref:", imageFilesRef.current);
       
-      if (Array.isArray(imageFiles) && imageFiles.length > 0) {
+      if (imageFilesRef.current.length > 0) {
         setUploading(true);
-        console.log(`Preparing to upload ${imageFiles.length} image files`);
+        console.log(`Preparing to upload ${imageFilesRef.current.length} image files from ref`);
         
-        // Extra validation to ensure we have valid File objects
-        const validFiles = imageFiles.filter(file => file instanceof File);
-        console.log(`Found ${validFiles.length} valid File objects out of ${imageFiles.length} items`);
-        
-        validFiles.forEach((file, index) => {
+        imageFilesRef.current.forEach((file, index) => {
           console.log(`Adding image${index} to form data:`, file.name, file.type, file.size);
           formData.append(`image${index}`, file);
         });
