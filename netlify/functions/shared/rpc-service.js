@@ -57,32 +57,6 @@ function createRpcConfig(env) {
 }
 
 /**
- * Sanitizes API key to fix common formatting issues
- * @param {string} key - Raw API key
- * @returns {string} Sanitized API key
- */
-function sanitizeApiKey(key) {
-  if (!key) return '';
-  
-  // Check for common API key format issues
-  const trimmedKey = key.trim();
-  
-  // Skip placeholder values
-  if (trimmedKey === 'your-helius-api-key' || 
-      trimmedKey === 'your-alchemy-api-key') {
-    return '';
-  }
-  
-  // Remove quotes if they were accidentally included
-  if ((trimmedKey.startsWith('"') && trimmedKey.endsWith('"')) || 
-      (trimmedKey.startsWith("'") && trimmedKey.endsWith("'"))) {
-    return trimmedKey.slice(1, -1);
-  }
-  
-  return trimmedKey;
-}
-
-/**
  * Masks API key for safe logging
  * @param {string} key - API key to mask
  * @returns {string} Masked API key (first 4 and last 4 chars visible)
@@ -283,7 +257,6 @@ async function getLatestBlockhashWithRetry(connection, maxRetries = 3, delayMs =
 module.exports = {
   createConnectionWithRetry,
   verifyTransaction,
-  sanitizeApiKey,
   maskApiKey,
   getLatestBlockhashWithRetry
 }; 

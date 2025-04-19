@@ -451,30 +451,8 @@ exports.handler = async (event, context) => {
   // Initialize Solana connection with our robust service if necessary
   if (!SOLANA_CONNECTION && Connection) {
     try {
-      console.log('Initializing Solana connection with robust WebSocket support...');
-      
-      // Log which API keys are available
-      if (ENV.HELIUS_API_KEY) {
-        console.log(`Using Helius RPC with key: ${ENV.HELIUS_API_KEY.substring(0, 4)}...${ENV.HELIUS_API_KEY.substring(ENV.HELIUS_API_KEY.length - 4)}`);
-      } else {
-        console.warn('Helius API key not found');
-      }
-      
-      if (ENV.ALCHEMY_API_KEY) {
-        console.log(`Alchemy API key available: ${ENV.ALCHEMY_API_KEY.substring(0, 4)}...${ENV.ALCHEMY_API_KEY.substring(ENV.ALCHEMY_API_KEY.length - 4)}`);
-      } else {
-        console.warn('Alchemy API key not found - fallback may not work');
-      }
-      
+      console.log('Initializing Solana connection...');
       SOLANA_CONNECTION = await createConnectionWithRetry(ENV);
-      
-      // Validate we have a working connection
-      try {
-        const blockHeight = await SOLANA_CONNECTION.getBlockHeight();
-        console.log(`✅ Connected successfully, current block height: ${blockHeight}`);
-      } catch (connErr) {
-        console.error('Connection test failed:', connErr.message);
-      }
     } catch (err) {
       console.error('Failed to initialize Solana connection:', err.message);
     }

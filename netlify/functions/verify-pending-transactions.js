@@ -215,7 +215,7 @@ exports.handler = async (event, context) => {
   // Initialize Solana connection with our robust service if necessary
   if (!SOLANA_CONNECTION && Connection) {
     try {
-      console.log('Initializing Solana connection with frontend-matched implementation...');
+      console.log('Initializing Solana connection...');
       SOLANA_CONNECTION = await createConnectionWithRetry(ENV);
     } catch (err) {
       console.error('Failed to initialize Solana connection:', err.message);
