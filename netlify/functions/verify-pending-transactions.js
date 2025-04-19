@@ -1,57 +1,44 @@
 /**
  * VERIFY PENDING TRANSACTIONS
  * 
- * This function verifies pending blockchain transactions in a batch process
- * It's designed to run on a schedule via Netlify's scheduled functions
- * or be triggered manually by an admin
+ * This function runs periodically to check the status of pending blockchain transactions
+ * Implementation exactly matches the frontend approach for RPC connections
  */
 
 let Connection, PublicKey;
 try {
-  // Try to import Solana packages, but handle the case where they're not available
+  // Try to import Solana packages
   const solanaWeb3 = require('@solana/web3.js');
   Connection = solanaWeb3.Connection;
   PublicKey = solanaWeb3.PublicKey;
 } catch (err) {
   console.error('Failed to load @solana/web3.js:', err.message);
-  // We'll handle this later in the code
 }
 
 const { createClient } = require('@supabase/supabase-js');
 
-// Check required environment variables
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const HELIUS_API_KEY = process.env.VITE_HELIUS_API_KEY || process.env.HELIUS_API_KEY;
-const ALCHEMY_API_KEY = process.env.VITE_ALCHEMY_API_KEY || process.env.ALCHEMY_API_KEY;
+// Import our shared RPC service that exactly matches frontend implementation
+const { createConnectionWithRetry, verifyTransaction } = require('./shared/rpc-service');
 
-// Build RPC URL with proper API key
-const getRpcUrl = () => {
-  if (HELIUS_API_KEY && HELIUS_API_KEY !== 'your-helius-api-key') {
-    return `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
-  } else if (ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'your-alchemy-api-key') {
-    return `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
-  } else {
-    // Default to public endpoint as last resort
-    console.warn('No valid Helius or Alchemy API key found, using public endpoint with rate limits');
-    return 'https://api.mainnet-beta.solana.com'; // Public fallback
-  }
+// Environment variables with multiple fallbacks
+const ENV = {
+  // Supabase
+  SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+  SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  
+  // Helius API Key
+  HELIUS_API_KEY: process.env.HELIUS_API_KEY || process.env.VITE_HELIUS_API_KEY || '',
+  
+  // Alchemy API Key
+  ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY || process.env.VITE_ALCHEMY_API_KEY || ''
 };
-
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error(
-    'Missing required environment variables for Supabase:',
-    !SUPABASE_URL ? 'VITE_SUPABASE_URL' : '',
-    !SUPABASE_KEY ? 'SUPABASE_SERVICE_ROLE_KEY' : ''
-  );
-}
 
 // Initialize Supabase with fallback error handling
 let supabase;
 try {
   supabase = createClient(
-    SUPABASE_URL || 'https://placeholder-url.supabase.co',
-    SUPABASE_KEY || 'placeholder-key-for-initialization'
+    ENV.SUPABASE_URL || 'https://placeholder-url.supabase.co',
+    ENV.SUPABASE_KEY || 'placeholder-key-for-initialization'
   );
 } catch (err) {
   console.error('Failed to initialize Supabase client:', err.message);
@@ -61,267 +48,126 @@ try {
 let SOLANA_CONNECTION;
 const LAMPORTS_PER_SOL = 1000000000;
 
-// Initialize Solana connection if possible
-try {
-  if (Connection) {
-    SOLANA_CONNECTION = new Connection(
-      getRpcUrl(),
-      'confirmed' // Use confirmed commitment level for faster verification
-    );
-    
-    // Log the RPC endpoint being used (without exposing full API key)
-    const rpcUrl = getRpcUrl();
-    console.log(`Using Solana RPC: ${rpcUrl.substring(0, rpcUrl.indexOf('?') > 0 ? rpcUrl.indexOf('?') : rpcUrl.length)}`);
-  }
-} catch (err) {
-  console.error('Failed to initialize Solana connection:', err.message);
-  // We'll handle this later in the code
-}
-
-// Securely verify transaction details against the blockchain
-async function verifyTransactionDetails(signature) {
-  try {
-    // Check if we have Solana libraries available
-    if (!SOLANA_CONNECTION) {
-      return { 
-        isValid: false, 
-        error: 'Solana verification is not available. Please try again later.' 
-      };
-    }
-
-    const tx = await SOLANA_CONNECTION.getTransaction(signature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: 'finalized'
-    });
-
-    if (!tx || !tx.meta || tx.meta.err) {
-      return { 
-        isValid: false, 
-        error: tx?.meta?.err 
-          ? typeof tx.meta.err === 'string' 
-            ? `Transaction failed: ${tx.meta.err}`
-            : 'Transaction failed with an error'
-          : 'Transaction not found' 
-      };
-    }
-
-    // Get pre and post balances
-    const preBalances = tx.meta.preBalances;
-    const postBalances = tx.meta.postBalances;
-    
-    // Get accounts involved in the transaction
-    const accounts = tx.transaction.message.getAccountKeys().keySegments().flat();
-    
-    // Find the transfer by looking at balance changes
-    const transfers = accounts.map((account, index) => {
-      const balanceChange = (postBalances[index] - preBalances[index]) / LAMPORTS_PER_SOL;
-      return {
-        address: account.toBase58(),
-        change: balanceChange
-      };
-    });
-
-    // Find the recipient (positive balance change) and sender (negative balance change)
-    const recipient = transfers.find(t => t.change > 0);
-    const sender = transfers.find(t => t.change < 0);
-
-    if (!recipient || !sender) {
-      return { 
-        isValid: false, 
-        error: 'Could not identify transfer details'
-      };
-    }
-    
-    const details = {
-      amount: recipient.change,
-      buyer: sender.address,
-      recipient: recipient.address
-    };
-
-    return { isValid: true, details };
-  } catch (error) {
-    console.error('Error verifying transaction:', error);
-    return { 
-      isValid: false, 
-      error: error instanceof Error ? error.message : 'Failed to verify transaction' 
+// Process all pending transactions using frontend-matched RPC implementation
+async function verifyPendingTransactions() {
+  if (!supabase) {
+    console.error('Supabase client not initialized, cannot verify pending transactions');
+    return {
+      success: false,
+      error: 'Database connection not available'
     };
   }
-}
-
-// Process a batch of pending transactions
-async function processPendingTransactions(limit = 20) {
+  
   try {
-    // Check if Solana verification is available
-    if (!SOLANA_CONNECTION) {
-      console.log('Solana verification unavailable, skipping pending transaction check');
-      return {
-        success: false,
-        error: 'Solana verification unavailable',
-        message: 'Scheduled verification skipped - Solana libraries not available'
-      };
-    }
-
-    // Get pending payment orders with Solana transactions
-    const { data: pendingOrders, error: ordersError } = await supabase
-      .from('orders')
-      .select('id, transaction_signature, amount_sol, wallet_address, payment_method, created_at')
-      .eq('status', 'pending_payment')
-      .not('transaction_signature', 'is', null)
-      .not('transaction_signature', 'like', 'pi_%')  // Exclude Stripe
-      .not('transaction_signature', 'like', 'free_%') // Exclude free orders
+    // Get pending transactions from the database
+    const { data: pendingTxs, error: queryError } = await supabase
+      .from('payment_transactions')
+      .select('*')
+      .in('status', ['pending', 'processing'])
       .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (ordersError) {
-      console.error('Error fetching pending orders:', ordersError);
+      .limit(50);
+    
+    if (queryError) {
+      console.error('Error fetching pending transactions:', queryError);
       return {
         success: false,
-        error: 'Failed to fetch pending orders'
+        error: 'Failed to fetch pending transactions'
       };
     }
-
-    if (!pendingOrders || pendingOrders.length === 0) {
+    
+    if (!pendingTxs || pendingTxs.length === 0) {
+      console.log('No pending transactions to verify');
       return {
         success: true,
-        message: 'No pending Solana transactions found',
-        processed: 0
+        verified: 0
       };
     }
-
-    console.log(`Processing ${pendingOrders.length} pending transactions...`);
     
-    const results = [];
+    console.log(`Found ${pendingTxs.length} pending transactions to verify`);
     
-    // Process each order
-    for (const order of pendingOrders) {
+    // Check if we have Solana connection
+    if (!SOLANA_CONNECTION) {
+      console.error('Solana connection not available, cannot verify transactions');
+      return {
+        success: false,
+        error: 'Blockchain connection not available'
+      };
+    }
+    
+    let verifiedCount = 0;
+    let failedCount = 0;
+    
+    // Process each pending transaction
+    for (const tx of pendingTxs) {
       try {
-        // Skip invalid transactions
-        if (!order.transaction_signature || 
-            order.transaction_signature === 'rejected' ||
-            order.transaction_signature.length < 10) {
-          continue;
-        }
+        console.log(`Verifying transaction ${tx.signature}...`);
         
-        console.log(`Verifying transaction ${order.transaction_signature} for order ${order.id}...`);
+        // Use our shared verification function with proper error handling
+        const result = await verifyTransaction(SOLANA_CONNECTION, tx.signature);
         
-        // Verify transaction on chain
-        const verification = await verifyTransactionDetails(order.transaction_signature);
-        
-        // Record the result
-        const result = {
-          orderId: order.id,
-          signature: order.transaction_signature,
-          isValid: verification.isValid,
-          details: verification.details,
-          error: verification.error
-        };
-        
-        if (verification.isValid) {
-          // If valid, compare expected values
-          const expectedAmount = order.amount_sol;
-          const buyerAddress = order.wallet_address;
-          
-          let isAmountValid = true;
-          let isBuyerValid = true;
-          
-          if (expectedAmount && verification.details) {
-            isAmountValid = Math.abs(verification.details.amount - expectedAmount) <= 0.00001;
-            result.amountValid = isAmountValid;
-            
-            if (!isAmountValid) {
-              result.amountError = `Amount mismatch: expected ${expectedAmount} SOL, got ${verification.details.amount} SOL`;
-            }
-          }
-          
-          if (buyerAddress && verification.details) {
-            isBuyerValid = buyerAddress.toLowerCase() === verification.details.buyer.toLowerCase();
-            result.buyerValid = isBuyerValid;
-            
-            if (!isBuyerValid) {
-              result.buyerError = `Buyer mismatch: expected ${buyerAddress}, got ${verification.details.buyer}`;
-            }
-          }
-          
-          // Only confirm if everything is valid
-          if (isAmountValid && isBuyerValid) {
-            // Update transaction log with success
-            const { error: updateError } = await supabase.rpc('update_transaction_status', {
-              p_signature: order.transaction_signature,
-              p_status: 'confirmed',
-              p_details: {
-                ...verification.details,
-                confirmedAt: new Date().toISOString()
-              }
-            });
-            
-            if (updateError) {
-              console.error('Failed to update transaction status:', updateError);
-              result.statusUpdateError = updateError.message;
-            }
-            
-            // Update order status
-            const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
-              p_transaction_signature: order.transaction_signature,
-              p_status: 'confirmed'
-            });
-            
-            if (confirmError) {
-              console.error('Failed to confirm order payment:', confirmError);
-              result.orderUpdateError = confirmError.message;
-            } else {
-              result.orderConfirmed = true;
-            }
-          } else {
-            // Record verification failure
-            const { error: logError } = await supabase.rpc('update_transaction_status', {
-              p_signature: order.transaction_signature,
-              p_status: 'failed',
-              p_details: {
-                error: result.amountError || result.buyerError,
-                verification: verification.details || null
-              }
-            });
-            
-            if (logError) {
-              console.error('Failed to log verification failure:', logError);
-              result.logError = logError.message;
-            }
-          }
-        } else {
-          // Record verification failure
-          const { error: logError } = await supabase.rpc('update_transaction_status', {
-            p_signature: order.transaction_signature,
-            p_status: 'failed',
+        if (result.isValid) {
+          // Transaction is valid, update status to confirmed
+          const { error: updateError } = await supabase.rpc('update_transaction_status', {
+            p_signature: tx.signature,
+            p_status: 'confirmed',
             p_details: {
-              error: verification.error,
-              verification: verification.details || null
+              verifiedAt: new Date().toISOString(),
+              automated: true
             }
           });
           
-          if (logError) {
-            console.error('Failed to log verification failure:', logError);
-            result.logError = logError.message;
+          if (updateError) {
+            console.error(`Failed to update transaction ${tx.signature}:`, updateError);
+            failedCount++;
+          } else {
+            console.log(`Successfully verified transaction ${tx.signature}`);
+            verifiedCount++;
+            
+            // Update associated order if exists
+            if (tx.order_id) {
+              const { error: orderError } = await supabase.rpc('confirm_order_payment', {
+                p_transaction_signature: tx.signature,
+                p_status: 'confirmed'
+              });
+              
+              if (orderError) {
+                console.error(`Failed to update order for transaction ${tx.signature}:`, orderError);
+              }
+            }
+          }
+        } else {
+          // Transaction verification failed
+          const { error: updateError } = await supabase.rpc('update_transaction_status', {
+            p_signature: tx.signature,
+            p_status: 'failed',
+            p_details: {
+              error: result.error,
+              verifiedAt: new Date().toISOString(),
+              automated: true
+            }
+          });
+          
+          if (updateError) {
+            console.error(`Failed to update failed transaction ${tx.signature}:`, updateError);
+          } else {
+            console.log(`Marked transaction ${tx.signature} as failed: ${result.error}`);
+            failedCount++;
           }
         }
-        
-        results.push(result);
-      } catch (error) {
-        console.error(`Error processing order ${order.id}:`, error);
-        results.push({
-          orderId: order.id,
-          signature: order.transaction_signature,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
+      } catch (txError) {
+        console.error(`Error processing transaction ${tx.signature}:`, txError);
+        failedCount++;
       }
     }
     
     return {
       success: true,
-      processed: results.length,
-      results
+      verified: verifiedCount,
+      failed: failedCount,
+      total: pendingTxs.length
     };
   } catch (error) {
-    console.error('Error processing pending transactions:', error);
+    console.error('Error verifying pending transactions:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -330,102 +176,30 @@ async function processPendingTransactions(limit = 20) {
 }
 
 exports.handler = async (event, context) => {
-  // Check if Supabase client is available
-  if (!supabase) {
-    console.error('Supabase client is not initialized');
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ 
-        success: false,
-        message: 'Scheduled verification skipped - Database connection unavailable'
-      })
-    };
+  // Initialize Solana connection with our robust service if necessary
+  if (!SOLANA_CONNECTION && Connection) {
+    try {
+      console.log('Initializing Solana connection with frontend-matched implementation...');
+      SOLANA_CONNECTION = await createConnectionWithRetry(ENV);
+    } catch (err) {
+      console.error('Failed to initialize Solana connection:', err.message);
+    }
   }
-
-  // Check if Solana is available
-  if (!SOLANA_CONNECTION) {
-    console.log('Solana connection is not available for scheduled function');
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ 
-        success: false,
-        message: 'Scheduled verification skipped - Solana libraries not available'
-      })
-    };
-  }
-
-  // For scheduled functions, the event will be different
-  const isScheduled = event.headers === undefined;
   
-  if (!isScheduled && event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
-  }
-
-  // If manually triggered, validate authorization
-  if (!isScheduled) {
-    const authHeader = event.headers.authorization || '';
-    const token = authHeader.replace('Bearer ', '');
-    
-    // For manual verification, enforce API key when available
-    if (process.env.ADMIN_API_KEY) {
-      if (token !== process.env.ADMIN_API_KEY) {
-        console.error('Invalid API key for manual verification');
-        return {
-          statusCode: 401,
-          body: JSON.stringify({ 
-            error: 'Invalid API key',
-            message: 'Manual verification requires proper authorization'
-          })
-        };
-      } else {
-        console.log('Authorized admin verification request');
-      }
-    } else if (token.length === 0) {
-      // If ADMIN_API_KEY is not set in environment, at least require some token
-      console.error('No authorization token provided for manual verification');
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ 
-          error: 'Missing authentication',
-          message: 'Authorization required for manual verification'
-        })
-      };
-    } else {
-      // When no ADMIN_API_KEY is configured, log but allow with warning
-      console.warn('No ADMIN_API_KEY configured for verification, accepting request with warning');
-    }
-  }
-
   try {
-    // Parse parameters for manual runs
-    let limit = 20;
-    if (!isScheduled && event.body) {
-      try {
-        const body = JSON.parse(event.body);
-        if (body.limit && typeof body.limit === 'number') {
-          limit = Math.min(Math.max(1, body.limit), 100); // Limit between 1-100
-        }
-      } catch (err) {
-        console.warn('Failed to parse request body, using default limit');
-      }
-    }
-
-    const result = await processPendingTransactions(limit);
+    const result = await verifyPendingTransactions();
     
     return {
       statusCode: result.success ? 200 : 500,
       body: JSON.stringify(result)
     };
-  } catch (err) {
-    console.error('Error in verify pending transactions function:', err);
+  } catch (error) {
+    console.error('Error in verify-pending-transactions function:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ 
-        error: 'Internal server error',
-        details: err.message 
+      body: JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       })
     };
   }
