@@ -6,7 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useFormContext } from 'react-hook-form';
-import { useEffect, useState, useCallback, useContext } from 'react';
+import { useEffect, useState, useContext } from 'react';
 
 // Create context for direct image file access
 import React from 'react';
