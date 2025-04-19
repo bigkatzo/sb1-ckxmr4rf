@@ -13,8 +13,7 @@ interface TransactionStatus {
   paymentConfirmed?: boolean;
 }
 
-// This function is no longer used - verification happens on the server side now
-// Keeping the interface type for reference
+// This interface is used only for server communication
 interface TransactionDetails {
   amount: number;
   buyer: string;
@@ -24,15 +23,7 @@ interface TransactionDetails {
 const MAX_RETRIES = 30;
 const INITIAL_DELAY = 1000;
 
-// Remove or comment out the unused function
-// async function verifyTransactionDetails(
-//   signature: string,
-//   expectedDetails?: TransactionDetails
-// ): Promise<{ isValid: boolean; error?: string; details?: TransactionDetails }> {
-//   // Function body removed as it's unused
-// }
-
-// Add getAuthToken helper function if it doesn't exist
+// Function to get auth token for server communication
 async function getAuthToken(): Promise<string | null> {
   try {
     const { data } = await supabase.auth.getSession();
@@ -43,13 +34,17 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
+/**
+ * Monitors transaction confirmation and sends to server for verification
+ * The server is now fully responsible for all verification logic
+ */
 export async function monitorTransaction(
   signature: string,
   onStatusUpdate: (status: TransactionStatus) => void,
   expectedDetails?: TransactionDetails,
-  orderId?: string // Add orderId parameter to explicitly link transaction to order
+  orderId?: string // Order ID to link transaction to
 ): Promise<boolean> {
-  // Add defensive check for signature
+  // Validate input
   if (!signature || typeof signature !== 'string') {
     console.error('Invalid transaction signature:', signature);
     onStatusUpdate({
@@ -83,9 +78,6 @@ export async function monitorTransaction(
 
   let attempts = 0;
   const toastId = toast.loading('Processing transaction...');
-  
-  // Flag to track if server has already processed the order
-  let serverProcessedOrder = false;
 
   try {
     // Initial processing status
@@ -96,53 +88,12 @@ export async function monitorTransaction(
       signature
     });
 
-    // If we have an orderId, check if it's already been processed by the server
-    if (orderId) {
-      try {
-        // Check current order status first
-        const { data: orderData, error: orderError } = await supabase
-          .from('orders')
-          .select('status, transaction_signature')
-          .eq('id', orderId)
-          .single();
-          
-        if (!orderError && orderData) {
-          // If order is already in pending_payment or confirmed status with our signature,
-          // the server has likely already processed it
-          if ((orderData.status === 'pending_payment' || orderData.status === 'confirmed') && 
-              orderData.transaction_signature === signature) {
-            console.log(`Order ${orderId} already processed by server (status: ${orderData.status})`);
-            serverProcessedOrder = true;
-          } else if (orderData.status === 'draft') {
-            // If still in draft, link the transaction
-            try {
-              console.log(`Linking transaction ${signature} to order ${orderId}`);
-              const { error } = await supabase
-                .from('orders')
-                .update({ transaction_signature: signature })
-                .eq('id', orderId);
-                
-              if (error) {
-                console.error('Failed to link transaction to order:', error);
-              } else {
-                console.log(`Successfully linked transaction ${signature} to order ${orderId}`);
-              }
-            } catch (linkError) {
-              console.error('Error linking transaction to order:', linkError);
-            }
-          }
-        }
-      } catch (checkError) {
-        console.error('Error checking order status:', checkError);
-      }
-    }
-
     // Initial delay to allow transaction to propagate
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     while (attempts < MAX_RETRIES) {
       try {
-        // Check transaction status on Solana network first to avoid unnecessary server calls
+        // Check if transaction is finalized on Solana blockchain
         const statuses = await SOLANA_CONNECTION.getSignatureStatuses([signature], {
           searchTransactionHistory: true
         });
@@ -150,9 +101,10 @@ export async function monitorTransaction(
         const status = statuses.value?.[0];
         console.log(`Status check ${attempts + 1}:`, status);
 
+        // Only proceed with server verification if transaction is finalized
         if (status?.confirmationStatus === 'finalized') {
-          // Transaction is finalized on Solana, send to server for verification and order update
           try {
+            // Get authentication token for server request
             const authToken = await getAuthToken();
             
             if (!authToken) {
@@ -160,11 +112,9 @@ export async function monitorTransaction(
               throw new Error('Authentication failed');
             }
             
-            console.log('Auth token retrieved for verification successfully');
+            console.log('Auth token retrieved, sending transaction to server for verification');
 
-            // Single call to verify transaction and update any associated orders
-            // The server will now handle finding and updating all related orders
-            console.log('Sending transaction to server for verification and order updates');
+            // Send transaction to server for verification - ALL verification happens server-side
             const response = await fetch('/.netlify/functions/verify-transaction', {
               method: 'POST',
               headers: {
@@ -174,66 +124,20 @@ export async function monitorTransaction(
               body: JSON.stringify({
                 signature,
                 expectedDetails,
-                orderId // Include orderId if available
+                orderId
               })
             });
             
-            // Handle server errors or unavailability
+            // Handle server response
             if (!response.ok) {
-              // If server returns 502 Bad Gateway, the function is not available
+              // Server unavailable - background job will process it later
               if (response.status === 502 || response.status === 401 || response.status === 403) {
-                console.warn(`Server-side verification unavailable (${response.status}), falling back to blockchain confirmation only`);
+                console.warn(`Server temporarily unavailable (${response.status}). Verification will be completed by background job.`);
                 
-                // If the server couldn't process and we have an orderId, try to update manually if not already processed
-                if (orderId && !serverProcessedOrder) {
-                  try {
-                    console.log('Attempting to update transaction status (attempt 1/5)');
-                    
-                    // Check current order status first
-                    const { data: currentOrder, error: checkError } = await supabase
-                      .from('orders')
-                      .select('status')
-                      .eq('id', orderId)
-                      .single();
-                      
-                    if (!checkError && currentOrder) {
-                      if (currentOrder.status === 'draft') {
-                        // Update from draft to pending_payment
-                        const { error } = await supabase.rpc('update_order_transaction', {
-                          p_order_id: orderId,
-                          p_transaction_signature: signature,
-                          p_amount_sol: expectedDetails?.amount || 0
-                        });
-                        
-                        if (error) {
-                          console.error('Failed to update order status:', error);
-                        } else {
-                          console.log('Transaction status updated successfully');
-                        }
-                      } else if (currentOrder.status === 'pending_payment') {
-                        // Update from pending_payment to confirmed
-                        const { error } = await supabase.rpc('confirm_order_payment', {
-                          p_transaction_signature: signature,
-                          p_status: 'confirmed'
-                        });
-                        
-                        if (error) {
-                          console.error('Failed to confirm order payment:', error);
-                        } else {
-                          console.log('Order payment confirmed successfully');
-                        }
-                      }
-                    }
-                  } catch (dbError) {
-                    console.error('Error updating transaction status:', dbError);
-                  }
-                }
-                
-                // Directly update the UI as success since the transaction is finalized on Solana
                 toast.update(toastId, {
                   render: () => (
                     <div>
-                      Transaction confirmed! Verification details will be processed later.
+                      Transaction confirmed! Verification will be processed automatically.
                     </div>
                   ),
                   type: 'success',
@@ -252,14 +156,15 @@ export async function monitorTransaction(
                 return true;
               }
               
-              // For other errors, try to parse error message
-              const errorData = await response.json().catch(() => ({ error: 'Failed to verify transaction on server' }));
-              throw new Error(errorData.error || 'Failed to verify transaction on server');
+              // Other server errors
+              const errorData = await response.json().catch(() => ({ error: 'Failed to verify transaction' }));
+              throw new Error(errorData.error || 'Server verification failed');
             }
             
+            // Process successful server response
             const verificationResult = await response.json();
             
-            // If server returned a temp approval due to verification being unavailable
+            // Handle temporary approval
             if (verificationResult.warning && verificationResult.tempApproved) {
               console.warn('Server returned temporary approval:', verificationResult.warning);
               
@@ -285,6 +190,7 @@ export async function monitorTransaction(
               return true;
             }
             
+            // Handle verification failure
             if (!verificationResult.success) {
               const errorMessage = verificationResult.error || 'Transaction verification failed';
               
@@ -306,17 +212,9 @@ export async function monitorTransaction(
               return false;
             }
 
-            // Show order update results in console
-            if (verificationResult.ordersUpdated && verificationResult.ordersUpdated.length > 0) {
-              console.log(`Successfully updated ${verificationResult.ordersUpdated.length} orders:`, verificationResult.ordersUpdated);
-              serverProcessedOrder = true;
-            }
+            // Success - transaction verified by server
+            console.log('Server verification successful:', verificationResult);
             
-            if (verificationResult.ordersFailed && verificationResult.ordersFailed.length > 0) {
-              console.warn(`Failed to update ${verificationResult.ordersFailed.length} orders:`, verificationResult.ordersFailed);
-            }
-
-            // Success - transaction verified and orders updated
             const solscanUrl = `https://solscan.io/tx/${signature}`;
             toast.update(toastId, {
               render: () => (
@@ -348,16 +246,16 @@ export async function monitorTransaction(
             
             return true;
           } catch (error) {
-            console.error('Error verifying transaction on server:', error);
+            console.error('Server verification error:', error);
             
-            // If server verification fails but blockchain confirms transaction,
-            // fall back to accepting the transaction as confirmed
-            console.warn('Server verification failed, falling back to blockchain confirmation only');
+            // Even if server verification fails, the transaction itself is confirmed
+            // The background job will process it later
+            console.warn('Transaction confirmed on blockchain but server verification failed. Will be processed automatically later.');
             
             toast.update(toastId, {
               render: () => (
                 <div>
-                  Transaction confirmed on blockchain. Verification details will be processed later.
+                  Transaction confirmed! Verification will complete automatically.
                 </div>
               ),
               type: 'success',
@@ -377,6 +275,7 @@ export async function monitorTransaction(
           }
         }
 
+        // Transaction not finalized yet, continue checking
         attempts++;
         const delay = Math.min(
           INITIAL_DELAY * Math.pow(1.5, attempts) + Math.random() * 1000,
@@ -399,6 +298,7 @@ export async function monitorTransaction(
       }
     }
 
+    // Max retries reached
     const timeoutError = 'Transaction confirmation timed out';
     toast.update(toastId, {
       render: timeoutError,
