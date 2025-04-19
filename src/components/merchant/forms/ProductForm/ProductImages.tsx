@@ -6,7 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useFormContext } from 'react-hook-form';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface ProductImagesProps {
   initialExistingImages?: string[];
@@ -44,13 +44,26 @@ function SortableImage({ id, src, onRemove }: SortableImageProps) {
 }
 
 export function ProductImages({ initialExistingImages = [] }: ProductImagesProps) {
-  const { register, setValue, getValues } = useFormContext();
+  const { register, setValue } = useFormContext();
   
   // Local state for UI
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>(initialExistingImages);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
+  
+  // Stable function to update form values
+  const updateFormValues = useCallback((newImages: File[]) => {
+    // Ensure we're passing actual File objects to the form
+    const validImages = newImages.filter(file => file instanceof File);
+    console.log('updateFormValues with', validImages.length, 'files');
+    
+    setValue('imageFiles', validImages, { 
+      shouldDirty: true, 
+      shouldTouch: true,
+      shouldValidate: true 
+    });
+  }, [setValue]);
   
   // Register the image fields with react-hook-form
   useEffect(() => {
@@ -60,16 +73,13 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
     register('removedImages');
     
     // Initialize values
-    setValue('imageFiles', []);
-    setValue('existingImages', initialExistingImages);
-    setValue('removedImages', []);
+    setValue('imageFiles', [], { shouldDirty: false });
+    setValue('existingImages', initialExistingImages, { shouldDirty: false });
+    setValue('removedImages', [], { shouldDirty: false });
     setExistingImages(initialExistingImages);
-
-    // Debug: return cleanup function that logs the final image values
-    return () => {
-      console.log('Final imageFiles value:', getValues('imageFiles'));
-    };
-  }, [initialExistingImages, register, setValue, getValues]);
+    
+    // No cleanup function to avoid infinite loops
+  }, [initialExistingImages, register, setValue]);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -107,11 +117,10 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
         const newPreviews = [...previews, ...acceptedFiles.map(file => URL.createObjectURL(file))];
         
         console.log('Dropzone received files:', acceptedFiles.map(f => f.name));
-        console.log('Setting imageFiles with total count:', newImages.length);
         
         setImages(newImages);
         setPreviews(newPreviews);
-        setValue('imageFiles', newImages, { shouldDirty: true, shouldTouch: true });
+        updateFormValues(newImages);
       }
     }
   });
@@ -128,7 +137,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
       
       setImages(newImages);
       setPreviews(newPreviews);
-      setValue('imageFiles', newImages, { shouldDirty: true, shouldTouch: true });
+      updateFormValues(newImages);
     }
   };
   
@@ -174,10 +183,20 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
         
         setImages(newImages);
         setPreviews(newPreviews);
-        setValue('imageFiles', newImages, { shouldDirty: true, shouldTouch: true });
+        updateFormValues(newImages);
       }
     }
   };
+
+  // Force update parent form when component unmounts (not common, but can help in some edge cases)
+  useEffect(() => {
+    return () => {
+      if (images.length > 0) {
+        // Try to set the form value one more time before unmounting
+        updateFormValues(images);
+      }
+    };
+  }, [images, updateFormValues]);
 
   return (
     <div>
