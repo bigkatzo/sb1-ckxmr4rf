@@ -13,7 +13,6 @@ import { Loading, LoadingType } from '../ui/LoadingStates';
 import { supabase } from '../../lib/supabase';
 import { verifyNFTHolding } from '../../utils/nft-verification';
 import { monitorTransaction } from '../../utils/transaction-monitor';
-import type { TransactionStatus } from '../../types/transactions';
 import { OrderSuccessView } from '../OrderSuccessView';
 import { validatePhoneNumber } from '../../lib/validation';
 import { StripePaymentModal } from './StripePaymentModal';
@@ -123,9 +122,18 @@ export function TokenVerificationModal({
   ]);
 
   // Add helper function to update progress steps
-  const updateProgressStep = (index: number, status: ProgressStep['status'], description?: string) => {
+  const updateProgressStep = (index: number, status: ProgressStep['status'], description?: string, errorDetails?: string) => {
     setProgressSteps(steps => steps.map((step, i) => 
-      i === index ? { ...step, status, description } : step
+      i === index ? { 
+        ...step, 
+        status, 
+        description,
+        details: {
+          ...step.details,
+          error: status === 'error' ? errorDetails || step.details?.error : step.details?.error,
+          success: status === 'completed' ? step.details?.success : step.details?.success
+        }
+      } : step
     ));
   };
 
@@ -389,7 +397,7 @@ export function TokenVerificationModal({
       const { success, signature: txSignature } = await processPayment(finalPrice, product.collectionId);
       
       if (!success || !txSignature) {
-        updateProgressStep(1, 'error', 'Payment failed');
+        updateProgressStep(1, 'error', undefined, 'Payment failed');
         
         // Update order to pending_payment status even if payment fails
         try {
@@ -443,30 +451,22 @@ export function TokenVerificationModal({
           recipient: product.collectionId // Collection address as recipient
         };
         
-        // Make sure we're getting a fresh auth token
-        let authToken = '';
-        try {
-          const { data } = await supabase.auth.getSession();
-          authToken = data.session?.access_token || '';
-          console.log('Auth token retrieved for verification', authToken ? 'successfully' : 'failed');
-        } catch (error) {
-          console.warn('Failed to get authentication session', error);
-        }
-
-        // Wait for transaction confirmation using server-side verification
-        const confirmed = await monitorTransaction(
-          signature, 
-          (status: TransactionStatus) => {
+        // Monitor transaction status and confirm on chain
+        const transactionSuccess = await monitorTransaction(
+          signature,
+          (status) => {
             if (status.error) {
-              updateProgressStep(2, 'error', status.error);
+              updateProgressStep(2, 'error', undefined, status.error);
+            } else if (status.paymentConfirmed) {
+              updateProgressStep(2, 'completed', 'Transaction confirmed!');
             }
-          }, 
+          },
           expectedDetails,
-          orderId // Pass the orderId to ensure transaction is linked to order
+          orderId
         );
 
-        if (!confirmed) {
-          updateProgressStep(2, 'error', 'Transaction verification failed. Order will remain in pending_payment status for merchant review.');
+        if (!transactionSuccess) {
+          updateProgressStep(2, 'error', undefined, 'Transaction verification failed. Order will remain in pending_payment status for merchant review.');
           // Don't throw error here, let the merchant handle it
           setShowSuccessView(true); // Show success view since order is created
           return;

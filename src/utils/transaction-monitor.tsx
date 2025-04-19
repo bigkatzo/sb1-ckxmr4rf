@@ -1,6 +1,5 @@
 import { SOLANA_CONNECTION } from '../config/solana';
 import { toast } from 'react-toastify';
-import { supabase } from '../lib/supabase';
 
 // Keep track of processed signatures to prevent duplicate processing
 const processedSignatures = new Set<string>();
@@ -22,17 +21,6 @@ interface TransactionDetails {
 
 const MAX_RETRIES = 30;
 const INITIAL_DELAY = 1000;
-
-// Function to get auth token for server communication
-async function getAuthToken(): Promise<string | null> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token || null;
-  } catch (error) {
-    console.error('Failed to get auth session:', error);
-    return null;
-  }
-}
 
 /**
  * Monitors transaction confirmation and sends to server for verification
