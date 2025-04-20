@@ -5,6 +5,7 @@ import { getTrackingInfo } from '../services/tracking';
 import { OrderTracking } from '../types/orders';
 import { format } from 'date-fns';
 import { SupportMessage } from '../components/ui/SupportMessage';
+import { SensitiveInfo } from '../components/ui/SensitiveInfo';
 
 // Define tracking stages for the progress indicator
 const TRACKING_STAGES = [
@@ -313,9 +314,11 @@ export default function TrackingPage() {
                 {tracking.order_details.shipping_address && (
                   <div className="p-4 sm:p-6 rounded-xl bg-gray-800/50 ring-1 ring-white/5 sm:col-span-2">
                     <label className="text-xs text-gray-400 block mb-1">Shipping Address</label>
-                    <p className="font-medium text-white whitespace-pre-line">
-                      {tracking.order_details.shipping_address}
-                    </p>
+                    <SensitiveInfo type="blur">
+                      <p className="font-medium text-white whitespace-pre-line">
+                        {tracking.order_details.shipping_address}
+                      </p>
+                    </SensitiveInfo>
                   </div>
                 )}
               </div>

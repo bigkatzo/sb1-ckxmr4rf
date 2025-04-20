@@ -15,6 +15,7 @@ import {
   isStripeReceiptUrl
 } from '../utils/transactions';
 import { SupportMessage } from '../components/ui/SupportMessage';
+import { SensitiveInfo } from '../components/ui/SensitiveInfo';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -106,12 +107,18 @@ export function OrdersPage() {
     if (!shippingAddress) return null;
     const { address, city, country, zip } = shippingAddress;
     
-    return (
+    const addressContent = (
       <div className="space-y-0.5 text-gray-300 text-xs">
         <div>{address}</div>
         <div>{city}, {zip}</div>
         <div>{country}</div>
       </div>
+    );
+    
+    return (
+      <SensitiveInfo type="blur">
+        {addressContent}
+      </SensitiveInfo>
     );
   };
 
@@ -150,7 +157,7 @@ export function OrdersPage() {
 
     const { icon, label, value: contactValue } = getContactInfo();
     
-    return (
+    const contactContent = (
       <div className="flex items-center gap-2 text-gray-300">
         {icon}
         <div className="flex flex-col">
@@ -158,6 +165,12 @@ export function OrdersPage() {
           <span className="text-sm">{contactValue}</span>
         </div>
       </div>
+    );
+    
+    return (
+      <SensitiveInfo type="blur">
+        {contactContent}
+      </SensitiveInfo>
     );
   };
 

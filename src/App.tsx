@@ -6,6 +6,7 @@ import { WalletProvider } from './contexts/WalletContext';
 import { ModalProvider } from './contexts/ModalContext';
 import { HowItWorksProvider } from './contexts/HowItWorksContext';
 import { AppMessagesProvider } from './contexts/AppMessagesContext';
+import { UserRoleProvider } from './contexts/UserRoleContext';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { validateEnvironmentVariables } from './utils/env-validation';
 import { setupCachePreloader } from './lib/cache-preloader';
@@ -117,17 +118,19 @@ export function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <WalletProvider>
-          <CollectionProvider>
-            <ModalProvider>
-              <HowItWorksProvider>
-                <AppMessagesProvider>
-                  <AppContent />
-                </AppMessagesProvider>
-              </HowItWorksProvider>
-            </ModalProvider>
-          </CollectionProvider>
-        </WalletProvider>
+        <UserRoleProvider>
+          <WalletProvider>
+            <CollectionProvider>
+              <ModalProvider>
+                <HowItWorksProvider>
+                  <AppMessagesProvider>
+                    <AppContent />
+                  </AppMessagesProvider>
+                </HowItWorksProvider>
+              </ModalProvider>
+            </CollectionProvider>
+          </WalletProvider>
+        </UserRoleProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

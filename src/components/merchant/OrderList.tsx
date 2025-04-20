@@ -33,6 +33,7 @@ import {
   isStripeReceiptUrl
 } from '../../utils/transactions';
 import DeleteTrackingButton from '../tracking/DeleteTrackingButton';
+import { SensitiveInfo } from '../ui/SensitiveInfo';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -664,7 +665,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
     const { url, display, icon, label } = getContactInfo();
     
-    return (
+    const contactContent = (
       <div className="flex flex-col gap-1">
         <span className="text-xs text-gray-400">{label}</span>
         <div className="flex flex-col gap-1">
@@ -696,18 +697,30 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         </div>
       </div>
     );
+    
+    return (
+      <SensitiveInfo type="blur">
+        {contactContent}
+      </SensitiveInfo>
+    );
   };
 
   const formatShippingAddress = (shippingAddress: any) => {
     if (!shippingAddress) return null;
     const { address, city, country, zip } = shippingAddress;
     
-    return (
+    const addressContent = (
       <div className="space-y-0.5 text-gray-300 text-sm">
         <div>{address}</div>
         <div>{city} {zip}</div>
         <div>{country}</div>
       </div>
+    );
+    
+    return (
+      <SensitiveInfo type="blur">
+        {addressContent}
+      </SensitiveInfo>
     );
   };
 
