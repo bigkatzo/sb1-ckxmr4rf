@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Menu, X as XIcon, Package, Twitter, Mail, Send } from 'lucide-react';
 import { SearchBar } from '../search/SearchBar';
 import { Logo } from '../ui/Logo';
 import { WalletButton } from '../wallet/WalletButton';
 import { useHowItWorks } from '../../contexts/HowItWorksContext';
+import { useAppMessages } from '../../contexts/AppMessagesContext';
 
 type MenuItem = {
   label: string;
@@ -19,6 +20,8 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { openHowItWorks } = useHowItWorks();
+  const { activeMarquee } = useAppMessages();
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const menuItems: MenuItem[] = [
     { to: '/orders', icon: <Package className="h-3.5 w-3.5" />, label: 'Orders' },
@@ -110,8 +113,34 @@ export default function Navbar() {
     </div>
   );
 
+  // Handle scroll events
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 10) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    
+    // Initial check
+    handleScroll();
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   return (
-    <nav className="fixed top-0 w-full bg-black/95 backdrop-blur-sm text-white z-50">
+    <nav 
+      className={`fixed ${
+        activeMarquee ? 'top-8' : 'top-0'
+      } w-full bg-black/95 backdrop-blur-sm text-white z-40 transition-all duration-200 ${
+        isScrolled ? 'shadow-md' : ''
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
           <div className="flex items-center gap-6">

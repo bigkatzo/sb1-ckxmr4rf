@@ -17,11 +17,15 @@ type AppMessage = {
 type AppMessagesContextType = {
   hasSeenPopup: boolean;
   markPopupAsSeen: () => void;
+  activeMarquee: AppMessage | null;
+  activePopup: AppMessage | null;
 };
 
 const AppMessagesContext = createContext<AppMessagesContextType>({
   hasSeenPopup: false,
   markPopupAsSeen: () => {},
+  activeMarquee: null,
+  activePopup: null
 });
 
 const LOCAL_STORAGE_POPUP_KEY = 'store_fun_popup_seen';
@@ -62,6 +66,8 @@ export function AppMessagesProvider({ children }: { children: React.ReactNode })
 
   async function fetchActiveMessages() {
     try {      
+      console.log('Fetching active app messages...');
+      
       // Use the get_active_app_messages() function
       const { data, error } = await supabase
         .rpc('get_active_app_messages');
@@ -71,19 +77,25 @@ export function AppMessagesProvider({ children }: { children: React.ReactNode })
         return;
       }
       
+      console.log('Active messages response:', data);
+      
       if (data && data.length > 0) {
         // Find the most recent marquee and popup
         const marquee = data.find((msg: AppMessage) => msg.type === 'marquee');
         const popup = data.find((msg: AppMessage) => msg.type === 'popup');
         
+        console.log('Active marquee found:', marquee);
+        console.log('Active popup found:', popup);
+        
         setActiveMarquee(marquee || null);
         setActivePopup(popup || null);
       } else {
+        console.log('No active messages found in database response');
         setActiveMarquee(null);
         setActivePopup(null);
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
+      console.error('Unexpected error in fetchActiveMessages:', err);
     }
   }
 
@@ -92,18 +104,61 @@ export function AppMessagesProvider({ children }: { children: React.ReactNode })
     setHasSeenPopup(true);
   }
 
+  const marqueeComponent = activeMarquee ? (
+    <div className="fixed top-0 left-0 right-0 z-[99999] w-full">
+      <Marquee 
+        text={activeMarquee.content} 
+        speed={activeMarquee.marquee_speed}
+        link={activeMarquee.marquee_link}
+      />
+    </div>
+  ) : null;
+
+  const popupComponent = activePopup && !hasSeenPopup ? (
+    <Popup
+      content={activePopup.content}
+      headerImageUrl={activePopup.header_image_url}
+      ctaText={activePopup.cta_text}
+      ctaLink={activePopup.cta_link}
+      onClose={markPopupAsSeen}
+    />
+  ) : null;
+
   return (
-    <AppMessagesContext.Provider value={{ hasSeenPopup, markPopupAsSeen }}>
-      {/* Marquee appears at the top of the page if active */}
+    <AppMessagesContext.Provider value={{ 
+      hasSeenPopup, 
+      markPopupAsSeen,
+      activeMarquee,
+      activePopup
+    }}>
+      {/* Portal the components to ensure they're at the root level */}
+      {marqueeComponent}
+      {popupComponent}
+      {children}
+    </AppMessagesContext.Provider>
+  );
+}
+
+export function useAppMessages() {
+  return useContext(AppMessagesContext);
+}
+
+// New component to render messages in layout components
+export function AppMessagesRenderer() {
+  const { activeMarquee, activePopup, hasSeenPopup, markPopupAsSeen } = useAppMessages();
+  
+  return (
+    <>
       {activeMarquee && (
-        <Marquee 
-          text={activeMarquee.content} 
-          speed={activeMarquee.marquee_speed}
-          link={activeMarquee.marquee_link}
-        />
+        <div className="fixed top-0 left-0 right-0 z-[99999] w-full">
+          <Marquee 
+            text={activeMarquee.content} 
+            speed={activeMarquee.marquee_speed}
+            link={activeMarquee.marquee_link}
+          />
+        </div>
       )}
       
-      {/* Popup appears if active and user hasn't seen it yet */}
       {activePopup && !hasSeenPopup && (
         <Popup
           content={activePopup.content}
@@ -113,12 +168,6 @@ export function AppMessagesProvider({ children }: { children: React.ReactNode })
           onClose={markPopupAsSeen}
         />
       )}
-      
-      {children}
-    </AppMessagesContext.Provider>
+    </>
   );
-}
-
-export function useAppMessages() {
-  return useContext(AppMessagesContext);
 } 

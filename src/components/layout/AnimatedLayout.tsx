@@ -13,6 +13,8 @@ import { HowItWorksModal } from '../HowItWorksModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHowItWorks } from '../../contexts/HowItWorksContext';
 import { useEffect, useState } from 'react';
+import { AppMessagesRenderer } from '../../contexts/AppMessagesContext';
+import { useAppMessages } from '../../contexts/AppMessagesContext';
 
 function TransactionStatusWrapper() {
   const { status, resetStatus } = usePayment();
@@ -53,6 +55,7 @@ export function AnimatedLayout() {
   const { isOpen } = useHowItWorks();
   const [prevPathname, setPrevPathname] = useState('');
   const [isNavigating, setIsNavigating] = useState(false);
+  const { activeMarquee } = useAppMessages();
   
   // Add effect to handle body scroll
   useEffect(() => {
@@ -93,9 +96,13 @@ export function AnimatedLayout() {
 
   return (
     <div className={`min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden ${isNavigating ? 'pointer-events-none' : ''}`}>
+      <AppMessagesRenderer />
+      
       <ScrollBehavior />
+      
       <Navbar />
-      <main className="flex-1 pt-12">
+      
+      <main className={`flex-1 ${activeMarquee ? 'pt-20' : 'pt-12'}`}>
         <NotificationsWrapper />
         <div className={`max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4 w-full ${getContainerMinHeight()}`}>
           <AnimatePresence
@@ -110,10 +117,13 @@ export function AnimatedLayout() {
           </AnimatePresence>
         </div>
       </main>
+      
       <Footer />
+      
       <div className="fixed bottom-0 right-0 z-[9999] p-4 space-y-4 max-w-full">
         <TransactionStatusWrapper />
       </div>
+      
       <ToastContainer
         position="bottom-right"
         theme="dark"
@@ -127,6 +137,7 @@ export function AnimatedLayout() {
         className="z-[99999] max-w-[90vw] sm:max-w-md"
         style={{ zIndex: 99999 }}
       />
+      
       <HowItWorksModal />
     </div>
   );
