@@ -58,6 +58,17 @@ exports.handler = async (event, context) => {
   const { productId, shippingInfo, walletAddress, paymentMetadata = {} } = body;
   const variants = body.variants || [];
 
+  console.log('Create order request:', {
+    productId,
+    walletAddress,
+    hasShippingInfo: !!shippingInfo,
+    variants: Array.isArray(variants) ? variants.length : 'not an array',
+    paymentMetadata: {
+      ...paymentMetadata,
+      transactionId: paymentMetadata.transactionId || 'none'
+    }
+  });
+
   if (!productId || !shippingInfo) {
     return {
       statusCode: 400,
@@ -75,6 +86,13 @@ exports.handler = async (event, context) => {
   const transactionId = paymentMetadata.transactionId || 
     `free_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
   
+  console.log('Order transaction details:', {
+    isFreeOrder,
+    transactionId,
+    source: transactionId.includes('stripe') ? 'stripe' : 'token',
+    paymentMethod: paymentMetadata.paymentMethod || 'unknown'
+  });
+  
   // Include transactionId in the metadata
   const finalPaymentMetadata = {
     ...paymentMetadata,
@@ -84,26 +102,35 @@ exports.handler = async (event, context) => {
   try {
     // If this is a free order, check if an order with this transaction ID already exists
     if (isFreeOrder) {
-      console.log('Processing free order, checking for duplicates...');
+      console.log('Processing free order, checking for duplicates with transactionId:', transactionId);
       
       // First check if there's already an order with this transaction ID
       const { data: existingOrders, error: searchError } = await supabase
         .from('orders')
-        .select('id')
+        .select('id, status, created_at')
         .eq('payment_metadata->transactionId', transactionId);
       
       if (searchError) {
         console.error('Error searching for duplicate orders:', searchError);
         // Continue with order creation even if search fails
       } else if (existingOrders && existingOrders.length > 0) {
-        console.log('Duplicate order detected, returning existing order ID:', existingOrders[0].id);
+        console.log('Duplicate order detected:', {
+          orderId: existingOrders[0].id,
+          orderStatus: existingOrders[0].status,
+          created: existingOrders[0].created_at,
+          transactionId
+        });
+        
         return {
           statusCode: 200,
           body: JSON.stringify({ 
             orderId: existingOrders[0].id,
-            isDuplicate: true 
+            isDuplicate: true,
+            message: 'Using existing order with same transaction ID'
           })
         };
+      } else {
+        console.log('No duplicate orders found, proceeding with creation');
       }
     }
 
@@ -126,10 +153,21 @@ exports.handler = async (event, context) => {
       };
     }
 
-    console.log('Order created successfully:', orderId);
+    console.log('Order created successfully:', {
+      orderId,
+      productId,
+      isFreeOrder,
+      transactionId,
+      paymentMethod: finalPaymentMetadata.paymentMethod || 'unknown'
+    });
+    
     return {
       statusCode: 200,
-      body: JSON.stringify({ orderId })
+      body: JSON.stringify({ 
+        orderId,
+        isFreeOrder,
+        transactionId
+      })
     };
   } catch (err) {
     console.error('Error in create-order function:', err);

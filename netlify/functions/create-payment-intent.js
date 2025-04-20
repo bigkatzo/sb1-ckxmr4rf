@@ -48,6 +48,99 @@ exports.handler = async (event, context) => {
       paymentMetadata = {}
     } = JSON.parse(event.body);
 
+    // Check if this is a free order (100% discount)
+    const is100PercentDiscount = 
+      couponDiscount !== undefined && 
+      originalPrice !== undefined && 
+      couponDiscount > 0 && (
+        couponDiscount >= originalPrice || 
+        (originalPrice > 0 && (couponDiscount / originalPrice) * 100 >= 100)
+      );
+    
+    console.log('Payment details:', {
+      productId,
+      solAmount,
+      originalPrice,
+      couponDiscount,
+      is100PercentDiscount,
+      walletAddress: walletAddress || 'stripe'
+    });
+
+    // Special handling for free orders (100% discount)
+    if (is100PercentDiscount) {
+      console.log('Processing free order with 100% discount server-side');
+      
+      // Generate a consistent transaction ID for free orders
+      const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'stripe'}`;
+      
+      // Prepare metadata with free order details
+      const freeOrderMetadata = {
+        ...paymentMetadata,
+        paymentMethod: 'free',
+        orderType: 'stripe_free',
+        couponCode,
+        couponDiscount,
+        originalPrice,
+        transactionId
+      };
+      
+      // Create the order record
+      const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
+        p_product_id: productId,
+        p_variants: variants || [],
+        p_shipping_info: shippingInfo,
+        p_wallet_address: walletAddress || 'stripe',
+        p_payment_metadata: freeOrderMetadata
+      });
+      
+      if (orderError) {
+        console.error('Error creating free order:', orderError);
+        throw orderError;
+      }
+      
+      // Create a structured transaction signature
+      const uniqueSignature = `free_${transactionId}`;
+      
+      // Update the order transaction details
+      const { error: updateError } = await supabase.rpc('update_order_transaction', {
+        p_order_id: orderId,
+        p_transaction_signature: uniqueSignature,
+        p_amount_sol: 0
+      });
+      
+      if (updateError) {
+        console.error('Error updating free order transaction:', updateError);
+        throw updateError;
+      }
+      
+      // Confirm the order immediately since it's free
+      const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+        p_order_id: orderId
+      });
+      
+      if (confirmError) {
+        console.error('Error confirming free order:', confirmError);
+        throw confirmError;
+      }
+      
+      console.log('Free order created and confirmed successfully:', orderId);
+      
+      // Return success with order details but no client secret (since it's free)
+      return {
+        statusCode: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId,
+          paymentIntentId: uniqueSignature,
+          isFreeOrder: true
+        }),
+      };
+    }
+
+    // Regular payment flow for non-free orders
     // Calculate USD amount, ensuring minimum of $0.50
     const usdAmount = Math.max(solAmount * solPrice, 0.50);
     const amountInCents = Math.round(usdAmount * 100);

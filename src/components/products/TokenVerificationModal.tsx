@@ -18,6 +18,7 @@ import { validatePhoneNumber } from '../../lib/validation';
 import { StripePaymentModal } from './StripePaymentModal';
 import { CouponService } from '../../services/coupons';
 import type { PriceWithDiscount } from '../../types/coupons';
+import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -286,25 +287,34 @@ export function TokenVerificationModal({
       if (is100PercentDiscount) {
         try {
           setSubmitting(true);
-          // For 100% discount, create order directly without payment
+          // For 100% discount, use the create-payment-intent endpoint with a flag for SOL free orders
           updateProgressStep(0, 'processing', 'Creating your free order...');
           
           // Generate a consistent transaction ID for free orders to prevent duplicates
-          const transactionId = `free_token_${product.id}_${Date.now()}`;
-        
-          const response = await fetch('/.netlify/functions/create-order', {
+          const transactionId = `free_token_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || ''}`;
+          
+          // Call the create-payment-intent with the free order flag
+          const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
+              solAmount: 0, // Free order
+              solPrice: 1, // Placeholder value
+              productName: product.name,
               productId: product.id,
               variants: formattedVariantSelections,
               shippingInfo: formattedShippingInfo,
               walletAddress,
+              couponCode: couponResult?.couponCode,
+              couponDiscount: couponResult?.couponDiscount,
+              originalPrice: couponResult?.originalPrice,
               paymentMetadata: {
                 ...paymentMetadata,
-                transactionId
+                paymentMethod: 'free_sol',
+                transactionId,
+                orderSource: 'token_modal'
               }
             })
           });
@@ -315,100 +325,40 @@ export function TokenVerificationModal({
           }
 
           const data = await response.json();
-          orderId = data.orderId;
-          const isDuplicate = data.isDuplicate;
-          updateProgressStep(0, 'completed');
-
-          // Generate unique transaction signature for free orders
-          updateProgressStep(1, 'processing', 'Processing free order...');
-          const uniqueSignature = `free_${transactionId}`;
-
-          // Only update the transaction if this is not a duplicate order
-          if (!isDuplicate) {
-            // Call the serverless function instead
-            const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                orderId,
-                transactionSignature: uniqueSignature,
-                amountSol: 0
-              })
-            });
-
-            if (!updateResponse.ok) {
-              const errorData = await updateResponse.json();
-              throw new Error(errorData.error || 'Failed to update order transaction');
-            }
-
-            updateProgressStep(1, 'completed');
-
-            // Confirm the order immediately since it's free
-            updateProgressStep(2, 'processing', 'Confirming order...');
-            
-            // Use direct RPC call instead of serverless function for free orders
-            try {
-              const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-                p_order_id: orderId
-              });
-
-              if (confirmError) {
-                throw new Error(confirmError.message || 'Failed to confirm order');
-              }
-              
-              console.log('Free order confirmed successfully:', orderId);
-              updateProgressStep(2, 'completed');
-            } catch (confirmErr) {
-              console.error('Error confirming free order:', confirmErr);
-              
-              // Attempt recovery by directly updating the status
-              try {
-                const { error: recoveryError } = await supabase
-                  .from('orders')
-                  .update({ status: 'confirmed' })
-                  .eq('id', orderId);
-                  
-                if (recoveryError) {
-                  console.error('Recovery attempt failed:', recoveryError);
-                  throw confirmErr; // Re-throw the original error
-                }
-                
-                console.log('Free order recovery successful');
-                updateProgressStep(2, 'completed');
-              } catch (recoveryErr) {
-                console.error('Free order recovery failed:', recoveryErr);
-                throw confirmErr; // Re-throw the original error
-              }
-            }
-
-            // Fetch order number
-            const { data: orderData, error: fetchError } = await supabase
-              .from('orders')
-              .select('order_number')
-              .eq('id', orderId)
-              .single();
-
-            if (fetchError) throw fetchError;
-
-            // Wait 1 second to show the completed progress state
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Show success
-            setOrderDetails({
-              orderNumber: orderData.order_number,
-              transactionSignature: uniqueSignature
-            });
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
-            return;
-          } else {
-            // For duplicate orders, we can skip updating and verifying
-            console.log('Using existing order, skipping update/confirm steps');
-            updateProgressStep(1, 'completed');
-            updateProgressStep(2, 'completed');
+          console.log('Free order response:', data);
+          
+          if (!data.isFreeOrder) {
+            throw new Error('Server did not recognize this as a free order');
           }
+          
+          orderId = data.orderId;
+          const uniqueSignature = data.paymentIntentId;
+          
+          // Update progress steps
+          updateProgressStep(0, 'completed');
+          updateProgressStep(1, 'completed');
+          updateProgressStep(2, 'completed');
+
+          // Fetch order number
+          const { data: orderData, error: fetchError } = await supabase
+            .from('orders')
+            .select('order_number')
+            .eq('id', orderId)
+            .single();
+
+          if (fetchError) throw fetchError;
+
+          // Wait 1 second to show the completed progress state
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Show success
+          setOrderDetails({
+            orderNumber: orderData.order_number,
+            transactionSignature: uniqueSignature
+          });
+          setShowSuccessView(true);
+          toastService.showOrderSuccess();
+          return;
         } catch (error) {
           console.error('Free order error:', error);
           const errorMessage = error instanceof Error ? error.message : 'Failed to process free order';
