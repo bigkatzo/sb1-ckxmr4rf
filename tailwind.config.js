@@ -35,7 +35,21 @@ export default {
         },
       },
       // Merge with dynamic theme from admin dashboard
-      ...defaultTheme?.theme?.extend || {}
+      ...defaultTheme?.theme?.extend || {},
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' }
+        },
+        'fade-in': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
+        }
+      },
+      animation: {
+        marquee: 'marquee 15s linear infinite',
+        'fade-in': 'fade-in 0.3s ease-out forwards',
+      }
     },
   },
   plugins: [],
