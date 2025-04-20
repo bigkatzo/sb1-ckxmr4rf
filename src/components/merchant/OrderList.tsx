@@ -731,7 +731,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       imageUrl: order.product_image_url,
       collectionName: order.collection_name,
       categoryName: order.category_name,
-      variants: order.order_variants,
+      variants: order.variant_selections,
       variantPrices: order.product_variant_prices
     };
   };

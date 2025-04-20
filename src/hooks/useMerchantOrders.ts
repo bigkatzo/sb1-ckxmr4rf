@@ -64,7 +64,7 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
         category_type: order.category_type || '',
         access_type: order.access_type,
         variant_selections: order.variant_selections || [],
-        order_variants: order.variant_selections || [],
+        order_variants: order.order_variants || order.variant_selections || [],
         product_variants: order.product_variants || [],
         product_variant_prices: order.product_variant_prices || [],
         product_snapshot: order.product_snapshot || {},
