@@ -73,6 +73,43 @@ exports.handler = async (event, context) => {
       // Generate a consistent transaction ID for free orders
       const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'stripe'}`;
       
+      // Create a structured transaction signature
+      const uniqueSignature = `free_${transactionId}`;
+      
+      // Check if an order with this transaction signature already exists to prevent duplicates
+      console.log('Checking for existing orders with signature:', uniqueSignature);
+      const { data: existingOrders, error: searchError } = await supabase
+        .from('orders')
+        .select('id, status, created_at')
+        .eq('transaction_signature', uniqueSignature);
+      
+      if (searchError) {
+        console.error('Error searching for duplicate orders:', searchError);
+        // Continue with order creation even if search fails
+      } else if (existingOrders && existingOrders.length > 0) {
+        console.log('Duplicate order detected:', {
+          orderId: existingOrders[0].id,
+          orderStatus: existingOrders[0].status,
+          created: existingOrders[0].created_at,
+          transactionSignature: uniqueSignature
+        });
+        
+        // Return the existing order instead of creating a new one
+        return {
+          statusCode: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderId: existingOrders[0].id,
+            paymentIntentId: uniqueSignature,
+            isFreeOrder: true,
+            isDuplicate: true
+          }),
+        };
+      }
+      
       // Prepare metadata with free order details
       const freeOrderMetadata = {
         ...paymentMetadata,
@@ -97,9 +134,6 @@ exports.handler = async (event, context) => {
         console.error('Error creating free order:', orderError);
         throw orderError;
       }
-      
-      // Create a structured transaction signature
-      const uniqueSignature = `free_${transactionId}`;
       
       // Update the order transaction details
       const { error: updateError } = await supabase.rpc('update_order_transaction', {
