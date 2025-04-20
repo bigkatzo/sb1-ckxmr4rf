@@ -15,6 +15,7 @@ import { useHowItWorks } from '../../contexts/HowItWorksContext';
 import { useEffect, useState } from 'react';
 import { AppMessagesRenderer } from '../../contexts/AppMessagesContext';
 import { useAppMessages } from '../../contexts/AppMessagesContext';
+import { initializeImageHandling } from '../../utils/imageValidator';
 
 function TransactionStatusWrapper() {
   const { status, resetStatus } = usePayment();
@@ -56,6 +57,11 @@ export function AnimatedLayout() {
   const [prevPathname, setPrevPathname] = useState('');
   const [isNavigating, setIsNavigating] = useState(false);
   const { activeMarquee } = useAppMessages();
+  
+  // Initialize global image error handling
+  useEffect(() => {
+    initializeImageHandling();
+  }, []);
   
   // Add effect to handle body scroll
   useEffect(() => {

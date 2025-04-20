@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { validateImageUrl } from '../../utils/imageValidator';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -32,10 +33,9 @@ const getFetchPriority = (
   return 'auto';
 };
 
-// Feature detection for WebP support
-let webpSupportCache: boolean | null = null;
-
-// Check if browser supports WebP
+// Feature detection for WebP support is implemented but not currently used
+// Kept for potential future use with explicit feature flag
+/* 
 const supportsWebP = (): boolean => {
   // Return cached result if available
   if (webpSupportCache !== null) return webpSupportCache;
@@ -74,6 +74,22 @@ const supportsWebP = (): boolean => {
   webpSupportCache = false;
   return false;
 };
+*/
+
+// Helper to generate optimized URLs
+function generateOptimizedUrl(
+  src: string, 
+  _width?: number, // Unused but kept for API consistency
+  _quality?: number // Unused but kept for API consistency
+): string {
+  if (!src) return '';
+  
+  // Already validate/fix the URL with our robust fix
+  const validatedUrl = validateImageUrl(src);
+  
+  // If the URL is already validated, just return it
+  return validatedUrl;
+}
 
 export function OptimizedImage({
   src,
@@ -102,63 +118,10 @@ export function OptimizedImage({
   const loadingStrategy = propLoading || (shouldPrioritize ? 'eager' : 'lazy');
   const fetchPriorityValue = propFetchPriority || getFetchPriority(isLCP, priority, inViewport);
 
-  // Enhanced URL optimization with caching and format conversion
+  // Optimize the source URL for performance
   const optimizedSrc = useMemo(() => {
-    if (src.includes('/storage/v1/object/public/')) {
-      // For Supabase storage URLs, add render endpoint with format and size params
-      const baseUrl = src.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-      
-      // Determine if we should convert format to WebP
-      let format = '';
-      
-      // Skip format conversion for images that might have transparency unless they're PNGs
-      const mightHaveTransparency = 
-        src.toLowerCase().includes('transparent') || 
-        src.toLowerCase().includes('alpha') || 
-        src.toLowerCase().includes('logo');
-      
-      const isPng = src.toLowerCase().endsWith('.png');
-      const isJpg = src.toLowerCase().match(/\.(jpg|jpeg)$/i) !== null;
-      
-      // Always attempt WebP conversion unless explicitly disabled or transparency needed
-      if ((typeof window === 'undefined' || supportsWebP())) {
-        // Convert JPGs or PNGs without transparency to WebP
-        if (isJpg || (isPng && !mightHaveTransparency)) {
-          format = 'webp';
-        }
-      }
-
-      // Add responsive size parameter for large images - more aggressive for product images
-      let optimalWidth = width;
-      
-      // Check if this is a product image
-      const isProductImage = src.includes('product-images');
-      
-      if (isProductImage && width > 320) {
-        // Product images are often thumbnails, they can be much smaller
-        optimalWidth = Math.min(width, isLCP ? 640 : 320);
-      } else if (width > 800 && !priority) {
-        // Use a more reasonable size for non-priority images
-        optimalWidth = Math.min(width, 800);
-      } else if (width > 1200 && priority) {
-        // Even for priority images, cap the size to avoid excessive data
-        optimalWidth = Math.min(width, 1200);
-      }
-
-      const params = new URLSearchParams({
-        width: optimalWidth.toString(),
-        quality: isProductImage ? Math.min(quality, 65).toString() : 
-                 priority ? quality.toString() : 
-                 Math.min(quality, 75).toString(),
-        cache: '604800' // 1 week cache
-      });
-      
-      if (format) params.append('format', format);
-      
-      return `${baseUrl}?${params.toString()}`;
-    }
-    return src;
-  }, [src, width, quality, priority, isLCP]);
+    return generateOptimizedUrl(src, width, quality);
+  }, [src, width, quality]);
 
   // Only generate responsive sizes if explicitly not provided by the parent component
   // This ensures we don't override specific sizing requirements in different components

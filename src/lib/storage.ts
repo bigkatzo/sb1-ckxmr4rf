@@ -39,18 +39,35 @@ export function normalizeStorageUrl(url: string): string {
     
     // Always convert object URLs to render URLs (more aggressive approach)
     if (path.includes('/storage/v1/object/public/')) {
-      // Convert to render URL for all files
-      path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+      // Check if this is a file format that works well with the render endpoint
+      const isJpgOrPng = /\.(jpe?g|png)$/i.test(path);
       
-      // Preserve query parameters if they exist
-      const finalUrl = `${parsedUrl.protocol}//${parsedUrl.host}${path}${parsedUrl.search}`;
-      
-      // Log conversion for debugging
-      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-        console.log('Normalized storage URL:', { original: url, normalized: finalUrl });
+      // ONLY use render endpoint for JPG and PNG formats which are better supported
+      if (isJpgOrPng) {
+        // Convert to render URL for images with specific parameters for compatibility
+        path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+        
+        // Add required parameters for better compatibility
+        const params = new URLSearchParams(parsedUrl.search);
+        if (!params.has('width')) params.append('width', '800');
+        if (!params.has('quality')) params.append('quality', '80');
+        
+        // Try to avoid format conversion which can cause issues
+        params.append('format', 'original');
+        
+        // Preserve query parameters if they exist
+        const finalUrl = `${parsedUrl.protocol}//${parsedUrl.host}${path}?${params.toString()}`;
+        
+        // Log conversion for debugging
+        if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+          console.log('Normalized storage URL:', { original: url, normalized: finalUrl });
+        }
+        
+        return finalUrl;
+      } else {
+        // For other formats (webp, gif, etc) just use the object URL which works more reliably
+        return url;
       }
-      
-      return finalUrl;
     }
     
     // For other URLs, return as is
@@ -59,8 +76,15 @@ export function normalizeStorageUrl(url: string): string {
     console.error('Error normalizing URL:', error);
     
     // If URL parsing fails but it looks like a Supabase storage URL, try a simple string replace
+    // But only for jpg/png formats
     if (typeof url === 'string' && url.includes('/storage/v1/object/public/')) {
-      return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+      if (/\.(jpe?g|png)$/i.test(url)) {
+        // Only convert JPG/PNG, and include params
+        const convertedUrl = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+        return `${convertedUrl}?width=800&quality=80&format=original`;
+      }
+      // For other formats, leave as is
+      return url;
     }
     
     // Otherwise return the original URL

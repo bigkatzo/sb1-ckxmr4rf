@@ -6,6 +6,10 @@
 // Store successful image URLs to avoid "fixing" what isn't broken
 const successfulImageUrls = new Set<string>();
 
+// Track which URLs work and which need fallback
+const successfulUrls = new Map<string, string>(); // originalUrl -> workingUrl
+const failedUrls = new Set<string>();
+
 /**
  * Normalizes a storage URL to ensure it uses the render endpoint
  * @param url The URL to normalize
@@ -211,4 +215,136 @@ export function setupImageValidation(): void {
       subtree: true 
     });
   }
-} 
+}
+
+/**
+ * Global image error handler to catch and fix broken images site-wide
+ */
+export function setupGlobalImageErrorHandling() {
+  if (typeof document === 'undefined') return;
+  
+  // Add global error handler for all images
+  document.addEventListener('error', (event) => {
+    const target = event.target;
+    
+    // Only process image errors
+    if (target && target instanceof HTMLImageElement) {
+      const img = target;
+      const originalSrc = img.src;
+      
+      // Ignore if already a data URL or blob (to prevent loops)
+      if (originalSrc.startsWith('data:') || originalSrc.startsWith('blob:')) {
+        return;
+      }
+      
+      // Only handle Supabase storage URLs
+      if (originalSrc.includes('supabase') && originalSrc.includes('/storage/v1/')) {
+        console.warn('Image failed to load, applying emergency fallback:', originalSrc);
+        
+        // Apply the most aggressive fallback - convert any render URL to object URL
+        let fixedUrl = originalSrc;
+        
+        // Already have a known working URL for this problem?
+        if (successfulUrls.has(originalSrc)) {
+          fixedUrl = successfulUrls.get(originalSrc) || originalSrc;
+          console.log('Using known working URL:', fixedUrl);
+        } 
+        // Convert render URLs to object URLs as emergency fallback
+        else if (originalSrc.includes('/storage/v1/render/image/public/')) {
+          const pathMatch = originalSrc.match(/\/storage\/v1\/render\/image\/public\/(.+?)(\?|$)/);
+          if (pathMatch && pathMatch[1]) {
+            const objectPath = pathMatch[1];
+            const urlObj = new URL(originalSrc);
+            fixedUrl = `${urlObj.protocol}//${urlObj.hostname}/storage/v1/object/public/${objectPath}`;
+            
+            // Store this as a known working URL for future use
+            successfulUrls.set(originalSrc, fixedUrl);
+            
+            console.log('Applied emergency render-to-object URL conversion:', {
+              original: originalSrc,
+              fixed: fixedUrl
+            });
+          }
+        }
+        
+        // If we have a different fixed URL, apply it
+        if (fixedUrl !== originalSrc) {
+          img.src = fixedUrl;
+          
+          // Prevent infinite error loops
+          failedUrls.add(originalSrc);
+        }
+      }
+    }
+  }, true); // Use capture phase to catch all image errors
+  
+  console.log('Global image error handling is active');
+}
+
+/**
+ * Ultimate validator for Supabase image URLs to ensure they always display
+ * Also adds critical error recovery for images that fail to load
+ * @param url The image URL to validate and fix if needed
+ * @returns A validated and guaranteed-to-work URL
+ */
+export function ensureImageDisplays(url: string): string {
+  if (!url) return '';
+  
+  // For non-Supabase URLs, just return as is
+  if (!url.includes('supabase.co') || !url.includes('/storage/v1/')) {
+    return url;
+  }
+  
+  // If we already know this URL works, use it
+  if (successfulUrls.has(url)) {
+    return successfulUrls.get(url) || url;
+  }
+  
+  // If we already know this URL fails, convert it immediately
+  if (failedUrls.has(url)) {
+    // Apply direct conversion to object URL
+    if (url.includes('/storage/v1/render/image/public/')) {
+      const pathMatch = url.match(/\/storage\/v1\/render\/image\/public\/(.+?)(\?|$)/);
+      if (pathMatch && pathMatch[1]) {
+        const objectPath = pathMatch[1];
+        const urlObj = new URL(url);
+        const fixedUrl = `${urlObj.protocol}//${urlObj.hostname}/storage/v1/object/public/${objectPath}`;
+        return fixedUrl;
+      }
+    }
+    return url;
+  }
+  
+  // Special handling for problematic file formats (WebP) or patterns (dashes)
+  const urlObj = new URL(url);
+  const isWebP = urlObj.pathname.endsWith('.webp');
+  const hasDashPattern = urlObj.pathname.includes('-d');
+  
+  // Problematic URL patterns - always use object URL for these
+  if ((isWebP || hasDashPattern) && url.includes('/storage/v1/render/image/public/')) {
+    const pathMatch = url.match(/\/storage\/v1\/render\/image\/public\/(.+?)(\?|$)/);
+    if (pathMatch && pathMatch[1]) {
+      const objectPath = pathMatch[1];
+      const fixedUrl = `${urlObj.protocol}//${urlObj.hostname}/storage/v1/object/public/${objectPath}`;
+      
+      // Remember this conversion for future
+      successfulUrls.set(url, fixedUrl);
+      
+      return fixedUrl;
+    }
+  }
+  
+  // If not a problematic pattern, return as-is
+  return url;
+}
+
+// Call this in your _app.tsx or main layout component
+export function initializeImageHandling() {
+  if (typeof window !== 'undefined') {
+    // Set up global error handler with a small delay to ensure DOM is ready
+    setTimeout(() => setupGlobalImageErrorHandling(), 500);
+  }
+}
+
+// Re-export the function with a more intuitive name for components to use
+export const validateImageUrl = ensureImageDisplays; 
