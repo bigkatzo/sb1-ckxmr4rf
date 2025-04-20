@@ -155,15 +155,14 @@ export function WalletManagement() {
 
   const createWallet = async (data: FormData) => {
     try {
-      // Instead of trying to insert directly, create a wallet through a stored procedure
-      // that ensures the wallet is not created as main
-      const { error } = await supabase.rpc('create_non_main_wallet', {
+      const { error } = await supabase.rpc('create_wallet', {
         p_address: data.get('address')?.toString() || '',
-        p_label: data.get('label')?.toString() || ''
+        p_label: data.get('label')?.toString() || '',
+        p_is_main: false
       });
 
       if (error) {
-        console.error('Error in create_non_main_wallet RPC:', error);
+        console.error('Error creating wallet:', error);
         throw error;
       }
     } catch (error) {
