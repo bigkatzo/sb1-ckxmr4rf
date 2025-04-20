@@ -154,16 +154,49 @@ export function WalletManagement() {
   };
 
   const createWallet = async (data: FormData) => {
-    const { error } = await supabase
-      .from('merchant_wallets')
-      .insert({
-        address: data.get('address'),
-        label: data.get('label'),
-        is_active: true,
-        is_main: false
-      });
+    try {
+      // First attempt - set is_main to false explicitly
+      const { error } = await supabase
+        .from('merchant_wallets')
+        .insert({
+          address: data.get('address'),
+          label: data.get('label'),
+          is_active: true,
+          is_main: false
+        });
 
-    if (error) throw error;
+      if (error) {
+        // If unique constraint error on main wallet
+        if (error.code === '23505' && error.message.includes('merchant_wallets_main_unique')) {
+          // Try two-step approach: insert first, then update
+          const { data: insertedData, error: insertError } = await supabase
+            .from('merchant_wallets')
+            .insert({
+              address: data.get('address'),
+              label: data.get('label'),
+              is_active: true
+            })
+            .select();
+
+          if (insertError) throw insertError;
+          
+          // Now that we have the wallet inserted, immediately set it to not be main
+          if (insertedData && insertedData.length > 0) {
+            const { error: updateError } = await supabase
+              .from('merchant_wallets')
+              .update({ is_main: false })
+              .eq('id', insertedData[0].id);
+            
+            if (updateError) throw updateError;
+          }
+        } else {
+          // If it's a different error, throw it
+          throw error;
+        }
+      }
+    } catch (error) {
+      throw error;
+    }
   };
 
   const updateWallet = async (id: string, data: FormData) => {
