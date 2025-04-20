@@ -388,10 +388,6 @@ export function OrdersPage() {
                             )}
                           </div>
                         )}
-                        {/* Debug info - remove in production */}
-                        <div className="mt-2 text-xs text-gray-600">
-                          {JSON.stringify(order.tracking)}
-                        </div>
                       </div>
                     )}
                   </div>
