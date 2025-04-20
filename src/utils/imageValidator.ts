@@ -6,9 +6,12 @@
 // Store successful image URLs to avoid "fixing" what isn't broken
 const successfulImageUrls = new Set<string>();
 
-// Track which URLs work and which need fallback
-const successfulUrls = new Map<string, string>(); // originalUrl -> workingUrl
+// Track which URLs have been tried to prevent infinite loops
+const attemptedUrls = new Set<string>();
 const failedUrls = new Set<string>();
+
+// Simple base64 encoded placeholder image for completely failed images
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMyNDI0MjQiLz48cGF0aCBkPSJNODYgNzVIMTE0Vjg1SDg2Vjc1Wk04NiAxMjVWOTVIMTE0VjEyNUg4NlpNNzQgMTM3SDEyNlY2M0g3NFYxMzdaIiBmaWxsPSIjNDI0MjQyIi8+PC9zdmc+';
 
 /**
  * Normalizes a storage URL to ensure it uses the render endpoint
@@ -24,6 +27,24 @@ export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
   
   try {
+    // Early detection for WebP or problematic dash patterns
+    const isWebp = url.includes('.webp');
+    const hasDashPattern = url.includes('-d');
+    
+    // For these problematic formats, always use object URL
+    if (isWebp || hasDashPattern) {
+      if (url.includes('/storage/v1/render/image/public/')) {
+        const objectUrl = url
+          .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
+          .split('?')[0]; // Remove query params
+          
+        return objectUrl;
+      }
+      
+      // If it's already an object URL, leave it alone
+      return url;
+    }
+    
     // Parse the URL to handle it properly
     const parsedUrl = new URL(url);
     
@@ -38,26 +59,199 @@ export function normalizeStorageUrl(url: string): string {
       return url;
     }
     
-    // If it's an object URL, convert it to a render URL for images
+    // If it's an object URL, convert it to a render URL for certain formats
     if (path.includes('/storage/v1/object/public/')) {
-      // Convert to render URL for images
-      path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-      return `${parsedUrl.protocol}//${parsedUrl.host}${path}${parsedUrl.search}`;
+      // Only convert JPG and PNG which are better supported
+      const isJpgOrPng = /\.(jpe?g|png)$/i.test(path);
+      
+      if (isJpgOrPng) {
+        // Convert to render URL for images
+        path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+        
+        // Add required parameters for better compatibility
+        const params = new URLSearchParams(parsedUrl.search);
+        if (!params.has('width')) params.append('width', '800');
+        if (!params.has('quality')) params.append('quality', '80');
+        params.append('format', 'original');
+        
+        // Create final URL
+        return `${parsedUrl.protocol}//${parsedUrl.host}${path}?${params.toString()}`;
+      } else {
+        // For other formats, return as is
+        return url;
+      }
     }
     
     // For other URLs, return as is
     return url;
   } catch (error) {
     console.error('Error normalizing URL:', error);
-    
-    // If URL parsing fails but it looks like a Supabase storage URL, try a simple string replace
-    if (typeof url === 'string' && url.includes('/storage/v1/object/public/')) {
-      return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-    }
-    
-    // Otherwise return the original URL
     return url;
   }
+}
+
+/**
+ * Fix for image elements that are already on the page
+ */
+export function fixAllImages() {
+  if (typeof document === 'undefined') return;
+  
+  // Clear tracking sets to prevent stale data
+  attemptedUrls.clear();
+  
+  // Fix existing images on the page
+  document.querySelectorAll('img').forEach(img => {
+    if (!img.src || attemptedUrls.has(img.src)) return;
+    
+    // Track that we've tried to fix this URL
+    attemptedUrls.add(img.src);
+    
+    // Only try to fix Supabase URLs that aren't already successful
+    if (img.src.includes('supabase.co') && !successfulImageUrls.has(img.src)) {
+      const isWebp = img.src.includes('.webp');
+      const hasDashPattern = img.src.includes('-d');
+      
+      // For problematic formats using render endpoint, convert to object URL
+      if ((isWebp || hasDashPattern) && img.src.includes('/storage/v1/render/image/')) {
+        const objectUrl = img.src
+          .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
+          .split('?')[0]; // Remove query params
+        
+        console.log('Fixing problematic image format:', objectUrl);
+        
+        // Add error handler for absolute last resort
+        img.onerror = () => {
+          if (!img.src.startsWith('data:')) {
+            // Remember this URL has completely failed
+            failedUrls.add(img.src);
+            // Use placeholder as last resort
+            console.error('Image completely failed, using placeholder:', img.src);
+            img.src = PLACEHOLDER_IMAGE;
+          }
+        };
+        
+        // Mark this URL as attempted
+        attemptedUrls.add(objectUrl);
+        
+        // Apply the fix
+        img.src = objectUrl;
+      }
+      
+      // Add handlers for successful loads
+      img.onload = () => {
+        successfulImageUrls.add(img.src);
+      };
+    }
+  });
+  
+  // Set up global error handler for future images
+  document.removeEventListener('error', imageErrorHandler, true);
+  document.addEventListener('error', imageErrorHandler, true);
+}
+
+/**
+ * Global error handler for images
+ */
+function imageErrorHandler(event: Event) {
+  const target = event.target;
+  
+  // Only handle image errors
+  if (!(target instanceof HTMLImageElement)) return;
+  
+  // Avoid handling the same URL multiple times
+  if (attemptedUrls.has(target.src)) return;
+  
+  // Skip data URLs
+  if (target.src.startsWith('data:')) return;
+  
+  // Mark this URL as attempted
+  attemptedUrls.add(target.src);
+  
+  // Only handle Supabase URLs
+  if (target.src.includes('supabase.co')) {
+    console.warn('Fixing broken image:', target.src);
+    
+    // If URL is already known to fail completely, use placeholder
+    if (failedUrls.has(target.src)) {
+      target.src = PLACEHOLDER_IMAGE;
+      return;
+    }
+    
+    // For render URLs, try object URL
+    if (target.src.includes('/storage/v1/render/image/public/')) {
+      const objectUrl = target.src
+        .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
+        .split('?')[0]; // Remove query params
+      
+      // If we've already tried this URL, use placeholder
+      if (attemptedUrls.has(objectUrl) || failedUrls.has(objectUrl)) {
+        failedUrls.add(target.src);
+        target.src = PLACEHOLDER_IMAGE;
+        return;
+      }
+      
+      // Mark object URL as attempted
+      attemptedUrls.add(objectUrl);
+      
+      // Add final fallback
+      target.onerror = () => {
+        if (!target.src.startsWith('data:')) {
+          failedUrls.add(objectUrl);
+          target.src = PLACEHOLDER_IMAGE;
+        }
+      };
+      
+      // Try object URL
+      target.src = objectUrl;
+    }
+    // For already failed object URLs, use placeholder
+    else if (target.src.includes('/storage/v1/object/public/')) {
+      failedUrls.add(target.src);
+      target.src = PLACEHOLDER_IMAGE;
+    }
+  }
+}
+
+/**
+ * Initialize image handling for the app
+ */
+export function initializeImageHandling() {
+  if (typeof window === 'undefined') return;
+  
+  // Apply fixes on load
+  if (document.readyState === 'complete') {
+    fixAllImages();
+  } else {
+    window.addEventListener('load', fixAllImages);
+  }
+  
+  // Re-apply on navigation
+  window.addEventListener('popstate', fixAllImages);
+}
+
+/**
+ * Function for components to use when displaying images
+ */
+export function validateImageUrl(url: string): string {
+  if (!url) return '';
+  
+  // If URL has already failed, use placeholder
+  if (failedUrls.has(url)) {
+    return PLACEHOLDER_IMAGE;
+  }
+  
+  // For WebP or dash-pattern files, always use object URL
+  const isWebp = url.includes('.webp');
+  const hasDashPattern = url.includes('-d');
+  
+  if ((isWebp || hasDashPattern) && url.includes('/storage/v1/render/image/public/')) {
+    return url
+      .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
+      .split('?')[0];
+  }
+  
+  // Otherwise use normal URL normalization
+  return normalizeStorageUrl(url);
 }
 
 /**
