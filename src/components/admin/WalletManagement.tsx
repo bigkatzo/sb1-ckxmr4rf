@@ -159,7 +159,8 @@ export function WalletManagement() {
       .insert({
         address: data.get('address'),
         label: data.get('label'),
-        is_active: true
+        is_active: true,
+        is_main: false
       });
 
     if (error) throw error;
