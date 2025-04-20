@@ -16,12 +16,16 @@ import 'react-toastify/dist/ReactToastify.css';
 import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
 import { setupRealtimeHealth } from './lib/realtime/subscriptions';
+import { useSyncWalletClaims } from './hooks/useSyncWalletClaims';
 
 // Validate environment variables at startup
 validateEnvironmentVariables();
 
 function AppContent() {
   const { session } = useAuth();
+  
+  // Use our new hook to sync wallet address with JWT claims
+  useSyncWalletClaims();
   
   // Initialize cache system
   useEffect(() => {

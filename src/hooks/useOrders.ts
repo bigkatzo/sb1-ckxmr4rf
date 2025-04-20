@@ -81,11 +81,36 @@ export function useOrders() {
       console.log('Current session:', sessionData?.session ? 'Found' : 'Not found');
       console.log('JWT token present:', sessionData?.session?.access_token ? 'Yes' : 'No');
       
+      // Check if wallet address is in JWT claims
+      const walletAddressInJWT = sessionData?.session?.user?.user_metadata?.wallet_address;
+      console.log('Wallet address in JWT claims:', walletAddressInJWT || 'Not found');
+      console.log('Matches current wallet:', walletAddressInJWT === walletAddress ? 'Yes' : 'No');
+      
       // Get JWT token debugging info
       const { data: jwtDebug, error: jwtError } = await supabase.rpc('debug_auth_jwt');
       console.log('JWT debug info:', jwtDebug || 'Not available');
       if (jwtError) {
         console.log('JWT debug error:', jwtError.message);
+      }
+      
+      // If wallet not in JWT, try syncing it
+      if (sessionData?.session && walletAddressInJWT !== walletAddress) {
+        console.log('Wallet address mismatch detected, trying to sync...');
+        try {
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: { wallet_address: walletAddress }
+          });
+          
+          if (updateError) {
+            console.error('Error updating wallet in JWT:', updateError.message);
+          } else {
+            console.log('Successfully updated wallet in JWT, will try fetching orders again');
+            // Wait a moment for JWT update to propagate
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } catch (syncError) {
+          console.error('Error syncing wallet address:', syncError);
+        }
       }
       
       // Get comprehensive auth diagnostics (will be available after migration)
@@ -146,6 +171,12 @@ export function useOrders() {
         if (orderData.length === 0 && directOrders && directOrders.length > 0) {
           console.warn('Warning: Orders found in direct query but not in user_orders view. This may indicate an RLS issue or view configuration problem.');
           console.log('Wallet address used for query:', walletAddress);
+          
+          // If direct orders found but not in view, attempt to use direct orders as fallback
+          if (directOrders.length > 0) {
+            console.log('Using direct orders as fallback');
+            orderData = directOrders;
+          }
         }
         
         // Convert database rows to Order objects
