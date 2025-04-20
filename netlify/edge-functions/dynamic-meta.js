@@ -8,11 +8,48 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 // The actual values will be fetched from site_settings
 const DEFAULT_SITE_NAME = 'store.fun';
 const DEFAULT_SITE_DESCRIPTION = 'The #1 Commerce Marketplace on Solana';
-// Use a proper Supabase URL for the default OG image that we know exists
-const DEFAULT_OG_IMAGE = 'https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/og_image-1744669770840.png';
+// Use a proper Supabase URL for the default OG image that we know exists - using render endpoint
+const DEFAULT_OG_IMAGE = 'https://sakysysfksculqobozxi.supabase.co/storage/v1/render/image/public/site-assets/og_image-1744669770840.png';
 // Fallback to local default images if Supabase URL doesn't work
 const LOCAL_DEFAULT_OG_IMAGE = '/icons/og-default-image.png';
 const LOCAL_DEFAULT_TWITTER_IMAGE = '/icons/twitter-default-image.png';
+
+// Utility function to normalize storage URLs to render endpoint
+function normalizeStorageUrl(url) {
+  if (!url) return '';
+  
+  try {
+    // Parse the URL
+    const parsedUrl = new URL(url);
+    
+    // If it's already a render URL, don't modify it
+    if (parsedUrl.pathname.includes('/storage/v1/render/image/')) {
+      return url;
+    }
+    
+    // If it's an object URL, convert it to a render URL for images
+    if (parsedUrl.pathname.includes('/storage/v1/object/public/')) {
+      const path = parsedUrl.pathname.replace(
+        '/storage/v1/object/public/', 
+        '/storage/v1/render/image/public/'
+      );
+      return `${parsedUrl.protocol}//${parsedUrl.host}${path}${parsedUrl.search}`;
+    }
+    
+    // For other URLs, return as is
+    return url;
+  } catch (error) {
+    console.error('Error normalizing URL:', error);
+    
+    // If URL parsing fails but it looks like a Supabase storage URL, do a simple replacement
+    if (typeof url === 'string' && url.includes('/storage/v1/object/public/')) {
+      return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+    }
+    
+    // Otherwise return the original URL
+    return url;
+  }
+}
 
 // Bot/crawler user agents to target
 const BOT_USER_AGENTS = [
@@ -83,8 +120,13 @@ async function getSiteSettings() {
     }
 
     // Ensure we have valid OG image URLs - use fallbacks if not set
-    data.og_image_url = data.og_image_url || DEFAULT_OG_IMAGE;
-    data.twitter_image_url = data.twitter_image_url || data.og_image_url || DEFAULT_OG_IMAGE;
+    data.og_image_url = normalizeStorageUrl(data.og_image_url) || DEFAULT_OG_IMAGE;
+    data.twitter_image_url = normalizeStorageUrl(data.twitter_image_url) || data.og_image_url || DEFAULT_OG_IMAGE;
+    
+    // Also normalize apple touch icon if available
+    if (data.apple_touch_icon_url) {
+      data.apple_touch_icon_url = normalizeStorageUrl(data.apple_touch_icon_url);
+    }
 
     return data;
   } catch (err) {
@@ -121,13 +163,13 @@ async function getCollection(slug) {
     
     // Check different possible image URL fields
     if (data.image_url) {
-      collectionImage = data.image_url;
+      collectionImage = normalizeStorageUrl(data.image_url);
     } else if (data.imageUrl) {
-      collectionImage = data.imageUrl;
+      collectionImage = normalizeStorageUrl(data.imageUrl);
     } else if (data.banner_url) {
-      collectionImage = data.banner_url;
+      collectionImage = normalizeStorageUrl(data.banner_url);
     } else if (data.banner_image_url) {
-      collectionImage = data.banner_image_url;
+      collectionImage = normalizeStorageUrl(data.banner_image_url);
     }
     
     // Enhance the collection object with a consistent image field
@@ -174,7 +216,7 @@ async function getProduct(productSlug, collectionSlug) {
     
     // Check for main image
     if (data.main_image_url) {
-      productImage = data.main_image_url;
+      productImage = normalizeStorageUrl(data.main_image_url);
     } 
     // Check for images array
     else if (data.images && data.images.length > 0) {
@@ -183,7 +225,8 @@ async function getProduct(productSlug, collectionSlug) {
         try {
           const parsedImages = JSON.parse(data.images);
           if (parsedImages && parsedImages.length > 0) {
-            productImage = parsedImages[0].url || parsedImages[0];
+            const imageUrl = parsedImages[0].url || parsedImages[0];
+            productImage = normalizeStorageUrl(imageUrl);
           }
         } catch (e) {
           console.error('Failed to parse images JSON:', e);
@@ -191,7 +234,8 @@ async function getProduct(productSlug, collectionSlug) {
       } 
       // If images is already an array
       else if (Array.isArray(data.images) && data.images.length > 0) {
-        productImage = data.images[0].url || data.images[0];
+        const imageUrl = data.images[0].url || data.images[0];
+        productImage = normalizeStorageUrl(imageUrl);
       }
     }
     

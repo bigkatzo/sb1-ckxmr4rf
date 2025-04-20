@@ -349,12 +349,35 @@ async function fetchImageWithFallbacks(request, options = {}) {
   const url = new URL(request.url);
   const { timeout = 5000, useNoCorsFallback = true } = options;
   
-  // Special case for Supabase render URLs with problematic parameters
-  // Identify problematic render URLs that could result in 400 errors
-  if (url.hostname.includes('supabase.co') && 
-      url.pathname.includes('/storage/v1/render/image/public/')) {
+  // Always normalize any Supabase URLs to ensure we start with render endpoint
+  if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/v1/object/public/')) {
+    // Convert object endpoint to render endpoint before starting fetch attempts
+    const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/(.+)/);
+    if (pathMatch && pathMatch[1]) {
+      const objectPath = pathMatch[1];
+      const renderPath = `/storage/v1/render/image/public/${objectPath}`;
+      const renderUrl = `${url.protocol}//${url.hostname}${renderPath}`;
+      
+      // Create a new request using the render endpoint
+      const renderRequest = new Request(renderUrl, {
+        method: request.method,
+        headers: request.headers,
+        mode: request.mode,
+        credentials: request.credentials,
+        redirect: request.redirect
+      });
+      
+      console.log('Normalized object URL to render URL:', renderUrl);
+      // Continue with the render request instead
+      request = renderRequest;
+      url.pathname = renderPath;
+    }
+  }
+  
+  // First attempt: Try with render endpoint (which should be normalized by now)
+  if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/v1/render/image/')) {
     try {
-      // First try: Direct fetch without modifications, but with a timeout
+      // Try direct fetch with render endpoint and parameters
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
       
@@ -364,31 +387,50 @@ async function fetchImageWithFallbacks(request, options = {}) {
         });
         
         clearTimeout(timeoutId);
-        if (response.ok) return response;
+        if (response.ok) {
+          console.log('Render endpoint fetch succeeded');
+          return response;
+        }
       } catch (e) {
         clearTimeout(timeoutId);
-        console.log('Direct render URL fetch failed:', e);
+        console.log('Render endpoint fetch failed:', e);
       }
       
-      // Second try: Convert to basic object URL without render parameters
+      // Second attempt: Try render endpoint without query params
+      if (url.search) {
+        const renderUrlWithoutParams = `${url.protocol}//${url.hostname}${url.pathname}`;
+        console.log('Trying render endpoint without params:', renderUrlWithoutParams);
+        
+        try {
+          const renderResponse = await fetch(renderUrlWithoutParams);
+          if (renderResponse.ok) {
+            console.log('Render endpoint without params succeeded');
+            return renderResponse;
+          }
+        } catch (e) {
+          console.log('Render endpoint without params failed:', e);
+        }
+      }
+      
+      // Third attempt: Convert to object URL as fallback
       const pathMatch = url.pathname.match(/\/storage\/v1\/render\/image\/public\/(.+)/);
       if (pathMatch && pathMatch[1]) {
         // Extract just the path part before any query params
         const objectPath = pathMatch[1].split('?')[0];
-        const baseUrl = `https://${url.hostname}/storage/v1/object/public/${objectPath}`;
+        const objectUrl = `${url.protocol}//${url.hostname}/storage/v1/object/public/${objectPath}`;
         
-        console.log('Trying base object URL:', baseUrl);
-        const baseResponse = await fetch(baseUrl);
-        if (baseResponse.ok) {
-          console.log('Base object URL fetch succeeded');
-          return baseResponse;
+        console.log('Trying fallback to object URL:', objectUrl);
+        const objectResponse = await fetch(objectUrl);
+        if (objectResponse.ok) {
+          console.log('Object URL fetch succeeded');
+          return objectResponse;
         }
       }
     } catch (e) {
       console.warn('All Supabase URL variations failed:', e);
     }
   } else {
-    // Standard fetch with timeout for non-problematic URLs
+    // Standard fetch with timeout for non-Supabase URLs
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -743,6 +785,27 @@ async function handleProductImageRequest(request) {
   const url = new URL(request.url);
   
   try {
+    // Normalize the URL to ensure it uses render endpoint
+    if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/v1/object/public/')) {
+      // Convert to render URL
+      const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/(.+)/);
+      if (pathMatch && pathMatch[1]) {
+        const renderPath = `/storage/v1/render/image/public/${pathMatch[1]}`;
+        const renderUrl = `${url.protocol}//${url.hostname}${renderPath}${url.search}`;
+        
+        // Create a new request with render URL
+        request = new Request(renderUrl, {
+          method: request.method,
+          headers: request.headers,
+          mode: request.mode,
+          credentials: request.credentials,
+          redirect: request.redirect
+        });
+        
+        console.log('Normalized product image URL to render URL:', renderUrl);
+      }
+    }
+    
     // Check cache first
     const cachedResponse = await cache.match(request);
     if (cachedResponse) {
@@ -750,33 +813,11 @@ async function handleProductImageRequest(request) {
       return cachedResponse;
     }
     
-    // Check if this is a product image URL with a specific pattern causing 400 errors
-    // The 'hat-code-in-black-d9qrm' error in logs indicates a pattern we need to handle
+    // Special handling for problematic product image URLs with dashes
     const productImageWithDash = url.pathname.includes('-d') && 
-                                url.pathname.includes('product-images');
+                               url.pathname.includes('product-images');
     
-    if (productImageWithDash && url.pathname.includes('/storage/v1/render/image/public/')) {
-      // For known problematic patterns, try the direct object fetch approach
-      try {
-        const pathMatch = url.pathname.match(/\/storage\/v1\/render\/image\/public\/(.+)/);
-        if (pathMatch && pathMatch[1]) {
-          const basePath = pathMatch[1].split('?')[0];
-          const baseUrl = `https://${url.hostname}/storage/v1/object/public/${basePath}`;
-          
-          console.log('Using direct object fetch for problematic product image:', baseUrl);
-          const baseResponse = await fetch(baseUrl);
-          if (baseResponse.ok) {
-            await cacheImage(baseResponse.clone(), request, cache);
-            recordMetric('IMAGES', 'direct-object', Date.now() - startTime);
-            return baseResponse;
-          }
-        }
-      } catch (e) {
-        console.warn('Direct object fetch failed for problematic URL:', e);
-      }
-    }
-    
-    // For other cases, use our optimized fetch with fallbacks
+    // For all Supabase storage URLs, use our enhanced fetch with fallbacks
     console.log('Fetching product image with fallbacks:', request.url);
     const response = await fetchImageWithFallbacks(request, {
       timeout: 5000

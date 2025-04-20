@@ -12,6 +12,7 @@ import { ProductNotes } from './ProductNotes';
 import type { Product as BaseProduct } from '../../types/variants';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
 import { prefetchGallery, updateGalleryImage } from '../../lib/service-worker';
+import { validateImages } from '../../utils/imageValidator';
 
 // Create a local Set to track preloaded images for this component instance
 const preloadedImages = new Set<string>();
@@ -504,6 +505,36 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
         }, 300);
       }
     }
+  }, [images]);
+
+  // Validate image URLs when modal opens and when images change
+  useEffect(() => {
+    // Allow a brief delay for images to load into the DOM
+    const timer = setTimeout(() => {
+      // Validate all images to ensure they use render endpoints
+      const fixedCount = validateImages();
+      if (fixedCount > 0) {
+        console.warn(`Fixed ${fixedCount} images in ProductModal`);
+      }
+      
+      // Also specifically check gallery image placeholders
+      document.querySelectorAll('.gallery-image-placeholder').forEach(placeholder => {
+        const index = placeholder.getAttribute('data-index');
+        if (index !== null && images[parseInt(index)]) {
+          const imgUrl = images[parseInt(index)];
+          if (imgUrl && imgUrl.includes('/storage/v1/object/public/')) {
+            // Fix the image URL in the images array
+            images[parseInt(index)] = imgUrl.replace(
+              '/storage/v1/object/public/', 
+              '/storage/v1/render/image/public/'
+            );
+            console.warn(`Fixed gallery placeholder image at index ${index}`);
+          }
+        }
+      });
+    }, 300);
+    
+    return () => clearTimeout(timer);
   }, [images]);
 
   return (

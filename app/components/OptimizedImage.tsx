@@ -1,5 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useInView } from 'react-intersection-observer';
+
+// Import the normalizeStorageUrl function
+const normalizeStorageUrl = (url: string): string => {
+  if (!url) return '';
+  
+  try {
+    // Parse the URL to handle it properly
+    const parsedUrl = new URL(url);
+    
+    // Ensure HTTPS
+    parsedUrl.protocol = 'https:';
+    
+    // Get the path
+    let path = parsedUrl.pathname;
+    
+    // If it's already a render/image URL, don't modify it
+    if (path.includes('/storage/v1/render/image/')) {
+      return url;
+    }
+    
+    // If it's an object URL, convert it to a render URL for images
+    if (path.includes('/storage/v1/object/public/')) {
+      // Convert to render URL for images
+      path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+      return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
+    }
+    
+    // For other URLs, return as is
+    return url;
+  } catch (error) {
+    console.error('Error normalizing URL:', error);
+    
+    // If URL parsing fails but it looks like a Supabase storage URL, try a simple string replace
+    if (typeof url === 'string' && url.includes('/storage/v1/object/public/')) {
+      return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+    }
+    
+    // Otherwise return the original URL
+    return url;
+  }
+};
 
 interface OptimizedImageProps {
   src: string;
@@ -34,6 +75,14 @@ export function OptimizedImage({
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   
+  // Normalize the source URL to ensure it uses the render endpoint
+  const normalizedSrc = useMemo(() => normalizeStorageUrl(src), [src]);
+  
+  // Also normalize fallback URL if provided
+  const normalizedFallbackSrc = useMemo(() => 
+    fallbackSrc ? normalizeStorageUrl(fallbackSrc) : undefined
+  , [fallbackSrc]);
+  
   const { ref, inView } = useInView({
     triggerOnce: true,
     rootMargin: isGalleryImage ? '200px' : '100px',
@@ -49,10 +98,10 @@ export function OptimizedImage({
 
   const handleError = () => {
     setHasError(true);
-    if (fallbackSrc && src !== fallbackSrc) {
-      const img = document.querySelector(`img[src="${src}"]`) as HTMLImageElement;
+    if (normalizedFallbackSrc && normalizedSrc !== normalizedFallbackSrc) {
+      const img = document.querySelector(`img[src="${normalizedSrc}"]`) as HTMLImageElement;
       if (img) {
-        img.src = fallbackSrc;
+        img.src = normalizedFallbackSrc;
       }
     }
     onError?.();
@@ -76,7 +125,7 @@ export function OptimizedImage({
     >
       {(inView || priority) && (
         <img
-          src={src}
+          src={normalizedSrc}
           alt={alt}
           width={width}
           height={height}
