@@ -71,7 +71,7 @@ exports.handler = async (event, context) => {
       console.log('Processing free order with 100% discount server-side');
       
       // Generate a consistent transaction ID for free orders
-      const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'stripe'}`;
+      const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'stripe'}_${paymentMetadata.timestamp || Date.now()}`;
       
       // Create a structured transaction signature
       const uniqueSignature = `free_${transactionId}`;

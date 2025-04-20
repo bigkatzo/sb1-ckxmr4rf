@@ -436,7 +436,8 @@ export function StripePaymentModal({
               couponCode,
               originalPrice,
               couponDiscount,
-              paymentMethod: 'stripe'
+              paymentMethod: 'stripe',
+              timestamp: Date.now()
             }
           }),
         });

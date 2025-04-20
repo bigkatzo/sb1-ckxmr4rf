@@ -307,7 +307,7 @@ export function TokenVerificationModal({
           updateProgressStep(0, 'processing', 'Creating your free order...');
           
           // Generate a consistent transaction ID for free orders to prevent duplicates
-          const transactionId = `free_token_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || ''}`;
+          const transactionId = `free_token_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || ''}_${Date.now()}`;
           
           let response;
           let responseData;
