@@ -23,6 +23,16 @@ export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
   
   try {
+    // EMERGENCY FIX: For any WebP files or problematic dash patterns, always use object URL
+    if (url.includes('.webp') || url.includes('-d')) {
+      // If this is already a render URL, convert it back to object URL
+      if (url.includes('/storage/v1/render/image/public/')) {
+        return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+      }
+      // If it's already an object URL, keep it that way
+      return url;
+    }
+    
     // Parse the URL to handle it properly
     const parsedUrl = new URL(url);
     
@@ -75,16 +85,23 @@ export function normalizeStorageUrl(url: string): string {
   } catch (error) {
     console.error('Error normalizing URL:', error);
     
-    // If URL parsing fails but it looks like a Supabase storage URL, try a simple string replace
-    // But only for jpg/png formats
-    if (typeof url === 'string' && url.includes('/storage/v1/object/public/')) {
-      if (/\.(jpe?g|png)$/i.test(url)) {
-        // Only convert JPG/PNG, and include params
-        const convertedUrl = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-        return `${convertedUrl}?width=800&quality=80&format=original`;
+    // EMERGENCY FALLBACK: If URL parsing fails but contains WebP or dashes, ensure it uses object URL
+    if (typeof url === 'string') {
+      if ((url.includes('.webp') || url.includes('-d')) && url.includes('/storage/v1/render/image/public/')) {
+        return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
       }
-      // For other formats, leave as is
-      return url;
+      
+      // If it looks like a Supabase storage URL, try a simple string replace
+      // But only for jpg/png formats
+      if (url.includes('/storage/v1/object/public/')) {
+        if (/\.(jpe?g|png)$/i.test(url)) {
+          // Only convert JPG/PNG, and include params
+          const convertedUrl = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+          return `${convertedUrl}?width=800&quality=80&format=original`;
+        }
+        // For other formats, leave as is
+        return url;
+      }
     }
     
     // Otherwise return the original URL

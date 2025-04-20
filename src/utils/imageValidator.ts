@@ -347,4 +347,69 @@ export function initializeImageHandling() {
 }
 
 // Re-export the function with a more intuitive name for components to use
-export const validateImageUrl = ensureImageDisplays; 
+export const validateImageUrl = ensureImageDisplays;
+
+/**
+ * EMERGENCY FIX: Add global handler that overrides image errors site-wide
+ * This catches any broken images and forces them to use object URLs instead of render URLs
+ */
+export function fixAllImages() {
+  if (typeof document === 'undefined') return;
+
+  // Fix existing broken images immediately
+  document.querySelectorAll('img').forEach(img => {
+    if (img.src && img.src.includes('supabase') && img.src.includes('/storage/v1/render/image/public/')) {
+      const isWebp = img.src.includes('.webp');
+      const hasDashes = img.src.includes('-d');
+      
+      // Change risky URLs proactively
+      if (isWebp || hasDashes) {
+        const objectUrl = img.src
+          .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
+          .split('?')[0]; // Remove any query params
+        
+        console.log('Proactively fixing high-risk image:', { from: img.src, to: objectUrl });
+        img.src = objectUrl;
+      }
+    }
+  });
+
+  // Add global error handler to catch any broken images that appear later
+  const errorHandler = (event: Event) => {
+    const target = event.target;
+    if (target && target instanceof HTMLImageElement && target.src) {
+      // Only handle Supabase render URLs
+      if (target.src.includes('supabase') && target.src.includes('/storage/v1/render/image/public/')) {
+        console.warn('Fixing broken image:', target.src);
+        
+        // Convert to object URL
+        const objectUrl = target.src
+          .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
+          .split('?')[0]; // Remove any params
+        
+        // Apply the fix
+        target.src = objectUrl;
+      }
+    }
+  };
+
+  // Add the handler using capture phase to get events before they propagate
+  document.addEventListener('error', errorHandler, true);
+  
+  // Make sure we only call this once
+  (window as any).__EMERGENCY_IMAGE_FIX_APPLIED = true;
+}
+
+// Add auto-initialization that runs as soon as possible
+if (typeof window !== 'undefined' && !(window as any).__EMERGENCY_IMAGE_FIX_APPLIED) {
+  // Run immediately if document is ready
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    fixAllImages();
+  } else {
+    // Otherwise wait for DOM to be ready
+    document.addEventListener('DOMContentLoaded', fixAllImages);
+  }
+  
+  // Also run on any navigation changes for SPAs
+  window.addEventListener('popstate', fixAllImages);
+} 

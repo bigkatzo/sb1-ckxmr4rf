@@ -15,7 +15,7 @@ import { useHowItWorks } from '../../contexts/HowItWorksContext';
 import { useEffect, useState } from 'react';
 import { AppMessagesRenderer } from '../../contexts/AppMessagesContext';
 import { useAppMessages } from '../../contexts/AppMessagesContext';
-import { initializeImageHandling } from '../../utils/imageValidator';
+import { initializeImageHandling, fixAllImages } from '../../utils/imageValidator';
 
 function TransactionStatusWrapper() {
   const { status, resetStatus } = usePayment();
@@ -61,7 +61,18 @@ export function AnimatedLayout() {
   // Initialize global image error handling
   useEffect(() => {
     initializeImageHandling();
-  }, []);
+    
+    // Apply emergency fix for broken images
+    fixAllImages();
+    
+    // Re-apply fix on route changes
+    return () => {
+      // Wait for new content to render
+      setTimeout(() => {
+        fixAllImages();
+      }, 300);
+    };
+  }, [location.pathname]);
   
   // Add effect to handle body scroll
   useEffect(() => {
