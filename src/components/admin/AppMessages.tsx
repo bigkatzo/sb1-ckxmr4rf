@@ -110,8 +110,17 @@ export function AppMessages() {
     try {
       setSaving(true);
       
+      // Clean up the data before sending to Supabase
+      // Convert empty strings to null for optional fields
       const messageData = {
         ...currentMessage,
+        marquee_speed: currentMessage.marquee_speed || null,
+        marquee_link: currentMessage.marquee_link || null,
+        header_image_url: currentMessage.header_image_url || null,
+        cta_text: currentMessage.cta_text || null,
+        cta_link: currentMessage.cta_link || null,
+        display_start: currentMessage.display_start || null,
+        display_end: currentMessage.display_end || null,
         updated_at: new Date().toISOString()
       };
       
