@@ -9,6 +9,8 @@ type AppMessage = {
   content: string;
   marquee_speed?: 'slow' | 'medium' | 'fast';
   marquee_link?: string;
+  background_color?: string;
+  text_color?: string;
   header_image_url?: string;
   cta_text?: string;
   cta_link?: string;
@@ -110,6 +112,8 @@ export function AppMessagesProvider({ children }: { children: React.ReactNode })
         text={activeMarquee.content} 
         speed={activeMarquee.marquee_speed}
         link={activeMarquee.marquee_link}
+        backgroundColor={activeMarquee.background_color}
+        textColor={activeMarquee.text_color}
       />
     </div>
   ) : null;
@@ -155,6 +159,8 @@ export function AppMessagesRenderer() {
             text={activeMarquee.content} 
             speed={activeMarquee.marquee_speed}
             link={activeMarquee.marquee_link}
+            backgroundColor={activeMarquee.background_color}
+            textColor={activeMarquee.text_color}
           />
         </div>
       )}

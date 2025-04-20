@@ -10,7 +10,8 @@ import {
   MessageSquare,
   Check,
   Upload,
-  Link
+  Link,
+  Palette
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -22,6 +23,8 @@ type AppMessage = {
   content: string;
   marquee_speed?: 'slow' | 'medium' | 'fast';
   marquee_link?: string;
+  background_color?: string;
+  text_color?: string;
   header_image_url?: string;
   cta_text?: string;
   cta_link?: string;
@@ -36,6 +39,8 @@ const DEFAULT_MESSAGE: Omit<AppMessage, 'id'> = {
   content: '',
   marquee_speed: 'medium',
   marquee_link: '',
+  background_color: '',
+  text_color: '',
   header_image_url: '',
   cta_text: '',
   cta_link: '',
@@ -95,6 +100,8 @@ export function AppMessages() {
       content: message.content,
       marquee_speed: message.marquee_speed as any || 'medium',
       marquee_link: message.marquee_link || '',
+      background_color: message.background_color || '',
+      text_color: message.text_color || '',
       header_image_url: message.header_image_url || '',
       cta_text: message.cta_text || '',
       cta_link: message.cta_link || '',
@@ -116,6 +123,8 @@ export function AppMessages() {
         ...currentMessage,
         marquee_speed: currentMessage.marquee_speed || null,
         marquee_link: currentMessage.marquee_link || null,
+        background_color: currentMessage.background_color || null,
+        text_color: currentMessage.text_color || null,
         header_image_url: currentMessage.header_image_url || null,
         cta_text: currentMessage.cta_text || null,
         cta_link: currentMessage.cta_link || null,
@@ -418,7 +427,7 @@ export function AppMessages() {
               {currentMessage.type === 'marquee' ? 'Marquee Settings' : 'Popup Settings'}
             </h4>
 
-            {currentMessage.type === 'marquee' && (
+            {currentMessage.type === 'marquee' ? (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -455,10 +464,83 @@ export function AppMessages() {
                     Make the marquee clickable with a link (leave empty for non-clickable marquee)
                   </p>
                 </div>
+                
+                {/* Add color pickers for background and text */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Background Color (Optional)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="text-gray-400">
+                        <Palette className="h-4 w-4" />
+                      </div>
+                      <input
+                        type="color"
+                        value={currentMessage.background_color || '#4c1d95'} 
+                        onChange={(e) => setCurrentMessage({...currentMessage, background_color: e.target.value})}
+                        className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={currentMessage.background_color || ''}
+                        onChange={(e) => setCurrentMessage({...currentMessage, background_color: e.target.value})}
+                        className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        placeholder="#4c1d95"
+                      />
+                      {currentMessage.background_color && (
+                        <button
+                          onClick={() => setCurrentMessage({...currentMessage, background_color: ''})}
+                          className="text-gray-400 hover:text-white p-1"
+                          title="Clear color"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Custom background color (leave empty for default gradient)
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Text Color (Optional)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="text-gray-400">
+                        <Palette className="h-4 w-4" />
+                      </div>
+                      <input
+                        type="color"
+                        value={currentMessage.text_color || '#ffffff'} 
+                        onChange={(e) => setCurrentMessage({...currentMessage, text_color: e.target.value})}
+                        className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={currentMessage.text_color || ''}
+                        onChange={(e) => setCurrentMessage({...currentMessage, text_color: e.target.value})}
+                        className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        placeholder="#ffffff"
+                      />
+                      {currentMessage.text_color && (
+                        <button
+                          onClick={() => setCurrentMessage({...currentMessage, text_color: ''})}
+                          className="text-gray-400 hover:text-white p-1"
+                          title="Clear color"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Custom text color (leave empty for white text)
+                    </p>
+                  </div>
+                </div>
               </div>
-            )}
-
-            {currentMessage.type === 'popup' && (
+            ) : (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
