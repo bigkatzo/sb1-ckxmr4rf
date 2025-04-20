@@ -93,9 +93,11 @@ export function useOrders() {
       });
 
       // Use user_orders view instead of orders table to get tracking information
+      // ALWAYS explicitly filter by wallet_address for security
       const { data: initialData, error } = await supabase
         .from('user_orders')
         .select('*')
+        .eq('wallet_address', walletAddress)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -114,33 +116,6 @@ export function useOrders() {
             hasTracking: !!orderData[0].tracking
           } : null
         });
-        
-        // As a fallback, try querying with direct wallet filter
-        if (!orderData || orderData.length === 0) {
-          console.log('No orders found in user_orders view, trying with explicit wallet filter');
-          const { data: filteredData, error: filteredError } = await supabase
-            .from('user_orders')
-            .select('*')
-            .eq('wallet_address', walletAddress)
-            .order('created_at', { ascending: false });
-            
-          if (filteredError) {
-            console.error('Error in filtered query:', filteredError);
-          } else {
-            console.log('Filtered query results:', {
-              count: filteredData?.length || 0,
-              firstOrder: filteredData?.[0] ? {
-                id: filteredData[0].id,
-                wallet: filteredData[0].wallet_address
-              } : null
-            });
-            
-            // Use the filtered data if it returned results
-            if (filteredData && filteredData.length > 0) {
-              orderData = filteredData;
-            }
-          }
-        }
         
         // Convert database rows to Order objects
         const mappedOrders: Order[] = (orderData || []).map((row: OrderRow) => ({
