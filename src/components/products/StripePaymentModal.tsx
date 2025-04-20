@@ -12,7 +12,6 @@ import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
-import { supabase } from '../../lib/supabase';
 
 // Replace the early initialization with a function
 function getStripe() {
@@ -396,114 +395,15 @@ export function StripePaymentModal({
           );
 
         console.log('Coupon discount calculation:', {
+          couponCode,
           couponDiscount,
           originalPrice,
           discountPercentage: discountPercentage.toFixed(2) + '%',
-          is100PercentDiscount,
-          couponCode
+          is100PercentDiscount
         });
 
-        if (is100PercentDiscount) {
-          // For 100% discount, create order directly without payment
-          console.log('Creating free order with 100% discount');
-          
-          // Generate a consistent transaction ID for free orders to prevent duplicates
-          const transactionId = `free_stripe_${productId}_${Date.now()}`;
-          
-          // Create the order through the serverless function instead of direct RPC call
-          try {
-            const response = await fetch('/.netlify/functions/create-order', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                productId: productId,
-                variants: variants || [],
-                shippingInfo: shippingInfo,
-                walletAddress: walletAddress || 'stripe',
-                paymentMetadata: {
-                  couponCode,
-                  originalPrice,
-                  couponDiscount,
-                  paymentMethod: 'free',
-                  orderDate: new Date().toISOString(),
-                  transactionId
-                }
-              })
-            });
-            
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || 'Failed to create order');
-            }
-            
-            const data = await response.json();
-            const createdOrderId = data.orderId;
-            const isDuplicate = data.isDuplicate;
-            
-            // Generate structured transaction signature for free orders
-            const uniqueSignature = `free_${transactionId}`;
-            
-            // Only update the order if it's not a duplicate
-            if (!isDuplicate) {
-              // Update order with structured transaction signature
-              const { error: updateError } = await supabase.rpc('update_order_transaction', {
-                p_order_id: createdOrderId,
-                p_transaction_signature: uniqueSignature,
-                p_amount_sol: 0
-              });
-
-              if (updateError) {
-                console.error('Error updating free order transaction:', updateError);
-                throw updateError;
-              }
-
-              // Confirm the order immediately since it's free
-              try {
-                const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-                  p_order_id: createdOrderId
-                });
-
-                if (confirmError) throw confirmError;
-                
-                console.log('Free order confirmed successfully:', createdOrderId);
-              } catch (confirmErr) {
-                console.error('Error confirming free order:', confirmErr);
-                
-                // Attempt recovery by directly updating the status
-                try {
-                  const { error: recoveryError } = await supabase
-                    .from('orders')
-                    .update({ status: 'confirmed' })
-                    .eq('id', createdOrderId);
-                    
-                  if (recoveryError) {
-                    console.error('Recovery attempt failed:', recoveryError);
-                    throw confirmErr; // Re-throw the original error
-                  }
-                  
-                  console.log('Free order recovery successful');
-                } catch (recoveryErr) {
-                  console.error('Free order recovery failed:', recoveryErr);
-                  throw confirmErr; // Re-throw the original error
-                }
-              }
-            } else {
-              console.log('Using existing order, skipping confirmation step');
-            }
-            
-            // Call onSuccess with the order ID and unique signature
-            onSuccess(createdOrderId, uniqueSignature);
-            return;
-          } catch (error) {
-            console.error('Error with free order:', error);
-            setError(error instanceof Error ? error.message : 'Failed to process free order');
-            setIsLoading(false);
-            return;
-          }
-        }
-
+        // Always use the create-payment-intent endpoint even for free orders
+        // The server will handle free orders appropriately
         console.log('Creating payment intent:', {
           endpoint: `${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`,
           solAmount,
@@ -511,7 +411,8 @@ export function StripePaymentModal({
           productName,
           productId,
           couponCode,
-          couponDiscount
+          couponDiscount,
+          isFreeOrder: is100PercentDiscount
         });
 
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
@@ -580,6 +481,14 @@ export function StripePaymentModal({
           throw new Error(data.error || `Failed to create payment intent (${response.status})`);
         }
 
+        // Check if this is a free order response
+        if (data.isFreeOrder) {
+          console.log('Free order created successfully:', data);
+          onSuccess(data.orderId, data.paymentIntentId);
+          return;
+        }
+
+        // Regular paid order flow
         if (!data.clientSecret) {
           console.error('Missing client secret in response:', data);
           throw new Error('No client secret received from server');
