@@ -349,14 +349,57 @@ async function fetchImageWithFallbacks(request, options = {}) {
   const url = new URL(request.url);
   const { timeout = 5000, useNoCorsFallback = true } = options;
   
+  // For WebP and problematic files, skip the render endpoint entirely
+  if (url.hostname.includes('supabase.co') && 
+      (url.pathname.endsWith('.webp') || url.pathname.includes('-d'))) {
+    // Convert render to object URL for these problematic formats
+    if (url.pathname.includes('/storage/v1/render/image/public/')) {
+      const pathMatch = url.pathname.match(/\/storage\/v1\/render\/image\/public\/(.+)/);
+      if (pathMatch && pathMatch[1]) {
+        const objectPath = pathMatch[1];
+        const objectUrl = `${url.protocol}//${url.hostname}/storage/v1/object/public/${objectPath}`;
+        
+        console.log('Using object URL directly for WebP/problematic file:', objectUrl);
+        try {
+          const response = await fetch(objectUrl);
+          if (response.ok) {
+            return response;
+          }
+        } catch (e) {
+          console.warn('Direct object URL failed for WebP file:', e);
+        }
+      }
+    }
+  }
+  
   // Always normalize any Supabase URLs to ensure we start with render endpoint
   if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/v1/object/public/')) {
+    // Skip render conversion for WebP files or filenames with dashes
+    if (url.pathname.endsWith('.webp') || url.pathname.includes('-d')) {
+      console.log('Skipping render endpoint for WebP/problematic file:', url.toString());
+      return fetch(request);
+    }
+    
+    // Only convert JPG and PNG to render endpoint
+    const isJpgOrPng = /\.(jpe?g|png)$/i.test(url.pathname);
+    if (!isJpgOrPng) {
+      console.log('Skipping render endpoint for non-jpg/png file:', url.toString());
+      return fetch(request);
+    }
+    
     // Convert object endpoint to render endpoint before starting fetch attempts
     const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/(.+)/);
     if (pathMatch && pathMatch[1]) {
       const objectPath = pathMatch[1];
       const renderPath = `/storage/v1/render/image/public/${objectPath}`;
-      const renderUrl = `${url.protocol}//${url.hostname}${renderPath}`;
+      
+      // Add required parameters for better compatibility
+      const params = new URLSearchParams(url.search);
+      if (!params.has('width')) params.append('width', '800');
+      if (!params.has('quality')) params.append('quality', '80');
+      params.append('format', 'original');
+      
+      const renderUrl = `${url.protocol}//${url.hostname}${renderPath}?${params.toString()}`;
       
       // Create a new request using the render endpoint
       const renderRequest = new Request(renderUrl, {
