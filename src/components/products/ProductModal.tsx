@@ -723,6 +723,8 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     minimumOrderQuantity={product.minimumOrderQuantity || 50}
                     maxStock={product.stock}
                     isMainView={true}
+                    priceModifierBeforeMin={product.priceModifierBeforeMin || null}
+                    priceModifierAfterMin={product.priceModifierAfterMin || null}
                   />
 
                   {product.category && (

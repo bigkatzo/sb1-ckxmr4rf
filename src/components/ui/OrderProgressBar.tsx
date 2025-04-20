@@ -1,18 +1,31 @@
 import React from 'react';
 import { useOrderStats } from '../../hooks/useOrderStats';
 import { OrderProgressBarSkeleton } from './Skeletons';
-import { Infinity } from 'lucide-react';
+import { Infinity, HelpCircle } from 'lucide-react';
 
 interface OrderProgressBarProps {
   productId: string;
   minimumOrderQuantity: number;
   maxStock: number | null;
   isMainView?: boolean;
+  priceModifierBeforeMin?: number | null;
+  priceModifierAfterMin?: number | null;
 }
 
-export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock, isMainView = false }: OrderProgressBarProps) {
+export function OrderProgressBar({ 
+  productId, 
+  minimumOrderQuantity, 
+  maxStock, 
+  isMainView = false,
+  priceModifierBeforeMin = null,
+  priceModifierAfterMin = null
+}: OrderProgressBarProps) {
   const { currentOrders, loading } = useOrderStats(productId, { isMainView });
   const isUnlimited = maxStock === null;
+  const [showTooltip, setShowTooltip] = React.useState(false);
+
+  // Check if there are active modifiers
+  const hasActiveModifiers = priceModifierBeforeMin !== null || priceModifierAfterMin !== null;
 
   // Memoize calculations
   const { minOrderPercentage, stockPercentage, isSoldOut, hasReachedMinimum } = React.useMemo(() => {
@@ -37,7 +50,39 @@ export function OrderProgressBar({ productId, minimumOrderQuantity, maxStock, is
   return (
     <div className="space-y-4 bg-gray-950/50 rounded-lg p-4">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-400">Bonding Curve</span>
+        <div className="flex items-center gap-1 relative">
+          <span className="text-gray-400">Bonding Curve</span>
+          <button 
+            className="text-gray-500 hover:text-gray-300 transition-colors"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            onClick={() => setShowTooltip(!showTooltip)}
+          >
+            <HelpCircle size={14} />
+          </button>
+          
+          {showTooltip && (
+            <div className="absolute z-10 top-full left-0 mt-1 w-64 p-3 bg-gray-900 border border-gray-800 rounded-md shadow-lg text-xs">
+              {hasActiveModifiers ? (
+                <>
+                  <p className="font-medium text-purple-400 mb-1">Dynamic Price</p>
+                  <p className="text-gray-300 mb-2">Hurry, before it skyrockets!</p>
+                  {priceModifierBeforeMin !== null && (
+                    <p className="text-gray-400">Before min: {(priceModifierBeforeMin * 100).toFixed(0)}%</p>
+                  )}
+                  {priceModifierAfterMin !== null && (
+                    <p className="text-gray-400">After min: {(priceModifierAfterMin * 100).toFixed(0)}%</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="font-medium text-green-400">Flat Price</p>
+                  <p className="text-gray-300">Chill! The price will stay the same.</p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-purple-400">{currentOrders}</span>
           <span className="text-gray-600">/</span>
