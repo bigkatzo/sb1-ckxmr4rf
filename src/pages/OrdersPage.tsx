@@ -50,7 +50,9 @@ export function OrdersPage() {
       loading,
       error,
       ordersCount: orders.length,
-      isInitialLoad
+      isInitialLoad,
+      ordersWithTracking: orders.filter(o => o.tracking).length,
+      firstOrderTracking: orders.length > 0 ? orders[0].tracking : null
     });
   }, [walletAddress, loading, error, orders, isInitialLoad]);
   
@@ -364,13 +366,19 @@ export function OrdersPage() {
                         <div className="flex items-center gap-2">
                           <Truck className="h-4 w-4 text-purple-400" />
                           <span className="text-xs text-gray-400">Tracking Number:</span>
-                          <Link
-                            to={`/tracking/${order.tracking.tracking_number}`}
-                            className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
-                          >
-                            {order.tracking.tracking_number}
-                            <ExternalLink className="h-3 w-3" />
-                          </Link>
+                          {order.tracking.tracking_number ? (
+                            <Link
+                              to={`/tracking/${order.tracking.tracking_number}`}
+                              className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                            >
+                              {order.tracking.tracking_number}
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          ) : (
+                            <span className="text-xs text-gray-500">
+                              No tracking number available
+                            </span>
+                          )}
                         </div>
                         {order.tracking.status && (
                           <div className="mt-2 text-xs text-purple-400">
@@ -380,6 +388,10 @@ export function OrdersPage() {
                             )}
                           </div>
                         )}
+                        {/* Debug info - remove in production */}
+                        <div className="mt-2 text-xs text-gray-600">
+                          {JSON.stringify(order.tracking)}
+                        </div>
                       </div>
                     )}
                   </div>

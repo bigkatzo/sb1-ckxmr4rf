@@ -74,16 +74,23 @@ export function useOrders() {
   // Fetch orders function (extracted for reuse)
   const fetchOrders = async () => {
     try {
+      // Use user_orders view instead of orders table to get tracking information
       const { data, error } = await supabase
-        .from('orders')
+        .from('user_orders')
         .select('*')
-        .eq('wallet_address', walletAddress)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching orders:', error);
         setError(error.message);
       } else {
+        // Add some debug logging to check if tracking info is present
+        if (data && data.length > 0) {
+          console.log('First order with tracking info:', 
+            data[0].tracking ? 'Has tracking' : 'No tracking', 
+            data[0].tracking);
+        }
+        
         // Convert database rows to Order objects
         const mappedOrders: Order[] = (data || []).map((row: OrderRow) => ({
           id: row.id,
