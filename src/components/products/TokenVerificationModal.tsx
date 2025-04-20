@@ -24,7 +24,7 @@ interface TokenVerificationModalProps {
   product: Product;
   onClose: () => void;
   onSuccess: () => void;
-  selectedOptions?: Record<string, string>;
+  selectedOption?: Record<string, string>;
 }
 
 interface ShippingInfo {
@@ -75,20 +75,23 @@ export function TokenVerificationModal({
   product, 
   onClose, 
   onSuccess,
-  selectedOptions = {}
+  selectedOption = {}
 }: TokenVerificationModalProps) {
   const { walletAddress } = useWallet();
   const { processPayment } = usePayment();
   const [verifying, setVerifying] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const { modifiedPrice } = useModifiedPrice({ product, selectedOptions });
+  const { modifiedPrice: baseModifiedPrice } = useModifiedPrice({
+    product,
+    selectedOptions: selectedOption
+  });
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [showSuccessView, setShowSuccessView] = useState(false);
   const [orderDetails, setOrderDetails] = useState<{
     orderNumber: string;
     transactionSignature: string;
   } | null>(null);
-  const [phoneError, setPhoneError] = useState<string>('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showStripeModal, setShowStripeModal] = useState(false);
   const [showCoupon, setShowCoupon] = useState(false);
   const [couponCode, setCouponCode] = useState('');
@@ -139,12 +142,6 @@ export function TokenVerificationModal({
   };
 
   // Calculate final price including variants, modifications, and coupon
-  const variantKey = Object.values(selectedOptions).join(':');
-  const hasVariantPrice = 
-    Object.keys(selectedOptions).length > 0 && 
-    product.variantPrices && 
-    variantKey in product.variantPrices;
-  const baseModifiedPrice = hasVariantPrice ? product.variantPrices![variantKey] : modifiedPrice;
   const finalPrice = couponResult?.finalPrice ?? baseModifiedPrice;
 
   // Initialize shipping info from localStorage if available
@@ -168,6 +165,14 @@ export function TokenVerificationModal({
     console.log('Shipping info updated:', shippingInfo);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfo));
   }, [shippingInfo]);
+
+  // Validate phone number on initial load
+  useEffect(() => {
+    if (shippingInfo.phoneNumber) {
+      const validation = validatePhoneNumber(shippingInfo.phoneNumber);
+      setPhoneError(validation.error || '');
+    }
+  }, []);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -235,9 +240,20 @@ export function TokenVerificationModal({
     verifyAccess();
   }, [walletAddress, product]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!walletAddress) return;
+    
+    // Validate phone number before submission
+    const phoneValidation = validatePhoneNumber(shippingInfo.phoneNumber);
+    if (phoneValidation.error) {
+      setPhoneError(phoneValidation.error);
+      return;
+    }
+    
+    if (selectedOption === null) {
+      toast.error("Please select an option");
+      return;
+    }
 
     let orderId: string | null = null;
     let signature: string | null = null;
@@ -263,7 +279,7 @@ export function TokenVerificationModal({
       };
 
       // Format variant selections for database
-      const formattedVariantSelections = Object.entries(selectedOptions).map(([variantId, value]) => {
+      const formattedVariantSelections = Object.entries(selectedOption).map(([variantId, value]) => {
         // Find the variant name from product.variants
         const variant = product.variants?.find(v => v.id === variantId);
         return {
@@ -770,7 +786,7 @@ export function TokenVerificationModal({
               phoneNumber: shippingInfo.phoneNumber,
             }
           }}
-          variants={Object.entries(selectedOptions).map(([variantId, value]) => {
+          variants={Object.entries(selectedOption).map(([variantId, value]) => {
             // Find the variant name from product.variants
             const variant = product.variants?.find(v => v.id === variantId);
             return {
@@ -831,7 +847,7 @@ export function TokenVerificationModal({
 
             {/* Show either the shipping form or progress indicator */}
             {(!product.category?.eligibilityRules?.groups?.length || verificationResult?.isValid) && (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleShippingSubmit} className="space-y-4">
                 {submitting ? (
                   <>
                     <ProgressIndicator />
