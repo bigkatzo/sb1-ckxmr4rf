@@ -74,8 +74,26 @@ export function useOrders() {
   // Fetch orders function (extracted for reuse)
   const fetchOrders = async () => {
     try {
+      console.log('Fetching orders for wallet:', walletAddress);
+      
+      // DEBUG: Check if JWT is present in auth
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log('Current session:', sessionData?.session ? 'Found' : 'Not found');
+      console.log('JWT token present:', sessionData?.session?.access_token ? 'Yes' : 'No');
+      
+      // Try direct orders query first for comparison
+      const { data: directOrders, error: directError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('wallet_address', walletAddress);
+      
+      console.log('Direct orders query result:', { 
+        count: directOrders?.length || 0, 
+        error: directError ? directError.message : null 
+      });
+
       // Use user_orders view instead of orders table to get tracking information
-      const { data, error } = await supabase
+      const { data: initialData, error } = await supabase
         .from('user_orders')
         .select('*')
         .order('created_at', { ascending: false });
@@ -84,15 +102,48 @@ export function useOrders() {
         console.error('Error fetching orders:', error);
         setError(error.message);
       } else {
-        // Add some debug logging to check if tracking info is present
-        if (data && data.length > 0) {
-          console.log('First order with tracking info:', 
-            data[0].tracking ? 'Has tracking' : 'No tracking', 
-            data[0].tracking);
+        // Track the data we'll use for mapping
+        let orderData = initialData;
+        
+        // Add some debug logging to check if tracking data is being returned
+        console.log('user_orders query results:', {
+          count: orderData?.length || 0,
+          firstOrder: orderData?.[0] ? {
+            id: orderData[0].id,
+            wallet: orderData[0].wallet_address,
+            hasTracking: !!orderData[0].tracking
+          } : null
+        });
+        
+        // As a fallback, try querying with direct wallet filter
+        if (!orderData || orderData.length === 0) {
+          console.log('No orders found in user_orders view, trying with explicit wallet filter');
+          const { data: filteredData, error: filteredError } = await supabase
+            .from('user_orders')
+            .select('*')
+            .eq('wallet_address', walletAddress)
+            .order('created_at', { ascending: false });
+            
+          if (filteredError) {
+            console.error('Error in filtered query:', filteredError);
+          } else {
+            console.log('Filtered query results:', {
+              count: filteredData?.length || 0,
+              firstOrder: filteredData?.[0] ? {
+                id: filteredData[0].id,
+                wallet: filteredData[0].wallet_address
+              } : null
+            });
+            
+            // Use the filtered data if it returned results
+            if (filteredData && filteredData.length > 0) {
+              orderData = filteredData;
+            }
+          }
         }
         
         // Convert database rows to Order objects
-        const mappedOrders: Order[] = (data || []).map((row: OrderRow) => ({
+        const mappedOrders: Order[] = (orderData || []).map((row: OrderRow) => ({
           id: row.id,
           order_number: row.order_number,
           status: row.status,
