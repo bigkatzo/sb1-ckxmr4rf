@@ -293,46 +293,112 @@ export function TokenVerificationModal({
           // Generate a consistent transaction ID for free orders to prevent duplicates
           const transactionId = `free_token_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || ''}`;
           
-          // Call the create-payment-intent with the free order flag
-          const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              solAmount: 0, // Free order
-              solPrice: 1, // Placeholder value
-              productName: product.name,
-              productId: product.id,
-              variants: formattedVariantSelections,
-              shippingInfo: formattedShippingInfo,
-              walletAddress,
-              couponCode: couponResult?.couponCode,
-              couponDiscount: couponResult?.couponDiscount,
-              originalPrice: couponResult?.originalPrice,
-              paymentMetadata: {
-                ...paymentMetadata,
-                paymentMethod: 'free_sol',
-                transactionId,
-                orderSource: 'token_modal'
+          let response;
+          let responseData;
+          let maxRetries = 2;
+          let currentRetry = 0;
+          let success = false;
+          
+          // Add retry logic for handling potential race conditions
+          while (!success && currentRetry <= maxRetries) {
+            try {
+              // Call the create-payment-intent with the free order flag
+              response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  solAmount: 0, // Free order
+                  solPrice: 1, // Placeholder value
+                  productName: product.name,
+                  productId: product.id,
+                  variants: formattedVariantSelections,
+                  shippingInfo: formattedShippingInfo,
+                  walletAddress,
+                  couponCode: couponResult?.couponCode,
+                  couponDiscount: couponResult?.couponDiscount,
+                  originalPrice: couponResult?.originalPrice,
+                  paymentMetadata: {
+                    ...paymentMetadata,
+                    paymentMethod: 'free_sol',
+                    transactionId,
+                    orderSource: 'token_modal'
+                  }
+                })
+              });
+              
+              const responseText = await response.text();
+              try {
+                responseData = JSON.parse(responseText);
+                console.log('Free order server response:', responseData);
+                
+                // Handle duplicate orders gracefully - they're not an error
+                if (responseData.isDuplicate) {
+                  console.log('Server returned existing order:', responseData);
+                  success = true;
+                  break;
+                }
+                
+                if (response.ok) {
+                  success = true;
+                  break;
+                } else {
+                  // If it's a duplicate key constraint, it's actually a success case
+                  if (responseData.details && responseData.details.includes('duplicate key value')) {
+                    console.log('Duplicate order detected by database constraint, treating as success');
+                    // Try to extract the order ID from the error message if possible
+                    success = true;
+                    
+                    // Try to get the order details from the database directly as a fallback
+                    try {
+                      const { data: orderBySignature } = await supabase
+                        .from('orders')
+                        .select('id')
+                        .eq('transaction_signature', `free_${transactionId}`)
+                        .single();
+                        
+                      if (orderBySignature) {
+                        responseData = {
+                          orderId: orderBySignature.id,
+                          paymentIntentId: `free_${transactionId}`,
+                          isFreeOrder: true,
+                          isDuplicate: true
+                        };
+                        console.log('Found duplicate order in database:', responseData);
+                      }
+                    } catch (dbErr) {
+                      console.error('Error looking up duplicate order:', dbErr);
+                    }
+                    break;
+                  }
+                  
+                  throw new Error(responseData.error || 'Server returned an error');
+                }
+              } catch (parseError) {
+                console.error('Error parsing server response:', parseError, responseText);
+                throw new Error(`Invalid server response: ${responseText}`);
               }
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create order');
-          }
-
-          const data = await response.json();
-          console.log('Free order response:', data);
-          
-          if (!data.isFreeOrder) {
-            throw new Error('Server did not recognize this as a free order');
+            } catch (fetchError) {
+              currentRetry++;
+              console.warn(`Attempt ${currentRetry}/${maxRetries} failed:`, fetchError);
+              if (currentRetry <= maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * currentRetry));
+                updateProgressStep(0, 'processing', `Retrying order creation (attempt ${currentRetry + 1}/${maxRetries + 1})...`);
+              } else {
+                throw fetchError;
+              }
+            }
           }
           
-          orderId = data.orderId;
-          const uniqueSignature = data.paymentIntentId;
+          if (!success || !responseData) {
+            throw new Error('Failed to create free order after multiple attempts');
+          }
+          
+          console.log('Free order processed successfully:', responseData);
+          
+          orderId = responseData.orderId;
+          const uniqueSignature = responseData.paymentIntentId;
           
           // Update progress steps
           updateProgressStep(0, 'completed');
@@ -419,9 +485,9 @@ export function TokenVerificationModal({
       updateProgressStep(1, 'processing', 'Initiating payment on Solana network...');
       
       // Process payment with modified price
-      const { success, signature: txSignature } = await processPayment(finalPrice, product.collectionId);
+      const { success: paymentSuccess, signature: txSignature } = await processPayment(finalPrice, product.collectionId);
       
-      if (!success || !txSignature) {
+      if (!paymentSuccess || !txSignature) {
         updateProgressStep(1, 'error', undefined, 'Payment failed');
         
         // Update order to pending_payment status even if payment fails
