@@ -9,10 +9,12 @@ import { Tabs } from '../../components/ui/Tabs';
 import { toast } from 'react-toastify';
 import { ArrowLeft } from 'lucide-react';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
+import AppMessages from '../../components/admin/AppMessages';
 
 const tabs = [
   { id: 'users', label: 'Users' },
   { id: 'wallets', label: 'Wallets' },
+  { id: 'messages', label: 'App Messages' },
   { id: 'site', label: 'Site Settings' }
 ];
 
@@ -121,6 +123,7 @@ function AdminDashboard() {
 
       {activeTab === 'users' && <UserManagement />}
       {activeTab === 'wallets' && <WalletManagement />}
+      {activeTab === 'messages' && <AppMessages />}
       {activeTab === 'site' && <SiteSettings />}
     </div>
   );

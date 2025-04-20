@@ -5,6 +5,7 @@ import { CollectionProvider } from './contexts/CollectionContext';
 import { WalletProvider } from './contexts/WalletContext';
 import { ModalProvider } from './contexts/ModalContext';
 import { HowItWorksProvider } from './contexts/HowItWorksContext';
+import { AppMessagesProvider } from './contexts/AppMessagesContext';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { validateEnvironmentVariables } from './utils/env-validation';
 import { setupCachePreloader } from './lib/cache-preloader';
@@ -50,9 +51,10 @@ function AppContent() {
           'users',
           'shops',
           'inventory',
+          'app_messages',
           ...(userId ? ['user_preferences'] : []),
           ...(shopId ? ['shop_settings'] : [])
-        ] : ['products', 'shops'] // Limited scope for anonymous users
+        ] : ['products', 'shops', 'app_messages'] // Limited scope for anonymous users
       });
     }, 2000);
     
@@ -119,7 +121,9 @@ export function App() {
           <CollectionProvider>
             <ModalProvider>
               <HowItWorksProvider>
-                <AppContent />
+                <AppMessagesProvider>
+                  <AppContent />
+                </AppMessagesProvider>
               </HowItWorksProvider>
             </ModalProvider>
           </CollectionProvider>
