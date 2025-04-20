@@ -155,44 +155,16 @@ export function WalletManagement() {
 
   const createWallet = async (data: FormData) => {
     try {
-      // First attempt - set is_main to false explicitly
-      const { error } = await supabase
-        .from('merchant_wallets')
-        .insert({
-          address: data.get('address'),
-          label: data.get('label'),
-          is_active: true,
-          is_main: false
-        });
+      // Instead of trying to insert directly, create a wallet through a stored procedure
+      // that ensures the wallet is not created as main
+      const { error } = await supabase.rpc('create_non_main_wallet', {
+        p_address: data.get('address')?.toString() || '',
+        p_label: data.get('label')?.toString() || ''
+      });
 
       if (error) {
-        // If unique constraint error on main wallet
-        if (error.code === '23505' && error.message.includes('merchant_wallets_main_unique')) {
-          // Try two-step approach: insert first, then update
-          const { data: insertedData, error: insertError } = await supabase
-            .from('merchant_wallets')
-            .insert({
-              address: data.get('address'),
-              label: data.get('label'),
-              is_active: true
-            })
-            .select();
-
-          if (insertError) throw insertError;
-          
-          // Now that we have the wallet inserted, immediately set it to not be main
-          if (insertedData && insertedData.length > 0) {
-            const { error: updateError } = await supabase
-              .from('merchant_wallets')
-              .update({ is_main: false })
-              .eq('id', insertedData[0].id);
-            
-            if (updateError) throw updateError;
-          }
-        } else {
-          // If it's a different error, throw it
-          throw error;
-        }
+        console.error('Error in create_non_main_wallet RPC:', error);
+        throw error;
       }
     } catch (error) {
       throw error;
