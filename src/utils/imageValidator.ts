@@ -3,12 +3,20 @@
  * Ensures all Supabase images use render endpoints instead of object endpoints
  */
 
+// Store successful image URLs to avoid "fixing" what isn't broken
+const successfulImageUrls = new Set<string>();
+
 /**
  * Normalizes a storage URL to ensure it uses the render endpoint
  * @param url The URL to normalize
  * @returns The normalized URL
  */
 export function normalizeStorageUrl(url: string): string {
+  // If this URL has already loaded successfully, don't change it
+  if (successfulImageUrls.has(url)) {
+    return url;
+  }
+  
   if (!url) return '';
   
   try {
@@ -55,15 +63,44 @@ export function normalizeStorageUrl(url: string): string {
 export function validateImages(): number {
   let fixedCount = 0;
   
-  document.querySelectorAll('img[src*="supabase"]').forEach(img => {
-    const src = img.getAttribute('src');
-    if (src && src.includes('/storage/v1/object/public/')) {
+  document.querySelectorAll('img[src*="supabase"]').forEach(element => {
+    // Cast element to HTMLImageElement
+    const img = element as HTMLImageElement;
+    const src = img.src;
+    if (!src) return;
+    
+    // Mark loaded images as successful to prevent cycles
+    if (img.complete && img.naturalWidth !== 0) {
+      successfulImageUrls.add(src);
+    }
+    
+    // Only fix images that aren't already in our success list
+    if (src.includes('/storage/v1/object/public/') && !successfulImageUrls.has(src)) {
       const normalizedSrc = normalizeStorageUrl(src);
-      img.setAttribute('src', normalizedSrc);
+      img.src = normalizedSrc;
       
       // Log the fix
       console.warn('Fixed image with object URL:', { original: src, fixed: normalizedSrc });
       fixedCount++;
+      
+      // Listen for load events on this image
+      img.addEventListener('load', () => {
+        // If it loads successfully, add the URL to our success set
+        successfulImageUrls.add(img.src);
+        console.log('Image loaded successfully:', img.src);
+      });
+      
+      // Listen for error events on this image
+      img.addEventListener('error', () => {
+        // If render URL fails, revert to object URL
+        if (img.src.includes('/storage/v1/render/image/public/')) {
+          const objectUrl = img.src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+          console.warn('Render URL failed, reverting to object URL:', objectUrl);
+          img.src = objectUrl;
+          // Mark this object URL as successful
+          successfulImageUrls.add(objectUrl);
+        }
+      });
     }
   });
   
@@ -81,15 +118,40 @@ export function validateContainerImages(container: HTMLElement): number {
   
   if (!container) return 0;
   
-  container.querySelectorAll('img[src*="supabase"]').forEach(img => {
-    const src = img.getAttribute('src');
-    if (src && src.includes('/storage/v1/object/public/')) {
+  container.querySelectorAll('img[src*="supabase"]').forEach(element => {
+    // Cast element to HTMLImageElement
+    const img = element as HTMLImageElement;
+    const src = img.src;
+    if (!src) return;
+    
+    // Mark loaded images as successful to prevent cycles
+    if (img.complete && img.naturalWidth !== 0) {
+      successfulImageUrls.add(src);
+    }
+    
+    // Only fix images that aren't already in our success list
+    if (src.includes('/storage/v1/object/public/') && !successfulImageUrls.has(src)) {
       const normalizedSrc = normalizeStorageUrl(src);
-      img.setAttribute('src', normalizedSrc);
+      img.src = normalizedSrc;
       
       // Log the fix
       console.warn('Fixed container image with object URL:', { original: src, fixed: normalizedSrc });
       fixedCount++;
+      
+      // Add event listeners for this image
+      img.addEventListener('load', () => {
+        successfulImageUrls.add(img.src);
+        console.log('Container image loaded successfully:', img.src);
+      });
+      
+      img.addEventListener('error', () => {
+        if (img.src.includes('/storage/v1/render/image/public/')) {
+          const objectUrl = img.src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+          console.warn('Render URL failed, reverting to object URL:', objectUrl);
+          img.src = objectUrl;
+          successfulImageUrls.add(objectUrl);
+        }
+      });
     }
   });
   
@@ -109,12 +171,22 @@ export function setupImageValidation(): void {
     }
   });
   
-  // Validate periodically to catch dynamically loaded images
-  setInterval(() => {
-    const fixedCount = validateImages();
-    if (fixedCount > 0) {
-      console.warn(`Fixed ${fixedCount} images during periodic check`);
+  // Add global error handler for images to auto-revert to object URLs
+  document.addEventListener('error', (event) => {
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'IMG' && target.getAttribute('src')?.includes('/storage/v1/render/image/public/')) {
+      const img = target as HTMLImageElement;
+      const objectUrl = img.src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+      console.warn('Image error detected, reverting to object URL:', objectUrl);
+      img.src = objectUrl;
+      successfulImageUrls.add(objectUrl);
+      event.preventDefault();
     }
+  }, true);
+  
+  // Single periodic check to catch any remaining issues, but reduce frequency
+  setTimeout(() => {
+    validateImages();
   }, 3000);
   
   // Listen for DOM changes to catch newly added images
@@ -128,10 +200,7 @@ export function setupImageValidation(): void {
       if (hasAddedNodes) {
         // Delay slightly to allow React to finish rendering
         setTimeout(() => {
-          const fixedCount = validateImages();
-          if (fixedCount > 0) {
-            console.warn(`Fixed ${fixedCount} images after DOM changes`);
-          }
+          validateImages();
         }, 100);
       }
     });
