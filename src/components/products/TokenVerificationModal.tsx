@@ -347,55 +347,68 @@ export function TokenVerificationModal({
 
             // Confirm the order immediately since it's free
             updateProgressStep(2, 'processing', 'Confirming order...');
-            const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                orderId,
-                signature: uniqueSignature,  // For free orders
-                expectedDetails: {
-                  amount: 0,
-                  buyer: walletAddress || '',
-                  recipient: product.collectionId
-                }
-              })
-            });
-
-            if (!confirmResponse.ok) {
-              const errorData = await confirmResponse.json();
-              throw new Error(errorData.error || 'Failed to confirm order transaction');
-            }
             
-            updateProgressStep(2, 'completed');
+            // Use direct RPC call instead of serverless function for free orders
+            try {
+              const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+                p_order_id: orderId
+              });
+
+              if (confirmError) {
+                throw new Error(confirmError.message || 'Failed to confirm order');
+              }
+              
+              console.log('Free order confirmed successfully:', orderId);
+              updateProgressStep(2, 'completed');
+            } catch (confirmErr) {
+              console.error('Error confirming free order:', confirmErr);
+              
+              // Attempt recovery by directly updating the status
+              try {
+                const { error: recoveryError } = await supabase
+                  .from('orders')
+                  .update({ status: 'confirmed' })
+                  .eq('id', orderId);
+                  
+                if (recoveryError) {
+                  console.error('Recovery attempt failed:', recoveryError);
+                  throw confirmErr; // Re-throw the original error
+                }
+                
+                console.log('Free order recovery successful');
+                updateProgressStep(2, 'completed');
+              } catch (recoveryErr) {
+                console.error('Free order recovery failed:', recoveryErr);
+                throw confirmErr; // Re-throw the original error
+              }
+            }
+
+            // Fetch order number
+            const { data: orderData, error: fetchError } = await supabase
+              .from('orders')
+              .select('order_number')
+              .eq('id', orderId)
+              .single();
+
+            if (fetchError) throw fetchError;
+
+            // Wait 1 second to show the completed progress state
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Show success
+            setOrderDetails({
+              orderNumber: orderData.order_number,
+              transactionSignature: uniqueSignature
+            });
+            setShowSuccessView(true);
+            toastService.showOrderSuccess();
+            return;
           } else {
             // For duplicate orders, we can skip updating and verifying
             console.log('Using existing order, skipping update/confirm steps');
             updateProgressStep(1, 'completed');
             updateProgressStep(2, 'completed');
           }
-
-          // Fetch order number
-          const { data: orderData, error: fetchError } = await supabase
-            .from('orders')
-            .select('order_number')
-            .eq('id', orderId)
-            .single();
-
-          if (fetchError) throw fetchError;
-
-          // Wait 1 second to show the completed progress state
-          await new Promise(resolve => setTimeout(resolve, 1000));
-
-          // Show success
-          setOrderDetails({
-            orderNumber: orderData.order_number,
-            transactionSignature: uniqueSignature
-          });
-          setShowSuccessView(true);
-          toastService.showOrderSuccess();
-          return;
         } catch (error) {
           console.error('Free order error:', error);
           const errorMessage = error instanceof Error ? error.message : 'Failed to process free order';

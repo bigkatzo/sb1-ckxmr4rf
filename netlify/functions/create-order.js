@@ -65,13 +65,6 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Create Supabase client with service role key for direct database access
-  const { createClient } = require('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
   // Check for free order with 100% discount
   const isFreeOrder = paymentMetadata && 
     paymentMetadata.couponDiscount && 
