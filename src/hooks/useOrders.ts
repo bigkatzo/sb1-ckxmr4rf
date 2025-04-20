@@ -81,6 +81,33 @@ export function useOrders() {
       console.log('Current session:', sessionData?.session ? 'Found' : 'Not found');
       console.log('JWT token present:', sessionData?.session?.access_token ? 'Yes' : 'No');
       
+      // Get JWT token debugging info
+      const { data: jwtDebug, error: jwtError } = await supabase.rpc('debug_auth_jwt');
+      console.log('JWT debug info:', jwtDebug || 'Not available');
+      if (jwtError) {
+        console.log('JWT debug error:', jwtError.message);
+      }
+      
+      // Get comprehensive auth diagnostics (will be available after migration)
+      try {
+        const { data: diagnostics } = await supabase
+          .from('debug_wallet_auth')
+          .select('*')
+          .single();
+        
+        if (diagnostics) {
+          console.log('Auth diagnostics:', {
+            jwt_claims: diagnostics.jwt_claims,
+            extracted_wallet: diagnostics.extracted_wallet_address,
+            direct_orders_count: diagnostics.direct_orders_count,
+            view_orders_count: diagnostics.view_orders_count,
+            all_wallets: diagnostics.all_wallets_with_orders
+          });
+        }
+      } catch (diagError) {
+        console.log('Diagnostic view not available yet:', diagError instanceof Error ? diagError.message : String(diagError));
+      }
+      
       // Try direct orders query first for comparison
       const { data: directOrders, error: directError } = await supabase
         .from('orders')
@@ -93,11 +120,9 @@ export function useOrders() {
       });
 
       // Use user_orders view instead of orders table to get tracking information
-      // ALWAYS explicitly filter by wallet_address for security
       const { data: initialData, error } = await supabase
         .from('user_orders')
         .select('*')
-        .eq('wallet_address', walletAddress)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -116,6 +141,12 @@ export function useOrders() {
             hasTracking: !!orderData[0].tracking
           } : null
         });
+        
+        // Log a warning if we have a mismatch between direct orders and view
+        if (orderData.length === 0 && directOrders && directOrders.length > 0) {
+          console.warn('Warning: Orders found in direct query but not in user_orders view. This may indicate an RLS issue or view configuration problem.');
+          console.log('Wallet address used for query:', walletAddress);
+        }
         
         // Convert database rows to Order objects
         const mappedOrders: Order[] = (orderData || []).map((row: OrderRow) => ({
