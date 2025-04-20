@@ -407,75 +407,101 @@ export function StripePaymentModal({
           // For 100% discount, create order directly without payment
           console.log('Creating free order with 100% discount');
           
-          const { data: createdOrderId, error: createError } = await supabase.rpc('create_order', {
-            p_product_id: productId,
-            p_variants: variants || [],
-            p_shipping_info: shippingInfo,
-            p_wallet_address: walletAddress || 'stripe',
-            p_payment_metadata: {
-              couponCode,
-              originalPrice,
-              couponDiscount,
-              paymentMethod: 'free',
-              orderDate: new Date().toISOString()
-            }
-          });
-
-          if (createError) throw createError;
-
-          // Generate structured transaction signature for free orders
-          // This ensures consistency and includes critical information
-          const orderHash = await generateOrderHash(createdOrderId, productId);
-          const uniqueSignature = `free_${orderHash}_${Date.now()}`;
-
-          // Update order with structured transaction signature
-          const { error: updateError } = await supabase.rpc('update_order_transaction', {
-            p_order_id: createdOrderId,
-            p_transaction_signature: uniqueSignature,
-            p_amount_sol: 0
-          });
-
-          if (updateError) {
-            console.error('Error updating free order transaction:', updateError);
-            throw updateError;
-          }
-
-          // Confirm the order immediately since it's free
+          // Generate a consistent transaction ID for free orders to prevent duplicates
+          const transactionId = `free_stripe_${productId}_${Date.now()}`;
+          
+          // Create the order through the serverless function instead of direct RPC call
           try {
-            const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-              p_order_id: createdOrderId
+            const response = await fetch('/.netlify/functions/create-order', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                productId: productId,
+                variants: variants || [],
+                shippingInfo: shippingInfo,
+                walletAddress: walletAddress || 'stripe',
+                paymentMetadata: {
+                  couponCode,
+                  originalPrice,
+                  couponDiscount,
+                  paymentMethod: 'free',
+                  orderDate: new Date().toISOString(),
+                  transactionId
+                }
+              })
             });
-
-            if (confirmError) throw confirmError;
             
-            console.log('Free order confirmed successfully:', createdOrderId);
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Failed to create order');
+            }
+            
+            const data = await response.json();
+            const createdOrderId = data.orderId;
+            const isDuplicate = data.isDuplicate;
+            
+            // Generate structured transaction signature for free orders
+            const uniqueSignature = `free_${transactionId}`;
+            
+            // Only update the order if it's not a duplicate
+            if (!isDuplicate) {
+              // Update order with structured transaction signature
+              const { error: updateError } = await supabase.rpc('update_order_transaction', {
+                p_order_id: createdOrderId,
+                p_transaction_signature: uniqueSignature,
+                p_amount_sol: 0
+              });
+
+              if (updateError) {
+                console.error('Error updating free order transaction:', updateError);
+                throw updateError;
+              }
+
+              // Confirm the order immediately since it's free
+              try {
+                const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+                  p_order_id: createdOrderId
+                });
+
+                if (confirmError) throw confirmError;
+                
+                console.log('Free order confirmed successfully:', createdOrderId);
+              } catch (confirmErr) {
+                console.error('Error confirming free order:', confirmErr);
+                
+                // Attempt recovery by directly updating the status
+                try {
+                  const { error: recoveryError } = await supabase
+                    .from('orders')
+                    .update({ status: 'confirmed' })
+                    .eq('id', createdOrderId);
+                    
+                  if (recoveryError) {
+                    console.error('Recovery attempt failed:', recoveryError);
+                    throw confirmErr; // Re-throw the original error
+                  }
+                  
+                  console.log('Free order recovery successful');
+                } catch (recoveryErr) {
+                  console.error('Free order recovery failed:', recoveryErr);
+                  throw confirmErr; // Re-throw the original error
+                }
+              }
+            } else {
+              console.log('Using existing order, skipping confirmation step');
+            }
             
             // Call onSuccess with the order ID and unique signature
             onSuccess(createdOrderId, uniqueSignature);
-          } catch (confirmErr) {
-            console.error('Error confirming free order:', confirmErr);
-            
-            // Attempt recovery by directly updating the status
-            try {
-              const { error: recoveryError } = await supabase
-                .from('orders')
-                .update({ status: 'confirmed' })
-                .eq('id', createdOrderId);
-                
-              if (recoveryError) {
-                console.error('Recovery attempt failed:', recoveryError);
-                throw confirmErr; // Re-throw the original error
-              }
-              
-              console.log('Free order recovery successful');
-              onSuccess(createdOrderId, uniqueSignature);
-            } catch (recoveryErr) {
-              console.error('Free order recovery failed:', recoveryErr);
-              throw confirmErr; // Re-throw the original error
-            }
+            return;
+          } catch (error) {
+            console.error('Error with free order:', error);
+            setError(error instanceof Error ? error.message : 'Failed to process free order');
+            setIsLoading(false);
+            return;
           }
-          
-          return;
         }
 
         console.log('Creating payment intent:', {

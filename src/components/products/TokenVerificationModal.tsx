@@ -288,6 +288,9 @@ export function TokenVerificationModal({
           setSubmitting(true);
           // For 100% discount, create order directly without payment
           updateProgressStep(0, 'processing', 'Creating your free order...');
+          
+          // Generate a consistent transaction ID for free orders to prevent duplicates
+          const transactionId = `free_token_${product.id}_${Date.now()}`;
         
           const response = await fetch('/.netlify/functions/create-order', {
             method: 'POST',
@@ -299,7 +302,10 @@ export function TokenVerificationModal({
               variants: formattedVariantSelections,
               shippingInfo: formattedShippingInfo,
               walletAddress,
-              paymentMetadata
+              paymentMetadata: {
+                ...paymentMetadata,
+                transactionId
+              }
             })
           });
 
@@ -310,53 +316,64 @@ export function TokenVerificationModal({
 
           const data = await response.json();
           orderId = data.orderId;
+          const isDuplicate = data.isDuplicate;
           updateProgressStep(0, 'completed');
 
           // Generate unique transaction signature for free orders
           updateProgressStep(1, 'processing', 'Processing free order...');
-          const uniqueSignature = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+          const uniqueSignature = `free_${transactionId}`;
 
-          // Call the serverless function instead
-          const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              orderId,
-              transactionSignature: uniqueSignature,
-              amountSol: 0
-            })
-          });
+          // Only update the transaction if this is not a duplicate order
+          if (!isDuplicate) {
+            // Call the serverless function instead
+            const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                orderId,
+                transactionSignature: uniqueSignature,
+                amountSol: 0
+              })
+            });
 
-          if (!updateResponse.ok) {
-            const errorData = await updateResponse.json();
-            throw new Error(errorData.error || 'Failed to update order transaction');
-          }
+            if (!updateResponse.ok) {
+              const errorData = await updateResponse.json();
+              throw new Error(errorData.error || 'Failed to update order transaction');
+            }
 
-          updateProgressStep(1, 'completed');
+            updateProgressStep(1, 'completed');
 
-          // Confirm the order immediately since it's free
-          updateProgressStep(2, 'processing', 'Confirming order...');
-          const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              orderId,
-              signature: uniqueSignature,  // For free orders
-              expectedDetails: {
-                amount: 0,
-                buyer: walletAddress || '',
-                recipient: product.collectionId
-              }
-            })
-          });
+            // Confirm the order immediately since it's free
+            updateProgressStep(2, 'processing', 'Confirming order...');
+            const confirmResponse = await fetch('/.netlify/functions/verify-transaction', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                orderId,
+                signature: uniqueSignature,  // For free orders
+                expectedDetails: {
+                  amount: 0,
+                  buyer: walletAddress || '',
+                  recipient: product.collectionId
+                }
+              })
+            });
 
-          if (!confirmResponse.ok) {
-            const errorData = await confirmResponse.json();
-            throw new Error(errorData.error || 'Failed to confirm order transaction');
+            if (!confirmResponse.ok) {
+              const errorData = await confirmResponse.json();
+              throw new Error(errorData.error || 'Failed to confirm order transaction');
+            }
+            
+            updateProgressStep(2, 'completed');
+          } else {
+            // For duplicate orders, we can skip updating and verifying
+            console.log('Using existing order, skipping update/confirm steps');
+            updateProgressStep(1, 'completed');
+            updateProgressStep(2, 'completed');
           }
 
           // Fetch order number
@@ -367,8 +384,6 @@ export function TokenVerificationModal({
             .single();
 
           if (fetchError) throw fetchError;
-
-          updateProgressStep(2, 'completed');
 
           // Wait 1 second to show the completed progress state
           await new Promise(resolve => setTimeout(resolve, 1000));
