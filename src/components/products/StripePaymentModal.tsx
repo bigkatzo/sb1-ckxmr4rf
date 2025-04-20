@@ -713,20 +713,3 @@ export function StripePaymentModal({
     </div>
   );
 }
-
-// Add this helper function near the bottom of the file
-async function generateOrderHash(orderId: string, productId: string): Promise<string> {
-  // Create a deterministic but unique hash for the order
-  const dataToHash = `${orderId}:${productId}:${Date.now()}`;
-  
-  // Use a simple hash function for browser compatibility
-  let hash = 0;
-  for (let i = 0; i < dataToHash.length; i++) {
-    const char = dataToHash.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  
-  // Convert to a positive hex string
-  return Math.abs(hash).toString(16).substring(0, 8);
-}
