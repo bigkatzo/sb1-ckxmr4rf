@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { TokenVerificationModal } from '../components/products/TokenVerificationModal';
-import type { Product } from '../types';
+import type { Product } from '../types/variants';
 
 interface ModalContextType {
   showVerificationModal: (product: Product, selectedOptions?: Record<string, string>) => void;
@@ -35,7 +35,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       {modalState.isOpen && modalState.product && (
         <TokenVerificationModal
           product={modalState.product}
-          selectedOptions={modalState.selectedOptions}
+          selectedOption={modalState.selectedOptions}
           onClose={hideVerificationModal}
           onSuccess={() => {
             hideVerificationModal();
