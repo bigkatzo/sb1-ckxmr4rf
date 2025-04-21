@@ -10,11 +10,12 @@ export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { walletAddress } = useWallet();
+  const { walletAddress, isConnected } = useWallet();
 
   // Fetch orders when wallet changes
   useEffect(() => {
-    if (!walletAddress) {
+    // SAFETY CHECK: Only proceed if wallet is currently connected
+    if (!walletAddress || !isConnected) {
       setOrders([]);
       setLoading(false);
       return;
@@ -47,11 +48,19 @@ export function useOrders() {
     return () => {
       supabase.removeChannel(orderSubscription);
     };
-  }, [walletAddress]);
+  }, [walletAddress, isConnected]);
 
   // Fetch orders function (extracted for reuse)
   const fetchOrders = async () => {
     try {
+      // SAFETY CHECK: Only fetch if wallet is connected
+      if (!walletAddress || !isConnected) {
+        setOrders([]);
+        setError("Wallet not connected");
+        setLoading(false);
+        return;
+      }
+
       console.log('Fetching orders for wallet:', walletAddress);
       
       // DEBUG: Check if JWT is present in auth
@@ -107,6 +116,14 @@ export function useOrders() {
         } catch (syncError) {
           console.error('Error syncing wallet address:', syncError);
         }
+      }
+      
+      // SAFETY CHECK: Add final check before making API calls
+      if (!walletAddress || !isConnected) {
+        setOrders([]);
+        setError("Wallet disconnected during operation");
+        setLoading(false);
+        return;
       }
       
       // First try the direct query - this should work with our new public RLS policy
@@ -226,6 +243,12 @@ export function useOrders() {
 
   // Expose refresh function to manually trigger data refresh
   const refreshOrders = () => {
+    // SAFETY CHECK: Only allow refresh if wallet is connected
+    if (!walletAddress || !isConnected) {
+      setError("Wallet not connected");
+      return;
+    }
+    
     setLoading(true);
     fetchOrders();
   };
