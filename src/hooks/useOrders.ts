@@ -88,10 +88,29 @@ export function useOrders() {
       
       // Get JWT token debugging info - try but don't fail if not available
       try {
-        const { data: jwtDebug } = await supabase.rpc('debug_auth_jwt');
-        console.log('JWT debug info:', jwtDebug || 'Not available');
+        // Try the direct JWT wallet info debug function first (more reliable)
+        try {
+          const { data: walletInfo } = await supabase.rpc('debug_jwt_wallet_info');
+          console.log('Direct wallet info from JWT:', walletInfo);
+          
+          // Log whether wallet will be properly matched in the view
+          if (walletInfo?.effective_wallet === walletAddress) {
+            console.log('✅ JWT wallet matches connected wallet - view filtering should work');
+          } else {
+            console.log('❌ JWT wallet mismatch - view filtering may fail', {
+              jwtWallet: walletInfo?.effective_wallet,
+              connectedWallet: walletAddress
+            });
+          }
+        } catch (e) {
+          console.log('JWT wallet info not available yet');
+          
+          // Fall back to old debug function
+          const { data: jwtDebug } = await supabase.rpc('debug_auth_jwt');
+          console.log('Legacy JWT debug info:', jwtDebug || 'Not available');
+        }
       } catch (jwtError) {
-        console.log('JWT debug RPC not available:', jwtError instanceof Error ? jwtError.message : String(jwtError));
+        console.log('JWT debug not available:', jwtError instanceof Error ? jwtError.message : String(jwtError));
       }
       
       // If wallet not in JWT, try syncing it
