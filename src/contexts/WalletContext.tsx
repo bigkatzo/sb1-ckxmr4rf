@@ -7,6 +7,7 @@ import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { SOLANA_CONNECTION } from '../config/solana';
 import '@solana/wallet-adapter-react-ui/styles.css';
 import '../styles/wallet-modal.css';
+import { supabase, AUTH_EXPIRED_EVENT } from '../lib/supabase';
 
 // Import wallet adapters
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
@@ -45,14 +46,17 @@ interface WalletContextType {
   error: Error | null;
   notifications: WalletNotification[];
   dismissNotification: (id: string) => void;
+  walletAuthToken: string | null;
+  handleAuthExpiration: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 function WalletContextProvider({ children }: { children: React.ReactNode }) {
-  const { publicKey, connected, disconnect: nativeDisconnect } = useSolanaWallet();
+  const { publicKey, connected, disconnect: nativeDisconnect, signMessage } = useSolanaWallet();
   const [error, setError] = useState<Error | null>(null);
   const [notifications, setNotifications] = useState<WalletNotification[]>([]);
+  const [walletAuthToken, setWalletAuthToken] = useState<string | null>(null);
 
   const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
     const notification: WalletNotification = {
@@ -72,12 +76,95 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
-  // Listen for connection state changes
+  // Function to create a secure authentication token
+  const createAuthToken = useCallback(async () => {
+    if (!publicKey || !signMessage) return null;
+    
+    try {
+      // Create a challenge message that includes the wallet address and timestamp
+      const timestamp = Date.now();
+      const message = `Authenticate wallet ${publicKey.toString()} with StoreDotFun at ${timestamp}`;
+      const encodedMessage = new TextEncoder().encode(message);
+      
+      // Ask user to sign the message - this proves ownership
+      const signature = await signMessage(encodedMessage);
+      
+      // Create a custom session with Supabase that includes the wallet signature verification
+      const { data, error } = await supabase.functions.invoke('create-wallet-auth', {
+        body: {
+          wallet: publicKey.toString(),
+          signature: Buffer.from(signature).toString('base64'),
+          message,
+          timestamp
+        }
+      });
+      
+      if (error) {
+        console.error('Auth token creation error:', error);
+        addNotification('error', 'Failed to authenticate wallet');
+        return null;
+      }
+      
+      // Store the JWT
+      const token = data?.token;
+      if (token) {
+        setWalletAuthToken(token);
+        // Set the auth token in Supabase for future requests
+        supabase.auth.setSession({
+          access_token: token,
+          refresh_token: ''
+        });
+        
+        addNotification('success', 'Wallet authenticated');
+        return token;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error creating auth token:', error);
+      addNotification('error', 'Authentication failed');
+      return null;
+    }
+  }, [publicKey, signMessage, addNotification]);
+
+  // Listen for connection state changes and create auth token
   useEffect(() => {
     if (connected && publicKey) {
       addNotification('success', 'Wallet connected!');
+      // Create authentication token when wallet connects
+      createAuthToken().catch(console.error);
+    } else {
+      // Clear auth token when wallet disconnects
+      setWalletAuthToken(null);
     }
-  }, [connected, publicKey, addNotification]);
+  }, [connected, publicKey, addNotification, createAuthToken]);
+
+  // Handler for expired auth tokens
+  const handleAuthExpiration = useCallback(() => {
+    // Clear existing token
+    setWalletAuthToken(null);
+    
+    // Notify user that reauthentication is needed
+    addNotification('info', 'Session expired, please reconnect your wallet');
+    
+    // Optional: Auto-trigger reconnection if wallet is still connected
+    if (connected && publicKey && signMessage) {
+      createAuthToken().catch(console.error);
+    }
+  }, [connected, publicKey, signMessage, addNotification, createAuthToken]);
+
+  // Listen for auth expiration events
+  useEffect(() => {
+    const handleAuthExpiredEvent = () => {
+      handleAuthExpiration();
+    };
+    
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpiredEvent);
+    
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpiredEvent);
+    };
+  }, [handleAuthExpiration]);
 
   const connect = useCallback(async () => {
     try {
@@ -96,6 +183,10 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       await nativeDisconnect();
+      // Clear auth token
+      setWalletAuthToken(null);
+      // Clear Supabase session
+      await supabase.auth.signOut();
       addNotification('info', 'Wallet disconnected');
     } catch (error) {
       console.error('Disconnect error:', error);
@@ -144,7 +235,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       signAndSendTransaction,
       error,
       notifications,
-      dismissNotification
+      dismissNotification,
+      walletAuthToken,
+      handleAuthExpiration
     }}>
       {children}
     </WalletContext.Provider>

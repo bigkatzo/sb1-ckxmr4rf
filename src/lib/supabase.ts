@@ -5,6 +5,9 @@ import type { Database } from './database.types';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Event for auth expiration that components can listen to
+export const AUTH_EXPIRED_EVENT = 'supabase-auth-expired';
+
 // Regular client for normal operations with optimized realtime settings
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   realtime: {
@@ -61,6 +64,10 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
             const { error: refreshError } = await supabase.auth.refreshSession();
             if (!refreshError) {
               continue; // Retry with new token
+            } else {
+              // Auth expired - dispatch custom event for wallet reconnection
+              window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+              console.log('Auth token expired, reconnection required');
             }
           }
 
