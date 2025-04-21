@@ -32,8 +32,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Update the orders policy to use both JWT and the existing request parameter methods
 DROP POLICY IF EXISTS "orders_user_view" ON orders;
+DROP POLICY IF EXISTS "user_orders_policy" ON orders;
 
-CREATE POLICY "orders_user_view"
+CREATE POLICY "user_orders_policy"
 ON orders
 FOR SELECT
 TO authenticated
@@ -47,6 +48,6 @@ GRANT EXECUTE ON FUNCTION auth_wallet_matches(text) TO authenticated;
 
 -- Add comments
 COMMENT ON FUNCTION auth_wallet_matches(text) IS 'Checks if the authenticated user owns the specified wallet address';
-COMMENT ON POLICY orders_user_view ON orders IS 'Allows access to orders only if the user has proven ownership of the wallet';
+COMMENT ON POLICY user_orders_policy ON orders IS 'Allows access to orders only if the user has proven ownership of the wallet';
 
 COMMIT; 
