@@ -60,6 +60,23 @@ export async function debugWalletAuth(walletAddress: string, walletAuthToken?: s
       console.log('JWT wallet extraction:', jwtWalletInfo);
     }
     
+    // Try direct orders query with wallet
+    try {
+      const { data: directOrdersData, error: directOrdersError } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact' })
+        .eq('wallet_address', walletAddress);
+        
+      console.log('Direct orders query for wallet:', {
+        wallet: walletAddress,
+        count: directOrdersData?.length || 0,
+        error: directOrdersError ? directOrdersError.message : null,
+        orders: directOrdersData
+      });
+    } catch (directErr) {
+      console.error('Exception querying orders directly:', directErr);
+    }
+    
     // Try to call debug JWT wallet function
     try {
       const { data: debugData, error: debugError } = await supabase.rpc('debug_jwt_wallet');
@@ -73,34 +90,56 @@ export async function debugWalletAuth(walletAddress: string, walletAuthToken?: s
       console.error('Exception calling debug function:', err);
     }
     
+    // Try to call specialized order debug function if available
+    try {
+      const { data: orderDebugData, error: orderDebugError } = await supabase
+        .rpc('debug_orders_for_wallet', { target_wallet: walletAddress });
+      
+      console.log('Order debug data:', {
+        data: orderDebugData,
+        error: orderDebugError ? orderDebugError.message : null
+      });
+    } catch (orderDebugErr) {
+      console.log('Order debug function not available:', orderDebugErr);
+    }
+    
     // Try to access user_orders view
     try {
-      const { data: ordersData, error: ordersError } = await supabase
+      const { data: ordersViewData, error: ordersViewError } = await supabase
         .from('user_orders')
-        .select('count(*)', { count: 'exact', head: true });
+        .select('*');
         
       console.log('user_orders view access test:', {
-        error: ordersError ? ordersError.message : null,
-        count: ordersData !== null ? 'Available' : 'Not available'
+        error: ordersViewError ? ordersViewError.message : null,
+        count: ordersViewData?.length || 0,
+        data: ordersViewData
       });
     } catch (viewErr) {
       console.error('Exception testing view access:', viewErr);
     }
     
-    // Try direct orders query with wallet
+    // Use the debug endpoint if available
     try {
-      const { count: ordersCount, error: directError } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('wallet_address', walletAddress);
-        
-      console.log('Direct orders query for wallet:', {
-        wallet: walletAddress,
-        count: ordersCount,
-        error: directError ? directError.message : null
-      });
-    } catch (directErr) {
-      console.error('Exception querying orders directly:', directErr);
+      console.log('Calling debug-orders function...');
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/debug-orders?wallet=${walletAddress}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(walletAuthToken ? { 'Authorization': `Bearer ${walletAuthToken}` } : {})
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('Debug orders endpoint result:', responseData);
+      } else {
+        console.error('Error from debug-orders endpoint:', await response.text());
+      }
+    } catch (endpointErr) {
+      console.log('Debug endpoint not available or error:', endpointErr);
     }
     
     // Try debug view if available
@@ -109,7 +148,7 @@ export async function debugWalletAuth(walletAddress: string, walletAuthToken?: s
         .from('debug_user_orders')
         .select('*')
         .eq('wallet_address', walletAddress)
-        .limit(1);
+        .limit(5);
         
       if (debugViewError) {
         console.log('Debug view not available or error:', debugViewError.message);

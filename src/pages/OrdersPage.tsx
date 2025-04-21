@@ -18,6 +18,7 @@ import { SupportMessage } from '../components/ui/SupportMessage';
 import { SensitiveInfo } from '../components/ui/SensitiveInfo';
 import { debugOrderSecurity } from '../utils/orderSecurity';
 import { debugWalletAuth } from '../utils/debugWalletAuth';
+import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -310,26 +311,29 @@ export function OrdersPage() {
       
       {/* Debug panel */}
       {debugMode && (
-        <div className="bg-gray-800/50 p-3 rounded-lg text-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">Wallet Authentication Debug</span>
-            <button
-              onClick={runWalletAuthDebug}
-              disabled={isDebugging}
-              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
-            >
-              {isDebugging ? 'Running...' : 'Run Debug'}
-            </button>
-          </div>
-          
-          {debugResults && (
-            <div className="p-2 bg-gray-900 rounded overflow-auto max-h-40">
-              <pre className="whitespace-pre-wrap text-gray-300">
-                {JSON.stringify(debugResults, null, 2)}
-              </pre>
+        <>
+          <OrderDebugPanel />
+          <div className="bg-gray-800/50 p-3 rounded-lg text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400">Wallet Authentication Debug</span>
+              <button
+                onClick={runWalletAuthDebug}
+                disabled={isDebugging}
+                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+              >
+                {isDebugging ? 'Running...' : 'Run Debug'}
+              </button>
             </div>
-          )}
-        </div>
+            
+            {debugResults && (
+              <div className="p-2 bg-gray-900 rounded overflow-auto max-h-40">
+                <pre className="whitespace-pre-wrap text-gray-300">
+                  {JSON.stringify(debugResults, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </>
       )}
       
       {orders.length === 0 ? (
