@@ -92,9 +92,9 @@ export function useOrders() {
         .from('orders')
         .select(`
           *,
-          products:product_id (name, sku),
-          collections:collection_id (name),
-          tracking:order_tracking (*)
+          products (name, sku),
+          collections (name),
+          order_tracking (*)
         `)
         .eq('wallet_address', walletAddress) // Explicit filter to ensure correct data
         .order('created_at', { ascending: false });
@@ -135,7 +135,7 @@ export function useOrders() {
           product_snapshot: row.product_snapshot,
           collection_snapshot: row.collection_snapshot,
           payment_metadata: row.payment_metadata || undefined,
-          tracking: row.tracking?.length ? row.tracking[0] : null
+          tracking: row.order_tracking?.length ? row.order_tracking[0] : null
         }));
         
         setOrders(mappedOrders);
