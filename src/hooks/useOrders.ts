@@ -97,10 +97,26 @@ export function useOrders() {
         // The RLS on the underlying orders table will filter data automatically
         console.log('Using wallet auth flow to fetch orders');
         
-        // If we're using our custom JWT or test token, use a direct query
+        // If we're using our custom JWT or test token, add it to the auth header
         if (isCustomWalletJWT || walletAuthToken === 'test-token-123') {
           console.log('Using wallet-verified query with user_orders view...');
-          // Use the user_orders view for better security and consistency
+          
+          // For simplified wallet auth, we need to first set the session token
+          // This is the most reliable way to ensure the token is used for auth
+          if (walletAuthToken) {
+            try {
+              // Set the auth token in session before making the query
+              await supabase.auth.setSession({
+                access_token: walletAuthToken,
+                refresh_token: ''
+              });
+              console.log('Set wallet auth token for this request');
+            } catch (err) {
+              console.error('Error setting wallet auth token:', err);
+            }
+          }
+          
+          // Then query the user_orders view which will use the token we just set
           const result = await supabase
             .from('user_orders')
             .select('*')
