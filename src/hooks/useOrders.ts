@@ -1,32 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
-import type { Order, OrderTracking, ShippingAddress, ContactInfo, OrderVariant, ProductSnapshot, CollectionSnapshot, PaymentMetadata } from '../types/orders';
+import type { Order } from '../types/orders';
 
-// Define the database row type for type safety
-interface OrderRow {
-  id: string;
-  order_number: string;
-  status: Order['status'];
-  created_at: string;
-  updated_at: string;
-  product_id: string;
-  collection_id: string;
-  product_name: string;
-  product_sku: string;
-  collection_name: string;
-  amount_sol: number;
-  category_name: string;
-  shipping_address: ShippingAddress;
-  contact_info: ContactInfo;
-  wallet_address: string;
-  transaction_signature: string | null;
-  variant_selections: OrderVariant[];
-  product_snapshot: ProductSnapshot;
-  collection_snapshot: CollectionSnapshot;
-  payment_metadata: PaymentMetadata | null;
-  tracking: OrderTracking | null;
-}
+// This interface is no longer used since we're using joined queries with 'any' type
+// We can safely remove it
 
 export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -81,50 +59,26 @@ export function useOrders() {
       console.log('Current session:', sessionData?.session ? 'Found' : 'Not found');
       console.log('JWT token present:', sessionData?.session?.access_token ? 'Yes' : 'No');
       
-      // Check if wallet address is in JWT claims
+      // If we have a session but JWT doesn't have our wallet address, sync it
       const walletAddressInJWT = sessionData?.session?.user?.user_metadata?.wallet_address;
       console.log('Wallet address in JWT claims:', walletAddressInJWT || 'Not found');
       console.log('Matches current wallet:', walletAddressInJWT === walletAddress ? 'Yes' : 'No');
       
-      // Get JWT token debugging info - try but don't fail if not available
-      try {
-        // Try the direct JWT wallet info debug function first (more reliable)
-        try {
-          const { data: walletInfo } = await supabase.rpc('debug_jwt_wallet_info');
-          console.log('Direct wallet info from JWT:', walletInfo);
-          
-          // Log whether wallet will be properly matched in the view
-          if (walletInfo?.effective_wallet === walletAddress) {
-            console.log('✅ JWT wallet matches connected wallet - view filtering should work');
-          } else {
-            console.log('❌ JWT wallet mismatch - view filtering may fail', {
-              jwtWallet: walletInfo?.effective_wallet,
-              connectedWallet: walletAddress
-            });
-          }
-        } catch (e) {
-          console.log('JWT wallet info not available yet');
-          
-          // Fall back to old debug function
-          const { data: jwtDebug } = await supabase.rpc('debug_auth_jwt');
-          console.log('Legacy JWT debug info:', jwtDebug || 'Not available');
-        }
-      } catch (jwtError) {
-        console.log('JWT debug not available:', jwtError instanceof Error ? jwtError.message : String(jwtError));
-      }
-      
-      // If wallet not in JWT, try syncing it
       if (sessionData?.session && walletAddressInJWT !== walletAddress) {
-        console.log('Wallet address mismatch detected, trying to sync...');
+        console.log('Wallet address mismatch detected, updating JWT metadata...');
         try {
+          // This is wallet-only auth mechanism - completely separate from merchant auth
           const { error: updateError } = await supabase.auth.updateUser({
-            data: { wallet_address: walletAddress }
+            data: { 
+              wallet_address: walletAddress,
+              wallet_updated_at: new Date().toISOString()
+            }
           });
           
           if (updateError) {
             console.error('Error updating wallet in JWT:', updateError.message);
           } else {
-            console.log('Successfully updated wallet in JWT, will try fetching orders again');
+            console.log('Successfully updated wallet in JWT');
             // Wait a moment for JWT update to propagate
             await new Promise(resolve => setTimeout(resolve, 500));
           }
@@ -133,110 +87,32 @@ export function useOrders() {
         }
       }
       
-      // Get comprehensive auth diagnostics (will be available after migration)
-      try {
-        const { data: diagnostics } = await supabase
-          .from('debug_wallet_auth')
-          .select('*')
-          .single();
-        
-        if (diagnostics) {
-          console.log('Auth diagnostics:', {
-            jwt_claims: diagnostics.jwt_claims,
-            extracted_wallet: diagnostics.extracted_wallet_address,
-            direct_orders_count: diagnostics.direct_orders_count,
-            view_orders_count: diagnostics.view_orders_count,
-            all_wallets: diagnostics.all_wallets_with_orders
-          });
-        }
-      } catch (diagError) {
-        // Just log but don't fail - diagnostic view is optional
-        console.log('Diagnostic view not available:', diagError instanceof Error ? diagError.message : String(diagError));
-      }
-      
-      // Try direct orders query first
-      const { data: directOrders, error: directError } = await supabase
+      // Query orders table directly - RLS will handle the filtering by wallet
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('*')
-        .eq('wallet_address', walletAddress);
+        .select(`
+          *,
+          products:product_id (name, sku),
+          collections:collection_id (name),
+          tracking:order_tracking (*)
+        `)
+        .eq('wallet_address', walletAddress) // Explicit filter to ensure correct data
+        .order('created_at', { ascending: false });
       
-      console.log('Direct orders query result:', { 
-        count: directOrders?.length || 0, 
-        error: directError ? directError.message : null 
-      });
-
-      // Try the user_orders view - if it fails, we'll fall back to the direct query
-      let orderData: any[] = [];
-      let viewError = null;
-      try {
-        const { data, error } = await supabase
-          .from('user_orders')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        viewError = error;
-        if (!error && data) {
-          orderData = data;
-          console.log('user_orders query results:', {
-            count: orderData?.length || 0,
-            firstOrder: orderData?.[0] ? {
-              id: orderData[0].id,
-              wallet: orderData[0].wallet_address,
-              hasTracking: !!orderData[0].tracking
-            } : null
-          });
-        }
-      } catch (userOrdersError) {
-        console.warn('Error querying user_orders view:', userOrdersError instanceof Error ? userOrdersError.message : String(userOrdersError));
-        viewError = userOrdersError;
-      }
-
-      // If user_orders view failed or returned no results, fall back to direct query with manual tracking lookup
-      if ((viewError || orderData.length === 0) && directOrders && directOrders.length > 0) {
-        console.log('Using direct orders query as fallback');
-        orderData = directOrders;
-        
-        // Try to get tracking information separately for each order
-        try {
-          for (const order of orderData) {
-            const { data: trackingData } = await supabase
-              .from('order_tracking')
-              .select('*')
-              .eq('order_id', order.id)
-              .single();
-              
-            if (trackingData) {
-              // Get tracking events if available
-              const { data: events } = await supabase
-                .from('tracking_events')
-                .select('*')
-                .eq('tracking_id', trackingData.id)
-                .order('timestamp', { ascending: false });
-                
-              // Add tracking data to order object
-              order.tracking = {
-                ...trackingData,
-                tracking_events: events || []
-              };
-            }
-          }
-          console.log('Added tracking data to direct orders');
-        } catch (trackingError) {
-          console.warn('Could not fetch tracking data:', trackingError instanceof Error ? trackingError.message : String(trackingError));
-        }
-      }
-      
-      // If we have an error with user_orders view but direct query was successful, don't report the error
-      if (viewError && directOrders && directOrders.length > 0) {
-        viewError = null;
-      }
-
-      if (viewError) {
-        console.error('Error fetching orders:', viewError);
-        setError(viewError instanceof Error ? viewError.message : String(viewError));
+      if (orderError) {
+        console.error('Error fetching orders:', orderError);
+        setError(orderError.message);
       } else {
+        console.log('Orders query result:', { 
+          count: orderData?.length || 0, 
+          first: orderData?.[0] ? {
+            id: orderData[0].id,
+            wallet: orderData[0].wallet_address
+          } : null
+        });
+        
         // Convert database rows to Order objects
-        const mappedOrders: Order[] = (orderData || []).map((row: OrderRow) => ({
+        const mappedOrders: Order[] = (orderData || []).map((row: any) => ({
           id: row.id,
           order_number: row.order_number,
           status: row.status,
@@ -244,9 +120,11 @@ export function useOrders() {
           updatedAt: new Date(row.updated_at),
           product_id: row.product_id,
           collection_id: row.collection_id,
-          product_name: row.product_name,
-          product_sku: row.product_sku,
-          collection_name: row.collection_name,
+          // Product and collection info from joins
+          product_name: row.products?.name || row.product_name,
+          product_sku: row.products?.sku || row.product_sku,
+          collection_name: row.collections?.name || row.collection_name,
+          // Other fields
           amountSol: row.amount_sol,
           category_name: row.category_name,
           shippingAddress: row.shipping_address,
@@ -257,7 +135,7 @@ export function useOrders() {
           product_snapshot: row.product_snapshot,
           collection_snapshot: row.collection_snapshot,
           payment_metadata: row.payment_metadata || undefined,
-          tracking: row.tracking
+          tracking: row.tracking?.length ? row.tracking[0] : null
         }));
         
         setOrders(mappedOrders);
