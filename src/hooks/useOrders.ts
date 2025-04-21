@@ -86,11 +86,12 @@ export function useOrders() {
       console.log('Wallet address in JWT claims:', walletAddressInJWT || 'Not found');
       console.log('Matches current wallet:', walletAddressInJWT === walletAddress ? 'Yes' : 'No');
       
-      // Get JWT token debugging info
-      const { data: jwtDebug, error: jwtError } = await supabase.rpc('debug_auth_jwt');
-      console.log('JWT debug info:', jwtDebug || 'Not available');
-      if (jwtError) {
-        console.log('JWT debug error:', jwtError.message);
+      // Get JWT token debugging info - try but don't fail if not available
+      try {
+        const { data: jwtDebug } = await supabase.rpc('debug_auth_jwt');
+        console.log('JWT debug info:', jwtDebug || 'Not available');
+      } catch (jwtError) {
+        console.log('JWT debug RPC not available:', jwtError instanceof Error ? jwtError.message : String(jwtError));
       }
       
       // If wallet not in JWT, try syncing it
@@ -130,10 +131,11 @@ export function useOrders() {
           });
         }
       } catch (diagError) {
-        console.log('Diagnostic view not available yet:', diagError instanceof Error ? diagError.message : String(diagError));
+        // Just log but don't fail - diagnostic view is optional
+        console.log('Diagnostic view not available:', diagError instanceof Error ? diagError.message : String(diagError));
       }
       
-      // Try direct orders query first for comparison
+      // Try direct orders query first
       const { data: directOrders, error: directError } = await supabase
         .from('orders')
         .select('*')
@@ -144,41 +146,76 @@ export function useOrders() {
         error: directError ? directError.message : null 
       });
 
-      // Use user_orders view instead of orders table to get tracking information
-      const { data: initialData, error } = await supabase
-        .from('user_orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching orders:', error);
-        setError(error.message);
-      } else {
-        // Track the data we'll use for mapping
-        let orderData = initialData;
-        
-        // Add some debug logging to check if tracking data is being returned
-        console.log('user_orders query results:', {
-          count: orderData?.length || 0,
-          firstOrder: orderData?.[0] ? {
-            id: orderData[0].id,
-            wallet: orderData[0].wallet_address,
-            hasTracking: !!orderData[0].tracking
-          } : null
-        });
-        
-        // Log a warning if we have a mismatch between direct orders and view
-        if (orderData.length === 0 && directOrders && directOrders.length > 0) {
-          console.warn('Warning: Orders found in direct query but not in user_orders view. This may indicate an RLS issue or view configuration problem.');
-          console.log('Wallet address used for query:', walletAddress);
+      // Try the user_orders view - if it fails, we'll fall back to the direct query
+      let orderData: any[] = [];
+      let viewError = null;
+      try {
+        const { data, error } = await supabase
+          .from('user_orders')
+          .select('*')
+          .order('created_at', { ascending: false });
           
-          // If direct orders found but not in view, attempt to use direct orders as fallback
-          if (directOrders.length > 0) {
-            console.log('Using direct orders as fallback');
-            orderData = directOrders;
-          }
+        viewError = error;
+        if (!error && data) {
+          orderData = data;
+          console.log('user_orders query results:', {
+            count: orderData?.length || 0,
+            firstOrder: orderData?.[0] ? {
+              id: orderData[0].id,
+              wallet: orderData[0].wallet_address,
+              hasTracking: !!orderData[0].tracking
+            } : null
+          });
         }
+      } catch (userOrdersError) {
+        console.warn('Error querying user_orders view:', userOrdersError instanceof Error ? userOrdersError.message : String(userOrdersError));
+        viewError = userOrdersError;
+      }
+
+      // If user_orders view failed or returned no results, fall back to direct query with manual tracking lookup
+      if ((viewError || orderData.length === 0) && directOrders && directOrders.length > 0) {
+        console.log('Using direct orders query as fallback');
+        orderData = directOrders;
         
+        // Try to get tracking information separately for each order
+        try {
+          for (const order of orderData) {
+            const { data: trackingData } = await supabase
+              .from('order_tracking')
+              .select('*')
+              .eq('order_id', order.id)
+              .single();
+              
+            if (trackingData) {
+              // Get tracking events if available
+              const { data: events } = await supabase
+                .from('tracking_events')
+                .select('*')
+                .eq('tracking_id', trackingData.id)
+                .order('timestamp', { ascending: false });
+                
+              // Add tracking data to order object
+              order.tracking = {
+                ...trackingData,
+                tracking_events: events || []
+              };
+            }
+          }
+          console.log('Added tracking data to direct orders');
+        } catch (trackingError) {
+          console.warn('Could not fetch tracking data:', trackingError instanceof Error ? trackingError.message : String(trackingError));
+        }
+      }
+      
+      // If we have an error with user_orders view but direct query was successful, don't report the error
+      if (viewError && directOrders && directOrders.length > 0) {
+        viewError = null;
+      }
+
+      if (viewError) {
+        console.error('Error fetching orders:', viewError);
+        setError(viewError instanceof Error ? viewError.message : String(viewError));
+      } else {
         // Convert database rows to Order objects
         const mappedOrders: Order[] = (orderData || []).map((row: OrderRow) => ({
           id: row.id,
