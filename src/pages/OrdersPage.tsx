@@ -16,6 +16,7 @@ import {
 } from '../utils/transactions';
 import { SupportMessage } from '../components/ui/SupportMessage';
 import { SensitiveInfo } from '../components/ui/SensitiveInfo';
+import { debugOrderSecurity } from '../utils/orderSecurity';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -55,6 +56,14 @@ export function OrdersPage() {
       firstOrderTracking: orders.length > 0 ? orders[0].tracking : null
     });
   }, [walletAddress, loading, error, orders, isInitialLoad]);
+  
+  // Only run security verification in development mode when orders load
+  useEffect(() => {
+    if (!loading && orders.length > 0 && import.meta.env.DEV) {
+      // Run security verification to ensure users only see their own orders
+      debugOrderSecurity().catch(console.error);
+    }
+  }, [loading, orders.length]);
   
   // Reset isInitialLoad when wallet address changes
   useEffect(() => {
