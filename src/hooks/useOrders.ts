@@ -64,6 +64,17 @@ export function useOrders() {
       console.log('Wallet address in JWT claims:', walletAddressInJWT || 'Not found');
       console.log('Matches current wallet:', walletAddressInJWT === walletAddress ? 'Yes' : 'No');
       
+      // Use the debug function to get more information about JWT structure
+      try {
+        const { data: jwtDebug } = await supabase.rpc('debug_jwt_wallet');
+        if (jwtDebug) {
+          console.log('JWT debug info:', jwtDebug);
+        }
+      } catch (e) {
+        // Function might not exist, that's okay
+        console.log('Debug function not available:', e instanceof Error ? e.message : String(e));
+      }
+      
       if (sessionData?.session && walletAddressInJWT !== walletAddress) {
         console.log('Wallet address mismatch detected, updating JWT metadata...');
         try {
@@ -81,6 +92,16 @@ export function useOrders() {
             console.log('Successfully updated wallet in JWT');
             // Wait a moment for JWT update to propagate
             await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Try to sync using the RPC function if available
+            try {
+              const { data: syncResult } = await supabase.rpc('sync_wallet_to_jwt', {
+                wallet_addr: walletAddress
+              });
+              console.log('Wallet sync result:', syncResult);
+            } catch (e) {
+              // Function might not exist yet, ignore
+            }
           }
         } catch (syncError) {
           console.error('Error syncing wallet address:', syncError);
@@ -99,6 +120,23 @@ export function useOrders() {
         
         if (viewError) {
           console.warn('View error:', viewError.message);
+          
+          // Test direct RLS policy on orders table
+          try {
+            const { data: rlsTest, error: rlsError } = await supabase
+              .from('orders')
+              .select('id')
+              .eq('wallet_address', walletAddress)
+              .limit(1);
+              
+            if (rlsError) {
+              console.error('RLS policy test failed:', rlsError.message);
+            } else {
+              console.log('RLS policy test result:', rlsTest?.length > 0 ? 'Working' : 'No results');
+            }
+          } catch (e) {
+            console.error('Error testing RLS policy:', e);
+          }
         }
         
         // Use our proven fallback with direct queries
