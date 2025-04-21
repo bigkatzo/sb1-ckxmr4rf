@@ -88,7 +88,6 @@ export function useOrders() {
       
       // Check what auth method to use
       const isWalletAuth = authType === 'wallet' || Boolean(walletAuthToken);
-      const isMerchantAuth = authType === 'merchant' || (!isWalletAuth && sessionData?.session);
       
       let ordersData;
       let ordersError;
@@ -100,12 +99,11 @@ export function useOrders() {
         
         // If we're using our custom JWT or test token, use a direct query
         if (isCustomWalletJWT || walletAuthToken === 'test-token-123') {
-          console.log('Using wallet-verified direct query...');
-          // Just use the direct query with wallet address - ownership already verified by signing
+          console.log('Using wallet-verified query with user_orders view...');
+          // Use the user_orders view for better security and consistency
           const result = await supabase
-            .from('orders')
-            .select('*') 
-            .eq('wallet_address', walletAddress)
+            .from('user_orders')
+            .select('*')
             .order('created_at', { ascending: false });
             
           console.log('Raw wallet-verified query response:', {
@@ -118,7 +116,7 @@ export function useOrders() {
           ordersData = result.data;
           ordersError = result.error;
         } else {
-          // Standard wallet auth token flow
+          // Standard wallet auth token flow (if using real Supabase JWT)
           // If we have a wallet auth token, set it for this request only
           if (walletAuthToken && !sessionData?.session) {
             console.log('Setting wallet auth token:', walletAuthToken.substring(0, 10) + '...');
@@ -170,53 +168,18 @@ export function useOrders() {
           ordersError = result.error;
         }
       } else {
-        // For merchant-authenticated users or direct public access
-        // Use the direct orders query with simple wallet address filter
-        // Fixed: It seems the relationship queries are causing issues, so we'll
-        // simplify the query and handle any needed joins in the app
-        console.log('Using standard auth flow to fetch orders');
-        const result = await supabase
-          .from('orders')
-          .select('*') // Simplified to avoid relationship issues
-          .eq('wallet_address', walletAddress)
-          .order('created_at', { ascending: false });
-          
-        ordersData = result.data;
-        ordersError = result.error;
-        
-        // If we need product details, we can fetch them separately
-        if (ordersData && ordersData.length > 0) {
-          // Get unique product IDs
-          const productIds = [...new Set(ordersData.map(order => order.product_id))].filter(Boolean);
-          
-          if (productIds.length > 0) {
-            // Fetch product details
-            const { data: products } = await supabase
-              .from('products')
-              .select('id, name, sku')
-              .in('id', productIds);
-              
-            // Merge product data with orders
-            if (products) {
-              const productMap: Record<string, any> = products.reduce((acc: Record<string, any>, product: any) => {
-                acc[product.id] = product;
-                return acc;
-              }, {});
-              
-              // Add product details to orders
-              ordersData = ordersData.map(order => ({
-                ...order,
-                products: order.product_id ? productMap[order.product_id] : null
-              }));
-            }
-          }
-        }
+        // For unauthenticated users, we no longer allow access to orders
+        console.log('Wallet auth required to access orders');
+        setOrders([]);
+        setError("Wallet authentication required to view orders");
+        setLoading(false);
+        return;
       }
       
       if (!ordersError && ordersData && ordersData.length > 0) {
         console.log('Orders query result:', { 
           count: ordersData.length,
-          authMethod: isWalletAuth ? 'wallet' : (isMerchantAuth ? 'merchant' : 'public')
+          authMethod: 'wallet'  // Always wallet auth now
         });
         
         // Map the data to our Order objects based on the structure

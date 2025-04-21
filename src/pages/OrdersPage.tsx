@@ -212,8 +212,24 @@ export function OrdersPage() {
         <h1 className="text-2xl font-bold">Your Orders</h1>
         <div className="min-h-[50vh] flex flex-col items-center justify-center text-center">
           <div className="bg-red-500/10 text-red-400 p-4 rounded-lg max-w-md">
-            <h2 className="text-lg font-semibold mb-2">Error Loading Orders</h2>
+            <h2 className="text-lg font-semibold mb-2">Authentication Required</h2>
             <p>{error}</p>
+            {error.includes("Wallet authentication required") && (
+              <div className="mt-4">
+                <p className="text-sm text-gray-300 mb-2">
+                  For your security, we require wallet verification to view order history.
+                </p>
+                <button 
+                  onClick={() => {
+                    // Trigger a refresh to try to authenticate again
+                    window.location.reload();
+                  }}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm"
+                >
+                  Verify Wallet
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
