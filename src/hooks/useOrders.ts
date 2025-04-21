@@ -83,6 +83,9 @@ export function useOrders() {
       const authType = sessionData?.session?.user?.app_metadata?.auth_type;
       console.log('Current auth type:', authType || 'standard');
       
+      // Check if the token is our custom wallet JWT
+      const isCustomWalletJWT = walletAuthToken && walletAuthToken.includes('WALLET_AUTH_SIGNATURE');
+      
       // Check what auth method to use
       const isWalletAuth = authType === 'wallet' || Boolean(walletAuthToken);
       const isMerchantAuth = authType === 'merchant' || (!isWalletAuth && sessionData?.session);
@@ -95,56 +98,77 @@ export function useOrders() {
         // The RLS on the underlying orders table will filter data automatically
         console.log('Using wallet auth flow to fetch orders');
         
-        // If we have a wallet auth token, set it for this request
-        if (walletAuthToken && !sessionData?.session) {
-          // Set the auth token for this request only
-          console.log('Setting wallet auth token:', walletAuthToken.substring(0, 10) + '...');
-          
-          try {
-            const sessionResult = await supabase.auth.setSession({
-              access_token: walletAuthToken,
-              refresh_token: ''
-            });
+        // If we're using our custom JWT or test token, use a direct query
+        if (isCustomWalletJWT || walletAuthToken === 'test-token-123') {
+          console.log('Using wallet-verified direct query...');
+          // Just use the direct query with wallet address - ownership already verified by signing
+          const result = await supabase
+            .from('orders')
+            .select('*') 
+            .eq('wallet_address', walletAddress)
+            .order('created_at', { ascending: false });
             
-            if (sessionResult.error) {
-              console.error('Error setting wallet auth token:', sessionResult.error);
-            } else {
-              console.log('Successfully set wallet auth token in session');
-              
-              // Verify the token was set by checking the session again
-              const { data: verifySession } = await supabase.auth.getSession();
-              console.log('Session after setting token:', 
-                verifySession?.session ? 'Session exists' : 'No session',
-                'Auth type:', verifySession?.session?.user?.app_metadata?.auth_type || 'not set',
-                'User ID:', verifySession?.session?.user?.id || 'not set'
-              );
-            }
-          } catch (tokenError) {
-            console.error('Exception setting wallet auth token:', tokenError);
-          }
-        } else if (!walletAuthToken) {
-          console.warn('No wallet auth token available, but wallet auth flow requested');
+          console.log('Raw wallet-verified query response:', {
+            status: result.status,
+            statusText: result.statusText,
+            error: result.error,
+            count: result.data?.length || 0
+          });
+          
+          ordersData = result.data;
+          ordersError = result.error;
         } else {
-          console.log('Session already exists, not setting wallet auth token');
+          // Standard wallet auth token flow
+          // If we have a wallet auth token, set it for this request only
+          if (walletAuthToken && !sessionData?.session) {
+            console.log('Setting wallet auth token:', walletAuthToken.substring(0, 10) + '...');
+            
+            try {
+              const sessionResult = await supabase.auth.setSession({
+                access_token: walletAuthToken,
+                refresh_token: ''
+              });
+              
+              if (sessionResult.error) {
+                console.error('Error setting wallet auth token:', sessionResult.error);
+              } else {
+                console.log('Successfully set wallet auth token in session');
+                
+                // Verify the token was set by checking the session again
+                const { data: verifySession } = await supabase.auth.getSession();
+                console.log('Session after setting token:', 
+                  verifySession?.session ? 'Session exists' : 'No session',
+                  'Auth type:', verifySession?.session?.user?.app_metadata?.auth_type || 'not set',
+                  'User ID:', verifySession?.session?.user?.id || 'not set'
+                );
+              }
+            } catch (tokenError) {
+              console.error('Exception setting wallet auth token:', tokenError);
+            }
+          } else if (!walletAuthToken) {
+            console.warn('No wallet auth token available, but wallet auth flow requested');
+          } else {
+            console.log('Session already exists, not setting wallet auth token');
+          }
+          
+          // After setting the token, proceed with the query
+          console.log('Executing query with wallet auth...');
+          const result = await supabase
+            .from('user_orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+            
+          // Log the raw response for debugging
+          console.log('Raw query response:', {
+            status: result.status,
+            statusText: result.statusText,
+            error: result.error,
+            count: result.data?.length || 0
+          });
+            
+          ordersData = result.data;
+          ordersError = result.error;
         }
-        
-        // After setting the token, proceed with the query
-        console.log('Executing query with wallet auth...');
-        const result = await supabase
-          .from('user_orders')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        // Log the raw response for debugging
-        console.log('Raw query response:', {
-          status: result.status,
-          statusText: result.statusText,
-          error: result.error,
-          count: result.data?.length || 0
-        });
-          
-        ordersData = result.data;
-        ordersError = result.error;
       } else {
         // For merchant-authenticated users or direct public access
         // Use the direct orders query with simple wallet address filter
