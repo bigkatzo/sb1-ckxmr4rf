@@ -72,6 +72,17 @@ export const debugOrderSecurity = async () => {
       console.warn('No wallet address found in JWT user_metadata');
     }
 
+    // Check app metadata in JWT
+    const appMetadata = sessionData?.session?.user?.app_metadata;
+    if (appMetadata) {
+      console.log('App metadata in JWT:', appMetadata);
+      console.log('Auth type:', appMetadata.auth_type || 'not set');
+      console.log('Wallet auth flag:', appMetadata.wallet_auth || 'not set');
+      console.log('Wallet address in app_metadata:', appMetadata.wallet_address || 'not set');
+    } else {
+      console.warn('No app_metadata found in JWT');
+    }
+
     // Use the debug function if available
     let debugData;
     try {

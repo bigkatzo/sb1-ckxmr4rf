@@ -94,6 +94,16 @@ export function useOrders() {
         // For wallet-authenticated users, use the user_orders view
         // The RLS on the underlying orders table will filter data automatically
         console.log('Using wallet auth flow to fetch orders');
+        
+        // If we have a wallet auth token, set it for this request
+        if (walletAuthToken && !sessionData?.session) {
+          // Set the auth token for this request only
+          await supabase.auth.setSession({
+            access_token: walletAuthToken,
+            refresh_token: ''
+          });
+        }
+        
         const result = await supabase
           .from('user_orders')
           .select('*')

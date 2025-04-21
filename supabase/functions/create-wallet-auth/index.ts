@@ -91,28 +91,6 @@ serve(async (req) => {
     // Generate a unique email for wallet users
     const walletEmail = `wallet.${wallet}@walletauth.storedotfun.com`;
     
-    // For testing: Try a simple auth response without complex JWT creation
-    console.log('Returning simplified auth response for testing');
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        token: 'test-token-123',
-        user: {
-          wallet: wallet,
-          auth_type: 'wallet'
-        }
-      }),
-      { 
-        status: 200, 
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json' 
-        } 
-      }
-    );
-    
-    /*
-    // This is the full implementation - we'll use it after we confirm the basic flow works
     // Find or create a user for this wallet
     let { data: user, error: userError } = await supabaseClient
       .from('users')
@@ -226,7 +204,6 @@ serve(async (req) => {
         } 
       }
     );
-    */
   } catch (error) {
     console.error('Server error:', error);
     return new Response(

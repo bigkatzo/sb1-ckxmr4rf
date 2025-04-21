@@ -110,19 +110,35 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       if (token) {
         setWalletAuthToken(token);
         // Set the auth token in Supabase for future requests
-        supabase.auth.setSession({
+        await supabase.auth.setSession({
           access_token: token,
           refresh_token: ''
         });
         
         addNotification('success', 'Wallet authenticated');
+        
+        // Verify the token was applied correctly
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData?.session?.access_token) {
+          console.warn('Token was not set in session, retrying...');
+          // Try again
+          await supabase.auth.setSession({
+            access_token: token,
+            refresh_token: ''
+          });
+        }
+        
         return token;
       }
       
+      // If we get here, we didn't get a token
+      console.error('No token received from create-wallet-auth function');
+      addNotification('error', 'Authentication failed - no token received');
       return null;
     } catch (error) {
       console.error('Error creating auth token:', error);
-      addNotification('error', 'Authentication failed');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      addNotification('error', `Authentication failed: ${errorMessage}`);
       return null;
     }
   }, [publicKey, signMessage, addNotification]);
@@ -147,9 +163,23 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     // Notify user that reauthentication is needed
     addNotification('info', 'Session expired, please reconnect your wallet');
     
-    // Optional: Auto-trigger reconnection if wallet is still connected
+    // Always try to recreate the auth token if wallet is connected
     if (connected && publicKey && signMessage) {
-      createAuthToken().catch(console.error);
+      console.log('Automatically attempting to recreate wallet auth token');
+      createAuthToken().then(token => {
+        if (token) {
+          console.log('Successfully recreated wallet auth token');
+          // Set the auth token in Supabase for future requests
+          supabase.auth.setSession({
+            access_token: token,
+            refresh_token: ''
+          });
+        } else {
+          console.error('Failed to recreate wallet auth token');
+        }
+      }).catch(error => {
+        console.error('Error recreating auth token:', error);
+      });
     }
   }, [connected, publicKey, signMessage, addNotification, createAuthToken]);
 
