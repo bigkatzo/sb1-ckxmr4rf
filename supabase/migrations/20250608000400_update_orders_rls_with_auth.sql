@@ -1,5 +1,17 @@
 -- Update orders RLS policy to use JWT authentication with wallet verification
+-- Important: Keep wallet auth completely separate from merchant email/password auth
 BEGIN;
+
+-- Create a function to check if the authenticated user is using wallet auth
+-- This ensures complete separation from merchant auth flow
+CREATE OR REPLACE FUNCTION is_wallet_auth()
+RETURNS boolean AS $$
+BEGIN
+  -- Check if the auth was performed through wallet verification
+  -- This metadata flag is only set for wallet-based authentications
+  RETURN (auth.jwt() -> 'app_metadata' ->> 'wallet_auth')::boolean IS TRUE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create a function to check if the authenticated user owns a wallet
 CREATE OR REPLACE FUNCTION auth_wallet_matches(wallet_addr text)
@@ -7,6 +19,11 @@ RETURNS boolean AS $$
 DECLARE
   auth_wallet text;
 BEGIN
+  -- First ensure this is wallet auth and not merchant auth
+  IF NOT is_wallet_auth() THEN
+    RETURN false;
+  END IF;
+  
   -- Check if the user is authenticated
   IF auth.uid() IS NULL THEN
     RETURN false;
@@ -30,24 +47,38 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Update the orders policy to use both JWT and the existing request parameter methods
+-- Enable Row Level Security on orders table
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
+-- Clean up any existing policies that might conflict
 DROP POLICY IF EXISTS "orders_user_view" ON orders;
 DROP POLICY IF EXISTS "user_orders_policy" ON orders;
+DROP POLICY IF EXISTS "wallet_auth_orders_policy" ON orders;
 
-CREATE POLICY "user_orders_policy"
+-- Apply policy to regular orders table for wallet-authenticated users
+CREATE POLICY "wallet_auth_orders_policy"
 ON orders
 FOR SELECT
 TO authenticated
 USING (
-  -- JWT-based authorization (secure) - user has proven wallet ownership
+  -- Only match if:
+  -- 1. User is authenticated with wallet flow (not merchant flow)
+  -- 2. JWT wallet address matches requested wallet
   auth_wallet_matches(wallet_address)
 );
 
+-- Note: We don't need to create a new view or apply policies to views
+-- The RLS on the orders table will automatically filter data
+-- that gets passed to the existing user_orders view
+
 -- Grant permissions
+GRANT EXECUTE ON FUNCTION is_wallet_auth() TO authenticated;
 GRANT EXECUTE ON FUNCTION auth_wallet_matches(text) TO authenticated;
+GRANT SELECT ON user_orders TO authenticated;
 
 -- Add comments
-COMMENT ON FUNCTION auth_wallet_matches(text) IS 'Checks if the authenticated user owns the specified wallet address';
-COMMENT ON POLICY user_orders_policy ON orders IS 'Allows access to orders only if the user has proven ownership of the wallet';
+COMMENT ON FUNCTION is_wallet_auth() IS 'Checks if the current authentication was done through the wallet flow and not merchant flow';
+COMMENT ON FUNCTION auth_wallet_matches(text) IS 'Checks if the authenticated user owns the specified wallet address (wallet auth flow only)';
+COMMENT ON POLICY wallet_auth_orders_policy ON orders IS 'Allows wallet users to access orders only if they have proven ownership of the wallet';
 
 COMMIT; 

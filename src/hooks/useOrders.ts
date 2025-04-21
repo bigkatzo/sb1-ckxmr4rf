@@ -78,60 +78,99 @@ export function useOrders() {
         return;
       }
       
-      // Use the authenticated client for all queries
-      // The RLS policy will ensure only the wallet owner can access their data
-      const { data: directOrdersData, error: directError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          products:product_id(name, sku),
-          collections:collection_id(name),
-          tracking:order_tracking(*)
-        `)
-        .eq('wallet_address', walletAddress)
-        .order('created_at', { ascending: false });
-        
-      if (!directError && directOrdersData && directOrdersData.length > 0) {
+      // First check the currently logged in user type
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authType = sessionData?.session?.user?.app_metadata?.auth_type;
+      console.log('Current auth type:', authType || 'standard');
+      
+      // Check what auth method to use
+      const isWalletAuth = authType === 'wallet' || Boolean(walletAuthToken);
+      const isMerchantAuth = authType === 'merchant' || (!isWalletAuth && sessionData?.session);
+      
+      let ordersData;
+      let ordersError;
+      
+      if (isWalletAuth) {
+        // For wallet-authenticated users, use the user_orders view
+        // The RLS on the underlying orders table will filter data automatically
+        console.log('Using wallet auth flow to fetch orders');
+        const result = await supabase
+          .from('user_orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        ordersData = result.data;
+        ordersError = result.error;
+      } else {
+        // For merchant-authenticated users or direct public access
+        // Use the direct orders query filtering by wallet address
+        console.log('Using standard auth flow to fetch orders');
+        const result = await supabase
+          .from('orders')
+          .select(`
+            *,
+            products:product_id(name, sku),
+            collections:collection_id(name),
+            tracking:order_tracking(*)
+          `)
+          .eq('wallet_address', walletAddress)
+          .order('created_at', { ascending: false });
+          
+        ordersData = result.data;
+        ordersError = result.error;
+      }
+      
+      if (!ordersError && ordersData && ordersData.length > 0) {
         console.log('Orders query result:', { 
-          count: directOrdersData.length,
-          hasTracking: directOrdersData.some(o => o.tracking && o.tracking.length > 0)
+          count: ordersData.length,
+          authMethod: isWalletAuth ? 'wallet' : (isMerchantAuth ? 'merchant' : 'public')
         });
         
-        // Map the joined data to our Order objects
-        const mappedOrders: Order[] = directOrdersData.map((order: any) => ({
-          id: order.id,
-          order_number: order.order_number,
-          status: order.status,
-          createdAt: new Date(order.created_at),
-          updatedAt: new Date(order.updated_at),
-          product_id: order.product_id,
-          collection_id: order.collection_id,
-          product_name: order.products?.name || 
-                        (order.product_snapshot ? order.product_snapshot.name : ''),
-          product_sku: order.products?.sku || 
-                      (order.product_snapshot ? order.product_snapshot.sku : ''),
-          collection_name: order.collections?.name || 
-                          (order.collection_snapshot ? order.collection_snapshot.name : ''),
-          amountSol: order.amount_sol,
-          category_name: order.category_name,
-          shippingAddress: order.shipping_address,
-          contactInfo: order.contact_info,
-          walletAddress: order.wallet_address,
-          transactionSignature: order.transaction_signature || undefined,
-          variant_selections: order.variant_selections,
-          product_snapshot: order.product_snapshot,
-          collection_snapshot: order.collection_snapshot,
-          payment_metadata: order.payment_metadata || undefined,
-          tracking: order.tracking && order.tracking.length > 0 ? order.tracking[0] : null
-        }));
+        // Map the data to our Order objects based on the structure
+        const mappedOrders: Order[] = ordersData.map((order: any) => {
+          const isViewResult = 'product_name' in order;
+          
+          return {
+            id: order.id,
+            order_number: order.order_number,
+            status: order.status,
+            createdAt: new Date(order.created_at),
+            updatedAt: new Date(order.updated_at),
+            product_id: order.product_id,
+            collection_id: order.collection_id,
+            // Handle both view format and direct query format
+            product_name: isViewResult 
+              ? order.product_name || ''
+              : (order.products?.name || (order.product_snapshot?.name || '')),
+            product_sku: isViewResult
+              ? order.product_sku || ''
+              : (order.products?.sku || (order.product_snapshot?.sku || '')),
+            collection_name: isViewResult
+              ? order.collection_name || ''
+              : (order.collections?.name || (order.collection_snapshot?.name || '')),
+            amountSol: order.amount_sol,
+            category_name: order.category_name,
+            shippingAddress: order.shipping_address,
+            contactInfo: order.contact_info,
+            walletAddress: order.wallet_address,
+            transactionSignature: order.transaction_signature || undefined,
+            variant_selections: order.variant_selections,
+            product_snapshot: order.product_snapshot,
+            collection_snapshot: order.collection_snapshot,
+            payment_metadata: order.payment_metadata || undefined,
+            tracking: isViewResult
+              ? order.tracking
+              : (order.tracking && order.tracking.length > 0 ? order.tracking[0] : null)
+          };
+        });
         
         setOrders(mappedOrders);
         setError(null);
         return;
       }
       
-      if (directError) {
-        console.log('Error with orders query:', directError.message);
+      if (ordersError) {
+        console.log('Error with orders query:', ordersError.message);
         setError("Failed to fetch orders. Please make sure your wallet is connected.");
         setOrders([]);
       } else {

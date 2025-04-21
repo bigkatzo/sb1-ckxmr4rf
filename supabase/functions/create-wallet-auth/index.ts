@@ -105,17 +105,25 @@ serve(async (req) => {
       userId = user.id
     }
 
+    // Generate a unique email for wallet users to avoid conflicts with merchant accounts
+    // This ensures complete separation between the auth systems
+    const walletEmail = `wallet.${wallet}@walletauth.storedotfun.com`
+
     // Create a custom JWT token
     const { data: tokenData, error: tokenError } = await supabaseClient.auth.admin.createUser({
-      email: `${wallet}@wallet.auth`,
+      email: walletEmail,
       password: crypto.randomUUID(), // Random password, user will never use it
       user_metadata: {
-        wallet_address: wallet
+        wallet_address: wallet,
+        wallet_auth_type: 'solana',
+        auth_method: 'wallet'
       },
       app_metadata: {
         wallet_address: wallet,
         wallet_auth: true,
-        wallet_auth_time: Date.now()
+        wallet_auth_time: Date.now(),
+        auth_type: 'wallet', // Clear marker to distinguish from merchant accounts
+        role: 'wallet_user' // Special role just for wallet users
       }
     })
 
@@ -130,7 +138,7 @@ serve(async (req) => {
     // Get the session token for this user
     const { data: sessionData, error: sessionError } = await supabaseClient.auth.admin.generateLink({
       type: 'magiclink',
-      email: `${wallet}@wallet.auth`,
+      email: walletEmail,
     })
 
     if (sessionError) {
@@ -146,7 +154,8 @@ serve(async (req) => {
         token: sessionData.properties.access_token,
         user: {
           id: userId,
-          wallet: wallet
+          wallet: wallet,
+          auth_type: 'wallet'
         }
       }),
       { 
