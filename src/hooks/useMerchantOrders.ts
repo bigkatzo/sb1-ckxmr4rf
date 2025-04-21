@@ -41,6 +41,15 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
 
       if (ordersError) throw ordersError;
 
+      // Debug: Log the variant data from the first order
+      if (ordersData && ordersData.length > 0) {
+        console.log('First order variant data:', {
+          variant_selections: ordersData[0].variant_selections,
+          order_variants: ordersData[0].order_variants,
+          raw_data: ordersData[0]
+        });
+      }
+
       // Transform the data to match the Order type
       const transformedOrders: Order[] = (ordersData || []).map(order => ({
         id: order.id,

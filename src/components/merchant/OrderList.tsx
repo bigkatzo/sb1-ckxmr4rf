@@ -725,13 +725,26 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   };
 
   const getProductInfo = (order: Order) => {
+    // Get variant data from any available source in order of preference
+    const variantData = 
+      (order.variant_selections && order.variant_selections.length > 0) ? order.variant_selections :
+      (order.order_variants && order.order_variants.length > 0) ? order.order_variants : 
+      [];
+    
+    // Log variant data for debugging
+    console.log(`Order ${order.order_number} variants:`, {
+      variantData,
+      variant_selections: order.variant_selections,
+      order_variants: order.order_variants
+    });
+    
     return {
       name: order.product_name,
       sku: order.product_sku,
       imageUrl: order.product_image_url,
       collectionName: order.collection_name,
       categoryName: order.category_name,
-      variants: order.variant_selections,
+      variants: variantData,
       variantPrices: order.product_variant_prices
     };
   };
@@ -1177,6 +1190,15 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                               {productInfo.variants.map((v: OrderVariant) => `${v.name}: ${v.value}`).join(', ')}
                             </span>
                           )}
+
+                          {/* Debugging variant data - remove in production */}
+                          <div className="text-xs text-red-400 mt-1 hidden">
+                            Debug - Variant data: {JSON.stringify({
+                              variant_selections: order.variant_selections?.length || 0,
+                              order_variants: order.order_variants?.length || 0,
+                              variants_used: productInfo.variants?.length || 0
+                            })}
+                          </div>
                         </div>
                         <div className="flex flex-col gap-2">
                           <p className="text-gray-400 text-xs">Amount: {order.amountSol} SOL</p>
