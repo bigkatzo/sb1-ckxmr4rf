@@ -103,21 +103,46 @@ export function useOrders() {
         ordersError = result.error;
       } else {
         // For merchant-authenticated users or direct public access
-        // Use the direct orders query filtering by wallet address
+        // Use the direct orders query with simple wallet address filter
+        // Fixed: It seems the relationship queries are causing issues, so we'll
+        // simplify the query and handle any needed joins in the app
         console.log('Using standard auth flow to fetch orders');
         const result = await supabase
           .from('orders')
-          .select(`
-            *,
-            products:product_id(name, sku),
-            collections:collection_id(name),
-            tracking:order_tracking(*)
-          `)
+          .select('*') // Simplified to avoid relationship issues
           .eq('wallet_address', walletAddress)
           .order('created_at', { ascending: false });
           
         ordersData = result.data;
         ordersError = result.error;
+        
+        // If we need product details, we can fetch them separately
+        if (ordersData && ordersData.length > 0) {
+          // Get unique product IDs
+          const productIds = [...new Set(ordersData.map(order => order.product_id))].filter(Boolean);
+          
+          if (productIds.length > 0) {
+            // Fetch product details
+            const { data: products } = await supabase
+              .from('products')
+              .select('id, name, sku')
+              .in('id', productIds);
+              
+            // Merge product data with orders
+            if (products) {
+              const productMap: Record<string, any> = products.reduce((acc: Record<string, any>, product: any) => {
+                acc[product.id] = product;
+                return acc;
+              }, {});
+              
+              // Add product details to orders
+              ordersData = ordersData.map(order => ({
+                ...order,
+                products: order.product_id ? productMap[order.product_id] : null
+              }));
+            }
+          }
+        }
       }
       
       if (!ordersError && ordersData && ordersData.length > 0) {
@@ -160,7 +185,7 @@ export function useOrders() {
             payment_metadata: order.payment_metadata || undefined,
             tracking: isViewResult
               ? order.tracking
-              : (order.tracking && order.tracking.length > 0 ? order.tracking[0] : null)
+              : null // We'll fetch tracking separately if needed
           };
         });
         

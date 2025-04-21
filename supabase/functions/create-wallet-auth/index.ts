@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0'
 import * as base58 from 'https://deno.land/x/base58@v0.2.0/mod.ts';
 import * as ed25519 from 'https://deno.land/x/ed25519@1.6.0/mod.ts';
 import { decode as decodeBase64 } from 'https://deno.land/std@0.83.0/encoding/base64.ts';
+import { corsHeaders, handleCors } from './cors.ts';
 
 /**
  * Verify a Solana wallet signature
@@ -27,6 +28,12 @@ async function verifySignature(
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  const corsResponse = handleCors(req);
+  if (corsResponse) {
+    return corsResponse;
+  }
+
   try {
     // Create a Supabase client with the project details
     const supabaseClient = createClient(
@@ -41,7 +48,13 @@ serve(async (req) => {
     if (!wallet || !signature || !message || !timestamp) {
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 400, 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
       )
     }
 
@@ -53,7 +66,13 @@ serve(async (req) => {
     if (isNaN(messageTime) || currentTime - messageTime > timeWindow) {
       return new Response(
         JSON.stringify({ error: 'Authentication request expired' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 400, 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
       )
     }
 
@@ -67,7 +86,13 @@ serve(async (req) => {
     if (!isValid) {
       return new Response(
         JSON.stringify({ error: 'Invalid signature' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 401, 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
       )
     }
 
@@ -96,7 +121,13 @@ serve(async (req) => {
         console.error('Error creating user:', createError)
         return new Response(
           JSON.stringify({ error: 'Failed to create user' }),
-          { status: 500, headers: { 'Content-Type': 'application/json' } }
+          { 
+            status: 500, 
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json' 
+            } 
+          }
         )
       }
       
@@ -131,7 +162,13 @@ serve(async (req) => {
       console.error('Error creating token:', tokenError)
       return new Response(
         JSON.stringify({ error: 'Failed to create auth token' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 500, 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
       )
     }
 
@@ -145,7 +182,13 @@ serve(async (req) => {
       console.error('Error creating session:', sessionError)
       return new Response(
         JSON.stringify({ error: 'Failed to create session' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 500, 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
       )
     }
 
@@ -160,14 +203,23 @@ serve(async (req) => {
       }),
       { 
         status: 200, 
-        headers: { 'Content-Type': 'application/json' } 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json' 
+        } 
       }
     )
   } catch (error) {
     console.error('Server error:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { 
+        status: 500, 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json' 
+        } 
+      }
     )
   }
 }) 
