@@ -12,6 +12,7 @@ serve(async (req) => {
   try {
     // Create a Supabase client with the project details
     const supabaseClient = createClient(
+      // Using renamed environment variables to avoid restrictions
       Deno.env.get('PROJECT_URL') || '',
       Deno.env.get('SERVICE_ROLE_KEY') || ''
     )
