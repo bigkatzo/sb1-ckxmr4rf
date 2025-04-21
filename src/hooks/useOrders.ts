@@ -98,16 +98,50 @@ export function useOrders() {
         // If we have a wallet auth token, set it for this request
         if (walletAuthToken && !sessionData?.session) {
           // Set the auth token for this request only
-          await supabase.auth.setSession({
-            access_token: walletAuthToken,
-            refresh_token: ''
-          });
+          console.log('Setting wallet auth token:', walletAuthToken.substring(0, 10) + '...');
+          
+          try {
+            const sessionResult = await supabase.auth.setSession({
+              access_token: walletAuthToken,
+              refresh_token: ''
+            });
+            
+            if (sessionResult.error) {
+              console.error('Error setting wallet auth token:', sessionResult.error);
+            } else {
+              console.log('Successfully set wallet auth token in session');
+              
+              // Verify the token was set by checking the session again
+              const { data: verifySession } = await supabase.auth.getSession();
+              console.log('Session after setting token:', 
+                verifySession?.session ? 'Session exists' : 'No session',
+                'Auth type:', verifySession?.session?.user?.app_metadata?.auth_type || 'not set',
+                'User ID:', verifySession?.session?.user?.id || 'not set'
+              );
+            }
+          } catch (tokenError) {
+            console.error('Exception setting wallet auth token:', tokenError);
+          }
+        } else if (!walletAuthToken) {
+          console.warn('No wallet auth token available, but wallet auth flow requested');
+        } else {
+          console.log('Session already exists, not setting wallet auth token');
         }
         
+        // After setting the token, proceed with the query
+        console.log('Executing query with wallet auth...');
         const result = await supabase
           .from('user_orders')
           .select('*')
           .order('created_at', { ascending: false });
+          
+        // Log the raw response for debugging
+        console.log('Raw query response:', {
+          status: result.status,
+          statusText: result.statusText,
+          error: result.error,
+          count: result.data?.length || 0
+        });
           
         ordersData = result.data;
         ordersError = result.error;

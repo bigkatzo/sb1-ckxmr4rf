@@ -10,6 +10,83 @@ serve(async (req) => {
   }
 
   try {
+    // Check for diagnostic mode
+    const url = new URL(req.url);
+    const isDiagnosticMode = url.searchParams.get('diagnose') === 'true';
+    
+    if (isDiagnosticMode) {
+      console.log('Function running in diagnostic mode');
+      // Extract the bearer token if present
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ error: 'No Authorization header with Bearer token' }),
+          { 
+            status: 400, 
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json' 
+            } 
+          }
+        );
+      }
+      
+      const token = authHeader.split(' ')[1];
+      
+      // Basic JWT parsing (no validation) to see the content
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid JWT format' }),
+            { 
+              status: 400, 
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json' 
+              } 
+            }
+          );
+        }
+        
+        // Decode the payload (second part)
+        const payloadBase64 = parts[1];
+        const decodedPayload = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(decodedPayload);
+        
+        // Return the payload for inspection
+        return new Response(
+          JSON.stringify({ 
+            message: 'JWT diagnostic information', 
+            token_prefix: `${token.substring(0, 10)}...`,
+            payload,
+            walletInClaims: !!payload.wallet_address,
+            walletInUserMetadata: !!(payload.user_metadata && payload.user_metadata.wallet_address),
+            walletInAppMetadata: !!(payload.app_metadata && payload.app_metadata.wallet_address),
+            tokenExpiry: new Date(payload.exp * 1000).toISOString()
+          }),
+          { 
+            status: 200, 
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json' 
+            } 
+          }
+        );
+      } catch (parseError) {
+        return new Response(
+          JSON.stringify({ error: 'Error parsing JWT', details: String(parseError) }),
+          { 
+            status: 400, 
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json' 
+            } 
+          }
+        );
+      }
+    }
+    
     // Create a Supabase client with the project details
     console.log('Edge function started, attempting to create Supabase client');
     const projectUrl = Deno.env.get('PROJECT_URL') || '';
@@ -147,7 +224,8 @@ serve(async (req) => {
         wallet_address: wallet,
         wallet_auth: true,
         auth_type: 'wallet'
-      }
+      },
+      email_confirm: true // Auto-confirm the email to avoid verification issues
     });
 
     if (authError) {
@@ -165,10 +243,16 @@ serve(async (req) => {
     }
 
     // Get session token using magic link
-    console.log('Generating link');
+    console.log('Generating session token');
     const { data: sessionData, error: sessionError } = await supabaseClient.auth.admin.generateLink({
       type: 'magiclink',
       email: walletEmail,
+      options: {
+        // Add data directly to the JWT token
+        data: {
+          wallet_address: wallet
+        }
+      }
     });
 
     if (sessionError) {

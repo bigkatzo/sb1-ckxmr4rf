@@ -90,6 +90,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       const signature = await signMessage(encodedMessage);
       
       // Create a custom session with Supabase that includes the wallet signature verification
+      console.log('Calling create-wallet-auth function to obtain token...');
       const { data, error } = await supabase.functions.invoke('create-wallet-auth', {
         body: {
           wallet: publicKey.toString(),
@@ -108,24 +109,58 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       // Store the JWT
       const token = data?.token;
       if (token) {
+        console.log('Token received from server:', token.substring(0, 15) + '...');
+        
+        // Store token in state
         setWalletAuthToken(token);
+        
         // Set the auth token in Supabase for future requests
-        await supabase.auth.setSession({
+        console.log('Setting token in Supabase client...');
+        const sessionResult = await supabase.auth.setSession({
           access_token: token,
           refresh_token: ''
         });
         
-        addNotification('success', 'Wallet authenticated');
+        if (sessionResult.error) {
+          console.error('Error setting token in session:', sessionResult.error);
+        } else {
+          console.log('Token successfully set in session');
+        }
         
         // Verify the token was applied correctly
         const { data: sessionData } = await supabase.auth.getSession();
         if (!sessionData?.session?.access_token) {
           console.warn('Token was not set in session, retrying...');
           // Try again
-          await supabase.auth.setSession({
+          const retryResult = await supabase.auth.setSession({
             access_token: token,
             refresh_token: ''
           });
+          
+          if (retryResult.error) {
+            console.error('Error setting token on retry:', retryResult.error);
+          } else {
+            console.log('Token set successfully on retry');
+          }
+        }
+        
+        // Test the token with a simple API call
+        console.log('Testing token with a simple API call...');
+        try {
+          // Try to access user profile which should be available with auth
+          const { data: userData, error: userError } = await supabase
+            .from('user_orders')
+            .select('count(*)', { count: 'exact', head: true });
+          
+          if (userError) {
+            console.error('Token validation failed:', userError);
+            addNotification('info', 'Wallet authenticated with limited permissions');
+          } else {
+            console.log('Token validation successful:', userData);
+            addNotification('success', 'Wallet authenticated');
+          }
+        } catch (testError) {
+          console.error('Error testing token:', testError);
         }
         
         return token;
