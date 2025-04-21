@@ -11,17 +11,56 @@ serve(async (req) => {
 
   try {
     // Create a Supabase client with the project details
-    const supabaseClient = createClient(
-      // Using renamed environment variables to avoid restrictions
-      Deno.env.get('PROJECT_URL') || '',
-      Deno.env.get('SERVICE_ROLE_KEY') || ''
-    )
+    console.log('Edge function started, attempting to create Supabase client');
+    const projectUrl = Deno.env.get('PROJECT_URL') || '';
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || '';
+    
+    console.log(`Project URL ${projectUrl ? 'is set' : 'is NOT set'}`);
+    console.log(`Service key ${serviceKey ? 'is set' : 'is NOT set'}`);
+    
+    if (!projectUrl || !serviceKey) {
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error - missing environment variables' }),
+        { 
+          status: 500, 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
+    
+    const supabaseClient = createClient(projectUrl, serviceKey);
 
-    // Get the request body
-    const { wallet, signature, message } = await req.json()
+    // Get and log the request body
+    let reqBody;
+    try {
+      reqBody = await req.json();
+      console.log('Request body parsed successfully:', {
+        wallet: reqBody.wallet ? `${reqBody.wallet.substring(0, 8)}...` : 'not provided',
+        hasSignature: !!reqBody.signature,
+        hasMessage: !!reqBody.message
+      });
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body' }),
+        { 
+          status: 400, 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
+
+    const { wallet, signature, message } = reqBody;
 
     // Basic validation
     if (!wallet || !signature || !message) {
+      console.error('Missing required parameters');
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { 
@@ -31,42 +70,75 @@ serve(async (req) => {
             'Content-Type': 'application/json' 
           } 
         }
-      )
+      );
     }
 
-    // In a real implementation, this would verify the signature
-    // For now, we'll assume the wallet address is valid and create a session
-    console.log('Creating auth for wallet:', wallet);
-    console.log('Signature:', signature.slice(0, 20) + '...');
+    // Simplified authentication - just check wallet address format
+    if (!wallet.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
+      console.error('Invalid wallet address format');
+      return new Response(
+        JSON.stringify({ error: 'Invalid wallet address format' }),
+        { 
+          status: 400, 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
 
     // Generate a unique email for wallet users
-    const walletEmail = `wallet.${wallet}@walletauth.storedotfun.com`
-
+    const walletEmail = `wallet.${wallet}@walletauth.storedotfun.com`;
+    
+    // For testing: Try a simple auth response without complex JWT creation
+    console.log('Returning simplified auth response for testing');
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        token: 'test-token-123',
+        user: {
+          wallet: wallet,
+          auth_type: 'wallet'
+        }
+      }),
+      { 
+        status: 200, 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json' 
+        } 
+      }
+    );
+    
+    /*
+    // This is the full implementation - we'll use it after we confirm the basic flow works
     // Find or create a user for this wallet
     let { data: user, error: userError } = await supabaseClient
       .from('users')
       .select('id')
       .eq('wallet_address', wallet)
-      .maybeSingle()
+      .maybeSingle();
 
     if (userError) {
-      console.error('Error finding user:', userError)
+      console.error('Error finding user:', userError);
     }
 
     let userId: string | undefined;
     
     if (!user) {
       // Create a new user for this wallet
+      console.log('User not found, creating new user');
       const { data: newUser, error: createError } = await supabaseClient
         .from('users')
         .insert({ wallet_address: wallet })
         .select('id')
-        .single()
+        .single();
         
       if (createError) {
-        console.error('Error creating user:', createError)
+        console.error('Error creating user:', createError);
         return new Response(
-          JSON.stringify({ error: 'Failed to create user' }),
+          JSON.stringify({ error: 'Failed to create user', details: createError.message }),
           { 
             status: 500, 
             headers: { 
@@ -74,16 +146,18 @@ serve(async (req) => {
               'Content-Type': 'application/json' 
             } 
           }
-        )
+        );
       }
       
       userId = newUser?.id;
     } else {
       userId = user?.id;
     }
+    
+    console.log(`User ID: ${userId}`);
 
     // Create a JWT token for this wallet
-    // Using the admin API to create a user
+    console.log('Creating auth token');
     const { data: authData, error: authError } = await supabaseClient.auth.admin.createUser({
       email: walletEmail,
       password: crypto.randomUUID(), // Random password
@@ -96,12 +170,12 @@ serve(async (req) => {
         wallet_auth: true,
         auth_type: 'wallet'
       }
-    })
+    });
 
     if (authError) {
-      console.error('Auth error:', authError)
+      console.error('Auth error:', authError);
       return new Response(
-        JSON.stringify({ error: 'Authentication failed' }),
+        JSON.stringify({ error: 'Authentication failed', details: authError.message }),
         { 
           status: 500, 
           headers: { 
@@ -109,19 +183,20 @@ serve(async (req) => {
             'Content-Type': 'application/json' 
           } 
         }
-      )
+      );
     }
 
     // Get session token using magic link
+    console.log('Generating link');
     const { data: sessionData, error: sessionError } = await supabaseClient.auth.admin.generateLink({
       type: 'magiclink',
       email: walletEmail,
-    })
+    });
 
     if (sessionError) {
-      console.error('Session error:', sessionError)
+      console.error('Session error:', sessionError);
       return new Response(
-        JSON.stringify({ error: 'Failed to create session' }),
+        JSON.stringify({ error: 'Failed to create session', details: sessionError.message }),
         { 
           status: 500, 
           headers: { 
@@ -129,10 +204,11 @@ serve(async (req) => {
             'Content-Type': 'application/json' 
           } 
         }
-      )
+      );
     }
 
     // Return the token for authentication
+    console.log('Authentication completed successfully');
     return new Response(
       JSON.stringify({ 
         token: sessionData.properties.access_token,
@@ -149,11 +225,12 @@ serve(async (req) => {
           'Content-Type': 'application/json' 
         } 
       }
-    )
+    );
+    */
   } catch (error) {
-    console.error('Server error:', error)
+    console.error('Server error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) }),
       { 
         status: 500, 
         headers: { 
@@ -161,6 +238,6 @@ serve(async (req) => {
           'Content-Type': 'application/json' 
         } 
       }
-    )
+    );
   }
-}) 
+}); 
