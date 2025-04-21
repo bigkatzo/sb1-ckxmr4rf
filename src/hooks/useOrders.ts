@@ -87,58 +87,97 @@ export function useOrders() {
         }
       }
       
-      // Query orders table directly - RLS will handle the filtering by wallet
-      const { data: orderData, error: orderError } = await supabase
+      // Query orders table directly without trying to use relationships
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select(`
-          *,
-          products (name, sku),
-          collections (name),
-          order_tracking (*)
-        `)
-        .eq('wallet_address', walletAddress) // Explicit filter to ensure correct data
+        .select('*')
+        .eq('wallet_address', walletAddress)
         .order('created_at', { ascending: false });
       
-      if (orderError) {
-        console.error('Error fetching orders:', orderError);
-        setError(orderError.message);
-      } else {
-        console.log('Orders query result:', { 
-          count: orderData?.length || 0, 
-          first: orderData?.[0] ? {
-            id: orderData[0].id,
-            wallet: orderData[0].wallet_address
-          } : null
-        });
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        setError(ordersError.message);
+        return;
+      }
+      
+      console.log('Orders query result:', { 
+        count: ordersData?.length || 0
+      });
+      
+      // If we have orders, get related data separately
+      if (ordersData && ordersData.length > 0) {
+        // Get product details for these orders
+        const productIds = [...new Set(ordersData.map(order => order.product_id))];
+        const { data: productsData } = await supabase
+          .from('products')
+          .select('id, name, sku')
+          .in('id', productIds);
+        
+        // Get collection details
+        const collectionIds = [...new Set(ordersData.map(order => order.collection_id))];
+        const { data: collectionsData } = await supabase
+          .from('collections')
+          .select('id, name')
+          .in('id', collectionIds);
+          
+        // Get tracking data
+        const orderIds = ordersData.map(order => order.id);
+        const { data: trackingData } = await supabase
+          .from('order_tracking')
+          .select('*')
+          .in('order_id', orderIds);
+        
+        // Create lookup maps for faster access
+        const productsMap: Record<string, any> = (productsData || []).reduce((map: Record<string, any>, product) => {
+          map[product.id] = product;
+          return map;
+        }, {});
+        
+        const collectionsMap: Record<string, any> = (collectionsData || []).reduce((map: Record<string, any>, collection) => {
+          map[collection.id] = collection;
+          return map;
+        }, {});
+        
+        const trackingMap: Record<string, any> = (trackingData || []).reduce((map: Record<string, any>, tracking) => {
+          map[tracking.order_id] = tracking;
+          return map;
+        }, {});
         
         // Convert database rows to Order objects
-        const mappedOrders: Order[] = (orderData || []).map((row: any) => ({
-          id: row.id,
-          order_number: row.order_number,
-          status: row.status,
-          createdAt: new Date(row.created_at),
-          updatedAt: new Date(row.updated_at),
-          product_id: row.product_id,
-          collection_id: row.collection_id,
-          // Product and collection info from joins
-          product_name: row.products?.name || row.product_name,
-          product_sku: row.products?.sku || row.product_sku,
-          collection_name: row.collections?.name || row.collection_name,
+        const mappedOrders: Order[] = ordersData.map((order: any) => ({
+          id: order.id,
+          order_number: order.order_number,
+          status: order.status,
+          createdAt: new Date(order.created_at),
+          updatedAt: new Date(order.updated_at),
+          product_id: order.product_id,
+          collection_id: order.collection_id,
+          // Product and collection info from lookup maps
+          product_name: productsMap[order.product_id]?.name || 
+                        (order.product_snapshot ? order.product_snapshot.name : ''),
+          product_sku: productsMap[order.product_id]?.sku || 
+                       (order.product_snapshot ? order.product_snapshot.sku : ''),
+          collection_name: collectionsMap[order.collection_id]?.name || 
+                          (order.collection_snapshot ? order.collection_snapshot.name : ''),
           // Other fields
-          amountSol: row.amount_sol,
-          category_name: row.category_name,
-          shippingAddress: row.shipping_address,
-          contactInfo: row.contact_info,
-          walletAddress: row.wallet_address,
-          transactionSignature: row.transaction_signature || undefined,
-          variant_selections: row.variant_selections,
-          product_snapshot: row.product_snapshot,
-          collection_snapshot: row.collection_snapshot,
-          payment_metadata: row.payment_metadata || undefined,
-          tracking: row.order_tracking?.length ? row.order_tracking[0] : null
+          amountSol: order.amount_sol,
+          category_name: order.category_name,
+          shippingAddress: order.shipping_address,
+          contactInfo: order.contact_info,
+          walletAddress: order.wallet_address,
+          transactionSignature: order.transaction_signature || undefined,
+          variant_selections: order.variant_selections,
+          product_snapshot: order.product_snapshot,
+          collection_snapshot: order.collection_snapshot,
+          payment_metadata: order.payment_metadata || undefined,
+          tracking: trackingMap[order.id] || null
         }));
         
         setOrders(mappedOrders);
+        setError(null);
+      } else {
+        // No orders found
+        setOrders([]);
         setError(null);
       }
     } catch (err) {
