@@ -75,6 +75,7 @@ export function useOrders() {
         console.log('Debug function not available:', e instanceof Error ? e.message : String(e));
       }
       
+      // Try to sync JWT if user is authenticated but wallet doesn't match
       if (sessionData?.session && walletAddressInJWT !== walletAddress) {
         console.log('Wallet address mismatch detected, updating JWT metadata...');
         try {
@@ -96,7 +97,7 @@ export function useOrders() {
             // Try to sync using the RPC function if available
             try {
               const { data: syncResult } = await supabase.rpc('sync_wallet_to_jwt', {
-                wallet_addr: walletAddress
+                wallet_addr: walletAddress || ''
               });
               console.log('Wallet sync result:', syncResult);
             } catch (e) {
@@ -108,132 +109,75 @@ export function useOrders() {
         }
       }
       
-      // Try the user_orders view first - this should work with our RLS and view setup
+      // First try the direct query - this should work with our new public RLS policy
+      console.log('Trying direct query with wallet address:', walletAddress);
+      const { data: directOrdersData, error: directError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          products:product_id(name, sku),
+          collections:collection_id(name),
+          tracking:order_tracking(*)
+        `)
+        .eq('wallet_address', walletAddress || '')
+        .order('created_at', { ascending: false });
+        
+      if (!directError && directOrdersData && directOrdersData.length > 0) {
+        console.log('Direct orders query result:', { 
+          count: directOrdersData.length,
+          hasTracking: directOrdersData.some(o => o.tracking && o.tracking.length > 0)
+        });
+        
+        // Map the joined data to our Order objects
+        const mappedOrders: Order[] = directOrdersData.map((order: any) => ({
+          id: order.id,
+          order_number: order.order_number,
+          status: order.status,
+          createdAt: new Date(order.created_at),
+          updatedAt: new Date(order.updated_at),
+          product_id: order.product_id,
+          collection_id: order.collection_id,
+          product_name: order.products?.name || 
+                        (order.product_snapshot ? order.product_snapshot.name : ''),
+          product_sku: order.products?.sku || 
+                      (order.product_snapshot ? order.product_snapshot.sku : ''),
+          collection_name: order.collections?.name || 
+                          (order.collection_snapshot ? order.collection_snapshot.name : ''),
+          amountSol: order.amount_sol,
+          category_name: order.category_name,
+          shippingAddress: order.shipping_address,
+          contactInfo: order.contact_info,
+          walletAddress: order.wallet_address,
+          transactionSignature: order.transaction_signature || undefined,
+          variant_selections: order.variant_selections,
+          product_snapshot: order.product_snapshot,
+          collection_snapshot: order.collection_snapshot,
+          payment_metadata: order.payment_metadata || undefined,
+          tracking: order.tracking && order.tracking.length > 0 ? order.tracking[0] : null
+        }));
+        
+        setOrders(mappedOrders);
+        setError(null);
+        return;
+      }
+      
+      if (directError) {
+        console.log('Error with direct orders query:', directError.message);
+      } else if (directOrdersData?.length === 0) {
+        console.log('No orders found for this wallet address');
+        setOrders([]);
+        setError(null);
+        return;
+      }
+      
+      // Try the authenticated user_orders view as a fallback
+      console.log('Trying authenticated user_orders view...');
       const { data: viewOrdersData, error: viewError } = await supabase
         .from('user_orders')
         .select('*')
         .order('created_at', { ascending: false });
       
-      // If view query failed, we'll try the direct fallback approach
-      if (viewError || !viewOrdersData || viewOrdersData.length === 0) {
-        console.log(`${viewError ? 'Error with' : 'No results from'} user_orders view, using fallback approach`);
-        
-        if (viewError) {
-          console.warn('View error:', viewError.message);
-          
-          // Test direct RLS policy on orders table
-          try {
-            const { data: rlsTest, error: rlsError } = await supabase
-              .from('orders')
-              .select('id')
-              .eq('wallet_address', walletAddress)
-              .limit(1);
-              
-            if (rlsError) {
-              console.error('RLS policy test failed:', rlsError.message);
-            } else {
-              console.log('RLS policy test result:', rlsTest?.length > 0 ? 'Working' : 'No results');
-            }
-          } catch (e) {
-            console.error('Error testing RLS policy:', e);
-          }
-        }
-        
-        // Use our proven fallback with direct queries
-        const { data: ordersData, error: ordersError } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('wallet_address', walletAddress)
-          .order('created_at', { ascending: false });
-        
-        if (ordersError) {
-          console.error('Error fetching orders:', ordersError);
-          setError(ordersError.message);
-          return;
-        }
-        
-        console.log('Direct orders query result:', { 
-          count: ordersData?.length || 0
-        });
-        
-        // If we have orders, get related data separately
-        if (ordersData && ordersData.length > 0) {
-          // Get product details for these orders
-          const productIds = [...new Set(ordersData.map(order => order.product_id))];
-          const { data: productsData } = await supabase
-            .from('products')
-            .select('id, name, sku')
-            .in('id', productIds);
-          
-          // Get collection details
-          const collectionIds = [...new Set(ordersData.map(order => order.collection_id))];
-          const { data: collectionsData } = await supabase
-            .from('collections')
-            .select('id, name')
-            .in('id', collectionIds);
-            
-          // Get tracking data
-          const orderIds = ordersData.map(order => order.id);
-          const { data: trackingData } = await supabase
-            .from('order_tracking')
-            .select('*')
-            .in('order_id', orderIds);
-          
-          // Create lookup maps for faster access
-          const productsMap: Record<string, any> = (productsData || []).reduce((map: Record<string, any>, product) => {
-            map[product.id] = product;
-            return map;
-          }, {});
-          
-          const collectionsMap: Record<string, any> = (collectionsData || []).reduce((map: Record<string, any>, collection) => {
-            map[collection.id] = collection;
-            return map;
-          }, {});
-          
-          const trackingMap: Record<string, any> = (trackingData || []).reduce((map: Record<string, any>, tracking) => {
-            map[tracking.order_id] = tracking;
-            return map;
-          }, {});
-          
-          // Convert database rows to Order objects
-          const mappedOrders: Order[] = ordersData.map((order: any) => ({
-            id: order.id,
-            order_number: order.order_number,
-            status: order.status,
-            createdAt: new Date(order.created_at),
-            updatedAt: new Date(order.updated_at),
-            product_id: order.product_id,
-            collection_id: order.collection_id,
-            // Product and collection info from lookup maps
-            product_name: productsMap[order.product_id]?.name || 
-                          (order.product_snapshot ? order.product_snapshot.name : ''),
-            product_sku: productsMap[order.product_id]?.sku || 
-                        (order.product_snapshot ? order.product_snapshot.sku : ''),
-            collection_name: collectionsMap[order.collection_id]?.name || 
-                            (order.collection_snapshot ? order.collection_snapshot.name : ''),
-            // Other fields
-            amountSol: order.amount_sol,
-            category_name: order.category_name,
-            shippingAddress: order.shipping_address,
-            contactInfo: order.contact_info,
-            walletAddress: order.wallet_address,
-            transactionSignature: order.transaction_signature || undefined,
-            variant_selections: order.variant_selections,
-            product_snapshot: order.product_snapshot,
-            collection_snapshot: order.collection_snapshot,
-            payment_metadata: order.payment_metadata || undefined,
-            tracking: trackingMap[order.id] || null
-          }));
-          
-          setOrders(mappedOrders);
-          setError(null);
-        } else {
-          // No orders found
-          setOrders([]);
-          setError(null);
-        }
-      } else {
-        // user_orders view query succeeded - use that data
+      if (!viewError && viewOrdersData && viewOrdersData.length > 0) {
         console.log('user_orders view result:', { 
           count: viewOrdersData.length,
           hasTracking: viewOrdersData.some(o => o.tracking)
@@ -265,6 +209,11 @@ export function useOrders() {
         }));
         
         setOrders(mappedOrders);
+        setError(null);
+      } else {
+        // If we get here, no orders found by any method
+        console.log('No orders found by any method:', viewError?.message || 'Empty result');
+        setOrders([]);
         setError(null);
       }
     } catch (err) {
