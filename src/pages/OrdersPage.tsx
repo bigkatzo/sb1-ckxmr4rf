@@ -1,6 +1,6 @@
 import { useWallet } from '../contexts/WalletContext';
 import { useOrders } from '../hooks/useOrders';
-import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter } from 'lucide-react';
+import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter, Bug } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../types/orders';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
@@ -17,6 +17,7 @@ import {
 import { SupportMessage } from '../components/ui/SupportMessage';
 import { SensitiveInfo } from '../components/ui/SensitiveInfo';
 import { debugOrderSecurity } from '../utils/orderSecurity';
+import { debugWalletAuth } from '../utils/debugWalletAuth';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -39,10 +40,13 @@ const safeParseDate = (date: any): Date => {
 };
 
 export function OrdersPage() {
-  const { walletAddress } = useWallet();
-  const { orders, loading, error } = useOrders();
+  const { walletAddress, walletAuthToken } = useWallet();
+  const { orders, loading, error, refreshOrders } = useOrders();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const prevWalletRef = useRef<string | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
+  const [debugResults, setDebugResults] = useState<any>(null);
+  const [isDebugging, setIsDebugging] = useState(false);
   
   // Debug logging
   useEffect(() => {
@@ -79,6 +83,26 @@ export function OrdersPage() {
       setIsInitialLoad(false);
     }
   }, [loading, isInitialLoad]);
+
+  // Function to run the wallet authentication debugging
+  const runWalletAuthDebug = async () => {
+    if (!walletAddress) return;
+    
+    setIsDebugging(true);
+    try {
+      const results = await debugWalletAuth(walletAddress, walletAuthToken);
+      setDebugResults(results);
+      console.log('Wallet auth debug results:', results);
+      
+      // After debugging, try refreshing orders
+      refreshOrders();
+    } catch (err) {
+      console.error('Error during wallet auth debugging:', err);
+      setDebugResults({ error: err instanceof Error ? err.message : 'Unknown error' });
+    } finally {
+      setIsDebugging(false);
+    }
+  };
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
@@ -230,6 +254,37 @@ export function OrdersPage() {
                 </button>
               </div>
             )}
+            
+            {/* Add debugging option */}
+            <div className="mt-4 border-t border-red-500/20 pt-4">
+              <button
+                onClick={() => setDebugMode(!debugMode)}
+                className="text-xs flex items-center gap-1 text-gray-400 hover:text-gray-300"
+              >
+                <Bug className="h-3 w-3" />
+                {debugMode ? 'Hide Debug Tools' : 'Debug Tools'}
+              </button>
+              
+              {debugMode && (
+                <div className="mt-2 space-y-2">
+                  <button
+                    onClick={runWalletAuthDebug}
+                    disabled={isDebugging}
+                    className="w-full px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs rounded text-gray-300 flex items-center justify-center gap-1"
+                  >
+                    {isDebugging ? 'Debugging...' : 'Run Wallet Auth Debug'}
+                  </button>
+                  
+                  {debugResults && (
+                    <div className="mt-2 text-left p-2 bg-gray-800 rounded text-xs overflow-auto max-h-40">
+                      <pre className="whitespace-pre-wrap">
+                        {JSON.stringify(debugResults, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -240,8 +295,42 @@ export function OrdersPage() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold">Your Orders</h1>
-        <SupportMessage />
+        <div className="flex items-center gap-2">
+          <SupportMessage />
+          {/* Add debug button in non-error state as well */}
+          <button
+            onClick={() => setDebugMode(!debugMode)}
+            className="text-xs flex items-center gap-1 text-gray-500 hover:text-gray-400"
+          >
+            <Bug className="h-3 w-3" />
+            {debugMode ? 'Hide Debug' : 'Debug'}
+          </button>
+        </div>
       </div>
+      
+      {/* Debug panel */}
+      {debugMode && (
+        <div className="bg-gray-800/50 p-3 rounded-lg text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-400">Wallet Authentication Debug</span>
+            <button
+              onClick={runWalletAuthDebug}
+              disabled={isDebugging}
+              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+            >
+              {isDebugging ? 'Running...' : 'Run Debug'}
+            </button>
+          </div>
+          
+          {debugResults && (
+            <div className="p-2 bg-gray-900 rounded overflow-auto max-h-40">
+              <pre className="whitespace-pre-wrap text-gray-300">
+                {JSON.stringify(debugResults, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
       
       {orders.length === 0 ? (
         <div className="min-h-[50vh] flex flex-col items-center justify-center text-center">
