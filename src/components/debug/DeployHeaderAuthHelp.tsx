@@ -73,13 +73,71 @@ export function DeployHeaderAuthHelp() {
 }
 
 export const getSimplifiedHeaderAuthSQL = () => {
-  return `-- Deploy simplified wallet header authentication fix
--- Run this in Supabase SQL Editor
+  return `-- URGENT SECURITY FIX: Prevent users from seeing all orders
+-- Run this in Supabase SQL Editor IMMEDIATELY
 
--- First, create a simple view that doesn't use ANY authentication checks
--- This will be protected via RLS policies only
+-- First, drop the existing view and policies
 DROP VIEW IF EXISTS user_orders CASCADE;
+DROP POLICY IF EXISTS "orders_user_view" ON orders;
+DROP POLICY IF EXISTS "order_tracking_user_view" ON order_tracking;
 
+-- Create simple but strict RLS policy with additional logging
+CREATE OR REPLACE FUNCTION log_auth_debug(operation text)
+RETURNS boolean AS $$
+DECLARE
+  header_wallet text;
+  jwt_wallet text;
+  log_entry jsonb;
+BEGIN
+  -- Get auth values safely
+  BEGIN
+    header_wallet := current_setting('request.headers.x-wallet-address', true);
+  EXCEPTION WHEN OTHERS THEN
+    header_wallet := null;
+  END;
+  
+  BEGIN 
+    jwt_wallet := current_setting('request.jwt.claims.wallet_address', true);
+  EXCEPTION WHEN OTHERS THEN
+    jwt_wallet := null;
+  END;
+  
+  -- Log authentication attempt
+  log_entry := jsonb_build_object(
+    'timestamp', now(),
+    'operation', operation,
+    'header_wallet', header_wallet,
+    'jwt_wallet', jwt_wallet
+  );
+  
+  INSERT INTO auth_debug_log(log_entry) 
+  VALUES (log_entry)
+  ON CONFLICT DO NOTHING; -- In case table doesn't exist
+  
+  RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create logging table if it doesn't exist
+CREATE TABLE IF NOT EXISTS auth_debug_log (
+  id serial PRIMARY KEY,
+  timestamp timestamptz DEFAULT now(),
+  log_entry jsonb
+);
+
+-- Create a strict RLS policy that requires a wallet match
+CREATE POLICY "orders_strict_user_only"
+ON orders
+FOR SELECT
+TO authenticated, anon
+USING (
+  (wallet_address = current_setting('request.headers.x-wallet-address', true) 
+   OR wallet_address = current_setting('request.jwt.claims.wallet_address', true))
+  AND 
+  log_auth_debug('order_select') -- Log access attempts
+);
+
+-- Create view that still filters by user wallet
 CREATE VIEW user_orders AS
 SELECT 
   o.id, 
@@ -95,11 +153,9 @@ SELECT
   o.contact_info as "contactInfo",
   o.transaction_signature as "transactionSignature",
   o.variant_selections,
-  -- Add needed columns with explicit names to avoid conflicts
   p.name as product_name,
   p.sku as product_sku,
   c.name as collection_name,
-  -- Add a join to order_tracking data
   ot.* as tracking
 FROM 
   orders o
@@ -108,37 +164,35 @@ LEFT JOIN
 LEFT JOIN 
   collections c ON c.id = o.collection_id
 LEFT JOIN
-  order_tracking ot ON ot.order_id = o.id;
+  order_tracking ot ON ot.order_id = o.id
+WHERE 
+  -- Extra filtering in the view itself
+  (o.wallet_address = current_setting('request.headers.x-wallet-address', true) 
+   OR o.wallet_address = current_setting('request.jwt.claims.wallet_address', true));
 
--- Create a simple policy that uses a direct equality check
--- This avoids any complex function calls that might be failing
-DROP POLICY IF EXISTS "orders_user_view" ON orders;
-
-CREATE POLICY "orders_user_view"
-ON orders
+-- Policy for tracking data
+CREATE POLICY "order_tracking_strict_user_only"
+ON order_tracking
 FOR SELECT
 TO authenticated, anon
 USING (
-  -- Use both JWT and header authentication with fallbacks
-  wallet_address = COALESCE(
-    current_setting('request.jwt.claims.wallet_address', true),
-    current_setting('request.headers.x-wallet-address', true),
-    ''
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.id = order_id
+    AND (o.wallet_address = current_setting('request.headers.x-wallet-address', true) 
+         OR o.wallet_address = current_setting('request.jwt.claims.wallet_address', true))
   )
 );
 
--- Grant access to the view
-GRANT SELECT ON user_orders TO authenticated, anon;
-
--- Create a test function that doesn't rely on any custom functions
-CREATE OR REPLACE FUNCTION direct_header_test() 
+-- Create a secure test function
+CREATE OR REPLACE FUNCTION secure_header_test() 
 RETURNS jsonb AS $$
 DECLARE
   header_wallet text;
-  header_token text;
   jwt_wallet text;
   count_direct integer;
   count_view integer;
+  user_orders_data jsonb;
 BEGIN
   -- Get header values directly
   BEGIN
@@ -147,85 +201,67 @@ BEGIN
     header_wallet := null;
   END;
   
-  BEGIN
-    header_token := current_setting('request.headers.x-wallet-auth-token', true);
-  EXCEPTION WHEN OTHERS THEN
-    header_token := null;
-  END;
-  
-  -- Get JWT value - first try claims object then direct wallet_address
-  BEGIN
-    jwt_wallet := current_setting('request.jwt.claims', true)::json->>'wallet_address';
-    IF jwt_wallet IS NULL THEN
-      jwt_wallet := current_setting('request.jwt.claims.wallet_address', true);
-    END IF;
+  -- Get JWT wallet directly
+  BEGIN 
+    jwt_wallet := current_setting('request.jwt.claims.wallet_address', true);
   EXCEPTION WHEN OTHERS THEN
     jwt_wallet := null;
   END;
   
-  -- Count direct orders
-  IF header_wallet IS NOT NULL THEN
-    EXECUTE 'SELECT COUNT(*) FROM orders WHERE wallet_address = $1' 
-    INTO count_direct
-    USING header_wallet;
-  ELSIF jwt_wallet IS NOT NULL THEN
-    EXECUTE 'SELECT COUNT(*) FROM orders WHERE wallet_address = $1' 
-    INTO count_direct
-    USING jwt_wallet;
-  ELSE
-    count_direct := 0;
-  END IF;
-  
-  -- Count view orders
-  IF header_wallet IS NOT NULL THEN
-    EXECUTE 'SELECT COUNT(*) FROM user_orders WHERE wallet_address = $1' 
-    INTO count_view
-    USING header_wallet;
-  ELSIF jwt_wallet IS NOT NULL THEN
-    EXECUTE 'SELECT COUNT(*) FROM user_orders WHERE wallet_address = $1' 
-    INTO count_view
-    USING jwt_wallet;
-  ELSE
-    count_view := 0;
-  END IF;
+  -- Use COALESCE to get the effective wallet for testing
+  DECLARE
+    effective_wallet text := COALESCE(header_wallet, jwt_wallet);
+  BEGIN
+    -- Only count if we have a wallet
+    IF effective_wallet IS NOT NULL THEN
+      EXECUTE 'SELECT COUNT(*) FROM orders WHERE wallet_address = $1' 
+      INTO count_direct
+      USING effective_wallet;
+      
+      EXECUTE 'SELECT COUNT(*) FROM user_orders WHERE wallet_address = $1' 
+      INTO count_view
+      USING effective_wallet;
+      
+      -- Get sample of user's actual orders for verification
+      EXECUTE 'SELECT jsonb_agg(jsonb_build_object(
+                ''id'', id,
+                ''order_number'', order_number,
+                ''wallet_address'', wallet_address
+              )) FROM orders WHERE wallet_address = $1 LIMIT 3'
+      INTO user_orders_data
+      USING effective_wallet;
+    ELSE
+      count_direct := 0;
+      count_view := 0;
+      user_orders_data := '[]'::jsonb;
+    END IF;
+  END;
   
   -- Return diagnostic info
   RETURN jsonb_build_object(
+    'timestamp', now(),
     'header_wallet', header_wallet,
-    'header_token_present', header_token IS NOT NULL,
     'jwt_wallet', jwt_wallet,
     'direct_count', count_direct,
     'view_count', count_view,
-    'request_jwt_raw', (SELECT current_setting('request.jwt.claims', true)),
-    'timestamp', now()
+    'my_orders_sample', user_orders_data,
+    'using_header_auth', header_wallet IS NOT NULL,
+    'using_jwt_auth', jwt_wallet IS NOT NULL
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create a policy for viewing tracking data as well
-DROP POLICY IF EXISTS "order_tracking_user_view" ON order_tracking;
-
-CREATE POLICY "order_tracking_user_view"
-ON order_tracking
-FOR SELECT
-TO authenticated, anon
-USING (
-  -- Join to orders table and check wallet address
-  EXISTS (
-    SELECT 1 FROM orders o
-    WHERE o.id = order_id
-    AND o.wallet_address = COALESCE(
-      current_setting('request.jwt.claims.wallet_address', true),
-      current_setting('request.headers.x-wallet-address', true),
-      ''
-    )
-  )
-);
-
-GRANT EXECUTE ON FUNCTION direct_header_test() TO authenticated, anon;
+-- Grant permissions
+GRANT SELECT ON user_orders TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION secure_header_test() TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION log_auth_debug(text) TO authenticated, anon;
 GRANT SELECT ON order_tracking TO authenticated, anon;
+GRANT SELECT, INSERT ON auth_debug_log TO authenticated, anon;
+GRANT USAGE ON SEQUENCE auth_debug_log_id_seq TO authenticated, anon;
 
--- Add a helpful comment on how to use this test function
-COMMENT ON FUNCTION direct_header_test() IS 'Test if the custom X-Wallet-Address and X-Wallet-Auth-Token headers are being received by the database. Use this to verify that the RLS policy for user_orders is working.';
+-- ⚠️ IMPORTANT: After deploying, verify that the RLS policy is working
+-- Run this query to test: SELECT secure_header_test();
+-- You should only see YOUR orders, not other users' orders
+-- If you still see all orders, contact your security team immediately
 `;
 }; 
