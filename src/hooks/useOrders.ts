@@ -122,7 +122,7 @@ export function useOrders() {
           productSnapshot = JSON.parse(productSnapshot);
         } catch (e) {
           console.error('Error parsing product_snapshot string:', e);
-          productSnapshot = null;
+          productSnapshot = {};
         }
       }
       
@@ -130,13 +130,13 @@ export function useOrders() {
       let shippingAddress = order.shipping_address || order.shippingAddress;
       if (typeof shippingAddress === 'string') {
         try { shippingAddress = JSON.parse(shippingAddress); } 
-        catch (e) { shippingAddress = null; }
+        catch (e) { shippingAddress = {}; }
       }
       
       let contactInfo = order.contact_info || order.contactInfo;
       if (typeof contactInfo === 'string') {
         try { contactInfo = JSON.parse(contactInfo); } 
-        catch (e) { contactInfo = null; }
+        catch (e) { contactInfo = {}; }
       }
       
       let variantSelections = order.variant_selections;
@@ -145,25 +145,40 @@ export function useOrders() {
         catch (e) { variantSelections = []; }
       }
       
+      // Parse collection_snapshot if it's a string
+      let collectionSnapshot = order.collection_snapshot;
+      if (typeof collectionSnapshot === 'string') {
+        try { collectionSnapshot = JSON.parse(collectionSnapshot); }
+        catch (e) { collectionSnapshot = {}; }
+      }
+      
       // Convert column names from snake_case to camelCase if needed
       return {
-        ...order,
+        id: order.id || '',
+        order_number: order.order_number || '',
+        status: order.status || 'pending_payment',
+        // Ensure we have product info, use empty strings if not available
         product_name: order.product_name || order.products?.name || '',
         collection_name: order.collection_name || order.collections?.name || '',
-        product_snapshot: productSnapshot,
-        shippingAddress: shippingAddress,
-        contactInfo: contactInfo,
+        product_id: order.product_id || order.productId || '',
+        collection_id: order.collection_id || order.collectionId || '',
+        product_sku: order.product_sku || order.productSku || '',
+        category_name: order.category_name || '',
+        // Ensure structured data is properly defaulted
+        product_snapshot: productSnapshot || {},
+        collection_snapshot: collectionSnapshot || {},
+        shippingAddress: shippingAddress || {},
+        contactInfo: contactInfo || {},
         variant_selections: variantSelections || [],
         // For fields that might be named with snake_case in the database response
-        walletAddress: order.wallet_address || order.walletAddress,
-        productId: order.product_id || order.productId,
-        collectionId: order.collection_id || order.collectionId,
-        productSku: order.product_sku || order.productSku,
-        transactionSignature: order.transaction_signature || order.transactionSignature,
-        amountSol: order.amount_sol || order.amountSol || 0,
+        walletAddress: order.wallet_address || order.walletAddress || '',
+        transactionSignature: order.transaction_signature || order.transactionSignature || '',
+        amountSol: Number(order.amount_sol || order.amountSol || 0),
         // Ensure dates are proper Date objects
-        createdAt: new Date(order.created_at || order.createdAt),
-        updatedAt: new Date(order.updated_at || order.updatedAt),
+        createdAt: new Date(order.created_at || order.createdAt || new Date()),
+        updatedAt: new Date(order.updated_at || order.updatedAt || new Date()),
+        // Set tracking to null if not available
+        tracking: order.tracking || null,
       };
     });
     

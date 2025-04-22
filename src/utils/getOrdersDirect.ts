@@ -47,7 +47,7 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
   // If view didn't work, try direct orders table
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/orders?select=*,products(name),collections(name)&wallet_address=eq.${walletAddress}&order=created_at.desc`,
+      `${supabaseUrl}/rest/v1/orders?select=*,products(*),collections(*)&wallet_address=eq.${walletAddress}&order=created_at.desc`,
       {
         method: 'GET',
         headers: {
@@ -65,6 +65,7 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
     }
     
     const data = await response.json();
+    console.log('Direct orders query successful, data:', data.slice(0, 1));
     return {
       data,
       source: 'orders_table',

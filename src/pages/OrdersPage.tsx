@@ -156,13 +156,23 @@ export function OrdersPage() {
 
   const formatShippingAddress = (shippingAddress: any) => {
     if (!shippingAddress) return null;
-    const { address, city, country, zip } = shippingAddress;
+    
+    // Extract fields with fallbacks for missing data
+    const address = shippingAddress.address || '';
+    const city = shippingAddress.city || '';
+    const country = shippingAddress.country || '';
+    const zip = shippingAddress.zip || '';
+    
+    // Only render if we have some minimal address data
+    if (!address && !city && !country) {
+      return <div className="text-gray-500 text-xs">Address information unavailable</div>;
+    }
     
     const addressContent = (
       <div className="space-y-0.5 text-gray-300 text-xs">
-        <div>{address}</div>
-        <div>{city}, {zip}</div>
-        <div>{country}</div>
+        {address && <div>{address}</div>}
+        {(city || zip) && <div>{city}{city && zip && ', '}{zip}</div>}
+        {country && <div>{country}</div>}
       </div>
     );
     
@@ -175,7 +185,15 @@ export function OrdersPage() {
 
   const formatContactInfo = (contactInfo: any) => {
     if (!contactInfo) return null;
-    const { method, value } = contactInfo;
+    
+    // Extract fields with fallbacks
+    const method = contactInfo.method || '';
+    const value = contactInfo.value || '';
+    
+    // Only proceed if we have value data
+    if (!value) {
+      return <div className="text-gray-500 text-xs">Contact information unavailable</div>;
+    }
     
     const getContactInfo = () => {
       switch (method) {
@@ -200,7 +218,7 @@ export function OrdersPage() {
         default:
           return {
             icon: <Send className="h-3.5 w-3.5 text-gray-400" />,
-            label: method.charAt(0).toUpperCase() + method.slice(1),
+            label: method ? (method.charAt(0).toUpperCase() + method.slice(1)) : 'Contact',
             value
           };
       }
@@ -226,7 +244,28 @@ export function OrdersPage() {
   };
 
   const getProductImage = (order: Order): string | null => {
-    return order.product_snapshot?.images?.[0] || null;
+    // Try multiple possible image sources in order of priority
+    if (order.product_snapshot?.images?.length > 0) {
+      return order.product_snapshot.images[0];
+    }
+    
+    // Try product_image_url directly if available
+    if (order.product_image_url) {
+      return order.product_image_url;
+    }
+    
+    // Check for any image in the order object itself (accessing potentially undefined properties safely)
+    const anyOrder = order as any; // Cast to any to avoid TypeScript errors
+    if (anyOrder.products?.image_url) {
+      return anyOrder.products.image_url;
+    }
+    
+    // Check collection snapshot
+    if (anyOrder.collection_snapshot?.image_url) {
+      return anyOrder.collection_snapshot.image_url;
+    }
+    
+    return null;
   };
 
   if (!walletAddress) {
@@ -455,7 +494,7 @@ export function OrdersPage() {
                       return imageUrl ? (
                         <OptimizedImage
                           src={imageUrl}
-                          alt={order.product_name}
+                          alt={order.product_name || 'Product'}
                           width={160}
                           height={160}
                           quality={75}
@@ -493,7 +532,7 @@ export function OrdersPage() {
                           )}
                         </div>
                         <p className="text-gray-400 text-xs mt-2">
-                          Amount: {order.amountSol} SOL
+                          Amount: {typeof order.amountSol === 'number' ? order.amountSol.toFixed(2) : '0.00'} SOL
                         </p>
                       </div>
                     </div>
