@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { getInstructionsForDeployment } from '../../utils/deployHeaderFixScript';
 import { Copy, Check, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 
