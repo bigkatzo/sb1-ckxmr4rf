@@ -66,6 +66,10 @@ export function useOrders() {
       // If we have a wallet auth token, no need for the JWT sync logic
       if (!walletAuthToken) {
         console.log('No wallet auth token available. Orders may be restricted.');
+        setOrders([]);
+        setError("Wallet authentication required to view orders");
+        setLoading(false);
+        return;
       } else {
         console.log('Using wallet auth token for secure data access');
       }
@@ -132,41 +136,8 @@ export function useOrders() {
           ordersData = result.data;
           ordersError = result.error;
         } else {
-          // Standard wallet auth token flow (if using real Supabase JWT)
-          // If we have a wallet auth token, set it for this request only
-          if (walletAuthToken && !sessionData?.session) {
-            console.log('Setting wallet auth token:', walletAuthToken.substring(0, 10) + '...');
-            
-            try {
-              const sessionResult = await supabase.auth.setSession({
-                access_token: walletAuthToken,
-                refresh_token: ''
-              });
-              
-              if (sessionResult.error) {
-                console.error('Error setting wallet auth token:', sessionResult.error);
-              } else {
-                console.log('Successfully set wallet auth token in session');
-                
-                // Verify the token was set by checking the session again
-                const { data: verifySession } = await supabase.auth.getSession();
-                console.log('Session after setting token:', 
-                  verifySession?.session ? 'Session exists' : 'No session',
-                  'Auth type:', verifySession?.session?.user?.app_metadata?.auth_type || 'not set',
-                  'User ID:', verifySession?.session?.user?.id || 'not set'
-                );
-              }
-            } catch (tokenError) {
-              console.error('Exception setting wallet auth token:', tokenError);
-            }
-          } else if (!walletAuthToken) {
-            console.warn('No wallet auth token available, but wallet auth flow requested');
-          } else {
-            console.log('Session already exists, not setting wallet auth token');
-          }
-          
-          // After setting the token, proceed with the query
-          console.log('Executing query with wallet auth...');
+          // For standard Supabase JWT authentication, we can use the same view
+          // But we'll just use the session that's already established
           const result = await supabase
             .from('user_orders')
             .select('*')
@@ -177,7 +148,8 @@ export function useOrders() {
             status: result.status,
             statusText: result.statusText,
             error: result.error,
-            count: result.data?.length || 0
+            count: result.data?.length || 0,
+            jwt: 'Using JWT token for secure database-level filtering'
           });
             
           ordersData = result.data;

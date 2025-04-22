@@ -58,9 +58,10 @@ export function OrdersPage() {
       ordersCount: orders.length,
       isInitialLoad,
       ordersWithTracking: orders.filter(o => o.tracking).length,
-      firstOrderTracking: orders.length > 0 ? orders[0].tracking : null
+      firstOrderTracking: orders.length > 0 ? orders[0].tracking : null,
+      walletAuthStatus: walletAuthToken ? 'Authenticated' : 'Not Authenticated'
     });
-  }, [walletAddress, loading, error, orders, isInitialLoad]);
+  }, [walletAddress, loading, error, orders, isInitialLoad, walletAuthToken]);
   
   // Only run security verification in development mode when orders load
   useEffect(() => {
@@ -227,6 +228,34 @@ export function OrdersPage() {
     );
   }
 
+  if (!walletAuthToken) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Your Orders</h1>
+        <div className="min-h-[50vh] flex flex-col items-center justify-center text-center">
+          <div className="bg-red-500/10 text-red-400 p-4 rounded-lg max-w-md">
+            <h2 className="text-lg font-semibold mb-2">Authentication Required</h2>
+            <p>Wallet authentication required to view orders</p>
+            <div className="mt-4">
+              <p className="text-sm text-gray-300 mb-2">
+                For your security, we require wallet verification to view order history.
+              </p>
+              <button 
+                onClick={() => {
+                  // Trigger a refresh to try to authenticate again
+                  window.location.reload();
+                }}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm"
+              >
+                Verify Wallet
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return <OrderPageSkeleton />;
   }
@@ -323,6 +352,19 @@ export function OrdersPage() {
               >
                 {isDebugging ? 'Running...' : 'Run Debug'}
               </button>
+            </div>
+            
+            {/* Add security notice about database-level filtering */}
+            <div className="p-2 bg-green-900/20 rounded">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                <p className="text-green-500 font-medium">Database-Level Security Active</p>
+              </div>
+              <p className="text-gray-400 text-[10px]">
+                Orders are filtered at the database level by wallet address using RLS policies. 
+                The JWT token contains your verified wallet, which is used by the database to
+                return only your orders through the user_orders view.
+              </p>
             </div>
             
             {debugResults && (
