@@ -19,6 +19,7 @@ import { SensitiveInfo } from '../components/ui/SensitiveInfo';
 import { debugOrderSecurity } from '../utils/orderSecurity';
 import { debugWalletAuth } from '../utils/debugWalletAuth';
 import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
+import { DeployHeaderAuthHelp } from '../components/debug/DeployHeaderAuthHelp';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -468,6 +469,17 @@ export function OrdersPage() {
                 return only your orders through the user_orders view.
               </p>
             </div>
+            
+            {/* Show deployment help if view auth is having issues */}
+            {debugResults?.viewAuth && (
+              (debugResults.viewAuth.diagnosticError || 
+               debugResults.viewAuth.testFunctionError || 
+               debugResults.viewAuth.viewQuery?.count === 0) && (
+                <div className="mt-2">
+                  <DeployHeaderAuthHelp />
+                </div>
+              )
+            )}
             
             {debugResults && (
               <div className="p-2 bg-gray-900 rounded overflow-auto max-h-40">
