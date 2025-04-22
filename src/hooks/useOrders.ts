@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase, AUTH_EXPIRED_EVENT } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
 import type { Order } from '../types/orders';
-import { useSupabaseWithWallet } from './useSupabaseWithWallet';
 import { getOrdersDirect } from '../utils/getOrdersDirect';
 
 // This interface is no longer used since we're using joined queries with 'any' type
@@ -13,7 +12,6 @@ export function useOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { walletAddress, walletAuthToken, isConnected } = useWallet();
-  const { client: authClient, isAuthenticated } = useSupabaseWithWallet();
 
   // Fetch orders when wallet changes or authentication status changes
   useEffect(() => {
@@ -51,7 +49,7 @@ export function useOrders() {
     return () => {
       supabase.removeChannel(orderSubscription);
     };
-  }, [walletAddress, isConnected, isAuthenticated, walletAuthToken]);
+  }, [walletAddress, isConnected, walletAuthToken]);
 
   const fetchOrders = async () => {
     try {

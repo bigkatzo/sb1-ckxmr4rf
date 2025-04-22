@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabase';
-
 /**
  * Runs a comprehensive wallet authentication debug process
  * to diagnose issues with JWT tokens and database access using direct fetch calls
