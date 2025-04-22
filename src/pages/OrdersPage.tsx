@@ -119,6 +119,39 @@ export function OrdersPage() {
       setIsDebugging(false);
     }
   };
+  
+  // New function to run view auth debugging
+  const runViewAuthDebug = async () => {
+    if (!walletAddress) return;
+    
+    setIsDebugging(true);
+    try {
+      // Import here to avoid circular dependencies
+      const { debugViewAuth } = await import('../utils/debugViewAuth');
+      
+      const results = await debugViewAuth(walletAddress, walletAuthToken || '');
+      setDebugResults({
+        ...debugResults,
+        viewAuth: results
+      });
+      console.log('View auth debug results:', results);
+      
+      // Try refreshing orders
+      try {
+        refetch();
+      } catch (refreshErr) {
+        console.error('Error refreshing orders after debug:', refreshErr);
+      }
+    } catch (err) {
+      console.error('Error during view auth debugging:', err);
+      setDebugResults({ 
+        ...debugResults,
+        viewAuthError: err instanceof Error ? err.message : 'Unknown error'
+      });
+    } finally {
+      setIsDebugging(false);
+    }
+  };
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
@@ -405,13 +438,22 @@ export function OrdersPage() {
           <div className="bg-gray-800/50 p-3 rounded-lg text-xs space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-gray-400">Wallet Authentication Debug</span>
-              <button
-                onClick={runWalletAuthDebug}
-                disabled={isDebugging}
-                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
-              >
-                {isDebugging ? 'Running...' : 'Run Debug'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={runViewAuthDebug}
+                  disabled={isDebugging}
+                  className="px-2 py-1 bg-indigo-700 hover:bg-indigo-600 rounded text-gray-300"
+                >
+                  {isDebugging ? 'Running...' : 'Debug View Auth'}
+                </button>
+                <button
+                  onClick={runWalletAuthDebug}
+                  disabled={isDebugging}
+                  className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+                >
+                  {isDebugging ? 'Running...' : 'Run Debug'}
+                </button>
+              </div>
             </div>
             
             {/* Add security notice about database-level filtering */}
