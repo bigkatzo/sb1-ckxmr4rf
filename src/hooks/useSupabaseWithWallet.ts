@@ -77,6 +77,10 @@ export function useSupabaseWithWallet(): {
       console.log('✓ Creating Supabase client with wallet auth headers');
     }
     
+    // Check if the token is a custom format (not a standard JWT)
+    const isCustomToken = walletAuthToken.startsWith('WALLET_VERIFIED_') || 
+                          walletAuthToken.startsWith('WALLET_AUTH_');
+    
     // Create a client with wallet authentication headers
     return createClient<Database>(supabaseUrl, supabaseKey, {
       db: {
@@ -85,15 +89,21 @@ export function useSupabaseWithWallet(): {
       auth: {
         // Skip persisting the session to avoid conflicts with other Supabase instances
         persistSession: false, 
-        autoRefreshToken: false
+        autoRefreshToken: false,
+        // For custom tokens, we don't want Supabase to try to parse it as a JWT
+        detectSessionInUrl: !isCustomToken
       },
       global: {
         headers: {
           // Include wallet address and auth token in headers for RLS policy verification
           'X-Wallet-Address': walletAddress,
           'X-Wallet-Auth-Token': walletAuthToken,
-          // Also include standard Authorization header with the token
-          'Authorization': `Bearer ${walletAuthToken}`
+          // For custom tokens, we use a different header to avoid JWT parsing errors
+          // The RLS policy should check for either header
+          ...(isCustomToken 
+            ? { 'X-Authorization': `Bearer ${walletAuthToken}` } 
+            : { 'Authorization': `Bearer ${walletAuthToken}` }
+          )
         }
       }
     });
