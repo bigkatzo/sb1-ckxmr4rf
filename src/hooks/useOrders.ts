@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
 import type { Order } from '../types/orders';
+import { createClient } from '@supabase/supabase-js';
 
 // This interface is no longer used since we're using joined queries with 'any' type
 // We can safely remove it
@@ -87,9 +88,6 @@ export function useOrders() {
       const authType = sessionData?.session?.user?.app_metadata?.auth_type;
       console.log('Current auth type:', authType || 'standard');
       
-      // Check if the token is our custom wallet JWT
-      const isCustomWalletJWT = walletAuthToken && walletAuthToken.includes('WALLET_AUTH_SIGNATURE');
-      
       // Check what auth method to use
       const isWalletAuth = authType === 'wallet' || Boolean(walletAuthToken);
       
@@ -101,60 +99,40 @@ export function useOrders() {
         // The RLS on the underlying orders table will filter data automatically
         console.log('Using wallet auth flow to fetch orders');
         
-        // If we're using our custom JWT or test token, add it to the auth header
-        if (isCustomWalletJWT || walletAuthToken === 'test-token-123') {
-          console.log('Using wallet-verified query with user_orders view...');
-          
-          // For simplified wallet auth, we need to first set the session token
-          // This is the most reliable way to ensure the token is used for auth
-          if (walletAuthToken) {
-            try {
-              // Set the auth token in session before making the query
-              await supabase.auth.setSession({
-                access_token: walletAuthToken,
-                refresh_token: ''
-              });
-              console.log('Set wallet auth token for this request');
-            } catch (err) {
-              console.error('Error setting wallet auth token:', err);
+        // Get Supabase URL and anon key from environment variables
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          throw new Error('Supabase URL or key not found in environment variables');
+        }
+        
+        // Create a new client with auth token in headers
+        const authClient = createClient(supabaseUrl, supabaseKey, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${walletAuthToken}`
             }
           }
+        });
+        
+        // Use the client with auth token to query for orders
+        const result = await authClient
+          .from('user_orders')
+          .select('*')
+          .order('created_at', { ascending: false });
           
-          // Then query the user_orders view which will use the token we just set
-          const result = await supabase
-            .from('user_orders')
-            .select('*')
-            .order('created_at', { ascending: false });
-            
-          console.log('Raw wallet-verified query response:', {
-            status: result.status,
-            statusText: result.statusText,
-            error: result.error,
-            count: result.data?.length || 0
-          });
-          
-          ordersData = result.data;
-          ordersError = result.error;
-        } else {
-          // For standard Supabase JWT authentication, we can use the same view
-          // But we'll just use the session that's already established
-          const result = await supabase
-            .from('user_orders')
-            .select('*')
-            .order('created_at', { ascending: false });
-            
-          // Log the raw response for debugging
-          console.log('Raw query response:', {
-            status: result.status,
-            statusText: result.statusText,
-            error: result.error,
-            count: result.data?.length || 0,
-            jwt: 'Using JWT token for secure database-level filtering'
-          });
-            
-          ordersData = result.data;
-          ordersError = result.error;
-        }
+        // Log the raw response for debugging
+        console.log('Raw wallet-verified query response:', {
+          status: result.status,
+          statusText: result.statusText,
+          error: result.error,
+          count: result.data?.length || 0,
+          jwt: 'Using JWT token for secure database-level filtering'
+        });
+        
+        ordersData = result.data;
+        ordersError = result.error;
       } else {
         // For unauthenticated users, we no longer allow access to orders
         console.log('Wallet auth required to access orders');
