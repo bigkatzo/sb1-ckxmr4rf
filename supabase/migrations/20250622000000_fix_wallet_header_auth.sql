@@ -10,6 +10,14 @@ BEGIN
   wallet_address := current_setting('request.headers.x-wallet-address', TRUE);
   auth_token := current_setting('request.headers.x-wallet-auth-token', TRUE);
   
+  -- If the X-Wallet-Auth-Token is missing, try to get from X-Authorization header
+  IF auth_token IS NULL THEN
+    x_auth_token := current_setting('request.headers.x-authorization', TRUE);
+    IF x_auth_token IS NOT NULL AND x_auth_token LIKE 'Bearer %' THEN
+      auth_token := substring(x_auth_token, 8); -- Remove 'Bearer ' prefix
+    END IF;
+  END IF;
+  
   -- Early return if wallet address or token is missing
   IF wallet_address IS NULL OR auth_token IS NULL THEN
     RETURN NULL;
@@ -68,15 +76,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Update the policy on user_orders to use the new function
-DROP POLICY IF EXISTS "Users can view their own orders" ON "public"."user_orders";
-CREATE POLICY "Users can view their own orders" 
-  ON "public"."user_orders"
-  FOR SELECT
-  USING (
-    wallet_address = auth.current_user_wallet_address() OR
-    (wallet_address = current_setting('auth.wallet_address', TRUE) AND auth.is_wallet_owner())
-  );
-
 -- Add a comment about the security enhancement
-COMMENT ON FUNCTION auth.is_wallet_owner() IS 'Enhanced wallet verification that supports custom token formats and is more tolerant of token variations.'; 
+COMMENT ON FUNCTION auth.is_wallet_owner() IS 'Enhanced wallet verification that supports custom token formats and is more tolerant of token variations.';
+
+-- Note: This function should be used in RLS policies for tables that need wallet verification.
+-- Example usage in a policy:
+--   CREATE POLICY "Users can view their own data" 
+--   ON "public"."some_table"
+--   FOR SELECT
+--   USING (
+--     wallet_address = auth.current_user_wallet_address() OR
+--     (wallet_address = current_setting('auth.wallet_address', TRUE) AND auth.is_wallet_owner())
+--   ); 

@@ -98,12 +98,16 @@ export function useSupabaseWithWallet(): {
           // Include wallet address and auth token in headers for RLS policy verification
           'X-Wallet-Address': walletAddress,
           'X-Wallet-Auth-Token': walletAuthToken,
-          // For custom tokens, we use a different header to avoid JWT parsing errors
-          // The RLS policy should check for either header
+          
+          // Always include X-Authorization header for custom tokens
+          // Our SQL functions specifically look for this
+          'X-Authorization': `Bearer ${walletAuthToken}`,
+          
+          // Only include standard Authorization header if it's not a custom token
+          // to avoid JWT parsing errors in Supabase client
           ...(isCustomToken 
-            ? { 'X-Authorization': `Bearer ${walletAuthToken}` } 
-            : { 'Authorization': `Bearer ${walletAuthToken}` }
-          )
+            ? {} 
+            : { 'Authorization': `Bearer ${walletAuthToken}` })
         }
       }
     });
