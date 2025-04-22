@@ -76,114 +76,106 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
     // Continue to fallback method
   }
 
-  // If view didn't work, try direct orders table with enhanced joins
+  // If view didn't work, try the get_wallet_orders RPC function instead of direct table access
   try {
-    // First get products to join with orders
-    const productsResponse = await fetch(
-      `${supabaseUrl}/rest/v1/products?select=id,name,sku,category_id`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-          'X-Wallet-Address': walletAddress,
-          'X-Wallet-Auth-Token': walletAuthToken
-        }
-      }
-    );
-    
-    // Define types for products and collections
-    interface Product {
-      id: string;
-      name: string;
-      sku?: string;
-      category_id?: string;
-    }
-    
-    interface Collection {
-      id: string;
-      name: string;
-    }
-    
-    let products: Record<string, Product> = {};
-    if (productsResponse.ok) {
-      const productsData = await productsResponse.json();
-      products = productsData.reduce((acc: Record<string, Product>, product: Product) => {
-        acc[product.id] = product;
-        return acc;
-      }, {});
-    }
-    
-    // Get collections
-    const collectionsResponse = await fetch(
-      `${supabaseUrl}/rest/v1/collections?select=id,name`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-          'X-Wallet-Address': walletAddress,
-          'X-Wallet-Auth-Token': walletAuthToken
-        }
-      }
-    );
-    
-    let collections: Record<string, Collection> = {};
-    if (collectionsResponse.ok) {
-      const collectionsData = await collectionsResponse.json();
-      collections = collectionsData.reduce((acc: Record<string, Collection>, collection: Collection) => {
-        acc[collection.id] = collection;
-        return acc;
-      }, {});
-    }
-    
-    // Now fetch direct orders
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/orders?select=*&wallet_address=eq.${walletAddress}&order=created_at.desc`,
+      `${supabaseUrl}/rest/v1/rpc/get_wallet_orders`,
       {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
           'X-Wallet-Address': walletAddress,
           'X-Wallet-Auth-Token': walletAuthToken
-        }
+        },
+        body: JSON.stringify({ wallet_addr: walletAddress })
       }
     );
     
     if (!response.ok) {
-      throw new Error(`Direct orders query failed with status: ${response.status}`);
+      throw new Error(`RPC orders query failed with status: ${response.status}`);
     }
     
     const data = await response.json();
-    
-    // Enrich orders with product and collection data
-    const enrichedData = data.map((order: any) => {
-      const product = products[order.product_id] || {} as Product;
-      const collection = collections[order.collection_id] || {} as Collection;
+    if (Array.isArray(data) && data.length > 0) {
+      // Get product and collection info to enrich orders if needed
+      const productsPromise = fetch(
+        `${supabaseUrl}/rest/v1/products?select=id,name,sku,category_id`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'X-Wallet-Address': walletAddress,
+            'X-Wallet-Auth-Token': walletAuthToken
+          }
+        }
+      ).then(r => r.ok ? r.json() : []);
       
+      const collectionsPromise = fetch(
+        `${supabaseUrl}/rest/v1/collections?select=id,name`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'X-Wallet-Address': walletAddress,
+            'X-Wallet-Auth-Token': walletAuthToken
+          }
+        }
+      ).then(r => r.ok ? r.json() : []);
+      
+      // Process in parallel
+      const [productsData, collectionsData] = await Promise.all([
+        productsPromise, collectionsPromise
+      ]);
+      
+      // Create lookup maps
+      const products = (Array.isArray(productsData) ? productsData : []).reduce((acc, product) => {
+        acc[product.id] = product;
+        return acc;
+      }, {});
+      
+      const collections = (Array.isArray(collectionsData) ? collectionsData : []).reduce((acc, collection) => {
+        acc[collection.id] = collection;
+        return acc;
+      }, {});
+      
+      // Enrich orders with extra data if not already present
+      const enrichedData = data.map(order => {
+        const product = products[order.product_id] || {};
+        const collection = collections[order.collection_id] || {};
+        
+        return {
+          ...order,
+          product_name: order.product_name || product.name || 'Unknown Product',
+          product_sku: order.product_sku || product.sku || '',
+          collection_name: order.collection_name || collection.name || 'Unknown Collection',
+          category_name: order.category_name || ''
+        };
+      });
+      
+      console.log('Orders from RPC function:', enrichedData.slice(0, 1));
       return {
-        ...order,
-        product_name: order.product_name || product.name || 'Unknown Product',
-        product_sku: order.product_sku || product.sku || '',
-        collection_name: order.collection_name || collection.name || 'Unknown Collection',
-        category_name: order.category_name || ''
+        data: enrichedData,
+        source: 'rpc_function',
+        error: null
       };
-    });
+    }
     
-    console.log('Enhanced direct orders data:', enrichedData.slice(0, 1));
+    // If we got an empty array, there might just not be any orders
     return {
-      data: enrichedData,
-      source: 'orders_table_enhanced',
+      data: [],
+      source: 'rpc_function',
       error: null
     };
-  } catch (directErr) {
-    console.error('Error fetching from orders table:', directErr);
+  } catch (rpcErr) {
+    console.error('Error fetching from RPC function:', rpcErr);
     
-    // Last resort, try RPC function
+    // Last resort, try the fallback RPC function
     try {
       const response = await fetch(
         `${supabaseUrl}/rest/v1/rpc/get_wallet_orders_direct`,
@@ -201,20 +193,44 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
       );
       
       if (!response.ok) {
-        throw new Error(`Wallet orders RPC failed with status: ${response.status}`);
+        throw new Error(`Fallback wallet orders RPC failed with status: ${response.status}`);
       }
       
       const data = await response.json();
       return {
         data,
-        source: 'rpc_function',
+        source: 'fallback_rpc_function',
         error: null
       };
-    } catch (rpcErr) {
+    } catch (fallbackErr) {
+      // Get debug info as a last resort
+      try {
+        const debugResponse = await fetch(
+          `${supabaseUrl}/rest/v1/rpc/debug_auth_status`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'X-Wallet-Address': walletAddress,
+              'X-Wallet-Auth-Token': walletAuthToken
+            }
+          }
+        );
+        
+        if (debugResponse.ok) {
+          const debugData = await debugResponse.json();
+          console.error('Auth debug info:', debugData);
+        }
+      } catch (debugErr) {
+        // Ignore debug errors
+      }
+      
       return {
         data: [],
         source: null,
-        error: rpcErr instanceof Error ? rpcErr.message : String(rpcErr)
+        error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)
       };
     }
   }
