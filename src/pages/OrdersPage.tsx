@@ -252,24 +252,17 @@ export function OrdersPage() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Your Orders</h1>
         <div className="min-h-[50vh] flex flex-col items-center justify-center text-center">
-          <div className="bg-red-500/10 text-red-400 p-4 rounded-lg max-w-md">
-            <h2 className="text-lg font-semibold mb-2">Authentication Required</h2>
-            <p>Wallet authentication required to view orders</p>
-            <div className="mt-4">
-              <p className="text-sm text-gray-300 mb-2">
-                For your security, we require wallet verification to view order history.
-              </p>
-              <button 
-                onClick={() => {
-                  // Trigger a refresh to try to authenticate again
-                  window.location.reload();
-                }}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm"
-              >
-                Verify Wallet
-              </button>
-            </div>
-          </div>
+          <Package className="h-12 w-12 text-gray-600 mb-4" />
+          <h1 className="text-xl font-bold mb-2">Connect Your Wallet</h1>
+          <p className="text-gray-400 mb-4">Please verify your wallet to view your order history</p>
+          <button 
+            onClick={() => {
+              window.location.reload();
+            }}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm"
+          >
+            Verify Now
+          </button>
         </div>
       </div>
     );
@@ -284,45 +277,36 @@ export function OrdersPage() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Your Orders</h1>
         <div className="min-h-[50vh] flex flex-col items-center justify-center text-center">
-          <div className="bg-red-500/10 text-red-400 p-4 rounded-lg max-w-md">
-            <h2 className="text-lg font-semibold mb-2">Authentication Required</h2>
-            <p>{error}</p>
-            {error.includes("Wallet authentication required") && (
-              <div className="mt-4">
-                <p className="text-sm text-gray-300 mb-2">
-                  For your security, we require wallet verification to view order history.
-                </p>
-                <button 
-                  onClick={() => {
-                    // Trigger a refresh to try to authenticate again
-                    window.location.reload();
-                  }}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm"
-                >
-                  Verify Wallet
-                </button>
-              </div>
-            )}
-            
-            {/* Add debugging option - only visible to admins */}
-            {isAdmin && (
-              <div className="mt-4 border-t border-red-500/20 pt-4">
-                <button
-                  onClick={() => setDebugMode(!debugMode)}
-                  className="text-xs flex items-center gap-1 text-gray-400 hover:text-gray-300"
-                >
-                  <Bug className="h-3 w-3" />
-                  {debugMode ? 'Hide Debug Tools' : 'Debug Tools'}
-                </button>
-                
-                {debugMode && (
-                  <div className="mt-2 space-y-2">
-                    <WalletAuthDebug />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <Package className="h-12 w-12 text-gray-600 mb-4" />
+          <h1 className="text-xl font-bold mb-2">Connection Needed</h1>
+          <p className="text-gray-400 mb-4">We need to verify your wallet connection</p>
+          <button 
+            onClick={() => {
+              window.location.reload();
+            }}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm"
+          >
+            Reconnect
+          </button>
+          
+          {/* Add debugging option - only visible to admins */}
+          {isAdmin && (
+            <div className="mt-6 pt-4 border-t border-gray-200/10 max-w-md mx-auto w-full">
+              <button
+                onClick={() => setDebugMode(!debugMode)}
+                className="text-xs flex items-center gap-1 text-gray-400 hover:text-gray-300 mx-auto"
+              >
+                <Bug className="h-3 w-3" />
+                {debugMode ? 'Hide Debug Tools' : 'Debug Tools'}
+              </button>
+              
+              {debugMode && (
+                <div className="mt-2 space-y-2">
+                  <WalletAuthDebug />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
