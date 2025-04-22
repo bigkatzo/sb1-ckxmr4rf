@@ -5,10 +5,13 @@ export function WalletHeaderAuthTest() {
   const { walletAddress, walletAuthToken } = useWallet();
   const [result, setResult] = useState<any>(null);
   const [jwtDebugResult, setJwtDebugResult] = useState<any>(null);
+  const [directOrdersResult, setDirectOrdersResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [jwtLoading, setJwtLoading] = useState(false);
+  const [directLoading, setDirectLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jwtError, setJwtError] = useState<string | null>(null);
+  const [directError, setDirectError] = useState<string | null>(null);
   
   const testDirectFetch = async () => {
     if (!walletAddress || !walletAuthToken) {
@@ -79,7 +82,7 @@ export function WalletHeaderAuthTest() {
     }
   };
   
-  // New function to test JWT authentication vs header authentication
+  // function to test JWT authentication vs header authentication
   const testJwtAndHeaderAuth = async () => {
     if (!walletAddress) {
       setJwtError("Wallet address missing");
@@ -98,9 +101,9 @@ export function WalletHeaderAuthTest() {
         throw new Error("Supabase URL or key not found");
       }
       
-      // First, try to call debug_wallet_auth function
-      let response = await fetch(
-        `${supabaseUrl}/rest/v1/rpc/debug_wallet_auth`, 
+      // Call the simplified debug function
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/rpc/debug_wallet_headers_raw`, 
         {
           method: 'POST',
           headers: {
@@ -110,27 +113,9 @@ export function WalletHeaderAuthTest() {
             'X-Wallet-Address': walletAddress,
             'X-Wallet-Auth-Token': walletAuthToken || ''
           },
-          body: JSON.stringify({})
+          body: JSON.stringify({ test_wallet: walletAddress })
         }
       );
-      
-      // If that fails, try debug_wallet_rls as fallback
-      if (!response.ok) {
-        response = await fetch(
-          `${supabaseUrl}/rest/v1/rpc/debug_wallet_rls`, 
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': supabaseKey,
-              'Authorization': `Bearer ${supabaseKey}`,
-              'X-Wallet-Address': walletAddress,
-              'X-Wallet-Auth-Token': walletAuthToken || ''
-            },
-            body: JSON.stringify({ target_wallet: walletAddress })
-          }
-        );
-      }
       
       // Try to parse JSON response
       let data;
@@ -150,6 +135,62 @@ export function WalletHeaderAuthTest() {
       setJwtError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setJwtLoading(false);
+    }
+  };
+  
+  // Function to test direct orders function
+  const testDirectOrders = async () => {
+    if (!walletAddress) {
+      setDirectError("Wallet address missing");
+      return;
+    }
+    
+    setDirectLoading(true);
+    setDirectError(null);
+    
+    try {
+      // Get Supabase URL from environment
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("Supabase URL or key not found");
+      }
+      
+      // Call the direct function
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/rpc/get_wallet_orders_direct`, 
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'X-Wallet-Address': walletAddress,
+            'X-Wallet-Auth-Token': walletAuthToken || ''
+          },
+          body: JSON.stringify({ wallet_addr: walletAddress })
+        }
+      );
+      
+      // Try to parse JSON response
+      let data;
+      try {
+        data = await response.json();
+      } catch (e: unknown) {
+        data = { parseError: e instanceof Error ? e.message : String(e) };
+      }
+      
+      // Set result 
+      setDirectOrdersResult({
+        success: response.ok,
+        status: response.status,
+        data
+      });
+    } catch (err) {
+      setDirectError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setDirectLoading(false);
     }
   };
   
@@ -194,17 +235,27 @@ export function WalletHeaderAuthTest() {
         </div>
       )}
       
-      {/* New JWT Debug Section */}
+      {/* JWT Debug Section */}
       <div className="mt-8 pt-6 border-t border-gray-700">
         <h3 className="text-md font-semibold mb-4">JWT Wallet Authentication Debug</h3>
         
-        <button
-          onClick={testJwtAndHeaderAuth}
-          disabled={jwtLoading || !walletAddress}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded-md text-white mb-4"
-        >
-          {jwtLoading ? 'Testing...' : 'Test Authentication Methods'}
-        </button>
+        <div className="flex space-x-4">
+          <button
+            onClick={testJwtAndHeaderAuth}
+            disabled={jwtLoading || !walletAddress}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded-md text-white mb-4"
+          >
+            {jwtLoading ? 'Testing...' : 'Test Headers Debug'}
+          </button>
+          
+          <button
+            onClick={testDirectOrders}
+            disabled={directLoading || !walletAddress}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-md text-white mb-4"
+          >
+            {directLoading ? 'Testing...' : 'Test Direct Orders'}
+          </button>
+        </div>
         
         {jwtError && (
           <div className="mb-4 p-3 bg-red-900/30 border border-red-800 rounded-md text-red-300 text-sm">
@@ -212,49 +263,41 @@ export function WalletHeaderAuthTest() {
           </div>
         )}
         
+        {directError && (
+          <div className="mb-4 p-3 bg-red-900/30 border border-red-800 rounded-md text-red-300 text-sm">
+            {directError}
+          </div>
+        )}
+        
         {jwtDebugResult && (
           <div className="mt-4">
             <div className="flex justify-between items-center mb-2">
-              <div className="text-sm text-gray-400">Authentication Debug:</div>
+              <div className="text-sm text-gray-400">Headers Debug:</div>
               <div className={`text-xs px-2 py-1 rounded ${jwtDebugResult.success ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
                 {jwtDebugResult.success ? 'Success' : `Failed (${jwtDebugResult.status})`}
               </div>
             </div>
             
-            {jwtDebugResult.data?.direct_query?.count > 0 && (
-              <div className="mb-4 grid grid-cols-2 gap-2">
-                <div className="text-xs p-2 bg-gray-700 rounded">
-                  <div className="font-bold mb-1">Direct Query {jwtDebugResult.data.direct_query.count}</div>
-                  <div className="space-y-1">
-                    {jwtDebugResult.data.direct_query.sample.map((order: any, idx: number) => (
-                      <div key={idx} className="flex justify-between">
-                        <span>{order.order_number}</span>
-                        <span className="text-gray-400">{order.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="text-xs p-2 bg-gray-700 rounded">
-                  <div className="font-bold mb-1">View Query {jwtDebugResult.data.view_query?.count || 0}</div>
-                  <div className="space-y-1">
-                    {(jwtDebugResult.data.view_query?.data || []).length > 0 ? 
-                      jwtDebugResult.data.view_query.data.map((order: any, idx: number) => (
-                        <div key={idx} className="flex justify-between">
-                          <span>{order.order_number}</span>
-                          <span className="text-gray-400">{order.status}</span>
-                        </div>
-                      )) : 
-                      <div className="text-gray-400">No orders found</div>
-                    }
-                  </div>
-                </div>
+            <div className="bg-gray-700 p-3 rounded overflow-auto max-h-80 mb-6">
+              <pre className="text-xs text-gray-300">
+                {JSON.stringify(jwtDebugResult.data, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+        
+        {directOrdersResult && (
+          <div className="mt-4">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-sm text-gray-400">Direct Orders Result:</div>
+              <div className={`text-xs px-2 py-1 rounded ${directOrdersResult.success ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
+                {directOrdersResult.success ? 'Success' : `Failed (${directOrdersResult.status})`}
               </div>
-            )}
+            </div>
             
             <div className="bg-gray-700 p-3 rounded overflow-auto max-h-80">
               <pre className="text-xs text-gray-300">
-                {JSON.stringify(jwtDebugResult.data, null, 2)}
+                {JSON.stringify(directOrdersResult.data, null, 2)}
               </pre>
             </div>
           </div>
