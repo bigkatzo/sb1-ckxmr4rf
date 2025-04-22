@@ -66,6 +66,20 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const TOKEN_EXPIRATION = 60 * 60 * 1000;
 
   const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
+    // Prevent duplicate notifications (same type and message)
+    // Check if we already have this exact notification
+    const isDuplicate = notifications.some(n => 
+      n.type === type && 
+      n.message === message && 
+      // Only consider recent notifications (within last 3 seconds) as duplicates
+      Date.now() - n.timestamp < 3000
+    );
+    
+    // Skip adding if it's a duplicate
+    if (isDuplicate) {
+      return;
+    }
+    
     const notification: WalletNotification = {
       id: crypto.randomUUID(),
       type,
@@ -77,7 +91,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => {
       dismissNotification(notification.id);
     }, 3000);
-  }, []);
+  }, [notifications]);
 
   const dismissNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
