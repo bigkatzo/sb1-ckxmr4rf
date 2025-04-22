@@ -56,6 +56,7 @@ const TermsPage = lazy(() => import('../pages/legal/TermsPage').then(module => (
 const OrdersPage = lazy(() => import('../pages/OrdersPage').then(module => ({ default: module.OrdersPage })));
 const ReturnsAndFAQPage = lazy(() => import('../pages/ReturnsAndFAQPage').then(module => ({ default: module.ReturnsAndFAQPage })));
 const TrackingPage = lazy(() => import('../pages/TrackingPage'));
+const WalletDebugPage = lazy(() => import('../pages/WalletDebugPage').then(module => ({ default: module.WalletDebugPage })));
 
 // Loading component for merchant/admin pages
 const PageLoader = () => (
@@ -83,6 +84,12 @@ const SmoothCollectionPage = () => (
 const SmoothOrdersPage = () => (
   <Suspense fallback={null}>
     <OrdersPage />
+  </Suspense>
+);
+
+const SmoothWalletDebugPage = () => (
+  <Suspense fallback={null}>
+    <WalletDebugPage />
   </Suspense>
 );
 
@@ -130,6 +137,10 @@ export const router = createBrowserRouter([
           {
             path: 'orders',
             element: <SmoothOrdersPage />
+          },
+          {
+            path: 'wallet-debug',
+            element: <SmoothWalletDebugPage />
           },
           {
             path: 'tracking/:trackingNumber',
