@@ -198,16 +198,20 @@ export async function testWalletAuthSecurity(walletAddress: string, walletAuthTo
       }
     );
     
+    // First clone the response to avoid reading the body twice
+    const noTokenTestClone = noTokenTest.clone();
+    const hasData = noTokenTest.ok ? (await noTokenTest.json()).length > 0 : false;
+    
     results.push({
       test: 'Access without auth token',
       expected: 'Failure or empty',
-      actual: noTokenTest.ok ? 
-        (await noTokenTest.json()).length > 0 ? 
+      actual: noTokenTestClone.ok ? 
+        hasData ? 
           'Success with data (SECURITY ISSUE)' : 
           'Success but empty (OK)' 
         : 'Failed (GOOD)',
-      passed: !noTokenTest.ok || (noTokenTest.ok && (await noTokenTest.json()).length === 0),
-      status: noTokenTest.status
+      passed: !noTokenTestClone.ok || !hasData,
+      status: noTokenTestClone.status
     });
     
     // Overall security assessment

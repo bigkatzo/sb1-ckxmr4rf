@@ -62,13 +62,15 @@ export function OrderDebugPanel() {
         // Try direct query against orders using our RPC function
         if (walletAddress) {
           try {
+            // Call the RPC function properly - don't use .select() on an RPC function
             const { data: rpcData, error: rpcError } = await supabase
-              .rpc('get_wallet_orders', { wallet_addr: walletAddress })
-              .select('id, order_number, wallet_address, status, created_at')
-              .limit(4);
+              .rpc('get_wallet_orders', { wallet_addr: walletAddress });
+            
+            // If successful, show up to 4 orders
+            const limitedData = Array.isArray(rpcData) ? rpcData.slice(0, 4) : [];
             
             setDirectResults({
-              data: rpcData,
+              data: limitedData,
               count: rpcData?.length || 0,
               error: rpcError ? rpcError.message : null
             });
