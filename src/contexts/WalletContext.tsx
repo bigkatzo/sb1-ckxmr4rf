@@ -48,7 +48,7 @@ interface WalletContextType {
   dismissNotification: (id: string) => void;
   walletAuthToken: string | null;
   handleAuthExpiration: () => void;
-  authenticate: () => Promise<string | null>;
+  authenticate: (silent?: boolean) => Promise<string | null>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -82,18 +82,6 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const dismissNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
-
-  // Listen for connection state changes and create auth token
-  useEffect(() => {
-    if (connected && publicKey) {
-      // Only show a single connection notification - no auto-authentication
-      addNotification('success', 'Wallet connected');
-    } else {
-      // Clear auth token when wallet disconnects
-      setWalletAuthToken(null);
-      setLastAuthTime(null);
-    }
-  }, [connected, publicKey, addNotification]);
 
   // Function to create a secure authentication token
   const createAuthToken = useCallback(async (force = false) => {
@@ -171,6 +159,33 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setIsAuthInProgress(false);
     }
   }, [publicKey, signMessage, addNotification, walletAuthToken, lastAuthTime, isAuthInProgress]);
+
+  // Listen for connection state changes and create auth token
+  useEffect(() => {
+    if (connected && publicKey) {
+      // When wallet connects, immediately authenticate
+      // We don't show a notification yet - we'll do that after auth attempt
+      createAuthToken()
+        .then(token => {
+          if (token) {
+            // Only show one notification for the whole process
+            addNotification('success', 'Wallet connected and authenticated');
+          } else {
+            // If auth failed but wallet is connected, still show connection success
+            addNotification('success', 'Wallet connected');
+          }
+        })
+        .catch(error => {
+          console.error('Auth error during connection:', error);
+          // Still show connection success if auth fails
+          addNotification('success', 'Wallet connected');
+        });
+    } else {
+      // Clear auth token when wallet disconnects
+      setWalletAuthToken(null);
+      setLastAuthTime(null);
+    }
+  }, [connected, publicKey, addNotification, createAuthToken]);
 
   // Handler for expired auth tokens
   const handleAuthExpiration = useCallback(() => {
@@ -268,16 +283,18 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     }
   }, [connected, publicKey, addNotification]);
 
-  // Make authenticate function available to use when needed
-  const authenticate = useCallback(async () => {
+  // Make authenticate function available for explicit re-authentication if needed
+  const authenticate = useCallback(async (silent = false) => {
     if (!connected || !publicKey) {
-      addNotification('error', 'Wallet must be connected first');
+      if (!silent) {
+        addNotification('error', 'Wallet must be connected first');
+      }
       return null;
     }
     
     const token = await createAuthToken();
-    if (token) {
-      // Only show a success message if explicitly authenticated
+    if (token && !silent) {
+      // Only show a success message if explicitly re-authenticated
       addNotification('success', 'Wallet authenticated');
     }
     return token;
