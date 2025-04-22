@@ -64,7 +64,7 @@ export function useOrders() {
 
       console.log('Fetching orders for wallet:', walletAddress);
       
-      // If we have a wallet auth token, no need for the JWT sync logic
+      // If we have a wallet auth token, use it for verification
       if (!walletAuthToken) {
         console.log('No wallet auth token available. Orders may be restricted.');
         setOrders([]);
@@ -83,8 +83,8 @@ export function useOrders() {
         return;
       }
       
-      // Skip checking session data - use direct header auth method
-      console.log('Using direct auth header method for orders');
+      // Skip checking session data - use direct wallet verification
+      console.log('Using direct wallet address verification for orders');
       
       // Get Supabase URL and anon key from environment variables
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -94,7 +94,7 @@ export function useOrders() {
         throw new Error('Supabase URL or key not found in environment variables');
       }
       
-      // Create a standalone client with auth token specifically for this request
+      // Create a standalone client with the wallet address and auth token in headers
       const authClient = createClient(supabaseUrl, supabaseKey, {
         db: {
           schema: 'public'
@@ -106,13 +106,17 @@ export function useOrders() {
         },
         global: {
           headers: {
-            // Use the token in the Authorization header explicitly
-            Authorization: `Bearer ${walletAuthToken}`
+            // Include both the wallet address and auth token in headers
+            // The RLS policy can verify the wallet address directly
+            'X-Wallet-Address': walletAddress,
+            'X-Wallet-Auth-Token': walletAuthToken,
+            // Still include Authorization for any route that might need it
+            'Authorization': `Bearer ${walletAuthToken}`
           }
         }
       });
       
-      // Use the client with auth token to query for orders
+      // Use the client with wallet address headers to query for orders
       const result = await authClient
         .from('user_orders')
         .select('*')
@@ -124,7 +128,7 @@ export function useOrders() {
         statusText: result.statusText,
         error: result.error,
         count: result.data?.length || 0,
-        jwt: 'Using JWT token for direct API authorization'
+        verification: 'Using direct wallet address verification'
       });
       
       const ordersData = result.data;
@@ -142,7 +146,7 @@ export function useOrders() {
       if (ordersData && Array.isArray(ordersData) && ordersData.length > 0) {
         console.log('Orders query result:', { 
           count: ordersData.length,
-          authMethod: 'direct-token'
+          authMethod: 'direct-wallet-header'
         });
         
         // Map the data to our Order objects based on the structure
@@ -191,13 +195,13 @@ export function useOrders() {
       if (ordersError) {
         console.log('Error with orders query:', ordersError.message);
         
-        // Check all possible JWT error messages
+        // Check for any authentication-related errors
         if (
-          ordersError.message.includes('JWSInvalidSignature') || 
           ordersError.message.includes('JWT') || 
           ordersError.message.includes('token') || 
           ordersError.message.includes('auth') ||
-          result.status === 401
+          result.status === 401 ||
+          result.status === 403
         ) {
           // Trigger auth expiration to request a new token - this will trigger a refresh
           console.log('Authentication error detected, requesting token refresh');

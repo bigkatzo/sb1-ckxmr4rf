@@ -1,7 +1,5 @@
 // @ts-ignore -- Deno-specific imports
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-// @ts-ignore -- Deno-specific crypto
-import { create, verify } from "https://deno.land/x/djwt@v2.8/mod.ts";
 
 // CORS headers to allow requests from any origin
 const corsHeaders = {
@@ -49,68 +47,39 @@ serve(async (req) => {
     
     console.log(`Creating auth token for wallet: ${walletAddress}`);
     
-    // Instead of generating a random key, use a consistent secret
-    // In production, this should be stored in environment variables
-    const SECRET_KEY = "wallet_auth_secure_jwt_secret_key_12345";
+    // Create a simpler verification token that includes:
+    // 1. The wallet address (for direct verification)
+    // 2. Expiry timestamp
+    // 3. A signature verification hash
     
-    // Create a text encoder
-    const enc = new TextEncoder();
+    // Create expiry timestamp (1 hour from now)
+    const now = Date.now();
+    const expiresAt = now + (3600 * 1000); // 1 hour expiry
     
-    // Create a key using the consistent secret
-    const key = await crypto.subtle.importKey(
-      "raw",
-      enc.encode(SECRET_KEY),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign", "verify"]
-    );
+    // Create a signature hash from the wallet signature for verification
+    const signatureBuffer = new TextEncoder().encode(signature + message);
+    const signatureHash = await crypto.subtle.digest("SHA-256", signatureBuffer);
+    const hashArray = Array.from(new Uint8Array(signatureHash));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     
-    const now = Math.floor(Date.now() / 1000);
-    const userId = `wallet_${walletAddress.substring(0, 12)}`;
+    // Generate a simple verification token in this format:
+    // WALLET_VERIFIED_{walletAddress}_EXP_{expiryTime}_SIG_{signatureHash}
+    const verificationToken = `WALLET_VERIFIED_${walletAddress}_EXP_${expiresAt}_SIG_${hashHex.substring(0, 16)}`;
     
-    // Create payload with wallet address in proper locations and with correct structure
-    // Match the standard Supabase JWT format as closely as possible
-    const payload = {
-      aud: "authenticated",
-      exp: now + 3600, // Expires in 1 hour
-      iat: now,
-      iss: "supabase",
-      sub: userId,
-      email: `${walletAddress}@wallet.auth`,
-      role: "authenticated",
-      wallet_address: walletAddress,
-      user_metadata: {
-        wallet_address: walletAddress,
-        wallet_updated_at: new Date().toISOString()
-      },
-      app_metadata: {
-        wallet_auth: true,
-        provider: "wallet",
-        providers: ["wallet"]
-      }
-    };
+    console.log(`Verification token created for wallet: ${walletAddress}`);
     
-    // Create properly signed JWT
-    const jwtToken = await create(
-      { alg: "HS256", typ: "JWT" },
-      payload,
-      key
-    );
-    
-    console.log(`Token created successfully for wallet: ${walletAddress}`);
-    
-    // Return the properly signed token
+    // Return the verification token and metadata
     return new Response(
       JSON.stringify({
-        token: jwtToken,
+        token: verificationToken,
         wallet_address: walletAddress,
-        type: "jwt",
+        expires_at: expiresAt,
+        type: "wallet_verification",
         debug: {
           receivedSignature: signature ? signature.substring(0, 10) + "..." : null,
           receivedMessage: message ? message.substring(0, 10) + "..." : null,
-          receivedWalletAddress: walletAddress,
-          tokenFormat: "JWT",
-          decodedPayload: payload
+          wallet: walletAddress,
+          expires: new Date(expiresAt).toISOString()
         }
       }), 
       {
