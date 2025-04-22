@@ -142,7 +142,16 @@ export function useOrders() {
         return;
       }
       
-      if (!ordersError && ordersData && ordersData.length > 0) {
+      // Debug: Log the received data to see what's coming back
+      console.log('Orders data received:', { 
+        hasData: !!ordersData, 
+        dataLength: ordersData?.length || 0,
+        firstItem: ordersData?.[0] || null,
+        hasError: !!ordersError,
+        errorMessage: ordersError?.message
+      });
+      
+      if (ordersData && Array.isArray(ordersData) && ordersData.length > 0) {
         console.log('Orders query result:', { 
           count: ordersData.length,
           authMethod: 'wallet'  // Always wallet auth now
@@ -195,9 +204,42 @@ export function useOrders() {
         console.log('Error with orders query:', ordersError.message);
         setError("Failed to fetch orders. Please make sure your wallet is connected.");
         setOrders([]);
-      } else {
+      } else if (!ordersData || !Array.isArray(ordersData)) {
+        // Data exists but isn't an array (incorrect format)
+        console.error('Orders data is not in expected format:', ordersData);
+        setError("Invalid data format received from server");
+        setOrders([]);
+      } else if (ordersData.length === 0) {
         console.log('No orders found for this wallet address');
         setOrders([]);
+        setError(null);
+      } else {
+        // This shouldn't happen - we should have caught valid orders earlier
+        console.warn('Unexpected code path: valid orders exist but weren\'t processed');
+        const simplifiedOrders = ordersData.map((order: any) => ({
+          id: order.id || 'unknown-id',
+          order_number: order.order_number || 'unknown',
+          status: (order.status || 'pending_payment') as any,
+          createdAt: new Date(order.created_at || Date.now()),
+          updatedAt: new Date(order.updated_at || Date.now()),
+          product_id: order.product_id || '',
+          collection_id: order.collection_id || '',
+          product_name: order.product_name || '',
+          product_sku: order.product_sku || '',
+          collection_name: order.collection_name || '',
+          amountSol: order.amount_sol || 0,
+          category_name: order.category_name || '',
+          shippingAddress: order.shipping_address || {},
+          contactInfo: order.contact_info || {},
+          walletAddress: order.wallet_address || '',
+          transactionSignature: order.transaction_signature,
+          variant_selections: order.variant_selections || [],
+          product_snapshot: order.product_snapshot || {},
+          collection_snapshot: order.collection_snapshot || {},
+          payment_metadata: order.payment_metadata,
+          tracking: order.tracking || null
+        }));
+        setOrders(simplifiedOrders);
         setError(null);
       }
     } catch (err) {
