@@ -42,7 +42,7 @@ const safeParseDate = (date: any): Date => {
 
 export function OrdersPage() {
   const { walletAddress, walletAuthToken } = useWallet();
-  const { orders, loading, error, refreshOrders } = useOrders();
+  const { orders, loading, error, refetch } = useOrders();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const prevWalletRef = useRef<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
@@ -97,10 +97,24 @@ export function OrdersPage() {
       console.log('Wallet auth debug results:', results);
       
       // After debugging, try refreshing orders
-      refreshOrders();
+      try {
+        refetch();
+      } catch (refreshErr) {
+        console.error('Error refreshing orders after debug:', refreshErr);
+        // Don't let refresh errors affect our debug results
+      }
     } catch (err) {
       console.error('Error during wallet auth debugging:', err);
-      setDebugResults({ error: err instanceof Error ? err.message : 'Unknown error' });
+      // Handle the specific "h is not a function" error more gracefully
+      if (err instanceof Error && err.message.includes('h is not a function')) {
+        setDebugResults({ 
+          error: 'RPC function error: The wallet_auth_debug function returned an invalid response format',
+          suggestion: 'This likely indicates an issue with the SQL function implementation',
+          originalError: err.message
+        });
+      } else {
+        setDebugResults({ error: err instanceof Error ? err.message : 'Unknown error' });
+      }
     } finally {
       setIsDebugging(false);
     }
