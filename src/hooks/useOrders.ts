@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase, AUTH_EXPIRED_EVENT } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
 import type { Order } from '../types/orders';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabaseWithWallet } from './useSupabaseWithWallet';
 
 // This interface is no longer used since we're using joined queries with 'any' type
 // We can safely remove it
@@ -11,7 +11,8 @@ export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { walletAddress, isConnected, walletAuthToken } = useWallet();
+  const { walletAddress, isConnected } = useWallet();
+  const { client: authClient, isAuthenticated } = useSupabaseWithWallet();
 
   // Fetch orders when wallet changes or authentication status changes
   useEffect(() => {
@@ -49,7 +50,7 @@ export function useOrders() {
     return () => {
       supabase.removeChannel(orderSubscription);
     };
-  }, [walletAddress, isConnected, walletAuthToken]);
+  }, [walletAddress, isConnected, isAuthenticated]);
 
   // Fetch orders function (extracted for reuse)
   const fetchOrders = async () => {
@@ -61,18 +62,18 @@ export function useOrders() {
         setLoading(false);
         return;
       }
-
+      
       console.log('Fetching orders for wallet:', walletAddress);
       
-      // If we have a wallet auth token, use it for verification
-      if (!walletAuthToken) {
-        console.log('No wallet auth token available. Orders may be restricted.');
+      // If we don't have the auth client, it means we're not authenticated
+      if (!authClient || !isAuthenticated) {
+        console.log('No wallet auth available. Orders may be restricted.');
         setOrders([]);
         setError("Wallet authentication required to view orders");
         setLoading(false);
         return;
       } else {
-        console.log('Using wallet auth token for secure data access');
+        console.log('Using wallet auth for secure data access');
       }
       
       // SAFETY CHECK: Add final check before making API calls
@@ -82,39 +83,6 @@ export function useOrders() {
         setLoading(false);
         return;
       }
-      
-      // Skip checking session data - use direct wallet verification
-      console.log('Using direct wallet address verification for orders');
-      
-      // Get Supabase URL and anon key from environment variables
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase URL or key not found in environment variables');
-      }
-      
-      // Create a standalone client with the wallet address and auth token in headers
-      const authClient = createClient(supabaseUrl, supabaseKey, {
-        db: {
-          schema: 'public'
-        },
-        auth: {
-          // Skip persisting the session to avoid conflicts with other instances
-          persistSession: false, 
-          autoRefreshToken: false
-        },
-        global: {
-          headers: {
-            // Include both the wallet address and auth token in headers
-            // The RLS policy can verify the wallet address directly
-            'X-Wallet-Address': walletAddress,
-            'X-Wallet-Auth-Token': walletAuthToken,
-            // Still include Authorization for any route that might need it
-            'Authorization': `Bearer ${walletAuthToken}`
-          }
-        }
-      });
       
       // Use the client with wallet address headers to query for orders
       const result = await authClient

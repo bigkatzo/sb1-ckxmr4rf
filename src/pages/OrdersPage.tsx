@@ -305,6 +305,13 @@ export function OrdersPage() {
                     {isDebugging ? 'Debugging...' : 'Run Wallet Auth Debug'}
                   </button>
                   
+                  <Link 
+                    to="/wallet-debug"
+                    className="w-full px-3 py-1.5 bg-violet-900/20 hover:bg-violet-900/30 text-xs rounded text-violet-400 flex items-center justify-center"
+                  >
+                    Advanced Header Auth Debug
+                  </Link>
+                  
                   {debugResults && (
                     <div className="mt-2 text-left p-2 bg-gray-800 rounded text-xs overflow-auto max-h-40">
                       <pre className="whitespace-pre-wrap">
