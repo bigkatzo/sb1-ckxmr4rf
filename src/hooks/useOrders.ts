@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, AUTH_EXPIRED_EVENT } from '../lib/supabase';
 import { useWallet } from '../contexts/WalletContext';
 import type { Order } from '../types/orders';
 import { createClient } from '@supabase/supabase-js';
@@ -88,59 +88,43 @@ export function useOrders() {
       const authType = sessionData?.session?.user?.app_metadata?.auth_type;
       console.log('Current auth type:', authType || 'standard');
       
-      // Check what auth method to use
-      const isWalletAuth = authType === 'wallet' || Boolean(walletAuthToken);
+      // Check what auth method to use - always use wallet auth flow with the token
+      console.log('Using wallet auth flow to fetch orders');
       
-      let ordersData;
-      let ordersError;
+      // Get Supabase URL and anon key from environment variables
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      if (isWalletAuth) {
-        // For wallet-authenticated users, use the user_orders view
-        // The RLS on the underlying orders table will filter data automatically
-        console.log('Using wallet auth flow to fetch orders');
-        
-        // Get Supabase URL and anon key from environment variables
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
-        if (!supabaseUrl || !supabaseKey) {
-          throw new Error('Supabase URL or key not found in environment variables');
-        }
-        
-        // Create a new client with auth token in headers
-        const authClient = createClient(supabaseUrl, supabaseKey, {
-          global: {
-            headers: {
-              Authorization: `Bearer ${walletAuthToken}`
-            }
-          }
-        });
-        
-        // Use the client with auth token to query for orders
-        const result = await authClient
-          .from('user_orders')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        // Log the raw response for debugging
-        console.log('Raw wallet-verified query response:', {
-          status: result.status,
-          statusText: result.statusText,
-          error: result.error,
-          count: result.data?.length || 0,
-          jwt: 'Using JWT token for secure database-level filtering'
-        });
-        
-        ordersData = result.data;
-        ordersError = result.error;
-      } else {
-        // For unauthenticated users, we no longer allow access to orders
-        console.log('Wallet auth required to access orders');
-        setOrders([]);
-        setError("Wallet authentication required to view orders");
-        setLoading(false);
-        return;
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase URL or key not found in environment variables');
       }
+      
+      // Create a new client with auth token in headers
+      const authClient = createClient(supabaseUrl, supabaseKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${walletAuthToken}`
+          }
+        }
+      });
+      
+      // Use the client with auth token to query for orders
+      const result = await authClient
+        .from('user_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      // Log the raw response for debugging
+      console.log('Raw wallet-verified query response:', {
+        status: result.status,
+        statusText: result.statusText,
+        error: result.error,
+        count: result.data?.length || 0,
+        jwt: 'Using JWT token for secure database-level filtering'
+      });
+      
+      const ordersData = result.data;
+      const ordersError = result.error;
       
       // Debug: Log the received data to see what's coming back
       console.log('Orders data received:', { 
@@ -202,7 +186,16 @@ export function useOrders() {
       
       if (ordersError) {
         console.log('Error with orders query:', ordersError.message);
-        setError("Failed to fetch orders. Please make sure your wallet is connected.");
+        
+        // If we have a JWS invalid signature error, it's a token issue
+        if (ordersError.message.includes('JWSInvalidSignature')) {
+          // Try to handle JWS signature errors by requesting a new token
+          window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+          setError("Authorization token error. Please reconnect your wallet.");
+        } else {
+          setError("Failed to fetch orders. Please make sure your wallet is connected.");
+        }
+        
         setOrders([]);
       } else if (!ordersData || !Array.isArray(ordersData)) {
         // Data exists but isn't an array (incorrect format)

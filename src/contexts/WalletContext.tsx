@@ -8,6 +8,7 @@ import { SOLANA_CONNECTION } from '../config/solana';
 import '@solana/wallet-adapter-react-ui/styles.css';
 import '../styles/wallet-modal.css';
 import { supabase, AUTH_EXPIRED_EVENT } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 // Import wallet adapters
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
@@ -111,70 +112,61 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       if (token) {
         console.log('Token received from server:', token.substring(0, 15) + '...');
         
-        // Check if this is a custom wallet JWT
-        const isCustomWalletJWT = token.includes('WALLET_AUTH_SIGNATURE');
-        
-        // WORKAROUND: If we got a test token or custom JWT, it won't work for real Supabase auth
-        // but we can still use it for our simplified wallet auth flow
-        if (token === 'test-token-123' || isCustomWalletJWT) {
-          console.log('Using simplified wallet authentication...');
-          // Store it for our own internal verification
-          setWalletAuthToken(token);
-          addNotification('success', 'Wallet identity verified');
-          return token; // Return token for flag purposes
-        }
-        
-        // For real Supabase JWTs, try to use them normally
-        // Store token in state
+        // Store token in state first to ensure it's available for API calls
         setWalletAuthToken(token);
+        addNotification('success', 'Wallet identity verified');
         
         // Set the auth token in Supabase for future requests
         console.log('Setting token in Supabase client...');
-        const sessionResult = await supabase.auth.setSession({
-          access_token: token,
-          refresh_token: ''
-        });
-        
-        if (sessionResult.error) {
-          console.error('Error setting token in session:', sessionResult.error);
-        } else {
-          console.log('Token successfully set in session');
-        }
-        
-        // Verify the token was applied correctly
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData?.session?.access_token) {
-          console.warn('Token was not set in session, retrying...');
-          // Try again
-          const retryResult = await supabase.auth.setSession({
+        try {
+          const sessionResult = await supabase.auth.setSession({
             access_token: token,
             refresh_token: ''
           });
           
-          if (retryResult.error) {
-            console.error('Error setting token on retry:', retryResult.error);
+          if (sessionResult.error) {
+            console.error('Error setting token in session:', sessionResult.error);
+            
+            // Even if session setting fails, we can still use the token for API calls
+            // through custom headers, so we'll proceed anyway
+            
+            // Try to test the token with a simple API call
+            console.log('Testing token with a simple API call...');
+            try {
+              // Create a new client with the token in authorization header
+              const testClient = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY, {
+                global: {
+                  headers: {
+                    Authorization: `Bearer ${token}`
+                  }
+                }
+              });
+              
+              // Try a simple query to test the token
+              const { data: testData, error: testError } = await testClient
+                .from('user_orders')
+                .select('*', { count: 'exact', head: true });
+              
+              if (testError) {
+                console.error('Token validation failed:', testError);
+              } else {
+                console.log('Token works with authorization header:', testData);
+              }
+            } catch (testError) {
+              console.error('Error testing token:', testError);
+            }
           } else {
-            console.log('Token set successfully on retry');
+            console.log('Token successfully set in session');
+            
+            // Verify the token was applied correctly
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData?.session?.access_token) {
+              console.warn('Token not set in session properly, will use header authorization instead');
+            }
           }
-        }
-        
-        // Test the token with a simple API call
-        console.log('Testing token with a simple API call...');
-        try {
-          // Try to access user profile which should be available with auth
-          const { data: userData, error: userError } = await supabase
-            .from('user_orders')
-            .select('count(*)', { count: 'exact', head: true });
-          
-          if (userError) {
-            console.error('Token validation failed:', userError);
-            addNotification('info', 'Wallet authenticated with limited permissions');
-          } else {
-            console.log('Token validation successful:', userData);
-            addNotification('success', 'Wallet authenticated');
-          }
-        } catch (testError) {
-          console.error('Error testing token:', testError);
+        } catch (sessionError) {
+          console.error('Exception setting session:', sessionError);
+          // Continue anyway - we'll use the token for API calls
         }
         
         return token;
