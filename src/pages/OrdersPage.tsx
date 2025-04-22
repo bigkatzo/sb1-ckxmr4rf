@@ -20,6 +20,7 @@ import { debugOrderSecurity } from '../utils/orderSecurity';
 import { debugWalletAuth } from '../utils/debugWalletAuth';
 import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
 import { DeployHeaderAuthHelp } from '../components/debug/DeployHeaderAuthHelp';
+import { AdvancedHeaderDebugTools } from '../components/debug/AdvancedHeaderDebugTools';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -475,8 +476,9 @@ export function OrdersPage() {
               (debugResults.viewAuth.diagnosticError || 
                debugResults.viewAuth.testFunctionError || 
                debugResults.viewAuth.viewQuery?.count === 0) && (
-                <div className="mt-2">
+                <div className="mt-2 space-y-2">
                   <DeployHeaderAuthHelp />
+                  <AdvancedHeaderDebugTools />
                 </div>
               )
             )}
