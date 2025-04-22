@@ -11,7 +11,37 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
     throw new Error('Supabase URL or key not found in environment variables');
   }
 
-  // First try user_orders view
+  // First try test_wallet_auth function to diagnose any header issues
+  try {
+    const testResponse = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/test_wallet_auth`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'X-Wallet-Address': walletAddress,
+          'X-Wallet-Auth-Token': walletAuthToken
+        },
+        body: JSON.stringify({ wallet_addr: walletAddress })
+      }
+    );
+
+    if (testResponse.ok) {
+      const testData = await testResponse.json();
+      console.log('Wallet auth diagnostic test:', testData);
+      
+      // If auth is failing, log detailed debug info
+      if (!testData.debug_info?.result) {
+        console.warn('Wallet auth is failing:', testData.debug_info);
+      }
+    }
+  } catch (testErr) {
+    console.error('Error running auth diagnostic test:', testErr);
+  }
+
+  // Try user_orders view
   try {
     const response = await fetch(
       `${supabaseUrl}/rest/v1/user_orders?select=*&order=created_at.desc`,
@@ -38,6 +68,8 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
         source: 'user_orders_view',
         error: null
       };
+    } else {
+      console.warn('user_orders view returned empty array, headers might not be working');
     }
   } catch (viewErr) {
     console.error('Error fetching from user_orders view:', viewErr);
