@@ -117,13 +117,14 @@ DROP POLICY IF EXISTS "orders_user_view" ON orders;
 CREATE POLICY "orders_user_view"
 ON orders
 FOR SELECT
-TO authenticated
+TO authenticated, anon
 USING (
-  -- Simple direct check for either header or JWT wallet
-  (wallet_address = current_setting('request.headers.x-wallet-address', true) AND 
-   current_setting('request.headers.x-wallet-auth-token', true) IS NOT NULL)
-  OR
-  wallet_address = auth.jwt()->>'wallet_address'
+  -- Use both JWT and header authentication with fallbacks
+  wallet_address = COALESCE(
+    current_setting('request.jwt.claims.wallet_address', true),
+    current_setting('request.headers.x-wallet-address', true),
+    ''
+  )
 );
 
 -- Grant access to the view
@@ -152,9 +153,12 @@ BEGIN
     header_token := null;
   END;
   
-  -- Get JWT value
+  -- Get JWT value - first try claims object then direct wallet_address
   BEGIN
-    jwt_wallet := auth.jwt()->>'wallet_address';
+    jwt_wallet := current_setting('request.jwt.claims', true)::json->>'wallet_address';
+    IF jwt_wallet IS NULL THEN
+      jwt_wallet := current_setting('request.jwt.claims.wallet_address', true);
+    END IF;
   EXCEPTION WHEN OTHERS THEN
     jwt_wallet := null;
   END;
@@ -164,6 +168,10 @@ BEGIN
     EXECUTE 'SELECT COUNT(*) FROM orders WHERE wallet_address = $1' 
     INTO count_direct
     USING header_wallet;
+  ELSIF jwt_wallet IS NOT NULL THEN
+    EXECUTE 'SELECT COUNT(*) FROM orders WHERE wallet_address = $1' 
+    INTO count_direct
+    USING jwt_wallet;
   ELSE
     count_direct := 0;
   END IF;
@@ -173,6 +181,10 @@ BEGIN
     EXECUTE 'SELECT COUNT(*) FROM user_orders WHERE wallet_address = $1' 
     INTO count_view
     USING header_wallet;
+  ELSIF jwt_wallet IS NOT NULL THEN
+    EXECUTE 'SELECT COUNT(*) FROM user_orders WHERE wallet_address = $1' 
+    INTO count_view
+    USING jwt_wallet;
   ELSE
     count_view := 0;
   END IF;
@@ -184,12 +196,34 @@ BEGIN
     'jwt_wallet', jwt_wallet,
     'direct_count', count_direct,
     'view_count', count_view,
+    'request_jwt_raw', (SELECT current_setting('request.jwt.claims', true)),
     'timestamp', now()
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Create a policy for viewing tracking data as well
+DROP POLICY IF EXISTS "order_tracking_user_view" ON order_tracking;
+
+CREATE POLICY "order_tracking_user_view"
+ON order_tracking
+FOR SELECT
+TO authenticated, anon
+USING (
+  -- Join to orders table and check wallet address
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.id = order_id
+    AND o.wallet_address = COALESCE(
+      current_setting('request.jwt.claims.wallet_address', true),
+      current_setting('request.headers.x-wallet-address', true),
+      ''
+    )
+  )
+);
+
 GRANT EXECUTE ON FUNCTION direct_header_test() TO authenticated, anon;
+GRANT SELECT ON order_tracking TO authenticated, anon;
 
 -- Add a helpful comment on how to use this test function
 COMMENT ON FUNCTION direct_header_test() IS 'Test if the custom X-Wallet-Address and X-Wallet-Auth-Token headers are being received by the database. Use this to verify that the RLS policy for user_orders is working.';
