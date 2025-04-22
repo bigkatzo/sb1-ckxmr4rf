@@ -49,31 +49,44 @@ serve(async (req) => {
     
     console.log(`Creating auth token for wallet: ${walletAddress}`);
     
-    // Create a key for JWT signing - in production use a secure environment variable
-    // The key must be at least 32 bytes for the HS256 algorithm
-    const key = await crypto.subtle.generateKey(
+    // Instead of generating a random key, use a consistent secret
+    // In production, this should be stored in environment variables
+    const SECRET_KEY = "wallet_auth_secure_jwt_secret_key_12345";
+    
+    // Create a text encoder
+    const enc = new TextEncoder();
+    
+    // Create a key using the consistent secret
+    const key = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(SECRET_KEY),
       { name: "HMAC", hash: "SHA-256" },
-      true,
+      false,
       ["sign", "verify"]
     );
     
     const now = Math.floor(Date.now() / 1000);
     const userId = `wallet_${walletAddress.substring(0, 12)}`;
     
-    // Create payload with wallet address in proper locations
+    // Create payload with wallet address in proper locations and with correct structure
+    // Match the standard Supabase JWT format as closely as possible
     const payload = {
-      sub: userId,
-      wallet_address: walletAddress, // Important: Add at root level
-      iat: now,
+      aud: "authenticated",
       exp: now + 3600, // Expires in 1 hour
+      iat: now,
+      iss: "supabase",
+      sub: userId,
+      email: `${walletAddress}@wallet.auth`,
+      role: "authenticated",
+      wallet_address: walletAddress,
       user_metadata: {
         wallet_address: walletAddress,
         wallet_updated_at: new Date().toISOString()
       },
       app_metadata: {
-        wallet_address: walletAddress,
         wallet_auth: true,
-        auth_type: "wallet"
+        provider: "wallet",
+        providers: ["wallet"]
       }
     };
     

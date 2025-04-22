@@ -83,13 +83,8 @@ export function useOrders() {
         return;
       }
       
-      // First check the currently logged in user type
-      const { data: sessionData } = await supabase.auth.getSession();
-      const authType = sessionData?.session?.user?.app_metadata?.auth_type;
-      console.log('Current auth type:', authType || 'standard');
-      
-      // Check what auth method to use - always use wallet auth flow with the token
-      console.log('Using wallet auth flow to fetch orders');
+      // Skip checking session data - use direct header auth method
+      console.log('Using direct auth header method for orders');
       
       // Get Supabase URL and anon key from environment variables
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -99,10 +94,19 @@ export function useOrders() {
         throw new Error('Supabase URL or key not found in environment variables');
       }
       
-      // Create a new client with auth token in headers
+      // Create a standalone client with auth token specifically for this request
       const authClient = createClient(supabaseUrl, supabaseKey, {
+        db: {
+          schema: 'public'
+        },
+        auth: {
+          // Skip persisting the session to avoid conflicts with other instances
+          persistSession: false, 
+          autoRefreshToken: false
+        },
         global: {
           headers: {
+            // Use the token in the Authorization header explicitly
             Authorization: `Bearer ${walletAuthToken}`
           }
         }
@@ -120,7 +124,7 @@ export function useOrders() {
         statusText: result.statusText,
         error: result.error,
         count: result.data?.length || 0,
-        jwt: 'Using JWT token for secure database-level filtering'
+        jwt: 'Using JWT token for direct API authorization'
       });
       
       const ordersData = result.data;
@@ -138,7 +142,7 @@ export function useOrders() {
       if (ordersData && Array.isArray(ordersData) && ordersData.length > 0) {
         console.log('Orders query result:', { 
           count: ordersData.length,
-          authMethod: 'wallet'  // Always wallet auth now
+          authMethod: 'direct-token'
         });
         
         // Map the data to our Order objects based on the structure
@@ -187,11 +191,18 @@ export function useOrders() {
       if (ordersError) {
         console.log('Error with orders query:', ordersError.message);
         
-        // If we have a JWS invalid signature error, it's a token issue
-        if (ordersError.message.includes('JWSInvalidSignature')) {
-          // Try to handle JWS signature errors by requesting a new token
+        // Check all possible JWT error messages
+        if (
+          ordersError.message.includes('JWSInvalidSignature') || 
+          ordersError.message.includes('JWT') || 
+          ordersError.message.includes('token') || 
+          ordersError.message.includes('auth') ||
+          result.status === 401
+        ) {
+          // Trigger auth expiration to request a new token - this will trigger a refresh
+          console.log('Authentication error detected, requesting token refresh');
           window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
-          setError("Authorization token error. Please reconnect your wallet.");
+          setError("Authentication error. Please reconnect your wallet.");
         } else {
           setError("Failed to fetch orders. Please make sure your wallet is connected.");
         }

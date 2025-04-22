@@ -8,7 +8,6 @@ import { SOLANA_CONNECTION } from '../config/solana';
 import '@solana/wallet-adapter-react-ui/styles.css';
 import '../styles/wallet-modal.css';
 import { supabase, AUTH_EXPIRED_EVENT } from '../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
 
 // Import wallet adapters
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
@@ -116,58 +115,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         setWalletAuthToken(token);
         addNotification('success', 'Wallet identity verified');
         
-        // Set the auth token in Supabase for future requests
-        console.log('Setting token in Supabase client...');
-        try {
-          const sessionResult = await supabase.auth.setSession({
-            access_token: token,
-            refresh_token: ''
-          });
-          
-          if (sessionResult.error) {
-            console.error('Error setting token in session:', sessionResult.error);
-            
-            // Even if session setting fails, we can still use the token for API calls
-            // through custom headers, so we'll proceed anyway
-            
-            // Try to test the token with a simple API call
-            console.log('Testing token with a simple API call...');
-            try {
-              // Create a new client with the token in authorization header
-              const testClient = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY, {
-                global: {
-                  headers: {
-                    Authorization: `Bearer ${token}`
-                  }
-                }
-              });
-              
-              // Try a simple query to test the token
-              const { data: testData, error: testError } = await testClient
-                .from('user_orders')
-                .select('*', { count: 'exact', head: true });
-              
-              if (testError) {
-                console.error('Token validation failed:', testError);
-              } else {
-                console.log('Token works with authorization header:', testData);
-              }
-            } catch (testError) {
-              console.error('Error testing token:', testError);
-            }
-          } else {
-            console.log('Token successfully set in session');
-            
-            // Verify the token was applied correctly
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (!sessionData?.session?.access_token) {
-              console.warn('Token not set in session properly, will use header authorization instead');
-            }
-          }
-        } catch (sessionError) {
-          console.error('Exception setting session:', sessionError);
-          // Continue anyway - we'll use the token for API calls
-        }
+        // We'll skip setting the token in the Supabase session since that's causing issues
+        // Instead, we'll rely on passing the token directly in the Authorization header
+        // when making API calls, which is more reliable
         
         return token;
       }
@@ -210,11 +160,6 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       createAuthToken().then(token => {
         if (token) {
           console.log('Successfully recreated wallet auth token');
-          // Set the auth token in Supabase for future requests
-          supabase.auth.setSession({
-            access_token: token,
-            refresh_token: ''
-          });
         } else {
           console.error('Failed to recreate wallet auth token');
         }
