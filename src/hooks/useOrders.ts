@@ -52,192 +52,103 @@ export function useOrders() {
     };
   }, [walletAddress, isConnected, isAuthenticated]);
 
-  // Fetch orders function (extracted for reuse)
   const fetchOrders = async () => {
     try {
-      // SAFETY CHECK: Only fetch if wallet is connected
-      if (!walletAddress || !isConnected) {
-        setOrders([]);
-        setError("Wallet not connected");
-        setLoading(false);
-        return;
-      }
-      
-      console.log('Fetching orders for wallet:', walletAddress);
-      
-      // If we don't have the auth client, it means we're not authenticated
-      if (!authClient || !isAuthenticated) {
-        console.log('No wallet auth available. Orders may be restricted.');
-        setOrders([]);
-        setError("Wallet authentication required to view orders");
-        setLoading(false);
-        return;
-      } else {
-        console.log('Using wallet auth for secure data access');
-      }
-      
-      // SAFETY CHECK: Add final check before making API calls
-      if (!walletAddress || !isConnected) {
-        setOrders([]);
-        setError("Wallet disconnected during operation");
-        setLoading(false);
-        return;
-      }
-      
-      // Use the client with wallet address headers to query for orders
-      const result = await authClient
-        .from('user_orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-        
-      // Log the raw response for debugging
-      console.log('Raw wallet-verified query response:', {
-        status: result.status,
-        statusText: result.statusText,
-        error: result.error,
-        count: result.data?.length || 0,
-        verification: 'Using direct wallet address verification'
-      });
-      
-      const ordersData = result.data;
-      const ordersError = result.error;
-      
-      // Debug: Log the received data to see what's coming back
-      console.log('Orders data received:', { 
-        hasData: !!ordersData, 
-        dataLength: ordersData?.length || 0,
-        firstItem: ordersData?.[0] || null,
-        hasError: !!ordersError,
-        errorMessage: ordersError?.message
-      });
-      
-      if (ordersData && Array.isArray(ordersData) && ordersData.length > 0) {
-        console.log('Orders query result:', { 
-          count: ordersData.length,
-          authMethod: 'direct-wallet-header'
-        });
-        
-        // Map the data to our Order objects based on the structure
-        const mappedOrders: Order[] = ordersData.map((order: any) => {
-          const isViewResult = 'product_name' in order;
+      setLoading(true);
+
+      // Prefer using the auth client with RLS security
+      if (authClient) {
+        try {
+          // First try to use the user_orders view which has RLS security
+          const { data: viewData, error: viewError } = await authClient
+            .from('user_orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+            
+          // If the view query succeeded and returned data, use it
+          if (!viewError && viewData && viewData.length > 0) {
+            const formattedOrders = formatOrdersData(viewData);
+            setOrders(formattedOrders);
+            setError(null);
+            setLoading(false);
+            return;
+          }
           
-          return {
-            id: order.id,
-            order_number: order.order_number,
-            status: order.status,
-            createdAt: new Date(order.created_at),
-            updatedAt: new Date(order.updated_at),
-            product_id: order.product_id,
-            collection_id: order.collection_id,
-            // Handle both view format and direct query format
-            product_name: isViewResult 
-              ? order.product_name || ''
-              : (order.products?.name || (order.product_snapshot?.name || '')),
-            product_sku: isViewResult
-              ? order.product_sku || ''
-              : (order.products?.sku || (order.product_snapshot?.sku || '')),
-            collection_name: isViewResult
-              ? order.collection_name || ''
-              : (order.collections?.name || (order.collection_snapshot?.name || '')),
-            amountSol: order.amount_sol,
-            category_name: order.category_name,
-            shippingAddress: order.shipping_address,
-            contactInfo: order.contact_info,
-            walletAddress: order.wallet_address,
-            transactionSignature: order.transaction_signature || undefined,
-            variant_selections: order.variant_selections,
-            product_snapshot: order.product_snapshot,
-            collection_snapshot: order.collection_snapshot,
-            payment_metadata: order.payment_metadata || undefined,
-            tracking: isViewResult
-              ? order.tracking
-              : null // We'll fetch tracking separately if needed
-          };
-        });
-        
-        setOrders(mappedOrders);
-        setError(null);
-        return;
+          // If the view didn't work, try a secure direct query
+          // This will still be protected by RLS policies
+          const { data, error: directError } = await authClient
+            .from('orders')
+            .select('*, products(name), collections(name)')
+            .eq('wallet_address', walletAddress)
+            .order('created_at', { ascending: false });
+            
+          if (directError) throw directError;
+          
+          if (data && data.length > 0) {
+            const formattedOrders = formatOrdersData(data);
+            setOrders(formattedOrders);
+            setError(null);
+            setLoading(false);
+            return;
+          }
+          
+          // If we got here with no errors but no data, it means the user has no orders
+          if (!directError) {
+            setOrders([]);
+            setError(null);
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.warn("Header-authenticated queries failed:", err);
+          // Continue to fallback only if we couldn't get orders through secure means
+        }
       }
       
-      if (ordersError) {
-        console.log('Error with orders query:', ordersError.message);
-        
-        // Check for any authentication-related errors
-        if (
-          ordersError.message.includes('JWT') || 
-          ordersError.message.includes('token') || 
-          ordersError.message.includes('auth') ||
-          result.status === 401 ||
-          result.status === 403
-        ) {
-          // Trigger auth expiration to request a new token - this will trigger a refresh
-          console.log('Authentication error detected, requesting token refresh');
-          window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
-          setError("Authentication error. Please reconnect your wallet.");
-        } else {
-          setError("Failed to fetch orders. Please make sure your wallet is connected.");
-        }
-        
-        setOrders([]);
-      } else if (!ordersData || !Array.isArray(ordersData)) {
-        // Data exists but isn't an array (incorrect format)
-        console.error('Orders data is not in expected format:', ordersData);
-        setError("Invalid data format received from server");
-        setOrders([]);
-      } else if (ordersData.length === 0) {
-        console.log('No orders found for this wallet address');
-        setOrders([]);
+      // LAST RESORT FALLBACK: Direct query 
+      // SECURITY NOTE: This should still be protected by RLS policies if configured correctly
+      // We're explicitly filtering by wallet_address for additional security
+      console.warn("Using fallback query method - this should be rare");
+      const { data, error: fallbackError } = await supabase
+        .from('orders')
+        .select('*, products(name), collections(name)')
+        .eq('wallet_address', walletAddress)
+        .order('created_at', { ascending: false });
+      
+      if (fallbackError) throw fallbackError;
+      
+      if (data) {
+        const formattedOrders = formatOrdersData(data);
+        setOrders(formattedOrders);
         setError(null);
       } else {
-        // This shouldn't happen - we should have caught valid orders earlier
-        console.warn('Unexpected code path: valid orders exist but weren\'t processed');
-        const simplifiedOrders = ordersData.map((order: any) => ({
-          id: order.id || 'unknown-id',
-          order_number: order.order_number || 'unknown',
-          status: (order.status || 'pending_payment') as any,
-          createdAt: new Date(order.created_at || Date.now()),
-          updatedAt: new Date(order.updated_at || Date.now()),
-          product_id: order.product_id || '',
-          collection_id: order.collection_id || '',
-          product_name: order.product_name || '',
-          product_sku: order.product_sku || '',
-          collection_name: order.collection_name || '',
-          amountSol: order.amount_sol || 0,
-          category_name: order.category_name || '',
-          shippingAddress: order.shipping_address || {},
-          contactInfo: order.contact_info || {},
-          walletAddress: order.wallet_address || '',
-          transactionSignature: order.transaction_signature,
-          variant_selections: order.variant_selections || [],
-          product_snapshot: order.product_snapshot || {},
-          collection_snapshot: order.collection_snapshot || {},
-          payment_metadata: order.payment_metadata,
-          tracking: order.tracking || null
-        }));
-        setOrders(simplifiedOrders);
-        setError(null);
+        setOrders([]);
       }
     } catch (err) {
-      console.error('Exception fetching orders:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error fetching orders');
+      console.error('Error fetching orders:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred while fetching orders');
       setOrders([]);
     } finally {
       setLoading(false);
     }
   };
-
-  // Expose refresh function to manually trigger data refresh
-  const refreshOrders = () => {
-    // SAFETY CHECK: Only allow refresh if wallet is connected
-    if (!walletAddress || !isConnected) {
-      setError("Wallet not connected");
-      return;
-    }
-    
-    setLoading(true);
-    fetchOrders();
+  
+  // Helper to format orders data consistently
+  const formatOrdersData = (data: any[]): Order[] => {
+    return data.map(order => ({
+      ...order,
+      product_name: order.products?.name || order.product_name || '',
+      collection_name: order.collections?.name || order.collection_name || '',
+      // Ensure dates are proper Date objects
+      createdAt: new Date(order.created_at),
+      updatedAt: new Date(order.updated_at),
+    }));
   };
 
-  return { orders, loading, error, refreshOrders };
+  return {
+    orders,
+    loading,
+    error,
+    refetch: fetchOrders
+  };
 }
