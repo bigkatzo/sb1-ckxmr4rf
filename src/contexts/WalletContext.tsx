@@ -48,6 +48,7 @@ interface WalletContextType {
   dismissNotification: (id: string) => void;
   walletAuthToken: string | null;
   handleAuthExpiration: () => void;
+  authenticate: () => Promise<string | null>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -81,6 +82,18 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const dismissNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
+
+  // Listen for connection state changes and create auth token
+  useEffect(() => {
+    if (connected && publicKey) {
+      // Only show a single connection notification - no auto-authentication
+      addNotification('success', 'Wallet connected');
+    } else {
+      // Clear auth token when wallet disconnects
+      setWalletAuthToken(null);
+      setLastAuthTime(null);
+    }
+  }, [connected, publicKey, addNotification]);
 
   // Function to create a secure authentication token
   const createAuthToken = useCallback(async (force = false) => {
@@ -134,11 +147,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         // Store token in state first to ensure it's available for API calls
         setWalletAuthToken(token);
         setLastAuthTime(Date.now());
-        addNotification('success', 'Wallet identity verified');
-        
-        // We'll skip setting the token in the Supabase session since that's causing issues
-        // Instead, we'll rely on passing the token directly in the Authorization header
-        // when making API calls, which is more reliable
+        // Don't show a notification for successful auth to reduce notification spam
         
         return token;
       }
@@ -153,7 +162,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       
       // User rejection messages are friendlier
       if (errorMessage.includes('cancelled') || errorMessage.includes('rejected') || errorMessage.includes('declined')) {
-        addNotification('info', 'Authentication cancelled - some features may be limited');
+        addNotification('info', 'Authentication cancelled');
       } else {
         addNotification('error', `Authentication failed: ${errorMessage}`);
       }
@@ -162,35 +171,6 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setIsAuthInProgress(false);
     }
   }, [publicKey, signMessage, addNotification, walletAuthToken, lastAuthTime, isAuthInProgress]);
-
-  // Listen for connection state changes and create auth token
-  useEffect(() => {
-    if (connected && publicKey) {
-      // Don't show connection success notification since we'll show auth success instead
-      // Wait a small delay before triggering the auth to ensure wallet is fully connected
-      setTimeout(() => {
-        createAuthToken()
-          .then(token => {
-            if (token) {
-              addNotification('success', 'Wallet connected and authenticated!');
-            } else {
-              // If auth failed but wallet is connected, still show connection success
-              addNotification('success', 'Wallet connected!');
-              addNotification('info', 'Please authenticate to access your orders');
-            }
-          })
-          .catch(error => {
-            console.error('Auth error during connection:', error);
-            // Still show connection success if auth fails
-            addNotification('success', 'Wallet connected!');
-          });
-      }, 500);
-    } else {
-      // Clear auth token when wallet disconnects
-      setWalletAuthToken(null);
-      setLastAuthTime(null);
-    }
-  }, [connected, publicKey, addNotification, createAuthToken]);
 
   // Handler for expired auth tokens
   const handleAuthExpiration = useCallback(() => {
@@ -203,23 +183,11 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     // Clear existing token
     setWalletAuthToken(null);
     
-    // Notify user that reauthentication is needed
-    addNotification('info', 'Session expired, please reconnect your wallet');
+    // Only show a minimal notification
+    addNotification('info', 'Please reconnect your wallet');
     
-    // Always try to recreate the auth token if wallet is connected
-    if (connected && publicKey && signMessage) {
-      console.log('Automatically attempting to recreate wallet auth token');
-      createAuthToken(true).then(token => {
-        if (token) {
-          console.log('Successfully recreated wallet auth token');
-        } else {
-          console.error('Failed to recreate wallet auth token');
-        }
-      }).catch(error => {
-        console.error('Error recreating auth token:', error);
-      });
-    }
-  }, [connected, publicKey, signMessage, addNotification, createAuthToken, lastAuthTime]);
+    // Don't auto-retry authentication - let the user decide when to authenticate
+  }, [lastAuthTime, addNotification]);
 
   // Listen for auth expiration events
   useEffect(() => {
@@ -300,6 +268,21 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     }
   }, [connected, publicKey, addNotification]);
 
+  // Make authenticate function available to use when needed
+  const authenticate = useCallback(async () => {
+    if (!connected || !publicKey) {
+      addNotification('error', 'Wallet must be connected first');
+      return null;
+    }
+    
+    const token = await createAuthToken();
+    if (token) {
+      // Only show a success message if explicitly authenticated
+      addNotification('success', 'Wallet authenticated');
+    }
+    return token;
+  }, [createAuthToken, connected, publicKey, addNotification]);
+
   return (
     <WalletContext.Provider value={{
       isConnected: connected,
@@ -312,7 +295,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       notifications,
       dismissNotification,
       walletAuthToken,
-      handleAuthExpiration
+      handleAuthExpiration,
+      authenticate
     }}>
       {children}
     </WalletContext.Provider>
