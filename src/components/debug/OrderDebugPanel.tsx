@@ -59,19 +59,40 @@ export function OrderDebugPanel() {
           }));
         }
         
-        // Try direct query against orders
+        // Try direct query against orders using our RPC function
         if (walletAddress) {
-          const { data: ordersData, error: ordersError } = await supabase
-            .from('orders')
-            .select('id, order_number, wallet_address, status, created_at')
-            .eq('wallet_address', walletAddress)
-            .limit(4);
-          
-          setDirectResults({
-            data: ordersData,
-            count: ordersData?.length || 0,
-            error: ordersError ? ordersError.message : null
-          });
+          try {
+            const { data: rpcData, error: rpcError } = await supabase
+              .rpc('get_wallet_orders', { wallet_addr: walletAddress })
+              .select('id, order_number, wallet_address, status, created_at')
+              .limit(4);
+            
+            setDirectResults({
+              data: rpcData,
+              count: rpcData?.length || 0,
+              error: rpcError ? rpcError.message : null
+            });
+          } catch (directErr) {
+            console.error("Error calling get_wallet_orders RPC:", directErr);
+            setDirectResults({
+              data: null,
+              count: 0, 
+              error: directErr instanceof Error ? directErr.message : "Unknown error calling RPC"
+            });
+            
+            // Try debug function as fallback
+            try {
+              const { data: debugData } = await supabase
+                .rpc('debug_auth_status');
+              
+              setDirectResults((prev: any) => ({
+                ...prev,
+                debugInfo: debugData
+              }));
+            } catch (debugErr) {
+              // Ignore debug errors
+            }
+          }
         }
         
         // Try query against user_orders view
