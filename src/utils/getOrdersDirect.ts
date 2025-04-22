@@ -44,10 +44,72 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
     // Continue to fallback method
   }
 
-  // If view didn't work, try direct orders table
+  // If view didn't work, try direct orders table with enhanced joins
   try {
+    // First get products to join with orders
+    const productsResponse = await fetch(
+      `${supabaseUrl}/rest/v1/products?select=id,name,sku,category_id`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'X-Wallet-Address': walletAddress,
+          'X-Wallet-Auth-Token': walletAuthToken
+        }
+      }
+    );
+    
+    // Define types for products and collections
+    interface Product {
+      id: string;
+      name: string;
+      sku?: string;
+      category_id?: string;
+    }
+    
+    interface Collection {
+      id: string;
+      name: string;
+    }
+    
+    let products: Record<string, Product> = {};
+    if (productsResponse.ok) {
+      const productsData = await productsResponse.json();
+      products = productsData.reduce((acc: Record<string, Product>, product: Product) => {
+        acc[product.id] = product;
+        return acc;
+      }, {});
+    }
+    
+    // Get collections
+    const collectionsResponse = await fetch(
+      `${supabaseUrl}/rest/v1/collections?select=id,name`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'X-Wallet-Address': walletAddress,
+          'X-Wallet-Auth-Token': walletAuthToken
+        }
+      }
+    );
+    
+    let collections: Record<string, Collection> = {};
+    if (collectionsResponse.ok) {
+      const collectionsData = await collectionsResponse.json();
+      collections = collectionsData.reduce((acc: Record<string, Collection>, collection: Collection) => {
+        acc[collection.id] = collection;
+        return acc;
+      }, {});
+    }
+    
+    // Now fetch direct orders
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/orders?select=*,products(*),collections(*)&wallet_address=eq.${walletAddress}&order=created_at.desc`,
+      `${supabaseUrl}/rest/v1/orders?select=*&wallet_address=eq.${walletAddress}&order=created_at.desc`,
       {
         method: 'GET',
         headers: {
@@ -65,10 +127,25 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
     }
     
     const data = await response.json();
-    console.log('Direct orders query successful, data:', data.slice(0, 1));
+    
+    // Enrich orders with product and collection data
+    const enrichedData = data.map((order: any) => {
+      const product = products[order.product_id] || {} as Product;
+      const collection = collections[order.collection_id] || {} as Collection;
+      
+      return {
+        ...order,
+        product_name: order.product_name || product.name || 'Unknown Product',
+        product_sku: order.product_sku || product.sku || '',
+        collection_name: order.collection_name || collection.name || 'Unknown Collection',
+        category_name: order.category_name || ''
+      };
+    });
+    
+    console.log('Enhanced direct orders data:', enrichedData.slice(0, 1));
     return {
-      data,
-      source: 'orders_table',
+      data: enrichedData,
+      source: 'orders_table_enhanced',
       error: null
     };
   } catch (directErr) {
