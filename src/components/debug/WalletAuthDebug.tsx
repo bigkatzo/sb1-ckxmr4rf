@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { testWalletAuth, testWalletAuthSecurity, exportWalletAuthInfo } from '../../utils/walletAuthHelper';
+import { testWalletAuth, exportWalletAuthInfo } from '../../utils/walletAuthHelper';
+import { testWalletAuthSecurity } from '../../utils/walletAuthSecurityTest';
 import { useWallet } from '../../contexts/WalletContext';
 import { AlertCircle, Check, ChevronDown, ChevronUp, Shield, Download, Info } from 'lucide-react';
+import { SecurityFixer } from './SecurityFixer';
 
 /**
  * A debug component for testing wallet authentication
@@ -232,6 +234,11 @@ export function WalletAuthDebug() {
               </div>
             )}
           </div>
+          
+          {/* Add the SecurityFixer component for direct fixing */}
+          {securityResults && !securityResults.securityPassed && (
+            <SecurityFixer />
+          )}
           
           <div className="text-gray-500 text-xs">
             <p>This panel helps debug wallet authentication issues. Use the Test button to verify the authentication is working correctly.</p>
