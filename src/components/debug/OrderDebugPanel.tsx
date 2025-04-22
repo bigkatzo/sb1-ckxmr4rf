@@ -52,7 +52,7 @@ export function OrderDebugPanel() {
         // Check session to confirm token is working
         const { data: session } = await supabase.auth.getSession();
         if (session?.session) {
-          setJwtInfo(prev => ({
+          setJwtInfo((prev: any) => ({
             ...prev,
             session_active: true,
             session_user_id: session.session.user?.id || null
@@ -180,7 +180,7 @@ export function OrderDebugPanel() {
             </div>
           </div>
           
-          {jwtInfo?.wallet_address !== walletAddress && (
+          {jwtInfo && walletAddress && jwtInfo.wallet_address && jwtInfo.wallet_address !== walletAddress && (
             <div className="p-2 bg-red-900/20 rounded">
               <h4 className="font-medium text-red-400 mb-1">Wallet Address Mismatch</h4>
               <div className="text-[9px] space-y-1">
