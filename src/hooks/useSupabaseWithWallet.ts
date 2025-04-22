@@ -9,8 +9,11 @@ import type { Database } from '../lib/database.types';
  * This client automatically includes the wallet address and authentication token
  * in the headers of all requests, which allows the Supabase RLS policies to verify
  * the wallet ownership and restrict data access accordingly.
+ * 
+ * During checkout flows, even if token is missing, we'll create a client using just
+ * the wallet address to prevent authentication interruptions.
  */
-export function useSupabaseWithWallet(): {
+export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean }): {
   client: SupabaseClient<Database> | null;
   isAuthenticated: boolean;
   walletAddress: string | null;
@@ -23,6 +26,7 @@ export function useSupabaseWithWallet(): {
   };
 } {
   const { walletAddress, walletAuthToken, isConnected } = useWallet();
+  const allowMissingToken = options?.allowMissingToken || false;
   
   // Check environment variables
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -39,7 +43,7 @@ export function useSupabaseWithWallet(): {
       ? "No wallet address available"
       : !isConnected
         ? "Wallet not connected"
-        : !walletAuthToken
+        : !walletAuthToken && !allowMissingToken
           ? "No wallet authentication token"
           : !hasEnvVars
             ? "Missing Supabase environment variables"
@@ -52,17 +56,23 @@ export function useSupabaseWithWallet(): {
       console.group('useSupabaseWithWallet Diagnostics');
       console.log('Wallet Address:', walletAddress ? `${walletAddress.substring(0, 8)}...` : 'null');
       console.log('Auth Token:', walletAuthToken ? 'Available' : 'Missing');
+      console.log('Allow Missing Token:', allowMissingToken);
       console.log('Wallet Connected:', isConnected);
       console.log('Environment Variables:', hasEnvVars ? 'Available' : 'Missing');
       console.log('Client Initialized:', diagnostics.reason ? `No - ${diagnostics.reason}` : 'Yes');
       console.groupEnd();
     }
-  }, [walletAddress, walletAuthToken, isConnected, hasEnvVars, diagnostics]);
+  }, [walletAddress, walletAuthToken, isConnected, hasEnvVars, diagnostics, allowMissingToken]);
   
   // Create a memoized client instance that will only be recreated when auth details change
   const client = useMemo(() => {
-    // Only create client if we have both wallet address and auth token
-    if (!walletAddress || !isConnected || !walletAuthToken) {
+    // Only create client if we have wallet address and we're connected
+    if (!walletAddress || !isConnected) {
+      return null;
+    }
+    
+    // If we don't allow missing token and don't have a token, return null
+    if (!allowMissingToken && !walletAuthToken) {
       return null;
     }
     
@@ -74,12 +84,30 @@ export function useSupabaseWithWallet(): {
     
     // Log successful client creation in development
     if (import.meta.env.DEV) {
-      console.log('✓ Creating Supabase client with wallet auth headers');
+      console.log('✓ Creating Supabase client with wallet auth headers', 
+                  walletAuthToken ? 'with token' : 'WITHOUT token (checkout flow)');
     }
     
     // Check if the token is a custom format (not a standard JWT)
-    const isCustomToken = walletAuthToken.startsWith('WALLET_VERIFIED_') || 
-                          walletAuthToken.startsWith('WALLET_AUTH_');
+    const isCustomToken = walletAuthToken?.startsWith('WALLET_VERIFIED_') || 
+                          walletAuthToken?.startsWith('WALLET_AUTH_');
+    
+    // Prepare headers based on whether we have a token or not
+    const headers: Record<string, string> = {
+      // Always include wallet address
+      'X-Wallet-Address': walletAddress
+    };
+    
+    // Add token headers if available
+    if (walletAuthToken) {
+      headers['X-Wallet-Auth-Token'] = walletAuthToken;
+      headers['X-Authorization'] = `Bearer ${walletAuthToken}`;
+      
+      // Only include standard Authorization header if it's not a custom token
+      if (!isCustomToken) {
+        headers['Authorization'] = `Bearer ${walletAuthToken}`;
+      }
+    }
     
     // Create a client with wallet authentication headers
     return createClient<Database>(supabaseUrl, supabaseKey, {
@@ -94,24 +122,10 @@ export function useSupabaseWithWallet(): {
         detectSessionInUrl: !isCustomToken
       },
       global: {
-        headers: {
-          // Include wallet address and auth token in headers for RLS policy verification
-          'X-Wallet-Address': walletAddress,
-          'X-Wallet-Auth-Token': walletAuthToken,
-          
-          // Always include X-Authorization header for custom tokens
-          // Our SQL functions specifically look for this
-          'X-Authorization': `Bearer ${walletAuthToken}`,
-          
-          // Only include standard Authorization header if it's not a custom token
-          // to avoid JWT parsing errors in Supabase client
-          ...(isCustomToken 
-            ? {} 
-            : { 'Authorization': `Bearer ${walletAuthToken}` })
-        }
+        headers
       }
     });
-  }, [walletAddress, walletAuthToken, isConnected, supabaseUrl, supabaseKey]);
+  }, [walletAddress, walletAuthToken, isConnected, supabaseUrl, supabaseKey, allowMissingToken]);
   
   return {
     client,
@@ -119,4 +133,4 @@ export function useSupabaseWithWallet(): {
     walletAddress,
     diagnostics
   };
-} 
+}

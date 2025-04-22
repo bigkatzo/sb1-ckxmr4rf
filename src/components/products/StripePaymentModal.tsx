@@ -12,6 +12,7 @@ import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
+import { useSupabaseWithWallet } from '../../hooks/useSupabaseWithWallet';
 
 // Replace the early initialization with a function
 function getStripe() {
@@ -225,7 +226,7 @@ function StripeCheckoutForm({
       setError('An unexpected error occurred. Please try again.');
       setPaymentStatus('error');
     }
-  }, [stripe, elements, solPrice, paymentStatus, onSuccess]);
+  }, [stripe, elements, solPrice, paymentStatus, onSuccess, isPaymentMethodSelected, couponDiscount, originalPrice]);
 
   // Add payment status effect
   React.useEffect(() => {
@@ -364,6 +365,8 @@ export function StripePaymentModal({
   const [orderId, setOrderId] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
   const { walletAddress } = useWallet();
+  // Initialize Supabase client that doesn't require auth token
+  const { client: supabaseWithoutAuth } = useSupabaseWithWallet({ allowMissingToken: true });
   const { price: rawSolPrice } = useSolanaPrice();
   const solPrice = rawSolPrice || 0;
 
@@ -372,48 +375,82 @@ export function StripePaymentModal({
     setStripePromise(getStripe());
   }, []);
 
-  // Create payment intent with proper dependency tracking
+  // Create payment intent when component mounts
   React.useEffect(() => {
     if (!solPrice || !shippingInfo?.shipping_address || isLoading || clientSecret) return;
     
     async function createPaymentIntent() {
       setIsLoading(true);
+      setError(null);
       try {
-        // Check if it's a 100% discount - with improved handling for different discount types
-        const discountPercentage = originalPrice && originalPrice > 0 
-          ? (couponDiscount / originalPrice) * 100 
-          : 0;
-          
-        const is100PercentDiscount = 
-          couponDiscount !== undefined && 
-          originalPrice !== undefined && 
-          couponDiscount > 0 && (
-            // Handle fixed SOL discount (equal or greater than original price)
-            couponDiscount >= originalPrice ||
-            // Handle percentage discount (100% or more)
-            discountPercentage >= 100
-          );
-
-        console.log('Coupon discount calculation:', {
-          couponCode,
-          couponDiscount,
-          originalPrice,
-          discountPercentage: discountPercentage.toFixed(2) + '%',
-          is100PercentDiscount
-        });
-
-        // Always use the create-payment-intent endpoint even for free orders
-        // The server will handle free orders appropriately
-        console.log('Creating payment intent:', {
-          endpoint: `${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`,
+        console.log('Creating payment intent for', {
           solAmount,
-          solPrice,
           productName,
           productId,
-          couponCode,
-          couponDiscount,
-          isFreeOrder: is100PercentDiscount
+          hasShippingInfo: !!shippingInfo,
+          hasVariants: !!(variants && variants.length > 0),
+          walletAddress
         });
+
+        // If amount is zero (100% discount), we can bypass the payment flow entirely 
+        // and create the order directly
+        if (solAmount === 0 || (couponDiscount > 0 && couponDiscount >= originalPrice)) {
+          console.log('Creating free order with 100% discount');
+          
+          if (!supabaseWithoutAuth) {
+            throw new Error('Cannot create free order: Supabase client not initialized');
+          }
+          
+          try {
+            // Create order directly using the Supabase client
+            const { data: createdOrderId, error: orderError } = await supabaseWithoutAuth.rpc('create_order', {
+              p_product_id: productId,
+              p_variants: variants || [],
+              p_shipping_info: {
+                shipping_address: shippingInfo.shipping_address,
+                contact_info: shippingInfo.contact_info
+              },
+              p_wallet_address: walletAddress || 'anonymous',
+              p_payment_metadata: {
+                paymentMethod: 'coupon',
+                couponCode,
+                couponDiscount,
+                originalPrice,
+                isFreeOrder: true
+              }
+            });
+            
+            if (orderError) {
+              throw orderError;
+            }
+            
+            if (createdOrderId) {
+              // Order created successfully
+              setOrderId(createdOrderId);
+              
+              // Generate a fake transaction ID for free orders
+              const fakeTransactionId = `FREE_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+              
+              // Update the order with the transaction
+              const { error: updateError } = await supabaseWithoutAuth.rpc('update_order_transaction', {
+                p_order_id: createdOrderId,
+                p_transaction_signature: fakeTransactionId,
+                p_amount_sol: 0
+              });
+              
+              if (updateError) {
+                console.error('Error updating free order transaction:', updateError);
+              }
+              
+              // Call onSuccess with the order ID and transaction ID
+              onSuccess(createdOrderId, fakeTransactionId);
+              return;
+            }
+          } catch (freeOrderError) {
+            console.error('Error creating free order:', freeOrderError);
+            throw new Error('Failed to create free order with coupon');
+          }
+        }
 
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
           method: 'POST',
@@ -468,58 +505,44 @@ export function StripePaymentModal({
           throw new Error('Failed to connect to payment server');
         }
 
-        if (!response.ok) {
-          console.error('Response not OK:', {
-            status: response.status,
-            data
-          });
-          
-          // Handle specific error cases
-          if (data.details?.includes('must be at least $0.50 usd')) {
-            throw new Error('The payment amount after discount is too low. Minimum payment amount is $0.50 USD.');
-          }
-          
-          throw new Error(data.error || `Failed to create payment intent (${response.status})`);
+        if (data.error) {
+          throw new Error(data.error);
         }
 
-        // Check if this is a free order response
-        if (data.isFreeOrder) {
-          console.log('Free order created successfully:', data);
-          onSuccess(data.orderId, data.paymentIntentId);
-          return;
-        }
-
-        // Regular paid order flow
         if (!data.clientSecret) {
-          console.error('Missing client secret in response:', data);
-          throw new Error('No client secret received from server');
+          throw new Error('No client secret returned from the server');
         }
 
+        if (data.orderId) {
+          setOrderId(data.orderId);
+        } else {
+          console.warn('No order ID returned from payment intent creation');
+        }
+
+        console.log('Setting client secret:', data.clientSecret.substring(0, 10) + '...');
         setClientSecret(data.clientSecret);
-        setOrderId(data.orderId);
       } catch (err) {
         console.error('Error creating payment intent:', err);
-        setError(err instanceof Error ? err.message : 'Failed to initialize payment');
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       } finally {
         setIsLoading(false);
       }
     }
 
     createPaymentIntent();
-  }, [
-    solPrice, 
-    shippingInfo?.shipping_address, 
-    isLoading, 
-    clientSecret,
-    solAmount,
-    productName,
-    productId,
-    variants,
-    walletAddress,
-    couponCode,
-    couponDiscount,
-    originalPrice
-  ]);
+  }, [solPrice, solAmount, productId, productName, walletAddress, shippingInfo, couponCode, 
+      couponDiscount, originalPrice, variants, isLoading, clientSecret, supabaseWithoutAuth, onSuccess]);
+
+  // Handle successful payment
+  const handlePaymentSuccess = React.useCallback((paymentIntentId: string) => {
+    if (orderId) {
+      console.log('Payment successful, notifying parent with order ID:', orderId);
+      onSuccess(orderId, paymentIntentId);
+    } else {
+      console.error('Payment succeeded but no order ID is available');
+      setError('Payment successful, but order details could not be retrieved. Please contact support.');
+    }
+  }, [orderId, onSuccess]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg overflow-y-auto">
@@ -549,7 +572,7 @@ export function StripePaymentModal({
                 Try Again
               </button>
             </div>
-          ) : !clientSecret || !orderId ? (
+          ) : isLoading ? (
             <div className="flex items-center justify-center p-8">
               <Loading type={LoadingType.ACTION} text="Initializing payment..." />
             </div>
@@ -568,7 +591,7 @@ export function StripePaymentModal({
             <Elements 
               stripe={stripePromise} 
               options={{
-                clientSecret,
+                clientSecret: clientSecret as string,
                 appearance: {
                   theme: 'night',
                   variables: {
@@ -593,27 +616,24 @@ export function StripePaymentModal({
                 loader: 'always'
               }}
             >
-              <ErrorBoundary
-                fallback={
-                  <div className="text-red-500 p-4 text-center">
-                    <div className="mb-2">Failed to load payment form.</div>
-                    <div className="text-sm text-gray-400 mb-4">Please try refreshing the page.</div>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium block w-full"
-                    >
-                      Refresh Page
-                    </button>
-                  </div>
-                }
-              >
-                <StripeCheckoutForm
+              <ErrorBoundary fallback={
+                <div className="p-4 text-red-500 text-center">
+                  <p>Failed to load payment form.</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium"
+                  >
+                    Refresh Page
+                  </button>
+                </div>
+              }>
+                <StripeCheckoutForm 
                   solAmount={solAmount}
-                  onSuccess={(paymentIntentId) => onSuccess(orderId, paymentIntentId)}
-                  couponDiscount={couponDiscount}
-                  originalPrice={originalPrice}
+                  onSuccess={handlePaymentSuccess}
                   solPrice={solPrice}
                   shippingInfo={shippingInfo}
+                  couponDiscount={couponDiscount}
+                  originalPrice={originalPrice}
                 />
               </ErrorBoundary>
             </Elements>

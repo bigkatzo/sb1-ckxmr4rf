@@ -57,6 +57,12 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<Error | null>(null);
   const [notifications, setNotifications] = useState<WalletNotification[]>([]);
   const [walletAuthToken, setWalletAuthToken] = useState<string | null>(null);
+  // Add auth processing state to prevent multiple concurrent challenges
+  const [isAuthInProgress, setIsAuthInProgress] = useState(false);
+  // Track token's last verification time
+  const [lastAuthTime, setLastAuthTime] = useState<number | null>(null);
+  // Token expiration - 1 hour (in ms)
+  const TOKEN_EXPIRATION = 60 * 60 * 1000;
 
   const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
     const notification: WalletNotification = {
@@ -77,11 +83,25 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Function to create a secure authentication token
-  const createAuthToken = useCallback(async () => {
+  const createAuthToken = useCallback(async (force = false) => {
+    // Return existing token if it's not expired and not forcing refresh
+    if (!force && walletAuthToken && lastAuthTime && (Date.now() - lastAuthTime < TOKEN_EXPIRATION)) {
+      console.log('Using existing wallet auth token (not expired)');
+      return walletAuthToken;
+    }
+    
     if (!publicKey || !signMessage) return null;
     
+    // Prevent multiple concurrent auth challenges
+    if (isAuthInProgress) {
+      console.log('Authentication already in progress, skipping duplicate request');
+      return walletAuthToken;
+    }
+    
     try {
-      // Create a challenge message that includes the wallet address and timestamp
+      setIsAuthInProgress(true);
+      
+      // Create a friendly challenge message that clearly explains the purpose
       const timestamp = Date.now();
       const message = `buy merch. manage your orders.`;
       const encodedMessage = new TextEncoder().encode(message);
@@ -113,6 +133,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         
         // Store token in state first to ensure it's available for API calls
         setWalletAuthToken(token);
+        setLastAuthTime(Date.now());
         addNotification('success', 'Wallet identity verified');
         
         // We'll skip setting the token in the Supabase session since that's causing issues
@@ -129,25 +150,56 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error creating auth token:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      addNotification('error', `Authentication failed: ${errorMessage}`);
+      
+      // User rejection messages are friendlier
+      if (errorMessage.includes('cancelled') || errorMessage.includes('rejected') || errorMessage.includes('declined')) {
+        addNotification('info', 'Authentication cancelled - some features may be limited');
+      } else {
+        addNotification('error', `Authentication failed: ${errorMessage}`);
+      }
       return null;
+    } finally {
+      setIsAuthInProgress(false);
     }
-  }, [publicKey, signMessage, addNotification]);
+  }, [publicKey, signMessage, addNotification, walletAuthToken, lastAuthTime, isAuthInProgress]);
 
   // Listen for connection state changes and create auth token
   useEffect(() => {
     if (connected && publicKey) {
-      addNotification('success', 'Wallet connected!');
-      // Create authentication token when wallet connects
-      createAuthToken().catch(console.error);
+      // Don't show connection success notification since we'll show auth success instead
+      // Wait a small delay before triggering the auth to ensure wallet is fully connected
+      setTimeout(() => {
+        createAuthToken()
+          .then(token => {
+            if (token) {
+              addNotification('success', 'Wallet connected and authenticated!');
+            } else {
+              // If auth failed but wallet is connected, still show connection success
+              addNotification('success', 'Wallet connected!');
+              addNotification('info', 'Please authenticate to access your orders');
+            }
+          })
+          .catch(error => {
+            console.error('Auth error during connection:', error);
+            // Still show connection success if auth fails
+            addNotification('success', 'Wallet connected!');
+          });
+      }, 500);
     } else {
       // Clear auth token when wallet disconnects
       setWalletAuthToken(null);
+      setLastAuthTime(null);
     }
   }, [connected, publicKey, addNotification, createAuthToken]);
 
   // Handler for expired auth tokens
   const handleAuthExpiration = useCallback(() => {
+    // Check if the token is actually expired based on our local tracking
+    if (lastAuthTime && (Date.now() - lastAuthTime < TOKEN_EXPIRATION)) {
+      console.log('Auth token not expired based on local tracking, skipping refresh');
+      return;
+    }
+    
     // Clear existing token
     setWalletAuthToken(null);
     
@@ -157,7 +209,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     // Always try to recreate the auth token if wallet is connected
     if (connected && publicKey && signMessage) {
       console.log('Automatically attempting to recreate wallet auth token');
-      createAuthToken().then(token => {
+      createAuthToken(true).then(token => {
         if (token) {
           console.log('Successfully recreated wallet auth token');
         } else {
@@ -167,7 +219,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         console.error('Error recreating auth token:', error);
       });
     }
-  }, [connected, publicKey, signMessage, addNotification, createAuthToken]);
+  }, [connected, publicKey, signMessage, addNotification, createAuthToken, lastAuthTime]);
 
   // Listen for auth expiration events
   useEffect(() => {
@@ -198,11 +250,18 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const disconnect = useCallback(async () => {
     try {
       setError(null);
-      await nativeDisconnect();
-      // Clear auth token
+      
+      // Clear auth token and state before disconnecting
       setWalletAuthToken(null);
+      setLastAuthTime(null);
+      setIsAuthInProgress(false);
+      
       // Clear Supabase session
       await supabase.auth.signOut();
+      
+      // Disconnect wallet after cleanup
+      await nativeDisconnect();
+      
       addNotification('info', 'Wallet disconnected');
     } catch (error) {
       console.error('Disconnect error:', error);

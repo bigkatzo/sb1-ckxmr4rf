@@ -19,6 +19,7 @@ import { StripePaymentModal } from './StripePaymentModal';
 import { CouponService } from '../../services/coupons';
 import type { PriceWithDiscount } from '../../types/coupons';
 import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
+import { useSupabaseWithWallet } from '../../hooks/useSupabaseWithWallet';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -79,6 +80,8 @@ export function TokenVerificationModal({
 }: TokenVerificationModalProps) {
   const { walletAddress } = useWallet();
   const { processPayment } = usePayment();
+  // Initialize Supabase client that doesn't require auth token
+  const { client: supabaseWithoutAuth } = useSupabaseWithWallet({ allowMissingToken: true });
   const [verifying, setVerifying] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const { modifiedPrice: baseModifiedPrice } = useModifiedPrice({
@@ -651,8 +654,15 @@ export function TokenVerificationModal({
   };
 
   const handleStripeSuccess = async (orderId: string, paymentIntentId: string) => {
-    // Get order number
-    const { data: orderData, error: orderError } = await supabase
+    // Use the supabase client that doesn't require authentication
+    if (!supabaseWithoutAuth) {
+      console.error('Supabase client not initialized');
+      toast.error('Error retrieving order details');
+      return;
+    }
+    
+    // Get order number using the client that doesn't require auth
+    const { data: orderData, error: orderError } = await supabaseWithoutAuth
       .from('orders')
       .select('order_number')
       .eq('id', orderId)
