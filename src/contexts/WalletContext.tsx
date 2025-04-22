@@ -83,7 +83,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     try {
       // Create a challenge message that includes the wallet address and timestamp
       const timestamp = Date.now();
-      const message = `Authenticate wallet ${publicKey.toString()} with StoreDotFun at ${timestamp}`;
+      const message = `buy merch. manage your orders.`;
       const encodedMessage = new TextEncoder().encode(message);
       
       // Ask user to sign the message - this proves ownership
