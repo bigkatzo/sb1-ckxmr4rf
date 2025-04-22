@@ -19,6 +19,7 @@ import { SensitiveInfo } from '../components/ui/SensitiveInfo';
 import { debugOrderSecurity } from '../utils/orderSecurity';
 import { WalletAuthDebug } from '../components/debug/WalletAuthDebug';
 import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
+import { useUserRole } from '../contexts/UserRoleContext';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -46,6 +47,7 @@ export function OrdersPage() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const prevWalletRef = useRef<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
+  const { isAdmin } = useUserRole();
   
   // Debug logging
   useEffect(() => {
@@ -302,22 +304,24 @@ export function OrdersPage() {
               </div>
             )}
             
-            {/* Add debugging option */}
-            <div className="mt-4 border-t border-red-500/20 pt-4">
-              <button
-                onClick={() => setDebugMode(!debugMode)}
-                className="text-xs flex items-center gap-1 text-gray-400 hover:text-gray-300"
-              >
-                <Bug className="h-3 w-3" />
-                {debugMode ? 'Hide Debug Tools' : 'Debug Tools'}
-              </button>
-              
-              {debugMode && (
-                <div className="mt-2 space-y-2">
-                  <WalletAuthDebug />
-                </div>
-              )}
-            </div>
+            {/* Add debugging option - only visible to admins */}
+            {isAdmin && (
+              <div className="mt-4 border-t border-red-500/20 pt-4">
+                <button
+                  onClick={() => setDebugMode(!debugMode)}
+                  className="text-xs flex items-center gap-1 text-gray-400 hover:text-gray-300"
+                >
+                  <Bug className="h-3 w-3" />
+                  {debugMode ? 'Hide Debug Tools' : 'Debug Tools'}
+                </button>
+                
+                {debugMode && (
+                  <div className="mt-2 space-y-2">
+                    <WalletAuthDebug />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -330,19 +334,21 @@ export function OrdersPage() {
         <h1 className="text-2xl font-bold">Your Orders</h1>
         <div className="flex items-center gap-2">
           <SupportMessage />
-          {/* Add debug button in non-error state as well */}
-          <button
-            onClick={() => setDebugMode(!debugMode)}
-            className="text-xs flex items-center gap-1 text-gray-500 hover:text-gray-400"
-          >
-            <Bug className="h-3 w-3" />
-            {debugMode ? 'Hide Debug' : 'Debug'}
-          </button>
+          {/* Only show debug button to admins */}
+          {isAdmin && (
+            <button
+              onClick={() => setDebugMode(!debugMode)}
+              className="text-xs flex items-center gap-1 text-gray-500 hover:text-gray-400"
+            >
+              <Bug className="h-3 w-3" />
+              {debugMode ? 'Hide Debug' : 'Debug'}
+            </button>
+          )}
         </div>
       </div>
       
-      {/* Debug panel */}
-      {debugMode && (
+      {/* Debug panel - only visible to admins */}
+      {isAdmin && debugMode && (
         <>
           <OrderDebugPanel />
           <WalletAuthDebug />
