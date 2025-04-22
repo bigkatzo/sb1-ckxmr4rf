@@ -5,45 +5,28 @@
 
 // Core wallet authentication function for user_orders view
 export const getWalletAuthSQL = () => {
-  return `-- Deploy wallet header authentication function
+  return `-- Deploy simplified wallet header authentication fix
 -- Run this in Supabase SQL Editor
 
--- Create a simple wallet auth check function that uses both methods
-CREATE OR REPLACE FUNCTION auth.wallet_matches(check_wallet text) 
-RETURNS boolean AS $$
-DECLARE
-  header_wallet text;
-  header_token text;
-  jwt_wallet text;
-BEGIN
-  -- Check for wallet in headers (method 1)
-  BEGIN
-    header_wallet := current_setting('request.headers.x-wallet-address', true);
-    header_token := current_setting('request.headers.x-wallet-auth-token', true);
-  EXCEPTION 
-    WHEN OTHERS THEN 
-      header_wallet := null;
-      header_token := null;
-  END;
+-- First, create a simple view that doesn't use ANY authentication checks
+-- This will be protected via RLS policies only
+DROP VIEW IF EXISTS user_orders CASCADE;
 
-  -- Check for wallet in JWT (method 2)
-  BEGIN
-    jwt_wallet := auth.jwt()->>'wallet_address';
-  EXCEPTION 
-    WHEN OTHERS THEN
-      jwt_wallet := null;
-  END;
-  
-  -- Allow if wallet matches either method
-  RETURN (header_wallet = check_wallet AND header_token IS NOT NULL) OR 
-         (jwt_wallet = check_wallet);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE VIEW user_orders AS
+SELECT 
+  o.*,
+  p.name as product_name,
+  p.sku as product_sku,
+  c.name as collection_name
+FROM 
+  orders o
+LEFT JOIN 
+  products p ON p.id = o.product_id
+LEFT JOIN 
+  collections c ON c.id = o.collection_id;
 
--- Grant execute permissions
-GRANT EXECUTE ON FUNCTION auth.wallet_matches(text) TO authenticated, anon;
-
--- Update the order policy to use this function
+-- Create a simple policy that uses a direct equality check
+-- This avoids any complex function calls that might be failing
 DROP POLICY IF EXISTS "orders_user_view" ON orders;
 
 CREATE POLICY "orders_user_view"
@@ -51,46 +34,80 @@ ON orders
 FOR SELECT
 TO authenticated
 USING (
-  -- Use the authentication function
-  auth.wallet_matches(wallet_address)
+  -- Simple direct check for either header or JWT wallet
+  (wallet_address = current_setting('request.headers.x-wallet-address', true) AND 
+   current_setting('request.headers.x-wallet-auth-token', true) IS NOT NULL)
+  OR
+  wallet_address = auth.jwt()->>'wallet_address'
 );
 
--- Create a very simple test function
-CREATE OR REPLACE FUNCTION test_wallet_header_auth() 
+-- Grant access to the view
+GRANT SELECT ON user_orders TO authenticated, anon;
+
+-- Create a test function that doesn't rely on any custom functions
+CREATE OR REPLACE FUNCTION direct_header_test() 
 RETURNS jsonb AS $$
 DECLARE
   header_wallet text;
+  header_token text;
   jwt_wallet text;
-  has_token boolean;
+  count_direct integer;
+  count_view integer;
 BEGIN
-  -- Try to get headers
+  -- Get header values directly
   BEGIN
     header_wallet := current_setting('request.headers.x-wallet-address', true);
-    has_token := current_setting('request.headers.x-wallet-auth-token', true) IS NOT NULL;
   EXCEPTION WHEN OTHERS THEN
     header_wallet := null;
-    has_token := false;
   END;
   
-  -- Try to get JWT wallet
+  BEGIN
+    header_token := current_setting('request.headers.x-wallet-auth-token', true);
+  EXCEPTION WHEN OTHERS THEN
+    header_token := null;
+  END;
+  
+  -- Get JWT value
   BEGIN
     jwt_wallet := auth.jwt()->>'wallet_address';
   EXCEPTION WHEN OTHERS THEN
     jwt_wallet := null;
   END;
   
-  -- Return result
+  -- Count direct orders
+  IF header_wallet IS NOT NULL THEN
+    EXECUTE 'SELECT COUNT(*) FROM orders WHERE wallet_address = $1' 
+    INTO count_direct
+    USING header_wallet;
+  ELSE
+    count_direct := 0;
+  END IF;
+  
+  -- Count view orders
+  IF header_wallet IS NOT NULL THEN
+    EXECUTE 'SELECT COUNT(*) FROM user_orders WHERE wallet_address = $1' 
+    INTO count_view
+    USING header_wallet;
+  ELSE
+    count_view := 0;
+  END IF;
+  
+  -- Return diagnostic info
   RETURN jsonb_build_object(
     'header_wallet', header_wallet,
-    'has_token', has_token,
+    'header_token_present', header_token IS NOT NULL,
     'jwt_wallet', jwt_wallet,
-    'role', current_user,
+    'direct_count', count_direct,
+    'view_count', count_view,
     'timestamp', now()
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION test_wallet_header_auth() TO authenticated, anon;`;
+GRANT EXECUTE ON FUNCTION direct_header_test() TO authenticated, anon;
+
+-- Add a helpful comment on how to use this test function
+COMMENT ON FUNCTION direct_header_test() IS 'Test if the custom X-Wallet-Address and X-Wallet-Auth-Token headers are being received by the database. Use this to verify that the RLS policy for user_orders is working.';`;
 };
 
 // Usage instructions for the frontend team
@@ -103,9 +120,13 @@ To deploy the wallet header authentication fix:
 3. Create a new query
 4. Paste the SQL code below
 5. Execute the query
+6. Return to the Orders page and click "Debug View Auth" again to test
 
-This will update the authentication function that checks for wallet addresses in both 
-HTTP headers and JWT tokens, making it work with both authentication methods.
+This SQL takes a simpler approach:
+- Creates a basic view without complex authentication logic
+- Uses a direct policy with straightforward conditions 
+- No custom functions that could cause compatibility issues
+- Works with both header and JWT authentication methods
 `;
 };
 

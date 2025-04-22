@@ -71,7 +71,7 @@ export async function debugViewAuth(walletAddress: string, walletAuthToken: stri
   // 3. Test our view test function
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/test_user_orders_view`,
+      `${supabaseUrl}/rest/v1/rpc/direct_header_test`,
       {
         method: 'POST',
         headers: {
