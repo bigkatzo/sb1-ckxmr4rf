@@ -72,6 +72,23 @@ export function useOrders() {
       }
       
       if (result.data) {
+        // Log the raw data structure to debug what's coming from the API
+        console.log('Raw order data structure:', {
+          source: result.source,
+          count: result.data.length,
+          firstOrder: result.data.length > 0 ? {
+            keys: Object.keys(result.data[0]),
+            snapshot: result.data[0].product_snapshot,
+            hasImages: result.data[0].product_snapshot?.images?.length > 0
+          } : null,
+          allProductSnapshots: result.data.map((order: any) => ({
+            id: order.id,
+            hasSnapshot: Boolean(order.product_snapshot),
+            snapshotKeys: order.product_snapshot ? Object.keys(order.product_snapshot) : [],
+            images: order.product_snapshot?.images || []
+          }))
+        });
+        
         const formattedOrders = formatOrdersData(result.data);
         setOrders(formattedOrders);
         setError(null);
@@ -92,14 +109,70 @@ export function useOrders() {
   
   // Helper to format orders data consistently
   const formatOrdersData = (data: any[]): Order[] => {
-    return data.map(order => ({
-      ...order,
-      product_name: order.products?.name || order.product_name || '',
-      collection_name: order.collections?.name || order.collection_name || '',
-      // Ensure dates are proper Date objects
-      createdAt: new Date(order.created_at),
-      updatedAt: new Date(order.updated_at),
-    }));
+    // Log before and after for the first order to debug transformation issues
+    if (data.length > 0) {
+      console.log('First order before formatting:', data[0]);
+    }
+    
+    const formatted = data.map(order => {
+      // Check for string JSON in product_snapshot and parse it if needed
+      let productSnapshot = order.product_snapshot;
+      if (typeof productSnapshot === 'string') {
+        try {
+          productSnapshot = JSON.parse(productSnapshot);
+        } catch (e) {
+          console.error('Error parsing product_snapshot string:', e);
+          productSnapshot = null;
+        }
+      }
+      
+      // Same for shipping_address, contact_info, variant_selections if they're strings
+      let shippingAddress = order.shipping_address || order.shippingAddress;
+      if (typeof shippingAddress === 'string') {
+        try { shippingAddress = JSON.parse(shippingAddress); } 
+        catch (e) { shippingAddress = null; }
+      }
+      
+      let contactInfo = order.contact_info || order.contactInfo;
+      if (typeof contactInfo === 'string') {
+        try { contactInfo = JSON.parse(contactInfo); } 
+        catch (e) { contactInfo = null; }
+      }
+      
+      let variantSelections = order.variant_selections;
+      if (typeof variantSelections === 'string') {
+        try { variantSelections = JSON.parse(variantSelections); } 
+        catch (e) { variantSelections = []; }
+      }
+      
+      // Convert column names from snake_case to camelCase if needed
+      return {
+        ...order,
+        product_name: order.product_name || order.products?.name || '',
+        collection_name: order.collection_name || order.collections?.name || '',
+        product_snapshot: productSnapshot,
+        shippingAddress: shippingAddress,
+        contactInfo: contactInfo,
+        variant_selections: variantSelections || [],
+        // For fields that might be named with snake_case in the database response
+        walletAddress: order.wallet_address || order.walletAddress,
+        productId: order.product_id || order.productId,
+        collectionId: order.collection_id || order.collectionId,
+        productSku: order.product_sku || order.productSku,
+        transactionSignature: order.transaction_signature || order.transactionSignature,
+        amountSol: order.amount_sol || order.amountSol || 0,
+        // Ensure dates are proper Date objects
+        createdAt: new Date(order.created_at || order.createdAt),
+        updatedAt: new Date(order.updated_at || order.updatedAt),
+      };
+    });
+    
+    // Log the first transformed order
+    if (formatted.length > 0) {
+      console.log('First order after formatting:', formatted[0]);
+    }
+    
+    return formatted;
   };
 
   return {
