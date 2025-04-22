@@ -17,10 +17,8 @@ import {
 import { SupportMessage } from '../components/ui/SupportMessage';
 import { SensitiveInfo } from '../components/ui/SensitiveInfo';
 import { debugOrderSecurity } from '../utils/orderSecurity';
-import { debugWalletAuth } from '../utils/debugWalletAuth';
+import { WalletAuthDebug } from '../components/debug/WalletAuthDebug';
 import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
-import { DeployHeaderAuthHelp } from '../components/debug/DeployHeaderAuthHelp';
-import { AdvancedHeaderDebugTools } from '../components/debug/AdvancedHeaderDebugTools';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -44,12 +42,10 @@ const safeParseDate = (date: any): Date => {
 
 export function OrdersPage() {
   const { walletAddress, walletAuthToken } = useWallet();
-  const { orders, loading, error, refetch } = useOrders();
+  const { orders, loading, error } = useOrders();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const prevWalletRef = useRef<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
-  const [debugResults, setDebugResults] = useState<any>(null);
-  const [isDebugging, setIsDebugging] = useState(false);
   
   // Debug logging
   useEffect(() => {
@@ -87,73 +83,6 @@ export function OrdersPage() {
       setIsInitialLoad(false);
     }
   }, [loading, isInitialLoad]);
-
-  // Function to run the wallet authentication debugging
-  const runWalletAuthDebug = async () => {
-    if (!walletAddress) return;
-    
-    setIsDebugging(true);
-    try {
-      const results = await debugWalletAuth(walletAddress, walletAuthToken);
-      setDebugResults(results);
-      console.log('Wallet auth debug results:', results);
-      
-      // After debugging, try refreshing orders
-      try {
-        refetch();
-      } catch (refreshErr) {
-        console.error('Error refreshing orders after debug:', refreshErr);
-        // Don't let refresh errors affect our debug results
-      }
-    } catch (err) {
-      console.error('Error during wallet auth debugging:', err);
-      // Handle the specific "h is not a function" error more gracefully
-      if (err instanceof Error && err.message.includes('h is not a function')) {
-        setDebugResults({ 
-          error: 'RPC function error: The wallet_auth_debug function returned an invalid response format',
-          suggestion: 'This likely indicates an issue with the SQL function implementation',
-          originalError: err.message
-        });
-      } else {
-        setDebugResults({ error: err instanceof Error ? err.message : 'Unknown error' });
-      }
-    } finally {
-      setIsDebugging(false);
-    }
-  };
-  
-  // New function to run view auth debugging
-  const runViewAuthDebug = async () => {
-    if (!walletAddress) return;
-    
-    setIsDebugging(true);
-    try {
-      // Import here to avoid circular dependencies
-      const { debugViewAuth } = await import('../utils/debugViewAuth');
-      
-      const results = await debugViewAuth(walletAddress, walletAuthToken || '');
-      setDebugResults({
-        ...debugResults,
-        viewAuth: results
-      });
-      console.log('View auth debug results:', results);
-      
-      // Try refreshing orders
-      try {
-        refetch();
-      } catch (refreshErr) {
-        console.error('Error refreshing orders after debug:', refreshErr);
-      }
-    } catch (err) {
-      console.error('Error during view auth debugging:', err);
-      setDebugResults({ 
-        ...debugResults,
-        viewAuthError: err instanceof Error ? err.message : 'Unknown error'
-      });
-    } finally {
-      setIsDebugging(false);
-    }
-  };
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
@@ -385,28 +314,7 @@ export function OrdersPage() {
               
               {debugMode && (
                 <div className="mt-2 space-y-2">
-                  <button
-                    onClick={runWalletAuthDebug}
-                    disabled={isDebugging}
-                    className="w-full px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs rounded text-gray-300 flex items-center justify-center gap-1"
-                  >
-                    {isDebugging ? 'Debugging...' : 'Run Wallet Auth Debug'}
-                  </button>
-                  
-                  <Link 
-                    to="/wallet-debug"
-                    className="w-full px-3 py-1.5 bg-violet-900/20 hover:bg-violet-900/30 text-xs rounded text-violet-400 flex items-center justify-center"
-                  >
-                    Advanced Header Auth Debug
-                  </Link>
-                  
-                  {debugResults && (
-                    <div className="mt-2 text-left p-2 bg-gray-800 rounded text-xs overflow-auto max-h-40">
-                      <pre className="whitespace-pre-wrap">
-                        {JSON.stringify(debugResults, null, 2)}
-                      </pre>
-                    </div>
-                  )}
+                  <WalletAuthDebug />
                 </div>
               )}
             </div>
@@ -437,60 +345,7 @@ export function OrdersPage() {
       {debugMode && (
         <>
           <OrderDebugPanel />
-          <div className="bg-gray-800/50 p-3 rounded-lg text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Wallet Authentication Debug</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={runViewAuthDebug}
-                  disabled={isDebugging}
-                  className="px-2 py-1 bg-indigo-700 hover:bg-indigo-600 rounded text-gray-300"
-                >
-                  {isDebugging ? 'Running...' : 'Debug View Auth'}
-                </button>
-                <button
-                  onClick={runWalletAuthDebug}
-                  disabled={isDebugging}
-                  className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
-                >
-                  {isDebugging ? 'Running...' : 'Run Debug'}
-                </button>
-              </div>
-            </div>
-            
-            {/* Add security notice about database-level filtering */}
-            <div className="p-2 bg-green-900/20 rounded">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                <p className="text-green-500 font-medium">Database-Level Security Active</p>
-              </div>
-              <p className="text-gray-400 text-[10px]">
-                Orders are filtered at the database level by wallet address using RLS policies. 
-                The JWT token contains your verified wallet, which is used by the database to
-                return only your orders through the user_orders view.
-              </p>
-            </div>
-            
-            {/* Show deployment help if view auth is having issues */}
-            {debugResults?.viewAuth && (
-              (debugResults.viewAuth.diagnosticError || 
-               debugResults.viewAuth.testFunctionError || 
-               debugResults.viewAuth.viewQuery?.count === 0) && (
-                <div className="mt-2 space-y-2">
-                  <DeployHeaderAuthHelp />
-                  <AdvancedHeaderDebugTools />
-                </div>
-              )
-            )}
-            
-            {debugResults && (
-              <div className="p-2 bg-gray-900 rounded overflow-auto max-h-40">
-                <pre className="whitespace-pre-wrap text-gray-300">
-                  {JSON.stringify(debugResults, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
+          <WalletAuthDebug />
         </>
       )}
       
