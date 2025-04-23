@@ -95,6 +95,11 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const dismissNotification = useCallback((id: string) => {
+    console.log(`Dismissing notification: ${id}`);
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
   const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
     // Prevent duplicate notifications (same type and message)
     // Check if we already have this exact notification
@@ -129,12 +134,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       console.log(`Auto-dismissing notification: ${id}`);
       dismissNotification(id);
     }, 3000);
-  }, [notifications]);
-
-  const dismissNotification = useCallback((id: string) => {
-    console.log(`Dismissing notification: ${id}`);
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
+  }, [notifications, dismissNotification]);
 
   const createAuthToken = useCallback(async (force = false, silent = false) => {
     // If not forcing and we already have a valid token that's not too old, reuse it
