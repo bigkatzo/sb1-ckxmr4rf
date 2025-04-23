@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
