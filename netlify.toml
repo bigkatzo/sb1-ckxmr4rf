@@ -125,13 +125,18 @@
         https://*.stripe.com https://*.stripe.network https://api.stripe.com https://hooks.stripe.com
         https://*.netlify.app https://*.netlify.com
         https://*.supabase.co https://*.supabase.in wss://*.supabase.co
-        https://*.helius-rpc.com https://*.alchemy.com https://*.projectserum.com
-        https://rpc.ankr.com https://solana.public-rpc.com https://api.mainnet-beta.solana.com
+        https://*.helius-rpc.com wss://*.helius-rpc.com
+        https://*.alchemy.com wss://*.alchemy.com
+        https://*.projectserum.com
+        https://rpc.ankr.com wss://rpc.ankr.com
+        https://solana.public-rpc.com wss://solana.public-rpc.com
+        https://api.mainnet-beta.solana.com wss://api.mainnet-beta.solana.com
         https://api.coingecko.com
         https://fonts.googleapis.com https://fonts.gstatic.com
         https://*.metaplex.com https://cdn.metaplex.com https://arweave.net https://*.arweave.net
         https://*.genesysgo.net https://*.solana.com
-        https://*.helius.xyz https://*.helius.dev
+        https://*.helius.xyz wss://*.helius.xyz
+        https://*.helius.dev wss://*.helius.dev
         https://*.magiceden.io https://*.magiceden.dev
         https://*.tensor.trade
         https://*.phantom.app https://*.backpack.app

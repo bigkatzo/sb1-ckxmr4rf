@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useWallet } from '../contexts/WalletContext';
-import { Transaction, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { createSolanaPayment } from '../services/payments';
 import { monitorTransaction } from '../utils/transaction-monitor';
 import { updateTransactionStatus } from '../services/orders';
