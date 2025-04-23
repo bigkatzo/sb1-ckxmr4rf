@@ -80,20 +80,29 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
+    // Generate a unique ID for this notification
+    const id = crypto.randomUUID();
+    
     const notification: WalletNotification = {
-      id: crypto.randomUUID(),
+      id,
       type,
       message,
       timestamp: Date.now()
     };
+    
+    // Add to state
     setNotifications(prev => [...prev, notification]);
+    
     // Auto-dismiss after 3 seconds
-    setTimeout(() => {
-      dismissNotification(notification.id);
+    // Use window.setTimeout to ensure this runs even if component unmounts
+    window.setTimeout(() => {
+      console.log(`Auto-dismissing notification: ${id}`);
+      dismissNotification(id);
     }, 3000);
   }, [notifications]);
 
   const dismissNotification = useCallback((id: string) => {
+    console.log(`Dismissing notification: ${id}`);
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
@@ -203,20 +212,18 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
 
   // Handler for expired auth tokens
   const handleAuthExpiration = useCallback(() => {
-    // Check if the token is actually expired based on our local tracking
-    if (lastAuthTime && (Date.now() - lastAuthTime < TOKEN_EXPIRATION)) {
-      console.log('Auth token not expired based on local tracking, skipping refresh');
-      return;
-    }
-    
-    // Clear existing token
+    // Always clear the token when handler is called
     setWalletAuthToken(null);
+    setLastAuthTime(null);
+    
+    // Log for debugging
+    console.log('Handling auth token expiration - token cleared');
     
     // Only show a minimal notification
     addNotification('info', 'Please reconnect your wallet');
     
     // Don't auto-retry authentication - let the user decide when to authenticate
-  }, [lastAuthTime, addNotification]);
+  }, [addNotification]);
 
   // Listen for auth expiration events
   useEffect(() => {
