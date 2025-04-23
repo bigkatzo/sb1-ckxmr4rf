@@ -438,7 +438,25 @@ export function TokenVerificationModal({
           updateProgressStep(1, 'completed');
           updateProgressStep(2, 'completed');
 
-          // Get order number
+          // Mark when success has been triggered to avoid duplicate success UIs
+          let successTriggered = false;
+
+          // Helper function to consistently show success - can be called from multiple places
+          const showSuccessWithFallback = (orderNum: string, txSignature: string) => {
+            if (successTriggered) return; // Prevent duplicate triggers
+            successTriggered = true;
+            
+            console.log('Showing success view with:', { orderNum, txSignature });
+            setOrderDetails({
+              orderNumber: orderNum,
+              transactionSignature: txSignature
+            });
+            setShowSuccessView(true);
+            toastService.showOrderSuccess();
+            onSuccess();
+          };
+
+          // Try to get order number but use fallback if needed
           try {
             console.log(`Attempting to fetch order details for order ID: ${orderId}`);
             
@@ -456,18 +474,26 @@ export function TokenVerificationModal({
             
             // First attempt: Try using a direct RPC function that doesn't rely on RLS
             try {
+              const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`
+              };
+              
+              // Add wallet headers if available
+              if (walletAddress) {
+                headers['X-Wallet-Address'] = walletAddress;
+              }
+              
+              if (walletAuthToken) {
+                headers['X-Wallet-Auth-Token'] = walletAuthToken;
+              }
+              
               const response = await fetch(
                 `${supabaseUrl}/rest/v1/rpc/get_order_by_id`,
                 {
                   method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': supabaseKey,
-                    'Authorization': `Bearer ${supabaseKey}`,
-                    // Include wallet headers if available
-                    ...(walletAddress ? {'X-Wallet-Address': walletAddress} : {}),
-                    ...(walletAuthToken ? {'X-Wallet-Auth-Token': walletAuthToken} : {})
-                  },
+                  headers: headers,
                   body: JSON.stringify({ order_id: orderId })
                 }
               );
@@ -475,13 +501,7 @@ export function TokenVerificationModal({
               if (response.ok) {
                 const orderData = await response.json();
                 if (orderData && orderData.order_number) {
-                  setOrderDetails({
-                    orderNumber: orderData.order_number,
-                    transactionSignature: uniqueSignature
-                  });
-                  setShowSuccessView(true);
-                  toastService.showOrderSuccess();
-                  onSuccess();
+                  showSuccessWithFallback(orderData.order_number, uniqueSignature);
                   return;
                 }
               }
@@ -491,20 +511,26 @@ export function TokenVerificationModal({
             
             // Second attempt: Try direct orders table access with service key
             try {
-              // Create a special service-role fetch for just-created orders
-              // This is safe because we only access a specific order ID that we just created
+              const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`
+              };
+              
+              // Add wallet headers if available
+              if (walletAddress) {
+                headers['X-Wallet-Address'] = walletAddress;
+              }
+              
+              if (walletAuthToken) {
+                headers['X-Wallet-Auth-Token'] = walletAuthToken;
+              }
+              
               const response = await fetch(
                 `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=order_number`,
                 {
                   method: 'GET',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': supabaseKey,
-                    'Authorization': `Bearer ${supabaseKey}`,
-                    // Include wallet headers if available
-                    ...(walletAddress ? {'X-Wallet-Address': walletAddress} : {}),
-                    ...(walletAuthToken ? {'X-Wallet-Auth-Token': walletAuthToken} : {})
-                  }
+                  headers: headers
                 }
               );
               
@@ -513,13 +539,7 @@ export function TokenVerificationModal({
                 
                 if (Array.isArray(orderData) && orderData.length > 0 && orderData[0].order_number && orderId) {
                   // Use the order number from the response
-                  setOrderDetails({
-                    orderNumber: orderData[0].order_number,
-                    transactionSignature: uniqueSignature
-                  });
-                  setShowSuccessView(true);
-                  toastService.showOrderSuccess();
-                  onSuccess();
+                  showSuccessWithFallback(orderData[0].order_number, uniqueSignature);
                   return;
                 }
               } else {
@@ -529,29 +549,18 @@ export function TokenVerificationModal({
               console.warn('Second attempt failed:', secondAttemptError);
             }
             
-            // Fallback to using the orderId as a base for the order number
-            console.warn('All fetch attempts failed, using fallback order number');
-            const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-            setOrderDetails({
-              orderNumber: fallbackOrderNumber,
-              transactionSignature: uniqueSignature
-            });
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
+            // If we get here and success hasn't been triggered, use fallback
+            if (!successTriggered) {
+              console.warn('API calls completed but success not triggered yet, using fallback');
+              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+              showSuccessWithFallback(fallbackOrderNumber, uniqueSignature);
+            }
           } catch (err) {
             console.error('Error fetching order details:', err);
             
-            // Use fallback order number
+            // Use fallback order number if an error occurs
             const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-            setOrderDetails({
-              orderNumber: fallbackOrderNumber,
-              transactionSignature: uniqueSignature
-            });
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
-            
-            // Still notify success even if we can't get the full details
-            onSuccess();
+            showSuccessWithFallback(fallbackOrderNumber, uniqueSignature);
           }
         } catch (error) {
           console.error('Free order error:', error);
@@ -692,6 +701,24 @@ export function TokenVerificationModal({
               updateProgressStep(2, 'error', undefined, status.error);
             } else if (status.paymentConfirmed) {
               updateProgressStep(2, 'completed', 'Transaction confirmed!');
+              
+              // Add immediate success trigger when paymentConfirmed is true
+              console.log('Payment confirmed, triggering success view');
+              // Get fallback order number in case the normal flow fails
+              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+              // Reference to the outer scope function
+              if (typeof showSuccessWithFallback === 'function') {
+                showSuccessWithFallback(fallbackOrderNumber, signature || '');
+              } else {
+                // Fallback if the helper function isn't available
+                setOrderDetails({
+                  orderNumber: fallbackOrderNumber,
+                  transactionSignature: signature || ''
+                });
+                setShowSuccessView(true);
+                toastService.showOrderSuccess();
+                onSuccess();
+              }
             }
           },
           expectedDetails,
@@ -704,14 +731,19 @@ export function TokenVerificationModal({
           
           // Create fallback order details for the success view
           const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-          setOrderDetails({
-            orderNumber: fallbackOrderNumber,
-            transactionSignature: signature || 'unknown'
-          });
-          
-          setShowSuccessView(true); // Show success view since order is created
-          toastService.showOrderSuccess(); // Ensure the toast is shown
-          onSuccess(); // Ensure onSuccess callback is called
+          // Reference to the outer scope function
+          if (typeof showSuccessWithFallback === 'function') {
+            showSuccessWithFallback(fallbackOrderNumber, signature || '');
+          } else {
+            // Fallback if the helper function isn't available
+            setOrderDetails({
+              orderNumber: fallbackOrderNumber,
+              transactionSignature: signature || ''
+            });
+            setShowSuccessView(true);
+            toastService.showOrderSuccess();
+            onSuccess();
+          }
           return;
         }
         
@@ -719,123 +751,6 @@ export function TokenVerificationModal({
         // We don't need to make another call to confirm_order_transaction
 
         updateProgressStep(2, 'completed');
-
-        // Get order number
-        try {
-          console.log(`Attempting to fetch order details for order ID: ${orderId}`);
-          
-          // Use auth-aware fetch to get order details
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-          
-          if (!supabaseUrl || !supabaseKey) {
-            throw new Error('Supabase URL or key not found');
-          }
-          
-          if (!orderId) {
-            throw new Error('Order ID is missing');
-          }
-          
-          // First attempt: Try using a direct RPC function that doesn't rely on RLS
-          try {
-            const response = await fetch(
-              `${supabaseUrl}/rest/v1/rpc/get_order_by_id`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'apikey': supabaseKey,
-                  'Authorization': `Bearer ${supabaseKey}`,
-                  // Include wallet headers if available
-                  ...(walletAddress ? {'X-Wallet-Address': walletAddress} : {}),
-                  ...(walletAuthToken ? {'X-Wallet-Auth-Token': walletAuthToken} : {})
-                },
-                body: JSON.stringify({ order_id: orderId })
-              }
-            );
-            
-            if (response.ok) {
-              const orderData = await response.json();
-              if (orderData && orderData.order_number) {
-                setOrderDetails({
-                  orderNumber: orderData.order_number,
-                  transactionSignature: signature
-                });
-                setShowSuccessView(true);
-                toastService.showOrderSuccess();
-                onSuccess();
-                return;
-              }
-            }
-          } catch (rpcError) {
-            console.warn('RPC method failed, falling back to alternative method:', rpcError);
-          }
-          
-          // Second attempt: Try direct orders table access with service key
-          try {
-            // Create a special service-role fetch for just-created orders
-            // This is safe because we only access a specific order ID that we just created
-            const response = await fetch(
-              `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=order_number`,
-              {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'apikey': supabaseKey,
-                  'Authorization': `Bearer ${supabaseKey}`,
-                  // Include wallet headers if available
-                  ...(walletAddress ? {'X-Wallet-Address': walletAddress} : {}),
-                  ...(walletAuthToken ? {'X-Wallet-Auth-Token': walletAuthToken} : {})
-                }
-              }
-            );
-            
-            if (response.ok) {
-              const orderData = await response.json();
-              
-              if (Array.isArray(orderData) && orderData.length > 0 && orderData[0].order_number && orderId) {
-                // Use the order number from the response
-                setOrderDetails({
-                  orderNumber: orderData[0].order_number,
-                  transactionSignature: signature
-                });
-                setShowSuccessView(true);
-                toastService.showOrderSuccess();
-                onSuccess();
-                return;
-              }
-            } else {
-              console.warn(`Second attempt failed with status: ${response.status}`);
-            }
-          } catch (secondAttemptError) {
-            console.warn('Second attempt failed:', secondAttemptError);
-          }
-          
-          // Fallback to using the orderId as a base for the order number
-          console.warn('All fetch attempts failed, using fallback order number');
-          const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-          setOrderDetails({
-            orderNumber: fallbackOrderNumber,
-            transactionSignature: signature
-          });
-          setShowSuccessView(true);
-          toastService.showOrderSuccess();
-          onSuccess();
-        } catch (err) {
-          console.error('Error fetching order details:', err);
-          
-          // Use fallback order number
-          const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-          setOrderDetails({
-            orderNumber: fallbackOrderNumber,
-            transactionSignature: signature
-          });
-          setShowSuccessView(true);
-          toastService.showOrderSuccess();
-          
-          // Still notify success even if we can't get the full details
-          onSuccess();
-        }
       } catch (error) {
         console.error('Order error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to place order';

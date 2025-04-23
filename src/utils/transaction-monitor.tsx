@@ -195,6 +195,17 @@ export async function monitorTransaction(
             // Success - transaction verified by server
             console.log('Server verification successful:', verificationResult);
             
+            // Call onStatusUpdate immediately with paymentConfirmed true
+            // This ensures the UI gets updated as soon as possible
+            onStatusUpdate({
+              processing: false,
+              success: true,
+              error: null,
+              signature,
+              paymentConfirmed: true
+            });
+
+            // Then show the toast
             const solscanUrl = `https://solscan.io/tx/${signature}`;
             toast.update(toastId, {
               render: () => (
@@ -216,14 +227,18 @@ export async function monitorTransaction(
               autoClose: 8000
             });
 
-            onStatusUpdate({
-              processing: false,
-              success: true,
-              error: null,
-              signature,
-              paymentConfirmed: true
-            });
-            
+            // Add redundant onStatusUpdate call to ensure the callback gets triggered
+            setTimeout(() => {
+              console.log('Sending delayed confirmation callback');
+              onStatusUpdate({
+                processing: false,
+                success: true,
+                error: null,
+                signature,
+                paymentConfirmed: true
+              });
+            }, 250);
+
             return true;
           } catch (error) {
             console.error('Server verification error:', error);
