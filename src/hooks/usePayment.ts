@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
 import { useWallet } from '../contexts/WalletContext';
-import { useTransaction } from './useTransaction';
+import { Transaction, PublicKey } from '@solana/web3.js';
 import { createSolanaPayment } from '../services/payments';
 import { monitorTransaction } from '../utils/transaction-monitor';
 import { updateTransactionStatus } from '../services/orders';
+import { prepareTransaction } from '../utils/transaction';
 import { toast } from 'react-toastify';
 
 interface PaymentStatus {
@@ -14,8 +15,7 @@ interface PaymentStatus {
 }
 
 export function usePayment() {
-  const { walletAddress, isConnected } = useWallet();
-  const { sendTransaction, status: transactionStatus } = useTransaction();
+  const { walletAddress, isConnected, ensureAuthenticated } = useWallet();
   const [status, setStatus] = useState<PaymentStatus>({
     processing: false,
     success: false,
@@ -31,7 +31,7 @@ export function usePayment() {
   }, []);
 
   const processPayment = async (amount: number, collectionId: string): Promise<{ success: boolean; signature?: string }> => {
-    if (!isConnected || !walletAddress) {
+    if (!isConnected || !walletAddress || !window.solana) {
       toast.error('Please connect your wallet first');
       setStatus({
         processing: false,
@@ -42,33 +42,35 @@ export function usePayment() {
     }
 
     try {
+      // Ensure the wallet is authenticated before sending transactions
+      await ensureAuthenticated();
+      
       setStatus({ processing: true, success: false, error: null });
 
       // Create transaction with collection ID
       const transaction = await createSolanaPayment(amount, walletAddress, collectionId);
       console.log('✅ Payment transaction created successfully');
 
-      // Sign and send transaction using the useTransaction hook
-      const success = await sendTransaction(transaction);
-      
-      // Get signature from transaction status
-      const signature = transactionStatus.signature;
+      // Prepare transaction with latest blockhash
+      const preparedTx = await prepareTransaction(
+        transaction,
+        new PublicKey(walletAddress)
+      );
 
-      if (success && signature) {
-        // Monitor transaction status
-        await monitorTransaction(signature, async (status) => {
-          setStatus(status);
-          
-          if (status.success) {
-            await updateTransactionStatus(signature, 'confirmed');
-          } else if (status.error) {
-            await updateTransactionStatus(signature, 'failed');
-            toast.error(status.error, { autoClose: 5000 });
-          }
-        });
-      } else {
-        throw new Error('Transaction failed or signature missing');
-      }
+      // Sign and send transaction directly via window.solana
+      const { signature } = await window.solana.signAndSendTransaction(preparedTx);
+      
+      // Monitor transaction status
+      const success = await monitorTransaction(signature, async (status) => {
+        setStatus(status);
+        
+        if (status.success) {
+          await updateTransactionStatus(signature, 'confirmed');
+        } else if (status.error) {
+          await updateTransactionStatus(signature, 'failed');
+          toast.error(status.error, { autoClose: 5000 });
+        }
+      });
 
       return { success, signature };
     } catch (error) {
