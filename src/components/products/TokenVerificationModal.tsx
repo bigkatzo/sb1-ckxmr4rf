@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
@@ -96,6 +96,36 @@ export function TokenVerificationModal({
   const [showCoupon, setShowCoupon] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [couponResult, setCouponResult] = useState<PriceWithDiscount | null>(null);
+  
+  // Add a ref to track if success has been triggered
+  const successTriggeredRef = useRef(false);
+  
+  // Add a direct success function that can be called from anywhere
+  const triggerSuccessView = useCallback((orderNum: string, txSignature: string) => {
+    console.log('triggerSuccessView called with:', { orderNum, txSignature, alreadyTriggered: successTriggeredRef.current });
+    
+    // Prevent multiple triggers
+    if (successTriggeredRef.current) {
+      console.log('Success already triggered, ignoring duplicate call');
+      return;
+    }
+    
+    successTriggeredRef.current = true;
+    
+    console.log('SHOWING SUCCESS VIEW', orderNum, txSignature);
+    setOrderDetails({
+      orderNumber: orderNum,
+      transactionSignature: txSignature
+    });
+    
+    // Use setTimeout to ensure state updates have time to propagate
+    setTimeout(() => {
+      console.log('Setting showSuccessView=true');
+      setShowSuccessView(true);
+      toastService.showOrderSuccess();
+      onSuccess();
+    }, 100);
+  }, [onSuccess]);
   
   // Update progress steps to reflect new flow
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
@@ -274,17 +304,14 @@ export function TokenVerificationModal({
 
     let orderId: string | null = null;
     let signature: string | null = null;
+    
+    // Reset success triggered ref at the start of a new submission
+    successTriggeredRef.current = false;
 
     // Helper function to consistently show success - defined here to be in scope for all callbacks
     const showSuccess = (orderNum: string, txSignature: string) => {
-      console.log('Showing success view with:', { orderNum, txSignature });
-      setOrderDetails({
-        orderNumber: orderNum,
-        transactionSignature: txSignature
-      });
-      setShowSuccessView(true);
-      toastService.showOrderSuccess();
-      onSuccess();
+      console.log('showSuccess called with:', { orderNum, txSignature });
+      triggerSuccessView(orderNum, txSignature);
     };
 
     try {
@@ -701,6 +728,7 @@ export function TokenVerificationModal({
         const transactionSuccess = await monitorTransaction(
           signature,
           (status) => {
+            console.log('Transaction status update:', status);
             if (status.error) {
               updateProgressStep(2, 'error', undefined, status.error);
             } else if (status.paymentConfirmed) {
@@ -716,6 +744,19 @@ export function TokenVerificationModal({
           expectedDetails,
           orderId
         );
+
+        // SAFETY: Add a timeout for direct success if callbacks aren't working
+        // In case the monitorTransaction callback is not triggered or has issues
+        if (transactionSuccess) {
+          console.log('Setting safety timeout for success view - will trigger in 2s if not already shown');
+          setTimeout(() => {
+            if (!successTriggeredRef.current) {
+              console.log('SAFETY TIMEOUT: Forcing success view to show as callback may have failed');
+              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+              showSuccess(fallbackOrderNumber, signature || '');
+            }
+          }, 2000);
+        }
 
         if (!transactionSuccess) {
           updateProgressStep(2, 'error', undefined, 'Transaction verification failed. Order will remain in pending_payment status for merchant review.');
@@ -871,6 +912,15 @@ export function TokenVerificationModal({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
+      {/* Add debugging information */}
+      {process.env.NODE_ENV !== 'production' && (
+        <div className="fixed top-0 right-0 bg-black/80 text-white text-xs p-2 z-[60] max-w-[200px]">
+          Debug: {showSuccessView ? 'Success View ON' : 'Success View OFF'} <br/>
+          Success Triggered: {successTriggeredRef.current ? 'YES' : 'NO'} <br/>
+          Order Details: {orderDetails ? 'Set' : 'Not Set'}
+        </div>
+      )}
+      
       {showSuccessView && orderDetails ? (
         <OrderSuccessView
           productName={product.name}

@@ -195,15 +195,21 @@ export async function monitorTransaction(
             // Success - transaction verified by server
             console.log('Server verification successful:', verificationResult);
             
-            // Call onStatusUpdate immediately with paymentConfirmed true
-            // This ensures the UI gets updated as soon as possible
-            onStatusUpdate({
-              processing: false,
-              success: true,
-              error: null,
-              signature,
-              paymentConfirmed: true
-            });
+            // Force immediate callback execution for UI updates
+            try {
+              console.log('Immediately executing success callback with paymentConfirmed=true');
+              // Call onStatusUpdate immediately with paymentConfirmed true
+              // This ensures the UI gets updated as soon as possible
+              onStatusUpdate({
+                processing: false,
+                success: true,
+                error: null,
+                signature,
+                paymentConfirmed: true
+              });
+            } catch (callbackError) {
+              console.error('Error in immediate callback execution:', callbackError);
+            }
 
             // Then show the toast
             const solscanUrl = `https://solscan.io/tx/${signature}`;
@@ -227,17 +233,37 @@ export async function monitorTransaction(
               autoClose: 8000
             });
 
-            // Add redundant onStatusUpdate call to ensure the callback gets triggered
+            // Add redundant onStatusUpdate calls to ensure the callback gets triggered
+            // Use multiple timeouts with different delays for redundancy
             setTimeout(() => {
-              console.log('Sending delayed confirmation callback');
-              onStatusUpdate({
-                processing: false,
-                success: true,
-                error: null,
-                signature,
-                paymentConfirmed: true
-              });
+              console.log('Sending delayed confirmation callback (250ms)');
+              try {
+                onStatusUpdate({
+                  processing: false,
+                  success: true,
+                  error: null,
+                  signature,
+                  paymentConfirmed: true
+                });
+              } catch (e) {
+                console.error('Error in delayed callback (250ms):', e);
+              }
             }, 250);
+
+            setTimeout(() => {
+              console.log('Sending delayed confirmation callback (1000ms)');
+              try {
+                onStatusUpdate({
+                  processing: false,
+                  success: true,
+                  error: null,
+                  signature,
+                  paymentConfirmed: true
+                });
+              } catch (e) {
+                console.error('Error in delayed callback (1000ms):', e);
+              }
+            }, 1000);
 
             return true;
           } catch (error) {
