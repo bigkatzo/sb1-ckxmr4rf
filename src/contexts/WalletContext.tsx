@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { ConnectionProvider, WalletProvider as SolanaWalletProvider, useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { Transaction, PublicKey } from '@solana/web3.js';
@@ -70,25 +70,10 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const [isAuthInProgress, setIsAuthInProgress] = useState(false);
   // Track token's last verification time
   const [lastAuthTime, setLastAuthTime] = useState<number | null>(null);
-  // Use a ref to track auto-dismiss timeouts and ensure they can be cleared
-  const notificationTimeoutsRef = useRef<Record<string, number>>({});
-  
-  // Clean up timeouts on unmount
-  useEffect(() => {
-    return () => {
-      // Clear all timeouts when component unmounts
-      Object.values(notificationTimeoutsRef.current).forEach(timeoutId => {
-        window.clearTimeout(timeoutId);
-      });
-    };
-  }, []);
   
   // Try to recover token from sessionStorage on mount
   useEffect(() => {
     try {
-      // First reset any stuck auth state from previous sessions
-      setIsAuthInProgress(false);
-      
       const storedToken = sessionStorage.getItem('walletAuthToken');
       const storedAuthTime = sessionStorage.getItem('walletAuthTime');
       
@@ -98,7 +83,6 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         if (Date.now() - authTime < TOKEN_REFRESH_TIME) {
           setWalletAuthToken(storedToken);
           setLastAuthTime(authTime);
-          console.log('Restored auth token from session storage');
         } else {
           // Clear expired token
           sessionStorage.removeItem('walletAuthToken');
@@ -110,58 +94,16 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Add periodic check to reset stuck auth state
-  useEffect(() => {
-    // Function to check and reset auth state if stuck
-    const checkAuthState = () => {
-      if (isAuthInProgress && lastAuthTime && (Date.now() - lastAuthTime > 60000)) {
-        console.log('Auth state appears stuck, resetting...');
-        setIsAuthInProgress(false);
-      }
-    };
-    
-    // Check every 30 seconds
-    const interval = setInterval(checkAuthState, 30000);
-    
-    // Initial check
-    checkAuthState();
-    
-    return () => clearInterval(interval);
-  }, [isAuthInProgress, lastAuthTime]);
-
   const dismissNotification = useCallback((id: string) => {
-    console.log(`Dismissing notification: ${id}`);
-    
-    // Clear any auto-dismiss timeout for this notification
-    if (notificationTimeoutsRef.current[id]) {
-      window.clearTimeout(notificationTimeoutsRef.current[id]);
-      delete notificationTimeoutsRef.current[id];
-    }
-    
-    // Remove from state
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
   const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
-    // Clean up first - dismiss any notifications with the same message
-    // This is more aggressive than just checking for duplicates
-    setNotifications(prev => {
-      const toKeep = prev.filter(n => n.message !== message);
-      
-      // Clear timeouts for any notifications we're removing
-      prev.forEach(n => {
-        if (n.message === message && notificationTimeoutsRef.current[n.id]) {
-          window.clearTimeout(notificationTimeoutsRef.current[n.id]);
-          delete notificationTimeoutsRef.current[n.id];
-        }
-      });
-      
-      return toKeep;
-    });
+    // Remove any existing notifications with the same message
+    setNotifications(prev => prev.filter(n => n.message !== message));
     
-    // Generate a unique ID for this notification
+    // Create new notification
     const id = crypto.randomUUID();
-    
     const notification: WalletNotification = {
       id,
       type,
@@ -173,33 +115,20 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => [...prev, notification]);
     
     // Auto-dismiss after 3 seconds
-    const timeoutId = window.setTimeout(() => {
-      console.log(`Auto-dismissing notification: ${id}`);
+    setTimeout(() => {
       dismissNotification(id);
     }, 3000);
-    
-    // Store the timeout ID so we can clear it if needed
-    notificationTimeoutsRef.current[id] = timeoutId;
   }, [dismissNotification]);
 
   const createAuthToken = useCallback(async (force = false, silent = false) => {
     // If not forcing and we already have a valid token that's not too old, reuse it
     if (!force && walletAuthToken && lastAuthTime && Date.now() - lastAuthTime < TOKEN_REFRESH_TIME) {
-      console.log('Reusing existing valid auth token');
       return walletAuthToken;
     }
     
     // If auth is already in progress, prevent duplicate requests
     if (isAuthInProgress) {
-      console.log('Auth already in progress, waiting...');
-      
-      // But check if it's been too long - maybe we're stuck
-      if (lastAuthTime && Date.now() - lastAuthTime > 10000) {
-        console.log('Auth seems stuck, resetting auth state');
-        setIsAuthInProgress(false);
-      } else {
-        return null;
-      }
+      return null;
     }
     
     // Wallet must be connected first
@@ -209,17 +138,6 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       }
       return null;
     }
-    
-    // Track our own "in-flight" state to prevent race conditions
-    let thisAuthCancelled = false;
-    
-    // Set a safety timeout to prevent auth from getting stuck
-    const authTimeoutId = setTimeout(() => {
-      if (isAuthInProgress && !thisAuthCancelled) {
-        console.log('Auth request timed out - resetting auth state');
-        setIsAuthInProgress(false);
-      }
-    }, 30000); // 30 second timeout should be more than enough
     
     try {
       setIsAuthInProgress(true);
@@ -232,14 +150,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       // Ask user to sign the message - this proves ownership
       const signature = await signMessage(encodedMessage);
       
-      // Check if this auth request was superseded or cancelled
-      if (thisAuthCancelled) {
-        console.log('Auth was cancelled before completion');
-        return null;
-      }
-      
       // Create a custom session with Supabase that includes the wallet signature verification
-      console.log('Calling create-wallet-auth function to obtain token...');
       const { data, error } = await supabase.functions.invoke('create-wallet-auth', {
         body: {
           wallet: publicKey.toString(),
@@ -249,14 +160,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         }
       });
       
-      // Check again if this auth request was superseded
-      if (thisAuthCancelled) {
-        console.log('Auth was cancelled after server response');
-        return null;
-      }
-      
       if (error) {
-        console.error('Auth token creation error:', error);
         if (!silent) {
           addNotification('error', 'Failed to authenticate wallet');
         }
@@ -266,16 +170,6 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       // Store the JWT
       const token = data?.token;
       if (token) {
-        console.log('Token received from server:', token.substring(0, 15) + '...');
-        
-        // Check if we already have the exact same token to prevent duplicate processing
-        if (token === walletAuthToken) {
-          console.log('Received same token as already stored, no update needed');
-          // Still update the lastAuthTime since we verified it's still valid
-          setLastAuthTime(Date.now());
-          return token;
-        }
-        
         // Store token in state and sessionStorage for persistence during page refreshes
         setWalletAuthToken(token);
         setLastAuthTime(Date.now());
@@ -288,18 +182,15 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
           console.error('Error saving token to sessionStorage:', e);
         }
         
-        // Don't show a notification for successful auth to reduce notification spam
         return token;
       }
       
       // If we get here, we didn't get a token
-      console.error('No token received from create-wallet-auth function');
       if (!silent) {
         addNotification('error', 'Authentication failed - no token received');
       }
       return null;
     } catch (error) {
-      console.error('Error creating auth token:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       // User rejection messages are friendlier
@@ -310,123 +201,40 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       }
       return null;
     } finally {
-      // Mark this auth request as done so it won't update state if it was superseded
-      thisAuthCancelled = true;
-      // Always clear the auth timeout
-      clearTimeout(authTimeoutId);
-      // Ensure we always reset the auth state
       setIsAuthInProgress(false);
     }
-  }, [publicKey, signMessage, addNotification, walletAuthToken, lastAuthTime, isAuthInProgress]);
-
-  // Function to clear all wallet-related notifications
-  const clearWalletNotifications = useCallback(() => {
-    // Get the IDs of all wallet-related notifications
-    const notificationsToRemove = notifications.filter(n => 
-      n.message.includes('Wallet') || 
-      n.message.includes('wallet') || 
-      n.message.includes('authenticated')
-    );
-    
-    // Clear their timeouts
-    notificationsToRemove.forEach(n => {
-      if (notificationTimeoutsRef.current[n.id]) {
-        window.clearTimeout(notificationTimeoutsRef.current[n.id]);
-        delete notificationTimeoutsRef.current[n.id];
-      }
-    });
-    
-    // Remove them from state
-    if (notificationsToRemove.length > 0) {
-      setNotifications(prev => 
-        prev.filter(n => !notificationsToRemove.some(toRemove => toRemove.id === n.id))
-      );
-    }
-  }, [notifications]);
+  }, [publicKey, signMessage, addNotification, walletAuthToken, lastAuthTime]);
 
   // Listen for connection state changes and create auth token
   useEffect(() => {
-    // First clean up any existing wallet notifications to avoid stacking them
-    clearWalletNotifications();
-    
-    let isFirstRun = true;
-    let authAttempted = false;
-    
-    // Reset auth in progress on connection state change
-    if (!connected) {
-      // If wallet disconnected, ensure auth state is reset
-      setIsAuthInProgress(false);
-    }
-    
-    if (connected && publicKey) {
-      // Reset any stuck auth states when wallet connects
-      if (isAuthInProgress) {
-        console.log('Resetting stuck auth state on wallet connection');
-        setIsAuthInProgress(false);
-      }
-      
-      // When wallet connects, immediately authenticate
-      const runAuth = async () => {
-        if (authAttempted) return; // Prevent double attempts
-        authAttempted = true;
+    // Only authenticate when wallet connects, not on every render
+    const handleConnection = async () => {
+      if (connected && publicKey) {
+        // When wallet first connects, authenticate
+        const token = await createAuthToken(false, true);
         
-        try {
-          // We don't show a notification yet - we'll do that after auth attempt
-          const token = await createAuthToken(false, true);
-          
-          // Only show notification on first connection, not on refresh
-          if (isFirstRun) {
-            // Clear any stale notifications first
-            clearWalletNotifications();
-            
-            if (token) {
-              // Only show one notification for the whole process
-              addNotification('success', 'Wallet connected and authenticated');
-            } else {
-              // If auth failed but wallet is connected, still show connection success
-              addNotification('success', 'Wallet connected');
-            }
-            
-            isFirstRun = false;
-          }
-        } catch (error) {
-          console.error('Auth error during connection:', error);
-          if (isFirstRun) {
-            // Clear any stale notifications first
-            clearWalletNotifications();
-            
-            // Still show connection success if auth fails
-            addNotification('success', 'Wallet connected');
-            isFirstRun = false;
-          }
-          // Ensure auth state is reset on error
-          setIsAuthInProgress(false);
+        // Show a notification on successful authentication
+        if (token) {
+          addNotification('success', 'Wallet connected and authenticated');
+        } else {
+          addNotification('success', 'Wallet connected');
         }
-      };
-      
-      // Start auth after a short delay to ensure wallet is fully connected
-      setTimeout(runAuth, 100);
-    } else {
-      // Clear auth token when wallet disconnects
-      setWalletAuthToken(null);
-      setLastAuthTime(null);
-      // Clear from session storage
-      try {
-        sessionStorage.removeItem('walletAuthToken');
-        sessionStorage.removeItem('walletAuthTime');
-      } catch (e) {
-        console.error('Error clearing token from sessionStorage:', e);
+      } else if (!connected) {
+        // Clear auth token when wallet disconnects
+        setWalletAuthToken(null);
+        setLastAuthTime(null);
+        // Clear from session storage
+        try {
+          sessionStorage.removeItem('walletAuthToken');
+          sessionStorage.removeItem('walletAuthTime');
+        } catch (e) {
+          console.error('Error clearing token from sessionStorage:', e);
+        }
       }
-      
-      // Clear any existing wallet notifications when disconnecting
-      clearWalletNotifications();
-    }
-    
-    // Clean up function to ensure it's only run once on disconnect
-    return () => {
-      isFirstRun = false;
     };
-  }, [connected, publicKey, addNotification, createAuthToken, clearWalletNotifications]);
+    
+    handleConnection();
+  }, [connected, publicKey, addNotification, createAuthToken]);
 
   // Add a function to check if token is about to expire and refresh if needed
   const ensureAuthenticated = useCallback(async (): Promise<boolean> => {
@@ -435,20 +243,13 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
     
-    // If token is missing, recreate silently
-    if (!walletAuthToken) {
+    // If token is missing or expired, recreate silently
+    if (!walletAuthToken || !lastAuthTime || Date.now() - lastAuthTime > TOKEN_REFRESH_TIME) {
       const token = await createAuthToken(true, true);
       return !!token;
     }
     
-    // If token exists but is getting old, refresh silently
-    if (lastAuthTime && Date.now() - lastAuthTime > TOKEN_REFRESH_TIME * 0.75) {
-      console.log('Auth token is aging, refreshing silently...');
-      const token = await createAuthToken(true, true);
-      return !!token;
-    }
-    
-    // Token exists and is relatively fresh
+    // Token exists and is valid
     return true;
   }, [connected, publicKey, walletAuthToken, lastAuthTime, createAuthToken]);
 
