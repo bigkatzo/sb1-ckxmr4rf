@@ -86,6 +86,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   // Try to recover token from sessionStorage on mount
   useEffect(() => {
     try {
+      // First reset any stuck auth state from previous sessions
+      setIsAuthInProgress(false);
+      
       const storedToken = sessionStorage.getItem('walletAuthToken');
       const storedAuthTime = sessionStorage.getItem('walletAuthTime');
       
@@ -106,6 +109,25 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       console.error('Error restoring auth token:', e);
     }
   }, []);
+
+  // Add periodic check to reset stuck auth state
+  useEffect(() => {
+    // Function to check and reset auth state if stuck
+    const checkAuthState = () => {
+      if (isAuthInProgress && lastAuthTime && (Date.now() - lastAuthTime > 60000)) {
+        console.log('Auth state appears stuck, resetting...');
+        setIsAuthInProgress(false);
+      }
+    };
+    
+    // Check every 30 seconds
+    const interval = setInterval(checkAuthState, 30000);
+    
+    // Initial check
+    checkAuthState();
+    
+    return () => clearInterval(interval);
+  }, [isAuthInProgress, lastAuthTime]);
 
   const dismissNotification = useCallback((id: string) => {
     console.log(`Dismissing notification: ${id}`);
@@ -170,7 +192,14 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     // If auth is already in progress, prevent duplicate requests
     if (isAuthInProgress) {
       console.log('Auth already in progress, waiting...');
-      return null;
+      
+      // But check if it's been too long - maybe we're stuck
+      if (lastAuthTime && Date.now() - lastAuthTime > 10000) {
+        console.log('Auth seems stuck, resetting auth state');
+        setIsAuthInProgress(false);
+      } else {
+        return null;
+      }
     }
     
     // Wallet must be connected first
@@ -183,6 +212,14 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     
     // Track our own "in-flight" state to prevent race conditions
     let thisAuthCancelled = false;
+    
+    // Set a safety timeout to prevent auth from getting stuck
+    const authTimeoutId = setTimeout(() => {
+      if (isAuthInProgress && !thisAuthCancelled) {
+        console.log('Auth request timed out - resetting auth state');
+        setIsAuthInProgress(false);
+      }
+    }, 30000); // 30 second timeout should be more than enough
     
     try {
       setIsAuthInProgress(true);
@@ -275,6 +312,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } finally {
       // Mark this auth request as done so it won't update state if it was superseded
       thisAuthCancelled = true;
+      // Always clear the auth timeout
+      clearTimeout(authTimeoutId);
+      // Ensure we always reset the auth state
       setIsAuthInProgress(false);
     }
   }, [publicKey, signMessage, addNotification, walletAuthToken, lastAuthTime, isAuthInProgress]);
@@ -310,12 +350,30 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     clearWalletNotifications();
     
     let isFirstRun = true;
+    let authAttempted = false;
+    
+    // Reset auth in progress on connection state change
+    if (!connected) {
+      // If wallet disconnected, ensure auth state is reset
+      setIsAuthInProgress(false);
+    }
     
     if (connected && publicKey) {
+      // Reset any stuck auth states when wallet connects
+      if (isAuthInProgress) {
+        console.log('Resetting stuck auth state on wallet connection');
+        setIsAuthInProgress(false);
+      }
+      
       // When wallet connects, immediately authenticate
-      // We don't show a notification yet - we'll do that after auth attempt
-      createAuthToken(false, true)
-        .then(token => {
+      const runAuth = async () => {
+        if (authAttempted) return; // Prevent double attempts
+        authAttempted = true;
+        
+        try {
+          // We don't show a notification yet - we'll do that after auth attempt
+          const token = await createAuthToken(false, true);
+          
           // Only show notification on first connection, not on refresh
           if (isFirstRun) {
             // Clear any stale notifications first
@@ -331,8 +389,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
             
             isFirstRun = false;
           }
-        })
-        .catch(error => {
+        } catch (error) {
           console.error('Auth error during connection:', error);
           if (isFirstRun) {
             // Clear any stale notifications first
@@ -342,7 +399,13 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
             addNotification('success', 'Wallet connected');
             isFirstRun = false;
           }
-        });
+          // Ensure auth state is reset on error
+          setIsAuthInProgress(false);
+        }
+      };
+      
+      // Start auth after a short delay to ensure wallet is fully connected
+      setTimeout(runAuth, 100);
     } else {
       // Clear auth token when wallet disconnects
       setWalletAuthToken(null);
