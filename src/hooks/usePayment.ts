@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useWallet } from '../contexts/WalletContext';
+import { useTransaction } from './useTransaction';
 import { createSolanaPayment } from '../services/payments';
 import { monitorTransaction } from '../utils/transaction-monitor';
 import { updateTransactionStatus } from '../services/orders';
@@ -13,7 +14,8 @@ interface PaymentStatus {
 }
 
 export function usePayment() {
-  const { walletAddress, isConnected, signAndSendTransaction } = useWallet();
+  const { walletAddress, isConnected } = useWallet();
+  const { sendTransaction, status: transactionStatus } = useTransaction();
   const [status, setStatus] = useState<PaymentStatus>({
     processing: false,
     success: false,
@@ -44,21 +46,29 @@ export function usePayment() {
 
       // Create transaction with collection ID
       const transaction = await createSolanaPayment(amount, walletAddress, collectionId);
+      console.log('✅ Payment transaction created successfully');
 
-      // Sign and send transaction
-      const signature = await signAndSendTransaction(transaction);
+      // Sign and send transaction using the useTransaction hook
+      const success = await sendTransaction(transaction);
+      
+      // Get signature from transaction status
+      const signature = transactionStatus.signature;
 
-      // Monitor transaction status
-      const success = await monitorTransaction(signature, async (status) => {
-        setStatus(status);
-        
-        if (status.success) {
-          await updateTransactionStatus(signature, 'confirmed');
-        } else if (status.error) {
-          await updateTransactionStatus(signature, 'failed');
-          toast.error(status.error, { autoClose: 5000 });
-        }
-      });
+      if (success && signature) {
+        // Monitor transaction status
+        await monitorTransaction(signature, async (status) => {
+          setStatus(status);
+          
+          if (status.success) {
+            await updateTransactionStatus(signature, 'confirmed');
+          } else if (status.error) {
+            await updateTransactionStatus(signature, 'failed');
+            toast.error(status.error, { autoClose: 5000 });
+          }
+        });
+      } else {
+        throw new Error('Transaction failed or signature missing');
+      }
 
       return { success, signature };
     } catch (error) {
