@@ -6,7 +6,7 @@ export const toastService = {
     toast.success(<OrderSuccessToast />, {
       autoClose: false,
       hideProgressBar: true,
-      closeOnClick: false,
+      closeOnClick: false
     });
   }
 }; 

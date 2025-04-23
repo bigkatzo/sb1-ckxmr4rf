@@ -97,36 +97,6 @@ export function TokenVerificationModal({
   const [couponCode, setCouponCode] = useState('');
   const [couponResult, setCouponResult] = useState<PriceWithDiscount | null>(null);
   
-  // Add a ref to track if success has been triggered
-  const successTriggeredRef = useRef(false);
-  
-  // Add a direct success function that can be called from anywhere
-  const triggerSuccessView = useCallback((orderNum: string, txSignature: string) => {
-    console.log('triggerSuccessView called with:', { orderNum, txSignature, alreadyTriggered: successTriggeredRef.current });
-    
-    // Prevent multiple triggers
-    if (successTriggeredRef.current) {
-      console.log('Success already triggered, ignoring duplicate call');
-      return;
-    }
-    
-    successTriggeredRef.current = true;
-    
-    console.log('SHOWING SUCCESS VIEW', orderNum, txSignature);
-    setOrderDetails({
-      orderNumber: orderNum,
-      transactionSignature: txSignature
-    });
-    
-    // Use setTimeout to ensure state updates have time to propagate
-    setTimeout(() => {
-      console.log('Setting showSuccessView=true');
-      setShowSuccessView(true);
-      toastService.showOrderSuccess();
-      onSuccess();
-    }, 100);
-  }, [onSuccess]);
-  
   // Update progress steps to reflect new flow
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
     { 
@@ -305,15 +275,6 @@ export function TokenVerificationModal({
     let orderId: string | null = null;
     let signature: string | null = null;
     
-    // Reset success triggered ref at the start of a new submission
-    successTriggeredRef.current = false;
-
-    // Helper function to consistently show success - defined here to be in scope for all callbacks
-    const showSuccess = (orderNum: string, txSignature: string) => {
-      console.log('showSuccess called with:', { orderNum, txSignature });
-      triggerSuccessView(orderNum, txSignature);
-    };
-
     try {
       setSubmitting(true);
 
@@ -477,14 +438,16 @@ export function TokenVerificationModal({
           updateProgressStep(1, 'completed');
           updateProgressStep(2, 'completed');
 
-          // Mark when success has been triggered to avoid duplicate success UIs
-          let successTriggered = false;
-
           // Helper function to consistently show success - can be called from multiple places
           const showSuccessWithFallback = (orderNum: string, txSignature: string) => {
-            if (successTriggered) return; // Prevent duplicate triggers
-            successTriggered = true;
-            showSuccess(orderNum, txSignature);
+            // Don't check successTriggered here, we'll use the component state
+            setOrderDetails({
+              orderNumber: orderNum,
+              transactionSignature: txSignature
+            });
+            setShowSuccessView(true);
+            toastService.showOrderSuccess();
+            onSuccess();
           };
 
           // Try to get order number but use fallback if needed
@@ -581,7 +544,7 @@ export function TokenVerificationModal({
             }
             
             // If we get here and success hasn't been triggered, use fallback
-            if (!successTriggered) {
+            if (!showSuccessView) {
               console.warn('API calls completed but success not triggered yet, using fallback');
               const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
               showSuccessWithFallback(fallbackOrderNumber, uniqueSignature);
@@ -738,7 +701,19 @@ export function TokenVerificationModal({
               console.log('Payment confirmed, triggering success view');
               // Get fallback order number in case the normal flow fails
               const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-              showSuccess(fallbackOrderNumber, signature || '');
+              
+              // Important: Force full sequence order, use functional state update
+              setOrderDetails({
+                orderNumber: fallbackOrderNumber,
+                transactionSignature: signature || ''
+              });
+              
+              // Force re-render by triggering in the next tick
+              setTimeout(() => {
+                setShowSuccessView(true);
+                toastService.showOrderSuccess();
+                onSuccess();
+              }, 50);
             }
           },
           expectedDetails,
@@ -750,10 +725,21 @@ export function TokenVerificationModal({
         if (transactionSuccess) {
           console.log('Setting safety timeout for success view - will trigger in 2s if not already shown');
           setTimeout(() => {
-            if (!successTriggeredRef.current) {
+            // Check if the success view is showing by looking at the state
+            if (!showSuccessView) {
               console.log('SAFETY TIMEOUT: Forcing success view to show as callback may have failed');
               const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-              showSuccess(fallbackOrderNumber, signature || '');
+              setOrderDetails({
+                orderNumber: fallbackOrderNumber,
+                transactionSignature: signature || ''
+              });
+              
+              // Force re-render by triggering in the next tick
+              setTimeout(() => {
+                setShowSuccessView(true);
+                toastService.showOrderSuccess();
+                onSuccess();
+              }, 50);
             }
           }, 2000);
         }
@@ -764,7 +750,20 @@ export function TokenVerificationModal({
           
           // Create fallback order details for the success view
           const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-          showSuccess(fallbackOrderNumber, signature || '');
+          
+          // Force reliable state update sequence
+          setOrderDetails({
+            orderNumber: fallbackOrderNumber,
+            transactionSignature: signature || ''
+          });
+          
+          // Use setTimeout to ensure state updates processed in order
+          setTimeout(() => {
+            setShowSuccessView(true);
+            toastService.showOrderSuccess();
+            onSuccess();
+          }, 50);
+          
           return;
         }
         
@@ -912,15 +911,6 @@ export function TokenVerificationModal({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
-      {/* Add debugging information */}
-      {process.env.NODE_ENV !== 'production' && (
-        <div className="fixed top-0 right-0 bg-black/80 text-white text-xs p-2 z-[60] max-w-[200px]">
-          Debug: {showSuccessView ? 'Success View ON' : 'Success View OFF'} <br/>
-          Success Triggered: {successTriggeredRef.current ? 'YES' : 'NO'} <br/>
-          Order Details: {orderDetails ? 'Set' : 'Not Set'}
-        </div>
-      )}
-      
       {showSuccessView && orderDetails ? (
         <OrderSuccessView
           productName={product.name}
