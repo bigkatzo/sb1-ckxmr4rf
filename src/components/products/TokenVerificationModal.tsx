@@ -275,6 +275,18 @@ export function TokenVerificationModal({
     let orderId: string | null = null;
     let signature: string | null = null;
 
+    // Helper function to consistently show success - defined here to be in scope for all callbacks
+    const showSuccess = (orderNum: string, txSignature: string) => {
+      console.log('Showing success view with:', { orderNum, txSignature });
+      setOrderDetails({
+        orderNumber: orderNum,
+        transactionSignature: txSignature
+      });
+      setShowSuccessView(true);
+      toastService.showOrderSuccess();
+      onSuccess();
+    };
+
     try {
       setSubmitting(true);
 
@@ -445,15 +457,7 @@ export function TokenVerificationModal({
           const showSuccessWithFallback = (orderNum: string, txSignature: string) => {
             if (successTriggered) return; // Prevent duplicate triggers
             successTriggered = true;
-            
-            console.log('Showing success view with:', { orderNum, txSignature });
-            setOrderDetails({
-              orderNumber: orderNum,
-              transactionSignature: txSignature
-            });
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
-            onSuccess();
+            showSuccess(orderNum, txSignature);
           };
 
           // Try to get order number but use fallback if needed
@@ -706,19 +710,7 @@ export function TokenVerificationModal({
               console.log('Payment confirmed, triggering success view');
               // Get fallback order number in case the normal flow fails
               const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-              // Reference to the outer scope function
-              if (typeof showSuccessWithFallback === 'function') {
-                showSuccessWithFallback(fallbackOrderNumber, signature || '');
-              } else {
-                // Fallback if the helper function isn't available
-                setOrderDetails({
-                  orderNumber: fallbackOrderNumber,
-                  transactionSignature: signature || ''
-                });
-                setShowSuccessView(true);
-                toastService.showOrderSuccess();
-                onSuccess();
-              }
+              showSuccess(fallbackOrderNumber, signature || '');
             }
           },
           expectedDetails,
@@ -731,19 +723,7 @@ export function TokenVerificationModal({
           
           // Create fallback order details for the success view
           const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-          // Reference to the outer scope function
-          if (typeof showSuccessWithFallback === 'function') {
-            showSuccessWithFallback(fallbackOrderNumber, signature || '');
-          } else {
-            // Fallback if the helper function isn't available
-            setOrderDetails({
-              orderNumber: fallbackOrderNumber,
-              transactionSignature: signature || ''
-            });
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
-            onSuccess();
-          }
+          showSuccess(fallbackOrderNumber, signature || '');
           return;
         }
         
