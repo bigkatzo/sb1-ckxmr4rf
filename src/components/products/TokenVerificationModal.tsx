@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
@@ -78,7 +78,7 @@ export function TokenVerificationModal({
   onSuccess,
   selectedOption = {}
 }: TokenVerificationModalProps) {
-  const { walletAddress } = useWallet();
+  const { walletAddress, walletAuthToken, ensureAuthenticated } = useWallet();
   const { processPayment } = usePayment();
   // Initialize Supabase client that doesn't require auth token
   const { client: supabaseWithoutAuth } = useSupabaseWithWallet({ allowMissingToken: true });
@@ -243,6 +243,19 @@ export function TokenVerificationModal({
     verifyAccess();
   }, [walletAddress, product]);
 
+  // Add a function to ensure wallet is authenticated before critical operations
+  const ensureWalletAuth = useCallback(async () => {
+    const isAuthenticated = await ensureAuthenticated();
+    if (!isAuthenticated) {
+      console.warn('Wallet authentication required for checkout');
+      toast.warn('Please verify your wallet to continue', { 
+        position: 'bottom-center'
+      });
+      return false;
+    }
+    return true;
+  }, [ensureAuthenticated]);
+
   const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -257,6 +270,10 @@ export function TokenVerificationModal({
       toast.error("Please select an option");
       return;
     }
+    
+    // Ensure wallet is authenticated
+    const isAuthenticated = await ensureWalletAuth();
+    if (!isAuthenticated) return;
 
     let orderId: string | null = null;
     let signature: string | null = null;
@@ -428,97 +445,62 @@ export function TokenVerificationModal({
           try {
             console.log(`Attempting to fetch order details for order ID: ${orderId}`);
             
-            // First try with the regular client
-            let orderData = null;
-            let orderFetchError = null;
+            // Use auth-aware fetch to get order details
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
             
-            try {
-              const { data, error } = await supabase
-                .from('orders')
-                .select('order_number')
-                .eq('id', orderId)
-                .single();
-                
-              if (!error && data) {
-                orderData = data;
-              } else {
-                orderFetchError = error;
-                console.error('Error fetching order with regular client:', error);
-              }
-            } catch (err) {
-              orderFetchError = err;
-              console.error('Exception fetching order with regular client:', err);
+            if (!supabaseUrl || !supabaseKey) {
+              throw new Error('Supabase URL or key not found');
             }
             
-            // If first attempt failed, try with unauthenticated client
-            if (!orderData && supabaseWithoutAuth) {
-              console.log('First attempt failed, trying with unauthenticated client');
-              try {
-                const { data, error } = await supabaseWithoutAuth
-                  .from('orders')
-                  .select('order_number')
-                  .eq('id', orderId)
-                  .single();
-                  
-                if (!error && data) {
-                  orderData = data;
-                } else {
-                  console.error('Error fetching order with unauthenticated client:', error);
-                }
-              } catch (err) {
-                console.error('Exception fetching order with unauthenticated client:', err);
-              }
+            if (!orderId) {
+              throw new Error('Order ID is missing');
             }
             
-            // Third attempt: Direct fetch
-            if (!orderData) {
-              console.log('First two attempts failed, trying direct fetch');
-              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-              const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-              
-              if (supabaseUrl && supabaseKey) {
-                try {
-                  const response = await fetch(
-                    `${supabaseUrl}/rest/v1/orders?select=order_number&id=eq.${orderId}`,
-                    {
-                      method: 'GET',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': supabaseKey,
-                        'Authorization': `Bearer ${supabaseKey}`
-                      }
-                    }
-                  );
-                  
-                  if (response.ok) {
-                    const data = await response.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                      orderData = { order_number: data[0].order_number };
-                    }
-                  }
-                } catch (fetchError) {
-                  console.error('Error with direct fetch:', fetchError);
+            const response = await fetch(
+              `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=order_number`,
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': supabaseKey,
+                  'Authorization': `Bearer ${supabaseKey}`,
+                  'X-Wallet-Address': walletAddress || '',
+                  'X-Wallet-Auth-Token': walletAuthToken || '',
                 }
               }
+            );
+            
+            if (!response.ok) {
+              throw new Error(`Failed to fetch order details: ${response.status}`);
             }
             
-            // If we have data, show success
-            if (orderData && orderData.order_number) {
-              // Wait 1 second to show the completed progress state
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              
-              // Show success
+            const orderData = await response.json();
+            
+            if (Array.isArray(orderData) && orderData.length > 0 && orderData[0].order_number && orderId) {
+              // Use the order number from the response
               setOrderDetails({
-                orderNumber: orderData.order_number,
+                orderNumber: orderData[0].order_number,
                 transactionSignature: uniqueSignature
               });
-              setShowSuccessView(true);
-              toastService.showOrderSuccess();
-              return;
+            } else {
+              // Fallback if we can't get the order number
+              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+              setOrderDetails({
+                orderNumber: fallbackOrderNumber,
+                transactionSignature: uniqueSignature
+              });
             }
             
-            // If all retrieval attempts failed, use fallback
-            console.log('All order retrieval attempts failed, using fallback order number');
+            setShowSuccessView(true);
+            toastService.showOrderSuccess();
+            
+            // Notify component about success
+            onSuccess();
+          } catch (err) {
+            console.error('Error fetching order details:', err);
+            
+            // Use fallback order number
             const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
             setOrderDetails({
               orderNumber: fallbackOrderNumber,
@@ -527,21 +509,8 @@ export function TokenVerificationModal({
             setShowSuccessView(true);
             toastService.showOrderSuccess();
             
-          } catch (error) {
-            // Don't show error if we already have a successful order
-            if (!showSuccessView) {
-              console.error('Order retrieval error:', error);
-              
-              // Always use fallback if there's an error
-              console.log('Using fallback order number due to error');
-              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-              setOrderDetails({
-                orderNumber: fallbackOrderNumber,
-                transactionSignature: uniqueSignature
-              });
-              setShowSuccessView(true);
-              toastService.showOrderSuccess();
-            }
+            // Still notify success even if we can't get the full details
+            onSuccess();
           }
         } catch (error) {
           console.error('Free order error:', error);
@@ -704,97 +673,62 @@ export function TokenVerificationModal({
         try {
           console.log(`Attempting to fetch order details for order ID: ${orderId}`);
           
-          // First try with the regular client
-          let orderData = null;
-          let orderFetchError = null;
+          // Use auth-aware fetch to get order details
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
           
-          try {
-            const { data, error } = await supabase
-              .from('orders')
-              .select('order_number')
-              .eq('id', orderId)
-              .single();
-              
-            if (!error && data) {
-              orderData = data;
-            } else {
-              orderFetchError = error;
-              console.error('Error fetching order with regular client:', error);
-            }
-          } catch (err) {
-            orderFetchError = err;
-            console.error('Exception fetching order with regular client:', err);
+          if (!supabaseUrl || !supabaseKey) {
+            throw new Error('Supabase URL or key not found');
           }
           
-          // If first attempt failed, try with unauthenticated client
-          if (!orderData && supabaseWithoutAuth) {
-            console.log('First attempt failed, trying with unauthenticated client');
-            try {
-              const { data, error } = await supabaseWithoutAuth
-                .from('orders')
-                .select('order_number')
-                .eq('id', orderId)
-                .single();
-                
-              if (!error && data) {
-                orderData = data;
-              } else {
-                console.error('Error fetching order with unauthenticated client:', error);
-              }
-            } catch (err) {
-              console.error('Exception fetching order with unauthenticated client:', err);
-            }
+          if (!orderId) {
+            throw new Error('Order ID is missing');
           }
           
-          // Third attempt: Direct fetch
-          if (!orderData) {
-            console.log('First two attempts failed, trying direct fetch');
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-            
-            if (supabaseUrl && supabaseKey) {
-              try {
-                const response = await fetch(
-                  `${supabaseUrl}/rest/v1/orders?select=order_number&id=eq.${orderId}`,
-                  {
-                    method: 'GET',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'apikey': supabaseKey,
-                      'Authorization': `Bearer ${supabaseKey}`
-                    }
-                  }
-                );
-                
-                if (response.ok) {
-                  const data = await response.json();
-                  if (Array.isArray(data) && data.length > 0) {
-                    orderData = { order_number: data[0].order_number };
-                  }
-                }
-              } catch (fetchError) {
-                console.error('Error with direct fetch:', fetchError);
+          const response = await fetch(
+            `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=order_number`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'X-Wallet-Address': walletAddress || '',
+                'X-Wallet-Auth-Token': walletAuthToken || '',
               }
             }
+          );
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch order details: ${response.status}`);
           }
           
-          // If we have data, show success
-          if (orderData && orderData.order_number) {
-            // Wait 1 second to show the completed progress state
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Show success
+          const orderData = await response.json();
+          
+          if (Array.isArray(orderData) && orderData.length > 0 && orderData[0].order_number && orderId) {
+            // Use the order number from the response
             setOrderDetails({
-              orderNumber: orderData.order_number,
+              orderNumber: orderData[0].order_number,
               transactionSignature: signature
             });
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
-            return;
+          } else {
+            // Fallback if we can't get the order number
+            const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+            setOrderDetails({
+              orderNumber: fallbackOrderNumber,
+              transactionSignature: signature
+            });
           }
           
-          // If all retrieval attempts failed, use fallback
-          console.log('All order retrieval attempts failed, using fallback order number');
+          setShowSuccessView(true);
+          toastService.showOrderSuccess();
+          
+          // Notify component about success
+          onSuccess();
+        } catch (err) {
+          console.error('Error fetching order details:', err);
+          
+          // Use fallback order number
           const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
           setOrderDetails({
             orderNumber: fallbackOrderNumber,
@@ -803,21 +737,8 @@ export function TokenVerificationModal({
           setShowSuccessView(true);
           toastService.showOrderSuccess();
           
-        } catch (error) {
-          // Don't show error if we already have a successful order
-          if (!showSuccessView) {
-            console.error('Order retrieval error:', error);
-            
-            // Always use fallback if there's an error
-            console.log('Using fallback order number due to error');
-            const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-            setOrderDetails({
-              orderNumber: fallbackOrderNumber,
-              transactionSignature: signature
-            });
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
-          }
+          // Still notify success even if we can't get the full details
+          onSuccess();
         }
       } catch (error) {
         console.error('Order error:', error);

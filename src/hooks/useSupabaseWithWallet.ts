@@ -64,9 +64,9 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
     }
   }, [walletAddress, walletAuthToken, isConnected, hasEnvVars, diagnostics, allowMissingToken]);
   
-  // Create a memoized client instance that will only be recreated when auth details change
-  const client = useMemo(() => {
-    // Only create client if we have wallet address and we're connected
+  // Create Supabase client with wallet auth
+  const client = useMemo<SupabaseClient<Database> | null>(() => {
+    // Always create client if we have wallet address and we're connected
     if (!walletAddress || !isConnected) {
       return null;
     }
@@ -88,10 +88,6 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
                   walletAuthToken ? 'with token' : 'WITHOUT token (checkout flow)');
     }
     
-    // Check if the token is a custom format (not a standard JWT)
-    const isCustomToken = walletAuthToken?.startsWith('WALLET_VERIFIED_') || 
-                          walletAuthToken?.startsWith('WALLET_AUTH_');
-    
     // Prepare headers based on whether we have a token or not
     const headers: Record<string, string> = {
       // Always include wallet address
@@ -102,11 +98,7 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
     if (walletAuthToken) {
       headers['X-Wallet-Auth-Token'] = walletAuthToken;
       headers['X-Authorization'] = `Bearer ${walletAuthToken}`;
-      
-      // Only include standard Authorization header if it's not a custom token
-      if (!isCustomToken) {
-        headers['Authorization'] = `Bearer ${walletAuthToken}`;
-      }
+      headers['Authorization'] = `Bearer ${walletAuthToken}`;
     }
     
     // Create a client with wallet authentication headers
@@ -118,8 +110,7 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
         // Skip persisting the session to avoid conflicts with other Supabase instances
         persistSession: false, 
         autoRefreshToken: false,
-        // For custom tokens, we don't want Supabase to try to parse it as a JWT
-        detectSessionInUrl: !isCustomToken
+        detectSessionInUrl: false // Don't parse tokens from URL
       },
       global: {
         headers
