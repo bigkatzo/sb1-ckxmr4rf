@@ -24,22 +24,46 @@ export function validateTransaction(transaction: Transaction): boolean {
   return true;
 }
 
+// Overload for preparing a Transaction
+export async function prepareTransaction(
+  transaction: Transaction,
+  feePayer: PublicKey
+): Promise<Transaction>;
+
+// Overload for preparing a new transaction from instructions
 export async function prepareTransaction(
   instructions: TransactionInstruction[],
+  feePayer: PublicKey
+): Promise<Transaction>;
+
+// Implementation for both overloads
+export async function prepareTransaction(
+  transactionOrInstructions: Transaction | TransactionInstruction[],
   feePayer: PublicKey
 ): Promise<Transaction> {
   try {
     // Get fresh blockhash with retry
     const { blockhash, lastValidBlockHeight } = await getLatestBlockhashWithRetry();
 
-    const transaction = new Transaction();
-    transaction.feePayer = feePayer;
-    transaction.recentBlockhash = blockhash;
-    transaction.lastValidBlockHeight = lastValidBlockHeight;
+    let transaction: Transaction;
+    
+    if (transactionOrInstructions instanceof Transaction) {
+      // If we already have a transaction, just update its blockhash and fee payer
+      transaction = transactionOrInstructions;
+      transaction.recentBlockhash = blockhash;
+      transaction.lastValidBlockHeight = lastValidBlockHeight;
+      transaction.feePayer = feePayer;
+    } else {
+      // Create a new transaction from instructions
+      transaction = new Transaction();
+      transaction.feePayer = feePayer;
+      transaction.recentBlockhash = blockhash;
+      transaction.lastValidBlockHeight = lastValidBlockHeight;
 
-    instructions.forEach(instruction => {
-      transaction.add(instruction);
-    });
+      transactionOrInstructions.forEach(instruction => {
+        transaction.add(instruction);
+      });
+    }
 
     if (!validateTransaction(transaction)) {
       throw new Error('Invalid transaction: missing required fields');
@@ -106,7 +130,7 @@ export async function confirmTransactionWithRetry(
       const { blockhash, lastValidBlockHeight } = await getLatestBlockhashWithRetry();
       
       // Wait for confirmation with timeout
-      const confirmation = await Promise.race([
+      const confirmation: any = await Promise.race([
         SOLANA_CONNECTION.confirmTransaction({
           signature,
           blockhash,
@@ -117,7 +141,7 @@ export async function confirmTransactionWithRetry(
         )
       ]);
 
-      if (confirmation.value.err) {
+      if (confirmation.value?.err) {
         throw new Error(`Transaction error: ${confirmation.value.err}`);
       }
 

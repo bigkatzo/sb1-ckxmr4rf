@@ -4,6 +4,10 @@ interface Window {
       isPhantom?: boolean;
       connect?: () => Promise<{ publicKey: string }>;
       disconnect?: () => Promise<void>;
+      signAndSendTransaction?: (transaction: any) => Promise<{ signature: string }>;
+      signTransaction?: (transaction: any) => Promise<any>;
+      signAllTransactions?: (transactions: any[]) => Promise<any[]>;
+      request?: (params: any) => Promise<any>;
     };
   };
 } 
