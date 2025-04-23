@@ -65,39 +65,86 @@ export function useOrders() {
 
       // Use our direct fetch utility instead of Supabase SDK
       // This avoids the "h is not a function" error by using custom headers
-      const result = await getOrdersDirect(walletAddress, walletAuthToken);
-      
-      if (result.error) {
-        throw new Error(result.error);
+      try {
+        const result = await getOrdersDirect(walletAddress, walletAuthToken);
+        
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        
+        if (result.data) {
+          // Log the raw data structure to debug what's coming from the API
+          console.log('Raw order data structure:', {
+            source: result.source,
+            count: result.data.length,
+            firstOrder: result.data.length > 0 ? {
+              keys: Object.keys(result.data[0]),
+              snapshot: result.data[0].product_snapshot,
+              hasImages: result.data[0].product_snapshot?.images?.length > 0
+            } : null,
+            allProductSnapshots: result.data.map((order: any) => ({
+              id: order.id,
+              hasSnapshot: Boolean(order.product_snapshot),
+              snapshotKeys: order.product_snapshot ? Object.keys(order.product_snapshot) : [],
+              images: order.product_snapshot?.images || []
+            }))
+          });
+          
+          const formattedOrders = formatOrdersData(result.data);
+          setOrders(formattedOrders);
+          setError(null);
+          
+          // Log the source for debugging
+          console.log(`Orders loaded successfully from: ${result.source}`);
+          return;
+        }
+      } catch (directError) {
+        console.error('Error with direct fetch approach:', directError);
+        // Continue to fallback
       }
       
-      if (result.data) {
-        // Log the raw data structure to debug what's coming from the API
-        console.log('Raw order data structure:', {
-          source: result.source,
-          count: result.data.length,
-          firstOrder: result.data.length > 0 ? {
-            keys: Object.keys(result.data[0]),
-            snapshot: result.data[0].product_snapshot,
-            hasImages: result.data[0].product_snapshot?.images?.length > 0
-          } : null,
-          allProductSnapshots: result.data.map((order: any) => ({
-            id: order.id,
-            hasSnapshot: Boolean(order.product_snapshot),
-            snapshotKeys: order.product_snapshot ? Object.keys(order.product_snapshot) : [],
-            images: order.product_snapshot?.images || []
-          }))
-        });
+      // If direct fetch fails, try RPC fallback
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         
-        const formattedOrders = formatOrdersData(result.data);
-        setOrders(formattedOrders);
-        setError(null);
+        if (!supabaseUrl || !supabaseKey) {
+          throw new Error('Supabase URL or key not found');
+        }
         
-        // Log the source for debugging
-        console.log(`Orders loaded successfully from: ${result.source}`);
-      } else {
-        setOrders([]);
+        const response = await fetch(
+          `${supabaseUrl}/rest/v1/rpc/get_user_orders_fallback`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'X-Wallet-Address': walletAddress
+            },
+            body: JSON.stringify({ wallet_addr: walletAddress })
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`RPC fallback failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const formattedOrders = formatOrdersData(data);
+          setOrders(formattedOrders);
+          setError(null);
+          console.log('Orders loaded successfully from RPC fallback');
+          return;
+        }
+      } catch (rpcError) {
+        console.error('Error with RPC fallback:', rpcError);
       }
+      
+      // If we get here, both approaches failed
+      setOrders([]);
+      setError('Failed to fetch orders after multiple attempts');
     } catch (err) {
       console.error('Error fetching orders:', err);
       setError(err instanceof Error ? err.message : 'An error occurred while fetching orders');

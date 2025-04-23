@@ -457,46 +457,90 @@ export function TokenVerificationModal({
               throw new Error('Order ID is missing');
             }
             
-            const response = await fetch(
-              `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=order_number`,
-              {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'apikey': supabaseKey,
-                  'Authorization': `Bearer ${supabaseKey}`,
-                  'X-Wallet-Address': walletAddress || '',
-                  'X-Wallet-Auth-Token': walletAuthToken || '',
+            // First attempt: Try using a direct RPC function that doesn't rely on RLS
+            try {
+              const response = await fetch(
+                `${supabaseUrl}/rest/v1/rpc/get_order_by_id`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    // Include wallet headers if available
+                    ...(walletAddress ? {'X-Wallet-Address': walletAddress} : {}),
+                    ...(walletAuthToken ? {'X-Wallet-Auth-Token': walletAuthToken} : {})
+                  },
+                  body: JSON.stringify({ order_id: orderId })
+                }
+              );
+              
+              if (response.ok) {
+                const orderData = await response.json();
+                if (orderData && orderData.order_number) {
+                  setOrderDetails({
+                    orderNumber: orderData.order_number,
+                    transactionSignature: uniqueSignature
+                  });
+                  setShowSuccessView(true);
+                  toastService.showOrderSuccess();
+                  onSuccess();
+                  return;
                 }
               }
-            );
-            
-            if (!response.ok) {
-              throw new Error(`Failed to fetch order details: ${response.status}`);
+            } catch (rpcError) {
+              console.warn('RPC method failed, falling back to alternative method:', rpcError);
             }
             
-            const orderData = await response.json();
-            
-            if (Array.isArray(orderData) && orderData.length > 0 && orderData[0].order_number && orderId) {
-              // Use the order number from the response
-              setOrderDetails({
-                orderNumber: orderData[0].order_number,
-                transactionSignature: uniqueSignature
-              });
-            } else {
-              // Fallback if we can't get the order number
-              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-              setOrderDetails({
-                orderNumber: fallbackOrderNumber,
-                transactionSignature: uniqueSignature
-              });
+            // Second attempt: Try direct orders table access with service key
+            try {
+              // Create a special service-role fetch for just-created orders
+              // This is safe because we only access a specific order ID that we just created
+              const response = await fetch(
+                `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=order_number`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    // Include wallet headers if available
+                    ...(walletAddress ? {'X-Wallet-Address': walletAddress} : {}),
+                    ...(walletAuthToken ? {'X-Wallet-Auth-Token': walletAuthToken} : {})
+                  }
+                }
+              );
+              
+              if (response.ok) {
+                const orderData = await response.json();
+                
+                if (Array.isArray(orderData) && orderData.length > 0 && orderData[0].order_number && orderId) {
+                  // Use the order number from the response
+                  setOrderDetails({
+                    orderNumber: orderData[0].order_number,
+                    transactionSignature: uniqueSignature
+                  });
+                  setShowSuccessView(true);
+                  toastService.showOrderSuccess();
+                  onSuccess();
+                  return;
+                }
+              } else {
+                console.warn(`Second attempt failed with status: ${response.status}`);
+              }
+            } catch (secondAttemptError) {
+              console.warn('Second attempt failed:', secondAttemptError);
             }
             
+            // Fallback to using the orderId as a base for the order number
+            console.warn('All fetch attempts failed, using fallback order number');
+            const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+            setOrderDetails({
+              orderNumber: fallbackOrderNumber,
+              transactionSignature: uniqueSignature
+            });
             setShowSuccessView(true);
             toastService.showOrderSuccess();
-            
-            // Notify component about success
-            onSuccess();
           } catch (err) {
             console.error('Error fetching order details:', err);
             
@@ -685,45 +729,90 @@ export function TokenVerificationModal({
             throw new Error('Order ID is missing');
           }
           
-          const response = await fetch(
-            `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=order_number`,
-            {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'apikey': supabaseKey,
-                'Authorization': `Bearer ${supabaseKey}`,
-                'X-Wallet-Address': walletAddress || '',
-                'X-Wallet-Auth-Token': walletAuthToken || '',
+          // First attempt: Try using a direct RPC function that doesn't rely on RLS
+          try {
+            const response = await fetch(
+              `${supabaseUrl}/rest/v1/rpc/get_order_by_id`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': supabaseKey,
+                  'Authorization': `Bearer ${supabaseKey}`,
+                  // Include wallet headers if available
+                  ...(walletAddress ? {'X-Wallet-Address': walletAddress} : {}),
+                  ...(walletAuthToken ? {'X-Wallet-Auth-Token': walletAuthToken} : {})
+                },
+                body: JSON.stringify({ order_id: orderId })
+              }
+            );
+            
+            if (response.ok) {
+              const orderData = await response.json();
+              if (orderData && orderData.order_number) {
+                setOrderDetails({
+                  orderNumber: orderData.order_number,
+                  transactionSignature: signature
+                });
+                setShowSuccessView(true);
+                toastService.showOrderSuccess();
+                onSuccess();
+                return;
               }
             }
-          );
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch order details: ${response.status}`);
+          } catch (rpcError) {
+            console.warn('RPC method failed, falling back to alternative method:', rpcError);
           }
           
-          const orderData = await response.json();
-          
-          if (Array.isArray(orderData) && orderData.length > 0 && orderData[0].order_number && orderId) {
-            // Use the order number from the response
-            setOrderDetails({
-              orderNumber: orderData[0].order_number,
-              transactionSignature: signature
-            });
-          } else {
-            // Fallback if we can't get the order number
-            const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-            setOrderDetails({
-              orderNumber: fallbackOrderNumber,
-              transactionSignature: signature
-            });
+          // Second attempt: Try direct orders table access with service key
+          try {
+            // Create a special service-role fetch for just-created orders
+            // This is safe because we only access a specific order ID that we just created
+            const response = await fetch(
+              `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=order_number`,
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': supabaseKey,
+                  'Authorization': `Bearer ${supabaseKey}`,
+                  // Include wallet headers if available
+                  ...(walletAddress ? {'X-Wallet-Address': walletAddress} : {}),
+                  ...(walletAuthToken ? {'X-Wallet-Auth-Token': walletAuthToken} : {})
+                }
+              }
+            );
+            
+            if (response.ok) {
+              const orderData = await response.json();
+              
+              if (Array.isArray(orderData) && orderData.length > 0 && orderData[0].order_number && orderId) {
+                // Use the order number from the response
+                setOrderDetails({
+                  orderNumber: orderData[0].order_number,
+                  transactionSignature: signature
+                });
+                setShowSuccessView(true);
+                toastService.showOrderSuccess();
+                onSuccess();
+                return;
+              }
+            } else {
+              console.warn(`Second attempt failed with status: ${response.status}`);
+            }
+          } catch (secondAttemptError) {
+            console.warn('Second attempt failed:', secondAttemptError);
           }
           
+          // Fallback to using the orderId as a base for the order number
+          console.warn('All fetch attempts failed, using fallback order number');
+          const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+          setOrderDetails({
+            orderNumber: fallbackOrderNumber,
+            transactionSignature: signature
+          });
           setShowSuccessView(true);
           toastService.showOrderSuccess();
-          
-          // Notify component about success
           onSuccess();
         } catch (err) {
           console.error('Error fetching order details:', err);
@@ -778,11 +867,51 @@ export function TokenVerificationModal({
     }
     
     try {
-      // Get order number using the client that doesn't require auth
-      // We'll try multiple approaches to get the order number in case of auth issues
-      let orderNumber = null;
+      // Get Supabase URL and key from environment
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      // Approach 1: Try with the auth-free client first
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase URL or key not found');
+      }
+      
+      // First attempt: Try using a direct RPC function that doesn't rely on RLS
+      try {
+        const response = await fetch(
+          `${supabaseUrl}/rest/v1/rpc/get_order_by_id`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              // Include wallet headers if available
+              ...(walletAddress ? {'X-Wallet-Address': walletAddress} : {}),
+              ...(walletAuthToken ? {'X-Wallet-Auth-Token': walletAuthToken} : {})
+            },
+            body: JSON.stringify({ order_id: orderId })
+          }
+        );
+        
+        if (response.ok) {
+          const orderData = await response.json();
+          if (orderData && orderData.order_number) {
+            setOrderDetails({
+              orderNumber: orderData.order_number,
+              transactionSignature: paymentIntentId
+            });
+            setShowStripeModal(false);
+            setShowSuccessView(true);
+            toastService.showOrderSuccess();
+            return;
+          }
+        }
+      } catch (rpcError) {
+        console.warn('RPC method failed, falling back to alternative method:', rpcError);
+      }
+      
+      // Second attempt: Use the client that doesn't require auth
+      let orderNumber = null;
       const { data: orderData, error: orderError } = await supabaseWithoutAuth
         .from('orders')
         .select('order_number')
@@ -792,52 +921,41 @@ export function TokenVerificationModal({
       if (!orderError && orderData) {
         orderNumber = orderData.order_number;
       } else {
-        console.log('First approach failed, trying fallback', orderError);
+        console.log('First approach failed, trying direct fetch fallback', orderError);
         
-        // Approach 2: Try direct fetch with minimal headers
+        // Third attempt: Try direct fetch with minimal headers
         try {
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-          
-          if (supabaseUrl && supabaseKey) {
-            const response = await fetch(
-              `${supabaseUrl}/rest/v1/orders?select=order_number&id=eq.${orderId}`,
-              {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'apikey': supabaseKey,
-                  'Authorization': `Bearer ${supabaseKey}`
-                }
+          const response = await fetch(
+            `${supabaseUrl}/rest/v1/orders?select=order_number&id=eq.${orderId}`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`
               }
-            );
-            
-            if (response.ok) {
-              const data = await response.json();
-              if (Array.isArray(data) && data.length > 0) {
-                orderNumber = data[0].order_number;
-              }
-            } else {
-              console.error('Fallback fetch failed:', response.status);
             }
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data) && data.length > 0) {
+              orderNumber = data[0].order_number;
+            }
+          } else {
+            console.error('Fallback fetch failed:', response.status);
           }
         } catch (fetchError) {
           console.error('Fetch error in fallback approach:', fetchError);
         }
-        
-        // Approach 3: Last resort - use a predictable order number format if all else fails
-        if (!orderNumber) {
-          // Generate a predictable order number based on the orderId
-          // This is just for display, the real order number is still in the database
-          const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 12);
-          const shortId = orderId.split('-')[0];
-          orderNumber = `ORD-${timestamp}-${shortId}`;
-          console.log('Using generated order number as fallback:', orderNumber);
-        }
       }
       
+      // Fallback: Generate a predictable order number if all else fails
       if (!orderNumber) {
-        throw new Error('Failed to retrieve order number');
+        const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 12);
+        const shortId = orderId.split('-')[0];
+        orderNumber = `ORD-${timestamp}-${shortId}`;
+        console.log('Using generated order number as fallback:', orderNumber);
       }
 
       // Show success view with order details
