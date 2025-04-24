@@ -587,11 +587,15 @@ export function StripePaymentModal({
                 Refresh Page
               </button>
             </div>
+          ) : !clientSecret ? (
+            <div className="flex items-center justify-center p-8">
+              <Loading type={LoadingType.ACTION} text="Preparing payment..." />
+            </div>
           ) : (
             <Elements 
               stripe={stripePromise} 
               options={{
-                clientSecret: clientSecret as string,
+                clientSecret: clientSecret,
                 appearance: {
                   theme: 'night',
                   variables: {
