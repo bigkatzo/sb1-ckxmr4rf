@@ -23,14 +23,58 @@ export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
   
   try {
-    // EMERGENCY FIX: For any WebP files or problematic dash patterns, always use object URL
-    if (url.includes('.webp') || url.includes('-d')) {
-      // If this is already a render URL, convert it back to object URL
-      if (url.includes('/storage/v1/render/image/public/')) {
-        return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+    // First, check if this is a problematic URL with special characters
+    const hasSpecialChars = /[\(\) ]/.test(url);
+    const hasWebpOrDash = url.includes('.webp') || url.includes('-d');
+    
+    // For problematic URLs, handle special characters properly
+    if (hasSpecialChars || hasWebpOrDash) {
+      try {
+        const parsedUrl = new URL(url);
+        
+        // Get the path parts to identify the filename
+        const pathParts = parsedUrl.pathname.split('/');
+        const fileNameIndex = pathParts.length - 1;
+        const originalFilename = pathParts[fileNameIndex];
+        
+        // Handle special characters in the filename
+        try {
+          // First try to decode in case it's already partially encoded
+          const decodedFilename = decodeURIComponent(originalFilename);
+          
+          // Re-encode properly, removing or replacing problematic characters
+          const encodedFilename = encodeURIComponent(decodedFilename)
+            .replace(/%20/g, '-')  // Convert spaces to hyphens
+            .replace(/%28/g, '')   // Remove opening parentheses
+            .replace(/%29/g, '')   // Remove closing parentheses
+            .replace(/%2F/g, '-'); // Replace slashes with hyphens
+          
+          // Replace the filename part in the path
+          pathParts[fileNameIndex] = encodedFilename;
+          parsedUrl.pathname = pathParts.join('/');
+          
+          // For these problematic files, always use object URL
+          if (parsedUrl.pathname.includes('/storage/v1/render/image/public/')) {
+            parsedUrl.pathname = parsedUrl.pathname.replace(
+              '/storage/v1/render/image/public/',
+              '/storage/v1/object/public/'
+            );
+            // Remove query parameters for object URLs
+            parsedUrl.search = '';
+          }
+          
+          return parsedUrl.toString();
+        } catch (e) {
+          // If encoding fails, fall back to original handling
+          console.warn('Error handling special characters in URL:', e);
+        }
+      } catch (e) {
+        // If URL parsing fails, try basic string operations
+        if (url.includes('/storage/v1/render/image/public/') && (hasSpecialChars || hasWebpOrDash)) {
+          // Convert render URLs with special chars to object URLs
+          return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+        }
       }
-      // If it's already an object URL, keep it that way
-      return url;
     }
     
     // Parse the URL to handle it properly
@@ -44,11 +88,23 @@ export function normalizeStorageUrl(url: string): string {
     
     // If it's already a render/image URL, don't modify it
     if (path.includes('/storage/v1/render/image/')) {
+      // Unless it has special characters or is WebP, in which case convert to object URL
+      if (hasSpecialChars || hasWebpOrDash) {
+        path = path.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+        parsedUrl.pathname = path;
+        parsedUrl.search = ''; // Remove query params
+        return parsedUrl.toString();
+      }
       return url;
     }
     
     // Always convert object URLs to render URLs (more aggressive approach)
     if (path.includes('/storage/v1/object/public/')) {
+      // Skip conversion for files with special characters or WebP
+      if (hasSpecialChars || hasWebpOrDash) {
+        return url;
+      }
+      
       // Check if this is a file format that works well with the render endpoint
       const isJpgOrPng = /\.(jpe?g|png)$/i.test(path);
       
@@ -85,16 +141,17 @@ export function normalizeStorageUrl(url: string): string {
   } catch (error) {
     console.error('Error normalizing URL:', error);
     
-    // EMERGENCY FALLBACK: If URL parsing fails but contains WebP or dashes, ensure it uses object URL
+    // EMERGENCY FALLBACK: If URL parsing fails but contains WebP or special characters, ensure it uses object URL
     if (typeof url === 'string') {
-      if ((url.includes('.webp') || url.includes('-d')) && url.includes('/storage/v1/render/image/public/')) {
+      if ((url.includes('.webp') || url.includes('-d') || /[\(\) ]/.test(url)) && 
+          url.includes('/storage/v1/render/image/public/')) {
         return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
       }
       
       // If it looks like a Supabase storage URL, try a simple string replace
-      // But only for jpg/png formats
+      // But only for jpg/png formats without special characters
       if (url.includes('/storage/v1/object/public/')) {
-        if (/\.(jpe?g|png)$/i.test(url)) {
+        if (/\.(jpe?g|png)$/i.test(url) && !/[\(\) ]/.test(url)) {
           // Only convert JPG/PNG, and include params
           const convertedUrl = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
           return `${convertedUrl}?width=800&quality=80&format=original`;
@@ -179,7 +236,7 @@ export function generateUniqueFileName(originalName: string): string {
   // Clean the base name
   const sanitizedName = sanitizeFileName(baseName);
   
-  // Construct final filename
+  // Construct final filename - place sanitized name at the end to make it readable but still have unique prefix
   const finalName = `${timestamp}-${randomString}-${sanitizedName}${extension}`;
   
   return finalName;
@@ -236,7 +293,33 @@ export async function uploadImage(
 
   try {
     validateFile(file, maxSizeMB);
-    const safeFileName = generateUniqueFileName(file.name);
+    
+    // Enhanced filename sanitization for new uploads
+    // This will prevent issues with parentheses, spaces, and other special characters
+    const originalName = file.name;
+    const extension = (originalName.match(/\.[^/.]+$/)?.[0] || '').toLowerCase();
+    const baseName = originalName.replace(/\.[^/.]+$/, '');
+    
+    // Generate timestamp for uniqueness
+    const timestamp = new Date().toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/[T.]/g, '')
+      .slice(0, 14);
+    
+    // Generate a random string for additional uniqueness
+    const randomString = Math.random().toString(36).substring(2, 10);
+    
+    // Sanitize the base name - remove all special characters completely
+    const sanitizedName = baseName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with single hyphen
+      .replace(/-+/g, '-')          // Replace multiple hyphens with single hyphen
+      .replace(/^-+|-+$/g, '');     // Remove leading/trailing hyphens
+    
+    // Construct final filename with order: timestamp-random-sanitized.ext
+    // This ensures uniqueness first and readability second
+    const safeFileName = `${timestamp}-${randomString}-${sanitizedName}${extension}`;
+    
     const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
 
     // Add metadata to track image association and upload time
@@ -250,7 +333,8 @@ export async function uploadImage(
         ? 'collection' 
         : bucket === 'product-images' 
           ? 'product' 
-          : 'site'
+          : 'site',
+      originalFilename: file.name // Store original filename for reference
     };
 
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -279,29 +363,132 @@ export async function uploadImage(
       throw error;
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
       .from(bucket)
       .getPublicUrl(uploadData.path);
+
+    if (!publicUrlData?.publicUrl) {
+      const error = new Error('Could not generate public URL');
+      toast.error(error.message);
+      throw error;
+    }
+
+    // Normalize the URL to ensure it's formatted correctly
+    const normalizedUrl = normalizeStorageUrl(publicUrlData.publicUrl);
     
-    const baseUrl = new URL(publicUrl).origin;
-    const renderUrl = `${baseUrl}/storage/v1/render/image/public/${bucket}/${uploadData.path}`;
-    const finalUrl = normalizeStorageUrl(renderUrl);
+    // Ensure accessibility before returning
+    try {
+      await verifyUrlAccessibility(normalizedUrl);
+    } catch (error) {
+      console.warn('Warning: Image URL accessibility check failed');
+    }
     
-    await verifyUrlAccessibility(finalUrl);
-    
-    return finalUrl;
+    return normalizedUrl;
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('Upload image error:', error);
     throw error;
   }
 }
 
+// Improved URL normalization function
 export function normalizeUrl(url: string): string {
-  const parsed = new URL(url);
-  const normalized = parsed.pathname;
-  const final = `${parsed.origin}${normalized}`;
+  if (!url) return '';
+  
+  try {
+    // Parse the URL
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch (error) {
+      // If URL parsing fails, return the original
+      return url;
+    }
 
-  return final;
+    // Get the path and ensure it's properly encoded
+    const pathParts = parsedUrl.pathname.split('/');
+    
+    // Find the filename (last part of the path)
+    const fileNameIndex = pathParts.length - 1;
+    
+    // Only process if the URL appears to be a Supabase storage URL
+    if (parsedUrl.pathname.includes('/storage/v1/')) {
+      // Properly encode the filename part
+      const originalFilename = pathParts[fileNameIndex];
+      
+      // Decode first in case it's already partially encoded (avoid double encoding)
+      let decodedFilename;
+      try {
+        decodedFilename = decodeURIComponent(originalFilename);
+      } catch (e) {
+        decodedFilename = originalFilename;
+      }
+      
+      // Properly encode all characters that might cause issues
+      // This uses encodeURIComponent which handles all special characters including parentheses
+      const encodedFilename = encodeURIComponent(decodedFilename)
+        // Firefox and some browsers don't handle certain encodings well, so convert back some safe characters
+        .replace(/%20/g, '-') // Convert encoded spaces to hyphens for safer URLs
+        .replace(/%2C/g, ',') // Keep commas readable
+        .replace(/%2F/g, '-') // Convert slashes to hyphens for safety
+        .replace(/%28/g, '') // Remove opening parentheses completely
+        .replace(/%29/g, '') // Remove closing parentheses completely;
+      
+      // Replace the filename in the path
+      pathParts[fileNameIndex] = encodedFilename;
+      
+      // Reconstruct the path
+      const newPathname = pathParts.join('/');
+      
+      // Update the URL
+      parsedUrl.pathname = newPathname;
+    }
+    
+    // Handle query parameters
+    const newUrl = parsedUrl.toString();
+    
+    // Determine if we need to convert between render and object URLs
+    if (newUrl.includes('/storage/v1/object/public/')) {
+      const isJpgOrPng = /\.(jpe?g|png)$/i.test(newUrl.toLowerCase());
+      const isWebpOrProblematic = /\.(webp)$/i.test(newUrl.toLowerCase()) || 
+                                  newUrl.includes('-d') || 
+                                  newUrl.includes('(') || 
+                                  newUrl.includes(')') ||
+                                  newUrl.includes(' ');
+      
+      // For JPG and PNG, use render endpoint unless they have problematic characters
+      if (isJpgOrPng && !isWebpOrProblematic) {
+        const renderUrl = newUrl.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+        return `${renderUrl}${renderUrl.includes('?') ? '&' : '?'}width=800&quality=80&format=original`;
+      }
+      
+      // Otherwise keep as object URL
+      return newUrl;
+    } else if (newUrl.includes('/storage/v1/render/image/public/')) {
+      const isWebpOrProblematic = /\.(webp)$/i.test(newUrl.toLowerCase()) || 
+                                  newUrl.includes('-d') || 
+                                  newUrl.includes('(') || 
+                                  newUrl.includes(')') ||
+                                  newUrl.includes(' ');
+      
+      // For problematic files, convert render URLs to object URLs
+      if (isWebpOrProblematic) {
+        return newUrl.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+      }
+      
+      // Otherwise ensure render URL has proper parameters
+      if (!newUrl.includes('width=') || !newUrl.includes('quality=')) {
+        return `${newUrl}${newUrl.includes('?') ? '&' : '?'}width=800&quality=80&format=original`;
+      }
+      
+      return newUrl;
+    }
+    
+    return newUrl;
+  } catch (error) {
+    console.error('URL normalization error:', error);
+    return url; // Return original if anything fails
+  }
 }
 
 export function sanitizeFilename(filename: string): string {

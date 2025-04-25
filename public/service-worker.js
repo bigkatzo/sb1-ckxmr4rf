@@ -349,9 +349,67 @@ async function fetchImageWithFallbacks(request, options = {}) {
   const url = new URL(request.url);
   const { timeout = 5000, useNoCorsFallback = true } = options;
   
+  // Check for problematic characters in URL
+  const hasProblematicChars = url.pathname.includes('(') || 
+                               url.pathname.includes(')') || 
+                               url.pathname.includes(' ');
+  
   // For WebP and problematic files, skip the render endpoint entirely
   if (url.hostname.includes('supabase.co') && 
-      (url.pathname.endsWith('.webp') || url.pathname.includes('-d'))) {
+      (url.pathname.endsWith('.webp') || url.pathname.includes('-d') || hasProblematicChars)) {
+    
+    // Special handling for URLs with problematic characters
+    if (hasProblematicChars) {
+      try {
+        // Get the path parts to fix the filename
+        const pathParts = url.pathname.split('/');
+        const fileNameIndex = pathParts.length - 1;
+        const originalFilename = pathParts[fileNameIndex];
+        
+        // Encode problematic characters properly
+        let decodedFilename;
+        try {
+          // First try to decode in case it's already partially encoded
+          decodedFilename = decodeURIComponent(originalFilename);
+        } catch {
+          decodedFilename = originalFilename;
+        }
+        
+        // Re-encode properly
+        const encodedFilename = encodeURIComponent(decodedFilename)
+          .replace(/%20/g, '-')  // Convert spaces to hyphens
+          .replace(/%28/g, '')   // Remove opening parentheses
+          .replace(/%29/g, '')   // Remove closing parentheses
+          .replace(/%2F/g, '-'); // Replace slashes with hyphens
+        
+        // Replace the filename part in the path
+        pathParts[fileNameIndex] = encodedFilename;
+        
+        // Convert render to object URL for these problematic formats
+        if (url.pathname.includes('/storage/v1/render/image/public/')) {
+          pathParts[pathParts.indexOf('render')] = 'object';
+          url.pathname = pathParts.join('/');
+          url.search = ''; // Remove query params for object URLs
+          
+          console.log('Sanitized URL with special characters:', url.toString());
+          try {
+            const response = await fetch(new Request(url.toString(), {
+              headers: request.headers,
+              mode: request.mode,
+              credentials: request.credentials
+            }));
+            if (response.ok) {
+              return response;
+            }
+          } catch (e) {
+            console.warn('Sanitized URL fetch failed:', e);
+          }
+        }
+      } catch (e) {
+        console.warn('Error handling special characters in URL:', e);
+      }
+    }
+    
     // Convert render to object URL for these problematic formats
     if (url.pathname.includes('/storage/v1/render/image/public/')) {
       const pathMatch = url.pathname.match(/\/storage\/v1\/render\/image\/public\/(.+)/);
@@ -359,14 +417,14 @@ async function fetchImageWithFallbacks(request, options = {}) {
         const objectPath = pathMatch[1];
         const objectUrl = `${url.protocol}//${url.hostname}/storage/v1/object/public/${objectPath}`;
         
-        console.log('Using object URL directly for WebP/problematic file:', objectUrl);
+        console.log('Using object URL directly for problematic file:', objectUrl);
         try {
           const response = await fetch(objectUrl);
           if (response.ok) {
             return response;
           }
         } catch (e) {
-          console.warn('Direct object URL failed for WebP file:', e);
+          console.warn('Direct object URL failed for problematic file:', e);
         }
       }
     }
@@ -828,24 +886,94 @@ async function handleProductImageRequest(request) {
   const url = new URL(request.url);
   
   try {
-    // Normalize the URL to ensure it uses render endpoint
-    if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/v1/object/public/')) {
-      // Convert to render URL
-      const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/(.+)/);
-      if (pathMatch && pathMatch[1]) {
-        const renderPath = `/storage/v1/render/image/public/${pathMatch[1]}`;
-        const renderUrl = `${url.protocol}//${url.hostname}${renderPath}${url.search}`;
-        
-        // Create a new request with render URL
-        request = new Request(renderUrl, {
-          method: request.method,
-          headers: request.headers,
-          mode: request.mode,
-          credentials: request.credentials,
-          redirect: request.redirect
-        });
-        
-        console.log('Normalized product image URL to render URL:', renderUrl);
+    // Check for problematic characters in URL
+    const hasProblematicChars = url.pathname.includes('(') || 
+                                url.pathname.includes(')') || 
+                                url.pathname.includes(' ');
+    
+    // Normalize the URL to ensure it uses the right endpoint based on file type and characters
+    if (url.hostname.includes('supabase.co')) {
+      // For problematic URLs, always use object endpoint
+      if (hasProblematicChars || url.pathname.endsWith('.webp') || url.pathname.includes('-d')) {
+        if (url.pathname.includes('/storage/v1/render/image/public/')) {
+          // Convert render URL to object URL for problematic files
+          const pathMatch = url.pathname.match(/\/storage\/v1\/render\/image\/public\/(.+)/);
+          if (pathMatch && pathMatch[1]) {
+            const objectPath = pathMatch[1];
+            const objectUrl = `${url.protocol}//${url.hostname}/storage/v1/object/public/${objectPath}`;
+            
+            // Create new request with sanitized URL
+            request = new Request(objectUrl.split('?')[0], {
+              method: request.method,
+              headers: request.headers,
+              mode: request.mode,
+              credentials: request.credentials,
+              redirect: request.redirect
+            });
+            
+            console.log('Converted problematic render URL to object URL:', objectUrl);
+          }
+        } else if (url.pathname.includes('/storage/v1/object/public/')) {
+          // Handle special characters in object URLs
+          const pathParts = url.pathname.split('/');
+          const fileNameIndex = pathParts.length - 1;
+          
+          try {
+            // Decode first (in case it's already encoded)
+            const originalFilename = pathParts[fileNameIndex];
+            let decodedFilename;
+            try {
+              decodedFilename = decodeURIComponent(originalFilename);
+            } catch {
+              decodedFilename = originalFilename;
+            }
+            
+            // Re-encode properly
+            const encodedFilename = encodeURIComponent(decodedFilename)
+              .replace(/%20/g, '-')  // Convert spaces to hyphens
+              .replace(/%28/g, '')   // Remove opening parentheses
+              .replace(/%29/g, '')   // Remove closing parentheses
+              .replace(/%2F/g, '-'); // Replace slashes with hyphens
+            
+            // Replace filename in path if it changed
+            if (encodedFilename !== originalFilename) {
+              pathParts[fileNameIndex] = encodedFilename;
+              const newPathname = pathParts.join('/');
+              
+              // Create new request with sanitized URL
+              request = new Request(`${url.protocol}//${url.hostname}${newPathname}`, {
+                method: request.method,
+                headers: request.headers,
+                mode: request.mode,
+                credentials: request.credentials,
+                redirect: request.redirect
+              });
+              
+              console.log('Sanitized object URL with special characters');
+            }
+          } catch (e) {
+            console.warn('Error sanitizing object URL:', e);
+          }
+        }
+      } else if (url.pathname.includes('/storage/v1/object/public/') && 
+                /\.(jpe?g|png)$/i.test(url.pathname)) {
+        // For regular JPG/PNG, convert object to render URL
+        const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/(.+)/);
+        if (pathMatch && pathMatch[1]) {
+          const renderPath = `/storage/v1/render/image/public/${pathMatch[1]}`;
+          const renderUrl = `${url.protocol}//${url.hostname}${renderPath}${url.search || '?width=800&quality=80&format=original'}`;
+          
+          // Create a new request with render URL
+          request = new Request(renderUrl, {
+            method: request.method,
+            headers: request.headers,
+            mode: request.mode,
+            credentials: request.credentials,
+            redirect: request.redirect
+          });
+          
+          console.log('Normalized product image URL to render URL:', renderUrl);
+        }
       }
     }
     
@@ -856,9 +984,11 @@ async function handleProductImageRequest(request) {
       return cachedResponse;
     }
     
-    // Special handling for problematic product image URLs with dashes
-    const productImageWithDash = url.pathname.includes('-d') && 
-                               url.pathname.includes('product-images');
+    // Special handling for problematic product image URLs
+    const isProblematicImage = (hasProblematicChars || 
+                              url.pathname.includes('-d') || 
+                              url.pathname.endsWith('.webp')) && 
+                              url.pathname.includes('product-images');
     
     // For all Supabase storage URLs, use our enhanced fetch with fallbacks
     console.log('Fetching product image with fallbacks:', request.url);
