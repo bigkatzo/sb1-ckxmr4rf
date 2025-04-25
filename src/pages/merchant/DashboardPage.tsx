@@ -25,8 +25,13 @@ const merchantTabs = [
   { id: 'collections', label: 'Collections' },
   { id: 'categories', label: 'Categories' },
   { id: 'products', label: 'Products' },
-  { id: 'orders', label: 'Orders' },
-  { id: 'coupons', label: 'Coupons' }
+  { id: 'orders', label: 'Orders' }
+];
+
+// Define admin only tabs
+const adminTabs = [
+  { id: 'coupons', label: 'Coupons' },
+  { id: 'transactions', label: 'Transactions' }
 ];
 
 export function DashboardPage() {
@@ -78,10 +83,17 @@ export function DashboardPage() {
     checkPermissions();
   }, []);
 
+  // Reset to a valid tab if user tries to access admin-only tabs
+  React.useEffect(() => {
+    if (isAdmin === false && (activeTab === 'coupons' || activeTab === 'transactions')) {
+      setActiveTab('collections');
+    }
+  }, [isAdmin, activeTab]);
+
   // Get available tabs based on user role
   const availableTabs = React.useMemo(() => {
     if (isAdmin) {
-      return [...merchantTabs, { id: 'transactions', label: 'Transactions' }];
+      return [...merchantTabs, ...adminTabs];
     }
     return merchantTabs;
   }, [isAdmin]);
@@ -108,7 +120,7 @@ export function DashboardPage() {
         case 'orders':
           return hasCollectionAccess ? <Suspense fallback={<TabLoader />}><OrdersTab /></Suspense> : <NoAccessMessage />;
         case 'coupons':
-          return hasCollectionAccess ? <Suspense fallback={<TabLoader />}><CouponsTab /></Suspense> : <NoAccessMessage />;
+          return isAdmin ? <Suspense fallback={<TabLoader />}><CouponsTab /></Suspense> : null;
         case 'transactions':
           return isAdmin ? <Suspense fallback={<TabLoader />}><TransactionsTab /></Suspense> : null;
         default:
