@@ -473,8 +473,13 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               case 'product_name':
                 return escapeCSV(order.product_name || '');
               case 'variant_selections':
+                // Check both variant_selections and order_variants fields
                 if (order.variant_selections && Array.isArray(order.variant_selections)) {
                   return escapeCSV(order.variant_selections.map(v => `${v.name}: ${v.value}`).join(', '));
+                }
+                // Fall back to order_variants if variant_selections is not present
+                if (order.order_variants && Array.isArray(order.order_variants)) {
+                  return escapeCSV(order.order_variants.map(v => `${v.name}: ${v.value}`).join(', '));
                 }
                 return '';
               case 'contact_value':
