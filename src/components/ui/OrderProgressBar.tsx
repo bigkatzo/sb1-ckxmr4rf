@@ -23,7 +23,6 @@ export function OrderProgressBar({
   const { currentOrders, loading } = useOrderStats(productId, { isMainView });
   const isUnlimited = maxStock === null;
   const [showTooltip, setShowTooltip] = React.useState(false);
-  const [showCountTooltip, setShowCountTooltip] = React.useState(false);
 
   // Check if there are active modifiers
   const hasActiveModifiers = priceModifierBeforeMin !== null || priceModifierAfterMin !== null;
@@ -84,21 +83,8 @@ export function OrderProgressBar({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 relative">
-          <span 
-            className="text-purple-400 cursor-help flex items-center"
-            onMouseEnter={() => setShowCountTooltip(true)}
-            onMouseLeave={() => setShowCountTooltip(false)}
-          >
-            {currentOrders}
-            <HelpCircle size={10} className="ml-1 text-gray-500" />
-          </span>
-          {showCountTooltip && (
-            <div className="absolute z-10 top-full right-0 mt-1 w-64 p-3 bg-gray-900 border border-gray-800 rounded-md shadow-lg text-xs">
-              <p className="font-medium text-blue-400 mb-1">Validated Orders Only</p>
-              <p className="text-gray-300">This count only includes confirmed, shipped, and delivered orders.</p>
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <span className="text-purple-400">{currentOrders}</span>
           <span className="text-gray-600">/</span>
           {isUnlimited ? (
             <span className="text-gray-300 flex items-center gap-1">
