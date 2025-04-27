@@ -42,12 +42,12 @@ export function normalizeStorageUrl(url: string): string {
           // First try to decode in case it's already partially encoded
           const decodedFilename = decodeURIComponent(originalFilename);
           
-          // Re-encode properly, removing or replacing problematic characters
+          // Re-encode properly, preserving most special characters but handling problematic ones
           const encodedFilename = encodeURIComponent(decodedFilename)
-            .replace(/%20/g, '-')  // Convert spaces to hyphens
-            .replace(/%28/g, '')   // Remove opening parentheses
-            .replace(/%29/g, '')   // Remove closing parentheses
-            .replace(/%2F/g, '-'); // Replace slashes with hyphens
+            .replace(/%20/g, '-')   // Convert spaces to hyphens
+            .replace(/%28/g, '%28') // Keep parentheses but properly encoded
+            .replace(/%29/g, '%29') // Keep parentheses but properly encoded
+            .replace(/%2F/g, '-');  // Replace slashes with hyphens
           
           // Replace the filename part in the path
           pathParts[fileNameIndex] = encodedFilename;
@@ -208,9 +208,10 @@ export function sanitizeFileName(fileName: string): string {
     .replace(/[-_]?new[-_]?\d*$/i, ''); // Remove "new" and "new 1", etc.
   
   // Convert to lowercase and normalize characters
+  // Allow alphanumeric characters, dots, hyphens and underscores
   const sanitized = cleaned
     .toLowerCase()
-    .replace(/[^a-z0-9.]+/g, '-') // Replace non-alphanumeric with single hyphen
+    .replace(/[^a-z0-9._-]+/g, '-') // Replace non-alphanumeric with single hyphen (excluding dots, hyphens, underscores)
     .replace(/-+/g, '-')          // Replace multiple hyphens with single hyphen
     .replace(/^-+|-+$/g, '')      // Remove leading/trailing hyphens
     .replace(/^\.+|\.+$/g, '');   // Remove leading/trailing dots
@@ -293,33 +294,7 @@ export async function uploadImage(
 
   try {
     validateFile(file, maxSizeMB);
-    
-    // Enhanced filename sanitization for new uploads
-    // This will prevent issues with parentheses, spaces, and other special characters
-    const originalName = file.name;
-    const extension = (originalName.match(/\.[^/.]+$/)?.[0] || '').toLowerCase();
-    const baseName = originalName.replace(/\.[^/.]+$/, '');
-    
-    // Generate timestamp for uniqueness
-    const timestamp = new Date().toISOString()
-      .replace(/[-:]/g, '')
-      .replace(/[T.]/g, '')
-      .slice(0, 14);
-    
-    // Generate a random string for additional uniqueness
-    const randomString = Math.random().toString(36).substring(2, 10);
-    
-    // Sanitize the base name - remove all special characters completely
-    const sanitizedName = baseName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with single hyphen
-      .replace(/-+/g, '-')          // Replace multiple hyphens with single hyphen
-      .replace(/^-+|-+$/g, '');     // Remove leading/trailing hyphens
-    
-    // Construct final filename with order: timestamp-random-sanitized.ext
-    // This ensures uniqueness first and readability second
-    const safeFileName = `${timestamp}-${randomString}-${sanitizedName}${extension}`;
-    
+    const safeFileName = generateUniqueFileName(file.name);
     const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
 
     // Add metadata to track image association and upload time
@@ -363,30 +338,19 @@ export async function uploadImage(
       throw error;
     }
 
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
+    const { data: { publicUrl } } = supabase.storage
       .from(bucket)
       .getPublicUrl(uploadData.path);
-
-    if (!publicUrlData?.publicUrl) {
-      const error = new Error('Could not generate public URL');
-      toast.error(error.message);
-      throw error;
-    }
-
-    // Normalize the URL to ensure it's formatted correctly
-    const normalizedUrl = normalizeStorageUrl(publicUrlData.publicUrl);
     
-    // Ensure accessibility before returning
-    try {
-      await verifyUrlAccessibility(normalizedUrl);
-    } catch (error) {
-      console.warn('Warning: Image URL accessibility check failed');
-    }
+    const baseUrl = new URL(publicUrl).origin;
+    const renderUrl = `${baseUrl}/storage/v1/render/image/public/${bucket}/${uploadData.path}`;
+    const finalUrl = normalizeStorageUrl(renderUrl);
     
-    return normalizedUrl;
+    await verifyUrlAccessibility(finalUrl);
+    
+    return finalUrl;
   } catch (error) {
-    console.error('Upload image error:', error);
+    console.error('Upload error:', error);
     throw error;
   }
 }
