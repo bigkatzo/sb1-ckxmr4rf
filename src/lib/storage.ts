@@ -259,19 +259,50 @@ function validateFile(file: File, maxSizeMB: number = 5): void {
   }
 }
 
-// Verify URL is accessible
+// Verify URL is accessible with improved reliability
 async function verifyUrlAccessibility(url: string): Promise<void> {
-  try {
-    const response = await fetch(url, { method: 'HEAD' });
-    if (!response.ok) {
-      console.warn('Warning: Generated image URL may not be publicly accessible:', {
-        status: response.status,
-        url
+  let attempts = 0;
+  const maxAttempts = 3;
+  const delay = 1000; // 1 second delay between attempts
+  
+  const attemptVerification = async (): Promise<boolean> => {
+    try {
+      const response = await fetch(url, { 
+        method: 'HEAD',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
       });
+      
+      if (response.ok) {
+        console.log(`✅ URL verification successful: ${url}`);
+        return true;
+      } else {
+        console.warn(`⚠️ URL verification returned status ${response.status}: ${url}`);
+        return false;
+      }
+    } catch (error) {
+      console.warn(`⚠️ URL verification fetch failed: ${error}`);
+      return false;
     }
-  } catch (error) {
-    console.warn('Warning: Could not verify image URL accessibility:', error);
+  };
+  
+  // Try verification with retries
+  while (attempts < maxAttempts) {
+    const success = await attemptVerification();
+    if (success) return;
+    
+    attempts++;
+    if (attempts < maxAttempts) {
+      console.log(`Retrying URL verification (${attempts}/${maxAttempts})...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
+  
+  console.warn(`⚠️ URL verification failed after ${maxAttempts} attempts: ${url}`);
+  // We don't throw here because we want to continue even if verification fails
 }
 
 /**
@@ -362,11 +393,17 @@ export async function uploadImage(
     
     console.log(`🔗 Public URL from Supabase: "${urlData.publicUrl}"`);
     
-    // Use normalizeStorageUrl to ensure proper URL format
-    const finalUrl = normalizeStorageUrl(urlData.publicUrl);
-    console.log(`📊 Normalized URL: "${finalUrl}"`);
+    // CRITICAL FIX: For uploads, ALWAYS use the object URL directly
+    // This ensures maximum compatibility and prevents 400 errors
+    // The render endpoint can be unreliable for newly uploaded files
+    const finalUrl = urlData.publicUrl;
+    console.log(`📊 Using direct object URL: "${finalUrl}"`);
     
-    await verifyUrlAccessibility(finalUrl);
+    try {
+      await verifyUrlAccessibility(finalUrl);
+    } catch (error) {
+      console.warn('Warning: URL accessibility check failed, but continuing anyway');
+    }
     
     return finalUrl;
   } catch (error) {
