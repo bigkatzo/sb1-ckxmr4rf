@@ -5,6 +5,9 @@ import { format } from 'date-fns';
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 
+// Import the environment variable
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
 export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets';
 
 export interface UploadResult {
@@ -380,75 +383,32 @@ export async function uploadImage(
     console.log(`✅ Upload successful - Path returned by Supabase: "${uploadData.path}"`);
     console.log(`🔄 Original filename: "${filename}" -> Final path: "${uploadData.path}"`);
 
-    // CRITICAL FIX: Before getting the URL, list files to get the ACTUAL path after Supabase processing
+    // Create a direct, raw URL for the just-uploaded file
+    // This provides maximum reliability without additional transformations
+    let directUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${uploadData.path}`;
+    
+    // Try to make the URL directly without using the Supabase getPublicUrl method
+    // This avoids any further transformations or processing that might cause issues
+    console.log(`🔗 Direct object URL: "${directUrl}"`);
+    
+    // Also get the URL using Supabase's method as a fallback
     try {
-      const { data: fileList, error: listError } = await supabase.storage
+      const { data: urlData } = supabase.storage
         .from(bucket)
-        .list('', {
-          limit: 10,
-          offset: 0,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
+        .getPublicUrl(uploadData.path);
         
-      if (listError) {
-        console.warn('Error listing files to find actual path:', listError);
-      } 
-      else if (fileList && fileList.length > 0) {
-        // Try to find a match for the uploaded file based on recency and name similarity
-        const uploadTimestamp = new Date().toISOString().slice(0, 10); // Today's date
-        
-        // Sort by most recent first (just in case)
-        const sortedFiles = fileList.sort((a, b) => {
-          return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
-        });
-        
-        // Find files created today
-        const recentFiles = sortedFiles.filter(f => {
-          const fileDate = new Date(f.created_at || '').toISOString().slice(0, 10);
-          return fileDate === uploadTimestamp;
-        });
-        
-        if (recentFiles.length > 0) {
-          // Find the most likely match - prefer files that include the original name
-          const filenameWithoutExt = filename.replace(/\.[^/.]+$/, '');
-          const bestMatch = recentFiles.find(f => f.name.includes(filenameWithoutExt));
-          
-          if (bestMatch) {
-            console.log(`Found actual file after Supabase processing: ${bestMatch.name}`);
-            uploadData.path = bestMatch.name;
-          }
-        }
+      if (urlData?.publicUrl) {
+        console.log(`🔍 Supabase public URL: "${urlData.publicUrl}"`);
+        // Use the Supabase-provided URL if it's available
+        directUrl = urlData.publicUrl;
       }
     } catch (e) {
-      console.warn('Error while trying to find actual file path after upload:', e);
-    }
-
-    // Get the public URL directly from Supabase using the ACTUAL path
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(uploadData.path);
-
-    if (!urlData?.publicUrl) {
-      const error = new Error('Could not generate public URL');
-      toast.error(error.message);
-      throw error;
+      console.warn('Error getting public URL from Supabase:', e);
     }
     
-    console.log(`🔗 Public URL from Supabase: "${urlData.publicUrl}"`);
-    
-    // CRITICAL FIX: For uploads, ALWAYS use the object URL directly
-    // This ensures maximum compatibility and prevents 400 errors
-    // The render endpoint can be unreliable for newly uploaded files
-    const finalUrl = urlData.publicUrl;
-    console.log(`📊 Using direct object URL: "${finalUrl}"`);
-    
-    try {
-      await verifyUrlAccessibility(finalUrl);
-    } catch (error) {
-      console.warn('Warning: URL accessibility check failed, but continuing anyway');
-    }
-    
-    return finalUrl;
+    // Skip verification for improved reliability
+    // Just return the URL directly - the component will handle fallbacks if needed
+    return directUrl;
   } catch (error) {
     console.error('Upload error:', error);
     throw error;
