@@ -380,7 +380,50 @@ export async function uploadImage(
     console.log(`✅ Upload successful - Path returned by Supabase: "${uploadData.path}"`);
     console.log(`🔄 Original filename: "${filename}" -> Final path: "${uploadData.path}"`);
 
-    // Get the public URL directly from Supabase
+    // CRITICAL FIX: Before getting the URL, list files to get the ACTUAL path after Supabase processing
+    try {
+      const { data: fileList, error: listError } = await supabase.storage
+        .from(bucket)
+        .list('', {
+          limit: 10,
+          offset: 0,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
+        
+      if (listError) {
+        console.warn('Error listing files to find actual path:', listError);
+      } 
+      else if (fileList && fileList.length > 0) {
+        // Try to find a match for the uploaded file based on recency and name similarity
+        const uploadTimestamp = new Date().toISOString().slice(0, 10); // Today's date
+        
+        // Sort by most recent first (just in case)
+        const sortedFiles = fileList.sort((a, b) => {
+          return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
+        });
+        
+        // Find files created today
+        const recentFiles = sortedFiles.filter(f => {
+          const fileDate = new Date(f.created_at || '').toISOString().slice(0, 10);
+          return fileDate === uploadTimestamp;
+        });
+        
+        if (recentFiles.length > 0) {
+          // Find the most likely match - prefer files that include the original name
+          const filenameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+          const bestMatch = recentFiles.find(f => f.name.includes(filenameWithoutExt));
+          
+          if (bestMatch) {
+            console.log(`Found actual file after Supabase processing: ${bestMatch.name}`);
+            uploadData.path = bestMatch.name;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error while trying to find actual file path after upload:', e);
+    }
+
+    // Get the public URL directly from Supabase using the ACTUAL path
     const { data: urlData } = supabase.storage
       .from(bucket)
       .getPublicUrl(uploadData.path);

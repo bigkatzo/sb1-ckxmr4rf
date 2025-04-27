@@ -185,6 +185,53 @@ export function OptimizedImage({
         return;
       }
       
+      // SUPABASE TRANSFORMED FILENAME DETECTION
+      // The filename may have been transformed by Supabase's trigger function
+      // Common pattern: "filename.jpg" → "timestamp-randomstring-filename.jpg"
+      if (optimizedSrc.includes('supabase.co/storage/v1/')) {
+        console.log('Image error detected, trying to fix Supabase URL:', optimizedSrc);
+        
+        // For render URLs, try the object URL version first as it's more reliable
+        if (optimizedSrc.includes('/storage/v1/render/image/public/')) {
+          const objectUrl = optimizedSrc
+            .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
+            .split('?')[0];
+          
+          console.log('Fixing broken image:', objectUrl);
+          imgElement.src = objectUrl;
+          return;
+        }
+        
+        // For object URLs with special characters, encode them properly
+        if (optimizedSrc.includes('/storage/v1/object/public/')) {
+          try {
+            const url = new URL(optimizedSrc);
+            const pathParts = url.pathname.split('/');
+            const fileNameIndex = pathParts.length - 1;
+            const filename = pathParts[fileNameIndex];
+            
+            // Check if the filename has spaces or other special characters
+            if (filename.includes(' ') || filename.includes('(') || filename.includes(')')) {
+              // Encode the filename properly
+              const encodedFilename = encodeURIComponent(filename)
+                .replace(/%20/g, '-')
+                .replace(/%28/g, '%28')
+                .replace(/%29/g, '%29')
+                .replace(/%2F/g, '-');
+              
+              pathParts[fileNameIndex] = encodedFilename;
+              url.pathname = pathParts.join('/');
+              
+              console.log('Fixing URL encoding:', url.toString());
+              imgElement.src = url.toString();
+              return;
+            }
+          } catch (e) {
+            console.error('Error encoding URL:', e);
+          }
+        }
+      }
+      
       // Check if URL has special characters that could be causing problems
       const hasSpecialChars = optimizedSrc.includes('(') || 
                               optimizedSrc.includes(')') || 
