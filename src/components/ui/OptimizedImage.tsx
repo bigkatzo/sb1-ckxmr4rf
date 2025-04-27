@@ -185,106 +185,6 @@ export function OptimizedImage({
         return;
       }
       
-      // SUPABASE TRANSFORMED FILENAME DETECTION
-      // The filename may have been transformed by Supabase's trigger function
-      // Common pattern: "filename.jpg" → "timestamp-randomstring-filename.jpg"
-      if (optimizedSrc.includes('supabase.co/storage/v1/')) {
-        console.log('Image error detected, trying to fix Supabase URL:', optimizedSrc);
-        
-        // For render URLs, try the object URL version first as it's more reliable
-        if (optimizedSrc.includes('/storage/v1/render/image/public/')) {
-          const objectUrl = optimizedSrc
-            .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
-            .split('?')[0];
-          
-          console.log('Fixing broken image:', objectUrl);
-          imgElement.src = objectUrl;
-          return;
-        }
-        
-        // For object URLs with special characters, encode them properly
-        if (optimizedSrc.includes('/storage/v1/object/public/')) {
-          try {
-            const url = new URL(optimizedSrc);
-            const pathParts = url.pathname.split('/');
-            const fileNameIndex = pathParts.length - 1;
-            const filename = pathParts[fileNameIndex];
-            
-            // Check if the filename has spaces or other special characters
-            if (filename.includes(' ') || filename.includes('(') || filename.includes(')')) {
-              // Encode the filename properly
-              const encodedFilename = encodeURIComponent(filename)
-                .replace(/%20/g, '-')
-                .replace(/%28/g, '%28')
-                .replace(/%29/g, '%29')
-                .replace(/%2F/g, '-');
-              
-              pathParts[fileNameIndex] = encodedFilename;
-              url.pathname = pathParts.join('/');
-              
-              console.log('Fixing URL encoding:', url.toString());
-              imgElement.src = url.toString();
-              return;
-            }
-          } catch (e) {
-            console.error('Error encoding URL:', e);
-          }
-        }
-      }
-      
-      // Check if URL has special characters that could be causing problems
-      const hasSpecialChars = optimizedSrc.includes('(') || 
-                              optimizedSrc.includes(')') || 
-                              optimizedSrc.includes(' ');
-      
-      // Special handling for URLs with problematic characters
-      if (hasSpecialChars) {
-        try {
-          const url = new URL(optimizedSrc);
-          const pathParts = url.pathname.split('/');
-          const fileNameIndex = pathParts.length - 1;
-          const originalFilename = pathParts[fileNameIndex];
-          
-          // Decode first in case it's already encoded
-          let decodedFilename;
-          try {
-            decodedFilename = decodeURIComponent(originalFilename);
-          } catch (e) {
-            decodedFilename = originalFilename;
-          }
-          
-          // Re-encode properly, preserving parentheses with proper encoding
-          const encodedFilename = encodeURIComponent(decodedFilename)
-            .replace(/%20/g, '-')   // Convert spaces to hyphens
-            .replace(/%28/g, '%28') // Keep opening parentheses properly encoded
-            .replace(/%29/g, '%29') // Keep closing parentheses properly encoded
-            .replace(/%2F/g, '-');  // Replace slashes with hyphens
-          
-          // Replace the filename part in the path
-          pathParts[fileNameIndex] = encodedFilename;
-          
-          // Always use object URL for special characters
-          if (url.pathname.includes('/storage/v1/render/image/public/')) {
-            const objectPath = pathParts.join('/').replace(
-              '/storage/v1/render/image/public/', 
-              '/storage/v1/object/public/'
-            );
-            const sanitizedUrl = `${url.protocol}//${url.host}${objectPath}`;
-            console.log('Trying sanitized object URL:', sanitizedUrl);
-            imgElement.src = sanitizedUrl;
-            return;
-          } else if (url.pathname.includes('/storage/v1/object/public/')) {
-            // For object URLs, just update the path with sanitized filename
-            url.pathname = pathParts.join('/');
-            console.log('Trying sanitized object URL:', url.toString());
-            imgElement.src = url.toString();
-            return;
-          }
-        } catch (e) {
-          console.error('Error sanitizing URL with special characters:', e);
-        }
-      }
-      
       // Strategy 1: If we're using render endpoint with params, try without params
       if (optimizedSrc.includes('/storage/v1/render/image/public/') && optimizedSrc.includes('?')) {
         const baseUrl = optimizedSrc.split('?')[0];
@@ -303,16 +203,10 @@ export function OptimizedImage({
       
       // Strategy 3: For older URLs directly using object endpoint, try the render endpoint
       if (optimizedSrc.includes('/storage/v1/object/public/')) {
-        // Only try render endpoint for images likely to work with it (JPG/PNG)
-        if (/\.(jpe?g|png)$/i.test(optimizedSrc.toLowerCase())) {
-          fallbackUrl = new URL(optimizedSrc.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/'));
-          fallbackUrl.search = fallbackUrl.search ? 
-            `${fallbackUrl.search}&width=800&quality=80&format=original` : 
-            `?width=800&quality=80&format=original`;
-          console.log('Trying render endpoint from object URL:', fallbackUrl.toString());
-          imgElement.src = fallbackUrl.toString();
-          return;
-        }
+        fallbackUrl = new URL(optimizedSrc.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/'));
+        console.log('Trying render endpoint from object URL:', fallbackUrl.toString());
+        imgElement.src = fallbackUrl.toString();
+        return;
       }
       
       // Final fallback: Try loading the original src directly if it's different from the optimized src
