@@ -42,11 +42,11 @@ export function normalizeStorageUrl(url: string): string {
           // First try to decode in case it's already partially encoded
           const decodedFilename = decodeURIComponent(originalFilename);
           
-          // Re-encode properly, preserving most special characters but handling problematic ones
+          // Re-encode properly, preserving special characters but making them safe
           const encodedFilename = encodeURIComponent(decodedFilename)
             .replace(/%20/g, '-')   // Convert spaces to hyphens
-            .replace(/%28/g, '%28') // Keep parentheses but properly encoded
-            .replace(/%29/g, '%29') // Keep parentheses but properly encoded
+            .replace(/%28/g, '%28') // Keep parentheses properly encoded
+            .replace(/%29/g, '%29') // Keep parentheses properly encoded
             .replace(/%2F/g, '-');  // Replace slashes with hyphens
           
           // Replace the filename part in the path
@@ -294,14 +294,20 @@ export async function uploadImage(
 
   try {
     validateFile(file, maxSizeMB);
-    const safeFileName = generateUniqueFileName(file.name);
-    const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
-
-    // Add metadata to track image association and upload time
+    
+    // *** SIMPLIFIED APPROACH ***
+    // Use the original filename or a minimally sanitized version
+    // Let Supabase's database trigger handle the formatting and sanitization
+    let filename = file.name;
+    
+    // Only do minimal sanitization to ensure the upload succeeds
+    // Remove path traversal characters - just to be safe
+    filename = filename.replace(/^.*[\/\\]/, '');
+    
+    // Add metadata including the original filename
     const metadata = {
       contentType: file.type,
       cacheControl,
-      // Add tracking metadata
       lastAccessed: new Date().toISOString(),
       uploadedAt: new Date().toISOString(),
       associatedEntity: bucket === 'collection-images' 
@@ -309,12 +315,14 @@ export async function uploadImage(
         : bucket === 'product-images' 
           ? 'product' 
           : 'site',
-      originalFilename: file.name // Store original filename for reference
+      originalFilename: file.name
     };
+    
+    console.log(`🔍 Upload request - Original filename: "${file.name}", Sanitized: "${filename}"`);
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(cleanPath, file, {
+      .upload(filename, file, {
         cacheControl,
         contentType: file.type,
         upsert,
@@ -337,14 +345,26 @@ export async function uploadImage(
       toast.error(error.message);
       throw error;
     }
+    
+    console.log(`✅ Upload successful - Path returned by Supabase: "${uploadData.path}"`);
+    console.log(`🔄 Original filename: "${filename}" -> Final path: "${uploadData.path}"`);
 
-    const { data: { publicUrl } } = supabase.storage
+    // Get the public URL directly from Supabase
+    const { data: urlData } = supabase.storage
       .from(bucket)
       .getPublicUrl(uploadData.path);
+
+    if (!urlData?.publicUrl) {
+      const error = new Error('Could not generate public URL');
+      toast.error(error.message);
+      throw error;
+    }
     
-    const baseUrl = new URL(publicUrl).origin;
-    const renderUrl = `${baseUrl}/storage/v1/render/image/public/${bucket}/${uploadData.path}`;
-    const finalUrl = normalizeStorageUrl(renderUrl);
+    console.log(`🔗 Public URL from Supabase: "${urlData.publicUrl}"`);
+    
+    // Use normalizeStorageUrl to ensure proper URL format
+    const finalUrl = normalizeStorageUrl(urlData.publicUrl);
+    console.log(`📊 Normalized URL: "${finalUrl}"`);
     
     await verifyUrlAccessibility(finalUrl);
     
@@ -395,8 +415,8 @@ export function normalizeUrl(url: string): string {
         .replace(/%20/g, '-') // Convert encoded spaces to hyphens for safer URLs
         .replace(/%2C/g, ',') // Keep commas readable
         .replace(/%2F/g, '-') // Convert slashes to hyphens for safety
-        .replace(/%28/g, '') // Remove opening parentheses completely
-        .replace(/%29/g, '') // Remove closing parentheses completely;
+        .replace(/%28/g, '%28') // Keep parentheses properly encoded 
+        .replace(/%29/g, '%29') // Keep parentheses properly encoded
       
       // Replace the filename in the path
       pathParts[fileNameIndex] = encodedFilename;
@@ -416,8 +436,8 @@ export function normalizeUrl(url: string): string {
       const isJpgOrPng = /\.(jpe?g|png)$/i.test(newUrl.toLowerCase());
       const isWebpOrProblematic = /\.(webp)$/i.test(newUrl.toLowerCase()) || 
                                   newUrl.includes('-d') || 
-                                  newUrl.includes('(') || 
-                                  newUrl.includes(')') ||
+                                  newUrl.includes('%28') || // Encoded parentheses 
+                                  newUrl.includes('%29') ||
                                   newUrl.includes(' ');
       
       // For JPG and PNG, use render endpoint unless they have problematic characters
@@ -431,8 +451,8 @@ export function normalizeUrl(url: string): string {
     } else if (newUrl.includes('/storage/v1/render/image/public/')) {
       const isWebpOrProblematic = /\.(webp)$/i.test(newUrl.toLowerCase()) || 
                                   newUrl.includes('-d') || 
-                                  newUrl.includes('(') || 
-                                  newUrl.includes(')') ||
+                                  newUrl.includes('%28') || // Encoded parentheses
+                                  newUrl.includes('%29') ||
                                   newUrl.includes(' ');
       
       // For problematic files, convert render URLs to object URLs

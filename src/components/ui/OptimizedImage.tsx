@@ -206,11 +206,11 @@ export function OptimizedImage({
             decodedFilename = originalFilename;
           }
           
-          // Re-encode properly, preserving most special characters but handling problematic ones
+          // Re-encode properly, preserving parentheses with proper encoding
           const encodedFilename = encodeURIComponent(decodedFilename)
             .replace(/%20/g, '-')   // Convert spaces to hyphens
-            .replace(/%28/g, '%28') // Keep parentheses but properly encoded
-            .replace(/%29/g, '%29') // Keep parentheses but properly encoded
+            .replace(/%28/g, '%28') // Keep opening parentheses properly encoded
+            .replace(/%29/g, '%29') // Keep closing parentheses properly encoded
             .replace(/%2F/g, '-');  // Replace slashes with hyphens
           
           // Replace the filename part in the path

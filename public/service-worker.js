@@ -375,11 +375,11 @@ async function fetchImageWithFallbacks(request, options = {}) {
           decodedFilename = originalFilename;
         }
         
-        // Re-encode properly
+        // Re-encode properly - preserve parentheses by properly encoding them
         const encodedFilename = encodeURIComponent(decodedFilename)
           .replace(/%20/g, '-')  // Convert spaces to hyphens
-          .replace(/%28/g, '')   // Remove opening parentheses
-          .replace(/%29/g, '')   // Remove closing parentheses
+          .replace(/%28/g, '%28')   // Keep opening parentheses properly encoded
+          .replace(/%29/g, '%29')   // Keep closing parentheses properly encoded
           .replace(/%2F/g, '-'); // Replace slashes with hyphens
         
         // Replace the filename part in the path
@@ -928,11 +928,11 @@ async function handleProductImageRequest(request) {
               decodedFilename = originalFilename;
             }
             
-            // Re-encode properly
+            // Re-encode properly - preserve parentheses by keeping them properly encoded
             const encodedFilename = encodeURIComponent(decodedFilename)
               .replace(/%20/g, '-')  // Convert spaces to hyphens
-              .replace(/%28/g, '')   // Remove opening parentheses
-              .replace(/%29/g, '')   // Remove closing parentheses
+              .replace(/%28/g, '%28')   // Keep opening parentheses properly encoded
+              .replace(/%29/g, '%29')   // Keep closing parentheses properly encoded
               .replace(/%2F/g, '-'); // Replace slashes with hyphens
             
             // Replace filename in path if it changed
