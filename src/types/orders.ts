@@ -20,7 +20,7 @@ export interface OrderVariant {
   value: string;
 }
 
-export type OrderStatus = 'draft' | 'pending_payment' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderStatus = 'draft' | 'pending_payment' | 'confirmed' | 'preparing' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface OrderTracking {
   id: string;

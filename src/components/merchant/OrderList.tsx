@@ -14,7 +14,9 @@ import {
   BarChart3,
   CreditCard,
   Tag,
-  Search
+  Search,
+  PackageOpen,
+  Ban
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
@@ -549,29 +551,41 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
       case 'draft':
-        return <Clock className="h-4 w-4" />;
+        return <Clock className="h-4 w-4 text-gray-400" />;
       case 'pending_payment':
-        return <Clock className="h-4 w-4" />;
+        return <Clock className="h-4 w-4 text-yellow-400" />;
       case 'confirmed':
-        return <Package className="h-4 w-4" />;
+        return <Package className="h-4 w-4 text-blue-400" />;
+      case 'preparing':
+        return <PackageOpen className="h-4 w-4 text-orange-400" />;
       case 'shipped':
-        return <Truck className="h-4 w-4" />;
+        return <Truck className="h-4 w-4 text-purple-400" />;
       case 'delivered':
-        return <CheckCircle2 className="h-4 w-4" />;
+        return <CheckCircle2 className="h-4 w-4 text-green-400" />;
       case 'cancelled':
-        return <XCircle className="h-4 w-4" />;
+        return <Ban className="h-4 w-4 text-red-400" />;
     }
   };
 
   const getStatusColor = (status: string) => {
-    const statusMap: Record<string, { color: string; bgColor: string }> = {
-      'pending': { color: 'text-yellow-400', bgColor: 'bg-yellow-400/10' },
-      'confirmed': { color: 'text-blue-400', bgColor: 'bg-blue-400/10' },
-      'in_transit': { color: 'text-purple-400', bgColor: 'bg-purple-400/10' },
-      'delivered': { color: 'text-green-400', bgColor: 'bg-green-400/10' },
-      'exception': { color: 'text-red-400', bgColor: 'bg-red-400/10' },
-    };
-    return statusMap[status.toLowerCase()] || { color: 'text-gray-400', bgColor: 'bg-gray-400/10' };
+    switch (status) {
+      case 'draft':
+        return { bgColor: 'bg-gray-500/10', color: 'text-gray-400' };
+      case 'pending_payment':
+        return { bgColor: 'bg-yellow-500/10', color: 'text-yellow-500' };
+      case 'confirmed':
+        return { bgColor: 'bg-blue-500/10', color: 'text-blue-400' };
+      case 'preparing':
+        return { bgColor: 'bg-orange-500/10', color: 'text-orange-400' };
+      case 'shipped':
+        return { bgColor: 'bg-purple-500/10', color: 'text-purple-400' };
+      case 'delivered':
+        return { bgColor: 'bg-green-500/10', color: 'text-green-400' };
+      case 'cancelled':
+        return { bgColor: 'bg-red-500/10', color: 'text-red-400' };
+      default:
+        return { bgColor: 'bg-gray-500/10', color: 'text-gray-400' };
+    }
   };
 
   const renderPaymentMetadataTags = (order: Order) => {
@@ -754,18 +768,18 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       return (
         <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs ${getStatusColor(order.status).bgColor} ${getStatusColor(order.status).color}`}>
           {getStatusIcon(order.status)}
-          <span className="capitalize">{order.status}</span>
+          <span className="capitalize">{order.status.replace('_', ' ')}</span>
         </div>
       );
     }
 
-    // Only show allowed status options based on current status
-    const allowedStatuses = ['confirmed', 'shipped', 'delivered', 'cancelled'];
+    // Define allowed status options based on current status
+    let allowedStatuses = ['confirmed', 'preparing', 'shipped', 'delivered', 'cancelled'];
     
     // If the order is already in draft or pending_payment, allow it to stay there
-    // but don't allow changing to these statuses
+    // but don't allow changing to these statuses as they are part of the payment flow
     if (order.status === 'draft' || order.status === 'pending_payment') {
-      allowedStatuses.unshift(order.status);
+      allowedStatuses = [order.status, ...allowedStatuses];
     }
 
     return (
