@@ -207,10 +207,10 @@ async function generateThemeCSS(settings) {
     
     // Check if the CSS link already exists
     if (!html.includes('/css/theme-variables.css')) {
-      // Add the CSS link before closing head tag
+      // Add the CSS link at the very end of the head tag to ensure it loads after all other styles
       html = html.replace(
         /<\/head>/,
-        `    <link rel="stylesheet" href="/css/theme-variables.css">\n  </head>`
+        `    <link rel="stylesheet" href="/css/theme-variables.css?v=${Date.now()}" data-priority="high">\n  </head>`
       );
       
       fs.writeFileSync(indexPath, html);

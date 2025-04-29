@@ -18,70 +18,71 @@
 }
 
 /* Helper classes */
-.bg-primary { background-color: var(--color-primary); }
-.bg-primary-hover { background-color: var(--color-primary-hover); }
-.bg-primary-light { background-color: var(--color-primary-light); }
-.bg-primary-dark { background-color: var(--color-primary-dark); }
+html body .bg-primary { background-color: var(--color-primary) !important; }
+html body .bg-primary-hover { background-color: var(--color-primary-hover) !important; }
+html body .bg-primary-light { background-color: var(--color-primary-light) !important; }
+html body .bg-primary-dark { background-color: var(--color-primary-dark) !important; }
 
-.bg-secondary { background-color: var(--color-secondary); }
-.bg-secondary-hover { background-color: var(--color-secondary-hover); }
-.bg-secondary-light { background-color: var(--color-secondary-light); }
-.bg-secondary-dark { background-color: var(--color-secondary-dark); }
+html body .bg-secondary { background-color: var(--color-secondary) !important; }
+html body .bg-secondary-hover { background-color: var(--color-secondary-hover) !important; }
+html body .bg-secondary-light { background-color: var(--color-secondary-light) !important; }
+html body .bg-secondary-dark { background-color: var(--color-secondary-dark) !important; }
 
-.text-primary { color: var(--color-primary); }
-.text-secondary { color: var(--color-secondary); }
+html body .text-primary { color: var(--color-primary) !important; }
+html body .text-secondary { color: var(--color-secondary) !important; }
 
 /* RGB color usage helpers for opacity */
-.bg-primary-opacity { background-color: rgba(var(--color-primary-rgb), var(--tw-bg-opacity, 1)); }
-.bg-secondary-opacity { background-color: rgba(var(--color-secondary-rgb), var(--tw-bg-opacity, 1)); }
-.text-primary-opacity { color: rgba(var(--color-primary-rgb), var(--tw-text-opacity, 1)); }
-.text-secondary-opacity { color: rgba(var(--color-secondary-rgb), var(--tw-text-opacity, 1)); }
+html body .bg-primary-opacity { background-color: rgba(var(--color-primary-rgb), var(--tw-bg-opacity, 1)) !important; }
+html body .bg-secondary-opacity { background-color: rgba(var(--color-secondary-rgb), var(--tw-bg-opacity, 1)) !important; }
+html body .text-primary-opacity { color: rgba(var(--color-primary-rgb), var(--tw-text-opacity, 1)) !important; }
+html body .text-secondary-opacity { color: rgba(var(--color-secondary-rgb), var(--tw-text-opacity, 1)) !important; }
 
 /* 
  * BACKWARD COMPATIBILITY: 
  * Map purple colors to our theme variables for components still using hard-coded colors
+ * Using high specificity selectors to ensure our overrides take effect
  */
 
 /* Text colors */
-.text-purple-300 { color: var(--color-primary-light) !important; }
-.text-purple-400 { color: var(--color-primary) !important; }
-.text-purple-500 { color: var(--color-primary) !important; }
-.text-purple-600 { color: var(--color-primary-hover) !important; }
+html body .text-purple-300 { color: var(--color-primary-light) !important; }
+html body .text-purple-400 { color: var(--color-primary) !important; }
+html body .text-purple-500 { color: var(--color-primary) !important; }
+html body .text-purple-600 { color: var(--color-primary-hover) !important; }
 
 /* Background colors */
-.bg-purple-300 { background-color: var(--color-primary-light) !important; }
-.bg-purple-400 { background-color: var(--color-primary) !important; }
-.bg-purple-500 { background-color: var(--color-primary) !important; }
-.bg-purple-600 { background-color: var(--color-primary) !important; }
-.bg-purple-700 { background-color: var(--color-primary-hover) !important; }
+html body .bg-purple-300 { background-color: var(--color-primary-light) !important; }
+html body .bg-purple-400 { background-color: var(--color-primary) !important; }
+html body .bg-purple-500 { background-color: var(--color-primary) !important; }
+html body .bg-purple-600 { background-color: var(--color-primary) !important; }
+html body .bg-purple-700 { background-color: var(--color-primary-hover) !important; }
 
 /* Background with opacity */
-.bg-purple-500\/10 { background-color: rgba(var(--color-primary-rgb), 0.1) !important; }
-.bg-purple-500\/20 { background-color: rgba(var(--color-primary-rgb), 0.2) !important; }
-.bg-purple-500\/30 { background-color: rgba(var(--color-primary-rgb), 0.3) !important; }
-.bg-purple-500\/50 { background-color: rgba(var(--color-primary-rgb), 0.5) !important; }
-.bg-purple-500\/90 { background-color: rgba(var(--color-primary-rgb), 0.9) !important; }
+html body .bg-purple-500\/10 { background-color: rgba(var(--color-primary-rgb), 0.1) !important; }
+html body .bg-purple-500\/20 { background-color: rgba(var(--color-primary-rgb), 0.2) !important; }
+html body .bg-purple-500\/30 { background-color: rgba(var(--color-primary-rgb), 0.3) !important; }
+html body .bg-purple-500\/50 { background-color: rgba(var(--color-primary-rgb), 0.5) !important; }
+html body .bg-purple-500\/90 { background-color: rgba(var(--color-primary-rgb), 0.9) !important; }
 
 /* Focus rings */
-.focus\:ring-purple-500:focus { --tw-ring-color: var(--color-primary) !important; }
-.focus\:ring-purple-500\/40:focus { --tw-ring-color: rgba(var(--color-primary-rgb), 0.4) !important; }
+html body .focus\:ring-purple-500:focus { --tw-ring-color: var(--color-primary) !important; }
+html body .focus\:ring-purple-500\/40:focus { --tw-ring-color: rgba(var(--color-primary-rgb), 0.4) !important; }
 
 /* Hover states */
-.hover\:bg-purple-600:hover { background-color: var(--color-primary) !important; }
-.hover\:bg-purple-700:hover { background-color: var(--color-primary-hover) !important; }
-.hover\:text-purple-300:hover { color: var(--color-primary-light) !important; }
-.hover\:text-purple-500:hover { color: var(--color-primary) !important; }
+html body .hover\:bg-purple-600:hover { background-color: var(--color-primary) !important; }
+html body .hover\:bg-purple-700:hover { background-color: var(--color-primary-hover) !important; }
+html body .hover\:text-purple-300:hover { color: var(--color-primary-light) !important; }
+html body .hover\:text-purple-500:hover { color: var(--color-primary) !important; }
 
 /* Border colors */
-.hover\:border-purple-500:hover { border-color: var(--color-primary) !important; }
-.hover\:ring-purple-500:hover { --tw-ring-color: var(--color-primary) !important; }
-.hover\:ring-purple-500\/20:hover { --tw-ring-color: rgba(var(--color-primary-rgb), 0.2) !important; }
+html body .hover\:border-purple-500:hover { border-color: var(--color-primary) !important; }
+html body .hover\:ring-purple-500:hover { --tw-ring-color: var(--color-primary) !important; }
+html body .hover\:ring-purple-500\/20:hover { --tw-ring-color: rgba(var(--color-primary-rgb), 0.2) !important; }
 
 /* Gradients */
-.from-purple-500 { --tw-gradient-from: var(--color-primary) !important; }
-.from-purple-900\/90 { --tw-gradient-from: rgba(var(--color-primary-rgb), 0.9) !important; }
-.from-purple-300 { --tw-gradient-from: var(--color-primary-light) !important; }
-.to-purple-300 { --tw-gradient-to: var(--color-primary-light) !important; }
+html body .from-purple-500 { --tw-gradient-from: var(--color-primary) !important; }
+html body .from-purple-900\/90 { --tw-gradient-from: rgba(var(--color-primary-rgb), 0.9) !important; }
+html body .from-purple-300 { --tw-gradient-from: var(--color-primary-light) !important; }
+html body .to-purple-300 { --tw-gradient-to: var(--color-primary-light) !important; }
 
 /* Animation fixes */
 @keyframes pulse {

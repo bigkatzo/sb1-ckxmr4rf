@@ -13,6 +13,7 @@ import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
 import { supabase } from './lib/supabase';
 import 'react-toastify/dist/ReactToastify.css';
+import '../public/css/theme-variables.css';
 import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
 import { setupRealtimeHealth } from './lib/realtime/subscriptions';
@@ -99,6 +100,28 @@ function AppContent() {
 export function App() {
   // Initialize realtime debugger when app mounts
   useEffect(() => {
+    // Apply theme colors from CSS variables to ensure overrides work
+    const applyThemeColors = () => {
+      try {
+        const style = document.createElement('style');
+        style.id = 'theme-override-styles';
+        style.innerHTML = `
+          /* Force purple overrides with theme variables */
+          .bg-purple-600, .hover\\:bg-purple-600:hover { background-color: var(--color-primary) !important; }
+          .bg-purple-700, .hover\\:bg-purple-700:hover { background-color: var(--color-primary-hover) !important; }
+          .text-purple-400, .hover\\:text-purple-400:hover { color: var(--color-primary) !important; }
+          .text-purple-300, .hover\\:text-purple-300:hover { color: var(--color-primary-light) !important; }
+        `;
+        document.head.appendChild(style);
+        console.log('Theme override styles applied');
+      } catch (err) {
+        console.error('Error applying theme overrides:', err);
+      }
+    };
+    
+    // Apply theme immediately
+    applyThemeColors();
+    
     // Delay non-critical operations to prioritize LCP
     const timer = setTimeout(() => {
       // Force immediate connection to Supabase realtime
