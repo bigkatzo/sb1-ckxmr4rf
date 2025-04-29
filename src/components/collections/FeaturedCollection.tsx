@@ -386,7 +386,7 @@ export function FeaturedCollection() {
                         </div>
                       </>
                     ) : (
-                      <div className={`flex items-center gap-2 ${isNew ? 'bg-green-500/90' : 'bg-primary/90'} backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl`}>
+                      <div className={`flex items-center gap-2 ${isNew ? 'bg-green-500/90' : 'bg-secondary/90'} backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl`}>
                         <span className="text-xs sm:text-base font-medium">{isNew ? 'New Drop' : 'Featured Drop'}</span>
                       </div>
                     )}
