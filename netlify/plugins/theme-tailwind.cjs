@@ -142,20 +142,37 @@ async function generateThemeCSS(settings) {
   const backgroundColor = settings.theme_background_color || '#000000';
   const textColor = settings.theme_text_color || '#ffffff';
   
+  // Convert hex to RGB for CSS variables
+  const hexToRgb = (hex) => {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse the hex values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    return `${r}, ${g}, ${b}`;
+  };
+  
   // Create CSS variables
   const css = `:root {
   --color-primary: ${primaryColor};
+  --color-primary-rgb: ${hexToRgb(primaryColor)};
   --color-primary-hover: ${adjustColor(primaryColor, -15)};
   --color-primary-light: ${adjustColor(primaryColor, 15)};
   --color-primary-dark: ${adjustColor(primaryColor, -30)};
   
   --color-secondary: ${secondaryColor};
+  --color-secondary-rgb: ${hexToRgb(secondaryColor)};
   --color-secondary-hover: ${adjustColor(secondaryColor, -15)};
   --color-secondary-light: ${adjustColor(secondaryColor, 15)};
   --color-secondary-dark: ${adjustColor(secondaryColor, -30)};
   
   --color-background: ${backgroundColor};
+  --color-background-rgb: ${hexToRgb(backgroundColor)};
   --color-text: ${textColor};
+  --color-text-rgb: ${hexToRgb(textColor)};
 }
 
 /* Helper classes */
@@ -171,6 +188,12 @@ async function generateThemeCSS(settings) {
 
 .text-primary { color: var(--color-primary); }
 .text-secondary { color: var(--color-secondary); }
+
+/* RGB color usage helpers for opacity */
+.bg-primary-opacity { background-color: rgba(var(--color-primary-rgb), var(--tw-bg-opacity, 1)); }
+.bg-secondary-opacity { background-color: rgba(var(--color-secondary-rgb), var(--tw-bg-opacity, 1)); }
+.text-primary-opacity { color: rgba(var(--color-primary-rgb), var(--tw-text-opacity, 1)); }
+.text-secondary-opacity { color: rgba(var(--color-secondary-rgb), var(--tw-text-opacity, 1)); }
 `;
 
   // Write the CSS file
