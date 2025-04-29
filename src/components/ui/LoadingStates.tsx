@@ -31,7 +31,7 @@ export const Loading: React.FC<LoadingProps> = ({ type, className = '', text }) 
       return (
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
             {text && <p className="text-gray-400">{text}</p>}
           </div>
         </div>
@@ -41,7 +41,7 @@ export const Loading: React.FC<LoadingProps> = ({ type, className = '', text }) 
       return (
         <div className="absolute inset-0 bg-gray-950/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
             {text && <p className="text-sm text-gray-200">{text}</p>}
           </div>
         </div>

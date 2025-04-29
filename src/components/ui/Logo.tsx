@@ -8,7 +8,7 @@ export function Logo({ className = '' }: LogoProps) {
   return (
     <span className={`font-bold ${className}`}>
       <span className="mr-1">📦</span>
-      store<span className="text-purple-500">.fun</span>
+      store<span className="text-primary">.fun</span>
     </span>
   );
 }
