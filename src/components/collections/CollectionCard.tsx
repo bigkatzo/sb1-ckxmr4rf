@@ -30,7 +30,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
   return (
     <div className={`
       group relative block overflow-hidden rounded-lg sm:rounded-xl 
-      transition-all hover:ring-2 hover:ring-purple-500/50 hover:-translate-y-0.5 
+      transition-all hover:ring-2 hover:ring-primary/50 hover:-translate-y-0.5 
       bg-gray-900 w-full
     `}>
       <div className={`relative ${aspectRatio} w-full overflow-hidden`}>
@@ -59,7 +59,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
             <div className="absolute inset-x-0 bottom-2 sm:bottom-3 flex justify-center">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 {isUpcoming && (
-                  <span className="inline-flex items-center rounded-full bg-purple-500/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
+                  <span className="inline-flex items-center rounded-full bg-primary/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
                     Coming Soon
                   </span>
                 )}
@@ -83,7 +83,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
       <div className="p-3">
         <h3 className={`
           font-semibold text-white line-clamp-1 
-          group-hover:text-purple-400 transition-colors
+          group-hover:text-primary transition-colors
           ${isLarge ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'}
         `}>
           {collection.name}
@@ -101,7 +101,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
           ${isLarge ? 'mt-3 sm:mt-4' : 'mt-2 sm:mt-3'}
         `}>
           {isUpcoming ? (
-            <div className="flex items-center text-purple-400/90 group-hover:text-purple-400 transition-colors">
+            <div className="flex items-center text-primary/90 group-hover:text-primary transition-colors">
               <Calendar className={`
                 mr-1.5
                 ${isLarge ? 'h-3.5 w-3.5 sm:h-4 sm:w-4' : 'h-3 w-3 sm:h-3.5 sm:w-3.5'}
@@ -111,7 +111,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
               </span>
             </div>
           ) : (
-            <div className="flex items-center text-purple-400/90 group-hover:text-purple-400 transition-colors">
+            <div className="flex items-center text-primary/90 group-hover:text-primary transition-colors">
               <span className={isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}>
                 Browse Collection
               </span>
