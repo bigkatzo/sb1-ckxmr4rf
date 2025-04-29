@@ -83,7 +83,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
       <div className="p-3">
         <h3 className={`
           font-semibold text-white line-clamp-1 
-          group-hover:text-primary transition-colors
+          group-hover:text-secondary transition-colors
           ${isLarge ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'}
         `}>
           {collection.name}
@@ -101,7 +101,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
           ${isLarge ? 'mt-3 sm:mt-4' : 'mt-2 sm:mt-3'}
         `}>
           {isUpcoming ? (
-            <div className="flex items-center text-primary/90 group-hover:text-primary transition-colors">
+            <div className="flex items-center text-secondary/90 group-hover:text-secondary transition-colors">
               <Calendar className={`
                 mr-1.5
                 ${isLarge ? 'h-3.5 w-3.5 sm:h-4 sm:w-4' : 'h-3 w-3 sm:h-3.5 sm:w-3.5'}
@@ -111,7 +111,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
               </span>
             </div>
           ) : (
-            <div className="flex items-center text-primary/90 group-hover:text-primary transition-colors">
+            <div className="flex items-center text-secondary/90 group-hover:text-secondary transition-colors">
               <span className={isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}>
                 Browse Collection
               </span>

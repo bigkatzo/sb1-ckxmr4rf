@@ -27,7 +27,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
   return (
     <div 
       onClick={handleClick}
-      className="group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 hover:-translate-y-0.5 transition-all"
+      className="group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-secondary/50 hover:-translate-y-0.5 transition-all"
     >
       <div className="relative aspect-square overflow-hidden">
         {product.imageUrl ? (
@@ -80,7 +80,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
       </div>
       
       <div className="px-2.5 py-2">
-        <h3 className="font-medium text-sm text-white line-clamp-1">{product.name}</h3>
+        <h3 className="font-medium text-sm text-white line-clamp-1 group-hover:text-secondary transition-colors">{product.name}</h3>
         
         <div className="mt-1.5 flex items-center justify-between">
           <span className="text-sm font-semibold text-white">

@@ -206,7 +206,7 @@ export default function TrackingPage() {
             <div className="relative min-w-[600px] sm:min-w-full">
               <div className="absolute top-1/2 left-0 right-0 h-1 -translate-y-1/2 bg-gray-700/50 rounded">
                 <div 
-                  className="h-full bg-purple-500 rounded transition-all duration-500" 
+                  className="h-full bg-secondary rounded transition-all duration-500" 
                   style={{ width: `${(currentStage / (TRACKING_STAGES.length - 1)) * 100}%` }}
                 />
               </div>
@@ -218,7 +218,7 @@ export default function TrackingPage() {
                     <div key={stage.id} className="flex flex-col items-center">
                       <div 
                         className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300 ${
-                          isActive ? 'bg-purple-500 text-white ring-2 ring-purple-500/20' : 'bg-gray-700/50 text-gray-400'
+                          isActive ? 'bg-secondary text-white ring-2 ring-secondary/20' : 'bg-gray-700/50 text-gray-400'
                         }`}
                       >
                         <StageIcon className="w-4 h-4 sm:w-5 sm:h-5" />

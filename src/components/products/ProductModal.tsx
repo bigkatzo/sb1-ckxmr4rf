@@ -682,7 +682,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     <Link
                       to={`/${product.collectionSlug}`}
                       onClick={onClose}
-                      className="text-sm text-gray-400 hover:text-purple-400 transition-colors"
+                      className="text-sm text-gray-400 hover:text-secondary transition-colors"
                     >
                       {product.collectionName}
                     </Link>
