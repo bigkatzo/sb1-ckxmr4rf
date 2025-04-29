@@ -131,7 +131,7 @@ export function OrderFilters({
     }
   };
 
-  const statuses: OrderStatus[] = ['confirmed', 'shipped', 'delivered', 'cancelled', 'draft', 'pending_payment'];
+  const statuses: OrderStatus[] = ['confirmed', 'preparing', 'shipped', 'delivered', 'cancelled', 'draft', 'pending_payment'];
   const paymentMethods = ['solana', 'stripe'];
 
   return (

@@ -16,7 +16,7 @@ export function OrdersTab() {
   const { collections } = useMerchantCollections();
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<OrderStatus[]>(['confirmed', 'shipped', 'delivered']);
+  const [selectedStatuses, setSelectedStatuses] = useState<OrderStatus[]>(['confirmed', 'preparing', 'shipped', 'delivered']);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
