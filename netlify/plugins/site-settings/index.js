@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import { generateTailwindTheme, generateThemeCSS } from '../theme-tailwind';
 
 // Define the plugin
 export const onPreBuild = async ({ utils }) => {
@@ -22,19 +23,23 @@ export const onPreBuild = async ({ utils }) => {
       // Create default manifest.json
       const defaultSettings = {
         site_name: 'store.fun',
-        site_description: 'Merch Marketplace',
-        homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
+        site_description: 'Merch Marketplace on Solana',
+        homepage_tagline: 'Discover and shop exclusive merch with crypto at store.fun',
         seo_title: '',
         seo_description: '',
-        theme_primary_color: '#8b5cf6',
-        theme_secondary_color: '#4f46e5',
+        theme_primary_color: '#0f47e4',
+        theme_secondary_color: '#0ea5e9',
         theme_background_color: '#000000',
-        theme_text_color: '#ffffff'
+        theme_text_color: '#ffffff',
+        product_title_template: '${product.name} | ${product.collectionName || site_name}',
+        product_description_template: '${product.description || `${product.name} - Available at ${site_name}`}',
+        collection_title_template: '${collection.name} | ${site_name}',
+        collection_description_template: '${collection.description || `Explore ${collection.name} collection at ${site_name}`}'
       };
       
       // Generate default files
       await updateManifestJson(defaultSettings);
-      await generateThemeCSS(defaultSettings);
+      await generateThemeCSSVariables(defaultSettings);
       await generateDefaultIcons();
       
       console.log('Applied default site settings');
@@ -94,12 +99,12 @@ export const onPreBuild = async ({ utils }) => {
           
           const fallbackSettings = {
             site_name: buildMetadata.SITE_NAME || 'store.fun',
-            site_description: buildMetadata.SITE_DESCRIPTION || 'Merch Marketplace',
-            homepage_tagline: buildMetadata.HOMEPAGE_TAGLINE || 'Discover and shop unique merchandise collections at store.fun',
+            site_description: buildMetadata.SITE_DESCRIPTION || 'Merch Marketplace on Solana',
+            homepage_tagline: buildMetadata.HOMEPAGE_TAGLINE || 'Discover and shop exclusive merch with crypto at store.fun',
             seo_title: buildMetadata.SEO_TITLE || '',
             seo_description: buildMetadata.SEO_DESCRIPTION || '',
-            theme_primary_color: buildMetadata.THEME_PRIMARY_COLOR || '#8b5cf6',
-            theme_secondary_color: buildMetadata.THEME_SECONDARY_COLOR || '#4f46e5',
+            theme_primary_color: buildMetadata.THEME_PRIMARY_COLOR || '#0f47e4',
+            theme_secondary_color: buildMetadata.THEME_SECONDARY_COLOR || '#0ea5e9',
             theme_background_color: buildMetadata.THEME_COLOR || '#000000',
             theme_text_color: buildMetadata.THEME_TEXT_COLOR || '#ffffff',
             favicon_url: buildMetadata.FAVICON_URL,
@@ -107,7 +112,11 @@ export const onPreBuild = async ({ utils }) => {
             icon_192_url: buildMetadata.ICON_192_URL,
             icon_512_url: buildMetadata.ICON_512_URL,
             og_image_url: buildMetadata.OG_IMAGE_URL,
-            twitter_image_url: buildMetadata.TWITTER_IMAGE_URL
+            twitter_image_url: buildMetadata.TWITTER_IMAGE_URL,
+            product_title_template: buildMetadata.PRODUCT_TITLE_TEMPLATE || '${product.name} | ${product.collectionName || site_name}',
+            product_description_template: buildMetadata.PRODUCT_DESCRIPTION_TEMPLATE || '${product.description || `${product.name} - Available at ${site_name}`}',
+            collection_title_template: buildMetadata.COLLECTION_TITLE_TEMPLATE || '${collection.name} | ${site_name}',
+            collection_description_template: buildMetadata.COLLECTION_DESCRIPTION_TEMPLATE || '${collection.description || `Explore ${collection.name} collection at ${site_name}`}'
           };
           
           // If we have a manifest JSON in the build metadata, use that directly
@@ -118,7 +127,7 @@ export const onPreBuild = async ({ utils }) => {
           
           await updateManifestJson(fallbackSettings, manifestFromMetadata);
           await updateHtmlMetaTags(fallbackSettings);
-          await generateThemeCSS(fallbackSettings);
+          await generateThemeCSSVariables(fallbackSettings);
           
           console.log('Applied site settings from build metadata');
           return;
@@ -131,20 +140,25 @@ export const onPreBuild = async ({ utils }) => {
       if (data) {
         const settings = {
           site_name: data.site_name || 'store.fun',
-          site_description: data.site_description || 'Merch Marketplace',
-          homepage_tagline: data.homepage_tagline || '',
+          site_description: data.site_description || 'Merch Marketplace on Solana',
+          homepage_tagline: data.homepage_tagline || 'Discover and shop exclusive merch with crypto at store.fun',
           seo_title: data.seo_title || '',
           seo_description: data.seo_description || '',
-          theme_primary_color: data.theme_primary_color || '#8b5cf6',
-          theme_secondary_color: data.theme_secondary_color || '#4f46e5',
+          theme_primary_color: data.theme_primary_color || '#0f47e4',
+          theme_secondary_color: data.theme_secondary_color || '#0ea5e9',
           theme_background_color: data.theme_background_color || '#000000',
           theme_text_color: data.theme_text_color || '#ffffff',
           favicon_url: data.favicon_url || '',
+          favicon_96_url: data.favicon_96_url || '',
           apple_touch_icon_url: data.apple_touch_icon_url || '',
           icon_192_url: data.icon_192_url || '',
           icon_512_url: data.icon_512_url || '',
           og_image_url: data.og_image_url || '',
           twitter_image_url: data.twitter_image_url || '',
+          product_title_template: data.product_title_template || '${product.name} | ${product.collectionName || site_name}',
+          product_description_template: data.product_description_template || '${product.description || `${product.name} - Available at ${site_name}`}',
+          collection_title_template: data.collection_title_template || '${collection.name} | ${site_name}',
+          collection_description_template: data.collection_description_template || '${collection.description || `Explore ${collection.name} collection at ${site_name}`}',
           manifest_json: data.manifest_json || null
         };
         
@@ -167,7 +181,7 @@ export const onPreBuild = async ({ utils }) => {
         await updateHtmlMetaTags(settings);
         
         // Generate theme CSS variables
-        await generateThemeCSS(settings);
+        await generateThemeCSSVariables(settings);
         
         console.log('Applied site settings from Supabase');
       } else {
@@ -175,16 +189,20 @@ export const onPreBuild = async ({ utils }) => {
         
         const defaultSettings = {
           site_name: 'store.fun',
-          site_description: 'Merch Marketplace',
-          homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
-          theme_primary_color: '#8b5cf6',
-          theme_secondary_color: '#4f46e5',
+          site_description: 'Merch Marketplace on Solana',
+          homepage_tagline: 'Discover and shop exclusive merch with crypto at store.fun',
+          theme_primary_color: '#0f47e4',
+          theme_secondary_color: '#0ea5e9',
           theme_background_color: '#000000',
-          theme_text_color: '#ffffff'
+          theme_text_color: '#ffffff',
+          product_title_template: '${product.name} | ${product.collectionName || site_name}',
+          product_description_template: '${product.description || `${product.name} - Available at ${site_name}`}',
+          collection_title_template: '${collection.name} | ${site_name}',
+          collection_description_template: '${collection.description || `Explore ${collection.name} collection at ${site_name}`}'
         };
         
         await updateManifestJson(defaultSettings);
-        await generateThemeCSS(defaultSettings);
+        await generateThemeCSSVariables(defaultSettings);
         await generateDefaultIcons();
         
         console.log('Applied default site settings');
@@ -266,11 +284,11 @@ async function updateManifestJson(settings, manifestFromMetadata = null) {
   const manifest = {
     name: settings.site_name || 'store.fun',
     short_name: settings.site_name || 'store.fun',
-    description: settings.site_description || 'Merch Marketplace',
+    description: settings.site_description || 'Merch Marketplace on Solana',
     start_url: '/',
     display: 'standalone',
     background_color: settings.theme_background_color || '#000000',
-    theme_color: settings.theme_primary_color || '#8b5cf6',
+    theme_color: settings.theme_primary_color || '#0f47e4',
     icons: []
   };
   
@@ -703,99 +721,10 @@ async function createBrowserConfig(settings) {
 }
 
 /**
- * Generate CSS variables for theme colors
+ * Generate CSS variables for theme colors using imported function
  */
-async function generateThemeCSS(settings) {
-  // Create public/css directory if it doesn't exist
-  const cssDir = path.join(process.cwd(), 'public', 'css');
-  if (!fs.existsSync(cssDir)) {
-    fs.mkdirSync(cssDir, { recursive: true });
-  }
-  
-  const cssPath = path.join(cssDir, 'theme-variables.css');
-  
-  // Get theme colors with defaults
-  const primaryColor = settings.theme_primary_color || '#8b5cf6';
-  const secondaryColor = settings.theme_secondary_color || '#4f46e5';
-  const backgroundColor = settings.theme_background_color || '#000000';
-  const textColor = settings.theme_text_color || '#ffffff';
-  
-  // Create CSS variables
-  const css = `:root {
-  --color-primary: ${primaryColor};
-  --color-primary-hover: ${adjustColor(primaryColor, -15)};
-  --color-primary-light: ${adjustColor(primaryColor, 15)};
-  --color-primary-dark: ${adjustColor(primaryColor, -30)};
-  
-  --color-secondary: ${secondaryColor};
-  --color-secondary-hover: ${adjustColor(secondaryColor, -15)};
-  --color-secondary-light: ${adjustColor(secondaryColor, 15)};
-  --color-secondary-dark: ${adjustColor(secondaryColor, -30)};
-  
-  --color-background: ${backgroundColor};
-  --color-text: ${textColor};
-}
-
-/* Helper classes */
-.bg-primary { background-color: var(--color-primary); }
-.bg-primary-hover { background-color: var(--color-primary-hover); }
-.bg-primary-light { background-color: var(--color-primary-light); }
-.bg-primary-dark { background-color: var(--color-primary-dark); }
-
-.bg-secondary { background-color: var(--color-secondary); }
-.bg-secondary-hover { background-color: var(--color-secondary-hover); }
-.bg-secondary-light { background-color: var(--color-secondary-light); }
-.bg-secondary-dark { background-color: var(--color-secondary-dark); }
-
-.text-primary { color: var(--color-primary); }
-.text-secondary { color: var(--color-secondary); }
-`;
-
-  // Write the CSS file
-  fs.writeFileSync(cssPath, css);
-  console.log(`Generated theme CSS variables at ${cssPath}`);
-  
-  // Update index.html to include this CSS file
-  const indexPath = path.join(process.cwd(), 'index.html');
-  if (fs.existsSync(indexPath)) {
-    let html = fs.readFileSync(indexPath, 'utf8');
-    
-    // Check if the CSS link already exists
-    if (!html.includes('/css/theme-variables.css')) {
-      // Add the CSS link before closing head tag
-      html = html.replace(
-        /<\/head>/,
-        `    <link rel="stylesheet" href="/css/theme-variables.css">\n  </head>`
-      );
-      
-      fs.writeFileSync(indexPath, html);
-      console.log('Updated index.html to include theme CSS');
-    }
-  }
-}
-
-/**
- * Helper function to adjust a color's brightness
- * @param {string} color - Hex color code
- * @param {number} amount - Amount to adjust brightness (-100 to 100)
- * @returns {string} - Modified hex color
- */
-function adjustColor(color, amount) {
-  // Remove # if present
-  color = color.replace('#', '');
-  
-  // Parse the hex values
-  let r = parseInt(color.substring(0, 2), 16);
-  let g = parseInt(color.substring(2, 4), 16);
-  let b = parseInt(color.substring(4, 6), 16);
-  
-  // Adjust the brightness
-  r = Math.max(0, Math.min(255, r + amount));
-  g = Math.max(0, Math.min(255, g + amount));
-  b = Math.max(0, Math.min(255, b + amount));
-  
-  // Convert back to hex
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+async function generateThemeCSSVariables(settings) {
+  return await generateThemeCSS(settings);
 }
 
 /**

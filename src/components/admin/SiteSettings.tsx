@@ -36,8 +36,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   homepage_tagline: 'Discover and shop unique merchandise collections at store.fun',
   seo_title: '',
   seo_description: '',
-  theme_primary_color: '#8b5cf6', // purple-600
-  theme_secondary_color: '#4f46e5', // indigo-600
+  theme_primary_color: '#0f47e4', // blue
+  theme_secondary_color: '#0ea5e9', // sky blue
   theme_background_color: '#000000',
   theme_text_color: '#ffffff',
   favicon_url: '',
@@ -253,6 +253,25 @@ export function SiteSettings() {
     }
   }
 
+  // Helper function to adjust color brightness for previews
+  function adjustColorBrightness(color: string, amount: number): string {
+    // Remove # if present
+    color = color.replace('#', '');
+    
+    // Parse the hex values
+    let r = parseInt(color.substring(0, 2), 16);
+    let g = parseInt(color.substring(2, 4), 16);
+    let b = parseInt(color.substring(4, 6), 16);
+    
+    // Adjust the brightness
+    r = Math.max(0, Math.min(255, r + amount));
+    g = Math.max(0, Math.min(255, g + amount));
+    b = Math.max(0, Math.min(255, b + amount));
+    
+    // Convert back to hex
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
+
   const tabs = [
     { id: 'branding', label: 'Branding', icon: <Palette className="w-4 h-4" /> },
     { id: 'seo', label: 'SEO & Social', icon: <Share2 className="w-4 h-4" /> },
@@ -263,7 +282,7 @@ export function SiteSettings() {
   if (loading) {
     return (
       <div className="p-6 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -279,7 +298,7 @@ export function SiteSettings() {
             className={`
               flex items-center gap-2 px-4 py-3 font-medium text-sm whitespace-nowrap
               ${activeTab === tab.id 
-                ? 'text-white border-b-2 border-purple-500' 
+                ? 'text-white border-b-2 border-primary' 
                 : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'}
             `}
           >
@@ -296,7 +315,7 @@ export function SiteSettings() {
           <button
             onClick={triggerSiteRebuild}
             disabled={rebuilding || saving}
-            className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 bg-secondary hover:bg-secondary-hover text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {rebuilding ? (
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
@@ -310,7 +329,7 @@ export function SiteSettings() {
           <button
             onClick={saveSettings}
             disabled={saving}
-            className="inline-flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {saving ? (
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
@@ -336,7 +355,7 @@ export function SiteSettings() {
                     type="text"
                     value={settings.site_name}
                     onChange={(e) => setSettings({...settings, site_name: e.target.value})}
-                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                   />
                   <p className="mt-1 text-xs text-gray-400">
                     This will be displayed in browser tabs and as the site title
@@ -351,7 +370,7 @@ export function SiteSettings() {
                     value={settings.site_description}
                     onChange={(e) => setSettings({...settings, site_description: e.target.value})}
                     rows={3}
-                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                   />
                   <p className="mt-1 text-xs text-gray-400">
                     Briefly describe your site for search engines and social media
@@ -366,7 +385,7 @@ export function SiteSettings() {
                     value={settings.homepage_tagline}
                     onChange={(e) => setSettings({...settings, homepage_tagline: e.target.value})}
                     rows={3}
-                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                   />
                   <p className="mt-1 text-xs text-gray-400">
                     A brief tagline to describe your site's purpose or theme
@@ -393,7 +412,7 @@ export function SiteSettings() {
                       type="text"
                       value={settings.theme_primary_color}
                       onChange={(e) => setSettings({...settings, theme_primary_color: e.target.value})}
-                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     />
                   </div>
                 </div>
@@ -413,7 +432,7 @@ export function SiteSettings() {
                       type="text"
                       value={settings.theme_secondary_color}
                       onChange={(e) => setSettings({...settings, theme_secondary_color: e.target.value})}
-                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     />
                   </div>
                 </div>
@@ -433,7 +452,7 @@ export function SiteSettings() {
                       type="text"
                       value={settings.theme_background_color}
                       onChange={(e) => setSettings({...settings, theme_background_color: e.target.value})}
-                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     />
                   </div>
                 </div>
@@ -453,8 +472,71 @@ export function SiteSettings() {
                       type="text"
                       value={settings.theme_text_color}
                       onChange={(e) => setSettings({...settings, theme_text_color: e.target.value})}
-                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Color Preview */}
+              <div className="mt-6 border border-gray-700 rounded-lg overflow-hidden">
+                <h4 className="text-sm font-medium text-gray-300 p-3 bg-gray-800 border-b border-gray-700">
+                  Color Preview
+                </h4>
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-xs text-gray-400 mb-1">Primary</span>
+                      <div className="flex flex-col gap-1">
+                        <div style={{backgroundColor: settings.theme_primary_color}} className="h-8 rounded"></div>
+                        <div className="grid grid-cols-3 gap-1">
+                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_primary_color, 15)}} className="h-6 rounded"></div>
+                          <div style={{backgroundColor: settings.theme_primary_color}} className="h-6 rounded"></div>
+                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_primary_color, -15)}} className="h-6 rounded"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-xs text-gray-400 mb-1">Secondary</span>
+                      <div className="flex flex-col gap-1">
+                        <div style={{backgroundColor: settings.theme_secondary_color}} className="h-8 rounded"></div>
+                        <div className="grid grid-cols-3 gap-1">
+                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_secondary_color, 15)}} className="h-6 rounded"></div>
+                          <div style={{backgroundColor: settings.theme_secondary_color}} className="h-6 rounded"></div>
+                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_secondary_color, -15)}} className="h-6 rounded"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t border-gray-700 pt-4">
+                    <span className="block text-xs text-gray-400 mb-2">UI Elements</span>
+                    <div className="flex flex-wrap gap-2">
+                      <button 
+                        style={{backgroundColor: settings.theme_primary_color}} 
+                        className="px-4 py-2 text-white rounded-lg text-sm"
+                      >
+                        Primary Button
+                      </button>
+                      <button 
+                        style={{backgroundColor: settings.theme_secondary_color}} 
+                        className="px-4 py-2 text-white rounded-lg text-sm"
+                      >
+                        Secondary Button
+                      </button>
+                      <div 
+                        style={{backgroundColor: `${settings.theme_primary_color}20`}} 
+                        className="px-3 py-1 rounded-full text-sm flex items-center justify-center"
+                      >
+                        <span style={{color: settings.theme_primary_color}}>Primary Tag</span>
+                      </div>
+                      <div 
+                        style={{backgroundColor: `${settings.theme_secondary_color}20`}} 
+                        className="px-3 py-1 rounded-full text-sm flex items-center justify-center"
+                      >
+                        <span style={{color: settings.theme_secondary_color}}>Secondary Tag</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -476,7 +558,7 @@ export function SiteSettings() {
                   type="text"
                   value={settings.seo_title}
                   onChange={(e) => setSettings({...settings, seo_title: e.target.value})}
-                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                 />
                 <p className="mt-1 text-xs text-gray-400">
                   Title for SEO purposes, typically 50-60 characters
@@ -491,7 +573,7 @@ export function SiteSettings() {
                   value={settings.seo_description}
                   onChange={(e) => setSettings({...settings, seo_description: e.target.value})}
                   rows={3}
-                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                 />
                 <p className="mt-1 text-xs text-gray-400">
                   Description for SEO purposes, typically 150-160 characters
@@ -514,7 +596,7 @@ export function SiteSettings() {
                       type="text"
                       value={settings.product_title_template}
                       onChange={(e) => setSettings({...settings, product_title_template: e.target.value})}
-                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     />
                     <p className="mt-1 text-xs text-gray-400">
                       Template for product page titles. Example: "${'{product.name}'} | ${'{product.collectionName}'}"
@@ -529,7 +611,7 @@ export function SiteSettings() {
                       value={settings.product_description_template}
                       onChange={(e) => setSettings({...settings, product_description_template: e.target.value})}
                       rows={3}
-                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     />
                     <p className="mt-1 text-xs text-gray-400">
                       Template for product meta descriptions.
@@ -544,7 +626,7 @@ export function SiteSettings() {
                       type="text"
                       value={settings.collection_title_template}
                       onChange={(e) => setSettings({...settings, collection_title_template: e.target.value})}
-                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     />
                     <p className="mt-1 text-xs text-gray-400">
                       Template for collection page titles. Example: "${'{collection.name}'} | ${'{site_name}'}"
@@ -559,7 +641,7 @@ export function SiteSettings() {
                       value={settings.collection_description_template}
                       onChange={(e) => setSettings({...settings, collection_description_template: e.target.value})}
                       rows={3}
-                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     />
                     <p className="mt-1 text-xs text-gray-400">
                       Template for collection meta descriptions.
@@ -889,7 +971,7 @@ export function SiteSettings() {
                         }
                       }}
                       rows={10}
-                      className="w-full font-mono text-xs bg-gray-900 text-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="w-full font-mono text-xs bg-gray-900 text-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                       placeholder="{}"
                     />
                   </div>
