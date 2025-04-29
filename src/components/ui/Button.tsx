@@ -28,14 +28,14 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   children,
   ...props
 }, ref) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:pointer-events-none disabled:opacity-50';
+  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-50';
   
   const variants = {
-    primary: 'bg-purple-600 hover:bg-purple-700 text-white',
-    secondary: 'bg-gray-800 hover:bg-gray-700 text-gray-200',
+    primary: 'bg-primary hover:bg-primary-hover text-white',
+    secondary: 'bg-secondary hover:bg-secondary-hover text-white',
     outline: 'border border-gray-700 hover:bg-gray-800 text-gray-200',
     ghost: 'hover:bg-gray-800 text-gray-200',
-    link: 'text-purple-400 hover:text-purple-300 p-0',
+    link: 'text-primary hover:text-primary-light p-0',
     destructive: 'bg-red-600 hover:bg-red-700 text-white',
     danger: 'bg-red-600 hover:bg-red-700 text-white'
   };

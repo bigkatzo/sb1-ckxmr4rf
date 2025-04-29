@@ -27,6 +27,15 @@ function getStripe() {
   });
 }
 
+// Near the top of the file, add this function
+function getCssVariable(name: string, fallback: string): string {
+  if (typeof window !== 'undefined') {
+    const style = getComputedStyle(document.documentElement);
+    return style.getPropertyValue(name).trim() || fallback;
+  }
+  return fallback;
+}
+
 // Type definitions for better type safety
 interface ShippingAddress {
   address: string;
@@ -599,9 +608,9 @@ export function StripePaymentModal({
                 appearance: {
                   theme: 'night',
                   variables: {
-                    colorPrimary: '#9333ea',
-                    colorBackground: '#111827',
-                    colorText: '#ffffff',
+                    colorPrimary: getCssVariable('--color-primary', '#9333ea'),
+                    colorBackground: getCssVariable('--color-background', '#111827'),
+                    colorText: getCssVariable('--color-text', '#ffffff'),
                     colorDanger: '#ef4444',
                     fontFamily: 'ui-sans-serif, system-ui, sans-serif',
                   },
@@ -625,7 +634,7 @@ export function StripePaymentModal({
                   <p>Failed to load payment form.</p>
                   <button
                     onClick={() => window.location.reload()}
-                    className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium"
+                    className="mt-4 text-primary hover:text-primary-light text-sm font-medium"
                   >
                     Refresh Page
                   </button>
