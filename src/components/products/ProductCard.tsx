@@ -27,7 +27,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
   return (
     <div 
       onClick={handleClick}
-      className="group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-purple-500/50 hover:-translate-y-0.5 transition-all"
+      className="group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 hover:-translate-y-0.5 transition-all"
     >
       <div className="relative aspect-square overflow-hidden">
         {product.imageUrl ? (

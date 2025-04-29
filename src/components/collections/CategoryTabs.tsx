@@ -59,7 +59,7 @@ export function CategoryTabs({ categories, selectedId, onChange, categoryIndices
               className={`
                 flex items-center gap-2 border-b-2 px-2.5 py-3 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors snap-start
                 ${selectedId === category.id
-                  ? 'border-purple-500 text-white'
+                  ? 'border-primary text-white'
                   : 'border-transparent text-gray-400 hover:border-gray-700 hover:text-gray-300'
                 }
               `}

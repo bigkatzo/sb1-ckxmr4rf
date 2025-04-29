@@ -1,17 +1,17 @@
-import React from 'react';
+import type { MouseEvent } from 'react';
 import { ShoppingBag, Clock, Ban } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useModal } from '../../contexts/ModalContext';
 import { useOrderStats } from '../../hooks/useOrderStats';
-import type { Product } from '../../types';
+import type { Product } from '../../types/variants';
 
 interface BuyButtonProps {
   product: Product;
   selectedOptions?: Record<string, string>;
   disabled?: boolean;
   className?: string;
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   showModal?: boolean;
 }
 
@@ -37,7 +37,7 @@ export function BuyButton({
     (typeof currentOrders === 'number' && currentOrders >= (product.stock as number)) // Current orders reached or exceeded stock limit
   );
 
-  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // Prevent event bubbling
 
     try {
@@ -118,7 +118,7 @@ export function BuyButton({
       onClick={handleClick}
       disabled={disabled}
       className={`
-        flex items-center gap-1 bg-purple-600 hover:bg-purple-700 
+        flex items-center gap-1 bg-primary hover:bg-primary-hover 
         text-white px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-[10px] sm:text-xs transition-colors 
         disabled:opacity-50 disabled:cursor-not-allowed
         ${className}

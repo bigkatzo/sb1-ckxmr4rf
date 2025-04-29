@@ -1,4 +1,3 @@
-import React from 'react';
 import { Switch } from '@headlessui/react';
 import { Spinner } from './Spinner';
 
@@ -45,7 +44,7 @@ export function Toggle({
           disabled={loading || disabled}
           className={`
             ${sizeClasses[size].switch}
-            ${checked ? 'bg-purple-600' : 'bg-gray-700'}
+            ${checked ? 'bg-primary' : 'bg-gray-700'}
             ${(loading || disabled) ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}
             relative inline-flex shrink-0 cursor-pointer rounded-full border-2 border-transparent
             transition-colors duration-200 ease-in-out focus:outline-none
@@ -60,7 +59,7 @@ export function Toggle({
             `}
           >
             {loading && (
-              <Spinner className="absolute inset-0 m-auto h-3 w-3 text-purple-600" />
+              <Spinner className="absolute inset-0 m-auto h-3 w-3 text-primary" />
             )}
           </span>
         </Switch>
