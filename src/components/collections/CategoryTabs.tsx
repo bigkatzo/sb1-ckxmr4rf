@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { CategoryDiamond } from './CategoryDiamond';
 import { CategoryDescription } from './CategoryDescription';
-import type { Category } from '../../types';
+import type { Category } from '../../types/index';
 
 interface CategoryTabsProps {
   categories: Category[];

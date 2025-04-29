@@ -82,7 +82,7 @@ export function ProductCardCompact({
       onClick={handleClick}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="group relative bg-gray-900 rounded-lg overflow-hidden h-full hover:ring-1 hover:ring-purple-500/50 hover:-translate-y-0.5 transition-all cursor-pointer touch-manipulation"
+      className="group relative bg-gray-900 rounded-lg overflow-hidden h-full hover:ring-1 hover:ring-primary/50 hover:-translate-y-0.5 transition-all cursor-pointer touch-manipulation"
     >
       <div className="relative aspect-[4/3] overflow-hidden">
         {product.imageUrl ? (
@@ -125,7 +125,7 @@ export function ProductCardCompact({
         {product.collectionSlug && product.collectionName && (
           <button
             onClick={handleCollectionClick}
-            className="block text-[10px] sm:text-xs text-gray-400 hover:text-purple-400 transition-colors line-clamp-1 mt-0.5"
+            className="block text-[10px] sm:text-xs text-gray-400 hover:text-primary transition-colors line-clamp-1 mt-0.5"
           >
             {product.collectionName}
           </button>

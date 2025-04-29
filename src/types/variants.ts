@@ -27,6 +27,8 @@ export interface Product {
   collectionId: string;
   collectionName?: string;
   collectionSlug?: string;
+  collectionLaunchDate?: Date;
+  collectionSaleEnded?: boolean;
   slug: string;
   stock: number | null; // Base stock, null means unlimited
   minimumOrderQuantity: number;

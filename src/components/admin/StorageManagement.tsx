@@ -105,8 +105,8 @@ export default function StorageManagement() {
         <h2 className="text-xl font-semibold mb-4">Storage Statistics</h2>
         
         {loading && !stats ? (
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+          <div className="p-6 flex justify-center items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : stats ? (
           <>

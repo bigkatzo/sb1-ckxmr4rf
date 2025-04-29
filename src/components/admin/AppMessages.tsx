@@ -291,7 +291,7 @@ export function AppMessages() {
   if (loading) {
     return (
       <div className="p-6 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -326,7 +326,7 @@ export function AppMessages() {
                 type="text"
                 value={currentMessage.name}
                 onChange={(e) => setCurrentMessage({...currentMessage, name: e.target.value})}
-                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                 placeholder="Summer Sale Announcement"
               />
               <p className="mt-1 text-xs text-gray-400">
@@ -342,7 +342,7 @@ export function AppMessages() {
                 <label className="inline-flex items-center">
                   <input
                     type="radio"
-                    className="form-radio text-purple-600"
+                    className="form-radio text-primary"
                     checked={currentMessage.type === 'marquee'}
                     onChange={() => setCurrentMessage({...currentMessage, type: 'marquee'})}
                   />
@@ -351,7 +351,7 @@ export function AppMessages() {
                 <label className="inline-flex items-center">
                   <input
                     type="radio"
-                    className="form-radio text-purple-600"
+                    className="form-radio text-primary"
                     checked={currentMessage.type === 'popup'}
                     onChange={() => setCurrentMessage({...currentMessage, type: 'popup'})}
                   />
@@ -368,7 +368,7 @@ export function AppMessages() {
                 value={currentMessage.content}
                 onChange={(e) => setCurrentMessage({...currentMessage, content: e.target.value})}
                 rows={3}
-                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                 placeholder="Enter your message content here..."
               />
             </div>
@@ -382,7 +382,7 @@ export function AppMessages() {
                   type="datetime-local"
                   value={currentMessage.display_start}
                   onChange={(e) => setCurrentMessage({...currentMessage, display_start: e.target.value})}
-                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                 />
                 <p className="mt-1 text-xs text-gray-400">
                   When this message should start displaying
@@ -397,7 +397,7 @@ export function AppMessages() {
                   type="datetime-local"
                   value={currentMessage.display_end}
                   onChange={(e) => setCurrentMessage({...currentMessage, display_end: e.target.value})}
-                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                 />
                 <p className="mt-1 text-xs text-gray-400">
                   When this message should stop displaying
@@ -411,7 +411,7 @@ export function AppMessages() {
                   type="checkbox"
                   checked={currentMessage.is_active}
                   onChange={() => setCurrentMessage({...currentMessage, is_active: !currentMessage.is_active})}
-                  className="form-checkbox text-purple-600 h-5 w-5 rounded"
+                  className="form-checkbox text-primary h-5 w-5 rounded"
                 />
                 <span className="ml-2 text-gray-200">Active</span>
               </label>
@@ -436,7 +436,7 @@ export function AppMessages() {
                   <select
                     value={currentMessage.marquee_speed}
                     onChange={(e) => setCurrentMessage({...currentMessage, marquee_speed: e.target.value as any})}
-                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                   >
                     <option value="slow">Slow</option>
                     <option value="medium">Medium</option>
@@ -456,7 +456,7 @@ export function AppMessages() {
                       type="text"
                       value={currentMessage.marquee_link || ''}
                       onChange={(e) => setCurrentMessage({...currentMessage, marquee_link: e.target.value})}
-                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                       placeholder="https://example.com"
                     />
                   </div>
@@ -485,7 +485,7 @@ export function AppMessages() {
                         type="text"
                         value={currentMessage.background_color || ''}
                         onChange={(e) => setCurrentMessage({...currentMessage, background_color: e.target.value})}
-                        className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                         placeholder="#4c1d95"
                       />
                       {currentMessage.background_color && (
@@ -521,7 +521,7 @@ export function AppMessages() {
                         type="text"
                         value={currentMessage.text_color || ''}
                         onChange={(e) => setCurrentMessage({...currentMessage, text_color: e.target.value})}
-                        className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                         placeholder="#ffffff"
                       />
                       {currentMessage.text_color && (
@@ -584,7 +584,7 @@ export function AppMessages() {
                     type="text"
                     value={currentMessage.cta_text || ''}
                     onChange={(e) => setCurrentMessage({...currentMessage, cta_text: e.target.value})}
-                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     placeholder="Shop Now"
                   />
                 </div>
@@ -597,7 +597,7 @@ export function AppMessages() {
                     type="text"
                     value={currentMessage.cta_link || ''}
                     onChange={(e) => setCurrentMessage({...currentMessage, cta_link: e.target.value})}
-                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
                     placeholder="/collections/summer-sale"
                   />
                 </div>
