@@ -196,7 +196,14 @@ async function generateThemeCSS(settings) {
   }
 }
 
+// Export for CommonJS (Node.js) environments
 module.exports = {
+  generateTailwindTheme,
+  generateThemeCSS
+};
+
+// Export for ES Module environments
+export {
   generateTailwindTheme,
   generateThemeCSS
 }; 

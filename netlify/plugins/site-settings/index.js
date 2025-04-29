@@ -1,10 +1,10 @@
-import fs from 'fs';
-import path from 'path';
-import { createClient } from '@supabase/supabase-js';
-import { generateTailwindTheme, generateThemeCSS } from '../theme-tailwind';
+const fs = require('fs');
+const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
+const { generateTailwindTheme, generateThemeCSS } = require('../theme-tailwind');
 
 // Define the plugin
-export const onPreBuild = async ({ utils }) => {
+module.exports.onPreBuild = async ({ utils }) => {
   console.log('Starting Site Settings Plugin');
   
   try {
