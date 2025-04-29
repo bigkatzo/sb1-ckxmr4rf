@@ -9,7 +9,7 @@
 
 # Register site settings plugin with correct local plugin syntax
 [[plugins]]
-  package = "./netlify/plugins/site-settings"
+  package = "./netlify/plugins/site-settings/index.cjs"
 
 # Edge Function settings - correctly formatted per Netlify docs
 # https://docs.netlify.com/edge-functions/declarations/
