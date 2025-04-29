@@ -351,7 +351,7 @@ export function OrdersPage() {
                     </div>
                     <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
                       {getStatusIcon(order.status)}
-                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}</span>
                     </div>
                   </div>
                   {/* Mobile Date */}
@@ -371,7 +371,7 @@ export function OrdersPage() {
                     </div>
                     <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
                       {getStatusIcon(order.status)}
-                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}</span>
                     </div>
                   </div>
                 </div>
