@@ -4,6 +4,7 @@ export interface ShippingAddress {
   country: string;
   state?: string;
   zip: string;
+  taxId?: string;
 }
 
 export interface ContactInfo {

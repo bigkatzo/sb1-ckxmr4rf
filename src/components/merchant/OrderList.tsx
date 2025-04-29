@@ -385,13 +385,13 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         "SKU Code": null,
         "Store ID": null,
         "Order Number": "order_number",
-        "Hypersku Quantity": null,
+        "Hypersku Quantity": "quantity",
         "First Name": "contact_info.firstName",
         "Last Name": "contact_info.lastName",
         "Address1": "shipping_info.address",
         "Address2": null,
         "City": "shipping_info.city",
-        "Province": null,
+        "Province": "shipping_info.state",
         "Country": "shipping_info.country",
         "Zip": "shipping_info.zip",
         "Phone Number": "contact_info.phoneNumber",
@@ -399,6 +399,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         "Product SKU": "product_sku",
         "Product Name": "product_name",
         "Variant Selections": "variant_selections",
+        "Tax ID": "shipping_info.taxId",
         "Contact": "contact_value",
         "Contact Method": "contact_info.method",
         "Wallet Address": "wallet_address",
@@ -454,11 +455,17 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 if (child === 'city' && order.shippingAddress) {
                   return escapeCSV(order.shippingAddress.city || '');
                 }
+                if (child === 'state' && order.shippingAddress) {
+                  return escapeCSV(order.shippingAddress.state || '');
+                }
                 if (child === 'country' && order.shippingAddress) {
                   return escapeCSV(order.shippingAddress.country || '');
                 }
                 if (child === 'zip' && order.shippingAddress) {
                   return escapeCSV(order.shippingAddress.zip || '');
+                }
+                if (child === 'taxId' && order.shippingAddress) {
+                  return escapeCSV(order.shippingAddress.taxId || '');
                 }
               }
               
@@ -469,6 +476,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             switch (fieldPath) {
               case 'order_number':
                 return escapeCSV(order.order_number);
+              case 'quantity':
+                return escapeCSV('1'); // Always 1 until we support multiple items per order
               case 'product_sku':
                 return escapeCSV(order.product_sku || '');
               case 'product_name':
