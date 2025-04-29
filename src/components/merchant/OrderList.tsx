@@ -34,6 +34,7 @@ import {
 } from '../../utils/transactions';
 import DeleteTrackingButton from '../tracking/DeleteTrackingButton';
 import { SensitiveInfo } from '../ui/SensitiveInfo';
+import { OrderShippingAddress } from '../OrderShippingAddress';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -713,21 +714,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   const formatShippingAddress = (shippingAddress: any) => {
     if (!shippingAddress) return null;
-    const { address, city, country, zip } = shippingAddress;
-    
-    const addressContent = (
-      <div className="space-y-0.5 text-gray-300 text-sm">
-        <div>{address}</div>
-        <div>{city} {zip}</div>
-        <div>{country}</div>
-      </div>
-    );
-    
-    return (
-      <SensitiveInfo type="blur">
-        {addressContent}
-      </SensitiveInfo>
-    );
+    return <OrderShippingAddress address={shippingAddress} />;
   };
 
   const getProductInfo = (order: Order) => {

@@ -10,6 +10,7 @@ interface CreateOrderData {
       address: string;
       city: string;
       country: string;
+      state?: string;
       zip: string;
     };
     contact_info: {

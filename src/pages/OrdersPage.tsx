@@ -20,6 +20,7 @@ import { debugOrderSecurity } from '../utils/orderSecurity';
 import { WalletAuthDebug } from '../components/debug/WalletAuthDebug';
 import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
 import { useUserRole } from '../contexts/UserRoleContext';
+import { OrderShippingAddress } from '../components/OrderShippingAddress';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -123,30 +124,12 @@ export function OrdersPage() {
   const formatShippingAddress = (shippingAddress: any) => {
     if (!shippingAddress) return null;
     
-    // Extract fields with fallbacks for missing data
-    const address = shippingAddress.address || '';
-    const city = shippingAddress.city || '';
-    const country = shippingAddress.country || '';
-    const zip = shippingAddress.zip || '';
-    
     // Only render if we have some minimal address data
-    if (!address && !city && !country) {
+    if (!shippingAddress.address && !shippingAddress.city && !shippingAddress.country) {
       return <div className="text-gray-500 text-xs">Address information unavailable</div>;
     }
     
-    const addressContent = (
-      <div className="space-y-0.5 text-gray-300 text-xs">
-        {address && <div>{address}</div>}
-        {(city || zip) && <div>{city}{city && zip && ', '}{zip}</div>}
-        {country && <div>{country}</div>}
-      </div>
-    );
-    
-    return (
-      <SensitiveInfo type="blur">
-        {addressContent}
-      </SensitiveInfo>
-    );
+    return <OrderShippingAddress address={shippingAddress} />;
   };
 
   const formatContactInfo = (contactInfo: any) => {

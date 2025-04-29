@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
@@ -14,11 +14,14 @@ import { supabase } from '../../lib/supabase';
 import { verifyNFTHolding } from '../../utils/nft-verification';
 import { monitorTransaction } from '../../utils/transaction-monitor';
 import { OrderSuccessView } from '../OrderSuccessView';
-import { validatePhoneNumber } from '../../lib/validation';
+import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../../lib/validation';
 import { StripePaymentModal } from './StripePaymentModal';
 import { CouponService } from '../../services/coupons';
 import type { PriceWithDiscount } from '../../types/coupons';
 import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
+import { countries, getStatesByCountryCode } from '../../data/countries';
+import { ComboBox } from '../ui/ComboBox';
+import { getLocationFromZip } from '../../utils/addressUtil';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -31,6 +34,7 @@ interface ShippingInfo {
   address: string;
   city: string;
   country: string;
+  state?: string;
   zip: string;
   contactMethod: string;
   contactValue: string;
@@ -151,6 +155,7 @@ export function TokenVerificationModal({
       address: '',
       city: '',
       country: '',
+      state: '',
       zip: '',
       contactMethod: 'telegram',
       contactValue: '',
@@ -159,6 +164,83 @@ export function TokenVerificationModal({
       phoneNumber: ''
     };
   });
+
+  // Add state for ZIP validation
+  const [zipError, setZipError] = useState<string>('');
+  
+  // Get states for the selected country
+  const availableStates = useMemo(() => {
+    const countryCode = countries.find(c => c.name === shippingInfo.country)?.code;
+    return countryCode ? getStatesByCountryCode(countryCode) : [];
+  }, [shippingInfo.country]);
+
+  // Enhance the handleZipChange function to detect country when possible
+  const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newZip = e.target.value;
+    setShippingInfo(prev => ({
+      ...prev,
+      zip: newZip
+    }));
+    
+    // Clear any previous errors
+    setZipError('');
+
+    if (!newZip || newZip.length < 4) {
+      return; // Skip validation for very short ZIPs
+    }
+    
+    // If the country is already set, use that for validation
+    if (shippingInfo.country) {
+      const countryObj = countries.find(c => c.name === shippingInfo.country);
+      const countryCode = countryObj?.code;
+      
+      // Validate ZIP code
+      const validation = validateZipCode(newZip, countryCode);
+      if (validation.error) {
+        setZipError(validation.error);
+      }
+      
+      // Try to auto-detect state for US zip codes
+      if (countryCode === 'US' && !validation.error) {
+        const stateCode = getStateFromZipCode(newZip);
+        if (stateCode) {
+          // Get the state/province from the states list
+          const country = countries.find(c => c.code === 'US');
+          if (country && country.states && country.states[stateCode]) {
+            const stateName = country.states[stateCode][0];
+            if (stateName && (!shippingInfo.state || shippingInfo.state !== stateName)) {
+              setShippingInfo(prev => ({
+                ...prev,
+                state: stateName
+              }));
+              
+              toast.info(`State automatically set to ${stateName}`, {
+                position: 'bottom-center',
+                autoClose: 2000
+              });
+            }
+          }
+        }
+      }
+    } 
+    // If country is not set, try to detect it from ZIP format
+    else if (!shippingInfo.country && newZip.length >= 5) {
+      const locationInfo = getLocationFromZip(newZip);
+      
+      if (locationInfo) {
+        setShippingInfo(prev => ({
+          ...prev,
+          country: locationInfo.country,
+          state: locationInfo.state || ''
+        }));
+        
+        toast.info(`Country detected: ${locationInfo.country}${locationInfo.state ? `. State: ${locationInfo.state}` : ''}`, {
+          position: 'bottom-center',
+          autoClose: 3000
+        });
+      }
+    }
+  };
 
   // Save shipping info to localStorage whenever it changes
   useEffect(() => {
@@ -260,6 +342,21 @@ export function TokenVerificationModal({
     const phoneValidation = validatePhoneNumber(shippingInfo.phoneNumber);
     if (phoneValidation.error) {
       setPhoneError(phoneValidation.error);
+      return;
+    }
+    
+    // Validate ZIP code before submission
+    const countryObj = countries.find(c => c.name === shippingInfo.country);
+    const countryCode = countryObj?.code;
+    const zipValidation = validateZipCode(shippingInfo.zip, countryCode);
+    if (zipValidation.error) {
+      setZipError(zipValidation.error);
+      return;
+    }
+    
+    // Validate state/province is selected if available for country
+    if (availableStates.length > 0 && !shippingInfo.state) {
+      toast.error('Please select a state/province');
       return;
     }
     
@@ -1039,7 +1136,7 @@ export function TokenVerificationModal({
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-200 mb-2">
                             City
@@ -1057,6 +1154,7 @@ export function TokenVerificationModal({
                             placeholder="City"
                           />
                         </div>
+                        
                         <div>
                           <label className="block text-sm font-medium text-gray-200 mb-2">
                             ZIP / Postal Code
@@ -1064,34 +1162,72 @@ export function TokenVerificationModal({
                           <input
                             type="text"
                             value={shippingInfo.zip}
-                            onChange={(e) => setShippingInfo(prev => ({
-                              ...prev,
-                              zip: e.target.value
-                            }))}
+                            onChange={handleZipChange}
                             required
                             disabled={submitting}
-                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={`w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                              zipError ? 'border border-red-500' : ''
+                            }`}
                             placeholder="ZIP code"
                           />
+                          {zipError && (
+                            <p className="mt-1 text-sm text-red-500">{zipError}</p>
+                          )}
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-200 mb-2">
-                          Country
-                        </label>
-                        <input
-                          type="text"
-                          value={shippingInfo.country}
-                          onChange={(e) => setShippingInfo(prev => ({
-                            ...prev,
-                            country: e.target.value
-                          }))}
-                          required
-                          disabled={submitting}
-                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          placeholder="Country"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-200 mb-2">
+                            Country
+                          </label>
+                          <ComboBox
+                            value={shippingInfo.country}
+                            onChange={(value) => setShippingInfo(prev => ({
+                              ...prev,
+                              country: value,
+                              state: '' // Reset state when country changes
+                            }))}
+                            options={countries.map(country => ({
+                              value: country.name,
+                              label: country.name,
+                              secondaryLabel: country.code
+                            }))}
+                            required
+                            disabled={submitting}
+                            placeholder="Type country name or code (e.g. US, Canada)"
+                            name="country"
+                            id="country"
+                          />
+                        </div>
+
+                        {availableStates.length > 0 ? (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-200 mb-2">
+                              State / Province
+                            </label>
+                            <ComboBox
+                              value={shippingInfo.state || ''}
+                              onChange={(value) => setShippingInfo(prev => ({
+                                ...prev,
+                                state: value
+                              }))}
+                              options={availableStates.map(state => ({
+                                value: state.name,
+                                label: state.name,
+                                secondaryLabel: state.code
+                              }))}
+                              required
+                              disabled={submitting}
+                              placeholder="Type or select state/province"
+                              name="state"
+                              id="state"
+                            />
+                          </div>
+                        ) : (
+                          <div className="hidden sm:block"> {/* Empty div for grid alignment when no state field */}
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
@@ -1263,8 +1399,10 @@ export function TokenVerificationModal({
                         disabled={submitting || !verificationResult?.isValid || 
                           !shippingInfo.address || !shippingInfo.city || 
                           !shippingInfo.country || !shippingInfo.zip || 
+                          (availableStates.length > 0 && !shippingInfo.state) ||
                           !shippingInfo.contactValue || !shippingInfo.firstName ||
-                          !shippingInfo.lastName || !shippingInfo.phoneNumber || !!phoneError}
+                          !shippingInfo.lastName || !shippingInfo.phoneNumber || 
+                          !!phoneError || !!zipError}
                         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                         <span>Pay with Solana ({finalPrice.toFixed(2)} SOL)</span>
@@ -1278,8 +1416,10 @@ export function TokenVerificationModal({
                           disabled={submitting || 
                             !shippingInfo.address || !shippingInfo.city || 
                             !shippingInfo.country || !shippingInfo.zip || 
+                            (availableStates.length > 0 && !shippingInfo.state) ||
                             !shippingInfo.contactValue || !shippingInfo.firstName ||
-                            !shippingInfo.lastName || !shippingInfo.phoneNumber || !!phoneError}
+                            !shippingInfo.lastName || !shippingInfo.phoneNumber || 
+                            !!phoneError || !!zipError}
                           className="text-purple-400 hover:text-purple-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Pay with Credit Card
