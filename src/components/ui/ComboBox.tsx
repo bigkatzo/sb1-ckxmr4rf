@@ -27,6 +27,7 @@ export function ComboBox({
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [displayValue, setDisplayValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -42,9 +43,17 @@ export function ComboBox({
   // Get display label for selected value
   const selectedOption = options.find(option => option.value === value);
   
+  // Update display value when selected option changes
+  useEffect(() => {
+    setDisplayValue(selectedOption?.label || value);
+  }, [value, selectedOption]);
+
   // Reset input when selection changes
   useEffect(() => {
-    setQuery('');
+    if (value) {
+      // Only clear the query but keep the selected value as display
+      setQuery('');
+    }
   }, [value]);
 
   // Handle click outside to close dropdown
@@ -52,6 +61,16 @@ export function ComboBox({
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        
+        // If we have a value but no query, restore the display value
+        if (value && !query) {
+          setDisplayValue(selectedOption?.label || value);
+        }
+        
+        // If user typed something but didn't select, and we have a current value, restore it
+        if (query && value) {
+          setQuery('');
+        }
       }
     }
     
@@ -59,7 +78,7 @@ export function ComboBox({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [value, selectedOption, query]);
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -107,28 +126,41 @@ export function ComboBox({
       ref={wrapperRef}
     >
       <div className="relative">
+        {/* Visible input for user interaction */}
         <input
           ref={inputRef}
           type="text"
           id={id}
-          name={name}
-          value={query}
+          autoComplete="off"
+          value={isOpen ? query : displayValue}
           onChange={(e) => {
             setQuery(e.target.value);
             if (!isOpen) setIsOpen(true);
             setHighlightedIndex(-1);
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => {
+            setIsOpen(true);
+            // Clear the input when focused to show all options
+            setQuery('');
+          }}
           onClick={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           disabled={disabled}
-          required={required}
-          placeholder={value ? selectedOption?.label || value : placeholder}
+          placeholder={placeholder}
           className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed pr-10"
           aria-expanded={isOpen}
           aria-autocomplete="list"
           aria-controls={`${id || name}-listbox`}
         />
+        
+        {/* Hidden input to store the actual value for form submission */}
+        <input
+          type="hidden"
+          name={name}
+          value={value}
+          required={required}
+        />
+        
         <div className="absolute inset-y-0 right-0 flex items-center pr-2">
           {value && (
             <button
@@ -137,6 +169,7 @@ export function ComboBox({
                 e.stopPropagation();
                 onChange('');
                 setQuery('');
+                setDisplayValue('');
                 inputRef.current?.focus();
               }}
               className="text-gray-400 hover:text-gray-300 mr-1"
@@ -178,6 +211,7 @@ export function ComboBox({
                 } hover:bg-gray-700 hover:text-white`}
                 onClick={() => {
                   onChange(option.value);
+                  setDisplayValue(option.label);
                   setIsOpen(false);
                 }}
                 onMouseEnter={() => setHighlightedIndex(index)}
