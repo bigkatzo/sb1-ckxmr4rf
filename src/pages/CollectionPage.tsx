@@ -9,6 +9,7 @@ import { CollectionSkeleton } from '../components/ui/Skeletons';
 import { CollectionNotFound } from '../components/collections/CollectionNotFound';
 import { createCategoryIndices } from '../utils/category-mapping';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
+import { ShareButton } from '../components/ui/ShareButton';
 import type { Category, Product } from '../types/index';
 import SEO from '../components/SEO';
 import { preloadPageResources } from '../lib/service-worker';
@@ -155,57 +156,48 @@ export function CollectionPage() {
               </div>
             )}
             
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-              {/* Status Tags */}
-              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8 flex flex-col gap-2">
-                {isUpcoming ? (
-                  <>
-                    {/* Desktop/Tablet: Combined tag */}
-                    <div className="hidden sm:flex items-center gap-2 bg-primary/90 backdrop-blur-sm text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-2xl">
-                      <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span className="text-sm sm:text-base font-medium">Coming Soon</span>
-                      <span className="mx-2 w-px h-5 bg-white/30" />
-                      <CountdownTimer
-                        targetDate={collection.launchDate}
-                        className="text-sm sm:text-base text-primary-light"
-                      />
-                    </div>
-                    {/* Mobile: Side by side tags */}
-                    <div className="sm:hidden flex items-center gap-1.5">
-                      <div className="flex items-center gap-1.5 bg-primary/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-xl">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span className="text-xs font-medium">Coming Soon</span>
-                      </div>
-                      <CountdownTimer
-                        targetDate={collection.launchDate}
-                        className="text-xs text-primary bg-black/50 px-2.5 py-1 rounded-lg backdrop-blur-sm"
-                      />
-                    </div>
-                  </>
-                ) : collection.saleEnded ? (
-                  <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
-                    <Ban className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                    <span className="text-xs sm:text-base font-medium">Sale Ended</span>
-                  </div>
-                ) : isNew ? (
-                  <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
-                    <span className="text-xs sm:text-base font-medium">New Drop</span>
-                  </div>
-                ) : collection.featured ? (
-                  <div className="flex items-center gap-2 bg-secondary backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
-                    <span className="text-xs sm:text-base font-medium">Featured Drop</span>
-                  </div>
-                ) : null}
-              </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
-              <div className="absolute bottom-0 w-full p-4 sm:p-8">
-                <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white max-w-2xl">
-                  {collection.name}
-                </h1>
-                <p className="text-sm sm:text-base text-gray-300 max-w-xl mt-2 sm:mt-4 line-clamp-2 sm:line-clamp-none">
-                  {collection.description}
-                </p>
-              </div>
+            <div className="absolute top-4 right-4 z-10">
+              <ShareButton 
+                title={`${collection.name} | store.fun`}
+                size="md"
+                className="bg-black/50 hover:bg-black/70"
+              />
+            </div>
+
+            <div className="absolute top-0 left-0 w-full p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              {isUpcoming ? (
+                <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
+                  <Clock className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                  <CountdownTimer 
+                    targetDate={collection.launchDate!} 
+                    className="text-xs sm:text-base font-medium"
+                  />
+                </div>
+              ) : collection.saleEnded ? (
+                <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
+                  <Ban className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                  <span className="text-xs sm:text-base font-medium">Sale Ended</span>
+                </div>
+              ) : isNew ? (
+                <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
+                  <span className="text-xs sm:text-base font-medium">New Drop</span>
+                </div>
+              ) : collection.featured ? (
+                <div className="flex items-center gap-2 bg-secondary backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
+                  <span className="text-xs sm:text-base font-medium">Featured Drop</span>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="absolute bottom-0 w-full p-4 sm:p-8">
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white max-w-2xl">
+                {collection.name}
+              </h1>
+              <p className="text-sm sm:text-base text-gray-300 max-w-xl mt-2 sm:mt-4 line-clamp-2 sm:line-clamp-none">
+                {collection.description}
+              </p>
             </div>
           </div>
 

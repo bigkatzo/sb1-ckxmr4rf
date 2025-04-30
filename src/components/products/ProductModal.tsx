@@ -7,6 +7,7 @@ import { ProductVariantPrice } from './ProductVariantPrice';
 import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { ShareButton } from '../ui/ShareButton';
 import { ProductModalSkeleton } from '../ui/Skeletons';
 import { ProductNotes } from './ProductNotes';
 import type { Product as BaseProduct } from '../../types/variants';
@@ -551,7 +552,13 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
           ref={modalRef}
           className="relative bg-gray-900 w-full min-h-screen sm:min-h-0 sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden"
         >
-          <div className="absolute top-4 right-4 z-10">
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+            <ShareButton 
+              url={product.collectionSlug && product.slug ? `${window.location.origin}/${product.collectionSlug}/${product.slug}` : undefined}
+              title={`${product.name} | ${product.collectionName || 'store.fun'}`}
+              size="md"
+              className="bg-black/50 hover:bg-black/70"
+            />
             <button
               onClick={onClose}
               className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
