@@ -1,4 +1,3 @@
-import React from 'react';
 import type { ProductVariant } from '../../../types/variants';
 
 interface VariantSelectorProps {
@@ -24,7 +23,7 @@ export function VariantSelector({ variants, selectedOptions, onChange }: Variant
                 className={`
                   px-4 py-2 rounded-lg text-sm font-medium transition-colors
                   ${selectedOptions[variant.id] === option.value
-                    ? 'bg-purple-600 text-white ring-2 ring-purple-500 ring-offset-2 ring-offset-gray-900'
+                    ? 'bg-secondary text-white ring-2 ring-secondary ring-offset-2 ring-offset-gray-900'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }
                 `}

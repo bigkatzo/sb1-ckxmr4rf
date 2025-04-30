@@ -183,7 +183,7 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
         <button
           type="button"
           onClick={addVariant}
-          className="flex items-center gap-2 text-purple-400 hover:text-purple-300"
+          className="flex items-center gap-2 text-secondary hover:text-secondary-light"
         >
           <Plus className="h-4 w-4" />
           <span>Add Variant</span>

@@ -8,7 +8,7 @@ export function OrderSuccessToast() {
       <span>Order created successfully!</span>
       <a 
         href="/orders" 
-        className="text-white underline hover:text-purple-200 hover:no-underline transition-colors"
+        className="text-white underline hover:text-secondary-light hover:no-underline transition-colors"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();

@@ -246,10 +246,10 @@ export function OrderSuccessView({
             </p>
             
             <div className="relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 pointer-events-none"></div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-secondary to-blue-500 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 pointer-events-none"></div>
               <div className="relative p-3 sm:p-4 bg-black/50 rounded-lg">
                 <h3 className="text-lg sm:text-xl font-semibold text-white mb-1 sm:mb-2">{productName}</h3>
-                <p className="text-sm text-purple-300">by {collectionName}</p>
+                <p className="text-sm text-secondary-light">by {collectionName}</p>
                 <div className="mt-3 sm:mt-4">
                   <img
                     src={productImage}
@@ -263,7 +263,7 @@ export function OrderSuccessView({
             <div className="space-y-2 sm:space-y-3 mt-4 sm:mt-6">
               <div className="flex items-center justify-center space-x-2 text-xs sm:text-sm">
                 <span className="text-gray-400">Order #:</span>
-                <span className="font-mono text-purple-300">{orderNumber}</span>
+                <span className="font-mono text-secondary">{orderNumber}</span>
               </div>
               
               <div className="flex items-center justify-center space-x-2 text-xs sm:text-sm">
@@ -274,7 +274,7 @@ export function OrderSuccessView({
                   href={getTransactionUrl(transactionSignature)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`${isStripeReceiptUrl(transactionSignature) ? '' : 'font-mono'} text-purple-300 hover:text-purple-200 flex items-center gap-1`}
+                  className={`${isStripeReceiptUrl(transactionSignature) ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
                 >
                   {isStripeReceiptUrl(transactionSignature) 
                     ? 'View Receipt' 
@@ -290,7 +290,7 @@ export function OrderSuccessView({
                     href={receiptUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-purple-300 hover:text-purple-200 flex items-center gap-1"
+                    className="text-purple-400 hover:text-purple-300 flex items-center gap-1"
                   >
                     View Receipt
                     <ExternalLink className="w-3 h-3" />

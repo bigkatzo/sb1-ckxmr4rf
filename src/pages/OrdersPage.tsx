@@ -96,7 +96,7 @@ export function OrdersPage() {
       case 'confirmed':
         return <Package className="h-4 w-4 text-blue-400" />;
       case 'preparing':
-        return <PackageOpen className="h-4 w-4 text-orange-400" />;
+        return <PackageOpen className="h-4 w-4 text-teal-400" />;
       case 'shipped':
         return <Truck className="h-4 w-4 text-purple-400" />;
       case 'delivered':
@@ -117,7 +117,7 @@ export function OrdersPage() {
       case 'confirmed':
         return 'bg-blue-500/10 text-blue-400';
       case 'preparing':
-        return 'bg-orange-500/10 text-orange-400';
+        return 'bg-teal-500/10 text-teal-400';
       case 'shipped':
         return 'bg-purple-500/10 text-purple-400';
       case 'delivered':
@@ -339,7 +339,7 @@ export function OrdersPage() {
       ) : (
         <div className="space-y-3">
           {orders.map((order) => (
-            <div key={order.id} className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-purple-500/20 transition-all">
+            <div key={order.id} className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-secondary/20 transition-all">
               {/* Order Number Header */}
               <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
                 <div className="flex flex-col gap-0.5 sm:gap-2">
@@ -408,7 +408,7 @@ export function OrdersPage() {
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-medium text-sm truncate">{order.product_name}</h3>
                           {order.collection_name && (
-                            <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full shrink-0">
+                            <span className="text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full shrink-0">
                               {order.collection_name}
                             </span>
                           )}
@@ -476,7 +476,7 @@ export function OrdersPage() {
                     {order.tracking && (
                       <div className="mt-4 pt-4 border-t border-gray-800">
                         <div className="flex items-center gap-2">
-                          <Truck className="h-4 w-4 text-purple-400" />
+                          <Truck className="h-4 w-4 text-secondary" />
                           <span className="text-xs text-gray-400">Tracking Number:</span>
                           {order.tracking.tracking_number ? (
                             <Link
@@ -493,7 +493,7 @@ export function OrdersPage() {
                           )}
                         </div>
                         {order.tracking.status && (
-                          <div className="mt-2 text-xs text-purple-400">
+                          <div className="mt-2 text-xs text-secondary">
                             {order.tracking.status}
                             {order.tracking.status_details && (
                               <span className="text-gray-400 ml-1">- {order.tracking.status_details}</span>

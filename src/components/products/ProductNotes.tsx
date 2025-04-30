@@ -33,34 +33,34 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
       <div className="space-y-2">
         {displayNotes.shipping && (
           <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
-            <Package className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
+            <Package className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
             <p className="text-sm text-gray-300">{displayNotes.shipping}</p>
           </div>
         )}
         
         {displayNotes.quality && (
           <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
-            <ShieldCheck className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
+            <ShieldCheck className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
             <p className="text-sm text-gray-300">{displayNotes.quality}</p>
           </div>
         )}
         
         {displayNotes.returns && (
           <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
-            <Ban className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
+            <Ban className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
             <p className="text-sm text-gray-300">{displayNotes.returns}</p>
           </div>
         )}
 
         {hasFreeNotes && (
           <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
-            <Info className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
+            <Info className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
             <p className="text-sm text-gray-300 whitespace-pre-wrap">{freeNotes}</p>
           </div>
         )}
 
         <div className="text-center pt-2">
-          <Link to="/returns-faq" className="text-sm text-purple-400 hover:text-purple-300 transition-colors">
+          <Link to="/returns-faq" className="text-sm text-secondary hover:text-secondary-light transition-colors">
             View Returns & FAQ
           </Link>
         </div>

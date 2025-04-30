@@ -84,7 +84,7 @@ export function OrderProgressBar({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-purple-400">{currentOrders}</span>
+          <span className="text-secondary">{currentOrders}</span>
           <span className="text-gray-600">/</span>
           {isUnlimited ? (
             <span className="text-gray-300 flex items-center gap-1">
