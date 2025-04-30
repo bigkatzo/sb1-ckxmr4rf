@@ -112,12 +112,14 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
       formData.append('acceptedTokens', JSON.stringify(acceptedTokens));
       
       // Log the data being submitted
-      console.log('Submitting form data:', {
+      console.log('Form submission data:', {
         name: formData.get('name'),
         description: formData.get('description'),
         visible: formData.get('visible'),
         groups: JSON.parse(formData.get('groups') as string),
-        acceptedTokens: JSON.parse(formData.get('acceptedTokens') as string)
+        acceptedTokens: JSON.parse(formData.get('acceptedTokens') as string),
+        acceptedTokensRaw: formData.get('acceptedTokens'),
+        allFormData: Object.fromEntries(formData.entries())
       });
 
       onSubmit(formData);

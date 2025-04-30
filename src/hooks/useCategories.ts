@@ -28,7 +28,7 @@ export function useCategories(collectionId: string) {
 
       const { data, error } = await supabase
         .from('categories')
-        .select('*, eligibility_rules')
+        .select('*, eligibility_rules, accepted_tokens')
         .eq('collection_id', collectionId)
         .order('created_at', { ascending: true }); // Order by creation time instead of id
 
@@ -42,7 +42,8 @@ export function useCategories(collectionId: string) {
         visible: category.visible,
         eligibilityRules: {
           groups: category.eligibility_rules?.groups || []
-        }
+        },
+        acceptedTokens: category.accepted_tokens || ['SOL']
       }));
 
       setCategories(transformedCategories);

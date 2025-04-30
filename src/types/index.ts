@@ -41,6 +41,7 @@ export interface Category {
   eligibilityRules: {
     groups: RuleGroup[];
   };
+  acceptedTokens?: string[];
 }
 
 export interface Product {
