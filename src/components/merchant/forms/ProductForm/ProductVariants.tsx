@@ -27,8 +27,15 @@ export function ProductVariants({ initialVariants = [], initialPrices = {} }: Pr
   }, [initialVariants, initialPrices, register, setValue]);
   
   const basePrice = watch('price') || 0;
+  const pricingToken = watch('pricingToken') || 'SOL';
   const variants = watch('variants') || [];
   const variantPrices = watch('variantPrices') || {};
+  
+  // Add effect to listen for pricingToken changes
+  useEffect(() => {
+    // This will re-render the component when pricingToken changes
+    console.log(`Pricing token changed to: ${pricingToken}`);
+  }, [pricingToken]);
   
   const handleVariantsChange = (updatedVariants: ProductVariant[], updatedPrices: VariantPricing) => {
     setValue('variants', updatedVariants);

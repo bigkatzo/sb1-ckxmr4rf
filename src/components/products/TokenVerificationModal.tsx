@@ -102,7 +102,19 @@ export function TokenVerificationModal({
   const [showCoupon, setShowCoupon] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [couponResult, setCouponResult] = useState<PriceWithDiscount | null>(null);
-  const [selectedToken, setSelectedToken] = useState<string>(product.pricingToken || 'SOL');
+  
+  // Determine available payment tokens based on product configuration
+  // First check category.acceptedTokens, then product.acceptedTokens, then default to SOL
+  const availableTokens = product.category?.acceptedTokens || product.acceptedTokens || ['SOL'];
+  
+  // Set default selected token to product.pricingToken if it's in the available tokens list
+  // Otherwise default to the first available token
+  const [selectedToken, setSelectedToken] = useState<string>(
+    product.pricingToken && availableTokens.includes(product.pricingToken)
+      ? product.pricingToken
+      : availableTokens[0]
+  );
+  
   const { convertSolToUsdc, convertUsdcToSol, convertToken } = useTokenPrices();
   
   // Update progress steps to reflect new flow
@@ -148,9 +160,6 @@ export function TokenVerificationModal({
       } : step
     ));
   };
-
-  // Determine available payment tokens based on product configuration
-  const availableTokens = product.acceptedTokens || ['SOL'];
 
   // Get the final price based on the product's pricing token and the selected payment token
   const getFinalPriceInSelectedToken = useCallback(async (): Promise<number> => {
@@ -1497,7 +1506,7 @@ export function TokenVerificationModal({
                         <label className="block text-sm font-medium text-white mb-2">
                           Select Payment Token
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className={`grid ${availableTokens.length > 2 ? 'grid-cols-3 sm:grid-cols-4' : 'grid-cols-2'} gap-2`}>
                           {availableTokens.map(token => (
                             <button
                               key={token}

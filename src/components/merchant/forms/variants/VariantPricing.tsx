@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
+import { useFormContext } from 'react-hook-form';
 import type { ProductVariant, VariantPricing } from '../../../../types/variants';
+import type { ProductFormValues } from '../ProductForm/schema';
 
 interface VariantPricingProps {
   variants: ProductVariant[];
@@ -9,6 +11,10 @@ interface VariantPricingProps {
 }
 
 export function VariantPricing({ variants, prices, basePrice, onPriceChange }: VariantPricingProps) {
+  // Get the pricing token from the form context
+  const { watch } = useFormContext<ProductFormValues>();
+  const pricingToken = watch('pricingToken') || 'SOL';
+  
   // Generate unique combinations of variants
   const combinations = useMemo(() => {
     const result: Array<{
@@ -75,7 +81,7 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
           <thead>
             <tr className="border-b border-gray-800">
               <th className="py-2 text-left font-medium text-gray-400 w-2/3">Variant</th>
-              <th className="py-2 text-right font-medium text-gray-400 w-1/3">Price (SOL)</th>
+              <th className="py-2 text-right font-medium text-gray-400 w-1/3">Price ({pricingToken})</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
@@ -87,7 +93,7 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
                     <input
                       type="number"
                       min="0"
-                      step="0.000000001"
+                      step={pricingToken === 'USDC' ? '0.01' : '0.000000001'}
                       value={prices[key] ?? basePrice}
                       onChange={e => {
                         const value = parseFloat(e.target.value);
