@@ -15,9 +15,14 @@ interface UseModifiedPriceResult {
 interface UseModifiedPriceProps {
   product: Product;
   selectedOptions?: Record<string, string>;
+  quantity?: number;
 }
 
-export function useModifiedPrice({ product, selectedOptions = {} }: UseModifiedPriceProps): UseModifiedPriceResult {
+export function useModifiedPrice({ 
+  product, 
+  selectedOptions = {},
+  quantity
+}: UseModifiedPriceProps): UseModifiedPriceResult {
   const { currentOrders, loading } = useOrderStats(product.id);
   
   const result = useMemo(() => {
@@ -33,9 +38,12 @@ export function useModifiedPrice({ product, selectedOptions = {} }: UseModifiedP
     // Use variant price if it exists, otherwise use base price
     const basePrice = hasVariantPrice ? product.variantPrices![variantKey] : product.price;
     
+    // If a specific quantity is provided, use it, otherwise use the current orders
+    const effectiveQuantity = quantity !== undefined ? quantity : currentOrders;
+    
     const modifiedPrice = calculateModifiedPrice({
       basePrice,
-      currentOrders,
+      currentOrders: effectiveQuantity,
       minOrders: product.minimumOrderQuantity,
       maxStock: product.stock,
       modifierBefore: product.priceModifierBeforeMin ?? null,
@@ -51,7 +59,7 @@ export function useModifiedPrice({ product, selectedOptions = {} }: UseModifiedP
       loading,
       currentOrders
     };
-  }, [product, selectedOptions, currentOrders, loading]);
+  }, [product, selectedOptions, currentOrders, loading, quantity]);
 
   return result;
 } 
