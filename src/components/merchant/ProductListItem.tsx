@@ -39,6 +39,17 @@ export function ProductListItem({
     return `${remaining}/${product.stock}`;
   };
 
+  // Get the pricing token, default to SOL if not specified
+  const pricingToken = product.pricingToken || 'SOL';
+  
+  // Format price according to token type
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('en-US', { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: pricingToken === 'USDC' ? 2 : 8 
+    });
+  };
+
   return (
     <div 
       onClick={onClick}
@@ -105,7 +116,7 @@ export function ProductListItem({
           
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-white">{product.price} SOL</span>
+              <span className="text-sm font-medium text-white">{formatPrice(product.price)} {pricingToken}</span>
               <span className={`text-xs ${loading ? 'text-gray-500' : 'text-gray-400'}`}>
                 Stock available: {getStockDisplay()}
               </span>

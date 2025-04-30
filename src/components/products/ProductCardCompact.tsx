@@ -77,6 +77,17 @@ export function ProductCardCompact({
     setTouchStartPosition(null);
   };
 
+  // Get the pricing token, default to SOL if not specified
+  const pricingToken = product.pricingToken || 'SOL';
+  
+  // Format price according to token type
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('en-US', { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: pricingToken === 'USDC' ? 2 : 8 
+    });
+  };
+
   return (
     <div 
       onClick={handleClick}
@@ -132,7 +143,7 @@ export function ProductCardCompact({
         )}
         <div className="mt-1.5 sm:mt-2 flex items-center justify-between">
           <span className="text-[10px] sm:text-xs font-semibold text-white">
-            {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
+            {formatPrice(modifiedPrice)} {pricingToken}
           </span>
           <BuyButton 
             product={product}

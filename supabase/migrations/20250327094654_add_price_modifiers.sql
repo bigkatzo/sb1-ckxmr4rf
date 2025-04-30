@@ -8,6 +8,11 @@ ALTER TABLE products
 ADD COLUMN IF NOT EXISTS price_modifier_before_min numeric DEFAULT NULL,
 ADD COLUMN IF NOT EXISTS price_modifier_after_min numeric DEFAULT NULL;
 
+-- Add token configuration columns
+ALTER TABLE products
+ADD COLUMN IF NOT EXISTS pricing_token text DEFAULT 'SOL',
+ADD COLUMN IF NOT EXISTS accepted_tokens jsonb DEFAULT '["SOL"]'::jsonb;
+
 -- Add check constraints to ensure valid modifier values
 ALTER TABLE products
 ADD CONSTRAINT valid_price_modifier_before CHECK (
@@ -17,6 +22,9 @@ ADD CONSTRAINT valid_price_modifier_before CHECK (
 ADD CONSTRAINT valid_price_modifier_after CHECK (
     price_modifier_after_min IS NULL OR 
     price_modifier_after_min >= 0
+),
+ADD CONSTRAINT valid_pricing_token CHECK (
+    pricing_token IN ('SOL', 'USDC')
 );
 
 -- Drop and recreate views with CASCADE to handle dependencies
@@ -41,6 +49,8 @@ SELECT
   p.slug,
   p.price_modifier_before_min,
   p.price_modifier_after_min,
+  p.pricing_token,
+  p.accepted_tokens,
   c.id as collection_id,
   c.name as collection_name,
   c.slug as collection_slug,

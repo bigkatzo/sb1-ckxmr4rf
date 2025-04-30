@@ -22,6 +22,7 @@ import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
+import { useTokenPrices } from '../../hooks/useTokenPrices';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -101,6 +102,8 @@ export function TokenVerificationModal({
   const [showCoupon, setShowCoupon] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [couponResult, setCouponResult] = useState<PriceWithDiscount | null>(null);
+  const [selectedToken, setSelectedToken] = useState<string>(product.pricingToken || 'SOL');
+  const { convertSolToUsdc, convertUsdcToSol, convertToken } = useTokenPrices();
   
   // Update progress steps to reflect new flow
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([
@@ -146,8 +149,72 @@ export function TokenVerificationModal({
     ));
   };
 
+  // Determine available payment tokens based on product configuration
+  const availableTokens = product.acceptedTokens || ['SOL'];
+
+  // Get the final price based on the product's pricing token and the selected payment token
+  const getFinalPriceInSelectedToken = useCallback(async (): Promise<number> => {
+    // Start with the base modified price (possibly with coupon applied)
+    const basePrice = couponResult ? couponResult.finalPrice : baseModifiedPrice;
+    
+    // If the selected token matches the pricing token, return the price as is
+    if (selectedToken === (product.pricingToken || 'SOL')) {
+      return basePrice;
+    }
+    
+    // Otherwise, convert the price to the selected token using on-chain data
+    try {
+      return await convertToken(
+        basePrice,
+        product.pricingToken || 'SOL',
+        selectedToken
+      );
+    } catch (error) {
+      console.error('Error converting token price:', error);
+      
+      // Fallback to basic conversion if on-chain conversion fails
+      if (selectedToken === 'USDC' && (product.pricingToken || 'SOL') === 'SOL') {
+        return convertSolToUsdc(basePrice);
+      } else if (selectedToken === 'SOL' && product.pricingToken === 'USDC') {
+        return convertUsdcToSol(basePrice);
+      }
+      
+      // Default fallback
+      return basePrice;
+    }
+  }, [baseModifiedPrice, convertSolToUsdc, convertToken, convertUsdcToSol, couponResult, product.pricingToken, selectedToken]);
+  
+  // Calculate and cache the converted price (with loading state)
+  const [convertedPrice, setConvertedPrice] = useState<number | null>(null);
+  const [convertedPriceLoading, setConvertedPriceLoading] = useState(false);
+  
+  // Update the converted price when dependencies change
+  useEffect(() => {
+    const updateConvertedPrice = async () => {
+      setConvertedPriceLoading(true);
+      try {
+        const price = await getFinalPriceInSelectedToken();
+        setConvertedPrice(price);
+      } catch (error) {
+        console.error('Error calculating converted price:', error);
+      } finally {
+        setConvertedPriceLoading(false);
+      }
+    };
+    
+    updateConvertedPrice();
+  }, [getFinalPriceInSelectedToken]);
+  
+  // Get formatted price string based on token
+  const getFormattedPrice = (amount: number, token: string) => {
+    return amount.toLocaleString(undefined, { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: token === 'USDC' ? 2 : 8 
+    });
+  };
+
   // Calculate final price including variants, modifications, and coupon
-  const finalPrice = couponResult?.finalPrice ?? baseModifiedPrice;
+  const finalPrice = convertedPrice !== null ? convertedPrice : 0;
 
   // Initialize shipping info from localStorage if available
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo>(() => {
@@ -713,10 +780,14 @@ export function TokenVerificationModal({
       }
       
       // Start payment processing
-      updateProgressStep(1, 'processing', 'Initiating payment on Solana network...');
+      updateProgressStep(1, 'processing', `Initiating ${selectedToken} payment on Solana network...`);
       
-      // Process payment with modified price
-      const { success: paymentSuccess, signature: txSignature } = await processPayment(finalPrice, product.collectionId);
+      // Calculate the final price in the selected token
+      const finalPrice = convertedPrice ?? await getFinalPriceInSelectedToken();
+      
+      // Process payment with modified price and selected token
+      const { success: paymentSuccess, signature: txSignature } = 
+        await processPayment(finalPrice, product.collectionId || '');
       
       if (!paymentSuccess || !txSignature) {
         updateProgressStep(1, 'error', undefined, 'Payment failed');
@@ -785,7 +856,7 @@ export function TokenVerificationModal({
         const expectedDetails = {
           amount: finalPrice,
           buyer: walletAddress || '',
-          recipient: product.collectionId // Collection address as recipient
+          recipient: product.collectionId || '' // Collection address as recipient
         };
         
         // Monitor transaction status and confirm on chain
@@ -1388,7 +1459,7 @@ export function TokenVerificationModal({
                                     baseModifiedPrice,
                                     couponCode,
                                     walletAddress,
-                                    product.collectionId
+                                    product.collectionId || ''
                                   );
                                   setCouponResult(result);
                                   if (result.couponDiscount > 0) {
@@ -1421,6 +1492,29 @@ export function TokenVerificationModal({
                         )}
                       </div>
 
+                      {/* Add token selection buttons to the payment form */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-white mb-2">
+                          Select Payment Token
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {availableTokens.map(token => (
+                            <button
+                              key={token}
+                              type="button"
+                              onClick={() => setSelectedToken(token)}
+                              className={`flex items-center justify-center px-4 py-2 rounded-lg border transition-colors ${
+                                selectedToken === token
+                                  ? 'bg-purple-600 border-purple-500 text-white'
+                                  : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
+                              }`}
+                            >
+                              {token}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* Solana Payment Button - requires wallet verification */}
                       <button
                         type="submit"
@@ -1431,10 +1525,14 @@ export function TokenVerificationModal({
                           !shippingInfo.contactValue || !shippingInfo.firstName ||
                           !shippingInfo.lastName || !shippingInfo.phoneNumber || 
                           (shippingInfo.country && doesCountryRequireTaxId(shippingInfo.country) && !shippingInfo.taxId) ||
-                          !!phoneError || !!zipError}
+                          !!phoneError || !!zipError || convertedPriceLoading}
                         className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
-                        <span>Pay with Solana ({finalPrice.toFixed(2)} SOL)</span>
+                        <span>
+                          {convertedPriceLoading 
+                            ? `Calculating ${selectedToken} price...` 
+                            : `Pay with ${selectedToken} (${getFormattedPrice(convertedPrice ?? 0, selectedToken)} ${selectedToken})`}
+                        </span>
                       </button>
 
                       <div className="mt-4 text-center">

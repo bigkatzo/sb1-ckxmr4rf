@@ -14,6 +14,9 @@ const stringArraySchema = z.array(z.string()).default([]);
 const variantSchema = z.array(z.any()).default([]);
 const variantPricingSchema = z.record(z.any()).default({});
 
+// Accepted tokens schema
+const tokensSchema = z.array(z.string()).default(['SOL']);
+
 // Notes schema - all fields are optional strings with default empty values
 const notesSchema = z.object({
   shipping: z.string().optional().default(''),
@@ -37,6 +40,8 @@ export const productSchema = z.object({
   visible: z.boolean().default(true),
   priceModifierBeforeMin: z.number().nullable(),
   priceModifierAfterMin: z.number().nullable(),
+  pricingToken: z.enum(['SOL', 'USDC']).default('SOL'),
+  acceptedTokens: tokensSchema,
   notes: notesSchema,
   freeNotes: z.string().optional().default(''),
   // Add additional fields for form management
