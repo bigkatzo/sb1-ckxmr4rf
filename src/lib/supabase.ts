@@ -44,6 +44,12 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
             headers.set('X-Retry-Attempt', i.toString());
           }
           
+          // Add Accept header for REST API requests to prevent 406 errors
+          const urlStr = url.toString();
+          if (urlStr.includes('/rest/v1/')) {
+            headers.set('Accept', 'application/json');
+          }
+          
           const response = await fetch(url, {
             ...options,
             headers
