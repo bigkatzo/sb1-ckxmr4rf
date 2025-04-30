@@ -6,6 +6,7 @@ export async function createCategory(data: FormData, collectionId: string) {
     const description = data.get('description');
     const groups = JSON.parse(data.get('groups') as string || '[]');
     const visible = data.get('visible') === 'true';
+    const acceptedTokens = JSON.parse(data.get('acceptedTokens') as string || '["SOL"]');
     
     const categoryData = {
       collection_id: collectionId,
@@ -13,7 +14,8 @@ export async function createCategory(data: FormData, collectionId: string) {
       description,
       type: groups.length > 0 ? 'rules-based' : 'blank',
       eligibility_rules: { groups },
-      visible
+      visible,
+      accepted_tokens: acceptedTokens
     };
 
     const { data: category, error } = await supabase
@@ -34,13 +36,15 @@ export async function updateCategory(id: string, data: FormData) {
   try {
     const groups = JSON.parse(data.get('groups') as string || '[]');
     const visible = data.get('visible') === 'true';
+    const acceptedTokens = JSON.parse(data.get('acceptedTokens') as string || '["SOL"]');
     
     const categoryData = {
       name: data.get('name'),
       description: data.get('description'),
       type: groups.length > 0 ? 'rules-based' : 'blank',
       eligibility_rules: { groups },
-      visible
+      visible,
+      accepted_tokens: acceptedTokens
     };
 
     const { data: category, error } = await supabase

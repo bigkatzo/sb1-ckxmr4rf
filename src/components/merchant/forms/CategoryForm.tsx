@@ -3,6 +3,7 @@ import { X, Plus, Trash2 } from 'lucide-react';
 import { Dialog } from '@headlessui/react';
 import { toast } from 'react-toastify';
 import { Toggle } from '../../ui/Toggle';
+import { TokenSelector } from './CategoryForm/TokenSelector';
 import type { CategoryRule, RuleGroup } from '../../../types';
 
 interface CategoryFormProps {
@@ -15,6 +16,7 @@ interface CategoryFormProps {
     type: string;
     visible: boolean;
     eligibilityRules: { groups: RuleGroup[] };
+    acceptedTokens?: string[];
   };
 }
 
@@ -23,6 +25,9 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
     initialData?.eligibilityRules?.groups || []
   );
   const [visible, setVisible] = React.useState(initialData?.visible ?? true);
+  const [acceptedTokens, setAcceptedTokens] = React.useState<string[]>(
+    initialData?.acceptedTokens || ['SOL']
+  );
 
   React.useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -96,15 +101,23 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
         return;
       }
 
+      // Validate tokens - at least one token must be selected
+      if (acceptedTokens.length === 0) {
+        toast.error('Please select at least one payment token');
+        return;
+      }
+
       formData.append('groups', JSON.stringify(groups));
       formData.append('visible', visible.toString());
+      formData.append('acceptedTokens', JSON.stringify(acceptedTokens));
       
       // Log the data being submitted
       console.log('Submitting form data:', {
         name: formData.get('name'),
         description: formData.get('description'),
         visible: formData.get('visible'),
-        groups: JSON.parse(formData.get('groups') as string)
+        groups: JSON.parse(formData.get('groups') as string),
+        acceptedTokens: JSON.parse(formData.get('acceptedTokens') as string)
       });
 
       onSubmit(formData);
@@ -201,6 +214,11 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                     </p>
                   </div>
                 </div>
+
+                <TokenSelector 
+                  value={acceptedTokens}
+                  onChange={setAcceptedTokens}
+                />
 
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">

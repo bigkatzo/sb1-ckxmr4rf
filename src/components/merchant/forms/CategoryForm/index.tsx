@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ModalForm } from '../../../ui/Modal/ModalForm';
-import { CategoryRules } from './CategoryRules';
+import { TokenSelector } from './TokenSelector';
 import type { CategoryFormData, CategoryRule } from './types';
 import { toast } from 'react-toastify';
 
@@ -11,8 +11,11 @@ interface CategoryFormProps {
 }
 
 export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormProps) {
-  const [rules, setRules] = useState<CategoryRule[]>(
-    initialData?.eligibilityRules?.rules || []
+  const [rules] = useState<CategoryRule[]>(
+    initialData?.eligibilityRules?.groups?.[0]?.rules || []
+  );
+  const [acceptedTokens, setAcceptedTokens] = useState<string[]>(
+    initialData?.acceptedTokens || ['SOL']
   );
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -41,14 +44,22 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
         return;
       }
 
-      // Ensure rules are properly formatted
-      formData.set('rules', JSON.stringify(rules));
+      // Validate tokens - at least one token must be selected
+      if (acceptedTokens.length === 0) {
+        toast.error('Please select at least one payment token');
+        return;
+      }
+
+      // Ensure rules and tokens are properly formatted for submission
+      formData.set('groups', JSON.stringify([{ operator: 'AND', rules }]));
+      formData.set('acceptedTokens', JSON.stringify(acceptedTokens));
       
       // Log the data being submitted
       console.log('Submitting form data:', {
         name: formData.get('name'),
         description: formData.get('description'),
-        rules: JSON.parse(formData.get('rules') as string)
+        groups: JSON.parse(formData.get('groups') as string),
+        acceptedTokens: JSON.parse(formData.get('acceptedTokens') as string)
       });
 
       onSubmit(formData);
@@ -95,7 +106,18 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
         />
       </div>
 
-      <CategoryRules rules={rules} onChange={setRules} />
+      <TokenSelector 
+        value={acceptedTokens}
+        onChange={setAcceptedTokens}
+      />
+
+      {/* Rules section would go here */}
+      <div className="mt-4 p-4 bg-gray-800/50 rounded-lg">
+        <h3 className="text-sm font-medium text-white mb-2">Eligibility Rules</h3>
+        <p className="text-sm text-gray-400">
+          For rule configuration, please use the main Category Form.
+        </p>
+      </div>
     </ModalForm>
   );
 }

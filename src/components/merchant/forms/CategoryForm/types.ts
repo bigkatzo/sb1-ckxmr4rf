@@ -14,4 +14,6 @@ export interface CategoryFormData {
   eligibilityRules: {
     groups: RuleGroup[];
   };
+  acceptedTokens?: string[];
+  visible?: boolean;
 }

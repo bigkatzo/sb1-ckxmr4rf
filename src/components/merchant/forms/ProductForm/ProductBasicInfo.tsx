@@ -127,32 +127,32 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
             <p className="mt-1 text-sm text-gray-400">
               Select the token you want to use for setting the base price
             </p>
-          </div>
-        
-          <div>
-            <label htmlFor="price" className="block text-sm font-medium text-white">
+      </div>
+
+      <div>
+        <label htmlFor="price" className="block text-sm font-medium text-white">
               Base Price ({pricingToken})
-            </label>
-            <input
-              type="number"
-              id="price"
-              min="0"
-              step="0.01"
-              {...register('price', {
-                valueAsNumber: true,
-                onChange: (e) => {
-                  // Ensure only numeric values are accepted
-                  const value = parseFloat(e.target.value);
-                  if (!isNaN(value)) {
-                    setValue('price', value);
-                  }
-                }
-              })}
-              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-            {errors.price && (
-              <p className="text-red-400 text-xs mt-1">{errors.price.message}</p>
-            )}
+        </label>
+        <input
+          type="number"
+          id="price"
+          min="0"
+          step="0.01"
+          {...register('price', {
+            valueAsNumber: true,
+            onChange: (e) => {
+              // Ensure only numeric values are accepted
+              const value = parseFloat(e.target.value);
+              if (!isNaN(value)) {
+                setValue('price', value);
+              }
+            }
+          })}
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+        {errors.price && (
+          <p className="text-red-400 text-xs mt-1">{errors.price.message}</p>
+        )}
           </div>
           
           <div>
