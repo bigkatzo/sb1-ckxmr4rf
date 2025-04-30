@@ -1,4 +1,4 @@
-import { Share2 } from 'lucide-react';
+import { Share } from 'lucide-react';
 import { MouseEvent } from 'react';
 
 interface ShareButtonProps {
@@ -70,7 +70,7 @@ export function ShareButton({ url, title, className = '', size = 'md' }: ShareBu
       title="Share"
       aria-label="Share"
     >
-      <Share2 className={iconSizes[size]} />
+      <Share className={iconSizes[size]} />
     </button>
   );
 } 
