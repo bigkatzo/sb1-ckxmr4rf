@@ -27,6 +27,15 @@ export async function createProduct(collectionId: string, data: FormData) {
     const variants = JSON.parse(data.get('variants') as string || '[]');
     const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
 
+    // Get pricing token and log it
+    const pricingToken = data.get('pricingToken') as string || 'SOL';
+    console.log('Product create with pricing token:', pricingToken);
+    
+    // Get visibility value and log it
+    const visibleStr = data.get('visible');
+    const visible = visibleStr === 'true';
+    console.log('Product create with visibility:', visible, '(raw value:', visibleStr, ')');
+
     // Handle notes according to database constraint
     const shippingNote = data.get('notes.shipping');
     const qualityNote = data.get('notes.quality');
@@ -109,8 +118,8 @@ export async function createProduct(collectionId: string, data: FormData) {
         minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
         price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
         price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
-        pricing_token: data.get('pricingToken') || 'SOL',
-        visible: data.get('visible') === 'true',
+        pricing_token: pricingToken,
+        visible: visible,
         notes,
         free_notes: freeNotes
       });
@@ -161,11 +170,20 @@ export async function updateProduct(id: string, data: FormData) {
       quantity: data.get('stock') ? parseInt(data.get('stock') as string, 10) : null,
       category_id: categoryId,
       minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
-      visible: data.get('visible') === 'true',
       price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
       price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
-      pricing_token: data.get('pricingToken') || 'SOL',
     };
+    
+    // Ensure pricing token is properly processed
+    const pricingToken = data.get('pricingToken') as string || 'SOL';
+    console.log('Product update with pricing token:', pricingToken);
+    updateData.pricing_token = pricingToken;
+    
+    // Get visibility value and log it
+    const visibleStr = data.get('visible');
+    const visible = visibleStr === 'true';
+    console.log('Product update with visibility:', visible, '(raw value:', visibleStr, ')');
+    updateData.visible = visible;
     
     // Handle notes according to database constraint
     const shippingNote = data.get('notes.shipping');

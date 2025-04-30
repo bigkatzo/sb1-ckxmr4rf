@@ -89,6 +89,17 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     };
   }, [initialData, methods]);
 
+  // Add an effect to watch visibility changes
+  useEffect(() => {
+    const subscription = methods.watch((value, { name }) => {
+      if (name === 'visible') {
+        console.log('Visibility field changed in form:', value.visible);
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [methods]);
+
   // Create a submit handler that processes the form data
   const processSubmit = async (data: any) => {
     // Prevent multiple submissions
@@ -115,6 +126,16 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
           formData.append(key, val.toString());
         }
       });
+
+      // Explicitly log and ensure pricing token is set correctly
+      const pricingToken = data.pricingToken || 'SOL';
+      console.log('Using pricing token:', pricingToken);
+      formData.set('pricingToken', pricingToken);
+      
+      // Explicitly handle visibility flag
+      const visibleValue = data.visible === true ? 'true' : 'false';
+      console.log('Setting product visibility:', visibleValue, '(from original value:', data.visible, ')');
+      formData.set('visible', visibleValue);
 
       // Process notes properly - ensure we're adding them individually as form fields
       if (data.notes) {
@@ -222,6 +243,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
                 <Toggle
                   checked={methods.watch('visible') ?? false}
                   onCheckedChange={(newValue: boolean) => {
+                    console.log("Visibility toggle changed to:", newValue);
                     methods.setValue('visible', newValue, { shouldDirty: true });
                   }}
                   size="md"
