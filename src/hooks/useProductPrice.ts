@@ -9,6 +9,7 @@ interface ProductPriceData {
   variantPrices: Record<string, number> | null;
   priceModifierBeforeMin: number | null;
   priceModifierAfterMin: number | null;
+  pricingToken: string | null;
   loading: boolean;
   error: string | null;
 }
@@ -18,6 +19,7 @@ interface ProductPriceRecord {
   variant_prices: Record<string, number> | null;
   price_modifier_before_min: number | null;
   price_modifier_after_min: number | null;
+  pricing_token: string | null;
 }
 
 // Priority levels for subscriptions
@@ -74,6 +76,7 @@ export function useProductPrice(
     variantPrices: null,
     priceModifierBeforeMin: null,
     priceModifierAfterMin: null,
+    pricingToken: null,
     loading: !deferLoad,
     error: null
   });
@@ -142,7 +145,7 @@ export function useProductPrice(
       try {
         const { data, error } = await supabase
           .from('products')
-          .select('price, variant_prices, price_modifier_before_min, price_modifier_after_min')
+          .select('price, variant_prices, price_modifier_before_min, price_modifier_after_min, pricing_token')
           .eq('id', productId)
           .single();
           
@@ -153,6 +156,7 @@ export function useProductPrice(
           variantPrices: data?.variant_prices || null,
           priceModifierBeforeMin: data?.price_modifier_before_min || null,
           priceModifierAfterMin: data?.price_modifier_after_min || null,
+          pricingToken: data?.pricing_token || 'SOL',
         };
         
         // Update cache
@@ -237,7 +241,7 @@ export function useProductPrice(
         
         const { data, error } = await supabase
           .from('products')
-          .select('price, variant_prices, price_modifier_before_min, price_modifier_after_min')
+          .select('price, variant_prices, price_modifier_before_min, price_modifier_after_min, pricing_token')
           .eq('id', productId)
           .single();
           
@@ -248,6 +252,7 @@ export function useProductPrice(
           variantPrices: data?.variant_prices || null,
           priceModifierBeforeMin: data?.price_modifier_before_min || null,
           priceModifierAfterMin: data?.price_modifier_after_min || null,
+          pricingToken: data?.pricing_token || 'SOL',
         };
         
         // Update cache
@@ -328,7 +333,8 @@ export function useProductPrice(
               ('price' in newData && 'price' in oldData && newData.price !== oldData.price) ||
               JSON.stringify(newData?.variant_prices) !== JSON.stringify(oldData?.variant_prices) ||
               newData?.price_modifier_before_min !== oldData?.price_modifier_before_min ||
-              newData?.price_modifier_after_min !== oldData?.price_modifier_after_min;
+              newData?.price_modifier_after_min !== oldData?.price_modifier_after_min ||
+              newData?.pricing_token !== oldData?.pricing_token;
 
             if (priceChanged) {
               console.log('Price-related fields changed, updating state');
@@ -339,6 +345,7 @@ export function useProductPrice(
                 variantPrices: newData?.variant_prices ?? null,
                 priceModifierBeforeMin: newData?.price_modifier_before_min ?? null,
                 priceModifierAfterMin: newData?.price_modifier_after_min ?? null,
+                pricingToken: newData?.pricing_token ?? 'SOL',
               };
               
               // Update cache

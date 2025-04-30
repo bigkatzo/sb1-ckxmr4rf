@@ -39,7 +39,6 @@ export interface Product {
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
   pricingToken?: string; // 'SOL' or 'USDC'
-  acceptedTokens?: string[]; // Array of accepted tokens ['SOL', 'USDC', etc.]
   notes?: {
     shipping?: string;
     quality?: string;

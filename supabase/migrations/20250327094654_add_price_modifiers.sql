@@ -1,7 +1,8 @@
 -- Drop existing constraints if they exist
 ALTER TABLE products
 DROP CONSTRAINT IF EXISTS valid_price_modifier_before,
-DROP CONSTRAINT IF EXISTS valid_price_modifier_after;
+DROP CONSTRAINT IF EXISTS valid_price_modifier_after,
+DROP CONSTRAINT IF EXISTS valid_pricing_token;
 
 -- Add price modifier columns to products table
 ALTER TABLE products
@@ -10,8 +11,7 @@ ADD COLUMN IF NOT EXISTS price_modifier_after_min numeric DEFAULT NULL;
 
 -- Add token configuration columns
 ALTER TABLE products
-ADD COLUMN IF NOT EXISTS pricing_token text DEFAULT 'SOL',
-ADD COLUMN IF NOT EXISTS accepted_tokens jsonb DEFAULT '["SOL"]'::jsonb;
+ADD COLUMN IF NOT EXISTS pricing_token text DEFAULT 'SOL';
 
 -- Add check constraints to ensure valid modifier values
 ALTER TABLE products
@@ -22,10 +22,24 @@ ADD CONSTRAINT valid_price_modifier_before CHECK (
 ADD CONSTRAINT valid_price_modifier_after CHECK (
     price_modifier_after_min IS NULL OR 
     price_modifier_after_min >= 0
-),
-ADD CONSTRAINT valid_pricing_token CHECK (
-    pricing_token IN ('SOL', 'USDC')
 );
+
+-- Add pricing token constraint only if it doesn't exist
+DO $$
+BEGIN
+    -- Check if constraint already exists
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'valid_pricing_token' 
+        AND conrelid = 'products'::regclass
+    ) THEN
+        -- Add the constraint
+        ALTER TABLE products
+        ADD CONSTRAINT valid_pricing_token CHECK (
+            pricing_token IN ('SOL', 'USDC')
+        );
+    END IF;
+END$$;
 
 -- Drop and recreate views with CASCADE to handle dependencies
 DROP VIEW IF EXISTS merchant_products CASCADE;
@@ -50,7 +64,6 @@ SELECT
   p.price_modifier_before_min,
   p.price_modifier_after_min,
   p.pricing_token,
-  p.accepted_tokens,
   c.id as collection_id,
   c.name as collection_name,
   c.slug as collection_slug,
@@ -80,6 +93,7 @@ SELECT
   p.slug,
   p.price_modifier_before_min,
   p.price_modifier_after_min,
+  p.pricing_token,
   c.id as collection_id,
   c.name as collection_name,
   c.slug as collection_slug,
@@ -106,6 +120,7 @@ SELECT
   p.slug,
   p.price_modifier_before_min,
   p.price_modifier_after_min,
+  p.pricing_token,
   c.id as collection_id,
   c.name as collection_name,
   c.slug as collection_slug,

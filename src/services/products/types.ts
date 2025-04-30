@@ -14,6 +14,7 @@ export interface ProductData {
   variant_prices: Record<string, number>;
   slug: string;
   visible: boolean;
+  pricing_token?: 'SOL' | 'USDC';
   notes?: {
     shipping?: string;
     quality?: string;

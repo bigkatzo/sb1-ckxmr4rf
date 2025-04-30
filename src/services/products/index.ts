@@ -52,6 +52,7 @@ export async function createProduct(data: FormData) {
       variant_prices: variantPrices,
       slug: generateSlug(name, true),
       visible: data.get('visible') === 'true',
+      pricing_token: (data.get('pricingToken') as string === 'USDC' ? 'USDC' : 'SOL'),
       // Temporarily ignoring notes and free notes until RLS is fixed
       // notes: {
       //   shipping: data.get('notes.shipping') as string || undefined,
@@ -147,7 +148,8 @@ export async function updateProduct(id: string, data: FormData) {
       images,
       variants,
       variant_prices: variantPrices,
-      visible: data.get('visible') === 'true'
+      visible: data.get('visible') === 'true',
+      pricing_token: (data.get('pricingToken') as string === 'USDC' ? 'USDC' : 'SOL')
     };
 
     const { data: product, error } = await supabase

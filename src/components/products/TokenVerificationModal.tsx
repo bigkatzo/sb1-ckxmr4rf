@@ -104,8 +104,8 @@ export function TokenVerificationModal({
   const [couponResult, setCouponResult] = useState<PriceWithDiscount | null>(null);
   
   // Determine available payment tokens based on product configuration
-  // First check category.acceptedTokens, then product.acceptedTokens, then default to SOL
-  const availableTokens = product.category?.acceptedTokens || product.acceptedTokens || ['SOL'];
+  // Token selection is controlled at the category level
+  const availableTokens = product.category?.acceptedTokens || ['SOL'];
   
   // Set default selected token to product.pricingToken if it's in the available tokens list
   // Otherwise default to the first available token
