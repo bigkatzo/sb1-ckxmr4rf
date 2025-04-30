@@ -41,7 +41,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
     priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
     pricingToken: (initialData?.pricingToken as 'SOL' | 'USDC') || 'SOL',
-    acceptedTokens: initialData?.acceptedTokens || ['SOL'],
     // CRITICAL FIX: Ensure notes is properly initialized with valid structure
     notes: {
       shipping: initialData?.notes?.shipping || '',
@@ -112,18 +111,10 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             key !== 'imageFiles' && 
             key !== 'existingImages' && 
             key !== 'removedImages' &&
-            key !== 'notes' &&
-            key !== 'acceptedTokens') {
+            key !== 'notes') {
           formData.append(key, val.toString());
         }
       });
-
-      // Handle special case for acceptedTokens - ensure it's properly stringified as JSON array
-      if (data.acceptedTokens) {
-        formData.append('acceptedTokens', JSON.stringify(data.acceptedTokens));
-      } else {
-        formData.append('acceptedTokens', JSON.stringify(['SOL']));
-      }
 
       // Process notes properly - ensure we're adding them individually as form fields
       if (data.notes) {

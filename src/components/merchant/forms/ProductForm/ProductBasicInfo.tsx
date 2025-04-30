@@ -1,6 +1,5 @@
 import { useFormContext } from 'react-hook-form';
 import type { ProductFormValues } from './schema';
-import { SUPPORTED_TOKENS } from '../../../../services/token-payments';
 
 export interface ProductBasicInfoProps {
   categories: {
@@ -10,30 +9,14 @@ export interface ProductBasicInfoProps {
 }
 
 export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
-  const { register, setValue, getValues, watch, formState: { errors } } = useFormContext<ProductFormValues>();
+  const { register, setValue, watch, formState: { errors } } = useFormContext<ProductFormValues>();
   const pricingToken = watch('pricingToken');
-  const acceptedTokens = watch('acceptedTokens');
   
   // Default notes for placeholders
   const defaultNotes = {
     shipping: "Free Shipping Worldwide included (15-20 days*)",
     quality: "Quality is guaranteed. If there's a print error or visible quality issue, we'll replace or refund it.",
     returns: "Because the products are made to order, we do not accept general returns or sizing-related returns."
-  };
-  
-  // Handle token selection changes
-  const handleTokenSelectionChange = (token: string, checked: boolean) => {
-    const currentTokens = [...(getValues('acceptedTokens') || [])];
-    
-    if (checked) {
-      // Add token if it's not already in the array
-      if (!currentTokens.includes(token)) {
-        setValue('acceptedTokens', [...currentTokens, token]);
-      }
-    } else {
-      // Remove token if it's in the array
-      setValue('acceptedTokens', currentTokens.filter(t => t !== token));
-    }
   };
   
   return (
@@ -153,34 +136,6 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         {errors.price && (
           <p className="text-red-400 text-xs mt-1">{errors.price.message}</p>
         )}
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">
-              Accepted Payment Tokens
-            </label>
-            <div className="space-y-2">
-              {Object.keys(SUPPORTED_TOKENS).map((token) => (
-                <div key={token} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id={`token-${token}`}
-                    checked={acceptedTokens?.includes(token) || false}
-                    onChange={(e) => handleTokenSelectionChange(token, e.target.checked)}
-                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-700 rounded bg-gray-800"
-                  />
-                  <label htmlFor={`token-${token}`} className="ml-2 block text-sm text-white">
-                    {token}
-                  </label>
-                </div>
-              ))}
-            </div>
-            {acceptedTokens?.length === 0 && (
-              <p className="text-red-400 text-xs mt-1">At least one token must be selected</p>
-            )}
-            <p className="mt-1 text-sm text-gray-400">
-              Select which tokens customers can use to pay for this product
-            </p>
           </div>
         </div>
       </div>

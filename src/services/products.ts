@@ -110,7 +110,6 @@ export async function createProduct(collectionId: string, data: FormData) {
         price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
         price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
         pricing_token: data.get('pricingToken') || 'SOL',
-        accepted_tokens: data.get('acceptedTokens') ? JSON.parse(data.get('acceptedTokens') as string) : ['SOL'],
         visible: data.get('visible') === 'true',
         notes,
         free_notes: freeNotes
@@ -166,7 +165,6 @@ export async function updateProduct(id: string, data: FormData) {
       price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
       price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
       pricing_token: data.get('pricingToken') || 'SOL',
-      accepted_tokens: data.get('acceptedTokens') ? JSON.parse(data.get('acceptedTokens') as string) : ['SOL'],
     };
     
     // Handle notes according to database constraint
