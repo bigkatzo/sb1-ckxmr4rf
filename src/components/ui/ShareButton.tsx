@@ -64,8 +64,8 @@ export function ShareButton({ url, title, className = '', size = 'md' }: ShareBu
     <button
       onClick={handleShare}
       className={`
-        bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white 
-        rounded-full transition-colors z-10 ${sizeClasses[size]} ${className}
+        bg-black/30 hover:bg-black/50 text-white/80 hover:text-white 
+        rounded-full transition-all backdrop-blur-sm ${sizeClasses[size]} ${className}
       `}
       title="Share"
       aria-label="Share"
