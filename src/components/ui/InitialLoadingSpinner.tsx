@@ -15,11 +15,11 @@ export const InitialLoadingSpinner: React.FC = () => {
           <img 
             src="https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/logo-icon.svg" 
             alt="store.fun" 
-            width="56" 
-            height="56" 
+            width="62" 
+            height="62" 
             style={{ 
-              width: '56px', 
-              height: '56px',
+              width: '62px', 
+              height: '62px',
               objectFit: 'contain',
               margin: 'auto'
             }} 
@@ -55,7 +55,7 @@ export const initialLoadingSpinnerStyles = `
     position: relative;
     width: 96px;
     height: 96px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
   
   .loading-box-inner {
@@ -85,7 +85,7 @@ export const initialLoadingSpinnerStyles = `
   }
   
   .loading-text {
-    margin-top: 16px;
+    margin-top: 12px;
     color: white;
     font-size: 18px;
     font-weight: 500;
