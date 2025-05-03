@@ -63,12 +63,11 @@ const WalletDebugPage = lazy(() => import('../pages/WalletDebugPage').then(modul
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="relative h-16 w-16 text-white">
-      <OptimizedImage 
+      <img 
         src="https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/logo-icon.svg" 
         alt="Loading..." 
-        className="h-10 w-10 absolute inset-0 m-auto animate-pulse"
-        objectFit="contain"
-        priority={true}
+        className="h-12 w-12 absolute inset-0 m-auto animate-pulse"
+        style={{ objectFit: 'contain' }}
       />
       <div 
         className="absolute -inset-3 border-t-2 border-primary rounded-full animate-spin" 
