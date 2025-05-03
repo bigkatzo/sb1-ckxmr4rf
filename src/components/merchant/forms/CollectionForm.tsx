@@ -162,7 +162,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                   <div
                     {...getRootProps()}
                     className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-                      imagePreview ? 'border-transparent' : 'border-gray-700 hover:border-purple-500 cursor-pointer'
+                      imagePreview ? 'border-transparent' : 'border-gray-700 hover:border-primary cursor-pointer'
                     }`}
                   >
                     <input {...getInputProps()} />
@@ -192,7 +192,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                               </button>
                               <button
                                 type="button"
-                                className="p-2 bg-purple-500/90 rounded-full text-white hover:bg-purple-600 transition-colors"
+                                className="p-2 bg-primary/90 rounded-full text-white hover:bg-primary transition-colors"
                               >
                                 <Plus className="h-4 w-4" />
                               </button>
@@ -291,13 +291,13 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                       {tags.map((tag) => (
                         <span 
                           key={tag}
-                          className="inline-flex items-center gap-1 bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full text-sm"
+                          className="inline-flex items-center gap-1 bg-primary/20 text-primary px-2 py-1 rounded-full text-sm"
                         >
                           {tag}
                           <button
                             type="button"
                             onClick={() => removeTag(tag)}
-                            className="hover:text-purple-300"
+                            className="hover:text-primary/80"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -366,7 +366,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                   form="collection-form"
                   type="submit"
                   disabled={loading || !name || !launchDate}
-                  className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white"
+                  className="bg-primary hover:bg-primary/80 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white"
                 >
                   {loading ? 'Saving...' : collection ? 'Save Changes' : 'Create Collection'}
                 </button>

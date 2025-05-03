@@ -152,7 +152,7 @@ export function CollectionsTab() {
                         <p className="text-gray-400 text-xs line-clamp-2 mt-1">
                           {collection.description}
                         </p>
-                        <p className="text-purple-400 text-xs mt-2">
+                        <p className="text-white text-xs mt-2">
                           Launches {new Date(collection.launchDate).toLocaleDateString()}
                         </p>
                         <div className="mt-1 flex items-center gap-2">
