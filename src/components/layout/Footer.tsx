@@ -27,7 +27,7 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-2 order-2 sm:order-1 self-center sm:self-start">
             <div className="flex-shrink-0 flex items-center justify-center sm:justify-start">
-              <Logo size="sm" className="max-h-[5.5px] scale-110" />
+              <Logo size="sm" className="max-h-5" />
             </div>
             <span className="text-[10px] sm:text-xs">© {new Date().getFullYear()}</span>
           </div>
