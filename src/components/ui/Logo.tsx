@@ -10,7 +10,7 @@ export function Logo({ className = '', size = 'md', variant = 'default' }: LogoP
   // Size mappings for the logo - refined for more consistent proportions
   const sizeClasses = {
     sm: 'h-5 sm:h-6',  // Smaller for footer, compact areas
-    md: 'h-7 sm:h-9',  // Standard size for header
+    md: 'h-7 sm:h-8',  // Standard size for header
     lg: 'h-9 sm:h-12'  // Larger for hero sections or features
   };
 
