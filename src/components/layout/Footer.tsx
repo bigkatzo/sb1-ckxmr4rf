@@ -25,9 +25,11 @@ export function Footer() {
     <footer className="bg-black/95 backdrop-blur-sm text-gray-400 py-3 sm:py-4 mt-auto relative z-10">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3 sm:gap-4">
-          <div className="flex items-center order-2 sm:order-1 self-center sm:self-start">
-            <Logo size="sm" />
-            <span className="text-[10px] sm:text-xs ml-1.5">© {new Date().getFullYear()}</span>
+          <div className="flex items-center justify-center w-full sm:w-auto sm:justify-start order-2 sm:order-1 gap-1.5">
+            <div className="inline-flex items-center">
+              <Logo size="sm" />
+            </div>
+            <span className="text-[10px] sm:text-xs">© {new Date().getFullYear()}</span>
           </div>
           
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 order-1 sm:order-2">
