@@ -408,7 +408,7 @@ export function OrdersPage() {
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-medium text-sm truncate">{order.product_name}</h3>
                           {order.collection_name && (
-                            <span className="text-xs bg-secondary/20 text-secondary px-2 py-0.5 rounded-full shadow-sm shadow-secondary/10 border border-secondary/20 backdrop-blur-sm font-medium shrink-0">
+                            <span className="text-xs bg-secondary/20 text-secondary px-2 py-0.5 rounded-full shadow-sm shadow-secondary/10 backdrop-blur-sm font-medium shrink-0">
                               {order.collection_name}
                             </span>
                           )}
