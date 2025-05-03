@@ -576,9 +576,9 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       case 'confirmed':
         return { bgColor: 'bg-blue-500/10', color: 'text-blue-400' };
       case 'preparing':
-        return { bgColor: 'bg-white-500/10', color: 'text-white-400' };
+        return { bgColor: 'bg-orange-500/10', color: 'text-orange-400' };
       case 'shipped':
-        return { bgColor: 'bg-pink-400/10', color: 'text-pink-400' };
+        return { bgColor: 'bg-purple-500/10', color: 'text-purple-400' };
       case 'delivered':
         return { bgColor: 'bg-green-500/10', color: 'text-green-400' };
       case 'cancelled':

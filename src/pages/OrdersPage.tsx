@@ -117,9 +117,9 @@ export function OrdersPage() {
       case 'confirmed':
         return 'bg-blue-500/10 text-blue-400';
       case 'preparing':
-        return 'bg-white-500/10 text-white-400';
+        return 'bg-orange-500/10 text-orange-400';
       case 'shipped':
-        return 'bg-pink-400/10 text-pink-400';
+        return 'bg-purple-500/10 text-purple-400';
       case 'delivered':
         return 'bg-green-500/10 text-green-400';
       case 'cancelled':
