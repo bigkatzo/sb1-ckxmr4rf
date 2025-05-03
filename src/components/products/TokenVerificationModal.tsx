@@ -1113,7 +1113,7 @@ export function TokenVerificationModal({
                       <button
                         type="submit"
                         disabled
-                        className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        className="w-full bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                         <span>Processing...</span>
                       </button>
@@ -1135,7 +1135,7 @@ export function TokenVerificationModal({
                           }))}
                           required
                           disabled={submitting}
-                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           placeholder="Enter your street address"
                         />
                       </div>
@@ -1154,7 +1154,7 @@ export function TokenVerificationModal({
                             }))}
                             required
                             disabled={submitting}
-                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder="City"
                           />
                         </div>
@@ -1169,7 +1169,7 @@ export function TokenVerificationModal({
                             onChange={handleZipChange}
                             required
                             disabled={submitting}
-                            className={`w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            className={`w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                               zipError ? 'border border-red-500' : ''
                             }`}
                             placeholder="ZIP code"
@@ -1248,7 +1248,7 @@ export function TokenVerificationModal({
                             }))}
                             required
                             disabled={submitting}
-                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder="First name"
                           />
                         </div>
@@ -1265,7 +1265,7 @@ export function TokenVerificationModal({
                             }))}
                             required
                             disabled={submitting}
-                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder="Last name"
                           />
                         </div>
@@ -1281,7 +1281,7 @@ export function TokenVerificationModal({
                           onChange={handlePhoneChange}
                           required
                           disabled={submitting}
-                          className={`w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          className={`w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                             phoneError ? 'border-red-500' : ''
                           }`}
                           placeholder="+1234567890"
@@ -1306,7 +1306,7 @@ export function TokenVerificationModal({
                             }))}
                             required
                             disabled={submitting}
-                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder="Enter your tax ID number"
                           />
                           <p className="mt-1 text-xs text-amber-400">
@@ -1328,7 +1328,7 @@ export function TokenVerificationModal({
                             contactMethod: e.target.value,
                             contactValue: '' // Reset value when changing method
                           }))}
-                          className="w-full sm:w-auto bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-full sm:w-auto bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                           disabled={submitting}
                         >
                           <option value="telegram">Telegram</option>
@@ -1345,7 +1345,7 @@ export function TokenVerificationModal({
                             }))}
                             required
                             disabled={submitting}
-                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 truncate disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 truncate disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder={
                               shippingInfo.contactMethod === 'telegram' ? '@username' :
                               shippingInfo.contactMethod === 'email' ? 'email@example.com' :
@@ -1413,7 +1413,7 @@ export function TokenVerificationModal({
                         {/* Show discount if applied */}
                         {couponResult && couponResult.couponDiscount > 0 && (
                           <div className="mt-2 text-xs space-y-1">
-                            <span className="text-purple-400 font-medium">{couponResult.discountDisplay || `${couponResult.couponDiscount} SOL off`}</span>
+                            <span className="text-primary font-medium">{couponResult.discountDisplay || `${couponResult.couponDiscount} SOL off`}</span>
                             <div className="text-gray-500">
                               Original price: {baseModifiedPrice.toFixed(2)} SOL
                             </div>
@@ -1432,7 +1432,7 @@ export function TokenVerificationModal({
                           !shippingInfo.lastName || !shippingInfo.phoneNumber || 
                           (shippingInfo.country && doesCountryRequireTaxId(shippingInfo.country) && !shippingInfo.taxId) ||
                           !!phoneError || !!zipError}
-                        className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        className="w-full bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                         <span>Pay with Solana ({finalPrice.toFixed(2)} SOL)</span>
                       </button>
@@ -1450,7 +1450,7 @@ export function TokenVerificationModal({
                             !shippingInfo.lastName || !shippingInfo.phoneNumber || 
                             (shippingInfo.country && doesCountryRequireTaxId(shippingInfo.country) && !shippingInfo.taxId) ||
                             !!phoneError || !!zipError}
-                          className="text-purple-400 hover:text-purple-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-primary hover:text-primary/80 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Pay with Credit Card
                         </button>
