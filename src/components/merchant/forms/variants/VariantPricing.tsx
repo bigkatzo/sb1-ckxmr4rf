@@ -64,7 +64,7 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
         <button
           type="button"
           onClick={applyBasePriceToAll}
-          className="text-sm text-purple-400 hover:text-purple-300 border border-purple-700 rounded-lg px-3 py-1 transition-colors"
+          className="text-sm text-secondary hover:text-secondary-light border border-secondary rounded-lg px-3 py-1 transition-colors"
         >
           Apply Base Price to All
         </button>
@@ -96,7 +96,7 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
                         }
                       }}
                       placeholder={basePrice.toString()}
-                      className="w-32 bg-gray-800 rounded px-3 py-1 text-right focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-32 bg-gray-800 rounded px-3 py-1 text-right focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </td>

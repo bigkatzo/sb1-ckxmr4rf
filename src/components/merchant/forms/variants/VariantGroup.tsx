@@ -117,7 +117,7 @@ export function VariantGroup({ variant, onUpdate, onRemove }: VariantGroupProps)
           value={variant.name}
           onChange={(e) => onUpdate({ ...variant, name: e.target.value })}
           placeholder="Variant name (e.g., Size, Color)"
-          className="flex-1 bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="flex-1 bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <button
           type="button"
@@ -160,7 +160,7 @@ export function VariantGroup({ variant, onUpdate, onRemove }: VariantGroupProps)
       <button
         type="button"
         onClick={addOption}
-        className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300"
+        className="flex items-center gap-2 text-sm text-secondary hover:text-secondary-light"
       >
         <Plus className="h-4 w-4" />
         <span>Add Option</span>

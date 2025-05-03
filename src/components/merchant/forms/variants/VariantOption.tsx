@@ -16,7 +16,7 @@ export function VariantOption({ option, onUpdate, onRemove }: VariantOptionProps
         value={option.value}
         onChange={(e) => onUpdate({ ...option, value: e.target.value })}
         placeholder="Option value (e.g., Small, Red)"
-        className="flex-1 bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+        className="flex-1 bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
       />
       <button
         type="button"
