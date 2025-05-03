@@ -168,7 +168,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
           type="text"
           value={formData.code}
           onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-          className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
           placeholder="Enter coupon code"
         />
         {errors.code && (
@@ -201,7 +201,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
                         collection_ids: newCollectionIds
                       }));
                     }}
-                    className="rounded border-gray-600 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    className="rounded border-gray-600 text-primary focus:ring-primary focus:ring-offset-gray-800"
                   />
                   <span className="text-white text-xs sm:text-sm">{collection.name}</span>
                 </label>
@@ -225,7 +225,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
             discount_type: e.target.value as 'fixed_sol' | 'percentage',
             max_discount: e.target.value === 'fixed_sol' ? undefined : formData.max_discount
           })}
-          className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
         >
           <option value="fixed_sol">Fixed SOL Amount</option>
           <option value="percentage">Percentage</option>
@@ -242,7 +242,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
             step="0.000000001"
             value={formData.discount_value}
             onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) })}
-            className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
             placeholder={formData.discount_type === 'fixed_sol' ? "Enter SOL amount" : "Enter percentage"}
           />
           <span className="absolute right-3 top-2 text-gray-400">
@@ -267,7 +267,7 @@ const CouponForm = ({ onClose, onSubmit, initialData }: CouponFormProps) => {
               ...formData, 
               max_discount: e.target.value === '' ? undefined : parseFloat(e.target.value) 
             })}
-            className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            className="w-full bg-gray-800 text-white rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
             placeholder="Optional maximum discount in SOL"
           />
           {errors.max_discount && (
