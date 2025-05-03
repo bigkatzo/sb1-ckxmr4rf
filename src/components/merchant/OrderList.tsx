@@ -706,7 +706,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:text-primary/80 transition-colors"
+                className="text-gray-300 hover:text-gray-100 transition-colors"
               >
                 {display}
               </a>
@@ -962,7 +962,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               <div className="space-y-2">
                 <Link 
                   to={`/tracking/${order.tracking.tracking_number}`} 
-                  className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                  className="text-sm text-gray-300 hover:text-gray-100 flex items-center gap-1"
                 >
                   <Truck className="h-3 w-3" />
                   {order.tracking.tracking_number}
@@ -1241,7 +1241,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                             href={`https://solscan.io/account/${order.walletAddress}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-mono text-primary hover:text-primary/80 flex items-center gap-1"
+                            className="text-xs font-mono text-gray-300 hover:text-gray-100 flex items-center gap-1"
                           >
                             {order.walletAddress.slice(0, 8)}...{order.walletAddress.slice(-8)}
                             <ExternalLink className="h-3 w-3" />
@@ -1254,7 +1254,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                               href={getTransactionUrl(order.transactionSignature)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs font-mono text-primary hover:text-primary/80 flex items-center gap-1"
+                              className="text-xs font-mono text-gray-300 hover:text-gray-100 flex items-center gap-1"
                             >
                               {formatTransactionSignature(order.transactionSignature)}
                               <ExternalLink className="h-3 w-3" />
