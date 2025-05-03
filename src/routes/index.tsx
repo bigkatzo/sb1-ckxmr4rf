@@ -65,7 +65,7 @@ const PageLoader = () => (
       <img 
         src="https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/logo-icon.svg" 
         alt="Loading..." 
-        className="h-[11px] w-[11px] absolute inset-0 m-auto animate-pulse scale-110"
+        className="h-10 w-10 absolute inset-0 m-auto animate-pulse"
       />
       <div className="absolute -inset-3 border-t-2 border-primary rounded-full animate-spin" 
         style={{ animationDuration: '1s' }}
