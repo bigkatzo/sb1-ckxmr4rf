@@ -7,7 +7,7 @@ interface LogoProps {
 }
 
 export function Logo({ className = '', size = 'md', variant = 'default' }: LogoProps) {
-  // Size mappings for the logo - ensure responsive sizing
+  // Size mappings for the logo
   const sizeClasses = {
     sm: 'h-5 sm:h-6',
     md: 'h-6 sm:h-8',
@@ -28,7 +28,7 @@ export function Logo({ className = '', size = 'md', variant = 'default' }: LogoP
       <OptimizedImage
         src={logoUrl}
         alt="store.fun"
-        className="h-full w-auto"
+        className="h-full w-auto max-w-full"
         objectFit="contain"
         priority={true}
       />

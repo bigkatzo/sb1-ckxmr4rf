@@ -143,11 +143,11 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <div className="flex items-center gap-6">
-            <Link to="/" className="flex-shrink-0 mr-auto">
-              <Logo className="ml-0" />
+          <div className="flex items-center min-w-0">
+            <Link to="/" className="flex-shrink-0 min-w-[80px] flex items-center">
+              <Logo className="max-h-6 sm:max-h-8" size="sm" />
             </Link>
-            <div className="hidden md:block">
+            <div className="hidden md:block ml-6">
               <button
                 onClick={openHowItWorks}
                 className="text-gray-400 hover:font-bold transition-all whitespace-nowrap"
