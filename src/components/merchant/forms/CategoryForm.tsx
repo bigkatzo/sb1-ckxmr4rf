@@ -208,7 +208,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                     <button
                       type="button"
                       onClick={addGroup}
-                      className="flex items-center gap-2 text-white hover:text-white/80 transition-colors"
+                      className="flex items-center gap-2 text-secondary hover:text-secondary-light transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                       <span>Add Rule Group</span>
@@ -233,7 +233,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                           <button
                             type="button"
                             onClick={() => addRule(groupIndex)}
-                            className="flex items-center gap-2 text-white hover:text-white/80 text-sm"
+                            className="flex items-center gap-2 text-secondary hover:text-secondary-light text-sm"
                           >
                             <Plus className="h-3 w-3" />
                             <span>Add Rule</span>
