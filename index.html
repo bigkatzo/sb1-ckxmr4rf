@@ -137,10 +137,10 @@
       
       .loading-spinner {
         position: absolute;
-        top: -8px;
-        left: -8px;
-        right: -8px;
-        bottom: -8px;
+        top: -16px;
+        left: -16px;
+        right: -16px;
+        bottom: -16px;
         border-radius: 50%;
         border: 4px solid transparent;
         border-top-color: var(--color-primary);
@@ -240,7 +240,9 @@
     <div id="loading-screen" aria-label="Loading">
       <div class="loading-box">
         <div class="loading-spinner"></div>
-        <div class="loading-box-inner" aria-hidden="true">📦</div>
+        <div class="loading-box-inner" aria-hidden="true">
+          <img src="https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/logo-icon.svg" alt="store.fun" width="48" height="48" style="width: 48px; height: 48px;" />
+        </div>
       </div>
       <div class="loading-text">store.fun</div>
     </div>

@@ -39,10 +39,10 @@ export const Loading: React.FC<LoadingProps> = ({ type, className = '', text }) 
               <OptimizedImage
                 src={logoUrl}
                 alt="Loading..."
-                className="h-full w-full animate-pulse"
+                className="h-8 w-8 absolute inset-0 m-auto animate-pulse"
                 objectFit="contain"
               />
-              <div className="absolute inset-0 border-t-2 border-primary rounded-full animate-spin" 
+              <div className="absolute -inset-3 border-t-2 border-primary rounded-full animate-spin" 
                 style={{ animationDuration: '1s' }}
               />
             </div>
@@ -59,10 +59,10 @@ export const Loading: React.FC<LoadingProps> = ({ type, className = '', text }) 
               <OptimizedImage
                 src={logoUrl}
                 alt="Loading..."
-                className="h-full w-full animate-pulse"
+                className="h-8 w-8 absolute inset-0 m-auto animate-pulse"
                 objectFit="contain"
               />
-              <div className="absolute inset-0 border-t-2 border-primary rounded-full animate-spin" 
+              <div className="absolute -inset-3 border-t-2 border-primary rounded-full animate-spin" 
                 style={{ animationDuration: '1s' }}
               />
             </div>

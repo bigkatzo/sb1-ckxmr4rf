@@ -26,7 +26,7 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-2 order-2 sm:order-1">
-            <Logo className="text-xs sm:text-sm" />
+            <Logo size="sm" className="text-xs sm:text-sm scale-80" />
             <span className="text-[10px] sm:text-xs">© {new Date().getFullYear()}</span>
           </div>
           

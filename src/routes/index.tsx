@@ -61,7 +61,16 @@ const WalletDebugPage = lazy(() => import('../pages/WalletDebugPage').then(modul
 // Loading component for merchant/admin pages
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    <div className="relative h-16 w-16 text-white">
+      <img 
+        src="https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/logo-icon.svg" 
+        alt="Loading..." 
+        className="h-10 w-10 absolute inset-0 m-auto animate-pulse"
+      />
+      <div className="absolute -inset-3 border-t-2 border-primary rounded-full animate-spin" 
+        style={{ animationDuration: '1s' }}
+      />
+    </div>
   </div>
 );
 
