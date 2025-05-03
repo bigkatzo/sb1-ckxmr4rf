@@ -68,7 +68,7 @@ export function RegisterPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
       <div className="w-full max-w-sm sm:max-w-md space-y-6 sm:space-y-8">
         <div className="text-center">
-          <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-purple-600 transition-transform hover:scale-110">
+          <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-primary transition-transform hover:scale-110">
             <ShoppingBag className="h-full w-full" />
           </div>
           <h2 className="mt-4 sm:mt-6 text-2xl sm:text-3xl font-extrabold text-gray-900">
@@ -115,7 +115,7 @@ export function RegisterPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none rounded-t-md relative block w-full px-3 py-2 sm:py-2.5 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 text-sm sm:text-base transition-colors"
+                className="appearance-none rounded-t-md relative block w-full px-3 py-2 sm:py-2.5 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 text-sm sm:text-base transition-colors"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -131,7 +131,7 @@ export function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
                   required
-                  className="appearance-none relative block w-full px-3 py-2 sm:py-2.5 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 text-sm sm:text-base transition-colors"
+                  className="appearance-none relative block w-full px-3 py-2 sm:py-2.5 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 text-sm sm:text-base transition-colors"
                   placeholder="Password (8+ chars, uppercase, lowercase, number)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -159,7 +159,7 @@ export function RegisterPage() {
                   type={showConfirmPassword ? "text" : "password"}
                   autoComplete="new-password"
                   required
-                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 sm:py-2.5 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 text-sm sm:text-base transition-colors"
+                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 sm:py-2.5 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 text-sm sm:text-base transition-colors"
                   placeholder="Confirm Password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -184,7 +184,7 @@ export function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2.5 sm:py-3 px-4 border border-transparent text-sm sm:text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]"
+              className="group relative w-full flex justify-center py-2.5 sm:py-3 px-4 border border-transparent text-sm sm:text-base font-medium rounded-md text-white bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]"
             >
               {loading ? (
                 <Loading type={LoadingType.ACTION} text="Creating account..." />
@@ -198,7 +198,7 @@ export function RegisterPage() {
             <button
               type="button"
               onClick={() => navigate('/merchant/signin')}
-              className="text-xs sm:text-sm text-purple-600 hover:text-purple-500 transition-colors focus:outline-none focus:underline"
+              className="text-xs sm:text-sm text-primary hover:text-primary-hover transition-colors focus:outline-none focus:underline"
             >
               Already have an account? Sign in
             </button>
