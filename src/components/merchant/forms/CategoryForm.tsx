@@ -208,7 +208,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                     <button
                       type="button"
                       onClick={addGroup}
-                      className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors"
+                      className="flex items-center gap-2 text-white hover:text-white/80 transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                       <span>Add Rule Group</span>
@@ -223,7 +223,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                           <select
                             value={group.operator}
                             onChange={(e) => updateGroup(groupIndex, { operator: e.target.value as 'AND' | 'OR' })}
-                            className="bg-gray-800 rounded-lg px-3 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="bg-gray-800 rounded-lg px-3 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
                           >
                             <option value="AND">AND</option>
                             <option value="OR">OR</option>
@@ -233,7 +233,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                           <button
                             type="button"
                             onClick={() => addRule(groupIndex)}
-                            className="flex items-center gap-2 text-purple-400 hover:text-purple-300 text-sm"
+                            className="flex items-center gap-2 text-white hover:text-white/80 text-sm"
                           >
                             <Plus className="h-3 w-3" />
                             <span>Add Rule</span>
@@ -330,7 +330,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
               <button
                 type="submit"
                 form="category-form"
-                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/80 rounded-lg transition-colors"
               >
                 {initialData ? 'Update Category' : 'Create Category'}
               </button>
