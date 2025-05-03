@@ -195,7 +195,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             <button
               type="submit"
               disabled={loading || uploading || isLoading}
-              className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
+              className="bg-primary hover:bg-primary/80 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
             >
               {(loading || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
               {loading ? 'Saving...' : 

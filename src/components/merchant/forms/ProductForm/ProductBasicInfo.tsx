@@ -46,7 +46,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
           type="text"
           id="name"
           {...register('name')}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
         />
         {errors.name && (
           <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>
@@ -61,7 +61,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
           id="description"
           {...register('description')}
           rows={4}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
         />
         {errors.description && (
           <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>
@@ -75,7 +75,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         <select
           id="categoryId"
           {...register('categoryId')}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="">Select a category</option>
           {categories.map((category) => (
@@ -108,7 +108,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               }
             }
           })}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
         />
         {errors.price && (
           <p className="text-red-400 text-xs mt-1">{errors.price.message}</p>
@@ -128,7 +128,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
           {...register('priceModifierBeforeMin', {
             setValueAs: (value) => value === '' ? null : parseFloat(value),
           })}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
           placeholder="e.g. -0.2 for 20% discount"
         />
         <p className="mt-1 text-sm text-gray-400">
@@ -151,7 +151,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
           {...register('priceModifierAfterMin', {
             setValueAs: (value) => value === '' ? null : parseFloat(value),
           })}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
           placeholder="e.g. 2 for up to 200% increase"
         />
         <p className="mt-1 text-sm text-gray-400">
@@ -173,7 +173,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
           {...register('stock', {
             setValueAs: (value) => value === '' ? null : parseInt(value),
           })}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
           placeholder="Leave empty for unlimited stock"
         />
         {errors.stock && (
@@ -192,7 +192,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
           {...register('minimumOrderQuantity', {
             valueAsNumber: true,
           })}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
         />
         {errors.minimumOrderQuantity && (
           <p className="text-red-400 text-xs mt-1">{errors.minimumOrderQuantity.message}</p>
@@ -212,7 +212,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               id="notes_shipping"
               {...register('notes.shipping')}
               rows={2}
-              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder={defaultNotes.shipping}
             />
           </div>
@@ -225,7 +225,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               id="notes_quality"
               {...register('notes.quality')}
               rows={2}
-              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder={defaultNotes.quality}
             />
           </div>
@@ -238,7 +238,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               id="notes_returns"
               {...register('notes.returns')}
               rows={2}
-              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder={defaultNotes.returns}
             />
           </div>
@@ -251,7 +251,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               id="freeNotes"
               {...register('freeNotes')}
               rows={3}
-              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Any other information about the product..."
             />
           </div>

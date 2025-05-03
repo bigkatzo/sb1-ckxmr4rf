@@ -192,7 +192,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
       <label className="block text-sm font-medium mb-2">Product Images</label>
       <div
         {...getRootProps()}
-        className="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-purple-500 transition-colors"
+        className="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-primary transition-colors"
       >
         <input {...getInputProps()} />
         {(previews.length > 0 || existingImages.length > 0) ? (

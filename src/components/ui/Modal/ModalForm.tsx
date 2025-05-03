@@ -50,7 +50,7 @@ export function ModalForm({
             <button
               type="submit"
               disabled={isLoading}
-              className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+              className="bg-primary hover:bg-primary/80 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white"
             >
               {submitLabel}
             </button>
