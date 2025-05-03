@@ -559,7 +559,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       case 'preparing':
         return <PackageOpen className="h-4 w-4 text-white-400" />;
       case 'shipped':
-        return <Truck className="h-4 w-4 text-pink-400" />;
+        return <Truck className="h-4 w-4 text-teal-400" />;
       case 'delivered':
         return <CheckCircle2 className="h-4 w-4 text-green-400" />;
       case 'cancelled':
@@ -578,7 +578,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       case 'preparing':
         return { bgColor: 'bg-orange-500/10', color: 'text-orange-400' };
       case 'shipped':
-        return { bgColor: 'bg-purple-500/10', color: 'text-purple-400' };
+        return { bgColor: 'bg-teal-500/10', color: 'text-teal-400' };
       case 'delivered':
         return { bgColor: 'bg-green-500/10', color: 'text-green-400' };
       case 'cancelled':

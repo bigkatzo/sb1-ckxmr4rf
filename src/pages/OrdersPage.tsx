@@ -98,7 +98,7 @@ export function OrdersPage() {
       case 'preparing':
         return <PackageOpen className="h-4 w-4 text-white-400" />;
       case 'shipped':
-        return <Truck className="h-4 w-4 text-pink-400" />;
+        return <Truck className="h-4 w-4 text-teal-400" />;
       case 'delivered':
         return <CheckCircle2 className="h-4 w-4 text-green-400" />;
       case 'cancelled':
@@ -119,7 +119,7 @@ export function OrdersPage() {
       case 'preparing':
         return 'bg-orange-500/10 text-orange-400';
       case 'shipped':
-        return 'bg-purple-500/10 text-purple-400';
+        return 'bg-teal-500/10 text-teal-400';
       case 'delivered':
         return 'bg-green-500/10 text-green-400';
       case 'cancelled':
