@@ -24,11 +24,11 @@ export function Logo({ className = '', size = 'md', variant = 'default' }: LogoP
   const logoUrl = 'https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/logo.svg';
 
   return (
-    <div className={`inline-flex items-center justify-start p-0 m-0 ${sizeClasses[size]} ${colorClasses[variant]} ${className}`}>
+    <div className={`inline-flex items-center justify-start p-0 m-0 pointer-events-none ${sizeClasses[size]} ${colorClasses[variant]} ${className}`}>
       <OptimizedImage
         src={logoUrl}
         alt="store.fun"
-        className="h-full w-auto max-w-full object-contain p-0 m-0" 
+        className="h-full w-auto max-w-full object-contain p-0 m-0 pointer-events-none" 
         objectFit="contain"
         priority={true}
       />

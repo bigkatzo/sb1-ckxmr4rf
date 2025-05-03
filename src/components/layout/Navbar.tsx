@@ -143,8 +143,8 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <div className="flex items-center min-w-0">
-            <Link to="/" className="flex-shrink-0 flex justify-start items-center pl-0">
+          <div className="flex items-center max-w-[30%] md:max-w-none min-w-0">
+            <Link to="/" className="flex-shrink-0 flex justify-start items-center pl-0 w-auto overflow-hidden">
               <Logo size="md" className="h-7 sm:h-9" />
             </Link>
             <div className="hidden md:block ml-6">

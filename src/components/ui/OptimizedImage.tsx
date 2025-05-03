@@ -240,12 +240,13 @@ export function OptimizedImage({
     margin: 0,
     display: 'block', 
     height: '100%',
-    objectPosition: 'left center'
+    objectPosition: 'left center',
+    pointerEvents: 'none' as const
   } : {};
 
   return (
     <div 
-      className={`relative w-full h-full overflow-hidden ${isLogo ? 'p-0 m-0' : ''}`}
+      className={`relative w-full h-full overflow-hidden ${isLogo ? 'p-0 m-0 pointer-events-none max-w-fit' : ''}`}
       style={containerStyle}
     >
       {isLoading && !isLogo && (
