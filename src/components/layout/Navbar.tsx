@@ -144,7 +144,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
           <div className="flex items-center min-w-0">
-            <Link to="/" className="flex-shrink-0 min-w-[80px] flex items-center">
+            <Link to="/" className="flex-shrink-0 flex justify-start items-center pl-0">
               <Logo className="max-h-6 sm:max-h-8" size="sm" />
             </Link>
             <div className="hidden md:block ml-6">
@@ -165,7 +165,7 @@ export default function Navbar() {
           </div>
 
           {/* Right section */}
-          <div className="flex items-center">
+          <div className="flex items-center ml-auto">
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-4">
               <WalletButton />
