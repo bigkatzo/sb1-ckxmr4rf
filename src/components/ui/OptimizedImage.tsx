@@ -232,13 +232,23 @@ export function OptimizedImage({
   // Calculate aspect ratio for placeholder
   const aspectRatio = height && width ? `${width}/${height}` : undefined;
   const containerStyle = aspectRatio ? { aspectRatio } : undefined;
+  
+  // Special handling for logo images
+  const isLogo = src.includes('logo.svg') || src.includes('logo-icon.svg');
+  const logoStyle = isLogo ? { 
+    padding: 0,
+    margin: 0,
+    display: 'block', 
+    height: '100%',
+    objectPosition: 'left center'
+  } : {};
 
   return (
     <div 
-      className="relative w-full h-full overflow-hidden" 
+      className={`relative w-full h-full overflow-hidden ${isLogo ? 'p-0 m-0' : ''}`}
       style={containerStyle}
     >
-      {isLoading && (
+      {isLoading && !isLogo && (
         <div 
           className="absolute inset-0 bg-gray-800 animate-pulse" 
           style={containerStyle}
@@ -259,7 +269,7 @@ export function OptimizedImage({
         loading={loadingStrategy}
         fetchPriority={fetchPriorityValue}
         sizes={responsiveSizes}
-        style={containerStyle}
+        style={{...containerStyle, ...logoStyle, ...(props.style || {})}}
         onLoad={() => {
           setIsLoading(false);
           if (onLoad) onLoad();

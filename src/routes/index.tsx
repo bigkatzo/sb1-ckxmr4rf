@@ -6,6 +6,7 @@ import { HomePage } from '../pages/HomePage';
 import { ProtectedRoute } from '../components/merchant/ProtectedRoute';
 import { AnimatedLayout } from '../components/layout/AnimatedLayout';
 import { ProductPageTransition } from '../components/ui/ProductPageTransition';
+import { OptimizedImage } from '../components/ui/OptimizedImage';
 
 // Improved preload function for frequently accessed routes
 // Uses requestIdleCallback for better performance
@@ -62,15 +63,19 @@ const WalletDebugPage = lazy(() => import('../pages/WalletDebugPage').then(modul
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="relative h-16 w-16 text-white">
-      <img 
+      <OptimizedImage 
         src="https://sakysysfksculqobozxi.supabase.co/storage/v1/object/public/site-assets/logo-icon.svg" 
         alt="Loading..." 
         className="h-10 w-10 absolute inset-0 m-auto animate-pulse"
+        objectFit="contain"
+        priority={true}
       />
-      <div className="absolute -inset-3 border-t-2 border-primary rounded-full animate-spin" 
+      <div 
+        className="absolute -inset-3 border-t-2 border-primary rounded-full animate-spin" 
         style={{ animationDuration: '1s' }}
       />
     </div>
+    <span className="sr-only">Loading page...</span>
   </div>
 );
 
