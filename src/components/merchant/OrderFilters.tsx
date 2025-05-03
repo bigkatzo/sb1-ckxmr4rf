@@ -144,7 +144,7 @@ export function OrderFilters({
           placeholder="Search by order #, product, SKU, name, address, phone, wallet, transaction..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
 
@@ -153,7 +153,7 @@ export function OrderFilters({
         <div className="w-full sm:w-1/4 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'collection' ? null : 'collection')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left flex items-center justify-between"
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
           >
             <span>{selectedCollections.length === 0 ? 'Collection' : `Collection (${selectedCollections.length})`}</span>
             <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'collection' ? 'rotate-180' : ''}`} />
@@ -169,7 +169,7 @@ export function OrderFilters({
                     placeholder="Search collections..."
                     value={collectionSearch}
                     onChange={(e) => setCollectionSearch(e.target.value)}
-                    className="w-full bg-gray-700 text-white rounded-md pl-8 pr-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    className="w-full bg-gray-700 text-white rounded-md pl-8 pr-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     onClick={(e) => e.stopPropagation()}
                   />
                   {collectionSearch && (
@@ -195,7 +195,7 @@ export function OrderFilters({
                     type="checkbox"
                     checked={selectedCollections.length === filteredCollections.length && filteredCollections.length > 0}
                     onChange={handleSelectAllCollections}
-                    className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                   />
                   <span className="text-xs sm:text-sm font-medium">
                     {selectedCollections.length === filteredCollections.length && filteredCollections.length > 0
@@ -213,7 +213,7 @@ export function OrderFilters({
                       type="checkbox"
                       checked={selectedCollections.includes(collection.id)}
                       onChange={() => handleCollectionChange(collection.id)}
-                      className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                      className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                     />
                     <span className="text-xs sm:text-sm">{collection.name}</span>
                   </label>
@@ -233,7 +233,7 @@ export function OrderFilters({
         <div className="w-full sm:w-1/4 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'product' ? null : 'product')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left flex items-center justify-between"
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
           >
             <span>{selectedProducts.length === 0 ? 'Product' : `Product (${selectedProducts.length})`}</span>
             <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'product' ? 'rotate-180' : ''}`} />
@@ -249,7 +249,7 @@ export function OrderFilters({
                     placeholder="Search products..."
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
-                    className="w-full bg-gray-700 text-white rounded-md pl-8 pr-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    className="w-full bg-gray-700 text-white rounded-md pl-8 pr-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     onClick={(e) => e.stopPropagation()}
                   />
                   {productSearch && (
@@ -275,7 +275,7 @@ export function OrderFilters({
                     type="checkbox"
                     checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
                     onChange={handleSelectAllProducts}
-                    className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                   />
                   <span className="text-xs sm:text-sm font-medium">
                     {selectedProducts.length === filteredProducts.length && filteredProducts.length > 0
@@ -293,7 +293,7 @@ export function OrderFilters({
                       type="checkbox"
                       checked={selectedProducts.includes(product.id)}
                       onChange={() => handleProductChange(product.id)}
-                      className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                      className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                     />
                     <span className="text-xs sm:text-sm">{product.name}</span>
                   </label>
@@ -313,7 +313,7 @@ export function OrderFilters({
         <div className="w-full sm:w-1/4 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left flex items-center justify-between"
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
           >
             <span>{selectedStatuses.length === 0 ? 'Status' : `Status (${selectedStatuses.length})`}</span>
             <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'status' ? 'rotate-180' : ''}`} />
@@ -329,7 +329,7 @@ export function OrderFilters({
                     type="checkbox"
                     checked={selectedStatuses.length === statuses.length}
                     onChange={() => handleSelectAllStatuses(statuses)}
-                    className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                   />
                   <span className="text-xs sm:text-sm font-medium">
                     {selectedStatuses.length === statuses.length ? 'Deselect All' : 'Select All'}
@@ -345,7 +345,7 @@ export function OrderFilters({
                       type="checkbox"
                       checked={selectedStatuses.includes(status)}
                       onChange={() => handleStatusChange(status)}
-                      className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                      className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                     />
                     <span className="text-xs sm:text-sm">
                       {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
@@ -361,7 +361,7 @@ export function OrderFilters({
         <div className="w-full sm:w-1/4 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'payment' ? null : 'payment')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-left flex items-center justify-between"
+            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
           >
             <span>{selectedPaymentMethods.length === 0 ? 'Payment' : `Payment (${selectedPaymentMethods.length})`}</span>
             <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'payment' ? 'rotate-180' : ''}`} />
@@ -377,7 +377,7 @@ export function OrderFilters({
                     type="checkbox"
                     checked={selectedPaymentMethods.length === paymentMethods.length}
                     onChange={() => handleSelectAllPaymentMethods(paymentMethods)}
-                    className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                    className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                   />
                   <span className="text-xs sm:text-sm font-medium">
                     {selectedPaymentMethods.length === paymentMethods.length ? 'Deselect All' : 'Select All'}
@@ -393,7 +393,7 @@ export function OrderFilters({
                       type="checkbox"
                       checked={selectedPaymentMethods.includes(method)}
                       onChange={() => handlePaymentMethodChange(method)}
-                      className="mr-2 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
+                      className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                     />
                     <span className="text-xs sm:text-sm">
                       {method.charAt(0).toUpperCase() + method.slice(1)}

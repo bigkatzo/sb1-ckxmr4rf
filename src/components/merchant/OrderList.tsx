@@ -706,7 +706,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-purple-400 hover:text-purple-300 transition-colors"
+                className="text-primary hover:text-primary/80 transition-colors"
               >
                 {display}
               </a>
@@ -862,7 +862,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                   name="tracking"
                   defaultValue={order.tracking?.tracking_number || ''}
                   placeholder="Enter tracking number"
-                  className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                   autoFocus
                 />
               </div>
@@ -880,14 +880,14 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                         placeholder="Search carriers..."
                         value={carrierSearchTerm}
                         onChange={(e) => setCarrierSearchTerm(e.target.value)}
-                        className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                        className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                       />
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
                     
                     <select
                       name="carrier"
-                      className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                      className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                       size={6}
                     >
                       <option value="auto">Auto-detect carrier</option>
@@ -1010,7 +1010,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           {/* Analytics Toggle */}
           <button
             onClick={() => setShowAnalytics(!showAnalytics)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded-md border border-gray-700 focus:ring-2 focus:ring-purple-500/40 focus:outline-none transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded-md border border-gray-700 focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors"
           >
             <BarChart3 className="h-4 w-4" />
             <span>{showAnalytics ? 'Hide Analytics' : 'Show Analytics'}</span>
@@ -1031,7 +1031,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                   setEndDate('');
                 }
               }}
-              className="bg-gray-800 text-gray-200 text-sm rounded-md border border-gray-700 px-3 py-1.5 focus:ring-2 focus:ring-purple-500/40 focus:outline-none cursor-pointer min-w-[120px]"
+              className="bg-gray-800 text-gray-200 text-sm rounded-md border border-gray-700 px-3 py-1.5 focus:ring-2 focus:ring-primary/40 focus:outline-none cursor-pointer min-w-[120px]"
             >
               <option value="all">All time</option>
               <option value="today">Today</option>
@@ -1048,14 +1048,14 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-gray-800 text-gray-200 text-sm rounded-md border border-gray-700 px-3 py-1.5 focus:ring-2 focus:ring-purple-500/40 focus:outline-none"
+                className="bg-gray-800 text-gray-200 text-sm rounded-md border border-gray-700 px-3 py-1.5 focus:ring-2 focus:ring-primary/40 focus:outline-none"
               />
               <span className="text-gray-400">to</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="bg-gray-800 text-gray-200 text-sm rounded-md border border-gray-700 px-3 py-1.5 focus:ring-2 focus:ring-purple-500/40 focus:outline-none"
+                className="bg-gray-800 text-gray-200 text-sm rounded-md border border-gray-700 px-3 py-1.5 focus:ring-2 focus:ring-primary/40 focus:outline-none"
               />
             </div>
           )}
@@ -1180,7 +1180,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-medium text-sm truncate">{productInfo.name}</h3>
                           {productInfo.collectionName && (
-                            <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full shrink-0">
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full shrink-0">
                               {productInfo.collectionName}
                             </span>
                           )}
@@ -1241,7 +1241,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                             href={`https://solscan.io/account/${order.walletAddress}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-mono text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                            className="text-xs font-mono text-primary hover:text-primary/80 flex items-center gap-1"
                           >
                             {order.walletAddress.slice(0, 8)}...{order.walletAddress.slice(-8)}
                             <ExternalLink className="h-3 w-3" />
@@ -1254,7 +1254,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                               href={getTransactionUrl(order.transactionSignature)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`text-xs ${isStripeReceiptUrl(order.transactionSignature) ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
+                              className="text-xs font-mono text-primary hover:text-primary/80 flex items-center gap-1"
                             >
                               {formatTransactionSignature(order.transactionSignature)}
                               <ExternalLink className="h-3 w-3" />
