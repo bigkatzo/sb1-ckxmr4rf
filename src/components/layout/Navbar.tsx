@@ -144,8 +144,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
           <div className="flex items-center gap-6">
-            <Link to="/" className="flex-shrink-0">
-              <Logo />
+            <Link to="/" className="flex-shrink-0 mr-auto">
+              <Logo className="ml-0" />
             </Link>
             <div className="hidden md:block">
               <button
@@ -205,7 +205,7 @@ export default function Navbar() {
 
         {/* Mobile Search */}
         {isSearchOpen && (
-          <div className="md:hidden py-2 px-2 border-t border-gray-800">
+          <div className="md:hidden py-3 mt-1 px-2 border-t border-gray-800">
             <SearchBar />
           </div>
         )}

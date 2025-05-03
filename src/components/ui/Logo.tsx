@@ -7,11 +7,11 @@ interface LogoProps {
 }
 
 export function Logo({ className = '', size = 'md', variant = 'default' }: LogoProps) {
-  // Size mappings for the logo
+  // Size mappings for the logo - ensure responsive sizing
   const sizeClasses = {
-    sm: 'h-6',
-    md: 'h-8',
-    lg: 'h-10'
+    sm: 'h-5 sm:h-6',
+    md: 'h-6 sm:h-8',
+    lg: 'h-8 sm:h-10'
   };
 
   // Color variants - default is white, colored can be used on light backgrounds
@@ -30,6 +30,7 @@ export function Logo({ className = '', size = 'md', variant = 'default' }: LogoP
         alt="store.fun"
         className="h-full w-auto"
         objectFit="contain"
+        priority={true}
       />
     </div>
   );
