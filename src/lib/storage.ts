@@ -4,6 +4,7 @@ import path from 'path';
 import { format } from 'date-fns';
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
+import imageCompression from 'browser-image-compression';
 
 export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets';
 
@@ -23,88 +24,80 @@ export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
   
   try {
-    // EMERGENCY FIX: For any WebP files or problematic dash patterns, always use object URL
-    if (url.includes('.webp') || url.includes('-d')) {
-      // If this is already a render URL, convert it back to object URL
-      if (url.includes('/storage/v1/render/image/public/')) {
-        return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
-      }
-      // If it's already an object URL, keep it that way
+    // Step 1: Verify this is a storage URL - if not, return unchanged
+    if (!url.includes('/storage/v1/')) {
       return url;
     }
+
+    // Step 2: Parse the URL to handle it properly
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch (e) {
+      // If we can't parse as full URL, try adding a base
+      try {
+        parsedUrl = new URL(url, 'https://example.com');
+      } catch {
+        // If still can't parse, return unchanged
+        return url;
+      }
+    }
     
-    // Parse the URL to handle it properly
-    const parsedUrl = new URL(url);
-    
-    // Ensure HTTPS
+    // Step 3: Ensure HTTPS
     parsedUrl.protocol = 'https:';
     
-    // Get the path
-    let path = parsedUrl.pathname;
+    // Step 4: Get the path and determine format from extension
+    const path = parsedUrl.pathname;
     
-    // If it's already a render/image URL, don't modify it
+    // Step 5: Extract file extension to make format-specific decisions
+    const fileExtension = path.split('.').pop()?.toLowerCase() || '';
+    const isWebP = fileExtension === 'webp';
+    const isGif = fileExtension === 'gif';
+    const isJpgOrPng = /^(jpe?g|png)$/i.test(fileExtension);
+    
+    // Step 6: Handle based on URL type and file format
+    
+    // Already a render URL - don't modify it unless it's WebP or GIF (which need object URLs)
     if (path.includes('/storage/v1/render/image/')) {
-      return url;
+      if (isWebP || isGif) {
+        // Convert WebP/GIF render URLs to object URLs for better compatibility
+        const objectUrl = url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+        return objectUrl;
+      }
+      return url; // Leave other render URLs as-is
     }
     
-    // Always convert object URLs to render URLs (more aggressive approach)
+    // Object URL - conditionally convert to render URL
     if (path.includes('/storage/v1/object/public/')) {
-      // Check if this is a file format that works well with the render endpoint
-      const isJpgOrPng = /\.(jpe?g|png)$/i.test(path);
+      // WebP and GIF should stay as object URLs for better compatibility
+      if (isWebP || isGif) {
+        return url;
+      }
       
-      // ONLY use render endpoint for JPG and PNG formats which are better supported
+      // JPG/PNG formats work well with render endpoint
       if (isJpgOrPng) {
-        // Convert to render URL for images with specific parameters for compatibility
-        path = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+        // Convert to render URL with optimized parameters
+        const renderPath = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
         
-        // Add required parameters for better compatibility
+        // Add optimal parameters for rendering
         const params = new URLSearchParams(parsedUrl.search);
         if (!params.has('width')) params.append('width', '800');
         if (!params.has('quality')) params.append('quality', '80');
+        params.append('format', 'original'); // Preserve original format
         
-        // Try to avoid format conversion which can cause issues
-        params.append('format', 'original');
-        
-        // Preserve query parameters if they exist
-        const finalUrl = `${parsedUrl.protocol}//${parsedUrl.host}${path}?${params.toString()}`;
-        
-        // Log conversion for debugging
-        if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-          console.log('Normalized storage URL:', { original: url, normalized: finalUrl });
-        }
-        
-        return finalUrl;
-      } else {
-        // For other formats (webp, gif, etc) just use the object URL which works more reliably
-        return url;
+        // Build final URL
+        return `${parsedUrl.protocol}//${parsedUrl.host}${renderPath}?${params.toString()}`;
       }
+      
+      // For unknown formats, keep as object URL
+      return url;
     }
     
-    // For other URLs, return as is
+    // Not a storage URL we recognize, return unchanged
     return url;
   } catch (error) {
     console.error('Error normalizing URL:', error);
-    
-    // EMERGENCY FALLBACK: If URL parsing fails but contains WebP or dashes, ensure it uses object URL
-    if (typeof url === 'string') {
-      if ((url.includes('.webp') || url.includes('-d')) && url.includes('/storage/v1/render/image/public/')) {
-        return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
-      }
-      
-      // If it looks like a Supabase storage URL, try a simple string replace
-      // But only for jpg/png formats
-      if (url.includes('/storage/v1/object/public/')) {
-        if (/\.(jpe?g|png)$/i.test(url)) {
-          // Only convert JPG/PNG, and include params
-          const convertedUrl = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-          return `${convertedUrl}?width=800&quality=80&format=original`;
-        }
-        // For other formats, leave as is
-        return url;
-      }
-    }
-    
-    // Otherwise return the original URL
+    // Return original URL if anything goes wrong
     return url;
   }
 }
@@ -165,7 +158,6 @@ export function sanitizeFileName(fileName: string): string {
 export function generateUniqueFileName(originalName: string): string {
   // Extract extension safely
   const extension = (originalName.match(/\.[^/.]+$/)?.[0] || '').toLowerCase();
-  const baseName = originalName.replace(/\.[^/.]+$/, '');
   
   // Generate timestamp in a consistent format (YYYYMMDDHHMMSS)
   const timestamp = new Date().toISOString()
@@ -173,14 +165,11 @@ export function generateUniqueFileName(originalName: string): string {
     .replace(/[T.]/g, '')
     .slice(0, 14);
   
-  // Generate a fixed-length random string (8 chars)
-  const randomString = Math.random().toString(36).substring(2, 10);
+  // Generate a fixed-length random string (12 chars for more uniqueness)
+  const randomString = Math.random().toString(36).substring(2, 14);
   
-  // Clean the base name
-  const sanitizedName = sanitizeFileName(baseName);
-  
-  // Construct final filename
-  const finalName = `${timestamp}-${randomString}-${sanitizedName}${extension}`;
+  // Construct final filename without the original filename
+  const finalName = `${timestamp}-${randomString}${extension}`;
   
   return finalName;
 }
@@ -217,6 +206,65 @@ async function verifyUrlAccessibility(url: string): Promise<void> {
 }
 
 /**
+ * Optimize an image before upload to reduce size
+ * @param file The original file
+ * @param options Optimization options
+ * @returns Promise<File> The optimized file
+ */
+async function optimizeImageBeforeUpload(
+  file: File, 
+  options: {
+    maxSizeMB?: number;
+    maxWidthOrHeight?: number;
+    useWebWorker?: boolean;
+    preserveExif?: boolean;
+  } = {}
+): Promise<File> {
+  // Skip optimization for GIFs and SVGs
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml') {
+    return file;
+  }
+  
+  // Default options for good quality/size balance
+  const compressionOptions = {
+    maxSizeMB: options.maxSizeMB || 1,             // Default max file size of 1MB
+    maxWidthOrHeight: options.maxWidthOrHeight || 1920, // Default max dimension
+    useWebWorker: options.useWebWorker !== false,  // Use web worker by default
+    preserveExif: options.preserveExif || false,   // Don't preserve EXIF data by default
+    initialQuality: 0.8,                           // Initial quality setting
+  };
+  
+  try {
+    const compressedFile = await imageCompression(file, compressionOptions);
+    
+    // If the compressed file is larger than the original (rare case), return original
+    if (compressedFile.size > file.size) {
+      console.info('Compressed image is larger than original, using original');
+      return file;
+    }
+    
+    // Create a new File with our naming convention
+    const extension = compressedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const timestamp = new Date().toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/[T.]/g, '')
+      .slice(0, 14);
+    const randomString = Math.random().toString(36).substring(2, 14);
+    
+    const optimizedFile = new File(
+      [compressedFile], 
+      `${timestamp}-${randomString}.${extension}`,
+      { type: compressedFile.type }
+    );
+    
+    return optimizedFile;
+  } catch (error) {
+    console.warn('Image optimization failed, using original file:', error);
+    return file;
+  }
+}
+
+/**
  * Upload an image to a specified storage bucket
  * @param file The file to upload
  * @param bucket The storage bucket to upload to
@@ -235,13 +283,23 @@ export async function uploadImage(
   } = options;
 
   try {
+    // Validate the file first
     validateFile(file, maxSizeMB);
-    const safeFileName = generateUniqueFileName(file.name);
+    
+    // Optimize the image if possible
+    const optimizedFile = await optimizeImageBeforeUpload(file, {
+      maxSizeMB: Math.min(maxSizeMB, 2), // Keep at most 2MB even if allowed larger
+      maxWidthOrHeight: 1920,
+      useWebWorker: true
+    });
+    
+    // Generate a safe filename
+    const safeFileName = generateUniqueFileName(optimizedFile.name);
     const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
 
     // Add metadata to track image association and upload time
     const metadata = {
-      contentType: file.type,
+      contentType: optimizedFile.type,
       cacheControl,
       // Add tracking metadata
       lastAccessed: new Date().toISOString(),
@@ -250,14 +308,15 @@ export async function uploadImage(
         ? 'collection' 
         : bucket === 'product-images' 
           ? 'product' 
-          : 'site'
+          : 'site',
+      optimized: 'true'
     };
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(cleanPath, file, {
+      .upload(cleanPath, optimizedFile, {
         cacheControl,
-        contentType: file.type,
+        contentType: optimizedFile.type,
         upsert,
         metadata
       });
@@ -319,14 +378,15 @@ export function sanitizeFilename(filename: string): string {
 
 export function generateSafeFilename(originalName: string): string {
   const ext = path.extname(originalName);
-  const baseName = path.basename(originalName, ext);
-  const sanitizedName = sanitizeFilename(baseName);
   
-  // Add timestamp and random string
+  // Generate timestamp in a consistent format (YYYYMMDDHHMMSS)
   const timestamp = format(new Date(), "yyyyMMddHHmmss");
-  const randomString = crypto.randomBytes(4).toString('hex');
   
-  return `${timestamp}-${randomString}-${sanitizedName}${ext}`;
+  // Generate a fixed-length random string (12 chars for more uniqueness)
+  const randomString = crypto.randomBytes(6).toString('hex');
+  
+  // Construct final filename without the original filename
+  return `${timestamp}-${randomString}${ext}`;
 }
 
 export async function uploadFile(

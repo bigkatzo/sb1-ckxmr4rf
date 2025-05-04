@@ -13,7 +13,9 @@
     "preview": "vite preview",
     "generate-icons": "node scripts/generate-icons.js",
     "check-env": "node scripts/check-env.js",
-    "optimize": "node scripts/optimize-bundles.js"
+    "optimize": "node scripts/optimize-bundles.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@babel/helpers": "^7.27.0",
@@ -44,6 +46,7 @@
     "@wallet-standard/core": "^1.1.0",
     "axios": "^1.8.4",
     "bigint-buffer": "^1.1.5",
+    "browser-image-compression": "^2.0.2",
     "bs58": "^5.0.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -93,6 +96,7 @@
     "typescript": "5.3.3",
     "vite": "^6.2.5",
     "vite-imagetools": "^6.2.9",
-    "vite-plugin-node-polyfills": "^0.21.0"
+    "vite-plugin-node-polyfills": "^0.21.0",
+    "vitest": "^3.1.2"
   }
 }
