@@ -120,6 +120,7 @@
         https://*.stripe.com https://*.stripe.network https://js.stripe.com 
         https://*.metaplex.com https://*.solana.com
         https://*.phantom.app https://*.backpack.app
+        https://*.jsdelivr.net
         blob:;
       connect-src 'self' 
         https://*.stripe.com https://*.stripe.network https://api.stripe.com https://hooks.stripe.com
@@ -141,6 +142,7 @@
         https://*.tensor.trade
         https://*.phantom.app https://*.backpack.app
         https://*.jupiter.ag https://*.jup.ag
+        https://*.jsdelivr.net
         https://store.fun https://*.store.fun
         wss://*.solana.com ws://*.solana.com
         blob:
