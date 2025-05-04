@@ -52,6 +52,7 @@ We've added automatic image compression during upload to reduce file size and im
 - Automatically compresses JPEG and PNG images before upload
 - Limits maximum image dimensions to 1920px (preserving aspect ratio)
 - Targets file size of 1-2MB maximum
+- **Preserves WebP files intact without compression** to maintain their quality and format
 - Skips compression for GIF and SVG files
 - Falls back gracefully to original file if compression fails
 - Adds optimization metadata for tracking
@@ -61,9 +62,20 @@ We've added automatic image compression during upload to reduce file size and im
 The URL normalization function has been enhanced to:
 
 - Better handle different image formats (WebP, GIF, JPEG, PNG)
+- Use object URLs for WebP files instead of render URLs to ensure compatibility
 - Use the most appropriate rendering endpoint based on format
 - More robustly handle malformed URLs
 - Optimize rendering parameters for best quality/performance balance
+
+### 3. WebP-Specific Handling
+
+We've implemented special handling for WebP images:
+
+- Detect WebP files by both MIME type and filename extension
+- Skip the render transformation pipeline for WebP files
+- Use direct object URLs for WebP files to prevent transcoding issues
+- Add format metadata to track file types
+- Improved extension detection and preservation
 
 ## Benefits
 

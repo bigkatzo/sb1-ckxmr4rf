@@ -72,10 +72,12 @@ async function uploadImage(filePath, bucket) {
     const fileBuffer = fs.readFileSync(filePath);
     const fileName = path.basename(filePath);
     const contentType = getMimeType(filePath);
+    const isWebP = contentType === 'image/webp';
     
     // Generate safe filename
     const safeFileName = generateUniqueFileName(fileName);
     console.log(`Original filename: ${fileName}`);
+    console.log(`File type: ${contentType}`);
     console.log(`Generated safe filename: ${safeFileName}`);
     
     // Upload file
@@ -86,6 +88,11 @@ async function uploadImage(filePath, bucket) {
         contentType,
         cacheControl: '3600',
         upsert: false,
+        metadata: {
+          format: isWebP ? 'webp' : path.extname(filePath).replace('.', ''),
+          originalName: fileName,
+          testing: 'true'
+        }
       });
     
     if (error) {
@@ -100,15 +107,30 @@ async function uploadImage(filePath, bucket) {
     
     console.log('\nUpload successful!');
     console.log(`Path: ${data.path}`);
-    console.log(`URL: ${urlData.publicUrl}`);
+    console.log(`Object URL: ${urlData.publicUrl}`);
     
-    // Try to get render URL for supported formats
-    if (['.jpg', '.jpeg', '.png'].includes(path.extname(filePath).toLowerCase())) {
+    // For WebP files, don't try to create a render URL
+    if (isWebP) {
+      console.log('\nFormat: WebP - using direct object URL for compatibility');
+    } else if (['.jpg', '.jpeg', '.png'].includes(path.extname(filePath).toLowerCase())) {
+      // Create render URL for supported formats
       const renderUrl = urlData.publicUrl
         .replace('/object/public', '/render/image/public')
         + '?width=800&quality=80&format=original';
       console.log(`Render URL: ${renderUrl}`);
     }
+    
+    // Verify format detection and extension
+    const fileExt = path.extname(data.path).toLowerCase();
+    const expectedExt = path.extname(filePath).toLowerCase();
+    if (fileExt !== expectedExt) {
+      console.warn(`\nWarning: File extension mismatch. Original: ${expectedExt}, Stored: ${fileExt}`);
+    }
+    
+    // Provide a verification command
+    console.log('\nTo verify the file was uploaded correctly, you can:');
+    console.log(`1. View it in browser: ${urlData.publicUrl}`);
+    console.log(`2. Download it: curl -o test_download${fileExt} "${urlData.publicUrl}"`);
     
     return data;
   } catch (error) {

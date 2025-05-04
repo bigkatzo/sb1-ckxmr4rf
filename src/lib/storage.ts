@@ -51,26 +51,41 @@ export function normalizeStorageUrl(url: string): string {
     
     // Step 5: Extract file extension to make format-specific decisions
     const fileExtension = path.split('.').pop()?.toLowerCase() || '';
-    const isWebP = fileExtension === 'webp';
-    const isGif = fileExtension === 'gif';
-    const isJpgOrPng = /^(jpe?g|png)$/i.test(fileExtension);
+    const isWebP = fileExtension === 'webp' || path.toLowerCase().includes('.webp');
+    const isGif = fileExtension === 'gif' || path.toLowerCase().includes('.gif');
+    const isSvg = fileExtension === 'svg' || path.toLowerCase().includes('.svg');
+    const isJpgOrPng = /\.(jpe?g|png)$/i.test(path);
     
     // Step 6: Handle based on URL type and file format
     
-    // Already a render URL - don't modify it unless it's WebP or GIF (which need object URLs)
+    // WebP, GIF, and SVG files should ALWAYS use object URLs (not render URLs)
+    // because they can have compatibility issues with the render endpoint
+    if (isWebP || isGif || isSvg) {
+      // If already has object URL format, return as is
+      if (path.includes('/storage/v1/object/public/')) {
+        return url;
+      }
+      
+      // If has render URL format, convert to object URL format
+      if (path.includes('/storage/v1/render/image/public/')) {
+        return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+      }
+    }
+    
+    // Already a render URL - don't modify it unless it's WebP, GIF or SVG
     if (path.includes('/storage/v1/render/image/')) {
-      if (isWebP || isGif) {
-        // Convert WebP/GIF render URLs to object URLs for better compatibility
+      if (isWebP || isGif || isSvg) {
+        // Convert to object URL for better compatibility
         const objectUrl = url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
         return objectUrl;
       }
       return url; // Leave other render URLs as-is
     }
     
-    // Object URL - conditionally convert to render URL
+    // Object URL - conditionally convert to render URL for supported formats
     if (path.includes('/storage/v1/object/public/')) {
-      // WebP and GIF should stay as object URLs for better compatibility
-      if (isWebP || isGif) {
+      // WebP, GIF, and SVG should stay as object URLs
+      if (isWebP || isGif || isSvg) {
         return url;
       }
       
@@ -89,7 +104,7 @@ export function normalizeStorageUrl(url: string): string {
         return `${parsedUrl.protocol}//${parsedUrl.host}${renderPath}?${params.toString()}`;
       }
       
-      // For unknown formats, keep as object URL
+      // For other formats, keep as object URL
       return url;
     }
     
@@ -220,9 +235,23 @@ async function optimizeImageBeforeUpload(
     preserveExif?: boolean;
   } = {}
 ): Promise<File> {
-  // Skip optimization for GIFs and SVGs
-  if (file.type === 'image/gif' || file.type === 'image/svg+xml') {
-    return file;
+  // Skip optimization for WebP, GIFs, and SVGs
+  if (file.type === 'image/webp' || file.type === 'image/gif' || file.type === 'image/svg+xml') {
+    console.info(`Skipping optimization for ${file.type} file to preserve quality`);
+    
+    // Still ensure we use our standard filename convention
+    const extension = file.name.split('.').pop()?.toLowerCase() || (file.type === 'image/webp' ? 'webp' : 'jpg');
+    const timestamp = new Date().toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/[T.]/g, '')
+      .slice(0, 14);
+    const randomString = Math.random().toString(36).substring(2, 14);
+    
+    return new File(
+      [file], 
+      `${timestamp}-${randomString}.${extension}`,
+      { type: file.type }
+    );
   }
   
   // Default options for good quality/size balance
@@ -283,6 +312,9 @@ export async function uploadImage(
   } = options;
 
   try {
+    // Check if this is a WebP image
+    const isWebP = file.type === 'image/webp' || file.name.toLowerCase().endsWith('.webp');
+    
     // Validate the file first
     validateFile(file, maxSizeMB);
     
@@ -309,7 +341,8 @@ export async function uploadImage(
         : bucket === 'product-images' 
           ? 'product' 
           : 'site',
-      optimized: 'true'
+      optimized: 'true',
+      format: isWebP ? 'webp' : (optimizedFile.type.split('/')[1] || 'unknown')
     };
 
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -338,10 +371,17 @@ export async function uploadImage(
       throw error;
     }
 
+    // Get the public URL with proper handling for WebP
     const { data: { publicUrl } } = supabase.storage
       .from(bucket)
       .getPublicUrl(uploadData.path);
     
+    // If it's a WebP file, use object URL directly for compatibility
+    if (isWebP) {
+      return publicUrl; // Return direct object URL for WebP
+    }
+    
+    // For other formats, use our normal URL normalization
     const baseUrl = new URL(publicUrl).origin;
     const renderUrl = `${baseUrl}/storage/v1/render/image/public/${bucket}/${uploadData.path}`;
     const finalUrl = normalizeStorageUrl(renderUrl);
