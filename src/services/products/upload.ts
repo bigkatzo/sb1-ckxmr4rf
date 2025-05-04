@@ -1,8 +1,17 @@
 import { uploadImage } from '../../lib/storage';
-import { toast } from 'react-toastify';
 
 export async function uploadProductImage(file: File): Promise<string> {
-  return uploadImage(file, 'product-images');
+  // Special handling for WebP files
+  const isWebP = file.type === 'image/webp' || file.name.toLowerCase().endsWith('.webp');
+  
+  if (isWebP) {
+    console.log(`WebP file detected: ${file.name} (${file.size} bytes). Using direct upload path.`);
+  }
+  
+  return uploadImage(file, 'product-images', {
+    // Pass special flag for WebP to ensure it's handled correctly
+    webpHandling: isWebP ? 'preserve' : undefined
+  });
 }
 
 export async function uploadProductImages(files: File[]): Promise<string[]> {

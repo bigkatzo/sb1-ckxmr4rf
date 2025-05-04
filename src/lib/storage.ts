@@ -17,6 +17,7 @@ interface UploadOptions {
   maxSizeMB?: number;
   cacheControl?: string;
   upsert?: boolean;
+  webpHandling?: 'preserve' | 'optimize';
 }
 
 // Normalize storage URLs to ensure consistent format
@@ -235,18 +236,24 @@ async function optimizeImageBeforeUpload(
     preserveExif?: boolean;
   } = {}
 ): Promise<File> {
+  // Check for WebP files both by MIME type and filename extension
+  const isWebP = file.type === 'image/webp' || file.name.toLowerCase().endsWith('.webp');
+  
   // Skip optimization for WebP, GIFs, and SVGs
-  if (file.type === 'image/webp' || file.type === 'image/gif' || file.type === 'image/svg+xml') {
+  if (isWebP || file.type === 'image/gif' || file.type === 'image/svg+xml') {
     console.info(`Skipping optimization for ${file.type} file to preserve quality`);
     
     // Still ensure we use our standard filename convention
-    const extension = file.name.split('.').pop()?.toLowerCase() || (file.type === 'image/webp' ? 'webp' : 'jpg');
+    const extension = file.name.split('.').pop()?.toLowerCase() || 
+      (isWebP ? 'webp' : file.type === 'image/gif' ? 'gif' : 'svg');
+    
     const timestamp = new Date().toISOString()
       .replace(/[-:]/g, '')
       .replace(/[T.]/g, '')
       .slice(0, 14);
     const randomString = Math.random().toString(36).substring(2, 14);
     
+    // Create a new File with consistent naming but keep the original content
     return new File(
       [file], 
       `${timestamp}-${randomString}.${extension}`,
@@ -308,30 +315,53 @@ export async function uploadImage(
   const {
     maxSizeMB = 5,
     cacheControl = '604800',
-    upsert = false
+    upsert = false,
+    webpHandling
   } = options;
 
   try {
-    // Check if this is a WebP image
+    // Detect WebP files both by MIME type and filename extension
     const isWebP = file.type === 'image/webp' || file.name.toLowerCase().endsWith('.webp');
     
     // Validate the file first
     validateFile(file, maxSizeMB);
     
-    // Optimize the image if possible
-    const optimizedFile = await optimizeImageBeforeUpload(file, {
-      maxSizeMB: Math.min(maxSizeMB, 2), // Keep at most 2MB even if allowed larger
-      maxWidthOrHeight: 1920,
-      useWebWorker: true
-    });
+    // WebP files need special handling
+    let fileToUpload: File;
+    
+    if (isWebP && webpHandling === 'preserve') {
+      // For WebP, bypass optimization completely and use original file
+      // Just rename the file to our timestamp-random format for consistency
+      const extension = '.webp';
+      const timestamp = new Date().toISOString()
+        .replace(/[-:]/g, '')
+        .replace(/[T.]/g, '')
+        .slice(0, 14);
+      const randomString = Math.random().toString(36).substring(2, 14);
+      
+      fileToUpload = new File(
+        [file], 
+        `${timestamp}-${randomString}${extension}`,
+        { type: 'image/webp' }
+      );
+      
+      console.log(`Using WebP preserve mode for ${file.name}. New filename: ${fileToUpload.name}`);
+    } else {
+      // For non-WebP files, use the normal optimization process
+      fileToUpload = await optimizeImageBeforeUpload(file, {
+        maxSizeMB: Math.min(maxSizeMB, 2), // Keep at most 2MB even if allowed larger
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      });
+    }
     
     // Generate a safe filename
-    const safeFileName = generateUniqueFileName(optimizedFile.name);
+    const safeFileName = generateUniqueFileName(fileToUpload.name);
     const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
 
     // Add metadata to track image association and upload time
     const metadata = {
-      contentType: optimizedFile.type,
+      contentType: fileToUpload.type,
       cacheControl,
       // Add tracking metadata
       lastAccessed: new Date().toISOString(),
@@ -341,15 +371,17 @@ export async function uploadImage(
         : bucket === 'product-images' 
           ? 'product' 
           : 'site',
-      optimized: 'true',
-      format: isWebP ? 'webp' : (optimizedFile.type.split('/')[1] || 'unknown')
+      optimized: isWebP && webpHandling === 'preserve' ? 'false' : 'true',
+      format: isWebP ? 'webp' : (fileToUpload.type.split('/')[1] || 'unknown')
     };
 
+    console.log(`Uploading ${isWebP ? 'WebP' : 'image'} file to ${bucket}: ${cleanPath}`);
+    
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(cleanPath, optimizedFile, {
+      .upload(cleanPath, fileToUpload, {
         cacheControl,
-        contentType: optimizedFile.type,
+        contentType: fileToUpload.type,
         upsert,
         metadata
       });
@@ -378,6 +410,7 @@ export async function uploadImage(
     
     // If it's a WebP file, use object URL directly for compatibility
     if (isWebP) {
+      console.log(`Using direct object URL for WebP: ${publicUrl}`);
       return publicUrl; // Return direct object URL for WebP
     }
     
