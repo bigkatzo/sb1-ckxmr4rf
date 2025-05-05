@@ -357,11 +357,11 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
       }
     }
 
+    // Update the sale_ended status directly instead of using the RPC function
     const { error } = await supabase
-      .rpc('toggle_product_sale_ended', {
-        p_product_id: id,
-        p_sale_ended: saleEnded
-      });
+      .from('products')
+      .update({ sale_ended: saleEnded })
+      .eq('id', id);
 
     if (error) throw error;
     
