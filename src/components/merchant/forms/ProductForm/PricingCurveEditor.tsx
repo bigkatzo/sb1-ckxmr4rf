@@ -352,9 +352,6 @@ export function PricingCurveEditor() {
                   className="text-sm font-medium text-white block mb-1"
                 >
                   Post-MOQ Increase (%)
-                  {hasUnlimitedStock && (
-                    <span className="ml-1 text-xs text-amber-400">(Requires limited stock)</span>
-                  )}
                 </label>
                 <div className="flex items-center gap-1">
                   <input
