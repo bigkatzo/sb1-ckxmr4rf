@@ -25,7 +25,7 @@ export function DropdownMenu({
   items,
   triggerIcon = <MoreVertical className="h-4 w-4" />,
   triggerClassName = "p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md",
-  menuClassName = "bg-gray-800 rounded-md shadow-lg py-1 min-w-[140px]",
+  menuClassName = "bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px]",
   position = 'right'
 }: DropdownMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -80,7 +80,7 @@ export function DropdownMenu({
                   <Link
                     key={index}
                     to={item.to}
-                    className={`block w-full text-left px-2 py-2 sm:px-3 sm:py-1.5 flex items-center gap-1.5 hover:bg-gray-700 transition-colors text-[13px] sm:text-xs whitespace-nowrap ${
+                    className={`block w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors text-sm whitespace-nowrap ${
                       item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
                     }`}
                     onClick={() => setIsOpen(false)}
@@ -95,7 +95,7 @@ export function DropdownMenu({
                     key={index}
                     href={item.href}
                     target={item.target || '_self'}
-                    className={`block w-full text-left px-2 py-2 sm:px-3 sm:py-1.5 flex items-center gap-1.5 hover:bg-gray-700 transition-colors text-[13px] sm:text-xs whitespace-nowrap ${
+                    className={`block w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors text-sm whitespace-nowrap ${
                       item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
                     }`}
                     onClick={() => setIsOpen(false)}
@@ -109,7 +109,7 @@ export function DropdownMenu({
                   <button
                     key={index}
                     onClick={(e) => handleItemClick(e, item)}
-                    className={`w-full text-left px-2 py-2 sm:px-3 sm:py-1.5 flex items-center gap-1.5 hover:bg-gray-700 transition-colors text-[13px] sm:text-xs whitespace-nowrap ${
+                    className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors text-sm whitespace-nowrap ${
                       item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
                     }`}
                   >
