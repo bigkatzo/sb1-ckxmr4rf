@@ -92,13 +92,13 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
   // Create a submit handler that processes the form data
   const processSubmit = async (data: any) => {
     try {
-      setLoading(true);
-      setError(null);
-      
+    setLoading(true);
+    setError(null);
+
       console.log("Form submission data:", data);
       
       const formData = new FormData();
-      
+
       // Add all form state data
       Object.entries(data).forEach(([key, value]) => {
         const val = value as any; // Cast to any to handle all possible types
@@ -126,13 +126,13 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         formData.append('notes.quality', '');
         formData.append('notes.returns', '');
       }
-      
+
       // Make sure freeNotes is included (it can be an empty string)
       formData.append('freeNotes', data.freeNotes || '');
       
       // Explicitly add saleEnded even though it's already included in the object entries loop
       formData.set('saleEnded', data.saleEnded.toString());
-      
+
       // DIRECT ACCESS TO IMAGE FILES: Use our component state directly
       console.log("Image files from direct state:", imageFiles.length, "files");
       
