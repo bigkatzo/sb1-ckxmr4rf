@@ -30,46 +30,52 @@ export function normalizeStorageUrl(url: string): string {
       return url;
     }
 
-    // Step 2: Parse the URL to handle it properly
+    // Step 2: Ensure there are no double slashes in the path (except in protocol)
+    // This fixes issues with URLs like "storage/v1/object/public/bucket//filename.ext"
+    const fixedUrl = url.replace(/([^:])\/\//g, '$1/');
+
+    // Step 3: Parse the URL to handle it properly
     let parsedUrl: URL;
     try {
-      parsedUrl = new URL(url);
+      parsedUrl = new URL(fixedUrl);
     } catch (e) {
       // If we can't parse as full URL, try adding a base
       try {
-        parsedUrl = new URL(url, 'https://example.com');
+        parsedUrl = new URL(fixedUrl, 'https://example.com');
       } catch {
-        // If still can't parse, return unchanged
-        return url;
+        // If still can't parse, return the fixed URL
+        return fixedUrl;
       }
     }
     
-    // Step 3: Ensure HTTPS
+    // Step 4: Ensure HTTPS
     parsedUrl.protocol = 'https:';
     
-    // Step 4: Get the path and determine format from extension
+    // Step 5: Get the path and determine format from extension
     const path = parsedUrl.pathname;
     
-    // Step 5: Extract file extension to make format-specific decisions
+    // Step 6: Extract file extension to make format-specific decisions
     const fileExtension = path.split('.').pop()?.toLowerCase() || '';
     const isWebP = fileExtension === 'webp' || path.toLowerCase().includes('.webp');
     const isGif = fileExtension === 'gif' || path.toLowerCase().includes('.gif');
     const isSvg = fileExtension === 'svg' || path.toLowerCase().includes('.svg');
     const isJpgOrPng = /\.(jpe?g|png)$/i.test(path);
     
-    // Step 6: Handle based on URL type and file format
+    // Step 7: Handle based on URL type and file format
     
     // WebP, GIF, and SVG files should ALWAYS use object URLs (not render URLs)
     // because they can have compatibility issues with the render endpoint
     if (isWebP || isGif || isSvg) {
-      // If already has object URL format, return as is
+      // If already has object URL format, return the fixed URL
       if (path.includes('/storage/v1/object/public/')) {
-        return url;
+        // Ensure the URL is properly formatted with no double slashes
+        return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
       }
       
       // If has render URL format, convert to object URL format
       if (path.includes('/storage/v1/render/image/public/')) {
-        return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+        const objectPath = path.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+        return `${parsedUrl.protocol}//${parsedUrl.host}${objectPath}`;
       }
     }
     
@@ -77,17 +83,17 @@ export function normalizeStorageUrl(url: string): string {
     if (path.includes('/storage/v1/render/image/')) {
       if (isWebP || isGif || isSvg) {
         // Convert to object URL for better compatibility
-        const objectUrl = url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
-        return objectUrl;
+        const objectPath = path.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+        return `${parsedUrl.protocol}//${parsedUrl.host}${objectPath}`;
       }
-      return url; // Leave other render URLs as-is
+      return `${parsedUrl.protocol}//${parsedUrl.host}${path}${parsedUrl.search}`; // Leave other render URLs as-is
     }
     
     // Object URL - conditionally convert to render URL for supported formats
     if (path.includes('/storage/v1/object/public/')) {
       // WebP, GIF, and SVG should stay as object URLs
       if (isWebP || isGif || isSvg) {
-        return url;
+        return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
       }
       
       // JPG/PNG formats work well with render endpoint
@@ -106,15 +112,15 @@ export function normalizeStorageUrl(url: string): string {
       }
       
       // For other formats, keep as object URL
-      return url;
+      return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
     }
     
-    // Not a storage URL we recognize, return unchanged
-    return url;
+    // Not a storage URL we recognize, return the fixed URL
+    return fixedUrl;
   } catch (error) {
-    console.error('Error normalizing URL:', error);
-    // Return original URL if anything goes wrong
-    return url;
+    console.error('Error normalizing URL:', error, { originalUrl: url });
+    // Fix double slashes in case the URL can't be parsed
+    return url.replace(/([^:])\/\//g, '$1/');
   }
 }
 
@@ -355,9 +361,9 @@ export async function uploadImage(
       });
     }
     
-    // Generate a safe filename
-    const safeFileName = generateUniqueFileName(fileToUpload.name);
-    const cleanPath = safeFileName.replace(/^\/+|\/+$/g, '');
+    // Use the filename that's already been safely generated during the previous steps
+    // Instead of generating it again with generateUniqueFileName
+    const cleanPath = fileToUpload.name.replace(/^\/+|\/+$/g, '');
 
     // Add metadata to track image association and upload time
     const metadata = {
@@ -408,15 +414,20 @@ export async function uploadImage(
       .from(bucket)
       .getPublicUrl(uploadData.path);
     
+    // Fix any double slashes in the URL (except after protocol)
+    const fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
+    
     // If it's a WebP file, use object URL directly for compatibility
     if (isWebP) {
-      console.log(`Using direct object URL for WebP: ${publicUrl}`);
-      return publicUrl; // Return direct object URL for WebP
+      console.log(`Using direct object URL for WebP: ${fixedUrl}`);
+      return fixedUrl; // Return direct object URL for WebP
     }
     
     // For other formats, use our normal URL normalization
-    const baseUrl = new URL(publicUrl).origin;
-    const renderUrl = `${baseUrl}/storage/v1/render/image/public/${bucket}/${uploadData.path}`;
+    const baseUrl = new URL(fixedUrl).origin;
+    const bucketPath = bucket.replace(/^\/+|\/+$/g, '');
+    const filePath = uploadData.path.replace(/^\/+|\/+$/g, '');
+    const renderUrl = `${baseUrl}/storage/v1/render/image/public/${bucketPath}/${filePath}`;
     const finalUrl = normalizeStorageUrl(renderUrl);
     
     await verifyUrlAccessibility(finalUrl);
