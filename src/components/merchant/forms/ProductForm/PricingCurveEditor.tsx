@@ -41,6 +41,13 @@ export function PricingCurveEditor() {
     }
   }, [stock, moq, hasUnlimitedStock, setValue, trigger]);
   
+  // Effect to reset post-MOQ modifier when stock becomes unlimited
+  useEffect(() => {
+    if (hasUnlimitedStock && modifierAfter !== null) {
+      setValue('priceModifierAfterMin', null);
+    }
+  }, [hasUnlimitedStock, modifierAfter, setValue]);
+  
   // Prepare chart data
   const chartData = useMemo(() => {
     const data = [];
@@ -345,6 +352,9 @@ export function PricingCurveEditor() {
                   className="text-sm font-medium text-white block mb-1"
                 >
                   Post-MOQ Increase (%)
+                  {hasUnlimitedStock && (
+                    <span className="ml-1 text-xs text-amber-400">(Requires limited stock)</span>
+                  )}
                 </label>
                 <div className="flex items-center gap-1">
                   <input
@@ -353,15 +363,20 @@ export function PricingCurveEditor() {
                     min="0"
                     value={modifierAfterPercent}
                     onChange={(e) => handlePercentageChange('priceModifierAfterMin', e.target.value)}
-                    className="w-20 bg-gray-800 rounded-lg px-2 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                    className={`w-20 bg-gray-800 rounded-lg px-2 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary ${hasUnlimitedStock ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={hasUnlimitedStock}
                   />
                   <span className="text-sm text-white">%</span>
                 </div>
               </div>
               <div className="text-xs text-gray-300 mt-1">
-                {modifierAfter ? 
-                  `Late buyers pay up to ${(modifierAfter * 100).toFixed(0)}% more (${maxPrice.toFixed(2)} SOL)` : 
-                  'No late pricing adjustment'}
+                {hasUnlimitedStock ? (
+                  'Post-MOQ price increases are only available with limited stock'
+                ) : (
+                  modifierAfter ? 
+                    `Late buyers pay up to ${(modifierAfter * 100).toFixed(0)}% more (${maxPrice.toFixed(2)} SOL)` : 
+                    'No late pricing adjustment'
+                )}
               </div>
             </div>
           </div>
