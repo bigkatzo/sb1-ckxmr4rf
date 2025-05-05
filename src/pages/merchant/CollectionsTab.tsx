@@ -1,20 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Image as ImageIcon, EyeOff, Ban } from 'lucide-react';
 import { CollectionForm } from '../../components/merchant/forms/CollectionForm';
-import { CollectionListItem } from '../../components/merchant/CollectionListItem';
-import { 
-  createCollection, 
-  updateCollection, 
-  toggleFeatured, 
-  deleteCollection,
-  toggleVisibility,
-  toggleSaleEnded
-} from '../../services/collections';
+import { createCollection, updateCollection, toggleFeatured, deleteCollection } from '../../services/collections';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
+import { EditButton } from '../../components/ui/EditButton';
+import { StarButton } from '../../components/ui/StarButton';
+import { DeleteButton } from '../../components/ui/DeleteButton';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import { supabase } from '../../lib/supabase';
+import { OptimizedImage } from '../../components/ui/OptimizedImage';
 
 export function CollectionsTab() {
   const [showForm, setShowForm] = useState(false);
@@ -23,7 +19,6 @@ export function CollectionsTab() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMerchant, setIsMerchant] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const { collections, loading: collectionsLoading, refreshing, refetch } = useMerchantCollections();
 
@@ -64,43 +59,12 @@ export function CollectionsTab() {
 
   const handleToggleFeatured = async (id: string, featured: boolean) => {
     try {
-      setActionLoading(id);
-      await toggleFeatured(id, featured);
-      toast.success(`Collection ${featured ? 'featured' : 'unfeatured'} successfully`);
+      await toggleFeatured(id, !featured);
+      toast.success(`Collection ${!featured ? 'featured' : 'unfeatured'} successfully`);
       refetch();
     } catch (error) {
       console.error('Error toggling featured status:', error);
       toast.error('Failed to toggle featured status');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleToggleVisibility = async (id: string, visible: boolean) => {
-    try {
-      setActionLoading(id);
-      await toggleVisibility(id, visible);
-      toast.success(`Collection ${visible ? 'shown' : 'hidden'} successfully`);
-      refetch();
-    } catch (error) {
-      console.error('Error toggling visibility:', error);
-      toast.error('Failed to toggle visibility');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleToggleSaleEnded = async (id: string, saleEnded: boolean) => {
-    try {
-      setActionLoading(id);
-      await toggleSaleEnded(id, saleEnded);
-      toast.success(`Sale ${saleEnded ? 'ended' : 'resumed'} successfully`);
-      refetch();
-    } catch (error) {
-      console.error('Error toggling sale status:', error);
-      toast.error('Failed to toggle sale status');
-    } finally {
-      setActionLoading(null);
     }
   };
 
@@ -158,43 +122,108 @@ export function CollectionsTab() {
         <div className="space-y-3">
           {collections.map((collection) => {
             const canEdit = isAdmin || collection.isOwner || collection.accessType === 'edit';
-            const isActionDisabled = actionLoading === collection.id;
-            
-            // Map collection data to format expected by CollectionListItem component
-            const collectionProps = {
-              id: collection.id,
-              name: collection.name,
-              description: collection.description,
-              imageUrl: collection.imageUrl,
-              launchDate: collection.launchDate,
-              visible: collection.visible,
-              saleEnded: collection.saleEnded,
-              featured: collection.featured,
-              isOwner: collection.isOwner,
-              accessType: collection.accessType,
-              owner_username: collection.owner_username
-            };
             
             return (
-              <CollectionListItem
-                key={collection.id}
-                collection={collectionProps}
-                isAdmin={isAdmin}
-                onEdit={canEdit ? () => {
-                  setEditingCollection(collection);
-                  setShowForm(true);
-                } : undefined}
-                onDelete={canEdit && !isActionDisabled ? () => {
-                  setDeletingId(collection.id);
-                  setShowConfirmDialog(true);
-                } : undefined}
-                onToggleVisibility={canEdit && !isActionDisabled ? 
-                  (visible) => handleToggleVisibility(collection.id, visible) : undefined}
-                onToggleSaleEnded={canEdit && !isActionDisabled ? 
-                  (saleEnded) => handleToggleSaleEnded(collection.id, saleEnded) : undefined}
-                onToggleFeatured={isAdmin && !isActionDisabled ? 
-                  (featured) => handleToggleFeatured(collection.id, featured) : undefined}
-              />
+              <div key={collection.id} className="bg-gray-900 rounded-lg p-3 group">
+                <div className="flex items-start gap-3">
+                  <div className="relative h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
+                    {collection.imageUrl ? (
+                      <OptimizedImage
+                        src={collection.imageUrl}
+                        alt={collection.name}
+                        width={160}
+                        height={160}
+                        quality={75}
+                        className="object-cover w-full h-full"
+                        sizes="80px"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <ImageIcon className="h-6 w-6 text-gray-600" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-sm truncate">{collection.name}</h3>
+                          <div className="flex items-center gap-1">
+                            {collection.visible === false && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
+                                <EyeOff className="h-3 w-3" />
+                                Hidden
+                              </span>
+                            )}
+                            {collection.saleEnded && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
+                                <Ban className="h-3 w-3" />
+                                Sale Ended
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-gray-400 text-xs line-clamp-2 mt-1">
+                          {collection.description}
+                        </p>
+                        <p className="text-white text-xs mt-2">
+                          Launches {new Date(collection.launchDate).toLocaleDateString()}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2">
+                          {isAdmin ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
+                              Owner: {collection.owner_username}
+                            </span>
+                          ) : (
+                            <>
+                              {collection.isOwner ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-purple-500/20 text-purple-400">
+                                  Owner
+                                </span>
+                              ) : (
+                                <>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium ${
+                                    collection.accessType === 'edit' 
+                                      ? 'bg-blue-500/20 text-blue-400'
+                                      : 'bg-gray-500/20 text-gray-400'
+                                  }`}>
+                                    {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
+                                  </span>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {canEdit && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {isAdmin && (
+                            <StarButton
+                              featured={collection.featured}
+                              onClick={() => handleToggleFeatured(collection.id, collection.featured)}
+                              className="scale-90"
+                            />
+                          )}
+                          <EditButton 
+                            onClick={() => {
+                              setEditingCollection(collection);
+                              setShowForm(true);
+                            }}
+                            className="scale-90"
+                          />
+                          <DeleteButton 
+                            onClick={() => {
+                              setDeletingId(collection.id);
+                              setShowConfirmDialog(true);
+                            }}
+                            className="scale-90"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             );
           })}
         </div>

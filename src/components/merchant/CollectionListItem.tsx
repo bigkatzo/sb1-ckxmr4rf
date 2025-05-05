@@ -42,7 +42,7 @@ export function CollectionListItem({
     dropdownItems.push({
       label: collection.visible ? 'Hide Collection' : 'Show Collection',
       icon: collection.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
-      onClick: () => onToggleVisibility(!collection.visible)
+      onClick: () => onToggleVisibility(collection.visible)
     });
   }
   
@@ -50,7 +50,7 @@ export function CollectionListItem({
     dropdownItems.push({
       label: collection.saleEnded ? 'Resume Sale' : 'End Sale',
       icon: <Tag className="h-4 w-4" />,
-      onClick: () => onToggleSaleEnded(!collection.saleEnded)
+      onClick: () => onToggleSaleEnded(collection.saleEnded)
     });
   }
   
@@ -139,7 +139,7 @@ export function CollectionListItem({
               {isAdmin && onToggleFeatured && (
                 <StarButton
                   featured={collection.featured || false}
-                  onClick={() => onToggleFeatured(!collection.featured)}
+                  onClick={() => onToggleFeatured(collection.featured || false)}
                   className="scale-90"
                 />
               )}
