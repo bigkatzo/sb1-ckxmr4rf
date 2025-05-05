@@ -1,9 +1,9 @@
-import { Image as ImageIcon, EyeOff, Ban, Copy } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Copy, Edit, Trash, Eye, Tag } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
-import { DeleteButton } from '../ui/DeleteButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useOrderStats } from '../../hooks/useOrderStats';
 import { getCategoryColorSet } from '../../utils/category-colors';
+import { DropdownMenu } from '../ui/DropdownMenu';
 import type { Product } from '../../types/variants';
 
 interface ProductListItemProps {
@@ -11,6 +11,8 @@ interface ProductListItemProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  onToggleVisibility?: (visible: boolean) => void;
+  onToggleSaleEnded?: (saleEnded: boolean) => void;
   onClick?: () => void;
   categoryIndex?: number;
 }
@@ -20,6 +22,8 @@ export function ProductListItem({
   onEdit, 
   onDelete,
   onDuplicate,
+  onToggleVisibility,
+  onToggleSaleEnded,
   onClick,
   categoryIndex = 0 
 }: ProductListItemProps) {
@@ -28,18 +32,6 @@ export function ProductListItem({
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
-  const handleEditClick = () => {
-    onEdit?.();
-  };
-
-  const handleDeleteClick = () => {
-    onDelete?.();
-  };
-
-  const handleDuplicateClick = () => {
-    onDuplicate?.();
-  };
-
   const getStockDisplay = () => {
     if (loading) return "Loading...";
     if (product.stock === null) return 'Unlimited';
@@ -47,6 +39,50 @@ export function ProductListItem({
     if (remaining <= 0) return `0/${product.stock} (Sold out)`;
     return `${remaining}/${product.stock}`;
   };
+
+  // Generate dropdown menu items based on available actions
+  const dropdownItems = [];
+  
+  if (onEdit) {
+    dropdownItems.push({
+      label: 'Edit',
+      icon: <Edit className="h-4 w-4" />,
+      onClick: onEdit
+    });
+  }
+  
+  if (onDuplicate) {
+    dropdownItems.push({
+      label: 'Duplicate',
+      icon: <Copy className="h-4 w-4" />,
+      onClick: onDuplicate
+    });
+  }
+  
+  if (onToggleVisibility) {
+    dropdownItems.push({
+      label: product.visible ? 'Hide Product' : 'Show Product',
+      icon: product.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
+      onClick: () => onToggleVisibility(!product.visible)
+    });
+  }
+  
+  if (onToggleSaleEnded && !product.categorySaleEnded && !product.collectionSaleEnded) {
+    dropdownItems.push({
+      label: product.saleEnded ? 'Resume Sale' : 'End Sale',
+      icon: <Tag className="h-4 w-4" />,
+      onClick: () => onToggleSaleEnded(!product.saleEnded)
+    });
+  }
+  
+  if (onDelete) {
+    dropdownItems.push({
+      label: 'Delete',
+      icon: <Trash className="h-4 w-4" />,
+      onClick: onDelete,
+      destructive: true
+    });
+  }
 
   return (
     <div 
@@ -113,20 +149,13 @@ export function ProductListItem({
             </div>
             
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {onDuplicate && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDuplicateClick();
-                  }}
-                  className="p-1 text-gray-400 hover:text-blue-400 transition-colors rounded-md scale-90"
-                  title="Duplicate product"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
+              {onEdit && <EditButton onClick={() => onEdit()} className="scale-90" />}
+              {dropdownItems.length > 0 && (
+                <DropdownMenu 
+                  items={dropdownItems}
+                  triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
+                />
               )}
-              {onEdit && <EditButton onClick={handleEditClick} className="scale-90" />}
-              {onDelete && <DeleteButton onClick={handleDeleteClick} className="scale-90" />}
             </div>
           </div>
           

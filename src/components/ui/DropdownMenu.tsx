@@ -1,0 +1,86 @@
+import { useState, useRef, useEffect } from 'react';
+import { MoreVertical } from 'lucide-react';
+
+export interface DropdownItem {
+  label: string;
+  icon?: React.ReactNode;
+  onClick: () => void;
+  destructive?: boolean;
+}
+
+interface DropdownMenuProps {
+  items: DropdownItem[];
+  triggerIcon?: React.ReactNode;
+  triggerClassName?: string;
+  menuClassName?: string;
+  position?: 'left' | 'right';
+}
+
+export function DropdownMenu({
+  items,
+  triggerIcon = <MoreVertical className="h-4 w-4" />,
+  triggerClassName = "p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md",
+  menuClassName = "bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px]",
+  position = 'right'
+}: DropdownMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle clicks outside dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const toggleDropdown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsOpen(!isOpen);
+  };
+
+  const handleItemClick = (e: React.MouseEvent, item: DropdownItem) => {
+    e.stopPropagation();
+    item.onClick();
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={toggleDropdown}
+        className={triggerClassName}
+        title="More options"
+      >
+        {triggerIcon}
+      </button>
+
+      {isOpen && (
+        <div 
+          className={`absolute z-10 mt-1 ${position === 'right' ? 'right-0' : 'left-0'} ${menuClassName}`}
+        >
+          <div className="overflow-hidden">
+            {items.map((item, index) => (
+              <button
+                key={index}
+                onClick={(e) => handleItemClick(e, item)}
+                className={`w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors ${
+                  item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+} 

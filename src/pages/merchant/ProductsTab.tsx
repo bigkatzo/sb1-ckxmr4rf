@@ -5,7 +5,14 @@ import { ProductListItem } from '../../components/merchant/ProductListItem';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
 import { useProducts } from '../../hooks/useProducts';
-import { createProduct, updateProduct, deleteProduct, getProductForDuplication } from '../../services/products';
+import { 
+  createProduct, 
+  updateProduct, 
+  deleteProduct, 
+  getProductForDuplication,
+  toggleSaleEnded,
+  toggleProductVisibility
+} from '../../services/products';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
@@ -19,6 +26,7 @@ export function ProductsTab() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const { collections, loading: collectionsLoading } = useMerchantCollections();
   const { categories } = useCategories(selectedCollection);
@@ -31,11 +39,16 @@ export function ProductsTab() {
     try {
       setFormLoading(true);
       if (editingProduct && editingProduct.id) {
+        // Update existing product
         await updateProduct(editingProduct.id, data);
         toast.success('Product updated successfully');
       } else {
+        // Create new product
+        // Make sure the collection ID is correctly set
         data.append('collection', selectedCollection);
         
+        // If we're duplicating a product (editingProduct exists but has no ID)
+        // Make sure the existing images are properly included
         if (editingProduct && editingProduct.images && !data.has('currentImages')) {
           data.append('currentImages', JSON.stringify(editingProduct.images));
         }
@@ -106,6 +119,40 @@ export function ProductsTab() {
       toast.error(errorMessage);
     } finally {
       setDuplicating(false);
+    }
+  };
+
+  const handleToggleVisibility = async (productId: string, visible: boolean) => {
+    try {
+      setActionLoading(productId);
+      const { success } = await toggleProductVisibility(productId, visible);
+      if (success) {
+        toast.success(`Product ${visible ? 'shown' : 'hidden'} successfully`);
+        refreshProducts();
+      }
+    } catch (error) {
+      console.error('Error toggling product visibility:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error updating product';
+      toast.error(errorMessage);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleSaleEnded = async (productId: string, saleEnded: boolean) => {
+    try {
+      setActionLoading(productId);
+      const { success } = await toggleSaleEnded(productId, saleEnded);
+      if (success) {
+        toast.success(`Sale ${saleEnded ? 'ended' : 'resumed'} successfully`);
+        refreshProducts();
+      }
+    } catch (error) {
+      console.error('Error toggling sale status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error updating product';
+      toast.error(errorMessage);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -183,6 +230,7 @@ export function ProductsTab() {
           {products.map((product) => {
             const collection = collections.find(c => c.id === selectedCollection);
             const canEdit = collection && (collection.isOwner || collection.accessType === 'edit');
+            const isActionDisabled = actionLoading === product.id || duplicating;
             
             return (
               <ProductListItem
@@ -193,11 +241,13 @@ export function ProductsTab() {
                   setEditingProduct(product);
                   setShowForm(true);
                 } : undefined}
-                onDelete={canEdit ? () => {
+                onDelete={canEdit && !isActionDisabled ? () => {
                   setDeletingId(product.id);
                   setShowConfirmDialog(true);
                 } : undefined}
-                onDuplicate={canEdit && !duplicating ? () => handleDuplicate(product.id) : undefined}
+                onDuplicate={canEdit && !isActionDisabled ? () => handleDuplicate(product.id) : undefined}
+                onToggleVisibility={canEdit && !isActionDisabled ? (visible) => handleToggleVisibility(product.id, visible) : undefined}
+                onToggleSaleEnded={canEdit && !isActionDisabled ? (saleEnded) => handleToggleSaleEnded(product.id, saleEnded) : undefined}
               />
             );
           })}

@@ -369,6 +369,60 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
   });
 }
 
+export async function toggleProductVisibility(id: string, visible: boolean) {
+  return retry(async () => {
+    // Verify user authentication and ownership
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('User not authenticated');
+
+    // First check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+
+    // If not admin, verify ownership through the collection
+    if (!isAdmin) {
+      const { data: ownerCheck, error: ownerError } = await supabase
+        .from('products')
+        .select(`
+          id,
+          collection_id,
+          collections (
+            user_id
+          )
+        `)
+        .eq('id', id)
+        .limit(1)
+        .maybeSingle();
+
+      const hasOwnership = ownerCheck &&
+        ownerCheck.collections &&
+        Array.isArray(ownerCheck.collections) &&
+        ownerCheck.collections.length > 0 &&
+        ownerCheck.collections[0].user_id === user.id;
+
+      if (ownerError || !hasOwnership) {
+        throw new Error('Product not found or access denied');
+      }
+    }
+
+    // Update product visibility
+    const { error } = await supabase
+      .from('products')
+      .update({ visible })
+      .eq('id', id);
+
+    if (error) throw error;
+    
+    return { success: true };
+  });
+}
+
 export async function getProductForDuplication(id: string) {
   return retry(async () => {
     try {
