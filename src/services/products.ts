@@ -49,8 +49,25 @@ export async function createProduct(collectionId: string, data: FormData) {
     const freeNotesValue = data.get('freeNotes');
     const freeNotes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
 
-    // Upload images AFTER all validation has passed
-    const images: string[] = [];
+    // Initialize images array
+    let images: string[] = [];
+    
+    // First, check if there are existing images from a duplicated product
+    const currentImagesStr = data.get('currentImages') as string;
+    if (currentImagesStr) {
+      try {
+        const currentImages = JSON.parse(currentImagesStr);
+        if (Array.isArray(currentImages) && currentImages.length > 0) {
+          // These are existing image URLs from storage that should be reused
+          images = [...currentImages];
+          console.log('Reusing existing images for new product:', images);
+        }
+      } catch (error) {
+        console.error('Error parsing currentImages:', error);
+      }
+    }
+
+    // Upload new images AFTER all validation has passed
     console.log('Starting image processing for product creation');
     
     // Debug: List all form data keys to see what's present

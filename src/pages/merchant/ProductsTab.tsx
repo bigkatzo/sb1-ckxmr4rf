@@ -35,6 +35,11 @@ export function ProductsTab() {
         toast.success('Product updated successfully');
       } else {
         data.append('collection', selectedCollection);
+        
+        if (editingProduct && editingProduct.images && !data.has('currentImages')) {
+          data.append('currentImages', JSON.stringify(editingProduct.images));
+        }
+        
         await createProduct(selectedCollection, data);
         toast.success('Product created successfully');
       }
