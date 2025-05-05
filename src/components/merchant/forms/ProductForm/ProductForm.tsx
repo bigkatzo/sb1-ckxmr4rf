@@ -38,6 +38,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     sku: initialData?.sku || '',
     minimumOrderQuantity: initialData?.minimumOrderQuantity || 50,
     visible: initialData?.visible ?? true,
+    saleEnded: initialData?.saleEnded ?? false,
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
     priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
     // CRITICAL FIX: Ensure notes is properly initialized with valid structure
@@ -90,16 +91,14 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
 
   // Create a submit handler that processes the form data
   const processSubmit = async (data: any) => {
-    // Prevent multiple submissions
-    if (loading || uploading) return;
-    
-    setLoading(true);
-    setError(null);
-
     try {
+      setLoading(true);
+      setError(null);
+      
       console.log("Form submission data:", data);
+      
       const formData = new FormData();
-
+      
       // Add all form state data
       Object.entries(data).forEach(([key, value]) => {
         const val = value as any; // Cast to any to handle all possible types
@@ -127,10 +126,13 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         formData.append('notes.quality', '');
         formData.append('notes.returns', '');
       }
-
+      
       // Make sure freeNotes is included (it can be an empty string)
       formData.append('freeNotes', data.freeNotes || '');
-
+      
+      // Explicitly add saleEnded even though it's already included in the object entries loop
+      formData.set('saleEnded', data.saleEnded.toString());
+      
       // DIRECT ACCESS TO IMAGE FILES: Use our component state directly
       console.log("Image files from direct state:", imageFiles.length, "files");
       
@@ -181,6 +183,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
 
   // Get the current visibility value, ensuring it's a boolean
   const isVisible = methods.watch('visible') === true;
+  const isSaleEnded = methods.watch('saleEnded') === true;
 
   return (
     <FormProvider {...methods}>
@@ -232,6 +235,27 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
               </div>
               <p className="text-xs text-gray-400 ml-11">
                 When disabled, this product will be hidden from the storefront
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white mb-1">
+              End Sale
+            </label>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Toggle
+                  checked={isSaleEnded}
+                  onCheckedChange={(newValue: boolean) => {
+                    methods.setValue('saleEnded', newValue, { shouldDirty: true });
+                  }}
+                  size="md"
+                />
+                <span className="text-sm text-white">End Sale</span>
+              </div>
+              <p className="text-xs text-gray-400 ml-11">
+                When enabled, this product will show as 'Sale Ended' and will not be purchasable
               </p>
             </div>
           </div>

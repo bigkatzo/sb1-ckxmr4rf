@@ -110,6 +110,7 @@ export async function createProduct(collectionId: string, data: FormData) {
         price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
         price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
         visible: data.get('visible') === 'true',
+        sale_ended: data.get('saleEnded') === 'true',
         notes,
         free_notes: freeNotes
       });
@@ -161,6 +162,7 @@ export async function updateProduct(id: string, data: FormData) {
       category_id: categoryId,
       minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
       visible: data.get('visible') === 'true',
+      sale_ended: data.get('saleEnded') === 'true',
       price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
       price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
     };
@@ -294,4 +296,58 @@ export async function deleteProduct(id: string) {
     console.error('Error deleting product:', error);
     throw error;
   }
+}
+
+export async function toggleSaleEnded(id: string, saleEnded: boolean) {
+  return retry(async () => {
+    // Verify user authentication and ownership
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('User not authenticated');
+
+    // First check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+
+    // If not admin, verify ownership through the collection
+    if (!isAdmin) {
+      const { data: ownerCheck, error: ownerError } = await supabase
+        .from('products')
+        .select(`
+          id,
+          collection_id,
+          collections (
+            user_id
+          )
+        `)
+        .eq('id', id)
+        .limit(1)
+        .maybeSingle();
+
+      const hasOwnership = ownerCheck &&
+        ownerCheck.collections &&
+        Array.isArray(ownerCheck.collections) &&
+        ownerCheck.collections.length > 0 &&
+        ownerCheck.collections[0].user_id === user.id;
+
+      if (ownerError || !hasOwnership) {
+        throw new Error('Product not found or access denied');
+      }
+    }
+
+    const { error } = await supabase
+      .rpc('toggle_product_sale_ended', {
+        p_product_id: id,
+        p_sale_ended: saleEnded
+      });
+
+    if (error) throw error;
+    
+    return { success: true };
+  });
 }

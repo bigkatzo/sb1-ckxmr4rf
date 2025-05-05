@@ -22,12 +22,14 @@ const preloadedImages = new Set<string>();
 interface Product extends BaseProduct {
   collectionLaunchDate?: Date;
   collectionSaleEnded?: boolean;
+  categorySaleEnded?: boolean;
   notes?: {
     shipping?: string;
     quality?: string;
     returns?: string;
   };
   freeNotes?: string;
+  saleEnded?: boolean;
 }
 
 interface ProductModalProps {
@@ -390,9 +392,9 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     ? product.variants!.every((variant: { id: string }) => selectedOptions[variant.id])
     : true;
 
-  // Check if collection is not live yet or sale has ended
+  // Product state variables - extract at the component level
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
-  const isSaleEnded = product.collectionSaleEnded;
+  const isSaleEnded = product.saleEnded || product.collectionSaleEnded || product.categorySaleEnded;
 
   // Focused preloading effect with immediate first image load
   useEffect(() => {

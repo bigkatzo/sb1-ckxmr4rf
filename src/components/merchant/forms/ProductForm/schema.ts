@@ -35,6 +35,7 @@ export const productSchema = z.object({
   sku: z.string().optional(),
   minimumOrderQuantity: z.number().min(1, 'Minimum order quantity must be at least 1'),
   visible: z.boolean().default(true),
+  saleEnded: z.boolean().default(false),
   priceModifierBeforeMin: z.number()
     .min(-1, 'Discount cannot exceed 100%')
     .max(0, 'Pre-MOQ modifier must be 0 or negative (discount)')

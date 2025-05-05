@@ -29,6 +29,7 @@ export interface Product {
   collectionSlug?: string;
   collectionLaunchDate?: Date;
   collectionSaleEnded?: boolean;
+  categorySaleEnded?: boolean;
   slug: string;
   stock: number | null; // Base stock, null means unlimited
   minimumOrderQuantity: number;
@@ -36,6 +37,7 @@ export interface Product {
   variantPrices?: VariantPricing;
   sku: string;
   visible: boolean;
+  saleEnded?: boolean;
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
   notes?: {

@@ -9,6 +9,7 @@ export function transformCategory(category: any): Category | undefined {
     description: category.description || '',
     type: category.type || 'blank',
     visible: category.visible ?? true,
+    saleEnded: category.sale_ended ?? false,
     eligibilityRules: {
       groups: category.eligibility_rules?.groups || []
     }

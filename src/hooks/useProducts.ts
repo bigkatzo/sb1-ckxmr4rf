@@ -70,6 +70,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
             description: product.category_description,
             type: product.category_type,
             visible: true,
+            saleEnded: product.category_sale_ended ?? false,
             eligibilityRules: {
               groups: product.category_eligibility_rules?.groups || []
             }
@@ -79,6 +80,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           collectionSlug: product.collection_slug,
           collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
           collectionSaleEnded: product.collection_sale_ended,
+          categorySaleEnded: product.category_sale_ended ?? false,
           slug: product.slug || '',
           stock: product.quantity,
           minimumOrderQuantity: product.minimum_order_quantity || 50,
@@ -87,6 +89,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           priceModifierBeforeMin: product.price_modifier_before_min ?? null,
           priceModifierAfterMin: product.price_modifier_after_min ?? null,
           visible: product.visible ?? true,
+          saleEnded: product.sale_ended ?? false,
           notes: notesObject,  // Always pass the properly structured object
           freeNotes: freeNotesValue
         };

@@ -1,4 +1,4 @@
-import { Image as ImageIcon, EyeOff } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { DeleteButton } from '../ui/DeleteButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -76,6 +76,12 @@ export function ProductListItem({
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
                     <EyeOff className="h-3 w-3" />
                     Hidden
+                  </span>
+                )}
+                {product.saleEnded && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
+                    <Ban className="h-3 w-3" />
+                    Sale Ended
                   </span>
                 )}
               </div>

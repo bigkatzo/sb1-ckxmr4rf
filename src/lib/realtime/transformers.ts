@@ -27,6 +27,7 @@ export function transformProduct(dbProduct: any): Product {
     description: dbProduct.categories.description,
     type: dbProduct.categories.type,
     visible: dbProduct.categories.visible ?? true,
+    saleEnded: dbProduct.categories.sale_ended ?? false,
     eligibilityRules: {
       groups: dbProduct.categories.eligibility_rules?.groups || []
     }
@@ -51,6 +52,9 @@ export function transformProduct(dbProduct: any): Product {
     collectionId: dbProduct.collection_id,
     collectionName: dbProduct.collections?.name,
     collectionSlug: dbProduct.collections?.slug,
+    collectionLaunchDate: dbProduct.collections?.launch_date ? new Date(dbProduct.collections.launch_date) : undefined,
+    collectionSaleEnded: dbProduct.collections?.sale_ended ?? false,
+    categorySaleEnded: dbProduct.categories?.sale_ended ?? false,
     slug: dbProduct.slug || '',
     stock: dbProduct.quantity,
     minimumOrderQuantity: dbProduct.minimum_order_quantity || 50,
@@ -59,6 +63,7 @@ export function transformProduct(dbProduct: any): Product {
     priceModifierBeforeMin: dbProduct.price_modifier_before_min ?? null,
     priceModifierAfterMin: dbProduct.price_modifier_after_min ?? null,
     visible: dbProduct.visible ?? true,
+    saleEnded: dbProduct.sale_ended ?? false,
     notes: hasValidNotes ? dbProduct.notes : undefined,
     freeNotes: freeNotesValue
   };

@@ -118,6 +118,7 @@ export async function preloadCriticalData() {
             description: product.category_description,
             type: product.category_type,
             visible: true,
+            saleEnded: product.category_sale_ended ?? false,
             eligibilityRules: {
               groups: product.category_eligibility_rules?.groups || []
             }
@@ -127,6 +128,7 @@ export async function preloadCriticalData() {
           collectionSlug: product.collection_slug,
           collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
           collectionSaleEnded: product.collection_sale_ended,
+          categorySaleEnded: product.category_sale_ended ?? false,
           slug: product.slug || '',
           stock: product.quantity,
           minimumOrderQuantity: product.minimum_order_quantity || 50,
@@ -134,6 +136,7 @@ export async function preloadCriticalData() {
           variantPrices: product.variant_prices || {},
           priceModifierBeforeMin: product.price_modifier_before_min ?? null,
           priceModifierAfterMin: product.price_modifier_after_min ?? null,
+          saleEnded: product.sale_ended ?? false,
           salesCount: product.sales_count || 0,
           notes: hasValidNotes ? product.notes : undefined,
           freeNotes: freeNotesValue

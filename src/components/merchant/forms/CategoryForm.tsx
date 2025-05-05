@@ -15,6 +15,7 @@ interface CategoryFormProps {
     type: string;
     visible: boolean;
     eligibilityRules: { groups: RuleGroup[] };
+    saleEnded: boolean;
   };
 }
 
@@ -23,6 +24,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
     initialData?.eligibilityRules?.groups || []
   );
   const [visible, setVisible] = React.useState(initialData?.visible ?? true);
+  const [saleEnded, setSaleEnded] = React.useState(initialData?.saleEnded ?? false);
 
   React.useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -98,12 +100,14 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
 
       formData.append('groups', JSON.stringify(groups));
       formData.append('visible', visible.toString());
+      formData.append('saleEnded', saleEnded.toString());
       
       // Log the data being submitted
       console.log('Submitting form data:', {
         name: formData.get('name'),
         description: formData.get('description'),
         visible: formData.get('visible'),
+        saleEnded: formData.get('saleEnded'),
         groups: JSON.parse(formData.get('groups') as string)
       });
 
@@ -198,6 +202,22 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
                     />
                     <p className="text-xs text-gray-400 ml-11">
                       When disabled, this category will be hidden from the storefront
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1">
+                    End Sale
+                  </label>
+                  <div className="flex flex-col gap-1">
+                    <Toggle
+                      checked={saleEnded}
+                      onCheckedChange={setSaleEnded}
+                      label="End Sale"
+                    />
+                    <p className="text-xs text-gray-400 ml-11">
+                      When enabled, all products in this category will show as 'Sale Ended'
                     </p>
                   </div>
                 </div>

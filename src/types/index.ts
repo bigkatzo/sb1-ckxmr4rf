@@ -38,6 +38,7 @@ export interface Category {
   description: string;
   type: string;
   visible: boolean;
+  saleEnded: boolean;
   eligibilityRules: {
     groups: RuleGroup[];
   };
@@ -58,6 +59,7 @@ export interface Product {
   collectionSlug?: string;
   collectionLaunchDate?: Date;
   collectionSaleEnded?: boolean;
+  categorySaleEnded?: boolean;
   slug: string;
   stock: number | null;
   minimumOrderQuantity: number;
@@ -67,6 +69,7 @@ export interface Product {
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
   visible?: boolean;
+  saleEnded?: boolean;
   notes?: {
     shipping?: string;
     quality?: string;

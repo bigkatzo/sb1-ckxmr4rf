@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError, isValidId } from '../lib/error-handling';
-import type { Category } from '../types';
+import type { Category } from '../types/index';
 
 export function useCategories(collectionId: string) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -40,6 +40,7 @@ export function useCategories(collectionId: string) {
         description: category.description,
         type: category.type,
         visible: category.visible,
+        saleEnded: category.sale_ended ?? false,
         eligibilityRules: {
           groups: category.eligibility_rules?.groups || []
         }
