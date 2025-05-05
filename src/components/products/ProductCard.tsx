@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, Ban } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -17,6 +17,9 @@ interface ProductCardProps {
 export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport, loadingPriority }: ProductCardProps) {
   const [imageLoading, setImageLoading] = useState(true);
   const { modifiedPrice } = useModifiedPrice({ product });
+  
+  // Check if sale has ended at any level
+  const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
   const handleClick = () => {
     if (onClick) {
@@ -75,6 +78,16 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
               size="sm"
               className="drop-shadow-lg"
             />
+          </div>
+        )}
+        
+        {/* Sale Ended Badge - Add to the top corner */}
+        {isSaleEnded && (
+          <div className="absolute top-2 left-2 z-10">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
+              <Ban className="h-3 w-3" />
+              Ended
+            </span>
           </div>
         )}
       </div>

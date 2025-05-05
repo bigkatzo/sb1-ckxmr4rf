@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, Ban } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -28,6 +28,9 @@ export function ProductCardCompact({
   const { modifiedPrice } = useModifiedPrice({ product });
   const [touchStartTime, setTouchStartTime] = useState<number | null>(null);
   const [touchStartPosition, setTouchStartPosition] = useState<{x: number, y: number} | null>(null);
+  
+  // Check if sale has ended at any level
+  const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
   const handleCollectionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -116,6 +119,16 @@ export function ProductCardCompact({
               size="sm"
               className="drop-shadow-lg"
             />
+          </div>
+        )}
+        
+        {/* Sale Ended Badge - Add to the top corner */}
+        {isSaleEnded && (
+          <div className="absolute top-2 left-2 z-10">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
+              <Ban className="h-2.5 w-2.5" />
+              Ended
+            </span>
           </div>
         )}
       </div>
