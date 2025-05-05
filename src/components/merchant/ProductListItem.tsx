@@ -43,14 +43,6 @@ export function ProductListItem({
   // Generate dropdown menu items based on available actions
   const dropdownItems = [];
   
-  if (onEdit) {
-    dropdownItems.push({
-      label: 'Edit',
-      icon: <Edit className="h-4 w-4" />,
-      onClick: onEdit
-    });
-  }
-  
   if (onDuplicate) {
     dropdownItems.push({
       label: 'Duplicate',
