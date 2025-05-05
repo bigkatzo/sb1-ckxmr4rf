@@ -101,7 +101,8 @@ export function PricingCurveEditor() {
     const currentValue = watch(field) || 0;
     
     if (field === 'price') {
-      setValue(field, Math.max(0, +(currentValue + delta).toFixed(2)));
+      // Use 0.01 as minimum value instead of 0 to allow for $0.01 prices
+      setValue(field, Math.max(0.01, +(currentValue + delta).toFixed(2)));
     } else if (field === 'priceModifierBeforeMin') {
       setValue(field, Math.max(-1, Math.min(1, +(currentValue + delta).toFixed(2))));
     } else if (field === 'priceModifierAfterMin') {
@@ -180,9 +181,12 @@ export function PricingCurveEditor() {
             <input
               type="number"
               id="price"
-              min="0"
-              step="0.1"
-              {...register('price', { valueAsNumber: true })}
+              min="0.01"
+              step="0.01"
+              {...register('price', { 
+                valueAsNumber: true,
+                min: { value: 0.01, message: 'Price must be at least 0.01' }
+              })}
               className="w-20 md:w-24 bg-gray-800 rounded-lg px-2 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <button

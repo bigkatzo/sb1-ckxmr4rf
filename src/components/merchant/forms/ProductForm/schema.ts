@@ -29,7 +29,7 @@ const notesSchema = z.object({
 export const productSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().min(1, 'Description is required'),
-  price: z.number().min(0, 'Price must be at least 0'),
+  price: z.number().min(0.01, 'Price must be at least 0.01'),
   stock: z.number().nullable(),
   categoryId: z.string().min(1, 'Category is required'),
   sku: z.string().optional(),
