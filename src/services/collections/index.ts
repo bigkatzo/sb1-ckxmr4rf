@@ -238,6 +238,48 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
   });
 }
 
+export async function toggleVisibility(id: string, visible: boolean) {
+  return withTransaction(async () => {
+    // Verify user authentication and ownership
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('User not authenticated');
+
+    // First check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+
+    // If not admin, verify ownership
+    if (!isAdmin) {
+      const { data: ownerCheck, error: ownerError } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (ownerError || !ownerCheck) {
+        throw new Error('Collection not found or access denied');
+      }
+    }
+
+    // Update visibility
+    const { error } = await supabase
+      .from('collections')
+      .update({ visible })
+      .eq('id', id);
+
+    if (error) throw error;
+    
+    return { success: true };
+  });
+}
+
 export async function toggleFeatured(id: string, featured: boolean) {
   return withTransaction(async () => {
     // Verify user authentication and ownership

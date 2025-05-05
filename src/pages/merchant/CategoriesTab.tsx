@@ -1,16 +1,13 @@
 import { useState } from 'react';
-import { Plus, EyeOff, Ban } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { CategoryForm } from '../../components/merchant/forms/CategoryForm';
+import { CategoryListItem } from '../../components/merchant/CategoryListItem';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
-import { createCategory, updateCategory, deleteCategory } from '../../services/categories';
-import { EditButton } from '../../components/ui/EditButton';
-import { DeleteButton } from '../../components/ui/DeleteButton';
+import { createCategory, updateCategory, deleteCategory, toggleVisibility, toggleSaleEnded } from '../../services/categories';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
-import { CategoryDiamond } from '../../components/collections/CategoryDiamond';
-import { getCategoryTypeInfo } from '../../components/collections/CategoryTypeInfo';
 
 export function CategoriesTab() {
   const [showForm, setShowForm] = useState(false);
@@ -18,6 +15,7 @@ export function CategoriesTab() {
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const { collections, loading: collectionsLoading, refetch } = useMerchantCollections();
   const { categories, loading: categoriesLoading, refreshCategories } = useCategories(selectedCollection);
@@ -51,6 +49,56 @@ export function CategoriesTab() {
       console.error('Error with category:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to save category';
       toast.error(errorMessage);
+    }
+  };
+
+  const handleToggleVisibility = async (id: string, visible: boolean) => {
+    try {
+      setActionLoading(id);
+      await toggleVisibility(id, visible);
+      toast.success(`Category ${visible ? 'shown' : 'hidden'} successfully`);
+      refreshCategories();
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+      toast.error('Failed to toggle visibility');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleSaleEnded = async (id: string, saleEnded: boolean) => {
+    try {
+      setActionLoading(id);
+      await toggleSaleEnded(id, saleEnded);
+      toast.success(`Sale ${saleEnded ? 'ended' : 'resumed'} successfully`);
+      refreshCategories();
+    } catch (error) {
+      console.error('Error toggling sale status:', error);
+      toast.error('Failed to toggle sale status');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCategory(id);
+      refreshCategories();
+      toast.success('Category deleted successfully');
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      if (error instanceof Error) {
+        if (error.message.includes('Cannot delete category with existing products')) {
+          toast.error('This category has products. Please reassign or delete these products first.');
+        } else {
+          toast.error(`Failed to delete category: ${error.message}`);
+        }
+      } else {
+        toast.error('Failed to delete category');
+      }
+    } finally {
+      setShowConfirmDialog(false);
+      setDeletingId(null);
     }
   };
 
@@ -124,68 +172,26 @@ export function CategoriesTab() {
           {categories.map((category, index) => {
             const collection = collections.find(c => c.id === selectedCollection);
             const canEdit = collection && (collection.isOwner || collection.accessType === 'edit');
+            const isActionDisabled = actionLoading === category.id;
             
             return (
-              <div key={category.id} className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-                    <CategoryDiamond 
-                      type={category.type}
-                      index={index}
-                      selected
-                      size="lg"
-                    />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-xs sm:text-sm truncate">{category.name}</h3>
-                          {category.visible === false && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
-                              <EyeOff className="h-3 w-3" />
-                              Hidden
-                            </span>
-                          )}
-                          {category.saleEnded && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
-                              <Ban className="h-3 w-3" />
-                              Sale Ended
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
-                          {category.description}
-                        </p>
-                        <div className="mt-2">
-                          {(() => {
-                            const typeInfo = getCategoryTypeInfo(category.type, category.eligibilityRules?.groups || []);
-                            return (
-                              <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
-                                {typeInfo.icon}
-                                <span className="font-medium">{typeInfo.label}</span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      {canEdit && (
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <EditButton onClick={() => {
-                            setEditingCategory(category);
-                            setShowForm(true);
-                          }} className="scale-75 sm:scale-90" />
-                          <DeleteButton onClick={() => {
-                            setDeletingId(category.id);
-                            setShowConfirmDialog(true);
-                          }} className="scale-75 sm:scale-90" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <CategoryListItem
+                key={category.id}
+                category={category}
+                index={index}
+                onEdit={canEdit ? () => {
+                  setEditingCategory(category);
+                  setShowForm(true);
+                } : undefined}
+                onDelete={canEdit && !isActionDisabled ? () => {
+                  setDeletingId(category.id);
+                  setShowConfirmDialog(true);
+                } : undefined}
+                onToggleVisibility={canEdit && !isActionDisabled ? 
+                  (visible) => handleToggleVisibility(category.id, visible) : undefined}
+                onToggleSaleEnded={canEdit && !isActionDisabled ? 
+                  (saleEnded) => handleToggleSaleEnded(category.id, saleEnded) : undefined}
+              />
             );
           })}
         </div>
@@ -212,27 +218,7 @@ export function CategoriesTab() {
           title="Delete Category"
           description="Are you sure you want to delete this category? You must first reassign or delete all products in this category. This action cannot be undone."
           confirmLabel="Delete"
-          onConfirm={async () => {
-            try {
-              await deleteCategory(deletingId);
-              refreshCategories();
-              toast.success('Category deleted successfully');
-            } catch (error) {
-              console.error('Error deleting category:', error);
-              if (error instanceof Error) {
-                if (error.message.includes('Cannot delete category with existing products')) {
-                  toast.error('This category has products. Please reassign or delete these products first.');
-                } else {
-                  toast.error(`Failed to delete category: ${error.message}`);
-                }
-              } else {
-                toast.error('Failed to delete category');
-              }
-            } finally {
-              setShowConfirmDialog(false);
-              setDeletingId(null);
-            }
-          }}
+          onConfirm={() => handleDelete(deletingId)}
         />
       )}
     </div>
