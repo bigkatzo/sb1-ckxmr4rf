@@ -104,7 +104,7 @@ export function PricingCurveEditor() {
       // Use 0.01 as minimum value instead of 0 to allow for $0.01 prices
       setValue(field, Math.max(0.01, +(currentValue + delta).toFixed(2)));
     } else if (field === 'priceModifierBeforeMin') {
-      setValue(field, Math.max(-1, Math.min(1, +(currentValue + delta).toFixed(2))));
+      setValue(field, Math.max(-1, Math.min(0, +(currentValue + delta).toFixed(2))));
     } else if (field === 'priceModifierAfterMin') {
       setValue(field, Math.max(0, +(currentValue + delta).toFixed(2)));
     }
@@ -113,6 +113,30 @@ export function PricingCurveEditor() {
   // Calculate initial, min and max prices
   const minPrice = basePrice + (modifierBefore && modifierBefore < 0 ? basePrice * modifierBefore : 0);
   const maxPrice = basePrice + (modifierAfter && modifierAfter > 0 ? basePrice * modifierAfter : 0);
+
+  // Convert decimals to percentages for display
+  const modifierBeforePercent = modifierBefore !== null && modifierBefore !== undefined 
+    ? Math.round(modifierBefore * 100) 
+    : 0;
+  
+  const modifierAfterPercent = modifierAfter !== null && modifierAfter !== undefined 
+    ? Math.round(modifierAfter * 100) 
+    : 0;
+
+  // Handle percentage input change
+  const handlePercentageChange = (field: 'priceModifierBeforeMin' | 'priceModifierAfterMin', value: string) => {
+    const numValue = value === '' ? 0 : parseInt(value);
+    
+    if (field === 'priceModifierBeforeMin') {
+      // Convert percentage to decimal and ensure it's negative and at most -100%
+      const decimalValue = Math.max(-100, Math.min(0, numValue)) / 100;
+      setValue(field, decimalValue);
+    } else if (field === 'priceModifierAfterMin') {
+      // Convert percentage to decimal and ensure it's positive
+      const decimalValue = Math.max(0, numValue) / 100;
+      setValue(field, decimalValue);
+    }
+  };
 
   // Handle unlimited stock toggle
   const handleUnlimitedStockToggle = (checked: boolean) => {
@@ -289,47 +313,26 @@ export function PricingCurveEditor() {
                   htmlFor="priceModifierBeforeMin" 
                   className="text-sm font-medium text-white block mb-1"
                 >
-                  Pre-MOQ Discount
+                  Pre-MOQ Discount (%)
                 </label>
-                <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-1">
                   <input
-                    type="range"
-                    min="-0.5"
-                    max="0.2"
-                    step="0.05"
-                    value={modifierBefore ?? 0}
-                    onChange={(e) => {
-                      // Convert explicitly
-                      const value = Number(e.target.value);
-                      setValue('priceModifierBeforeMin', value);
-                    }}
-                    className="w-full accent-primary cursor-pointer"
+                    type="number"
+                    id="priceModifierBeforeMinPercent"
+                    min="-100"
+                    max="0"
+                    value={modifierBeforePercent}
+                    onChange={(e) => handlePercentageChange('priceModifierBeforeMin', e.target.value)}
+                    className="w-20 bg-gray-800 rounded-lg px-2 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
                   />
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">-50% Discount</span>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        id="priceModifierBeforeMin"
-                        min="-0.5"
-                        max="0.2"
-                        step="0.05"
-                        {...register('priceModifierBeforeMin', {
-                          setValueAs: (value) => value === '' ? null : parseFloat(value),
-                        })}
-                        className="w-16 bg-gray-800 rounded-lg px-2 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <span className="text-xs text-white">%</span>
-                    </div>
-                    <span className="text-xs text-gray-400">20% Premium</span>
-                  </div>
+                  <span className="text-sm text-white">%</span>
                 </div>
               </div>
               <div className="text-xs text-gray-300 mt-1">
                 {modifierBefore ? (
                   modifierBefore < 0 ? 
                     `Early buyers get ${Math.abs(modifierBefore * 100).toFixed(0)}% off (${minPrice.toFixed(2)} SOL)` : 
-                    `Early buyers pay ${(modifierBefore * 100).toFixed(0)}% premium`
+                    `No discount applied`
                 ) : 'No early pricing adjustment'}
               </div>
             </div>
@@ -341,40 +344,18 @@ export function PricingCurveEditor() {
                   htmlFor="priceModifierAfterMin" 
                   className="text-sm font-medium text-white block mb-1"
                 >
-                  Post-MOQ Increase
+                  Post-MOQ Increase (%)
                 </label>
-                <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-1">
                   <input
-                    type="range"
+                    type="number"
+                    id="priceModifierAfterMinPercent"
                     min="0"
-                    max="0.5"
-                    step="0.05"
-                    value={modifierAfter ?? 0}
-                    onChange={(e) => {
-                      // Convert explicitly
-                      const value = Number(e.target.value);
-                      setValue('priceModifierAfterMin', value);
-                    }}
-                    className="w-full accent-primary cursor-pointer"
+                    value={modifierAfterPercent}
+                    onChange={(e) => handlePercentageChange('priceModifierAfterMin', e.target.value)}
+                    className="w-20 bg-gray-800 rounded-lg px-2 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
                   />
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">No Change</span>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        id="priceModifierAfterMin"
-                        min="0"
-                        max="0.5"
-                        step="0.05"
-                        {...register('priceModifierAfterMin', {
-                          setValueAs: (value) => value === '' ? null : parseFloat(value),
-                        })}
-                        className="w-16 bg-gray-800 rounded-lg px-2 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <span className="text-xs text-white">%</span>
-                    </div>
-                    <span className="text-xs text-gray-400">50% Increase</span>
-                  </div>
+                  <span className="text-sm text-white">%</span>
                 </div>
               </div>
               <div className="text-xs text-gray-300 mt-1">

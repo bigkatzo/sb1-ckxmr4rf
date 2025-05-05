@@ -35,8 +35,13 @@ export const productSchema = z.object({
   sku: z.string().optional(),
   minimumOrderQuantity: z.number().min(1, 'Minimum order quantity must be at least 1'),
   visible: z.boolean().default(true),
-  priceModifierBeforeMin: z.number().nullable(),
-  priceModifierAfterMin: z.number().nullable(),
+  priceModifierBeforeMin: z.number()
+    .min(-1, 'Discount cannot exceed 100%')
+    .max(0, 'Pre-MOQ modifier must be 0 or negative (discount)')
+    .nullable(),
+  priceModifierAfterMin: z.number()
+    .min(0, 'Post-MOQ modifier must be 0 or positive (increase)')
+    .nullable(),
   notes: notesSchema,
   freeNotes: z.string().optional().default(''),
   // Add additional fields for form management
