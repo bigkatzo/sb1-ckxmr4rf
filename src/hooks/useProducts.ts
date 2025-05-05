@@ -79,7 +79,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           collectionName: product.collection_name,
           collectionSlug: product.collection_slug,
           collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
-          collectionSaleEnded: product.collection_sale_ended,
+          collectionSaleEnded: product.collection_sale_ended ?? false,
           categorySaleEnded: product.category_sale_ended ?? false,
           slug: product.slug || '',
           stock: product.quantity,

@@ -95,8 +95,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           collectionName: data.collection_name,
           collectionSlug: data.collection_slug,
           collectionLaunchDate: data.collection_launch_date ? new Date(data.collection_launch_date) : undefined,
-          collectionSaleEnded: data.collection_sale_ended,
-          categorySaleEnded: data.category_sale_ended,
+          collectionSaleEnded: data.collection_sale_ended ?? false,
+          categorySaleEnded: data.category_sale_ended ?? false,
           slug: data.slug || '',
           stock: data.quantity,
           minimumOrderQuantity: data.minimum_order_quantity || 50,
@@ -104,6 +104,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           variantPrices: data.variant_prices || {},
           priceModifierBeforeMin: data.price_modifier_before_min ?? null,
           priceModifierAfterMin: data.price_modifier_after_min ?? null,
+          visible: data.visible ?? true,
+          saleEnded: data.sale_ended ?? false,
           notes: hasValidNotes ? data.notes : undefined,
           freeNotes: freeNotesValue
         };

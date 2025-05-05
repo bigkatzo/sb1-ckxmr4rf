@@ -30,7 +30,7 @@ export function BuyButton({
 
   // Check if collection is not live yet or sale has ended at any level
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
-  const isSaleEnded = product.saleEnded || product.collectionSaleEnded || product.categorySaleEnded;
+  const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
   const isUnlimited = product.stock === null;
   const isSoldOut = !isUnlimited && (
     product.stock === 0 || // No stock available
