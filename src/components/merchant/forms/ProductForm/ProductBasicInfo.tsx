@@ -82,18 +82,16 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
       <div>
         <label htmlFor="sku" className="block text-sm font-medium text-white flex items-center gap-2">
           Product SKU
-          {isExistingProduct && (
-            <span className="text-xs text-gray-400">(Auto-generated, cannot be edited)</span>
-          )}
+          <span className="text-xs text-gray-400">(Auto-generated, cannot be edited)</span>
         </label>
         <input
           type="text"
           id="sku"
           {...register('sku')}
-          readOnly={isExistingProduct}
-          disabled={isExistingProduct}
-          placeholder={isExistingProduct ? undefined : "Auto-generated on creation"}
-          className={`mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none ${isExistingProduct ? 'opacity-70 cursor-not-allowed' : 'focus:ring-2 focus:ring-primary'}`}
+          readOnly={true}
+          disabled={true}
+          placeholder="Auto-generated on creation"
+          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white opacity-70 cursor-not-allowed"
         />
         {errors.sku && (
           <p className="text-red-400 text-xs mt-1">{errors.sku.message}</p>
