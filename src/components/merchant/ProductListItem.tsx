@@ -25,14 +25,6 @@ export function ProductListItem({
   
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
-  
-  // Determine the sale ended source for more specific display
-  const getSaleEndedSource = () => {
-    if (product.saleEnded) return 'Product';
-    if (product.categorySaleEnded) return 'Category';
-    if (product.collectionSaleEnded) return 'Collection';
-    return '';
-  };
 
   const handleEditClick = () => {
     onEdit?.();
@@ -92,7 +84,7 @@ export function ProductListItem({
                 {isSaleEnded && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
                     <Ban className="h-3 w-3" />
-                    Sale Ended ({getSaleEndedSource()})
+                    Sale Ended
                   </span>
                 )}
               </div>
