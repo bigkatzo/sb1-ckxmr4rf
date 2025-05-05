@@ -194,7 +194,9 @@ export function useCollection(slug: string) {
             ...productStatic,
             ...productDynamic,
             collectionLaunchDate: new Date(collectionData.launch_date),
-            collectionSaleEnded: collectionData.sale_ended,
+            collectionSaleEnded: collectionData.sale_ended ?? false,
+            categorySaleEnded: product.category_sale_ended ?? false,
+            saleEnded: product.sale_ended ?? false,
           };
         }));
 
