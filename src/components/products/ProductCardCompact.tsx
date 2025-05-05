@@ -32,6 +32,15 @@ export function ProductCardCompact({
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
+  // Create a product object with explicitly set saleEnded properties to ensure
+  // they're properly passed to the BuyButton
+  const productWithExplicitSaleEnded = {
+    ...product,
+    saleEnded: product.saleEnded || false,
+    categorySaleEnded: product.categorySaleEnded || false,
+    collectionSaleEnded: product.collectionSaleEnded || false
+  };
+
   const handleCollectionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (product.collectionSlug) {
@@ -148,7 +157,7 @@ export function ProductCardCompact({
             {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
           </span>
           <BuyButton 
-            product={product}
+            product={productWithExplicitSaleEnded}
             disabled={product.stock === 0 && product.stock !== null}
             className="z-10 text-[10px] sm:text-xs"
             onClick={(e) => {

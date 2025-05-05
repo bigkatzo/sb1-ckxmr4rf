@@ -27,6 +27,15 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
     }
   };
 
+  // Create a product object with explicitly set saleEnded properties to ensure
+  // they're properly passed to the BuyButton
+  const productWithExplicitSaleEnded = {
+    ...product,
+    saleEnded: product.saleEnded || false,
+    categorySaleEnded: product.categorySaleEnded || false,
+    collectionSaleEnded: product.collectionSaleEnded || false
+  };
+
   return (
     <div 
       onClick={handleClick}
@@ -100,7 +109,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
             {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
           </span>
           <BuyButton 
-            product={product}
+            product={productWithExplicitSaleEnded}
             disabled={product.stock === 0 && product.stock !== null}
             className="z-10"
             onClick={handleClick}
