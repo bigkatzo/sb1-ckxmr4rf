@@ -135,12 +135,11 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
       throw new Error('Access denied');
     }
 
-    // Toggle sale ended status
+    // Toggle sale ended status using direct update instead of RPC
     const { error } = await supabase
-      .rpc('toggle_category_sale_ended', {
-        p_category_id: id,
-        p_sale_ended: saleEnded
-      });
+      .from('categories')
+      .update({ sale_ended: saleEnded })
+      .eq('id', id);
 
     if (error) throw error;
     return { success: true };
