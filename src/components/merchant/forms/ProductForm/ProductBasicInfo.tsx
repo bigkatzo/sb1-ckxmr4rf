@@ -115,7 +115,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               rows={2}
               {...register('notes.shipping')}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="e.g. Shipping information, delivery timeframes, etc."
+              placeholder="Free Shipping Worldwide included (15-20 days*)"
             ></textarea>
           </div>
           
@@ -128,7 +128,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               rows={2}
               {...register('notes.quality')}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="e.g. Material quality, care instructions, etc."
+              placeholder="Quality is guaranteed. If there is a print error or visible quality issue, we'll replace or refund it."
             ></textarea>
           </div>
           
@@ -141,7 +141,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
               rows={2}
               {...register('notes.returns')}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="e.g. Return policy, exchanges, etc."
+              placeholder="Because the products are made to order, we do not accept general returns or sizing-related returns."
             ></textarea>
           </div>
           

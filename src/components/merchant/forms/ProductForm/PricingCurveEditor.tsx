@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { 
   LineChart, 
@@ -18,7 +18,8 @@ export function PricingCurveEditor() {
     register, 
     setValue, 
     watch,
-    formState: { errors } 
+    formState: { errors },
+    trigger
   } = useFormContext<ProductFormValues>();
   
   const [showHelp, setShowHelp] = useState(false);
@@ -31,6 +32,14 @@ export function PricingCurveEditor() {
   const moq = watch('minimumOrderQuantity') || 50;
   const stock = watch('stock');
   const hasUnlimitedStock = stock === null;
+  
+  // Effect to validate MOQ against stock
+  useEffect(() => {
+    if (!hasUnlimitedStock && stock !== null && moq > stock) {
+      setValue('minimumOrderQuantity', stock);
+      trigger('minimumOrderQuantity');
+    }
+  }, [stock, moq, hasUnlimitedStock, setValue, trigger]);
   
   // Prepare chart data
   const chartData = useMemo(() => {
@@ -104,6 +113,16 @@ export function PricingCurveEditor() {
   const minPrice = basePrice + (modifierBefore && modifierBefore < 0 ? basePrice * modifierBefore : 0);
   const maxPrice = basePrice + (modifierAfter && modifierAfter > 0 ? basePrice * modifierAfter : 0);
 
+  // Handle unlimited stock toggle
+  const handleUnlimitedStockToggle = (checked: boolean) => {
+    if (checked) {
+      setValue('stock', null);
+    } else {
+      setValue('stock', 100);
+    }
+    trigger('stock');
+  };
+
   return (
     <div className="space-y-4 border-t border-gray-800 pt-4 mt-4">
       <div className="flex items-center justify-between">
@@ -146,11 +165,11 @@ export function PricingCurveEditor() {
 
       {/* Base Price with + and - buttons */}
       <div className="space-y-2 bg-gray-900/50 p-3 rounded-lg">
-        <div className="flex items-center justify-between">
-          <label htmlFor="price" className="text-sm font-medium text-white">
+        <div className="flex items-center gap-4">
+          <label htmlFor="price" className="text-sm font-medium text-white whitespace-nowrap">
             Base Price
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
               onClick={() => adjustValue('price', -0.1)}
@@ -193,7 +212,7 @@ export function PricingCurveEditor() {
                   id="unlimited-stock"
                   className="mr-1 h-4 w-4 rounded border-gray-600 bg-gray-800 text-primary focus:ring-primary"
                   checked={hasUnlimitedStock}
-                  onChange={() => setValue('stock', hasUnlimitedStock ? 100 : null)}
+                  onChange={(e) => handleUnlimitedStockToggle(e.target.checked)}
                 />
                 <span className="text-xs text-gray-400 flex items-center gap-1">
                   Unlimited <Infinity className="h-3 w-3" />
@@ -207,6 +226,7 @@ export function PricingCurveEditor() {
                 min="1"
                 {...register('stock', {
                   setValueAs: (value) => value === '' ? null : parseInt(value),
+                  required: !hasUnlimitedStock ? "Stock is required" : false
                 })}
                 className="w-full md:w-24 bg-gray-800 rounded-lg px-3 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Stock"
@@ -225,7 +245,16 @@ export function PricingCurveEditor() {
               type="number"
               id="minimumOrderQuantity"
               min="1"
-              {...register('minimumOrderQuantity', { valueAsNumber: true })}
+              max={!hasUnlimitedStock && stock !== null ? stock : undefined}
+              {...register('minimumOrderQuantity', { 
+                valueAsNumber: true,
+                validate: (value) => {
+                  if (!hasUnlimitedStock && stock !== null && value > stock) {
+                    return `Cannot exceed stock (${stock})`;
+                  }
+                  return true;
+                }
+              })}
               className="w-full md:w-24 bg-gray-800 rounded-lg px-3 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
