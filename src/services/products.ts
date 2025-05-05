@@ -360,10 +360,16 @@ export async function getProductForDuplication(id: string) {
       if (authError) throw authError;
       if (!user) throw new Error('User not authenticated');
 
-      // Fetch the product to duplicate
+      // Fetch the product to duplicate with all related data
       const { data: product, error: fetchError } = await supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          category:category_id (
+            id,
+            name
+          )
+        `)
         .eq('id', id)
         .single();
       
@@ -401,15 +407,43 @@ export async function getProductForDuplication(id: string) {
         }
       }
       
-      // Return a modified version of the product for the form
-      // This doesn't create a new product in the database yet
+      // Transform the database product into a client-side Product object
+      // that can be used by the form
+      const productForForm = {
+        id: null, // Set to null to indicate a new product
+        name: `Copy of ${product.name}`,
+        description: product.description || '',
+        price: product.price,
+        imageUrl: product.images && product.images.length > 0 ? product.images[0] : '',
+        images: product.images || [],
+        categoryId: product.category_id,
+        category: product.category,
+        collectionId: product.collection_id,
+        slug: '', // Clear the slug
+        stock: product.quantity,
+        minimumOrderQuantity: product.minimum_order_quantity || 50,
+        variants: product.variants || [],
+        variantPrices: product.variant_prices || {},
+        sku: '', // Clear the SKU for the duplicate
+        visible: product.visible ?? true,
+        saleEnded: product.sale_ended ?? false,
+        priceModifierBeforeMin: product.price_modifier_before_min,
+        priceModifierAfterMin: product.price_modifier_after_min,
+        notes: product.notes ? {
+          shipping: product.notes.shipping || '',
+          quality: product.notes.quality || '',
+          returns: product.notes.returns || ''
+        } : {
+          shipping: '',
+          quality: '',
+          returns: ''
+        },
+        freeNotes: product.free_notes || ''
+      };
+      
       return { 
         success: true, 
-        productData: {
-          ...product,
-          name: `Copy of ${product.name}`,
-          id: null // Set ID to null so that a new product will be created on save
-        }
+        productData: productForForm
       };
     } catch (error) {
       console.error('Error preparing product for duplication:', error);

@@ -85,7 +85,13 @@ export function ProductsTab() {
       setDuplicating(true);
       const { success, productData } = await getProductForDuplication(productId);
       if (success && productData) {
-        setEditingProduct(productData);
+        // Make sure the duplicated product is assigned to the currently selected collection
+        const duplicateData = {
+          ...productData,
+          collectionId: selectedCollection
+        };
+        
+        setEditingProduct(duplicateData);
         setShowForm(true);
         toast.info('Product loaded for duplication. Edit as needed and save to create a copy.');
       }
