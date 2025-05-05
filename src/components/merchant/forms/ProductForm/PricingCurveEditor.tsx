@@ -295,7 +295,7 @@ export function PricingCurveEditor() {
               <div className="text-xs text-gray-300 mt-1">
                 {modifierBefore ? (
                   modifierBefore < 0 ? 
-                    `Early buyers get ${Math.abs((modifierBefore * 100).toFixed(0))}% off (${minPrice.toFixed(2)} SOL)` : 
+                    `Early buyers get ${Math.abs(modifierBefore * 100).toFixed(0)}% off (${minPrice.toFixed(2)} SOL)` : 
                     `Early buyers pay ${(modifierBefore * 100).toFixed(0)}% premium`
                 ) : 'No early pricing adjustment'}
               </div>
