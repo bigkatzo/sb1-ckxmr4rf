@@ -1,8 +1,9 @@
-import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag, ExternalLink } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { StarButton } from '../ui/StarButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { DropdownMenu } from '../ui/DropdownMenu';
+import { Link } from 'react-router-dom';
 
 interface CollectionListItemProps {
   collection: {
@@ -17,6 +18,7 @@ interface CollectionListItemProps {
     isOwner?: boolean;
     accessType?: string | null;
     owner_username?: string | null;
+    slug?: string;
   };
   isAdmin?: boolean;
   onEdit?: () => void;
@@ -37,6 +39,16 @@ export function CollectionListItem({
 }: CollectionListItemProps) {
   // Generate dropdown menu items based on available actions
   const dropdownItems = [];
+  
+  // Add View Collection as the first option
+  if (collection.slug) {
+    dropdownItems.push({
+      label: 'View Collection',
+      icon: <ExternalLink className="h-4 w-4" />,
+      as: Link,
+      to: `/c/${collection.slug}`
+    });
+  }
   
   if (onToggleVisibility) {
     dropdownItems.push({

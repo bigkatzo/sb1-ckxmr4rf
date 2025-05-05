@@ -1,11 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { MoreVertical } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export interface DropdownItem {
   label: string;
   icon?: React.ReactNode;
-  onClick: () => void;
+  onClick?: () => void;
   destructive?: boolean;
+  href?: string;
+  to?: string;
+  target?: string;
+  as?: React.ElementType;
 }
 
 interface DropdownMenuProps {
@@ -47,7 +52,9 @@ export function DropdownMenu({
 
   const handleItemClick = (e: React.MouseEvent, item: DropdownItem) => {
     e.stopPropagation();
-    item.onClick();
+    if (item.onClick) {
+      item.onClick();
+    }
     setIsOpen(false);
   };
 
@@ -66,18 +73,52 @@ export function DropdownMenu({
           className={`absolute z-10 mt-1 ${position === 'right' ? 'right-0' : 'left-0'} ${menuClassName}`}
         >
           <div className="overflow-hidden">
-            {items.map((item, index) => (
-              <button
-                key={index}
-                onClick={(e) => handleItemClick(e, item)}
-                className={`w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors ${
-                  item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
-                }`}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </button>
-            ))}
+            {items.map((item, index) => {
+              // Render according to item type
+              if (item.to && item.as === Link) {
+                return (
+                  <Link
+                    key={index}
+                    to={item.to}
+                    className={`block w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors ${
+                      item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
+                    }`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              } else if (item.href) {
+                return (
+                  <a
+                    key={index}
+                    href={item.href}
+                    target={item.target || '_self'}
+                    className={`block w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors ${
+                      item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
+                    }`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </a>
+                );
+              } else {
+                return (
+                  <button
+                    key={index}
+                    onClick={(e) => handleItemClick(e, item)}
+                    className={`w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors ${
+                      item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
+                    }`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              }
+            })}
           </div>
         </div>
       )}

@@ -172,7 +172,8 @@ export function CollectionsTab() {
               featured: collection.featured,
               isOwner: collection.isOwner,
               accessType: collection.accessType,
-              owner_username: collection.owner_username
+              owner_username: collection.owner_username,
+              slug: collection.slug
             };
             
             return (
