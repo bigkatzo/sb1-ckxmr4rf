@@ -179,9 +179,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     setImageFiles
   }), [imageFiles]);
 
-  // Get the current visibility value, ensuring it's a boolean
-  const isVisible = methods.watch('visible') === true;
-
   return (
     <FormProvider {...methods}>
       <ProductImagesContext.Provider value={imagesContextValue}>
@@ -222,7 +219,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <Toggle
-                  checked={isVisible}
+                  checked={methods.watch('visible') ?? false}
                   onCheckedChange={(newValue: boolean) => {
                     methods.setValue('visible', newValue, { shouldDirty: true });
                   }}
@@ -244,4 +241,4 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       </ProductImagesContext.Provider>
     </FormProvider>
   );
-} 
+}

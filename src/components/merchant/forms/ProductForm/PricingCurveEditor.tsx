@@ -100,8 +100,8 @@ export function PricingCurveEditor() {
   };
 
   return (
-    <div className="space-y-6 bg-gray-900 rounded-lg p-5">
-      <h3 className="text-md font-medium text-white mb-4">Dynamic Pricing Configuration</h3>
+    <div className="space-y-4 border-t border-gray-800 pt-4 mt-4">
+      <h3 className="text-sm font-medium text-white">Price Configuration</h3>
 
       {/* Base Price with + and - buttons */}
       <div className="space-y-2">
@@ -137,10 +137,62 @@ export function PricingCurveEditor() {
         {errors.price && <p className="text-red-400 text-xs">{errors.price.message}</p>}
       </div>
 
+      {/* Stock and MOQ Configuration */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-white flex items-center gap-2">
+              Stock
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="unlimited-stock"
+                  className="mr-2 h-4 w-4 rounded border-gray-600 bg-gray-800 text-primary focus:ring-primary"
+                  checked={hasUnlimitedStock}
+                  onChange={() => setValue('stock', hasUnlimitedStock ? 100 : null)}
+                />
+                <span className="text-xs text-gray-400 flex items-center gap-1">
+                  Unlimited <Infinity className="h-3 w-3" />
+                </span>
+              </div>
+            </label>
+            {!hasUnlimitedStock && (
+              <input
+                type="number"
+                id="stock"
+                min="1"
+                {...register('stock', {
+                  setValueAs: (value) => value === '' ? null : parseInt(value),
+                })}
+                className="w-24 bg-gray-800 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Stock"
+              />
+            )}
+          </div>
+          {errors.stock && <p className="text-red-400 text-xs">{errors.stock.message}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label htmlFor="minimumOrderQuantity" className="text-sm font-medium text-white">
+              Min. Order Quantity
+            </label>
+            <input
+              type="number"
+              id="minimumOrderQuantity"
+              min="1"
+              {...register('minimumOrderQuantity', { valueAsNumber: true })}
+              className="w-24 bg-gray-800 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          {errors.minimumOrderQuantity && <p className="text-red-400 text-xs">{errors.minimumOrderQuantity.message}</p>}
+        </div>
+      </div>
+
       {/* Price modifiers */}
       <div className="grid grid-cols-2 gap-4">
         {/* Before MOQ */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <div className="flex items-center justify-between">
             <label htmlFor="priceModifierBeforeMin" className="text-sm font-medium text-white flex items-center gap-1">
               <span>Pre-MOQ Discount</span>
@@ -188,7 +240,7 @@ export function PricingCurveEditor() {
         </div>
 
         {/* After MOQ */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <div className="flex items-center justify-between">
             <label htmlFor="priceModifierAfterMin" className="text-sm font-medium text-white">
               Post-MOQ Increase
@@ -240,81 +292,27 @@ export function PricingCurveEditor() {
         </div>
       )}
 
-      {/* Stock and MOQ Configuration */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-white flex items-center gap-2">
-              Stock
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="unlimited-stock"
-                  className="mr-2 h-4 w-4 rounded border-gray-600 bg-gray-800 text-primary focus:ring-primary"
-                  checked={hasUnlimitedStock}
-                  onChange={() => setValue('stock', hasUnlimitedStock ? 100 : null)}
-                />
-                <span className="text-xs text-gray-400 flex items-center gap-1">
-                  Unlimited <Infinity className="h-3 w-3" />
-                </span>
-              </div>
-            </label>
-            {!hasUnlimitedStock && (
-              <input
-                type="number"
-                id="stock"
-                min="1"
-                {...register('stock', {
-                  setValueAs: (value) => value === '' ? null : parseInt(value),
-                })}
-                className="w-24 bg-gray-800 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Stock"
-              />
-            )}
-          </div>
-          {errors.stock && <p className="text-red-400 text-xs">{errors.stock.message}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="minimumOrderQuantity" className="text-sm font-medium text-white">
-              Minimum Order Quantity
-            </label>
-            <input
-              type="number"
-              id="minimumOrderQuantity"
-              min="1"
-              {...register('minimumOrderQuantity', { valueAsNumber: true })}
-              className="w-24 bg-gray-800 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          {errors.minimumOrderQuantity && <p className="text-red-400 text-xs">{errors.minimumOrderQuantity.message}</p>}
-        </div>
-      </div>
-
       {/* Bonding curve visualization */}
-      <div className="mt-4 pt-4 border-t border-gray-800">
+      <div className="mt-3 pt-3 border-t border-gray-800">
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium text-white">Bonding Curve Visualization</h4>
+          <h4 className="text-sm font-medium text-white">Price Curve</h4>
           <div className="text-xs text-gray-400">
-            Price range: {priceRange.min.toFixed(2)} - {priceRange.max.toFixed(2)} SOL
+            Range: {priceRange.min.toFixed(2)} - {priceRange.max.toFixed(2)} SOL
           </div>
         </div>
-        <div className="h-[200px] w-full bg-gray-800 rounded-lg p-2">
+        <div className="h-[180px] w-full bg-gray-800 rounded-lg p-2">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis 
                 dataKey="orders" 
-                label={{ value: 'Orders', position: 'insideBottomRight', offset: 0, fill: '#9CA3AF' }}
                 stroke="#9CA3AF"
-                tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                tick={{ fill: '#9CA3AF', fontSize: 10 }}
               />
               <YAxis 
                 domain={[priceRange.min, priceRange.max]}
-                label={{ value: 'Price (SOL)', angle: -90, position: 'insideLeft', fill: '#9CA3AF' }}
                 stroke="#9CA3AF"
-                tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                tick={{ fill: '#9CA3AF', fontSize: 10 }}
               />
               <Tooltip 
                 contentStyle={{
@@ -335,7 +333,7 @@ export function PricingCurveEditor() {
                   value: 'MOQ', 
                   position: 'top', 
                   fill: '#FCD34D', 
-                  fontSize: 10 
+                  fontSize: 9 
                 }} 
               />
               <Line 
@@ -349,10 +347,10 @@ export function PricingCurveEditor() {
           </ResponsiveContainer>
         </div>
         
-        <div className="mt-2 flex justify-between text-xs text-gray-400">
-          <div>0 Orders</div>
+        <div className="mt-1 flex justify-between text-xs text-gray-400">
+          <div>0</div>
           <div className="text-yellow-500">MOQ: {moq}</div>
-          <div>{hasUnlimitedStock ? 'Unlimited' : `Max: ${stock}`}</div>
+          <div>{hasUnlimitedStock ? '∞' : stock}</div>
         </div>
       </div>
     </div>

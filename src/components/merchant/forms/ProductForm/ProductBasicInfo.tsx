@@ -31,10 +31,14 @@ function InlineCategory({ categories }: { categories: ProductBasicInfoProps['cat
 }
 
 export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
-  const { register, formState: { errors } } = useFormContext<ProductFormValues>();
+  const { register, watch, formState: { errors } } = useFormContext<ProductFormValues>();
+  
+  // Check if SKU already exists (indicating it's an existing product)
+  const sku = watch('sku');
+  const isExistingProduct = Boolean(sku);
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-white">
           Product Name
@@ -56,7 +60,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         </label>
         <textarea
           id="description"
-          rows={4}
+          rows={3}
           {...register('description')}
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
         ></textarea>
@@ -76,14 +80,20 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
       </div>
 
       <div>
-        <label htmlFor="sku" className="block text-sm font-medium text-white">
-          Product SKU (Optional)
+        <label htmlFor="sku" className="block text-sm font-medium text-white flex items-center gap-2">
+          Product SKU
+          {isExistingProduct && (
+            <span className="text-xs text-gray-400">(Auto-generated, cannot be edited)</span>
+          )}
         </label>
         <input
           type="text"
           id="sku"
           {...register('sku')}
-          className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+          readOnly={isExistingProduct}
+          disabled={isExistingProduct}
+          placeholder={isExistingProduct ? undefined : "Auto-generated on creation"}
+          className={`mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none ${isExistingProduct ? 'opacity-70 cursor-not-allowed' : 'focus:ring-2 focus:ring-primary'}`}
         />
         {errors.sku && (
           <p className="text-red-400 text-xs mt-1">{errors.sku.message}</p>
@@ -92,10 +102,10 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
 
       <PricingCurveEditor />
 
-      <div className="border-t border-gray-800 pt-4">
-        <h3 className="text-sm font-medium text-white mb-4">Product Notes (Optional)</h3>
+      <div className="border-t border-gray-800 pt-4 mt-4">
+        <h3 className="text-sm font-medium text-white mb-2">Product Notes (Optional)</h3>
         
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
             <label htmlFor="notes.shipping" className="block text-sm font-medium text-white">
               Shipping Notes
@@ -141,7 +151,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
             </label>
             <textarea
               id="freeNotes"
-              rows={3}
+              rows={2}
               {...register('freeNotes')}
               className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Any additional information about the product"

@@ -189,10 +189,10 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
 
   return (
     <div>
-      <label className="block text-sm font-medium mb-2">Product Images</label>
+      <label className="block text-sm font-medium text-white mb-2">Product Images</label>
       <div
         {...getRootProps()}
-        className="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-primary transition-colors"
+        className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
       >
         <input {...getInputProps()} />
         {(previews.length > 0 || existingImages.length > 0) ? (
@@ -202,7 +202,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={[...existingImages, ...previews]} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {existingImages.map((imageUrl, index) => (
                   <SortableImage
                     key={imageUrl}
@@ -224,12 +224,12 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
           </DndContext>
         ) : (
           <div className="space-y-2">
-            <ImageIcon className="h-12 w-12 mx-auto text-gray-400" />
+            <ImageIcon className="h-10 w-10 mx-auto text-gray-400" />
             <p className="text-sm text-gray-400">
-              Drag and drop up to {10 - existingImages.length} images, or click to select
+              Drag and drop images, or click to select
             </p>
             <p className="text-xs text-gray-500">
-              Maximum file size: 5MB
+              Maximum 10 images (5MB each)
             </p>
           </div>
         )}
