@@ -179,6 +179,9 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     setImageFiles
   }), [imageFiles]);
 
+  // Get the current visibility value, ensuring it's a boolean
+  const isVisible = methods.watch('visible') === true;
+
   return (
     <FormProvider {...methods}>
       <ProductImagesContext.Provider value={imagesContextValue}>
@@ -198,47 +201,35 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
               className="bg-primary hover:bg-primary/80 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
             >
               {(loading || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
-              {loading ? 'Saving...' : 
-                uploading ? 'Uploading...' : 
-                initialData ? 'Update Product' : 'Create Product'}
+              {initialData ? 'Update Product' : 'Create Product'}
             </button>
           }
         >
-          <ProductImages
-            initialExistingImages={initialData?.images}
-          />
-
-          <ProductBasicInfo 
-            categories={categories}
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-white mb-1">
-              Product Visibility
-            </label>
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <Toggle
-                  checked={methods.watch('visible') ?? false}
-                  onCheckedChange={(newValue: boolean) => {
-                    methods.setValue('visible', newValue, { shouldDirty: true });
-                  }}
-                  size="md"
-                />
-                <span className="text-sm text-white">Show in storefront</span>
+          <div className="space-y-6">
+            <div className="flex justify-end items-center gap-2">
+              <span className="text-sm text-gray-400">Visible</span>
+              <Toggle 
+                {...methods.register('visible')}
+                checked={isVisible}
+                onCheckedChange={(checked: boolean) => methods.setValue('visible', checked)}
+              />
+            </div>
+            
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <div className="lg:col-span-3 space-y-6">
+                  <ProductBasicInfo categories={categories} />
+                </div>
+                
+                <div className="lg:col-span-2 space-y-6">
+                  <ProductImages />
+                  <ProductVariants />
+                </div>
               </div>
-              <p className="text-xs text-gray-400 ml-11">
-                When disabled, this product will be hidden from the storefront
-              </p>
             </div>
           </div>
-
-          <ProductVariants
-            initialVariants={initialData?.variants}
-            initialPrices={initialData?.variantPrices}
-          />
         </ModalForm>
       </ProductImagesContext.Provider>
     </FormProvider>
   );
-}
+} 

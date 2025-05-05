@@ -1,9 +1,8 @@
-// Export components from this directory
+// Export all components with clear, explicit naming
+export { ProductForm } from './ProductForm';
 export { ProductBasicInfo } from './ProductBasicInfo';
+export { ProductImages, ProductImagesContext } from './ProductImages';
+export { ProductVariants } from './ProductVariants';
 export { CategorySelect } from './CategorySelect';
-export { PricingCurveEditor } from './PricingCurveEditor'; 
-
-// Re-export the main ProductForm component
-// Note: This avoids the circular dependency by not importing directly from index.tsx
-// Instead, we're informing TypeScript that ProductForm will be available from this module
-export * from './index.tsx'; 
+export { PricingCurveEditor } from './PricingCurveEditor';
+export * from './schema'; 
