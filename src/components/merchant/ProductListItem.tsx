@@ -1,4 +1,4 @@
-import { Image as ImageIcon, EyeOff, Ban } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Copy } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { DeleteButton } from '../ui/DeleteButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -10,6 +10,7 @@ interface ProductListItemProps {
   product: Product;
   onEdit?: () => void;
   onDelete?: () => void;
+  onDuplicate?: () => void;
   onClick?: () => void;
   categoryIndex?: number;
 }
@@ -17,7 +18,8 @@ interface ProductListItemProps {
 export function ProductListItem({ 
   product, 
   onEdit, 
-  onDelete, 
+  onDelete,
+  onDuplicate,
   onClick,
   categoryIndex = 0 
 }: ProductListItemProps) {
@@ -32,6 +34,10 @@ export function ProductListItem({
 
   const handleDeleteClick = () => {
     onDelete?.();
+  };
+
+  const handleDuplicateClick = () => {
+    onDuplicate?.();
   };
 
   const getStockDisplay = () => {
@@ -107,6 +113,18 @@ export function ProductListItem({
             </div>
             
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onDuplicate && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDuplicateClick();
+                  }}
+                  className="p-1 text-gray-400 hover:text-blue-400 transition-colors rounded-md scale-90"
+                  title="Duplicate product"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              )}
               {onEdit && <EditButton onClick={handleEditClick} className="scale-90" />}
               {onDelete && <DeleteButton onClick={handleDeleteClick} className="scale-90" />}
             </div>

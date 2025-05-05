@@ -5,7 +5,7 @@ import { ProductListItem } from '../../components/merchant/ProductListItem';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
 import { useProducts } from '../../hooks/useProducts';
-import { createProduct, updateProduct, deleteProduct } from '../../services/products';
+import { createProduct, updateProduct, deleteProduct, duplicateProduct } from '../../services/products';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
@@ -18,6 +18,7 @@ export function ProductsTab() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   const { collections, loading: collectionsLoading } = useMerchantCollections();
   const { categories } = useCategories(selectedCollection);
@@ -76,6 +77,23 @@ export function ProductsTab() {
     } finally {
       setShowConfirmDialog(false);
       setDeletingId(null);
+    }
+  };
+
+  const handleDuplicate = async (productId: string) => {
+    try {
+      setDuplicating(true);
+      const { success } = await duplicateProduct(productId);
+      if (success) {
+        toast.success('Product duplicated successfully');
+        refreshProducts();
+      }
+    } catch (error) {
+      console.error('Error duplicating product:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error duplicating product';
+      toast.error(errorMessage);
+    } finally {
+      setDuplicating(false);
     }
   };
 
@@ -167,6 +185,7 @@ export function ProductsTab() {
                   setDeletingId(product.id);
                   setShowConfirmDialog(true);
                 } : undefined}
+                onDuplicate={canEdit && !duplicating ? () => handleDuplicate(product.id) : undefined}
               />
             );
           })}

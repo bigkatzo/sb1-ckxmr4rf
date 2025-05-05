@@ -351,3 +351,94 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
     return { success: true };
   });
 }
+
+export async function duplicateProduct(id: string) {
+  return retry(async () => {
+    try {
+      // Verify user authentication and ownership
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) throw new Error('User not authenticated');
+
+      // Fetch the product to duplicate
+      const { data: product, error: fetchError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError) {
+        throw new Error(`Failed to fetch product to duplicate: ${fetchError.message}`);
+      }
+      
+      if (!product) {
+        throw new Error('Product not found');
+      }
+
+      // Verify access rights (admin or collection owner/editor)
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      const isAdmin = userProfile?.role === 'admin';
+
+      // If not admin, verify ownership or edit access through collection
+      if (!isAdmin) {
+        const { data: collectionAccess } = await supabase
+          .from('collection_access_view')
+          .select('access_type')
+          .eq('collection_id', product.collection_id)
+          .eq('user_id', user.id)
+          .single();
+
+        const hasAccess = collectionAccess && 
+          (collectionAccess.access_type === 'owner' || collectionAccess.access_type === 'edit');
+
+        if (!hasAccess) {
+          throw new Error('You do not have permission to duplicate this product');
+        }
+      }
+      
+      // Create new product data with copied fields
+      const newProductData = {
+        name: `Copy of ${product.name}`,
+        description: product.description,
+        price: product.price,
+        quantity: product.quantity,
+        category_id: product.category_id,
+        collection_id: product.collection_id,
+        images: [...(product.images || [])],
+        variants: product.variants,
+        variant_prices: product.variant_prices,
+        minimum_order_quantity: product.minimum_order_quantity,
+        price_modifier_before_min: product.price_modifier_before_min,
+        price_modifier_after_min: product.price_modifier_after_min,
+        visible: product.visible,
+        sale_ended: product.sale_ended,
+        notes: product.notes,
+        free_notes: product.free_notes
+      };
+      
+      // Insert the new product
+      const { data: newProduct, error: insertError } = await supabase
+        .from('products')
+        .insert(newProductData)
+        .select('id')
+        .single();
+      
+      if (insertError) {
+        throw new Error(`Failed to create duplicate product: ${insertError.message}`);
+      }
+      
+      return { 
+        success: true, 
+        productId: newProduct.id 
+      };
+    } catch (error) {
+      console.error('Error duplicating product:', error);
+      throw error;
+    }
+  });
+}
