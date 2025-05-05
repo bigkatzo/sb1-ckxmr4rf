@@ -1079,7 +1079,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       {showAnalytics && (
         <div className="mb-8">
           <OrderAnalytics
-            orders={orders}
+            orders={filteredOrders}
             timeRange={{
               start: startDate ? new Date(startDate) : subDays(new Date(), 30),
               end: endDate ? new Date(endDate) : new Date()
