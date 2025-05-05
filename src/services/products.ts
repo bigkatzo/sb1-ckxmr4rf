@@ -352,7 +352,7 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
   });
 }
 
-export async function duplicateProduct(id: string) {
+export async function getProductForDuplication(id: string) {
   return retry(async () => {
     try {
       // Verify user authentication and ownership
@@ -401,43 +401,18 @@ export async function duplicateProduct(id: string) {
         }
       }
       
-      // Create new product data with copied fields
-      const newProductData = {
-        name: `Copy of ${product.name}`,
-        description: product.description,
-        price: product.price,
-        quantity: product.quantity,
-        category_id: product.category_id,
-        collection_id: product.collection_id,
-        images: [...(product.images || [])],
-        variants: product.variants,
-        variant_prices: product.variant_prices,
-        minimum_order_quantity: product.minimum_order_quantity,
-        price_modifier_before_min: product.price_modifier_before_min,
-        price_modifier_after_min: product.price_modifier_after_min,
-        visible: product.visible,
-        sale_ended: product.sale_ended,
-        notes: product.notes,
-        free_notes: product.free_notes
-      };
-      
-      // Insert the new product
-      const { data: newProduct, error: insertError } = await supabase
-        .from('products')
-        .insert(newProductData)
-        .select('id')
-        .single();
-      
-      if (insertError) {
-        throw new Error(`Failed to create duplicate product: ${insertError.message}`);
-      }
-      
+      // Return a modified version of the product for the form
+      // This doesn't create a new product in the database yet
       return { 
         success: true, 
-        productId: newProduct.id 
+        productData: {
+          ...product,
+          name: `Copy of ${product.name}`,
+          id: null // Set ID to null so that a new product will be created on save
+        }
       };
     } catch (error) {
-      console.error('Error duplicating product:', error);
+      console.error('Error preparing product for duplication:', error);
       throw error;
     }
   });

@@ -5,7 +5,7 @@ import { ProductListItem } from '../../components/merchant/ProductListItem';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
 import { useProducts } from '../../hooks/useProducts';
-import { createProduct, updateProduct, deleteProduct, duplicateProduct } from '../../services/products';
+import { createProduct, updateProduct, deleteProduct, getProductForDuplication } from '../../services/products';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
@@ -30,7 +30,7 @@ export function ProductsTab() {
   const handleSubmit = async (data: FormData) => {
     try {
       setFormLoading(true);
-      if (editingProduct) {
+      if (editingProduct && editingProduct.id) {
         await updateProduct(editingProduct.id, data);
         toast.success('Product updated successfully');
       } else {
@@ -83,14 +83,15 @@ export function ProductsTab() {
   const handleDuplicate = async (productId: string) => {
     try {
       setDuplicating(true);
-      const { success } = await duplicateProduct(productId);
-      if (success) {
-        toast.success('Product duplicated successfully');
-        refreshProducts();
+      const { success, productData } = await getProductForDuplication(productId);
+      if (success && productData) {
+        setEditingProduct(productData);
+        setShowForm(true);
+        toast.info('Product loaded for duplication. Edit as needed and save to create a copy.');
       }
     } catch (error) {
-      console.error('Error duplicating product:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error duplicating product';
+      console.error('Error preparing product duplication:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error preparing product duplication';
       toast.error(errorMessage);
     } finally {
       setDuplicating(false);
