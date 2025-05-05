@@ -1,4 +1,4 @@
-import { Image as ImageIcon, EyeOff, Ban, Copy, Edit, Trash, Eye, Tag, ExternalLink } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Copy, Trash, Eye, Tag, ExternalLink } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useOrderStats } from '../../hooks/useOrderStats';
@@ -50,7 +50,7 @@ export function ProductListItem({
       label: 'View Product',
       icon: <ExternalLink className="h-4 w-4" />,
       as: Link,
-      to: `/c/${product.collectionSlug}/p/${product.slug}`
+      to: `/${product.collectionSlug}/${product.slug}`
     });
   }
   
