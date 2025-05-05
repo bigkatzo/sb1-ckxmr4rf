@@ -46,7 +46,8 @@ export function CollectionListItem({
       label: 'View Collection',
       icon: <ExternalLink className="h-4 w-4" />,
       as: Link,
-      to: `/${collection.slug}`
+      to: `/${collection.slug}`,
+      target: "_blank"
     });
   }
   

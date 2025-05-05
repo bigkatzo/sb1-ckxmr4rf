@@ -50,7 +50,8 @@ export function ProductListItem({
       label: 'View Product',
       icon: <ExternalLink className="h-4 w-4" />,
       as: Link,
-      to: `/${product.collectionSlug}/${product.slug}`
+      to: `/${product.collectionSlug}/${product.slug}`,
+      target: "_blank"
     });
   }
   

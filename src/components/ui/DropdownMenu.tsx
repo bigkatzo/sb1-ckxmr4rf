@@ -80,6 +80,8 @@ export function DropdownMenu({
                   <Link
                     key={index}
                     to={item.to}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className={`block w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors text-sm whitespace-nowrap ${
                       item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
                     }`}
@@ -94,7 +96,8 @@ export function DropdownMenu({
                   <a
                     key={index}
                     href={item.href}
-                    target={item.target || '_self'}
+                    target={item.target || "_blank"}
+                    rel="noopener noreferrer"
                     className={`block w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-700 transition-colors text-sm whitespace-nowrap ${
                       item.destructive ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
                     }`}
