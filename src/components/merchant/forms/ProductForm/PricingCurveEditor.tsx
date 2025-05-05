@@ -10,7 +10,7 @@ import {
   ReferenceLine, 
   ResponsiveContainer 
 } from 'recharts';
-import { Minus, Plus, Infinity, HelpCircle } from 'lucide-react';
+import { Minus, Plus, Infinity, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { ProductFormValues } from './schema';
 
 export function PricingCurveEditor() {
@@ -21,7 +21,8 @@ export function PricingCurveEditor() {
     formState: { errors } 
   } = useFormContext<ProductFormValues>();
   
-  const [showTooltip, setShowTooltip] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   
   // Watch values to update curve visualization
   const basePrice = watch('price') || 0;
@@ -91,29 +92,69 @@ export function PricingCurveEditor() {
     const currentValue = watch(field) || 0;
     
     if (field === 'price') {
-      setValue(field, Math.max(0, currentValue + delta));
+      setValue(field, Math.max(0, +(currentValue + delta).toFixed(2)));
     } else if (field === 'priceModifierBeforeMin') {
-      setValue(field, Math.max(-1, Math.min(1, (currentValue + delta))));
+      setValue(field, Math.max(-1, Math.min(1, +(currentValue + delta).toFixed(2))));
     } else if (field === 'priceModifierAfterMin') {
-      setValue(field, Math.max(0, currentValue + delta));
+      setValue(field, Math.max(0, +(currentValue + delta).toFixed(2)));
     }
   };
 
+  // Calculate initial, min and max prices
+  const minPrice = basePrice + (modifierBefore && modifierBefore < 0 ? basePrice * modifierBefore : 0);
+  const maxPrice = basePrice + (modifierAfter && modifierAfter > 0 ? basePrice * modifierAfter : 0);
+
   return (
     <div className="space-y-4 border-t border-gray-800 pt-4 mt-4">
-      <h3 className="text-sm font-medium text-white">Price Configuration</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-white">Pricing Strategy</h3>
+        <button 
+          type="button"
+          onClick={() => setShowHelp(!showHelp)}
+          className="text-xs flex items-center gap-1 text-primary/80 hover:text-primary transition-colors"
+        >
+          <HelpCircle size={14} />
+          <span>{showHelp ? 'Hide Help' : 'What is this?'}</span>
+        </button>
+      </div>
+
+      {showHelp && (
+        <div className="bg-gray-800/50 border border-gray-700 p-3 rounded-md text-sm text-gray-300">
+          <p className="mb-3">
+            Create a dynamic pricing strategy with these options:
+          </p>
+          <ul className="space-y-2 ml-4">
+            <li className="flex gap-2">
+              <span className="text-primary font-medium">•</span>
+              <span><b>Base Price:</b> The standard price when MOQ is reached</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary font-medium">•</span>
+              <span><b>MOQ:</b> Minimum Order Quantity needed to launch the product</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary font-medium">•</span>
+              <span><b>Pre-MOQ Discount:</b> Incentivize early buyers with lower prices</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary font-medium">•</span>
+              <span><b>Post-MOQ Increase:</b> Create urgency as inventory sells out</span>
+            </li>
+          </ul>
+        </div>
+      )}
 
       {/* Base Price with + and - buttons */}
-      <div className="space-y-2">
+      <div className="space-y-2 bg-gray-900/50 p-3 rounded-lg">
         <div className="flex items-center justify-between">
           <label htmlFor="price" className="text-sm font-medium text-white">
-            Base Price (SOL)
+            Base Price
           </label>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => adjustValue('price', -0.1)}
-              className="w-7 h-7 bg-gray-800 hover:bg-gray-700 rounded-md flex items-center justify-center"
+              className="w-8 h-8 bg-gray-800 hover:bg-gray-700 rounded-md flex items-center justify-center touch-manipulation"
             >
               <Minus size={16} />
             </button>
@@ -121,33 +162,36 @@ export function PricingCurveEditor() {
               type="number"
               id="price"
               min="0"
-              step="0.01"
+              step="0.1"
               {...register('price', { valueAsNumber: true })}
-              className="w-24 bg-gray-800 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-20 md:w-24 bg-gray-800 rounded-lg px-2 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <button
               type="button"
               onClick={() => adjustValue('price', 0.1)}
-              className="w-7 h-7 bg-gray-800 hover:bg-gray-700 rounded-md flex items-center justify-center"
+              className="w-8 h-8 bg-gray-800 hover:bg-gray-700 rounded-md flex items-center justify-center touch-manipulation"
             >
               <Plus size={16} />
             </button>
+            <span className="text-sm text-white ml-1">SOL</span>
           </div>
         </div>
         {errors.price && <p className="text-red-400 text-xs">{errors.price.message}</p>}
       </div>
 
       {/* Stock and MOQ Configuration */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-white flex items-center gap-2">
-              Stock
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2 bg-gray-900/50 p-3 rounded-lg">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <label htmlFor="stock" className="text-sm font-medium text-white">
+                Stock
+              </label>
               <div className="flex items-center">
                 <input
                   type="checkbox"
                   id="unlimited-stock"
-                  className="mr-2 h-4 w-4 rounded border-gray-600 bg-gray-800 text-primary focus:ring-primary"
+                  className="mr-1 h-4 w-4 rounded border-gray-600 bg-gray-800 text-primary focus:ring-primary"
                   checked={hasUnlimitedStock}
                   onChange={() => setValue('stock', hasUnlimitedStock ? 100 : null)}
                 />
@@ -155,7 +199,7 @@ export function PricingCurveEditor() {
                   Unlimited <Infinity className="h-3 w-3" />
                 </span>
               </div>
-            </label>
+            </div>
             {!hasUnlimitedStock && (
               <input
                 type="number"
@@ -164,7 +208,7 @@ export function PricingCurveEditor() {
                 {...register('stock', {
                   setValueAs: (value) => value === '' ? null : parseInt(value),
                 })}
-                className="w-24 bg-gray-800 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full md:w-24 bg-gray-800 rounded-lg px-3 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Stock"
               />
             )}
@@ -172,187 +216,220 @@ export function PricingCurveEditor() {
           {errors.stock && <p className="text-red-400 text-xs">{errors.stock.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
+        <div className="space-y-2 bg-gray-900/50 p-3 rounded-lg">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
             <label htmlFor="minimumOrderQuantity" className="text-sm font-medium text-white">
-              Min. Order Quantity
+              Min. Order Quantity 
             </label>
             <input
               type="number"
               id="minimumOrderQuantity"
               min="1"
               {...register('minimumOrderQuantity', { valueAsNumber: true })}
-              className="w-24 bg-gray-800 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full md:w-24 bg-gray-800 rounded-lg px-3 py-2 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          {errors.minimumOrderQuantity && <p className="text-red-400 text-xs">{errors.minimumOrderQuantity.message}</p>}
+          {errors.minimumOrderQuantity && (
+            <p className="text-red-400 text-xs">{errors.minimumOrderQuantity.message}</p>
+          )}
         </div>
       </div>
 
-      {/* Price modifiers */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Before MOQ */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <label htmlFor="priceModifierBeforeMin" className="text-sm font-medium text-white flex items-center gap-1">
-              <span>Pre-MOQ Discount</span>
-              <button 
-                type="button"
-                className="text-gray-500 hover:text-gray-300 transition-colors"
-                onClick={() => setShowTooltip(!showTooltip)}
-              >
-                <HelpCircle size={14} />
-              </button>
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => adjustValue('priceModifierBeforeMin', -0.05)}
-                className="w-7 h-7 bg-gray-800 hover:bg-gray-700 rounded-md flex items-center justify-center"
-              >
-                <Minus size={16} />
-              </button>
-              <input
-                type="number"
-                id="priceModifierBeforeMin"
-                min="-1"
-                max="1"
-                step="0.01"
-                {...register('priceModifierBeforeMin', {
-                  setValueAs: (value) => value === '' ? null : parseFloat(value),
-                })}
-                className="w-20 bg-gray-800 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <button
-                type="button"
-                onClick={() => adjustValue('priceModifierBeforeMin', 0.05)}
-                className="w-7 h-7 bg-gray-800 hover:bg-gray-700 rounded-md flex items-center justify-center"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-          </div>
-          <div className="text-xs text-gray-400">
-            {modifierBefore !== undefined && modifierBefore !== null 
-              ? `${(modifierBefore * 100).toFixed(0)}% ${modifierBefore < 0 ? 'discount' : 'increase'}`
-              : 'No modifier'}
-          </div>
-        </div>
+      {/* Advanced options toggle button */}
+      <button
+        type="button"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="flex items-center justify-between w-full text-sm text-primary-600 bg-gray-900/40 hover:bg-gray-900/60 transition-colors px-3 py-2 rounded-lg"
+      >
+        <span className="font-medium text-primary/90">Advanced Pricing Options</span>
+        {showAdvanced ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+      </button>
 
-        {/* After MOQ */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <label htmlFor="priceModifierAfterMin" className="text-sm font-medium text-white">
-              Post-MOQ Increase
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => adjustValue('priceModifierAfterMin', -0.05)}
-                className="w-7 h-7 bg-gray-800 hover:bg-gray-700 rounded-md flex items-center justify-center"
-              >
-                <Minus size={16} />
-              </button>
-              <input
-                type="number"
-                id="priceModifierAfterMin"
-                min="0"
-                step="0.01"
-                {...register('priceModifierAfterMin', {
-                  setValueAs: (value) => value === '' ? null : parseFloat(value),
-                })}
-                className="w-20 bg-gray-800 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <button
-                type="button"
-                onClick={() => adjustValue('priceModifierAfterMin', 0.05)}
-                className="w-7 h-7 bg-gray-800 hover:bg-gray-700 rounded-md flex items-center justify-center"
-              >
-                <Plus size={16} />
-              </button>
+      {showAdvanced && (
+        <>
+          {/* Price modifiers */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+            {/* Before MOQ */}
+            <div className="space-y-2 bg-gray-900/50 p-3 rounded-lg">
+              <div>
+                <label 
+                  htmlFor="priceModifierBeforeMin" 
+                  className="text-sm font-medium text-white block mb-1"
+                >
+                  Pre-MOQ Discount
+                </label>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="range"
+                    min="-0.5"
+                    max="0.2"
+                    step="0.05"
+                    value={modifierBefore ?? 0}
+                    onChange={(e) => {
+                      // Convert explicitly
+                      const value = Number(e.target.value);
+                      setValue('priceModifierBeforeMin', value);
+                    }}
+                    className="w-full accent-primary cursor-pointer"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">-50% Discount</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        id="priceModifierBeforeMin"
+                        min="-0.5"
+                        max="0.2"
+                        step="0.05"
+                        {...register('priceModifierBeforeMin', {
+                          setValueAs: (value) => value === '' ? null : parseFloat(value),
+                        })}
+                        className="w-16 bg-gray-800 rounded-lg px-2 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <span className="text-xs text-white">%</span>
+                    </div>
+                    <span className="text-xs text-gray-400">20% Premium</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-300 mt-1">
+                {modifierBefore ? (
+                  modifierBefore < 0 ? 
+                    `Early buyers get ${Math.abs((modifierBefore * 100).toFixed(0))}% off (${minPrice.toFixed(2)} SOL)` : 
+                    `Early buyers pay ${(modifierBefore * 100).toFixed(0)}% premium`
+                ) : 'No early pricing adjustment'}
+              </div>
+            </div>
+
+            {/* After MOQ */}
+            <div className="space-y-2 bg-gray-900/50 p-3 rounded-lg">
+              <div>
+                <label 
+                  htmlFor="priceModifierAfterMin" 
+                  className="text-sm font-medium text-white block mb-1"
+                >
+                  Post-MOQ Increase
+                </label>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="0.5"
+                    step="0.05"
+                    value={modifierAfter ?? 0}
+                    onChange={(e) => {
+                      // Convert explicitly
+                      const value = Number(e.target.value);
+                      setValue('priceModifierAfterMin', value);
+                    }}
+                    className="w-full accent-primary cursor-pointer"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">No Change</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        id="priceModifierAfterMin"
+                        min="0"
+                        max="0.5"
+                        step="0.05"
+                        {...register('priceModifierAfterMin', {
+                          setValueAs: (value) => value === '' ? null : parseFloat(value),
+                        })}
+                        className="w-16 bg-gray-800 rounded-lg px-2 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <span className="text-xs text-white">%</span>
+                    </div>
+                    <span className="text-xs text-gray-400">50% Increase</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-300 mt-1">
+                {modifierAfter ? 
+                  `Late buyers pay up to ${(modifierAfter * 100).toFixed(0)}% more (${maxPrice.toFixed(2)} SOL)` : 
+                  'No late pricing adjustment'}
+              </div>
             </div>
           </div>
-          <div className="text-xs text-gray-400">
-            {modifierAfter !== undefined && modifierAfter !== null 
-              ? `Up to ${(modifierAfter * 100).toFixed(0)}% increase`
-              : 'No modifier'}
+
+          {/* Bonding curve visualization */}
+          <div className="mt-4 pt-3 border-t border-gray-800">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-white">Price Curve Preview</h4>
+              <div className="text-xs text-gray-400">
+                Range: {priceRange.min.toFixed(2)} - {priceRange.max.toFixed(2)} SOL
+              </div>
+            </div>
+            <div className="h-[200px] w-full bg-gray-800 rounded-lg p-2 overflow-hidden">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="orders" 
+                    stroke="#9CA3AF"
+                    tick={{ fill: '#9CA3AF', fontSize: 10 }}
+                  />
+                  <YAxis 
+                    domain={[priceRange.min, priceRange.max]}
+                    stroke="#9CA3AF"
+                    tick={{ fill: '#9CA3AF', fontSize: 10 }}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: '#1F2937',
+                      border: 'none',
+                      borderRadius: '0.375rem',
+                      color: '#F3F4F6',
+                      fontSize: '12px'
+                    }}
+                    formatter={(value: number) => [`${value.toFixed(2)} SOL`, 'Price']}
+                    labelFormatter={(value) => `Orders: ${value}`}
+                  />
+                  <ReferenceLine 
+                    x={moq} 
+                    stroke="#FCD34D" 
+                    strokeDasharray="3 3" 
+                    label={{ 
+                      value: 'MOQ', 
+                      position: 'top', 
+                      fill: '#FCD34D', 
+                      fontSize: 10
+                    }} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="price" 
+                    stroke="#9333EA" 
+                    strokeWidth={2}
+                    activeDot={{ r: 6, fill: '#9333EA' }} 
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <div className="mt-2 flex justify-between text-xs text-gray-400">
+              <div>0 Orders</div>
+              <div className="text-yellow-500">MOQ: {moq}</div>
+              <div>{hasUnlimitedStock ? 'Unlimited' : `Max: ${stock}`}</div>
+            </div>
+
+            <div className="mt-3 flex flex-col md:flex-row gap-2 justify-between text-center">
+              <div className="bg-gray-900/60 rounded-md p-2 flex-1">
+                <div className="text-xs text-gray-400">Early Price</div>
+                <div className="text-white font-medium">{minPrice.toFixed(2)} SOL</div>
+              </div>
+              <div className="bg-gray-900/60 rounded-md p-2 flex-1">
+                <div className="text-xs text-gray-400">Base Price</div>
+                <div className="text-white font-medium">{basePrice.toFixed(2)} SOL</div>
+              </div>
+              <div className="bg-gray-900/60 rounded-md p-2 flex-1">
+                <div className="text-xs text-gray-400">Maximum Price</div>
+                <div className="text-white font-medium">{maxPrice.toFixed(2)} SOL</div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      
-      {/* Tooltip for helping understand price modifiers */}
-      {showTooltip && (
-        <div className="bg-gray-800 p-3 rounded-md text-xs text-gray-300 shadow-lg">
-          <p className="font-medium text-white mb-1">How Price Modifiers Work</p>
-          <p className="mb-2">Price modifiers create a bonding curve that changes the price based on demand:</p>
-          <ul className="list-disc pl-4 space-y-1">
-            <li><span className="text-primary">Pre-MOQ Discount:</span> Early buyers get discounts (negative values) or premium (positive values)</li>
-            <li><span className="text-primary">Post-MOQ Increase:</span> Price increases as stock sells out (FOMO incentive)</li>
-          </ul>
-        </div>
+        </>
       )}
-
-      {/* Bonding curve visualization */}
-      <div className="mt-3 pt-3 border-t border-gray-800">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium text-white">Price Curve</h4>
-          <div className="text-xs text-gray-400">
-            Range: {priceRange.min.toFixed(2)} - {priceRange.max.toFixed(2)} SOL
-          </div>
-        </div>
-        <div className="h-[180px] w-full bg-gray-800 rounded-lg p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis 
-                dataKey="orders" 
-                stroke="#9CA3AF"
-                tick={{ fill: '#9CA3AF', fontSize: 10 }}
-              />
-              <YAxis 
-                domain={[priceRange.min, priceRange.max]}
-                stroke="#9CA3AF"
-                tick={{ fill: '#9CA3AF', fontSize: 10 }}
-              />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: '#1F2937',
-                  border: 'none',
-                  borderRadius: '0.375rem',
-                  color: '#F3F4F6',
-                  fontSize: '12px'
-                }}
-                formatter={(value: number) => [`${value.toFixed(2)} SOL`, 'Price']}
-                labelFormatter={(value) => `Orders: ${value}`}
-              />
-              <ReferenceLine 
-                x={moq} 
-                stroke="#FCD34D" 
-                strokeDasharray="3 3" 
-                label={{ 
-                  value: 'MOQ', 
-                  position: 'top', 
-                  fill: '#FCD34D', 
-                  fontSize: 9 
-                }} 
-              />
-              <Line 
-                type="monotone" 
-                dataKey="price" 
-                stroke="#9333EA" 
-                strokeWidth={2}
-                activeDot={{ r: 6, fill: '#9333EA' }} 
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-        
-        <div className="mt-1 flex justify-between text-xs text-gray-400">
-          <div>0</div>
-          <div className="text-yellow-500">MOQ: {moq}</div>
-          <div>{hasUnlimitedStock ? '∞' : stock}</div>
-        </div>
-      </div>
     </div>
   );
 } 
