@@ -1,9 +1,10 @@
-import { Image as ImageIcon, EyeOff, Ban, Copy, Edit, Trash, Eye, Tag } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Copy, Edit, Trash, Eye, Tag, ExternalLink } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useOrderStats } from '../../hooks/useOrderStats';
 import { getCategoryColorSet } from '../../utils/category-colors';
 import { DropdownMenu } from '../ui/DropdownMenu';
+import { Link } from 'react-router-dom';
 import type { Product } from '../../types/variants';
 
 interface ProductListItemProps {
@@ -43,6 +44,16 @@ export function ProductListItem({
   // Generate dropdown menu items based on available actions
   const dropdownItems = [];
   
+  // Add View Product as the first option if we have the slug
+  if (product.slug && product.collectionSlug) {
+    dropdownItems.push({
+      label: 'View Product',
+      icon: <ExternalLink className="h-4 w-4" />,
+      as: Link,
+      to: `/c/${product.collectionSlug}/p/${product.slug}`
+    });
+  }
+  
   if (onDuplicate) {
     dropdownItems.push({
       label: 'Duplicate',
@@ -55,7 +66,7 @@ export function ProductListItem({
     dropdownItems.push({
       label: product.visible ? 'Hide Product' : 'Show Product',
       icon: product.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
-      onClick: () => onToggleVisibility(!product.visible)
+      onClick: () => onToggleVisibility(product.visible || false)
     });
   }
   
@@ -63,7 +74,7 @@ export function ProductListItem({
     dropdownItems.push({
       label: product.saleEnded ? 'Resume Sale' : 'End Sale',
       icon: <Tag className="h-4 w-4" />,
-      onClick: () => onToggleSaleEnded(!product.saleEnded)
+      onClick: () => onToggleSaleEnded(product.saleEnded || false)
     });
   }
   

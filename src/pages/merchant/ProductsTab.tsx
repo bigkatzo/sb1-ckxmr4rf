@@ -235,7 +235,10 @@ export function ProductsTab() {
             return (
               <ProductListItem
                 key={product.id}
-                product={product}
+                product={{
+                  ...product,
+                  collectionSlug: collection?.slug
+                }}
                 categoryIndex={product.categoryId ? categoryIndices[product.categoryId] : 0}
                 onEdit={canEdit ? () => {
                   setEditingProduct(product);
