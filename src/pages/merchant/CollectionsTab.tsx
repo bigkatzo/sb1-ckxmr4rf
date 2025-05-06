@@ -147,20 +147,15 @@ export function CollectionsTab() {
   };
 
   const handleSelectCollection = (collectionId: string) => {
-    // Toggle selection if clicking the same collection again
+    // Toggle selection: If the same collection is clicked again, deselect it
     if (selectedCollection === collectionId) {
-      setSelectedCollection('');
-      toast.info(`Collection deselected`, {
-        autoClose: 2000
-      });
+      setSelectedCollection(''); // Deselect
+      toast.info(`Collection deselected`, { autoClose: 2000 });
     } else {
-      setSelectedCollection(collectionId);
-      // Optionally show a toast confirmation
+      setSelectedCollection(collectionId); // Select
       const collection = collections.find(c => c.id === collectionId);
       if (collection) {
-        toast.info(`Selected collection "${collection.name}"`, {
-          autoClose: 2000
-        });
+        toast.info(`Selected collection "${collection.name}"`, { autoClose: 2000 });
       }
     }
   };
@@ -197,12 +192,12 @@ export function CollectionsTab() {
       <div className="mb-5">
         {/* Single row with all controls */}
         <div className="flex items-center gap-2">
-          {/* Global Filter - Original width on desktop */}
-          <div className="w-auto md:w-auto lg:w-auto min-w-0">
+          {/* Global Filter - Proper width on desktop, more flexible on mobile */}
+          <div className="flex-1 md:flex-initial md:min-w-[180px] md:max-w-[180px] lg:min-w-[220px] lg:max-w-[220px] min-w-0">
             <InlineFilterBar />
           </div>
           
-          {/* Search - Take more space on desktop */}
+          {/* Search - Take remaining width, but allow buttons to stay right-aligned */}
           <div className="flex-1 min-w-0 mr-auto">
             <CollapsibleSearchBar
               searchQuery={filters.searchQuery}

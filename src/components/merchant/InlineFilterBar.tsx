@@ -134,16 +134,7 @@ export function InlineFilterBar() {
             <ChevronDown className="h-4 w-4" />
           </button>
 
-          {/* Clear button for mobile collapsed view */}
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllSelections}
-              className="ml-2 text-gray-500 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 p-1.5 rounded-md"
-              title="Clear all filters"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+          {/* Removed clear button from here for mobile collapsed view */}
         </div>
       </div>
     );
@@ -178,8 +169,8 @@ export function InlineFilterBar() {
           <ChevronDown className="h-4 w-4" />
         </button>
         
-        {/* Clear button (only shown when filters are active) */}
-        {hasActiveFilters && (
+        {/* Clear button (only shown when filters are active and not on mobile) */}
+        {hasActiveFilters && !isCollapsed && (
           <button
             onClick={clearAllSelections}
             className="ml-2 text-gray-500 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 p-1.5 rounded-md"
@@ -200,13 +191,25 @@ export function InlineFilterBar() {
           {isCollapsed && (
             <div className="flex justify-between items-center px-2 py-2 border-b border-gray-800">
               <h3 className="text-sm font-medium text-gray-300">Filter Options</h3>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-300 p-1.5 bg-gray-800 hover:bg-gray-700 rounded-md"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center">
+                {/* Clear button for mobile inside the dropdown header */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearAllSelections}
+                    className="mr-2 text-gray-500 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 p-1.5 rounded-md"
+                    title="Clear all filters"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="text-gray-400 hover:text-gray-300 p-1.5 bg-gray-800 hover:bg-gray-700 rounded-md"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           )}
           
