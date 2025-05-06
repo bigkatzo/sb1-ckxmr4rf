@@ -216,24 +216,20 @@ export function ProductsTab() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
-      <div className="mb-5">
-        {/* Filters and Actions Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {/* Left side - InlineFilterBar - full width on mobile, but only 1 column on desktop */}
-          <div className="sm:col-span-1">
-            <InlineFilterBar />
-          </div>
+      <div className="mb-5 space-y-3">
+        {/* Global Filter - Full Width on Mobile */}
+        <div className="w-full">
+          <InlineFilterBar />
+        </div>
+        
+        {/* Search + Actions Row */}
+        <div className="flex items-center gap-2 justify-between">
+          <ProductFilters
+            searchQuery={filters.searchQuery}
+            onSearchChange={updateSearchQuery}
+          />
           
-          {/* Middle - Search Input - full width on mobile, but 2 columns on desktop */}
-          <div className="sm:col-span-2">
-            <ProductFilters
-              searchQuery={filters.searchQuery}
-              onSearchChange={updateSearchQuery}
-            />
-          </div>
-
-          {/* Right side - Refresh & Add Buttons - full width on mobile, wrapped in flex for alignment */}
-          <div className="flex items-center gap-2 justify-between sm:justify-end sm:col-span-1">
+          <div className="flex items-center gap-2">
             <RefreshButton onRefresh={refreshProducts} className="flex-shrink-0" />
             
             {selectedCollection && collections.find(c => 
@@ -245,7 +241,7 @@ export function ProductsTab() {
                   setEditingProduct(null);
                   setShowForm(true);
                 }}
-                className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-sm"
+                className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg transition-colors text-sm font-medium shadow-sm"
               >
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Add Product</span>
