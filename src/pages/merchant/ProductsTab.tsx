@@ -216,31 +216,43 @@ export function ProductsTab() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-3 mb-6">
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full">
+      <div className="mb-5">
+        {/* Filters and Actions Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {/* Left side - InlineFilterBar - full width on mobile, but only 1 column on desktop */}
+          <div className="sm:col-span-1">
             <InlineFilterBar />
+          </div>
+          
+          {/* Middle - Search Input - full width on mobile, but 2 columns on desktop */}
+          <div className="sm:col-span-2">
             <ProductFilters
               searchQuery={filters.searchQuery}
               onSearchChange={updateSearchQuery}
             />
-            <RefreshButton onRefresh={refreshProducts} className="flex-shrink-0" />
           </div>
-          {selectedCollection && collections.find(c => 
-            c.id === selectedCollection && 
-            (c.isOwner || c.accessType === 'edit')
-          ) && (
-            <button
-              onClick={() => {
-                setEditingProduct(null);
-                setShowForm(true);
-              }}
-              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Product</span>
-            </button>
-          )}
+
+          {/* Right side - Refresh & Add Buttons - full width on mobile, wrapped in flex for alignment */}
+          <div className="flex items-center gap-2 justify-between sm:justify-end sm:col-span-1">
+            <RefreshButton onRefresh={refreshProducts} className="flex-shrink-0" />
+            
+            {selectedCollection && collections.find(c => 
+              c.id === selectedCollection && 
+              (c.isOwner || c.accessType === 'edit')
+            ) && (
+              <button
+                onClick={() => {
+                  setEditingProduct(null);
+                  setShowForm(true);
+                }}
+                className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Product</span>
+                <span className="sm:hidden">Add</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

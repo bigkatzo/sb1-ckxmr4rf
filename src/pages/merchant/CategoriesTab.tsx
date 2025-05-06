@@ -164,10 +164,16 @@ export function CategoriesTab() {
 
   return (
     <div className="px-3 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-3 mb-6">
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full">
+      <div className="mb-5">
+        {/* Filters and Actions Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {/* Left side - InlineFilterBar - full width on mobile, but only 1 column on desktop */}
+          <div className="sm:col-span-1">
             <InlineFilterBar />
+          </div>
+          
+          {/* Middle - Search Input - full width on mobile, but 2 columns on desktop */}
+          <div className="sm:col-span-2">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -178,25 +184,29 @@ export function CategoriesTab() {
                 className="w-full bg-gray-800 rounded-lg pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm border border-gray-700 hover:border-gray-600 transition-colors"
               />
             </div>
-            
-            <RefreshButton onRefresh={handleRefreshAll} className="flex-shrink-0" />
           </div>
+
+          {/* Right side - Refresh & Add Buttons - full width on mobile, wrapped in flex for alignment */}
+          <div className="flex items-center gap-2 justify-between sm:justify-end sm:col-span-1">
+            <RefreshButton onRefresh={handleRefreshAll} className="flex-shrink-0" />
             
-          {selectedCollection && collections.find(c => 
-            c.id === selectedCollection && 
-            (c.isOwner || c.accessType === 'edit')
-          ) && (
-            <button
-              onClick={() => {
-                setEditingCategory(null);
-                setShowForm(true);
-              }}
-              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Category</span>
-            </button>
-          )}
+            {selectedCollection && collections.find(c => 
+              c.id === selectedCollection && 
+              (c.isOwner || c.accessType === 'edit')
+            ) && (
+              <button
+                onClick={() => {
+                  setEditingCategory(null);
+                  setShowForm(true);
+                }}
+                className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Category</span>
+                <span className="sm:hidden">Add</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

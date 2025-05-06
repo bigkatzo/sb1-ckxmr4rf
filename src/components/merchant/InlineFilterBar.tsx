@@ -85,25 +85,27 @@ export function InlineFilterBar() {
   };
   
   return (
-    <div className="relative flex-shrink-0" ref={filterRef}>
+    <div className="relative flex-shrink-0 w-full" ref={filterRef}>
       <div className="flex items-center">
         {/* Filter button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
           className={`
-            inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm border transition-colors shadow-sm
+            w-full inline-flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm border transition-colors shadow-sm
             ${hasActiveFilters 
               ? 'border-primary text-primary hover:bg-primary/10' 
               : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:bg-gray-800 hover:text-gray-300'}
           `}
         >
-          <Filter className="h-4 w-4" />
-          <span className="hidden sm:inline font-medium truncate max-w-[120px]">
-            {hasActiveFilters 
-              ? `${selectedCollectionName}${selectedCategoryName ? ` • ${selectedCategoryName}` : ''}` 
-              : 'Global Filter'}
-          </span>
-          {hasActiveFilters && <span className="inline sm:hidden font-medium">Active</span>}
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4" />
+            <span className="hidden sm:inline font-medium truncate max-w-[120px]">
+              {hasActiveFilters 
+                ? `${selectedCollectionName}${selectedCategoryName ? ` • ${selectedCategoryName}` : ''}` 
+                : 'Global Filter'}
+            </span>
+            {hasActiveFilters && <span className="inline sm:hidden font-medium">Active</span>}
+          </div>
           <ChevronDown className="h-4 w-4" />
         </button>
         
@@ -121,7 +123,7 @@ export function InlineFilterBar() {
       
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1 z-[100] bg-gray-900 rounded-md border border-gray-700 shadow-xl min-w-[250px] sm:min-w-[280px] py-1 divide-y divide-gray-800">
+        <div className="absolute left-0 right-0 sm:left-0 sm:right-auto top-full mt-1 z-[100] bg-gray-900 rounded-md border border-gray-700 shadow-xl w-full sm:min-w-[280px] py-1 divide-y divide-gray-800">
           {/* Collection selector */}
           <div className="py-1">
             <button
