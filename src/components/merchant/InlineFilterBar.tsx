@@ -24,6 +24,7 @@ export function InlineFilterBar() {
   
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubMenu, setActiveSubMenu] = useState<'collections' | 'categories' | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   
   // Get display values for selected items
@@ -51,6 +52,17 @@ export function InlineFilterBar() {
       setActiveSubMenu(null);
     }
   }, [isOpen]);
+
+  // Check viewport size to handle mobile view
+  useEffect(() => {
+    const handleResize = () => {
+      setIsCollapsed(window.innerWidth < 768);
+    };
+    
+    handleResize(); // Set initial state
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Handle option selection
   const handleOptionSelect = (optionType: 'collection' | 'category', optionId: string) => {
@@ -84,9 +96,41 @@ export function InlineFilterBar() {
     ));
   };
   
+  // Collapsed mobile view
+  if (isCollapsed && !isOpen) {
+    return (
+      <div className="relative" ref={filterRef}>
+        <button
+          onClick={() => setIsOpen(true)}
+          className={`
+            inline-flex items-center justify-center p-2.5 rounded-md text-sm shadow-sm 
+            ${hasActiveFilters 
+              ? 'bg-primary text-white' 
+              : 'bg-gray-800 text-gray-400 hover:text-gray-300'}
+          `}
+          aria-label="Filter"
+          title={hasActiveFilters ? 'Active filters' : 'Filter'}
+        >
+          <Filter className="h-4 w-4" />
+          {hasActiveFilters && (
+            <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-white"></span>
+          )}
+        </button>
+      </div>
+    );
+  }
+  
+  // Expanded view (desktop or expanded mobile)
   return (
-    <div className="relative flex-shrink-0 w-full" ref={filterRef}>
-      <div className="flex items-center">
+    <div className="relative flex-shrink-0 w-full md:w-auto" ref={filterRef}>
+      {isCollapsed && isOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setIsOpen(false)}></div>
+      )}
+      
+      <div className={`
+        flex items-center
+        ${isCollapsed && isOpen ? 'absolute top-0 left-0 z-50 w-full bg-gray-900 p-2 rounded-md shadow-lg' : ''}
+      `}>
         {/* Filter button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -99,12 +143,11 @@ export function InlineFilterBar() {
         >
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4" />
-            <span className="hidden sm:inline font-medium truncate max-w-[120px]">
+            <span className="font-medium truncate max-w-[120px] md:max-w-[160px]">
               {hasActiveFilters 
                 ? `${selectedCollectionName}${selectedCategoryName ? ` • ${selectedCategoryName}` : ''}` 
                 : 'Global Filter'}
             </span>
-            {hasActiveFilters && <span className="inline sm:hidden font-medium">Active</span>}
           </div>
           <ChevronDown className="h-4 w-4" />
         </button>
@@ -119,11 +162,27 @@ export function InlineFilterBar() {
             <X className="h-4 w-4" />
           </button>
         )}
+        
+        {/* Close button (mobile expanded view) */}
+        {isCollapsed && isOpen && (
+          <button
+            onClick={() => setIsOpen(false)}
+            className="ml-2 text-gray-400 hover:text-gray-300 p-1.5 bg-gray-800 hover:bg-gray-700 rounded-md"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
       
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute left-0 right-0 sm:left-0 sm:right-auto top-full mt-1 z-[100] bg-gray-900 rounded-md border border-gray-700 shadow-xl w-full sm:min-w-[280px] py-1 divide-y divide-gray-800">
+        <div className={`
+          ${isCollapsed 
+            ? 'absolute top-full left-0 right-0 mt-1 z-50' 
+            : 'absolute left-0 right-0 sm:left-0 sm:right-auto top-full mt-1 z-40'}
+          bg-gray-900 rounded-md border border-gray-700 shadow-xl w-full sm:min-w-[280px] py-1 divide-y divide-gray-800
+        `}>
           {/* Collection selector */}
           <div className="py-1">
             <button

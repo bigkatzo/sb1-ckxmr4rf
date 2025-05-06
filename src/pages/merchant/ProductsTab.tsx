@@ -216,21 +216,25 @@ export function ProductsTab() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
-      <div className="mb-5 space-y-3">
-        {/* Global Filter - Full Width on Mobile */}
-        <div className="w-full">
-          <InlineFilterBar />
-        </div>
-        
-        {/* Search + Actions Row */}
-        <div className="flex items-center gap-2 justify-between">
-          <ProductFilters
-            searchQuery={filters.searchQuery}
-            onSearchChange={updateSearchQuery}
-          />
+      <div className="mb-5">
+        {/* Single row with all controls */}
+        <div className="flex items-center gap-2">
+          {/* Global Filter */}
+          <div className="flex-shrink-0">
+            <InlineFilterBar />
+          </div>
           
-          <div className="flex items-center gap-2">
-            <RefreshButton onRefresh={refreshProducts} className="flex-shrink-0" />
+          {/* Search */}
+          <div className="flex-grow min-w-0 max-w-md">
+            <ProductFilters
+              searchQuery={filters.searchQuery}
+              onSearchChange={updateSearchQuery}
+            />
+          </div>
+          
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <RefreshButton onRefresh={refreshProducts} />
             
             {selectedCollection && collections.find(c => 
               c.id === selectedCollection && 
@@ -241,11 +245,10 @@ export function ProductsTab() {
                   setEditingProduct(null);
                   setShowForm(true);
                 }}
-                className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg transition-colors text-sm font-medium shadow-sm"
+                className="inline-flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white p-2 md:px-4 md:py-2 rounded-lg transition-colors text-sm font-medium shadow-sm whitespace-nowrap"
               >
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Product</span>
-                <span className="sm:hidden">Add</span>
+                <span className="hidden md:inline">Add Product</span>
               </button>
             )}
           </div>

@@ -186,15 +186,16 @@ export function CollectionsTab() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
-      <div className="mb-5 space-y-3">
-        {/* Global Filter - Full Width on Mobile */}
-        <div className="w-full">
-          <InlineFilterBar />
-        </div>
-        
-        {/* Search + Actions Row - Uses the new collapsible search on mobile */}
-        <div className="flex items-center gap-2 justify-between">
-          <div className="flex-1 md:max-w-xl">
+      <div className="mb-5">
+        {/* Single row with all controls */}
+        <div className="flex items-center gap-2">
+          {/* Global Filter */}
+          <div className="flex-shrink-0">
+            <InlineFilterBar />
+          </div>
+          
+          {/* Search */}
+          <div className="flex-grow min-w-0 max-w-md">
             <CollapsibleSearchBar
               searchQuery={filters.searchQuery}
               onSearchChange={updateSearchQuery}
@@ -202,19 +203,19 @@ export function CollectionsTab() {
             />
           </div>
           
-          <div className="flex items-center gap-2">
-            <RefreshButton onRefresh={refetch} className="flex-shrink-0" loading={refreshing} />
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <RefreshButton onRefresh={refetch} loading={refreshing} />
             
             <button
               onClick={() => {
                 setEditingCollection(null);
                 setShowForm(true);
               }}
-              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg transition-colors text-sm font-medium shadow-sm"
+              className="inline-flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white p-2 md:px-4 md:py-2 rounded-lg transition-colors text-sm font-medium shadow-sm whitespace-nowrap"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Collection</span>
-              <span className="sm:hidden">Add</span>
+              <span className="hidden md:inline">Add Collection</span>
             </button>
           </div>
         </div>
