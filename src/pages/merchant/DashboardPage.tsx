@@ -151,8 +151,8 @@ export function DashboardPage() {
   return (
     <MerchantDashboardProvider>
       <div className="flex flex-col min-h-screen">
-        {/* Sticky header containing title, actions, and tabs */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur-sm shadow-lg border-b border-gray-800">
+        {/* Dashboard header with sticky behavior but lower z-index to stay under site header */}
+        <div className="sticky top-14 z-10 bg-gray-900 shadow-lg border-b border-gray-800">
           <div className="px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold">Merchant Dashboard</h1>
@@ -180,12 +180,12 @@ export function DashboardPage() {
               <Tabs tabs={availableTabs} activeId={activeTab} onChange={setActiveTab} />
             </div>
           </div>
-        </header>
+        </div>
 
-        {/* Main content area with padding to ensure content isn't hidden under the sticky header */}
-        <main className="flex-grow mt-[120px] sm:mt-[104px] pt-4">
+        {/* Main content area */}
+        <div className="flex-grow pt-4">
           {renderTabContent(activeTab)}
-        </main>
+        </div>
       </div>
     </MerchantDashboardProvider>
   );
