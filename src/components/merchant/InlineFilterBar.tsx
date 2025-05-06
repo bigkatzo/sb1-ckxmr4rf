@@ -85,41 +85,43 @@ export function InlineFilterBar() {
   };
   
   return (
-    <div className="relative" ref={filterRef}>
-      {/* Filter button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`
-          inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm border transition-colors shadow-sm
-          ${hasActiveFilters 
-            ? 'border-primary text-primary hover:bg-primary/10' 
-            : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:bg-gray-800 hover:text-gray-300'}
-        `}
-      >
-        <Filter className="h-4 w-4" />
-        <span className="hidden sm:inline font-medium truncate max-w-[120px]">
-          {hasActiveFilters 
-            ? `${selectedCollectionName}${selectedCategoryName ? ` • ${selectedCategoryName}` : ''}` 
-            : 'Global Filter'}
-        </span>
-        {hasActiveFilters && <span className="inline sm:hidden font-medium">Active</span>}
-        <ChevronDown className="h-4 w-4" />
-      </button>
-      
-      {/* Clear button (only shown when filters are active) */}
-      {hasActiveFilters && (
+    <div className="relative flex-shrink-0" ref={filterRef}>
+      <div className="flex items-center">
+        {/* Filter button */}
         <button
-          onClick={clearAllSelections}
-          className="ml-2 text-gray-500 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 p-1.5 rounded-md"
-          title="Clear all filters"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`
+            inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm border transition-colors shadow-sm
+            ${hasActiveFilters 
+              ? 'border-primary text-primary hover:bg-primary/10' 
+              : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:bg-gray-800 hover:text-gray-300'}
+          `}
         >
-          <X className="h-4 w-4" />
+          <Filter className="h-4 w-4" />
+          <span className="hidden sm:inline font-medium truncate max-w-[120px]">
+            {hasActiveFilters 
+              ? `${selectedCollectionName}${selectedCategoryName ? ` • ${selectedCategoryName}` : ''}` 
+              : 'Global Filter'}
+          </span>
+          {hasActiveFilters && <span className="inline sm:hidden font-medium">Active</span>}
+          <ChevronDown className="h-4 w-4" />
         </button>
-      )}
+        
+        {/* Clear button (only shown when filters are active) */}
+        {hasActiveFilters && (
+          <button
+            onClick={clearAllSelections}
+            className="ml-2 text-gray-500 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 p-1.5 rounded-md"
+            title="Clear all filters"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
       
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1 z-50 bg-gray-900 rounded-md border border-gray-700 shadow-xl min-w-[250px] py-1 divide-y divide-gray-800">
+        <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1 z-[100] bg-gray-900 rounded-md border border-gray-700 shadow-xl min-w-[250px] sm:min-w-[280px] py-1 divide-y divide-gray-800">
           {/* Collection selector */}
           <div className="py-1">
             <button
@@ -129,7 +131,7 @@ export function InlineFilterBar() {
               <span className="font-medium">Collection</span>
               <span className="flex items-center gap-2">
                 {selectedCollectionName && (
-                  <span className="text-primary text-sm font-medium truncate max-w-[100px]">{selectedCollectionName}</span>
+                  <span className="text-primary text-sm font-medium truncate max-w-[140px]">{selectedCollectionName}</span>
                 )}
                 <ChevronDown 
                   className={`h-4 w-4 text-gray-400 transition-transform ${activeSubMenu === 'collections' ? 'rotate-180' : ''}`}
@@ -138,7 +140,7 @@ export function InlineFilterBar() {
             </button>
             
             {activeSubMenu === 'collections' && (
-              <div className="max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
+              <div className="max-h-[300px] sm:max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
                 {collectionsLoading ? (
                   <div className="px-3 py-2 animate-pulse bg-gray-800/50 mx-3 rounded"></div>
                 ) : (
@@ -158,7 +160,7 @@ export function InlineFilterBar() {
                 <span className="font-medium">Category</span>
                 <span className="flex items-center gap-2">
                   {selectedCategoryName && (
-                    <span className="text-primary text-sm font-medium truncate max-w-[100px]">{selectedCategoryName}</span>
+                    <span className="text-primary text-sm font-medium truncate max-w-[140px]">{selectedCategoryName}</span>
                   )}
                   <ChevronDown 
                     className={`h-4 w-4 text-gray-400 transition-transform ${activeSubMenu === 'categories' ? 'rotate-180' : ''}`}
@@ -167,7 +169,7 @@ export function InlineFilterBar() {
               </button>
               
               {activeSubMenu === 'categories' && (
-                <div className="max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
+                <div className="max-h-[300px] sm:max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
                   {categoriesLoading ? (
                     <div className="px-3 py-2 animate-pulse bg-gray-800/50 mx-3 rounded"></div>
                   ) : (

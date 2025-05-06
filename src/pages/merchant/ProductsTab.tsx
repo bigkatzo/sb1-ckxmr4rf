@@ -25,15 +25,11 @@ import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
 // Define the filter state type
 interface ProductFilterState {
   searchQuery: string;
-  selectedCategories: string[];
-  showVisible: boolean | null;
 }
 
 // Initial filter state
 const initialFilterState: ProductFilterState = {
-  searchQuery: '',
-  selectedCategories: [],
-  showVisible: null
+  searchQuery: ''
 };
 
 export function ProductsTab() {
@@ -182,25 +178,10 @@ export function ProductsTab() {
     }
   };
 
-  // Helper functions for updating individual filter properties
+  // Helper functions for updating search query
   const updateSearchQuery = (query: string) => {
     setFilters(prev => ({ ...prev, searchQuery: query }));
   };
-
-  const updateSelectedCategories = (categories: string[]) => {
-    setFilters(prev => ({ ...prev, selectedCategories: categories }));
-  };
-  
-  const updateVisibilityFilter = (visible: boolean | null) => {
-    setFilters(prev => ({ ...prev, showVisible: visible }));
-  };
-
-  // Initialize with selected category from context if present
-  useState(() => {
-    if (selectedCategory && !filters.selectedCategories.includes(selectedCategory)) {
-      updateSelectedCategories([...filters.selectedCategories, selectedCategory]);
-    }
-  });
 
   // Filter products based on current filter settings
   const filteredProducts = products.filter(product => {
@@ -216,16 +197,8 @@ export function ProductsTab() {
       }
     }
 
-    // Filter by categories (including from context)
-    if (
-      (filters.selectedCategories.length > 0 && !filters.selectedCategories.includes(product.categoryId)) ||
-      (selectedCategory && product.categoryId !== selectedCategory)
-    ) {
-      return false;
-    }
-
-    // Filter by visibility
-    if (filters.showVisible !== null && product.visible !== filters.showVisible) {
+    // Filter by category (from context)
+    if (selectedCategory && product.categoryId !== selectedCategory) {
       return false;
     }
 
@@ -244,23 +217,12 @@ export function ProductsTab() {
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* Header removed */}
-          </div>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-3 items-center w-full">
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full">
             <InlineFilterBar />
             <ProductFilters
-              categories={categories}
               searchQuery={filters.searchQuery}
-              selectedCategories={filters.selectedCategories}
-              showVisible={filters.showVisible}
               onSearchChange={updateSearchQuery}
-              onCategoryChange={updateSelectedCategories}
-              onVisibilityChange={updateVisibilityFilter}
             />
             <RefreshButton onRefresh={refreshProducts} className="flex-shrink-0" />
           </div>
@@ -273,7 +235,7 @@ export function ProductsTab() {
                 setEditingProduct(null);
                 setShowForm(true);
               }}
-              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap shadow-sm mt-3 sm:mt-0"
+              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap shadow-sm"
             >
               <Plus className="h-4 w-4" />
               <span>Add Product</span>

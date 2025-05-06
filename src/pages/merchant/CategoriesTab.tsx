@@ -15,13 +15,11 @@ import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
 // Define the filter state type
 interface CategoryFilterState {
   searchQuery: string;
-  showVisible: boolean | null;
 }
 
 // Initial filter state
 const initialFilterState: CategoryFilterState = {
-  searchQuery: '',
-  showVisible: null
+  searchQuery: ''
 };
 
 export function CategoriesTab() {
@@ -48,10 +46,6 @@ export function CategoriesTab() {
     setFilters(prev => ({ ...prev, searchQuery: query }));
   };
   
-  const updateVisibilityFilter = (visible: boolean | null) => {
-    setFilters(prev => ({ ...prev, showVisible: visible }));
-  };
-  
   // Filter categories based on current filter settings
   const filteredCategories = categories.filter(category => {
     // Filter by search query
@@ -60,11 +54,6 @@ export function CategoriesTab() {
       if (!category.name?.toLowerCase().includes(query)) {
         return false;
       }
-    }
-    
-    // Filter by visibility
-    if (filters.showVisible !== null && category.visible !== filters.showVisible) {
-      return false;
     }
     
     return true;
@@ -176,14 +165,8 @@ export function CategoriesTab() {
   return (
     <div className="px-3 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* Header removed */}
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-3 items-center w-full">
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full">
             <InlineFilterBar />
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -192,27 +175,10 @@ export function CategoriesTab() {
                 placeholder="Search categories by name..."
                 value={filters.searchQuery}
                 onChange={(e) => updateSearchQuery(e.target.value)}
-                className="w-full bg-gray-800 rounded-lg pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                className="w-full bg-gray-800 rounded-lg pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm border border-gray-700 hover:border-gray-600 transition-colors"
               />
             </div>
             
-            <select
-              value={filters.showVisible === null ? '' : String(filters.showVisible)}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === '') {
-                  updateVisibilityFilter(null);
-                } else {
-                  updateVisibilityFilter(value === 'true');
-                }
-              }}
-              className="bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm hover:bg-gray-750 transition-colors w-full sm:w-auto"
-            >
-              <option value="">All Visibility</option>
-              <option value="true">Visible Only</option>
-              <option value="false">Hidden Only</option>
-            </select>
-
             <RefreshButton onRefresh={handleRefreshAll} className="flex-shrink-0" />
           </div>
             
@@ -225,7 +191,7 @@ export function CategoriesTab() {
                 setEditingCategory(null);
                 setShowForm(true);
               }}
-              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap shadow-sm mt-3 sm:mt-0"
+              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap shadow-sm"
             >
               <Plus className="h-4 w-4" />
               <span>Add Category</span>

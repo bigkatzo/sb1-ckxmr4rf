@@ -150,41 +150,42 @@ export function DashboardPage() {
 
   return (
     <MerchantDashboardProvider>
-    <div className="space-y-4">
+      <div className="flex flex-col min-h-screen">
         {/* Sticky header containing title, actions, tabs and filters */}
-        <div className="sticky top-0 z-10 bg-gray-900 shadow-md -mx-4 sm:-mx-6 lg:-mx-8">
-          <div className="px-4 sm:px-6 lg:px-8 pt-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl sm:text-2xl font-bold">Merchant Dashboard</h1>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <button
-              onClick={() => navigate('/merchant/admin')}
-              className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
-            >
-              <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span>Settings</span>
-            </button>
-          )}
-          <button
-            onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 bg-gray-600 hover:bg-gray-700 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
-          >
-            <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span>Log Out</span>
-          </button>
-        </div>
-      </div>
-
-            <div className="border-b border-gray-800">
-              <div className="flex items-center justify-between">
-                <Tabs tabs={availableTabs} activeId={activeTab} onChange={setActiveTab} />
+        <div className="sticky top-0 z-50 bg-gray-900 shadow-lg border-b border-gray-800">
+          <div className="px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <h1 className="text-xl sm:text-2xl font-bold">Merchant Dashboard</h1>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                {isAdmin && (
+                  <button
+                    onClick={() => navigate('/merchant/admin')}
+                    className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
+                  >
+                    <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span>Settings</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-1.5 bg-gray-600 hover:bg-gray-700 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
+                >
+                  <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span>Log Out</span>
+                </button>
               </div>
+            </div>
+
+            <div className="mt-4">
+              <Tabs tabs={availableTabs} activeId={activeTab} onChange={setActiveTab} />
             </div>
           </div>
         </div>
 
-        {renderTabContent(activeTab)}
+        {/* Main content area with padding to ensure content isn't hidden under the sticky header */}
+        <div className="flex-grow pt-4">
+          {renderTabContent(activeTab)}
+        </div>
       </div>
     </MerchantDashboardProvider>
   );
