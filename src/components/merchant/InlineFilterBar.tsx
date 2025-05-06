@@ -88,7 +88,7 @@ export function InlineFilterBar() {
   // Format options for rendering
   const renderOptions = (options: FilterOption[], type: 'collection' | 'category') => {
     if (options.length === 0) {
-      return <div className="px-3 py-2 text-sm text-gray-400">No options available</div>;
+      return <div className={`px-3 py-2 text-sm text-gray-400 ${isCollapsed ? 'text-xs py-1.5' : ''}`}>No options available</div>;
     }
     
     return options.map((option) => (
@@ -99,7 +99,7 @@ export function InlineFilterBar() {
           (type === 'category' && selectedCategory === option.id)
             ? 'bg-gray-800/50 font-medium text-primary'
             : 'text-gray-300'
-        }`}
+        } ${isCollapsed ? 'text-xs py-1.5' : ''}`}
         onClick={() => handleOptionSelect(type, option.id)}
       >
         {option.name}
@@ -115,7 +115,7 @@ export function InlineFilterBar() {
           <button
             onClick={() => setIsOpen(true)}
             className={`
-              inline-flex items-center justify-between gap-2 px-3 py-2.5 rounded-md text-sm shadow-sm w-full
+              inline-flex items-center justify-between gap-1 px-2 py-2 rounded-md text-xs shadow-sm w-full
               ${hasActiveFilters 
                 ? 'bg-primary/10 border border-primary text-primary' 
                 : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-300 hover:border-gray-600'}
@@ -123,15 +123,15 @@ export function InlineFilterBar() {
             aria-label="Filter"
             title={hasActiveFilters ? 'Active filters' : 'Filter'}
           >
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              <span className="font-medium truncate">
+            <div className="flex items-center gap-1.5">
+              <Filter className="h-3.5 w-3.5" />
+              <span className="font-medium truncate max-w-[150px]">
                 {hasActiveFilters 
-                  ? `${selectedCollectionName?.substring(0, 12)}${selectedCollectionName && selectedCollectionName.length > 12 ? '...' : ''}` 
+                  ? `${selectedCollectionName?.substring(0, 10)}${selectedCollectionName && selectedCollectionName.length > 10 ? '...' : ''}` 
                   : 'Filter'}
               </span>
             </div>
-            <ChevronDown className="h-4 w-4" />
+            <ChevronDown className="h-3.5 w-3.5" />
           </button>
 
           {/* Removed clear button from here for mobile collapsed view */}
@@ -160,7 +160,7 @@ export function InlineFilterBar() {
         >
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4" />
-            <span className="font-medium truncate max-w-[120px] md:max-w-[160px]">
+            <span className="font-medium truncate max-w-[100px] md:max-w-[140px]">
               {hasActiveFilters 
                 ? `${selectedCollectionName}${selectedCategoryName ? ` • ${selectedCategoryName}` : ''}` 
                 : 'Global Filter'}
@@ -191,8 +191,8 @@ export function InlineFilterBar() {
           bg-gray-900 border border-gray-700 shadow-xl py-1 divide-y divide-gray-800
         `}>
           {isCollapsed && (
-            <div className="sticky top-0 z-10 flex justify-between items-center px-3 py-3 border-b border-gray-800 bg-gray-900">
-              <h3 className="text-sm font-medium text-gray-300">Filter Options</h3>
+            <div className="sticky top-0 z-10 flex justify-between items-center px-3 py-2 border-b border-gray-800 bg-gray-900">
+              <h3 className="text-xs font-medium text-gray-300">Filter Options</h3>
               <div className="flex items-center gap-2">
                 {/* Clear button for mobile inside the dropdown header */}
                 {hasActiveFilters && (
@@ -202,37 +202,39 @@ export function InlineFilterBar() {
                       clearAllSelections();
                       setIsOpen(false);
                     }}
-                    className="text-red-400 hover:text-red-300 transition-colors bg-gray-800/80 hover:bg-gray-700 p-1.5 rounded-md flex items-center gap-1.5"
+                    className="text-red-400 hover:text-red-300 transition-colors bg-gray-800/80 hover:bg-gray-700 p-1 rounded-md flex items-center gap-1"
                     title="Clear all filters"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="h-3 w-3" />
                     <span className="text-xs font-medium">Clear</span>
                   </button>
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800/80 hover:bg-gray-700 p-1.5 rounded-md"
+                  className="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800/80 hover:bg-gray-700 p-1 rounded-md"
                   aria-label="Close"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
           )}
           
           {/* Collection selector */}
-          <div className="py-1">
+          <div className="py-0.5">
             <button
-              className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+              className={`flex items-center justify-between w-full px-3 py-2 text-sm md:text-sm text-gray-300 hover:bg-gray-800 transition-colors ${isCollapsed ? 'text-xs py-1.5' : ''}`}
               onClick={() => setActiveSubMenu(activeSubMenu === 'collections' ? null : 'collections')}
             >
               <span className="font-medium">Collection</span>
               <span className="flex items-center gap-2">
                 {selectedCollectionName && (
-                  <span className="text-primary text-sm font-medium truncate max-w-[140px]">{selectedCollectionName}</span>
+                  <span className={`text-primary text-sm font-medium truncate max-w-[140px] ${isCollapsed ? 'text-xs max-w-[120px]' : ''}`}>
+                    {selectedCollectionName}
+                  </span>
                 )}
                 <ChevronDown 
-                  className={`h-4 w-4 text-gray-400 transition-transform ${activeSubMenu === 'collections' ? 'rotate-180' : ''}`}
+                  className={`h-4 w-4 text-gray-400 transition-transform ${activeSubMenu === 'collections' ? 'rotate-180' : ''} ${isCollapsed ? 'h-3.5 w-3.5' : ''}`}
                 />
               </span>
             </button>
@@ -250,18 +252,20 @@ export function InlineFilterBar() {
           
           {/* Category selector - only shown when a collection is selected */}
           {selectedCollection && (
-            <div className="py-1">
+            <div className="py-0.5">
               <button
-                className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+                className={`flex items-center justify-between w-full px-3 py-2 text-sm md:text-sm text-gray-300 hover:bg-gray-800 transition-colors ${isCollapsed ? 'text-xs py-1.5' : ''}`}
                 onClick={() => setActiveSubMenu(activeSubMenu === 'categories' ? null : 'categories')}
               >
                 <span className="font-medium">Category</span>
                 <span className="flex items-center gap-2">
                   {selectedCategoryName && (
-                    <span className="text-primary text-sm font-medium truncate max-w-[140px]">{selectedCategoryName}</span>
+                    <span className={`text-primary text-sm font-medium truncate max-w-[140px] ${isCollapsed ? 'text-xs max-w-[120px]' : ''}`}>
+                      {selectedCategoryName}
+                    </span>
                   )}
                   <ChevronDown 
-                    className={`h-4 w-4 text-gray-400 transition-transform ${activeSubMenu === 'categories' ? 'rotate-180' : ''}`}
+                    className={`h-4 w-4 text-gray-400 transition-transform ${activeSubMenu === 'categories' ? 'rotate-180' : ''} ${isCollapsed ? 'h-3.5 w-3.5' : ''}`}
                   />
                 </span>
               </button>
@@ -274,7 +278,7 @@ export function InlineFilterBar() {
                     <button
                       className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-800 transition-colors ${
                         !selectedCategory ? 'bg-gray-800/50 font-medium text-primary' : 'text-gray-300'
-                      }`}
+                      } ${isCollapsed ? 'text-xs px-3 py-1.5' : ''}`}
                       onClick={() => handleOptionSelect('category', '')}
                     >
                       All Categories
