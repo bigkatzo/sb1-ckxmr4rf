@@ -168,13 +168,13 @@ export function CategoriesTab() {
       <div className="mb-5">
         {/* Single row with all controls */}
         <div className="flex items-center gap-2">
-          {/* Global Filter */}
-          <div className="flex-shrink-0">
+          {/* Global Filter - Give more space on mobile */}
+          <div className="flex-1 md:w-[200px] lg:w-[240px] min-w-0">
             <InlineFilterBar />
           </div>
           
-          {/* Search */}
-          <div className="flex-grow min-w-0 max-w-md">
+          {/* Search - Take remaining width, but allow buttons to stay right-aligned */}
+          <div className="flex-1 min-w-0 mr-auto">
             <CollapsibleSearchBar
               searchQuery={filters.searchQuery}
               onSearchChange={updateSearchQuery}
@@ -182,8 +182,8 @@ export function CategoriesTab() {
             />
           </div>
           
-          {/* Actions */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Actions - Always pinned to the right */}
+          <div className="flex items-center gap-2 ml-auto flex-shrink-0">
             <RefreshButton onRefresh={handleRefreshAll} />
             
             {selectedCollection && collections.find(c => 

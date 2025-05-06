@@ -56,17 +56,27 @@ export function CollapsibleSearchBar({
   
   return (
     <div className="relative" ref={searchRef}>
-      {/* Mobile: Collapsed search icon button */}
+      {/* Mobile: Collapsed search button with text */}
       {isMobile && !isExpanded && (
         <button
           onClick={handleExpandSearch}
-          className="flex items-center justify-center bg-gray-800 hover:bg-gray-700 transition-colors rounded-lg p-2.5"
+          className="flex items-center justify-between w-full gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 transition-colors rounded-lg px-3 py-2.5 text-sm"
           aria-label="Search"
-          title="Search"
         >
-          <Search className="h-5 w-5 text-gray-300" />
+          <div className="flex items-center gap-2">
+            <Search className="h-4 w-4 text-gray-400" />
+            <span className="text-gray-400 truncate">
+              {searchQuery || 'Search...'}
+            </span>
+          </div>
           {searchQuery && (
-            <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-white"></span>
+            <X 
+              className="h-4 w-4 text-gray-400 hover:text-gray-300" 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClearSearch();
+              }}
+            />
           )}
         </button>
       )}
@@ -76,6 +86,17 @@ export function CollapsibleSearchBar({
         <>
           <div className="fixed inset-0 bg-black/50 z-10" onClick={handleCloseSearch}></div>
           <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-gray-900 rounded-lg shadow-lg border border-gray-700 p-2">
+            <div className="flex justify-between items-center border-b border-gray-800 pb-2 mb-2">
+              <h3 className="text-sm font-medium text-gray-300">Search</h3>
+              <button
+                onClick={handleCloseSearch}
+                className="text-gray-400 hover:text-gray-300 p-1.5 bg-gray-800 hover:bg-gray-700 rounded-md"
+                aria-label="Close search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -86,24 +107,15 @@ export function CollapsibleSearchBar({
                 className="w-full bg-gray-800 rounded-lg pl-10 pr-10 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm border border-gray-700"
                 autoFocus
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
-                {searchQuery && (
-                  <button
-                    onClick={handleClearSearch}
-                    className="p-1 text-gray-400 hover:text-gray-300"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+              {searchQuery && (
                 <button
-                  onClick={handleCloseSearch}
-                  className="ml-1 text-gray-400 hover:text-gray-300"
-                  aria-label="Close search"
+                  onClick={handleClearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-300"
+                  aria-label="Clear search"
                 >
                   <X className="h-4 w-4" />
                 </button>
-              </div>
+              )}
             </div>
           </div>
         </>

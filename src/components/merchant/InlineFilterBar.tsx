@@ -103,18 +103,23 @@ export function InlineFilterBar() {
         <button
           onClick={() => setIsOpen(true)}
           className={`
-            inline-flex items-center justify-center p-2.5 rounded-md text-sm shadow-sm 
+            inline-flex items-center justify-between gap-2 px-3 py-2.5 rounded-md text-sm shadow-sm w-full
             ${hasActiveFilters 
-              ? 'bg-primary text-white' 
-              : 'bg-gray-800 text-gray-400 hover:text-gray-300'}
+              ? 'bg-primary/10 border border-primary text-primary' 
+              : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-300 hover:border-gray-600'}
           `}
           aria-label="Filter"
           title={hasActiveFilters ? 'Active filters' : 'Filter'}
         >
-          <Filter className="h-4 w-4" />
-          {hasActiveFilters && (
-            <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-white"></span>
-          )}
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4" />
+            <span className="font-medium truncate">
+              {hasActiveFilters 
+                ? `${selectedCollectionName?.substring(0, 12)}${selectedCollectionName && selectedCollectionName.length > 12 ? '...' : ''}` 
+                : 'Filter'}
+            </span>
+          </div>
+          <ChevronDown className="h-4 w-4" />
         </button>
       </div>
     );
@@ -127,10 +132,7 @@ export function InlineFilterBar() {
         <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setIsOpen(false)}></div>
       )}
       
-      <div className={`
-        flex items-center
-        ${isCollapsed && isOpen ? 'absolute top-0 left-0 z-50 w-full bg-gray-900 p-2 rounded-md shadow-lg' : ''}
-      `}>
+      <div className="flex items-center">
         {/* Filter button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -162,27 +164,28 @@ export function InlineFilterBar() {
             <X className="h-4 w-4" />
           </button>
         )}
-        
-        {/* Close button (mobile expanded view) */}
-        {isCollapsed && isOpen && (
-          <button
-            onClick={() => setIsOpen(false)}
-            className="ml-2 text-gray-400 hover:text-gray-300 p-1.5 bg-gray-800 hover:bg-gray-700 rounded-md"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
       </div>
       
       {/* Dropdown menu */}
       {isOpen && (
         <div className={`
-          ${isCollapsed 
-            ? 'absolute top-full left-0 right-0 mt-1 z-50' 
-            : 'absolute left-0 right-0 sm:left-0 sm:right-auto top-full mt-1 z-40'}
-          bg-gray-900 rounded-md border border-gray-700 shadow-xl w-full sm:min-w-[280px] py-1 divide-y divide-gray-800
+          absolute left-0 right-0 top-full mt-1 z-50
+          ${isCollapsed ? 'w-screen -ml-4 px-4' : 'sm:right-auto sm:min-w-[280px]'}
+          bg-gray-900 rounded-md border border-gray-700 shadow-xl py-1 divide-y divide-gray-800
         `}>
+          {isCollapsed && (
+            <div className="flex justify-between items-center px-2 py-2 border-b border-gray-800">
+              <h3 className="text-sm font-medium text-gray-300">Filter Options</h3>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-gray-400 hover:text-gray-300 p-1.5 bg-gray-800 hover:bg-gray-700 rounded-md"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          
           {/* Collection selector */}
           <div className="py-1">
             <button
