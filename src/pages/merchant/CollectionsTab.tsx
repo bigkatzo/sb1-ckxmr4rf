@@ -269,12 +269,7 @@ export function CollectionsTab() {
                   )}
                 </div>
                 
-                <div className="absolute bottom-2 right-4 flex gap-2">
-                  {!collection.isOwner && collection.accessType && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400">
-                      {collection.accessType === 'edit' ? 'Edit Access' : 'View Access'}
-                    </span>
-                  )}
+                <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
                   {!collection.visible && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-400">
                       <EyeOff className="h-3 w-3" />
@@ -292,9 +287,16 @@ export function CollectionsTab() {
               
               <div className="p-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-lg">{collection.name}</h3>
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <h3 className="font-medium text-lg truncate">{collection.name}</h3>
+                    {!collection.isOwner && collection.accessType && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400 whitespace-nowrap flex-shrink-0">
+                        {collection.accessType === 'edit' ? 'Edit Access' : 'View Access'}
+                      </span>
+                    )}
+                  </div>
                   {selectedCollection === collection.id && (
-                    <div className="flex items-center justify-center h-5 w-5 rounded-full bg-primary">
+                    <div className="flex items-center justify-center h-5 w-5 rounded-full bg-primary flex-shrink-0">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
