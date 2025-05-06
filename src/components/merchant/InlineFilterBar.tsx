@@ -184,9 +184,11 @@ export function InlineFilterBar() {
       {/* Dropdown menu */}
       {isOpen && (
         <div className={`
-          absolute left-0 right-0 top-full mt-1 z-50
-          ${isCollapsed ? 'fixed inset-x-0 top-auto bottom-0 mt-0 rounded-t-lg rounded-b-none max-h-[85vh] overflow-auto' : 'sm:right-auto sm:min-w-[280px]'}
-          bg-gray-900 rounded-md border border-gray-700 shadow-xl py-1 divide-y divide-gray-800
+          ${isCollapsed 
+            ? 'fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-lg rounded-b-none'
+            : 'absolute left-0 right-0 top-full mt-1 z-50 sm:right-auto sm:min-w-[280px]'
+          }
+          bg-gray-900 border border-gray-700 shadow-xl py-1 divide-y divide-gray-800
         `}>
           {isCollapsed && (
             <div className="sticky top-0 z-10 flex justify-between items-center px-3 py-3 border-b border-gray-800 bg-gray-900">
@@ -195,7 +197,11 @@ export function InlineFilterBar() {
                 {/* Clear button for mobile inside the dropdown header */}
                 {hasActiveFilters && (
                   <button
-                    onClick={clearAllSelections}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearAllSelections();
+                      setIsOpen(false);
+                    }}
                     className="text-red-400 hover:text-red-300 transition-colors bg-gray-800/80 hover:bg-gray-700 p-1.5 rounded-md flex items-center gap-1.5"
                     title="Clear all filters"
                   >
