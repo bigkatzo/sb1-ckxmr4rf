@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 
 export interface DropdownItem {
   label: string;
@@ -29,15 +30,18 @@ export function DropdownMenu({
   position = 'auto'
 }: DropdownMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, right: 0 });
   const [dropdownPosition, setDropdownPosition] = useState<'left' | 'right'>('right');
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Handle clicks outside dropdown
   useEffect(() => {
+    if (!isOpen) return;
+    
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (buttonRef.current?.contains(event.target as Node)) return;
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
@@ -46,24 +50,42 @@ export function DropdownMenu({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [isOpen]);
 
-  // Calculate dropdown position when opening
+  // Calculate dropdown position and coordinates when opening
   useEffect(() => {
-    if (isOpen && position === 'auto' && buttonRef.current && menuRef.current) {
-      // Default to right positioning
-      let menuPos: 'left' | 'right' = 'right';
-      
-      // Get button's position and dimensions
+    if (isOpen && buttonRef.current) {
       const buttonRect = buttonRef.current.getBoundingClientRect();
-      const menuWidth = menuRef.current.offsetWidth;
+      const viewportWidth = window.innerWidth;
+      const menuWidth = 200; // Approximate menu width
       
-      // Check if opening to the right would overflow the viewport
-      if (buttonRect.right + menuWidth > window.innerWidth) {
-        menuPos = 'left';
+      let finalPos: 'left' | 'right' = position === 'auto' ? 'right' : position;
+      
+      // For auto position, determine direction based on available space
+      if (position === 'auto') {
+        if (buttonRect.right + menuWidth > viewportWidth) {
+          finalPos = 'left';
+        }
       }
       
-      setDropdownPosition(menuPos);
+      setDropdownPosition(finalPos);
+      
+      // Calculate absolute position for the menu
+      const topPosition = buttonRect.bottom + window.scrollY;
+      
+      if (finalPos === 'right') {
+        setMenuPosition({
+          top: topPosition,
+          left: buttonRect.left + window.scrollX,
+          right: 0
+        });
+      } else {
+        setMenuPosition({
+          top: topPosition,
+          left: 0,
+          right: window.innerWidth - buttonRect.right - window.scrollX
+        });
+      }
     }
   }, [isOpen, position]);
 
@@ -80,11 +102,8 @@ export function DropdownMenu({
     setIsOpen(false);
   };
 
-  // Determine final position
-  const finalPosition = position === 'auto' ? dropdownPosition : position;
-
   return (
-    <div className="relative" ref={dropdownRef}>
+    <>
       <button
         ref={buttonRef}
         onClick={toggleDropdown}
@@ -94,10 +113,19 @@ export function DropdownMenu({
         {triggerIcon}
       </button>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <div 
           ref={menuRef}
-          className={`absolute z-[100] mt-1 ${finalPosition === 'right' ? 'right-0' : 'left-0'} ${menuClassName}`}
+          style={{
+            position: 'absolute',
+            top: `${menuPosition.top}px`,
+            ...(dropdownPosition === 'right' 
+              ? { left: `${menuPosition.left}px` } 
+              : { right: `${menuPosition.right}px` }),
+            zIndex: 9999,
+            marginTop: '4px'
+          }}
+          className={`${menuClassName}`}
         >
           <div className="overflow-hidden">
             {items.map((item, index) => {
@@ -150,8 +178,9 @@ export function DropdownMenu({
               }
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 } 

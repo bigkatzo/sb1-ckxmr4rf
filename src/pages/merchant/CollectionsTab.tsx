@@ -323,49 +323,47 @@ export function CollectionsTab() {
                           className="scale-90"
                           disabled={actionLoading === collection.id}
                         />
-                        <div className="relative">
-                          <DropdownMenu
-                            items={[
-                              {
-                                label: 'View Collection',
-                                icon: <ExternalLink className="h-4 w-4" />,
-                                as: Link,
-                                to: `/${collection.slug || collection.id}`,
-                                target: "_blank"
-                              },
-                              {
-                                label: collection.visible ? 'Hide Collection' : 'Show Collection',
-                                icon: collection.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
-                                onClick: actionLoading !== collection.id ? 
-                                  () => handleToggleVisibility(collection.id, !collection.visible) : 
-                                  undefined
-                              },
-                              {
-                                label: collection.saleEnded ? 'Resume Sale' : 'End Sale',
-                                icon: collection.saleEnded ? <Ban className="h-4 w-4" /> : <Tag className="h-4 w-4" />,
-                                onClick: actionLoading !== collection.id ? 
-                                  () => handleToggleSaleEnded(collection.id, !collection.saleEnded) : 
-                                  undefined
-                              },
-                              {
-                                label: 'Delete',
-                                icon: <Trash className="h-4 w-4" />,
-                                onClick: actionLoading !== collection.id ? 
-                                  () => {
-                                    setDeletingId(collection.id);
-                                    setShowConfirmDialog(true);
-                                  } : 
-                                  undefined,
-                                destructive: true
-                              }
-                            ]}
-                            triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90 ${
-                              actionLoading === collection.id ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
-                            menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
-                            position="auto"
-                          />
-                        </div>
+                        <DropdownMenu
+                          items={[
+                            {
+                              label: 'View Collection',
+                              icon: <ExternalLink className="h-4 w-4" />,
+                              as: Link,
+                              to: `/${collection.slug || collection.id}`,
+                              target: "_blank"
+                            },
+                            {
+                              label: collection.visible ? 'Hide Collection' : 'Show Collection',
+                              icon: collection.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
+                              onClick: actionLoading !== collection.id ? 
+                                () => handleToggleVisibility(collection.id, !collection.visible) : 
+                                undefined
+                            },
+                            {
+                              label: collection.saleEnded ? 'Resume Sale' : 'End Sale',
+                              icon: collection.saleEnded ? <Ban className="h-4 w-4" /> : <Tag className="h-4 w-4" />,
+                              onClick: actionLoading !== collection.id ? 
+                                () => handleToggleSaleEnded(collection.id, !collection.saleEnded) : 
+                                undefined
+                            },
+                            {
+                              label: 'Delete',
+                              icon: <Trash className="h-4 w-4" />,
+                              onClick: actionLoading !== collection.id ? 
+                                () => {
+                                  setDeletingId(collection.id);
+                                  setShowConfirmDialog(true);
+                                } : 
+                                undefined,
+                              destructive: true
+                            }
+                          ]}
+                          triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90 ${
+                            actionLoading === collection.id ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
+                          position="auto"
+                        />
                       </>
                     )}
                   </div>
