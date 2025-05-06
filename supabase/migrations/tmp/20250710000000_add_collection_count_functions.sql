@@ -44,11 +44,11 @@ LANGUAGE sql
 SECURITY DEFINER
 AS $$
   SELECT 
-    cp.category_id,
-    COUNT(DISTINCT cp.product_id) as count
-  FROM category_products cp
-  WHERE cp.category_id = ANY(category_ids)
-  GROUP BY cp.category_id;
+    p.category_id,
+    COUNT(*) as count
+  FROM products p
+  WHERE p.category_id = ANY(category_ids)
+  GROUP BY p.category_id;
 $$;
 
 -- Grant access to these functions (do this conditionally to avoid errors if already granted)
