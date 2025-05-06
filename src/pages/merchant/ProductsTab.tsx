@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
 import { ProductForm } from '../../components/merchant/forms/ProductForm/ProductForm';
 import { ProductListItem } from '../../components/merchant/ProductListItem';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
@@ -17,16 +16,43 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import { createCategoryIndices } from '../../utils/category-mapping';
+import { ProductFilters } from '../../components/merchant/ProductFilters';
+import { useFilterPersistence } from '../../hooks/useFilterPersistence';
+import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
+
+// Define the filter state type
+interface ProductFilterState {
+  searchQuery: string;
+  selectedCategories: string[];
+  showVisible: boolean | null;
+  onSaleOnly: boolean;
+}
+
+// Initial filter state
+const initialFilterState: ProductFilterState = {
+  searchQuery: '',
+  selectedCategories: [],
+  showVisible: null,
+  onSaleOnly: false
+};
 
 export function ProductsTab() {
+  const { selectedCollection, selectedCategory } = useMerchantDashboard();
+  
   const [showForm, setShowForm] = useState(false);
-  const [selectedCollection, setSelectedCollection] = useState<string>('');
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  
+  // Use the filter persistence hook
+  const [filters, setFilters] = useFilterPersistence<ProductFilterState>(
+    'merchant_products',
+    selectedCollection,
+    initialFilterState
+  );
 
   const { collections, loading: collectionsLoading } = useMerchantCollections();
   const { categories } = useCategories(selectedCollection);
@@ -156,6 +182,65 @@ export function ProductsTab() {
     }
   };
 
+  // Helper functions for updating individual filter properties
+  const updateSearchQuery = (query: string) => {
+    setFilters(prev => ({ ...prev, searchQuery: query }));
+  };
+
+  const updateSelectedCategories = (categories: string[]) => {
+    setFilters(prev => ({ ...prev, selectedCategories: categories }));
+  };
+  
+  const updateVisibilityFilter = (visible: boolean | null) => {
+    setFilters(prev => ({ ...prev, showVisible: visible }));
+  };
+  
+  const updateSaleFilter = (onSale: boolean) => {
+    setFilters(prev => ({ ...prev, onSaleOnly: onSale }));
+  };
+
+  // Initialize with selected category from context if present
+  useState(() => {
+    if (selectedCategory && !filters.selectedCategories.includes(selectedCategory)) {
+      updateSelectedCategories([...filters.selectedCategories, selectedCategory]);
+    }
+  });
+
+  // Filter products based on current filter settings
+  const filteredProducts = products.filter(product => {
+    // Filter by search query
+    if (filters.searchQuery) {
+      const query = filters.searchQuery.toLowerCase();
+      const nameMatch = product.name?.toLowerCase().includes(query) || false;
+      const skuMatch = product.sku?.toLowerCase().includes(query) || false;
+      const descriptionMatch = product.description?.toLowerCase().includes(query) || false;
+      
+      if (!(nameMatch || skuMatch || descriptionMatch)) {
+        return false;
+      }
+    }
+
+    // Filter by categories (including from context)
+    if (
+      (filters.selectedCategories.length > 0 && !filters.selectedCategories.includes(product.categoryId)) ||
+      (selectedCategory && product.categoryId !== selectedCategory)
+    ) {
+      return false;
+    }
+
+    // Filter by visibility
+    if (filters.showVisible !== null && product.visible !== filters.showVisible) {
+      return false;
+    }
+
+    // Filter by sale status
+    if (filters.onSaleOnly && !(product.priceModifierBeforeMin !== undefined && product.priceModifierBeforeMin !== null && product.priceModifierBeforeMin < 0 && !product.saleEnded)) {
+      return false;
+    }
+
+    return true;
+  });
+
   if (collectionsLoading || productsLoading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 animate-pulse space-y-4">
@@ -175,42 +260,24 @@ export function ProductsTab() {
           </div>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-2">
-          <select
-            value={selectedCollection}
-            onChange={(e) => setSelectedCollection(e.target.value)}
-            className="w-full sm:w-auto bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
-          >
-            <option value="">Select Collection</option>
-            {collections.map((collection) => (
-              <option key={collection.id} value={collection.id}>
-                {collection.name} {!collection.accessType && '(Owner)'}
-                {collection.accessType === 'edit' && '(Edit)'}
-                {collection.accessType === 'view' && '(View)'}
-              </option>
-            ))}
-          </select>
-          {selectedCollection && collections.find(c => 
-            c.id === selectedCollection && 
-            (c.isOwner || c.accessType === 'edit')
-          ) && (
-            <button
-              onClick={() => {
-                setEditingProduct(null);
-                setShowForm(true);
-              }}
-              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Product</span>
-            </button>
-          )}
-        </div>
+        {selectedCollection && (
+          <ProductFilters
+            categories={categories}
+            searchQuery={filters.searchQuery}
+            selectedCategories={filters.selectedCategories}
+            showVisible={filters.showVisible}
+            onSaleOnly={filters.onSaleOnly}
+            onSearchChange={updateSearchQuery}
+            onCategoryChange={updateSelectedCategories}
+            onVisibilityChange={updateVisibilityFilter}
+            onSaleChange={updateSaleFilter}
+          />
+        )}
       </div>
 
       {!selectedCollection ? (
         <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-sm">Please select a collection to manage products.</p>
+          <p className="text-gray-400 text-sm">Please select a collection from the selector above to manage products.</p>
         </div>
       ) : productsLoading ? (
         <div className="animate-pulse space-y-4">
@@ -221,13 +288,17 @@ export function ProductsTab() {
         <div className="bg-red-500/10 text-red-500 rounded-lg p-4">
           <p className="text-sm">{productsError}</p>
         </div>
-      ) : products.length === 0 ? (
+      ) : filteredProducts.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-sm">No products created for this collection yet.</p>
+          {products.length === 0 ? (
+            <p className="text-gray-400 text-sm">No products created for this collection yet.</p>
+          ) : (
+            <p className="text-gray-400 text-sm">No products match the current filters.</p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {products.map((product) => {
+          {filteredProducts.map((product) => {
             const collection = collections.find(c => c.id === selectedCollection);
             const canEdit = collection && (collection.isOwner || collection.accessType === 'edit');
             const isActionDisabled = actionLoading === product.id || duplicating;
@@ -270,19 +341,17 @@ export function ProductsTab() {
         />
       )}
 
-      {showConfirmDialog && deletingId && (
-        <ConfirmDialog
-          open={showConfirmDialog}
-          onClose={() => {
-            setShowConfirmDialog(false);
-            setDeletingId(null);
-          }}
-          title="Delete Product"
-          description="Are you sure you want to delete this product? This action cannot be undone."
-          confirmLabel="Delete"
-          onConfirm={handleDelete}
-        />
-      )}
+      <ConfirmDialog
+        open={showConfirmDialog}
+        title="Delete Product"
+        description="Are you sure you want to delete this product? This action cannot be undone."
+        confirmLabel="Delete"
+        onClose={() => {
+          setShowConfirmDialog(false);
+          setDeletingId(null);
+        }}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

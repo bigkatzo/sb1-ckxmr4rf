@@ -1,49 +1,71 @@
-import { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
-import { CollectionForm } from '../../components/merchant/forms/CollectionForm';
-import { CollectionListItem } from '../../components/merchant/CollectionListItem';
-import { 
-  createCollection, 
-  updateCollection, 
-  toggleFeatured, 
-  deleteCollection,
-  toggleVisibility,
-  toggleSaleEnded
-} from '../../services/collections';
+import { useState } from 'react';
+import { Plus, Search } from 'lucide-react';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
+import { useFilterPersistence } from '../../hooks/useFilterPersistence';
 import { RefreshButton } from '../../components/ui/RefreshButton';
+import { CollectionForm } from '../../components/merchant/forms/CollectionForm';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { toast } from 'react-toastify';
-import { supabase } from '../../lib/supabase';
+import { createCollection, updateCollection, deleteCollection, toggleVisibility } from '../../services/collections';
+
+// Define the filter state type
+interface CollectionFilterState {
+  searchQuery: string;
+  showVisible: boolean | null;
+}
+
+// Initial filter state
+const initialFilterState: CollectionFilterState = {
+  searchQuery: '',
+  showVisible: null
+};
 
 export function CollectionsTab() {
+  const { setSelectedCollection } = useMerchantDashboard();
+  
   const [showForm, setShowForm] = useState(false);
   const [editingCollection, setEditingCollection] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isMerchant, setIsMerchant] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  const { collections, loading: collectionsLoading, refreshing, refetch } = useMerchantCollections();
-
-  useEffect(() => {
-    async function checkUserRole() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      setIsAdmin(profile?.role === 'admin');
-      setIsMerchant(profile?.role === 'merchant' || profile?.role === 'admin');
+  
+  // Use the filter persistence hook
+  const [filters, setFilters] = useFilterPersistence<CollectionFilterState>(
+    'merchant_collections',
+    'all', // Collections don't have a parent scope, so we use a fixed key
+    initialFilterState
+  );
+  
+  const { collections, loading, error, refetch } = useMerchantCollections();
+  
+  // Helper functions for updating individual filter properties
+  const updateSearchQuery = (query: string) => {
+    setFilters(prev => ({ ...prev, searchQuery: query }));
+  };
+  
+  const updateVisibilityFilter = (visible: boolean | null) => {
+    setFilters(prev => ({ ...prev, showVisible: visible }));
+  };
+  
+  // Filter collections based on current filter settings
+  const filteredCollections = collections.filter(collection => {
+    // Filter by search query
+    if (filters.searchQuery) {
+      const query = filters.searchQuery.toLowerCase();
+      if (!collection.name.toLowerCase().includes(query)) {
+        return false;
+      }
     }
-    checkUserRole();
-  }, []);
-
+    
+    // Filter by visibility
+    if (filters.showVisible !== null && collection.visible !== filters.showVisible) {
+      return false;
+    }
+    
+    return true;
+  });
+  
   const handleSubmit = async (data: FormData) => {
     try {
       if (editingCollection) {
@@ -58,29 +80,38 @@ export function CollectionsTab() {
       refetch();
     } catch (error) {
       console.error('Error with collection:', error);
-      toast.error('Failed to save collection');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save collection';
+      toast.error(errorMessage);
     }
   };
-
-  const handleToggleFeatured = async (id: string, featured: boolean) => {
+  
+  const handleDelete = async (id: string) => {
     try {
-      setActionLoading(id);
-      await toggleFeatured(id, !featured);
-      toast.success(`Collection ${!featured ? 'featured' : 'unfeatured'} successfully`);
+      await deleteCollection(id);
       refetch();
+      toast.success('Collection deleted successfully');
     } catch (error) {
-      console.error('Error toggling featured status:', error);
-      toast.error('Failed to toggle featured status');
+      console.error('Error deleting collection:', error);
+      if (error instanceof Error) {
+        if (error.message.includes('Cannot delete collection with existing products')) {
+          toast.error('This collection has products. Please delete these products first.');
+        } else {
+          toast.error(`Failed to delete collection: ${error.message}`);
+        }
+      } else {
+        toast.error('Failed to delete collection');
+      }
     } finally {
-      setActionLoading(null);
+      setShowConfirmDialog(false);
+      setDeletingId(null);
     }
   };
 
   const handleToggleVisibility = async (id: string, visible: boolean) => {
     try {
       setActionLoading(id);
-      await toggleVisibility(id, !visible);
-      toast.success(`Collection ${!visible ? 'shown' : 'hidden'} successfully`);
+      await toggleVisibility(id, visible);
+      toast.success(`Collection ${visible ? 'shown' : 'hidden'} successfully`);
       refetch();
     } catch (error) {
       console.error('Error toggling visibility:', error);
@@ -89,36 +120,19 @@ export function CollectionsTab() {
       setActionLoading(null);
     }
   };
-
-  const handleToggleSaleEnded = async (id: string, saleEnded: boolean) => {
-    try {
-      setActionLoading(id);
-      await toggleSaleEnded(id, !saleEnded);
-      toast.success(`Sale ${!saleEnded ? 'ended' : 'resumed'} successfully`);
-      refetch();
-    } catch (error) {
-      console.error('Error toggling sale status:', error);
-      toast.error('Failed to toggle sale status');
-    } finally {
-      setActionLoading(null);
+  
+  const handleSelectCollection = (collectionId: string) => {
+    setSelectedCollection(collectionId);
+    // Optionally show a toast confirmation
+    const collection = collections.find(c => c.id === collectionId);
+    if (collection) {
+      toast.info(`Selected collection "${collection.name}"`, {
+        autoClose: 2000
+      });
     }
   };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteCollection(id);
-      refetch();
-      toast.success('Collection deleted successfully');
-    } catch (error) {
-      console.error('Error deleting collection:', error);
-      toast.error('Failed to delete collection');
-    } finally {
-      setShowConfirmDialog(false);
-      setDeletingId(null);
-    }
-  };
-
-  if (collectionsLoading) {
+  
+  if (loading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 animate-pulse space-y-4">
         <div className="h-10 bg-gray-800 rounded w-1/4" />
@@ -126,81 +140,158 @@ export function CollectionsTab() {
       </div>
     );
   }
-
+  
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold">Collections</h2>
-            <RefreshButton onRefresh={refetch} loading={refreshing} />
+            <RefreshButton onRefresh={refetch} />
           </div>
-          {isMerchant && (
-            <button
-              onClick={() => {
-                setEditingCollection(null);
-                setShowForm(true);
-              }}
-              className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Collection</span>
-            </button>
-          )}
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search collections by name..."
+              value={filters.searchQuery}
+              onChange={(e) => updateSearchQuery(e.target.value)}
+              className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          
+          <select
+            value={filters.showVisible === null ? '' : String(filters.showVisible)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === '') {
+                updateVisibilityFilter(null);
+              } else {
+                updateVisibilityFilter(value === 'true');
+              }
+            }}
+            className="bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
+          >
+            <option value="">All Visibility</option>
+            <option value="true">Visible Only</option>
+            <option value="false">Hidden Only</option>
+          </select>
+          
+          <button
+            onClick={() => {
+              setEditingCollection(null);
+              setShowForm(true);
+            }}
+            className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Collection</span>
+          </button>
         </div>
       </div>
-
-      {collections.length === 0 ? (
+      
+      {error ? (
+        <div className="bg-red-500/10 text-red-500 rounded-lg p-4">
+          <p className="text-sm">{error}</p>
+        </div>
+      ) : filteredCollections.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-sm">No collections created yet.</p>
+          {collections.length === 0 ? (
+            <p className="text-gray-400 text-sm">No collections created yet.</p>
+          ) : (
+            <p className="text-gray-400 text-sm">No collections match the current filters.</p>
+          )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {collections.map((collection) => {
-            const canEdit = isAdmin || collection.isOwner || collection.accessType === 'edit';
-            const isActionDisabled = actionLoading === collection.id;
-            
-            // Map collection data to format expected by CollectionListItem component
-            const collectionProps = {
-              id: collection.id,
-              name: collection.name,
-              description: collection.description,
-              imageUrl: collection.imageUrl,
-              launchDate: collection.launchDate,
-              visible: collection.visible,
-              saleEnded: collection.saleEnded,
-              featured: collection.featured,
-              isOwner: collection.isOwner,
-              accessType: collection.accessType,
-              owner_username: collection.owner_username,
-              slug: collection.slug
-            };
-            
-            return (
-              <CollectionListItem
-                key={collection.id}
-                collection={collectionProps}
-                isAdmin={isAdmin}
-                onEdit={canEdit ? () => {
-                  setEditingCollection(collection);
-                  setShowForm(true);
-                } : undefined}
-                onDelete={canEdit && !isActionDisabled ? () => {
-                  setDeletingId(collection.id);
-                  setShowConfirmDialog(true);
-                } : undefined}
-                onToggleVisibility={canEdit && !isActionDisabled ? 
-                  (visible) => handleToggleVisibility(collection.id, visible) : undefined}
-                onToggleSaleEnded={canEdit && !isActionDisabled ? 
-                  (saleEnded) => handleToggleSaleEnded(collection.id, saleEnded) : undefined}
-                onToggleFeatured={isAdmin && !isActionDisabled ? 
-                  (featured) => handleToggleFeatured(collection.id, featured) : undefined}
-              />
-            );
-          })}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredCollections.map((collection) => (
+            <div 
+              key={collection.id}
+              className="group cursor-pointer bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-700 transition-colors"
+              onClick={() => handleSelectCollection(collection.id)}
+            >
+              <div className="relative">
+                {collection.imageUrl && (
+                  <img 
+                    src={collection.imageUrl} 
+                    alt={collection.name} 
+                    className="w-full h-32 object-cover"
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent opacity-70" />
+                
+                <div className="absolute bottom-2 right-4 flex gap-2">
+                  {!collection.isOwner && collection.accessType && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400">
+                      {collection.accessType === 'edit' ? 'Edit Access' : 'View Access'}
+                    </span>
+                  )}
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${collection.visible ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
+                    {collection.visible ? 'Visible' : 'Hidden'}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="p-4">
+                <h3 className="font-medium text-lg">{collection.name}</h3>
+                <p className="text-gray-400 text-sm mt-1 line-clamp-2">{collection.description || 'No description'}</p>
+                
+                <div className="mt-4 flex justify-between items-center">
+                  <span className="text-xs text-gray-400">
+                    {collection.products?.length || 0} products
+                  </span>
+                  
+                  <div className="flex gap-2">
+                    {collection.isOwner && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCollection(collection);
+                            setShowForm(true);
+                          }}
+                          className="bg-gray-700 text-gray-300 hover:bg-gray-600 px-2 py-1 rounded text-xs"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeletingId(collection.id);
+                            setShowConfirmDialog(true);
+                          }}
+                          className="bg-red-900/30 text-red-400 hover:bg-red-900/50 px-2 py-1 rounded text-xs"
+                          disabled={actionLoading === collection.id}
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleVisibility(collection.id, !collection.visible);
+                          }}
+                          className="bg-gray-700 text-gray-300 hover:bg-gray-600 px-2 py-1 rounded text-xs"
+                          disabled={actionLoading === collection.id}
+                        >
+                          {collection.visible ? 'Hide' : 'Show'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="px-4 py-2 border-t border-gray-700 text-xs text-gray-400 invisible group-hover:visible">
+                Click to select this collection for dashboard views
+              </div>
+            </div>
+          ))}
         </div>
       )}
-
+      
       {showForm && (
         <CollectionForm
           collection={editingCollection}
@@ -211,20 +302,18 @@ export function CollectionsTab() {
           onSubmit={handleSubmit}
         />
       )}
-
-      {showConfirmDialog && deletingId && (
-        <ConfirmDialog
-          open={showConfirmDialog}
-          onClose={() => {
-            setShowConfirmDialog(false);
-            setDeletingId(null);
-          }}
-          title="Delete Collection"
-          description="Are you sure you want to delete this collection? All products and categories in this collection will also be deleted. This action cannot be undone."
-          confirmLabel="Delete"
-          onConfirm={() => handleDelete(deletingId)}
-        />
-      )}
+      
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onClose={() => {
+          setShowConfirmDialog(false);
+          setDeletingId(null);
+        }}
+        title="Delete Collection"
+        description="Are you sure you want to delete this collection? This action cannot be undone. All products in this collection must be deleted first."
+        confirmLabel="Delete"
+        onConfirm={() => deletingId && handleDelete(deletingId)}
+      />
     </div>
   );
 }

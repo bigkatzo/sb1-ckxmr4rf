@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { CategoryForm } from '../../components/merchant/forms/CategoryForm';
 import { CategoryListItem } from '../../components/merchant/CategoryListItem';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
@@ -8,10 +8,25 @@ import { createCategory, updateCategory, deleteCategory, toggleVisibility, toggl
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
+import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
+import { useFilterPersistence } from '../../hooks/useFilterPersistence';
+
+// Define the filter state type
+interface CategoryFilterState {
+  searchQuery: string;
+  showVisible: boolean | null;
+}
+
+// Initial filter state
+const initialFilterState: CategoryFilterState = {
+  searchQuery: '',
+  showVisible: null
+};
 
 export function CategoriesTab() {
+  const { selectedCollection, setSelectedCategory } = useMerchantDashboard();
+  
   const [showForm, setShowForm] = useState(false);
-  const [selectedCollection, setSelectedCollection] = useState<string>('');
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -19,6 +34,40 @@ export function CategoriesTab() {
 
   const { collections, loading: collectionsLoading, refetch } = useMerchantCollections();
   const { categories, loading: categoriesLoading, refreshCategories } = useCategories(selectedCollection);
+  
+  // Use the filter persistence hook
+  const [filters, setFilters] = useFilterPersistence<CategoryFilterState>(
+    'merchant_categories',
+    selectedCollection,
+    initialFilterState
+  );
+  
+  // Helper functions for updating individual filter properties
+  const updateSearchQuery = (query: string) => {
+    setFilters(prev => ({ ...prev, searchQuery: query }));
+  };
+  
+  const updateVisibilityFilter = (visible: boolean | null) => {
+    setFilters(prev => ({ ...prev, showVisible: visible }));
+  };
+  
+  // Filter categories based on current filter settings
+  const filteredCategories = categories.filter(category => {
+    // Filter by search query
+    if (filters.searchQuery) {
+      const query = filters.searchQuery.toLowerCase();
+      if (!category.name?.toLowerCase().includes(query)) {
+        return false;
+      }
+    }
+    
+    // Filter by visibility
+    if (filters.showVisible !== null && category.visible !== filters.showVisible) {
+      return false;
+    }
+    
+    return true;
+  });
 
   const handleRefreshAll = async () => {
     const refreshPromises = [refetch()];
@@ -49,6 +98,18 @@ export function CategoriesTab() {
       console.error('Error with category:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to save category';
       toast.error(errorMessage);
+    }
+  };
+
+  // Select a category for filtering in the products tab
+  const handleSelectCategory = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    // Optional: Show a confirmation toast
+    const category = categories.find(c => c.id === categoryId);
+    if (category) {
+      toast.info(`Selected category "${category.name}" for filtering products`, {
+        autoClose: 2000
+      });
     }
   };
 
@@ -121,77 +182,111 @@ export function CategoriesTab() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <select
-            value={selectedCollection}
-            onChange={(e) => setSelectedCollection(e.target.value)}
-            className="w-full sm:w-auto bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
-          >
-            <option value="">Select Collection</option>
-            {collections.map((collection) => (
-              <option key={collection.id} value={collection.id}>
-                {collection.name} {!collection.accessType && '(Owner)'}
-                {collection.accessType === 'edit' && '(Edit)'}
-                {collection.accessType === 'view' && '(View)'}
-              </option>
-            ))}
-          </select>
-          {selectedCollection && collections.find(c => 
-            c.id === selectedCollection && 
-            (c.isOwner || c.accessType === 'edit')
-          ) && (
-            <button
-              onClick={() => {
-                setEditingCategory(null);
-                setShowForm(true);
+        {selectedCollection && (
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search categories by name..."
+                value={filters.searchQuery}
+                onChange={(e) => updateSearchQuery(e.target.value)}
+                className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            
+            <select
+              value={filters.showVisible === null ? '' : String(filters.showVisible)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  updateVisibilityFilter(null);
+                } else {
+                  updateVisibilityFilter(value === 'true');
+                }
               }}
-              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+              className="bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
             >
-              <Plus className="h-4 w-4" />
-              <span>Add Category</span>
-            </button>
-          )}
-        </div>
+              <option value="">All Visibility</option>
+              <option value="true">Visible Only</option>
+              <option value="false">Hidden Only</option>
+            </select>
+            
+            {collections.find(c => 
+              c.id === selectedCollection && 
+              (c.isOwner || c.accessType === 'edit')
+            ) && (
+              <button
+                onClick={() => {
+                  setEditingCategory(null);
+                  setShowForm(true);
+                }}
+                className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Category</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {!selectedCollection ? (
         <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-sm">Please select a collection to manage categories.</p>
+          <p className="text-gray-400 text-sm">Please select a collection from the selector above to manage categories.</p>
         </div>
       ) : categoriesLoading ? (
         <div className="animate-pulse space-y-4">
           <div className="h-20 bg-gray-800 rounded" />
           <div className="h-20 bg-gray-800 rounded" />
         </div>
-      ) : categories.length === 0 ? (
+      ) : filteredCategories.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-sm">No categories created for this collection yet.</p>
+          {categories.length === 0 ? (
+            <p className="text-gray-400 text-sm">No categories created for this collection yet.</p>
+          ) : (
+            <p className="text-gray-400 text-sm">No categories match the current filters.</p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {categories.map((category, index) => {
+          {filteredCategories.map((category, index) => {
             const collection = collections.find(c => c.id === selectedCollection);
             const canEdit = collection && (collection.isOwner || collection.accessType === 'edit');
             const isActionDisabled = actionLoading === category.id;
             
             return (
-              <CategoryListItem
-                key={category.id}
-                category={category}
-                index={index}
-                onEdit={canEdit ? () => {
-                  setEditingCategory(category);
-                  setShowForm(true);
-                } : undefined}
-                onDelete={canEdit && !isActionDisabled ? () => {
-                  setDeletingId(category.id);
-                  setShowConfirmDialog(true);
-                } : undefined}
-                onToggleVisibility={canEdit && !isActionDisabled ? 
-                  (visible) => handleToggleVisibility(category.id, visible) : undefined}
-                onToggleSaleEnded={canEdit && !isActionDisabled ? 
-                  (saleEnded) => handleToggleSaleEnded(category.id, saleEnded) : undefined}
-              />
+              <div 
+                key={category.id} 
+                className="group cursor-pointer"
+                onClick={() => handleSelectCategory(category.id)}
+              >
+                <CategoryListItem
+                  category={category}
+                  index={index}
+                  onEdit={canEdit ? () => {
+                    setEditingCategory(category);
+                    setShowForm(true);
+                  } : undefined}
+                  onDelete={canEdit && !isActionDisabled ? () => {
+                    setDeletingId(category.id);
+                    setShowConfirmDialog(true);
+                  } : undefined}
+                  onToggleVisibility={canEdit && !isActionDisabled ? 
+                    (visible) => {
+                      // Stop event propagation to prevent selection
+                      handleToggleVisibility(category.id, visible);
+                    } : undefined}
+                  onToggleSaleEnded={canEdit && !isActionDisabled ? 
+                    (saleEnded) => {
+                      // Stop event propagation to prevent selection
+                      handleToggleSaleEnded(category.id, saleEnded);
+                    } : undefined}
+                />
+                <div className="mt-1 ml-1 invisible group-hover:visible text-xs text-gray-400">
+                  Click to select for filtering products
+                </div>
+              </div>
             );
           })}
         </div>
@@ -199,28 +294,26 @@ export function CategoriesTab() {
 
       {showForm && selectedCollection && (
         <CategoryForm
-          initialData={editingCategory}
           onClose={() => {
             setShowForm(false);
             setEditingCategory(null);
           }}
           onSubmit={handleSubmit}
+          initialData={editingCategory}
         />
       )}
 
-      {showConfirmDialog && deletingId && (
-        <ConfirmDialog
-          open={showConfirmDialog}
-          onClose={() => {
-            setShowConfirmDialog(false);
-            setDeletingId(null);
-          }}
-          title="Delete Category"
-          description="Are you sure you want to delete this category? You must first reassign or delete all products in this category. This action cannot be undone."
-          confirmLabel="Delete"
-          onConfirm={() => handleDelete(deletingId)}
-        />
-      )}
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onClose={() => {
+          setShowConfirmDialog(false);
+          setDeletingId(null);
+        }}
+        title="Delete Category"
+        description="Are you sure you want to delete this category? This action cannot be undone. Any products in this category will need to be reassigned."
+        confirmLabel="Delete"
+        onConfirm={() => deletingId && handleDelete(deletingId)}
+      />
     </div>
   );
 }
