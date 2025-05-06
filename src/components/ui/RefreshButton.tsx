@@ -8,15 +8,24 @@ export interface RefreshButtonProps {
 }
 
 export function RefreshButton({ onRefresh, className = '', loading = false }: RefreshButtonProps) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!loading) {
+      onRefresh();
+    }
+  };
+
   return (
     <Button
-      onClick={onRefresh}
+      onClick={handleClick}
       size="sm"
       variant="ghost"
-      className={`${className} ${loading ? 'animate-spin' : ''}`}
+      className={`${className} relative ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-gray-700'}`}
       disabled={loading}
+      title="Refresh data"
     >
-      <RefreshCw className="h-4 w-4" />
+      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
     </Button>
   );
 }

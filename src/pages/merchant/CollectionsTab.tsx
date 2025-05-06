@@ -28,6 +28,7 @@ export function CollectionsTab() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Use the filter persistence hook
   const [filters, setFilters] = useFilterPersistence<CollectionFilterState>(
@@ -36,7 +37,7 @@ export function CollectionsTab() {
     initialFilterState
   );
   
-  const { collections, loading, error, refetch } = useMerchantCollections();
+  const { collections, loading, error, refetch, refreshing } = useMerchantCollections();
 
   // Helper functions for updating individual filter properties
   const updateSearchQuery = (query: string) => {
@@ -55,6 +56,21 @@ export function CollectionsTab() {
     
     return true;
   });
+
+  // Handle refresh with loading state
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      toast.info("Refreshing collections...");
+      await refetch();
+      toast.success("Collections refreshed successfully");
+    } catch (error) {
+      console.error("Error refreshing collections:", error);
+      toast.error("Failed to refresh collections");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleSubmit = async (data: FormData) => {
     try {
@@ -157,7 +173,7 @@ export function CollectionsTab() {
 
           {/* Right side - Refresh & Add Buttons - full width on mobile, wrapped in flex for alignment */}
           <div className="flex items-center gap-2 justify-between sm:justify-end sm:col-span-1">
-            <RefreshButton onRefresh={refetch} className="flex-shrink-0" />
+            <RefreshButton onRefresh={handleRefresh} className="flex-shrink-0" loading={isRefreshing || refreshing} />
             
             <button
               onClick={() => {
