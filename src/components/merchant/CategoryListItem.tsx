@@ -90,12 +90,12 @@ export function CategoryListItem({
               </svg>
             </div>
           ) : (
-            <CategoryDiamond 
-              type={category.type}
-              index={index}
+          <CategoryDiamond 
+            type={category.type}
+            index={index}
               selected={false}
-              size="lg"
-            />
+            size="lg"
+          />
           )}
         </div>
         <div className="flex-1">
@@ -104,19 +104,19 @@ export function CategoryListItem({
               <div className="flex items-center gap-2">
                 <h3 className="font-medium text-sm truncate">{category.name}</h3>
                 <div className="flex items-center gap-1">
-                  {category.visible === false && (
+                {category.visible === false && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400 whitespace-nowrap">
-                      <EyeOff className="h-3 w-3" />
-                      Hidden
-                    </span>
-                  )}
-                  {category.saleEnded && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
-                      <Ban className="h-3 w-3" />
-                      Sale Ended
-                    </span>
-                  )}
-                </div>
+                    <EyeOff className="h-3 w-3" />
+                    Hidden
+                  </span>
+                )}
+                {category.saleEnded && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
+                    <Ban className="h-3 w-3" />
+                    Sale Ended
+                  </span>
+                )}
+              </div>
               </div>
               <p className="text-gray-400 text-xs line-clamp-2 mt-1">
                 {category.description || 'No description'}

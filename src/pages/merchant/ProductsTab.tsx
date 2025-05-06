@@ -255,23 +255,25 @@ export function ProductsTab() {
       <div className="flex flex-col gap-3 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">Products</h2>
-            <RefreshButton onRefresh={refreshProducts} />
+            {/* Header removed */}
           </div>
         </div>
         
         {selectedCollection && (
-          <ProductFilters
-            categories={categories}
-            searchQuery={filters.searchQuery}
-            selectedCategories={filters.selectedCategories}
-            showVisible={filters.showVisible}
-            onSaleOnly={filters.onSaleOnly}
-            onSearchChange={updateSearchQuery}
-            onCategoryChange={updateSelectedCategories}
-            onVisibilityChange={updateVisibilityFilter}
-            onSaleChange={updateSaleFilter}
-          />
+          <div className="flex items-center gap-2">
+            <ProductFilters
+              categories={categories}
+              searchQuery={filters.searchQuery}
+              selectedCategories={filters.selectedCategories}
+              showVisible={filters.showVisible}
+              onSaleOnly={filters.onSaleOnly}
+              onSearchChange={updateSearchQuery}
+              onCategoryChange={updateSelectedCategories}
+              onVisibilityChange={updateVisibilityFilter}
+              onSaleChange={updateSaleFilter}
+            />
+            <RefreshButton onRefresh={refreshProducts} />
+          </div>
         )}
       </div>
 
@@ -291,7 +293,7 @@ export function ProductsTab() {
       ) : filteredProducts.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
           {products.length === 0 ? (
-            <p className="text-gray-400 text-sm">No products created for this collection yet.</p>
+          <p className="text-gray-400 text-sm">No products created for this collection yet.</p>
           ) : (
             <p className="text-gray-400 text-sm">No products match the current filters.</p>
           )}
@@ -341,17 +343,17 @@ export function ProductsTab() {
         />
       )}
 
-      <ConfirmDialog
-        open={showConfirmDialog}
+        <ConfirmDialog
+          open={showConfirmDialog}
         title="Delete Product"
         description="Are you sure you want to delete this product? This action cannot be undone."
         confirmLabel="Delete"
-        onClose={() => {
-          setShowConfirmDialog(false);
-          setDeletingId(null);
-        }}
-        onConfirm={handleDelete}
-      />
+          onClose={() => {
+            setShowConfirmDialog(false);
+            setDeletingId(null);
+          }}
+          onConfirm={handleDelete}
+        />
     </div>
   );
 }

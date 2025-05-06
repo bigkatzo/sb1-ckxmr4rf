@@ -27,6 +27,16 @@ export function CategorySelector({ showLabel = false, className = '' }: Category
   // Find the current category for display purposes
   const currentCategory = categories.find(c => c.id === selectedCategory);
   
+  // Handle category selection toggle
+  const handleCategoryChange = (categoryId: string) => {
+    // If the selected category is clicked again, clear the selection
+    if (selectedCategory === categoryId) {
+      clearCategorySelection();
+    } else {
+      setSelectedCategory(categoryId);
+    }
+  };
+  
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {showLabel && (
@@ -35,7 +45,7 @@ export function CategorySelector({ showLabel = false, className = '' }: Category
       <div className="relative">
         <select
           value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
+          onChange={(e) => handleCategoryChange(e.target.value)}
           className="w-full sm:w-auto bg-gray-800 rounded-lg px-3 py-1.5 text-sm pr-8"
           disabled={!selectedCollection}
         >

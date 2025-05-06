@@ -29,7 +29,7 @@ export function CollectionsTab() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  
+
   // Use the filter persistence hook
   const [filters, setFilters] = useFilterPersistence<CollectionFilterState>(
     'merchant_collections',
@@ -38,12 +38,12 @@ export function CollectionsTab() {
   );
   
   const { collections, loading, error, refetch } = useMerchantCollections();
-  
+
   // Helper functions for updating individual filter properties
   const updateSearchQuery = (query: string) => {
     setFilters(prev => ({ ...prev, searchQuery: query }));
   };
-  
+
   const updateVisibilityFilter = (visible: boolean | null) => {
     setFilters(prev => ({ ...prev, showVisible: visible }));
   };
@@ -65,7 +65,7 @@ export function CollectionsTab() {
     
     return true;
   });
-  
+
   const handleSubmit = async (data: FormData) => {
     try {
       if (editingCollection) {
@@ -84,7 +84,7 @@ export function CollectionsTab() {
       toast.error(errorMessage);
     }
   };
-  
+
   const handleDelete = async (id: string) => {
     try {
       await deleteCollection(id);
@@ -120,7 +120,7 @@ export function CollectionsTab() {
       setActionLoading(null);
     }
   };
-  
+
   const handleSelectCollection = (collectionId: string) => {
     setSelectedCollection(collectionId);
     // Optionally show a toast confirmation
@@ -131,7 +131,7 @@ export function CollectionsTab() {
       });
     }
   };
-  
+
   if (loading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 animate-pulse space-y-4">
@@ -140,18 +140,17 @@ export function CollectionsTab() {
       </div>
     );
   }
-  
+
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">Collections</h2>
-            <RefreshButton onRefresh={refetch} />
+            {/* Header removed */}
           </div>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <input
@@ -180,6 +179,8 @@ export function CollectionsTab() {
             <option value="false">Hidden Only</option>
           </select>
           
+          <RefreshButton onRefresh={refetch} />
+          
           <button
             onClick={() => {
               setEditingCollection(null);
@@ -192,7 +193,7 @@ export function CollectionsTab() {
           </button>
         </div>
       </div>
-      
+
       {error ? (
         <div className="bg-red-500/10 text-red-500 rounded-lg p-4">
           <p className="text-sm">{error}</p>
@@ -200,7 +201,7 @@ export function CollectionsTab() {
       ) : filteredCollections.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
           {collections.length === 0 ? (
-            <p className="text-gray-400 text-sm">No collections created yet.</p>
+          <p className="text-gray-400 text-sm">No collections created yet.</p>
           ) : (
             <p className="text-gray-400 text-sm">No collections match the current filters.</p>
           )}
@@ -265,8 +266,8 @@ export function CollectionsTab() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setEditingCollection(collection);
-                            setShowForm(true);
+                  setEditingCollection(collection);
+                  setShowForm(true);
                           }}
                           className="bg-gray-700 text-gray-300 hover:bg-gray-600 px-2 py-1 rounded text-xs"
                         >
@@ -275,8 +276,8 @@ export function CollectionsTab() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setDeletingId(collection.id);
-                            setShowConfirmDialog(true);
+                  setDeletingId(collection.id);
+                  setShowConfirmDialog(true);
                           }}
                           className="bg-red-900/30 text-red-400 hover:bg-red-900/50 px-2 py-1 rounded text-xs"
                           disabled={actionLoading === collection.id}
@@ -306,7 +307,7 @@ export function CollectionsTab() {
           ))}
         </div>
       )}
-      
+
       {showForm && (
         <CollectionForm
           collection={editingCollection}
@@ -317,18 +318,18 @@ export function CollectionsTab() {
           onSubmit={handleSubmit}
         />
       )}
-      
-      <ConfirmDialog
-        open={showConfirmDialog}
-        onClose={() => {
-          setShowConfirmDialog(false);
-          setDeletingId(null);
-        }}
-        title="Delete Collection"
+
+        <ConfirmDialog
+          open={showConfirmDialog}
+          onClose={() => {
+            setShowConfirmDialog(false);
+            setDeletingId(null);
+          }}
+          title="Delete Collection"
         description="Are you sure you want to delete this collection? This action cannot be undone. All products in this collection must be deleted first."
-        confirmLabel="Delete"
+          confirmLabel="Delete"
         onConfirm={() => deletingId && handleDelete(deletingId)}
-      />
+        />
     </div>
   );
 }

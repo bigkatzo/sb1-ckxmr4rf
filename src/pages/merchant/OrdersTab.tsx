@@ -224,25 +224,27 @@ export function OrdersTab() {
       <div className="flex flex-col gap-3 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">Orders</h2>
-            <RefreshButton onRefresh={refreshOrders} />
+            {/* Header removed */}
           </div>
         </div>
 
-        <OrderFilters
-          collections={collections}
-          products={products}
-          selectedCollections={selectedCollections}
-          selectedProducts={selectedProducts}
-          selectedStatuses={selectedStatuses}
-          selectedPaymentMethods={selectedPaymentMethods}
-          searchQuery={searchQuery}
-          onCollectionChange={setSelectedCollections}
-          onProductChange={setSelectedProducts}
-          onStatusChange={setSelectedStatuses}
-          onPaymentMethodChange={setSelectedPaymentMethods}
-          onSearchChange={setSearchQuery}
-        />
+        <div className="flex items-center gap-2">
+          <OrderFilters
+            collections={collections}
+            products={products}
+            selectedCollections={selectedCollections}
+            selectedProducts={selectedProducts}
+            selectedStatuses={selectedStatuses}
+            selectedPaymentMethods={selectedPaymentMethods}
+            searchQuery={searchQuery}
+            onCollectionChange={setSelectedCollections}
+            onProductChange={setSelectedProducts}
+            onStatusChange={setSelectedStatuses}
+            onPaymentMethodChange={setSelectedPaymentMethods}
+            onSearchChange={setSearchQuery}
+          />
+          <RefreshButton onRefresh={refreshOrders} />
+        </div>
       </div>
 
       {filteredOrders.length === 0 ? (

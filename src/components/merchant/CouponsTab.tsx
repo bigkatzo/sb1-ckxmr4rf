@@ -142,20 +142,21 @@ export function CouponsTab() {
       <div className="flex flex-col gap-3 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">Coupons</h2>
-            <RefreshButton onRefresh={loadCoupons} />
+            <p className="text-sm text-gray-400">
+              Manage discount coupons for your products
+            </p>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Coupon</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={loadCoupons} />
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Coupon</span>
+            </button>
+          </div>
         </div>
-        <p className="text-sm text-gray-400">
-          Manage discount coupons for your products
-        </p>
       </div>
 
       {/* Coupons List */}

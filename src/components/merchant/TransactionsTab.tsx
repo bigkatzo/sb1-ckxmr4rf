@@ -265,26 +265,26 @@ export function TransactionsTab() {
       <div className="flex flex-col gap-3 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">Transaction Recovery</h2>
+            <p className="text-sm text-gray-400">
+              Manage and resolve transaction issues
+            </p>
+            <span className="text-xs text-gray-400">
+              ({filteredAnomalies.length} issue{filteredAnomalies.length !== 1 ? 's' : ''})
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
             <RefreshButton 
               onRefresh={() => fetchAnomalies(true)} 
               loading={refreshing}
             />
-          </div>
-          <div className="text-xs text-gray-400">
-            {filteredAnomalies.length} issue{filteredAnomalies.length !== 1 ? 's' : ''}
             {refreshing && (
-              <span className="ml-2 text-purple-400">
+              <span className="text-xs text-purple-400">
                 Refreshing...
               </span>
             )}
           </div>
         </div>
         
-        <p className="text-sm text-gray-400">
-          Manage and resolve transaction issues
-        </p>
-
         {/* Filter Controls */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
           <Button

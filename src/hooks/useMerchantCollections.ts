@@ -221,9 +221,9 @@ export function useMerchantCollections(options: {
 
       // Filter collections based on access
       const filteredCollections = data.filter(collection => {
-        return collection.user_id === user.id || 
-               collection.access_type !== null ||
-               isAdmin;
+          return collection.user_id === user.id || 
+                 collection.access_type !== null ||
+                 isAdmin;
       });
       
       // Extract collection IDs for fetching counts
@@ -237,25 +237,25 @@ export function useMerchantCollections(options: {
 
       // Transform collections with counts
       const transformedCollections = filteredCollections.map(collection => ({
-        id: collection.id,
-        name: collection.name,
-        description: collection.description || '',
-        image_url: collection.image_url || '',
-        imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
-        launch_date: collection.launch_date,
-        launchDate: collection.launch_date ? new Date(collection.launch_date) : undefined,
-        featured: collection.featured || false,
-        visible: collection.visible,
-        sale_ended: collection.sale_ended,
-        saleEnded: collection.sale_ended,
-        slug: collection.slug,
-        user_id: collection.user_id,
+          id: collection.id,
+          name: collection.name,
+          description: collection.description || '',
+          image_url: collection.image_url || '',
+          imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
+          launch_date: collection.launch_date,
+          launchDate: collection.launch_date ? new Date(collection.launch_date) : undefined,
+          featured: collection.featured || false,
+          visible: collection.visible,
+          sale_ended: collection.sale_ended,
+          saleEnded: collection.sale_ended,
+          slug: collection.slug,
+          user_id: collection.user_id,
         productCount: productCountMap[collection.id] || 0,
         categoryCount: categoryCountMap[collection.id] || 0,
-        accessType: collection.access_type,
-        isOwner: collection.user_id === user.id || isAdmin,
-        owner_username: collection.owner_username
-      } as Collection));
+          accessType: collection.access_type,
+          isOwner: collection.user_id === user.id || isAdmin,
+          owner_username: collection.owner_username
+        } as Collection));
 
       if (isMountedRef.current) {
         setCollections(transformedCollections);

@@ -177,13 +177,12 @@ export function CategoriesTab() {
       <div className="flex flex-col gap-3 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-base sm:text-lg font-semibold">Categories</h2>
-            <RefreshButton onRefresh={handleRefreshAll} className="scale-90" />
+            {/* Header removed */}
           </div>
         </div>
 
         {selectedCollection && (
-          <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
               <input
@@ -195,7 +194,7 @@ export function CategoriesTab() {
               />
             </div>
             
-            <select
+          <select
               value={filters.showVisible === null ? '' : String(filters.showVisible)}
               onChange={(e) => {
                 const value = e.target.value;
@@ -206,28 +205,30 @@ export function CategoriesTab() {
                 }
               }}
               className="bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
-            >
+          >
               <option value="">All Visibility</option>
               <option value="true">Visible Only</option>
               <option value="false">Hidden Only</option>
-            </select>
+          </select>
+
+          <RefreshButton onRefresh={handleRefreshAll} className="scale-90" />
             
             {collections.find(c => 
-              c.id === selectedCollection && 
-              (c.isOwner || c.accessType === 'edit')
-            ) && (
-              <button
-                onClick={() => {
-                  setEditingCategory(null);
-                  setShowForm(true);
-                }}
-                className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add Category</span>
-              </button>
-            )}
-          </div>
+            c.id === selectedCollection && 
+            (c.isOwner || c.accessType === 'edit')
+          ) && (
+            <button
+              onClick={() => {
+                setEditingCategory(null);
+                setShowForm(true);
+              }}
+              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Category</span>
+            </button>
+          )}
+        </div>
         )}
       </div>
 
@@ -243,7 +244,7 @@ export function CategoriesTab() {
       ) : filteredCategories.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
           {categories.length === 0 ? (
-            <p className="text-gray-400 text-sm">No categories created for this collection yet.</p>
+          <p className="text-gray-400 text-sm">No categories created for this collection yet.</p>
           ) : (
             <p className="text-gray-400 text-sm">No categories match the current filters.</p>
           )}
@@ -261,29 +262,29 @@ export function CategoriesTab() {
                 className="group cursor-pointer"
                 onClick={() => handleSelectCategory(category.id)}
               >
-                <CategoryListItem
-                  category={category}
-                  index={index}
+              <CategoryListItem
+                category={category}
+                index={index}
                   selected={selectedCategory === category.id}
-                  onEdit={canEdit ? () => {
-                    setEditingCategory(category);
-                    setShowForm(true);
-                  } : undefined}
-                  onDelete={canEdit && !isActionDisabled ? () => {
-                    setDeletingId(category.id);
-                    setShowConfirmDialog(true);
-                  } : undefined}
-                  onToggleVisibility={canEdit && !isActionDisabled ? 
+                onEdit={canEdit ? () => {
+                  setEditingCategory(category);
+                  setShowForm(true);
+                } : undefined}
+                onDelete={canEdit && !isActionDisabled ? () => {
+                  setDeletingId(category.id);
+                  setShowConfirmDialog(true);
+                } : undefined}
+                onToggleVisibility={canEdit && !isActionDisabled ? 
                     (visible) => {
                       // Stop event propagation to prevent selection
                       handleToggleVisibility(category.id, visible);
                     } : undefined}
-                  onToggleSaleEnded={canEdit && !isActionDisabled ? 
+                onToggleSaleEnded={canEdit && !isActionDisabled ? 
                     (saleEnded) => {
                       // Stop event propagation to prevent selection
                       handleToggleSaleEnded(category.id, saleEnded);
                     } : undefined}
-                />
+              />
                 <div className="mt-1 ml-1 invisible group-hover:visible text-xs text-gray-400">
                   Click to select for filtering products
                 </div>
@@ -304,17 +305,17 @@ export function CategoriesTab() {
         />
       )}
 
-      <ConfirmDialog
-        open={showConfirmDialog}
-        onClose={() => {
-          setShowConfirmDialog(false);
-          setDeletingId(null);
-        }}
-        title="Delete Category"
+        <ConfirmDialog
+          open={showConfirmDialog}
+          onClose={() => {
+            setShowConfirmDialog(false);
+            setDeletingId(null);
+          }}
+          title="Delete Category"
         description="Are you sure you want to delete this category? This action cannot be undone. Any products in this category will need to be reassigned."
-        confirmLabel="Delete"
+          confirmLabel="Delete"
         onConfirm={() => deletingId && handleDelete(deletingId)}
-      />
+        />
     </div>
   );
 }
