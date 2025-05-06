@@ -73,8 +73,8 @@ export function CollapsibleSearchBar({
       {/* Mobile: Expanded search overlay */}
       {isMobile && isExpanded && (
         <>
-          <div className="fixed inset-0 bg-black/50 z-10" onClick={handleCloseSearch}></div>
-          <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-gray-900 rounded-lg shadow-lg border border-gray-700 p-3 w-screen -ml-4 px-4">
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={handleCloseSearch}></div>
+          <div className="fixed top-1/4 inset-x-0 mx-4 z-50 bg-gray-900 rounded-lg shadow-lg border border-gray-700 p-3">
             <div className="flex justify-between items-center border-b border-gray-800 pb-2 mb-2">
               <h3 className="text-sm font-medium text-gray-300">Search</h3>
               <button

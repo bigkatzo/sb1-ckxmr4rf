@@ -185,26 +185,27 @@ export function InlineFilterBar() {
       {isOpen && (
         <div className={`
           absolute left-0 right-0 top-full mt-1 z-50
-          ${isCollapsed ? 'w-screen -ml-4 px-4' : 'sm:right-auto sm:min-w-[280px]'}
+          ${isCollapsed ? 'fixed inset-x-0 top-auto bottom-0 mt-0 rounded-t-lg rounded-b-none max-h-[85vh] overflow-auto' : 'sm:right-auto sm:min-w-[280px]'}
           bg-gray-900 rounded-md border border-gray-700 shadow-xl py-1 divide-y divide-gray-800
         `}>
           {isCollapsed && (
-            <div className="flex justify-between items-center px-2 py-2 border-b border-gray-800">
+            <div className="sticky top-0 z-10 flex justify-between items-center px-3 py-3 border-b border-gray-800 bg-gray-900">
               <h3 className="text-sm font-medium text-gray-300">Filter Options</h3>
-              <div className="flex items-center">
+              <div className="flex items-center gap-2">
                 {/* Clear button for mobile inside the dropdown header */}
                 {hasActiveFilters && (
                   <button
                     onClick={clearAllSelections}
-                    className="mr-2 text-gray-500 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 p-1.5 rounded-md"
+                    className="text-red-400 hover:text-red-300 transition-colors bg-gray-800/80 hover:bg-gray-700 p-1.5 rounded-md flex items-center gap-1.5"
                     title="Clear all filters"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">Clear</span>
                   </button>
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-gray-300 p-1.5 bg-gray-800 hover:bg-gray-700 rounded-md"
+                  className="text-gray-400 hover:text-gray-300 transition-colors bg-gray-800/80 hover:bg-gray-700 p-1.5 rounded-md"
                   aria-label="Close"
                 >
                   <X className="h-4 w-4" />
