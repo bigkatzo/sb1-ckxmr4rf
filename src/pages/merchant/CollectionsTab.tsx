@@ -8,6 +8,7 @@ import { CollectionForm } from '../../components/merchant/forms/CollectionForm';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { toast } from 'react-toastify';
 import { createCollection, updateCollection, deleteCollection, toggleVisibility } from '../../services/collections';
+import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
 
 // Define the filter state type
 interface CollectionFilterState {
@@ -150,36 +151,39 @@ export function CollectionsTab() {
           </div>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-2 items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search collections by name..."
-              value={filters.searchQuery}
-              onChange={(e) => updateSearchQuery(e.target.value)}
-              className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+        <div className="flex flex-col sm:flex-row gap-2 items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-2 items-center">
+            <InlineFilterBar />
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search collections by name..."
+                value={filters.searchQuery}
+                onChange={(e) => updateSearchQuery(e.target.value)}
+                className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            
+            <select
+              value={filters.showVisible === null ? '' : String(filters.showVisible)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  updateVisibilityFilter(null);
+                } else {
+                  updateVisibilityFilter(value === 'true');
+                }
+              }}
+              className="bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
+            >
+              <option value="">All Visibility</option>
+              <option value="true">Visible Only</option>
+              <option value="false">Hidden Only</option>
+            </select>
+            
+            <RefreshButton onRefresh={refetch} />
           </div>
-          
-          <select
-            value={filters.showVisible === null ? '' : String(filters.showVisible)}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (value === '') {
-                updateVisibilityFilter(null);
-              } else {
-                updateVisibilityFilter(value === 'true');
-              }
-            }}
-            className="bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
-          >
-            <option value="">All Visibility</option>
-            <option value="true">Visible Only</option>
-            <option value="false">Hidden Only</option>
-          </select>
-          
-          <RefreshButton onRefresh={refetch} />
           
           <button
             onClick={() => {

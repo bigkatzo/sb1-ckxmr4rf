@@ -5,7 +5,6 @@ import { Settings, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 import { MerchantDashboardProvider } from '../../contexts/MerchantDashboardContext';
-import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
 
 // Lazy load tab components
 const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
@@ -180,13 +179,6 @@ export function DashboardPage() {
             <div className="border-b border-gray-800">
               <div className="flex items-center justify-between">
                 <Tabs tabs={availableTabs} activeId={activeTab} onChange={setActiveTab} />
-                
-                {/* Inline filter controls */}
-                {(activeTab === 'collections' || activeTab === 'categories' || activeTab === 'products') && (
-                  <div className="flex items-center gap-2 ml-4 py-2">
-                    <InlineFilterBar />
-                  </div>
-                )}
               </div>
             </div>
           </div>

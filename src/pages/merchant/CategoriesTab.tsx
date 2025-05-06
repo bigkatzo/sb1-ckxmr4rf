@@ -10,6 +10,7 @@ import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { useFilterPersistence } from '../../hooks/useFilterPersistence';
+import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
 
 // Define the filter state type
 interface CategoryFilterState {
@@ -182,7 +183,9 @@ export function CategoriesTab() {
         </div>
 
         {selectedCollection && (
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-2 items-center">
+            <InlineFilterBar />
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
               <input
@@ -194,7 +197,7 @@ export function CategoriesTab() {
               />
             </div>
             
-          <select
+            <select
               value={filters.showVisible === null ? '' : String(filters.showVisible)}
               onChange={(e) => {
                 const value = e.target.value;
@@ -205,15 +208,16 @@ export function CategoriesTab() {
                 }
               }}
               className="bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
-          >
+            >
               <option value="">All Visibility</option>
               <option value="true">Visible Only</option>
               <option value="false">Hidden Only</option>
-          </select>
+            </select>
 
-          <RefreshButton onRefresh={handleRefreshAll} className="scale-90" />
+            <RefreshButton onRefresh={handleRefreshAll} className="scale-90" />
+          </div>
             
-            {collections.find(c => 
+          {collections.find(c => 
             c.id === selectedCollection && 
             (c.isOwner || c.accessType === 'edit')
           ) && (

@@ -10,6 +10,7 @@ import type { OrderStatus } from '../../types/orders';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 import { supabase } from '../../lib/supabase';
 import { addTracking, deleteTracking } from '../../services/tracking';
+import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
 
 export function OrdersTab() {
   const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
@@ -229,6 +230,7 @@ export function OrdersTab() {
         </div>
 
         <div className="flex items-center gap-2">
+          <InlineFilterBar />
           <OrderFilters
             collections={collections}
             products={products}

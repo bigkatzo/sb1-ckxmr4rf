@@ -6,11 +6,9 @@ interface ProductFiltersProps {
   searchQuery: string;
   selectedCategories: string[];
   showVisible: boolean | null;
-  onSaleOnly: boolean;
   onCategoryChange: (ids: string[]) => void;
   onSearchChange: (query: string) => void;
   onVisibilityChange: (showVisible: boolean | null) => void;
-  onSaleChange: (onSale: boolean) => void;
 }
 
 export function ProductFilters({
@@ -18,13 +16,11 @@ export function ProductFilters({
   searchQuery,
   selectedCategories,
   showVisible,
-  onSaleOnly,
   onCategoryChange,
   onSearchChange,
-  onVisibilityChange,
-  onSaleChange
+  onVisibilityChange
 }: ProductFiltersProps) {
-  const [openDropdown, setOpenDropdown] = useState<'category' | 'visibility' | 'sale' | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<'category' | 'visibility' | null>(null);
   const [categorySearch, setCategorySearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -78,9 +74,9 @@ export function ProductFilters({
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 sm:w-[550px]">
+      <div className="flex flex-col sm:flex-row gap-2 sm:w-[400px]">
         {/* Category Filter */}
-        <div className="w-full sm:w-1/3 relative">
+        <div className="w-full sm:w-1/2 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'category' ? null : 'category')}
             className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
@@ -160,7 +156,7 @@ export function ProductFilters({
         </div>
 
         {/* Visibility Filter */}
-        <div className="w-full sm:w-1/3 relative">
+        <div className="w-full sm:w-1/2 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'visibility' ? null : 'visibility')}
             className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
@@ -199,41 +195,6 @@ export function ProductFilters({
                   className="w-full text-left px-3 py-2 hover:bg-gray-700 text-xs sm:text-sm"
                 >
                   Hidden Only
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sale Status Filter */}
-        <div className="w-full sm:w-1/3 relative">
-          <button
-            onClick={() => setOpenDropdown(openDropdown === 'sale' ? null : 'sale')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
-          >
-            <span>{onSaleOnly ? 'On Sale Only' : 'Sale Status'}</span>
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'sale' ? 'rotate-180' : ''}`} />
-          </button>
-          {openDropdown === 'sale' && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
-              <div className="max-h-60 overflow-y-auto">
-                <button
-                  onClick={() => {
-                    onSaleChange(false);
-                    setOpenDropdown(null);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-700 text-xs sm:text-sm"
-                >
-                  All Products
-                </button>
-                <button
-                  onClick={() => {
-                    onSaleChange(true);
-                    setOpenDropdown(null);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-700 text-xs sm:text-sm"
-                >
-                  On Sale Only
                 </button>
               </div>
             </div>

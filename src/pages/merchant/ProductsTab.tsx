@@ -19,21 +19,21 @@ import { createCategoryIndices } from '../../utils/category-mapping';
 import { ProductFilters } from '../../components/merchant/ProductFilters';
 import { useFilterPersistence } from '../../hooks/useFilterPersistence';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
+import { Plus } from 'lucide-react';
+import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
 
 // Define the filter state type
 interface ProductFilterState {
   searchQuery: string;
   selectedCategories: string[];
   showVisible: boolean | null;
-  onSaleOnly: boolean;
 }
 
 // Initial filter state
 const initialFilterState: ProductFilterState = {
   searchQuery: '',
   selectedCategories: [],
-  showVisible: null,
-  onSaleOnly: false
+  showVisible: null
 };
 
 export function ProductsTab() {
@@ -194,10 +194,6 @@ export function ProductsTab() {
   const updateVisibilityFilter = (visible: boolean | null) => {
     setFilters(prev => ({ ...prev, showVisible: visible }));
   };
-  
-  const updateSaleFilter = (onSale: boolean) => {
-    setFilters(prev => ({ ...prev, onSaleOnly: onSale }));
-  };
 
   // Initialize with selected category from context if present
   useState(() => {
@@ -233,11 +229,6 @@ export function ProductsTab() {
       return false;
     }
 
-    // Filter by sale status
-    if (filters.onSaleOnly && !(product.priceModifierBeforeMin !== undefined && product.priceModifierBeforeMin !== null && product.priceModifierBeforeMin < 0 && !product.saleEnded)) {
-      return false;
-    }
-
     return true;
   });
 
@@ -260,19 +251,35 @@ export function ProductsTab() {
         </div>
         
         {selectedCollection && (
-          <div className="flex items-center gap-2">
-            <ProductFilters
-              categories={categories}
-              searchQuery={filters.searchQuery}
-              selectedCategories={filters.selectedCategories}
-              showVisible={filters.showVisible}
-              onSaleOnly={filters.onSaleOnly}
-              onSearchChange={updateSearchQuery}
-              onCategoryChange={updateSelectedCategories}
-              onVisibilityChange={updateVisibilityFilter}
-              onSaleChange={updateSaleFilter}
-            />
-            <RefreshButton onRefresh={refreshProducts} />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <InlineFilterBar />
+              <ProductFilters
+                categories={categories}
+                searchQuery={filters.searchQuery}
+                selectedCategories={filters.selectedCategories}
+                showVisible={filters.showVisible}
+                onSearchChange={updateSearchQuery}
+                onCategoryChange={updateSelectedCategories}
+                onVisibilityChange={updateVisibilityFilter}
+              />
+              <RefreshButton onRefresh={refreshProducts} />
+            </div>
+            {collections.find(c => 
+              c.id === selectedCollection && 
+              (c.isOwner || c.accessType === 'edit')
+            ) && (
+              <button
+                onClick={() => {
+                  setEditingProduct(null);
+                  setShowForm(true);
+                }}
+                className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Product</span>
+              </button>
+            )}
           </div>
         )}
       </div>
