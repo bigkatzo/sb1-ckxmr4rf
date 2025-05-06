@@ -154,16 +154,17 @@ export function DashboardPage() {
         {/* Dashboard header with sticky behavior but lower z-index to stay under site header */}
         <div className="sticky top-14 z-10 bg-gray-900 shadow-lg border-b border-gray-800">
           <div className="px-4 sm:px-6 lg:px-8 py-3">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold">Merchant Dashboard</h1>
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+            <div className="flex justify-between items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold leading-tight">Merchant Dashboard</h1>
+              <div className="flex items-center gap-2">
                 {isAdmin && (
                   <button
                     onClick={() => navigate('/merchant/admin')}
-                    className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
+                    className="inline-flex items-center justify-center gap-1.5 bg-primary hover:bg-primary-hover text-white p-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
+                    aria-label="Admin Settings"
                   >
-                    <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    <span>Settings</span>
+                    <Settings className="h-4 w-4" />
+                    <span className="hidden sm:inline">Settings</span>
                   </button>
                 )}
                 <button
