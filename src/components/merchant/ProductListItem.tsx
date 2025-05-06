@@ -155,10 +155,14 @@ export function ProductListItem({
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               {onEdit && <EditButton onClick={() => onEdit()} className="scale-90" />}
               {dropdownItems.length > 0 && (
-                <DropdownMenu 
-                  items={dropdownItems}
-                  triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
-                />
+                <div className="relative">
+                  <DropdownMenu 
+                    items={dropdownItems}
+                    triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
+                    menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
+                    position="auto"
+                  />
+                </div>
               )}
             </div>
           </div>

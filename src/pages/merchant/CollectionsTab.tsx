@@ -363,7 +363,7 @@ export function CollectionsTab() {
                               actionLoading === collection.id ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                             menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
-                            position="left"
+                            position="auto"
                           />
                         </div>
                       </>

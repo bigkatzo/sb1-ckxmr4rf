@@ -18,7 +18,7 @@ interface DropdownMenuProps {
   triggerIcon?: React.ReactNode;
   triggerClassName?: string;
   menuClassName?: string;
-  position?: 'left' | 'right';
+  position?: 'left' | 'right' | 'auto';
 }
 
 export function DropdownMenu({
@@ -26,10 +26,13 @@ export function DropdownMenu({
   triggerIcon = <MoreVertical className="h-4 w-4" />,
   triggerClassName = "p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md",
   menuClassName = "bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px]",
-  position = 'right'
+  position = 'auto'
 }: DropdownMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<'left' | 'right'>('right');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Handle clicks outside dropdown
   useEffect(() => {
@@ -45,6 +48,25 @@ export function DropdownMenu({
     };
   }, []);
 
+  // Calculate dropdown position when opening
+  useEffect(() => {
+    if (isOpen && position === 'auto' && buttonRef.current && menuRef.current) {
+      // Default to right positioning
+      let menuPos: 'left' | 'right' = 'right';
+      
+      // Get button's position and dimensions
+      const buttonRect = buttonRef.current.getBoundingClientRect();
+      const menuWidth = menuRef.current.offsetWidth;
+      
+      // Check if opening to the right would overflow the viewport
+      if (buttonRect.right + menuWidth > window.innerWidth) {
+        menuPos = 'left';
+      }
+      
+      setDropdownPosition(menuPos);
+    }
+  }, [isOpen, position]);
+
   const toggleDropdown = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsOpen(!isOpen);
@@ -58,9 +80,13 @@ export function DropdownMenu({
     setIsOpen(false);
   };
 
+  // Determine final position
+  const finalPosition = position === 'auto' ? dropdownPosition : position;
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        ref={buttonRef}
         onClick={toggleDropdown}
         className={triggerClassName}
         title="More options"
@@ -70,7 +96,8 @@ export function DropdownMenu({
 
       {isOpen && (
         <div 
-          className={`absolute z-10 mt-1 ${position === 'right' ? 'right-0' : 'left-0'} ${menuClassName}`}
+          ref={menuRef}
+          className={`absolute z-[100] mt-1 ${finalPosition === 'right' ? 'right-0' : 'left-0'} ${menuClassName}`}
         >
           <div className="overflow-hidden">
             {items.map((item, index) => {
