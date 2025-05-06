@@ -243,7 +243,7 @@ export function CategoriesTab() {
               <CategoryListItem
                 category={category}
                 index={index}
-                  selected={selectedCategory === category.id}
+                selected={selectedCategory === category.id}
                 onEdit={canEdit ? () => {
                   setEditingCategory(category);
                   setShowForm(true);
@@ -263,9 +263,6 @@ export function CategoriesTab() {
                       handleToggleSaleEnded(category.id, saleEnded);
                     } : undefined}
               />
-                <div className="mt-1 ml-1 invisible group-hover:visible text-xs text-gray-400">
-                  Click to select for filtering products
-                </div>
               </div>
             );
           })}

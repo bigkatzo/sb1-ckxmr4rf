@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Search, ExternalLink, EyeOff, Eye, Tag, Trash } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, ExternalLink, EyeOff, Eye, Tag, Trash, Ban } from 'lucide-react';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { useFilterPersistence } from '../../hooks/useFilterPersistence';
@@ -7,11 +7,13 @@ import { RefreshButton } from '../../components/ui/RefreshButton';
 import { CollectionForm } from '../../components/merchant/forms/CollectionForm';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { toast } from 'react-toastify';
-import { createCollection, updateCollection, deleteCollection, toggleVisibility, toggleSaleEnded } from '../../services/collections';
+import { createCollection, updateCollection, deleteCollection, toggleVisibility, toggleSaleEnded, toggleFeatured } from '../../services/collections';
 import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
 import { EditButton } from '../../components/ui/EditButton';
 import { DropdownMenu } from '../../components/ui/DropdownMenu';
+import { StarButton } from '../../components/ui/StarButton';
 import { Link } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 
 // Define the filter state type
 interface CollectionFilterState {
@@ -31,6 +33,7 @@ export function CollectionsTab() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Use the filter persistence hook
   const [filters, setFilters] = useFilterPersistence<CollectionFilterState>(
@@ -128,6 +131,20 @@ export function CollectionsTab() {
     }
   };
 
+  const handleToggleFeatured = async (id: string, featured: boolean) => {
+    try {
+      setActionLoading(id);
+      await toggleFeatured(id, featured);
+      toast.success(`Collection ${featured ? 'featured' : 'unfeatured'} successfully`);
+      refetch();
+    } catch (error) {
+      console.error('Error toggling featured status:', error);
+      toast.error('Failed to toggle featured status');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleSelectCollection = (collectionId: string) => {
     setSelectedCollection(collectionId);
     // Optionally show a toast confirmation
@@ -138,6 +155,24 @@ export function CollectionsTab() {
       });
     }
   };
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        setIsAdmin(profile?.role === 'admin');
+      }
+    };
+    
+    checkAdmin();
+  }, []);
 
   if (loading) {
     return (
@@ -225,15 +260,35 @@ export function CollectionsTab() {
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent opacity-70" />
                 
+                <div className="absolute top-2 left-2" onClick={(e) => e.stopPropagation()}>
+                  {isAdmin && (
+                    <StarButton
+                      featured={collection.featured || false}
+                      onClick={() => handleToggleFeatured(collection.id, !collection.featured)}
+                      loading={actionLoading === collection.id}
+                      className="scale-90"
+                    />
+                  )}
+                </div>
+                
                 <div className="absolute bottom-2 right-4 flex gap-2">
                   {!collection.isOwner && collection.accessType && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400">
                       {collection.accessType === 'edit' ? 'Edit Access' : 'View Access'}
                     </span>
                   )}
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${collection.visible ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
-                    {collection.visible ? 'Visible' : 'Hidden'}
-                  </span>
+                  {!collection.visible && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-400">
+                      <EyeOff className="h-3 w-3" />
+                      Hidden
+                    </span>
+                  )}
+                  {collection.saleEnded && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400">
+                      <Ban className="h-3 w-3" />
+                      Sale Ended
+                    </span>
+                  )}
                 </div>
               </div>
               
@@ -268,53 +323,53 @@ export function CollectionsTab() {
                           className="scale-90"
                           disabled={actionLoading === collection.id}
                         />
-                        <DropdownMenu
-                          items={[
-                            {
-                              label: 'View Collection',
-                              icon: <ExternalLink className="h-4 w-4" />,
-                              as: Link,
-                              to: `/${collection.slug || collection.id}`,
-                              target: "_blank"
-                            },
-                            {
-                              label: collection.visible ? 'Hide Collection' : 'Show Collection',
-                              icon: collection.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
-                              onClick: actionLoading !== collection.id ? 
-                                () => handleToggleVisibility(collection.id, !collection.visible) : 
-                                undefined
-                            },
-                            {
-                              label: collection.saleEnded ? 'Resume Sale' : 'End Sale',
-                              icon: <Tag className="h-4 w-4" />,
-                              onClick: actionLoading !== collection.id ? 
-                                () => handleToggleSaleEnded(collection.id, !collection.saleEnded) : 
-                                undefined
-                            },
-                            {
-                              label: 'Delete',
-                              icon: <Trash className="h-4 w-4" />,
-                              onClick: actionLoading !== collection.id ? 
-                                () => {
-                                  setDeletingId(collection.id);
-                                  setShowConfirmDialog(true);
-                                } : 
-                                undefined,
-                              destructive: true
-                            }
-                          ]}
-                          triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90 ${
-                            actionLoading === collection.id ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                        />
+                        <div className="relative" style={{ zIndex: 50 }}>
+                          <DropdownMenu
+                            items={[
+                              {
+                                label: 'View Collection',
+                                icon: <ExternalLink className="h-4 w-4" />,
+                                as: Link,
+                                to: `/${collection.slug || collection.id}`,
+                                target: "_blank"
+                              },
+                              {
+                                label: collection.visible ? 'Hide Collection' : 'Show Collection',
+                                icon: collection.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
+                                onClick: actionLoading !== collection.id ? 
+                                  () => handleToggleVisibility(collection.id, !collection.visible) : 
+                                  undefined
+                              },
+                              {
+                                label: collection.saleEnded ? 'Resume Sale' : 'End Sale',
+                                icon: collection.saleEnded ? <Ban className="h-4 w-4" /> : <Tag className="h-4 w-4" />,
+                                onClick: actionLoading !== collection.id ? 
+                                  () => handleToggleSaleEnded(collection.id, !collection.saleEnded) : 
+                                  undefined
+                              },
+                              {
+                                label: 'Delete',
+                                icon: <Trash className="h-4 w-4" />,
+                                onClick: actionLoading !== collection.id ? 
+                                  () => {
+                                    setDeletingId(collection.id);
+                                    setShowConfirmDialog(true);
+                                  } : 
+                                  undefined,
+                                destructive: true
+                              }
+                            ]}
+                            triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90 ${
+                              actionLoading === collection.id ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-50"
+                            position="left"
+                          />
+                        </div>
                       </>
                     )}
                   </div>
                 </div>
-              </div>
-              
-              <div className="px-4 py-2 border-t border-gray-700 text-xs text-gray-400 invisible group-hover:visible">
-                Click to select this collection for dashboard views
               </div>
             </div>
           ))}
