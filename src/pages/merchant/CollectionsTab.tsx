@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, ExternalLink, EyeOff, Eye, Tag, Trash } from 'lucide-react';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { useFilterPersistence } from '../../hooks/useFilterPersistence';
@@ -7,8 +7,11 @@ import { RefreshButton } from '../../components/ui/RefreshButton';
 import { CollectionForm } from '../../components/merchant/forms/CollectionForm';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { toast } from 'react-toastify';
-import { createCollection, updateCollection, deleteCollection, toggleVisibility } from '../../services/collections';
+import { createCollection, updateCollection, deleteCollection, toggleVisibility, toggleSaleEnded } from '../../services/collections';
 import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
+import { EditButton } from '../../components/ui/EditButton';
+import { DropdownMenu } from '../../components/ui/DropdownMenu';
+import { Link } from 'react-router-dom';
 
 // Define the filter state type
 interface CollectionFilterState {
@@ -106,6 +109,20 @@ export function CollectionsTab() {
     } catch (error) {
       console.error('Error toggling visibility:', error);
       toast.error('Failed to toggle visibility');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleSaleEnded = async (id: string, saleEnded: boolean) => {
+    try {
+      setActionLoading(id);
+      await toggleSaleEnded(id, saleEnded);
+      toast.success(`Sale ${saleEnded ? 'ended' : 'resumed'} successfully`);
+      refetch();
+    } catch (error) {
+      console.error('Error toggling sale status:', error);
+      toast.error('Failed to toggle sale status');
     } finally {
       setActionLoading(null);
     }
@@ -240,40 +257,56 @@ export function CollectionsTab() {
                     <span>{collection.categoryCount || 0} categories</span>
                   </div>
                   
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     {collection.isOwner && (
                       <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                  setEditingCollection(collection);
-                  setShowForm(true);
+                        <EditButton 
+                          onClick={() => {
+                            setEditingCollection(collection);
+                            setShowForm(true);
                           }}
-                          className="bg-gray-700 text-gray-300 hover:bg-gray-600 px-2 py-1 rounded text-xs"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                  setDeletingId(collection.id);
-                  setShowConfirmDialog(true);
-                          }}
-                          className="bg-red-900/30 text-red-400 hover:bg-red-900/50 px-2 py-1 rounded text-xs"
+                          className="scale-90"
                           disabled={actionLoading === collection.id}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleVisibility(collection.id, !collection.visible);
-                          }}
-                          className="bg-gray-700 text-gray-300 hover:bg-gray-600 px-2 py-1 rounded text-xs"
-                          disabled={actionLoading === collection.id}
-                        >
-                          {collection.visible ? 'Hide' : 'Show'}
-                        </button>
+                        />
+                        <DropdownMenu
+                          items={[
+                            {
+                              label: 'View Collection',
+                              icon: <ExternalLink className="h-4 w-4" />,
+                              as: Link,
+                              to: `/${collection.slug || collection.id}`,
+                              target: "_blank"
+                            },
+                            {
+                              label: collection.visible ? 'Hide Collection' : 'Show Collection',
+                              icon: collection.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
+                              onClick: actionLoading !== collection.id ? 
+                                () => handleToggleVisibility(collection.id, !collection.visible) : 
+                                undefined
+                            },
+                            {
+                              label: collection.saleEnded ? 'Resume Sale' : 'End Sale',
+                              icon: <Tag className="h-4 w-4" />,
+                              onClick: actionLoading !== collection.id ? 
+                                () => handleToggleSaleEnded(collection.id, !collection.saleEnded) : 
+                                undefined
+                            },
+                            {
+                              label: 'Delete',
+                              icon: <Trash className="h-4 w-4" />,
+                              onClick: actionLoading !== collection.id ? 
+                                () => {
+                                  setDeletingId(collection.id);
+                                  setShowConfirmDialog(true);
+                                } : 
+                                undefined,
+                              destructive: true
+                            }
+                          ]}
+                          triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90 ${
+                            actionLoading === collection.id ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        />
                       </>
                     )}
                   </div>
