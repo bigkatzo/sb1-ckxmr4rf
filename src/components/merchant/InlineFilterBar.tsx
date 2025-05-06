@@ -67,9 +67,20 @@ export function InlineFilterBar() {
   // Handle option selection
   const handleOptionSelect = (optionType: 'collection' | 'category', optionId: string) => {
     if (optionType === 'collection') {
-      setSelectedCollection(optionId);
+      // If clicking on the already selected collection, deselect it
+      if (selectedCollection === optionId) {
+        setSelectedCollection('');
+        setSelectedCategory(''); // Also clear category selection when collection is deselected
+      } else {
+        setSelectedCollection(optionId);
+      }
     } else {
-      setSelectedCategory(optionId);
+      // If clicking on the already selected category, deselect it
+      if (selectedCategory === optionId) {
+        setSelectedCategory('');
+      } else {
+        setSelectedCategory(optionId);
+      }
     }
     setIsOpen(false);
   };

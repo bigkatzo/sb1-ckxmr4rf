@@ -94,13 +94,21 @@ export function CategoriesTab() {
 
   // Select a category for filtering in the products tab
   const handleSelectCategory = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    // Optional: Show a confirmation toast
-    const category = categories.find(c => c.id === categoryId);
-    if (category) {
-      toast.info(`Selected category "${category.name}" for filtering products`, {
+    // Toggle selection if clicking the same category again
+    if (selectedCategory === categoryId) {
+      setSelectedCategory('');
+      toast.info(`Category filter removed`, {
         autoClose: 2000
       });
+    } else {
+      setSelectedCategory(categoryId);
+      // Optional: Show a confirmation toast
+      const category = categories.find(c => c.id === categoryId);
+      if (category) {
+        toast.info(`Selected category "${category.name}" for filtering products`, {
+          autoClose: 2000
+        });
+      }
     }
   };
 

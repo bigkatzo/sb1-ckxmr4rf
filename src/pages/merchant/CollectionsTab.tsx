@@ -147,13 +147,21 @@ export function CollectionsTab() {
   };
 
   const handleSelectCollection = (collectionId: string) => {
-    setSelectedCollection(collectionId);
-    // Optionally show a toast confirmation
-    const collection = collections.find(c => c.id === collectionId);
-    if (collection) {
-      toast.info(`Selected collection "${collection.name}"`, {
+    // Toggle selection if clicking the same collection again
+    if (selectedCollection === collectionId) {
+      setSelectedCollection('');
+      toast.info(`Collection deselected`, {
         autoClose: 2000
       });
+    } else {
+      setSelectedCollection(collectionId);
+      // Optionally show a toast confirmation
+      const collection = collections.find(c => c.id === collectionId);
+      if (collection) {
+        toast.info(`Selected collection "${collection.name}"`, {
+          autoClose: 2000
+        });
+      }
     }
   };
 
