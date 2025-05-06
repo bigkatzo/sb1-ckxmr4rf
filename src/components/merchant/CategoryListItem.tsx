@@ -15,8 +15,10 @@ interface CategoryListItemProps {
     eligibilityRules?: {
       groups: any[];
     };
+    productCount?: number;
   };
   index: number;
+  selected?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
   onToggleVisibility?: (visible: boolean) => void;
@@ -26,6 +28,7 @@ interface CategoryListItemProps {
 export function CategoryListItem({
   category,
   index,
+  selected = false,
   onEdit,
   onDelete,
   onToggleVisibility,
@@ -38,7 +41,9 @@ export function CategoryListItem({
     dropdownItems.push({
       label: category.visible ? 'Hide Category' : 'Show Category',
       icon: category.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
-      onClick: () => onToggleVisibility(!category.visible)
+      onClick: () => {
+        onToggleVisibility(category.visible);
+      }
     });
   }
   
@@ -46,7 +51,9 @@ export function CategoryListItem({
     dropdownItems.push({
       label: category.saleEnded ? 'Resume Sale' : 'End Sale',
       icon: <Tag className="h-4 w-4" />,
-      onClick: () => onToggleSaleEnded(!category.saleEnded)
+      onClick: () => {
+        onToggleSaleEnded(category.saleEnded);
+      }
     });
   }
   
@@ -54,62 +61,87 @@ export function CategoryListItem({
     dropdownItems.push({
       label: 'Delete',
       icon: <Trash className="h-4 w-4" />,
-      onClick: onDelete,
+      onClick: () => {
+        onDelete();
+      },
       destructive: true
     });
   }
 
+  // Get type information for styling and badge display
   const typeInfo = getCategoryTypeInfo(
     category.type, 
     category.eligibilityRules?.groups || []
   );
 
   return (
-    <div className="bg-gray-900 rounded-lg p-2.5 sm:p-3 group">
-      <div className="flex items-start gap-2 sm:gap-3">
-        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
-          <CategoryDiamond 
-            type={category.type}
-            index={index}
-            selected
-            size="lg"
-          />
+    <div 
+      className={`
+        ${selected ? 'bg-primary/10 border-2 border-primary' : 'bg-gray-900 border-2 border-transparent hover:bg-gray-800'} 
+        rounded-lg p-3 transition-colors
+      `}
+    >
+      <div className="flex items-start gap-3">
+        <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 flex items-center justify-center">
+          {selected ? (
+            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+          ) : (
+            <CategoryDiamond 
+              type={category.type}
+              index={index}
+              selected={false}
+              size="lg"
+            />
+          )}
         </div>
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
+        <div className="flex-1">
+          <div className="flex items-start justify-between">
+            <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-medium text-xs sm:text-sm truncate">{category.name}</h3>
-                {category.visible === false && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
-                    <EyeOff className="h-3 w-3" />
-                    Hidden
-                  </span>
-                )}
-                {category.saleEnded && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
-                    <Ban className="h-3 w-3" />
-                    Sale Ended
-                  </span>
-                )}
+                <h3 className="font-medium text-sm truncate">{category.name}</h3>
+                <div className="flex items-center gap-1">
+                  {category.visible === false && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400 whitespace-nowrap">
+                      <EyeOff className="h-3 w-3" />
+                      Hidden
+                    </span>
+                  )}
+                  {category.saleEnded && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
+                      <Ban className="h-3 w-3" />
+                      Sale Ended
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="text-gray-400 text-[10px] sm:text-xs line-clamp-2 mt-1">
-                {category.description}
+              <p className="text-gray-400 text-xs line-clamp-2 mt-1">
+                {category.description || 'No description'}
               </p>
-              <div className="mt-2">
-                <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {category.productCount || 0} products
+                </p>
+                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${typeInfo.style}`}>
                   {typeInfo.icon}
                   <span className="font-medium">{typeInfo.label}</span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {onEdit && <EditButton onClick={onEdit} className="scale-75 sm:scale-90" />}
+            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              {onEdit && (
+                <EditButton 
+                  onClick={() => onEdit()} 
+                  className="scale-90" 
+                />
+              )}
               {dropdownItems.length > 0 && (
                 <DropdownMenu 
                   items={dropdownItems}
-                  triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-75 sm:scale-90"
+                  triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
                 />
               )}
             </div>

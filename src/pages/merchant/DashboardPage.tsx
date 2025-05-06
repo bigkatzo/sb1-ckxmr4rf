@@ -158,7 +158,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <div className="border-b border-gray-800 -mx-4 sm:-mx-6 lg:-mx-8">
+        <div className="sticky top-0 z-10 border-b border-gray-800 -mx-4 sm:-mx-6 lg:-mx-8 bg-gray-900 shadow-md">
           <div className="px-4 sm:px-6 lg:px-8 overflow-x-auto">
             <Tabs tabs={availableTabs} activeId={activeTab} onChange={setActiveTab} />
           </div>
@@ -166,7 +166,7 @@ export function DashboardPage() {
 
         <div className="px-4 sm:px-6 lg:px-8">
           {/* Only show context selector bar for tab content that needs it */}
-          {activeTab !== 'transactions' && (
+          {(activeTab === 'collections' || activeTab === 'categories' || activeTab === 'products') && (
             <ContextSelectorBar 
               showCategorySelector={activeTab === 'products'} 
             />

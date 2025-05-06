@@ -24,7 +24,7 @@ const initialFilterState: CategoryFilterState = {
 };
 
 export function CategoriesTab() {
-  const { selectedCollection, setSelectedCategory } = useMerchantDashboard();
+  const { selectedCollection, setSelectedCategory, selectedCategory } = useMerchantDashboard();
   
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any>(null);
@@ -264,6 +264,7 @@ export function CategoriesTab() {
                 <CategoryListItem
                   category={category}
                   index={index}
+                  selected={selectedCategory === category.id}
                   onEdit={canEdit ? () => {
                     setEditingCategory(category);
                     setShowForm(true);

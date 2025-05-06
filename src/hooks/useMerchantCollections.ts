@@ -97,7 +97,9 @@ export function useMerchantCollections(options: {
           user_id,
           access_type,
           owner_username,
-          collection_access(user_id, access_type)
+          collection_access(user_id, access_type),
+          product_count,
+          category_count
         `)
         .order('created_at', { ascending: false });
 
@@ -133,8 +135,8 @@ export function useMerchantCollections(options: {
           saleEnded: collection.sale_ended,
           slug: collection.slug,
           user_id: collection.user_id,
-          categories: [],
-          products: [],
+          productCount: collection.product_count || 0,
+          categoryCount: collection.category_count || 0,
           accessType: collection.access_type,
           isOwner: collection.user_id === user.id || isAdmin,
           owner_username: collection.owner_username

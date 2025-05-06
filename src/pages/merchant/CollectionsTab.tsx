@@ -22,7 +22,7 @@ const initialFilterState: CollectionFilterState = {
 };
 
 export function CollectionsTab() {
-  const { setSelectedCollection } = useMerchantDashboard();
+  const { setSelectedCollection, selectedCollection } = useMerchantDashboard();
   
   const [showForm, setShowForm] = useState(false);
   const [editingCollection, setEditingCollection] = useState<any>(null);
@@ -210,7 +210,11 @@ export function CollectionsTab() {
           {filteredCollections.map((collection) => (
             <div 
               key={collection.id}
-              className="group cursor-pointer bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-700 transition-colors"
+              className={`group cursor-pointer rounded-lg overflow-hidden transition-colors ${
+                selectedCollection === collection.id 
+                  ? 'bg-primary/10 border-2 border-primary' 
+                  : 'bg-gray-800 hover:bg-gray-700 border-2 border-transparent'
+              }`}
               onClick={() => handleSelectCollection(collection.id)}
             >
               <div className="relative">
@@ -236,13 +240,24 @@ export function CollectionsTab() {
               </div>
               
               <div className="p-4">
-                <h3 className="font-medium text-lg">{collection.name}</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-lg">{collection.name}</h3>
+                  {selectedCollection === collection.id && (
+                    <div className="flex items-center justify-center h-5 w-5 rounded-full bg-primary">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
                 <p className="text-gray-400 text-sm mt-1 line-clamp-2">{collection.description || 'No description'}</p>
                 
                 <div className="mt-4 flex justify-between items-center">
-                  <span className="text-xs text-gray-400">
-                    {collection.products?.length || 0} products
-                  </span>
+                  <div className="flex gap-2 text-xs text-gray-400">
+                    <span>{collection.productCount || 0} products</span>
+                    <span>•</span>
+                    <span>{collection.categoryCount || 0} categories</span>
+                  </div>
                   
                   <div className="flex gap-2">
                     {collection.isOwner && (

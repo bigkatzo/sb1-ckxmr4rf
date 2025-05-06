@@ -14,8 +14,10 @@ export interface Collection {
   saleEnded: boolean;
   slug: string;
   user_id: string;
-  categories: any[];
-  products: any[];
+  categories?: any[];
+  products?: any[];
+  productCount?: number;
+  categoryCount?: number;
   accessType: AccessType;
   isOwner: boolean;
   owner_username: string | null;
