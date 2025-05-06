@@ -1,11 +1,14 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs } from '../../components/ui/Tabs';
-import { Settings, LogOut } from 'lucide-react';
+import { Settings, LogOut, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 import { MerchantDashboardProvider } from '../../contexts/MerchantDashboardContext';
-import { ContextSelectorBar } from '../../components/merchant/ContextSelectorBar';
+import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
+import { useMerchantCollections } from '../../hooks/useMerchantCollections';
+import { useCategories } from '../../hooks/useCategories';
+import { useProducts } from '../../hooks/useProducts';
 
 // Lazy load tab components
 const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
@@ -36,6 +39,66 @@ const adminTabs = [
   { id: 'transactions', label: 'Transactions' }
 ];
 
+// Create a component for refresh functionality
+function DashboardRefreshButton() {
+  const [refreshing, setRefreshing] = React.useState(false);
+  const { selectedCollection } = require('../../contexts/MerchantDashboardContext').useMerchantDashboard();
+  
+  // Use the refresh functions from hooks directly
+  const collections = useMerchantCollections();
+  const categories = useCategories(selectedCollection || '');
+  const products = useProducts(selectedCollection || '');
+  
+  // Get the active tab
+  const urlParams = new URLSearchParams(window.location.search);
+  const activeTab = urlParams.get('tab') || 'collections';
+  
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    
+    setRefreshing(true);
+    
+    try {
+      switch (activeTab) {
+        case 'collections':
+          if (collections.refetch) {
+            await collections.refetch();
+          }
+          break;
+        case 'categories':
+          if (categories.refreshCategories) {
+            await categories.refreshCategories();
+          }
+          break;
+        case 'products':
+          if (products.refreshProducts) {
+            await products.refreshProducts();
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setTimeout(() => setRefreshing(false), 500); // Set minimum spinner time
+    }
+  };
+  
+  return (
+    <button 
+      onClick={handleRefresh}
+      disabled={refreshing}
+      className={`p-1 rounded-md transition-colors ${
+        refreshing 
+          ? 'text-primary cursor-not-allowed' 
+          : 'text-gray-500 hover:text-gray-300'
+      }`}
+      title="Refresh"
+    >
+      <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+    </button>
+  );
+}
+
 export function DashboardPage() {
   const [activeTab, setActiveTab] = React.useState('collections');
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
@@ -46,6 +109,22 @@ export function DashboardPage() {
     await supabase.auth.signOut();
     navigate('/merchant/signin');
   };
+  
+  // Update URL when tab changes
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeTab);
+    window.history.replaceState({}, '', url.toString());
+  }, [activeTab]);
+  
+  // Check URL for initial tab
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && merchantTabs.some(tab => tab.id === tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, []);
 
   React.useEffect(() => {
     async function checkPermissions() {
@@ -136,44 +215,48 @@ export function DashboardPage() {
   return (
     <MerchantDashboardProvider>
       <div className="space-y-4">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-xl sm:text-2xl font-bold">Merchant Dashboard</h1>
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <button
-                onClick={() => navigate('/merchant/admin')}
-                className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
-              >
-                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Settings</span>
-              </button>
-            )}
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 bg-gray-600 hover:bg-gray-700 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
-            >
-              <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span>Log Out</span>
-            </button>
+        {/* Sticky header containing title, actions, tabs and filters */}
+        <div className="sticky top-0 z-10 bg-gray-900 shadow-md -mx-4 sm:-mx-6 lg:-mx-8">
+          <div className="px-4 sm:px-6 lg:px-8 pt-4">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-xl sm:text-2xl font-bold">Merchant Dashboard</h1>
+              <div className="flex items-center gap-2">
+                {isAdmin && (
+                  <button
+                    onClick={() => navigate('/merchant/admin')}
+                    className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
+                  >
+                    <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span>Settings</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-1.5 bg-gray-600 hover:bg-gray-700 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
+                >
+                  <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="border-b border-gray-800">
+              <div className="flex items-center justify-between">
+                <Tabs tabs={availableTabs} activeId={activeTab} onChange={setActiveTab} />
+                
+                {/* Inline filter and refresh controls */}
+                {(activeTab === 'collections' || activeTab === 'categories' || activeTab === 'products') && (
+                  <div className="flex items-center gap-2 ml-4 py-2">
+                    <InlineFilterBar />
+                    <DashboardRefreshButton />
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="sticky top-0 z-10 border-b border-gray-800 -mx-4 sm:-mx-6 lg:-mx-8 bg-gray-900 shadow-md">
-          <div className="px-4 sm:px-6 lg:px-8 overflow-x-auto">
-            <Tabs tabs={availableTabs} activeId={activeTab} onChange={setActiveTab} />
-          </div>
-        </div>
-
-        <div className="px-4 sm:px-6 lg:px-8">
-          {/* Only show context selector bar for tab content that needs it */}
-          {(activeTab === 'collections' || activeTab === 'categories' || activeTab === 'products') && (
-            <ContextSelectorBar 
-              showCategorySelector={activeTab === 'products'} 
-            />
-          )}
-        </div>
-
-        <div className="min-h-[500px]">
+        <div className="min-h-[500px] px-4 sm:px-6 lg:px-8 pt-4">
           {renderTabContent(activeTab)}
         </div>
       </div>
