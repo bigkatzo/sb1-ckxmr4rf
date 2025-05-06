@@ -4,7 +4,7 @@ import { Tabs } from '../../components/ui/Tabs';
 import { Settings, LogOut, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
-import { MerchantDashboardProvider } from '../../contexts/MerchantDashboardContext';
+import { MerchantDashboardProvider, useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useCategories } from '../../hooks/useCategories';
@@ -42,7 +42,7 @@ const adminTabs = [
 // Create a component for refresh functionality
 function DashboardRefreshButton() {
   const [refreshing, setRefreshing] = React.useState(false);
-  const { selectedCollection } = require('../../contexts/MerchantDashboardContext').useMerchantDashboard();
+  const { selectedCollection } = useMerchantDashboard();
   
   // Use the refresh functions from hooks directly
   const collections = useMerchantCollections();
