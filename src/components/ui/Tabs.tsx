@@ -11,18 +11,30 @@ interface TabsProps {
 
 export function Tabs({ tabs, activeId, onChange }: TabsProps) {
   return (
-    <div className="flex overflow-x-auto scrollbar-hide -mb-px space-x-1 sm:space-x-2 pb-0.5">
+    <div className="flex overflow-x-auto scrollbar-hide pb-0.5 border-b border-gray-800 gap-0.5 sm:gap-1">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex-shrink-0 border-b-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap rounded-t-md ${
-            activeId === tab.id
-              ? 'border-primary text-primary bg-gray-800/40'
-              : 'border-transparent text-gray-400 hover:text-gray-300 hover:bg-gray-800/20'
-          }`}
+          className={`
+            relative flex-shrink-0 px-3 py-2.5 text-sm sm:text-base font-medium transition-all duration-200 
+            whitespace-nowrap hover:text-gray-100
+            ${activeId === tab.id
+              ? 'text-primary font-semibold'
+              : 'text-gray-400 hover:text-gray-200'
+            }
+          `}
         >
-          {tab.label}
+          <span className="relative z-10">{tab.label}</span>
+          {/* Active tab indicator */}
+          {activeId === tab.id && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-sm" />
+          )}
+          {/* Hover indicator */}
+          <div className={`
+            absolute inset-0 bg-gray-800/40 rounded-t transition-opacity duration-200
+            ${activeId === tab.id ? 'opacity-100' : 'opacity-0 hover:opacity-60'}
+          `} />
         </button>
       ))}
     </div>
