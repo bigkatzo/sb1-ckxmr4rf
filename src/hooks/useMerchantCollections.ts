@@ -62,6 +62,116 @@ export function useMerchantCollections(options: {
     }
   }, []);
 
+  // Helper function to fetch product counts for collections
+  const fetchProductCounts = async (collectionIds: string[]) => {
+    if (!collectionIds.length) return {};
+    
+    try {
+      // Use raw query for counting
+      const { data, error } = await supabase.rpc('get_product_counts_by_collection', {
+        collection_ids: collectionIds
+      });
+
+      if (error) {
+        console.error('Error calling get_product_counts_by_collection:', error);
+        
+        // Fallback: query each collection individually
+        const productCountMap: Record<string, number> = {};
+        
+        // Create a map with all IDs initialized to 0
+        collectionIds.forEach(id => {
+          productCountMap[id] = 0;
+        });
+        
+        // Try to get counts for each collection individually
+        await Promise.all(collectionIds.map(async (collectionId) => {
+          try {
+            const { count, error } = await supabase
+              .from('products')
+              .select('*', { count: 'exact', head: true })
+              .eq('collection_id', collectionId);
+              
+            if (!error && count !== null) {
+              productCountMap[collectionId] = count;
+            }
+          } catch (e) {
+            console.error(`Error counting products for collection ${collectionId}:`, e);
+          }
+        }));
+        
+        return productCountMap;
+      }
+
+      // Create a map of collection_id to count
+      const productCountMap: Record<string, number> = {};
+      if (Array.isArray(data)) {
+        data.forEach((item: { collection_id: string; count: number }) => {
+          productCountMap[item.collection_id] = item.count;
+        });
+      }
+
+      return productCountMap;
+    } catch (err) {
+      console.error('Error fetching product counts:', err);
+      return {};
+    }
+  };
+
+  // Helper function to fetch category counts for collections
+  const fetchCategoryCounts = async (collectionIds: string[]) => {
+    if (!collectionIds.length) return {};
+    
+    try {
+      // Use raw query for counting
+      const { data, error } = await supabase.rpc('get_category_counts_by_collection', {
+        collection_ids: collectionIds
+      });
+
+      if (error) {
+        console.error('Error calling get_category_counts_by_collection:', error);
+        
+        // Fallback: query each collection individually
+        const categoryCountMap: Record<string, number> = {};
+        
+        // Create a map with all IDs initialized to 0
+        collectionIds.forEach(id => {
+          categoryCountMap[id] = 0;
+        });
+        
+        // Try to get counts for each collection individually
+        await Promise.all(collectionIds.map(async (collectionId) => {
+          try {
+            const { count, error } = await supabase
+              .from('categories')
+              .select('*', { count: 'exact', head: true })
+              .eq('collection_id', collectionId);
+              
+            if (!error && count !== null) {
+              categoryCountMap[collectionId] = count;
+            }
+          } catch (e) {
+            console.error(`Error counting categories for collection ${collectionId}:`, e);
+          }
+        }));
+        
+        return categoryCountMap;
+      }
+
+      // Create a map of collection_id to count
+      const categoryCountMap: Record<string, number> = {};
+      if (Array.isArray(data)) {
+        data.forEach((item: { collection_id: string; count: number }) => {
+          categoryCountMap[item.collection_id] = item.count;
+        });
+      }
+
+      return categoryCountMap;
+    } catch (err) {
+      console.error('Error fetching category counts:', err);
+      return {};
+    }
+  };
+
   const fetchCollections = useCallback(async (isRefresh = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -82,6 +192,7 @@ export function useMerchantCollections(options: {
 
       const isAdmin = await checkAdminStatus(user.id);
       
+      // Fetch collections
       const { data, error } = await supabase
         .from('merchant_collections')
         .select(`
@@ -108,37 +219,43 @@ export function useMerchantCollections(options: {
         return;
       }
 
-      // Transform and filter collections based on access
-      const transformedCollections = data
-        .filter(collection => {
-          // Include collection if:
-          // 1. User is the owner
-          // 2. User has any access type (view/edit)
-          // 3. User is an admin
-          return collection.user_id === user.id || 
-                 collection.access_type !== null ||
-                 isAdmin;
-        })
-        .map(collection => ({
-          id: collection.id,
-          name: collection.name,
-          description: collection.description || '',
-          image_url: collection.image_url || '',
-          imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
-          launch_date: collection.launch_date,
-          launchDate: collection.launch_date ? new Date(collection.launch_date) : undefined,
-          featured: collection.featured || false,
-          visible: collection.visible,
-          sale_ended: collection.sale_ended,
-          saleEnded: collection.sale_ended,
-          slug: collection.slug,
-          user_id: collection.user_id,
-          productCount: 0, // Default to 0 since we can't fetch it yet
-          categoryCount: 0, // Default to 0 since we can't fetch it yet
-          accessType: collection.access_type,
-          isOwner: collection.user_id === user.id || isAdmin,
-          owner_username: collection.owner_username
-        } as Collection));
+      // Filter collections based on access
+      const filteredCollections = data.filter(collection => {
+        return collection.user_id === user.id || 
+               collection.access_type !== null ||
+               isAdmin;
+      });
+      
+      // Extract collection IDs for fetching counts
+      const collectionIds = filteredCollections.map(c => c.id);
+      
+      // Fetch product and category counts in parallel
+      const [productCountMap, categoryCountMap] = await Promise.all([
+        fetchProductCounts(collectionIds),
+        fetchCategoryCounts(collectionIds)
+      ]);
+
+      // Transform collections with counts
+      const transformedCollections = filteredCollections.map(collection => ({
+        id: collection.id,
+        name: collection.name,
+        description: collection.description || '',
+        image_url: collection.image_url || '',
+        imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
+        launch_date: collection.launch_date,
+        launchDate: collection.launch_date ? new Date(collection.launch_date) : undefined,
+        featured: collection.featured || false,
+        visible: collection.visible,
+        sale_ended: collection.sale_ended,
+        saleEnded: collection.sale_ended,
+        slug: collection.slug,
+        user_id: collection.user_id,
+        productCount: productCountMap[collection.id] || 0,
+        categoryCount: categoryCountMap[collection.id] || 0,
+        accessType: collection.access_type,
+        isOwner: collection.user_id === user.id || isAdmin,
+        owner_username: collection.owner_username
+      } as Collection));
 
       if (isMountedRef.current) {
         setCollections(transformedCollections);

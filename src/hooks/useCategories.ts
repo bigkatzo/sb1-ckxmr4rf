@@ -8,6 +8,42 @@ export function useCategories(collectionId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper function to fetch product counts for categories
+  const fetchProductCounts = async (categoryIds: string[]) => {
+    if (!categoryIds.length) return {};
+    
+    try {
+      // Use the RPC function to get product counts by category
+      const { data, error } = await supabase.rpc('get_product_counts_by_category', {
+        category_ids: categoryIds
+      });
+
+      if (error) {
+        console.error('Error calling get_product_counts_by_category:', error);
+        
+        // Fallback: initialize all counts to 0
+        const productCountMap: Record<string, number> = {};
+        categoryIds.forEach(id => {
+          productCountMap[id] = 0;
+        });
+        return productCountMap;
+      }
+
+      // Create a map of category_id to count
+      const productCountMap: Record<string, number> = {};
+      if (Array.isArray(data)) {
+        data.forEach((item: { category_id: string; count: number }) => {
+          productCountMap[item.category_id] = item.count;
+        });
+      }
+
+      return productCountMap;
+    } catch (err) {
+      console.error('Error fetching product counts for categories:', err);
+      return {};
+    }
+  };
+
   const fetchCategories = useCallback(async () => {
     setError(null);
     setCategories([]);
@@ -34,7 +70,19 @@ export function useCategories(collectionId: string) {
 
       if (error) throw error;
       
-      const transformedCategories = (data || []).map(category => ({
+      if (!data || data.length === 0) {
+        setCategories([]);
+        setLoading(false);
+        return;
+      }
+
+      // Extract category IDs for fetching product counts
+      const categoryIds = data.map(c => c.id);
+      
+      // Fetch product counts for categories
+      const productCountMap = await fetchProductCounts(categoryIds);
+      
+      const transformedCategories = data.map(category => ({
         id: category.id,
         name: category.name,
         description: category.description,
@@ -43,7 +91,8 @@ export function useCategories(collectionId: string) {
         saleEnded: category.sale_ended ?? false,
         eligibilityRules: {
           groups: category.eligibility_rules?.groups || []
-        }
+        },
+        productCount: productCountMap[category.id] || 0
       }));
 
       setCategories(transformedCategories);
