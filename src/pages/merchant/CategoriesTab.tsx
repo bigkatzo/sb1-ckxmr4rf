@@ -182,7 +182,6 @@ export function CategoriesTab() {
           </div>
         </div>
 
-        {selectedCollection && (
         <div className="flex flex-col sm:flex-row gap-2 items-center justify-between">
           <div className="flex flex-col sm:flex-row gap-2 items-center">
             <InlineFilterBar />
@@ -217,7 +216,7 @@ export function CategoriesTab() {
             <RefreshButton onRefresh={handleRefreshAll} className="scale-90" />
           </div>
             
-          {collections.find(c => 
+          {selectedCollection && collections.find(c => 
             c.id === selectedCollection && 
             (c.isOwner || c.accessType === 'edit')
           ) && (
@@ -233,12 +232,11 @@ export function CategoriesTab() {
             </button>
           )}
         </div>
-        )}
       </div>
 
       {!selectedCollection ? (
         <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-sm">Please select a collection from the selector above to manage categories.</p>
+          <p className="text-gray-400 text-sm">Please select a collection using the filter above to manage categories.</p>
         </div>
       ) : categoriesLoading ? (
         <div className="animate-pulse space-y-4">

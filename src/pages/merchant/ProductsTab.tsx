@@ -250,43 +250,41 @@ export function ProductsTab() {
           </div>
         </div>
         
-        {selectedCollection && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <InlineFilterBar />
-              <ProductFilters
-                categories={categories}
-                searchQuery={filters.searchQuery}
-                selectedCategories={filters.selectedCategories}
-                showVisible={filters.showVisible}
-                onSearchChange={updateSearchQuery}
-                onCategoryChange={updateSelectedCategories}
-                onVisibilityChange={updateVisibilityFilter}
-              />
-              <RefreshButton onRefresh={refreshProducts} />
-            </div>
-            {collections.find(c => 
-              c.id === selectedCollection && 
-              (c.isOwner || c.accessType === 'edit')
-            ) && (
-              <button
-                onClick={() => {
-                  setEditingProduct(null);
-                  setShowForm(true);
-                }}
-                className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add Product</span>
-              </button>
-            )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <InlineFilterBar />
+            <ProductFilters
+              categories={categories}
+              searchQuery={filters.searchQuery}
+              selectedCategories={filters.selectedCategories}
+              showVisible={filters.showVisible}
+              onSearchChange={updateSearchQuery}
+              onCategoryChange={updateSelectedCategories}
+              onVisibilityChange={updateVisibilityFilter}
+            />
+            <RefreshButton onRefresh={refreshProducts} />
           </div>
-        )}
+          {selectedCollection && collections.find(c => 
+            c.id === selectedCollection && 
+            (c.isOwner || c.accessType === 'edit')
+          ) && (
+            <button
+              onClick={() => {
+                setEditingProduct(null);
+                setShowForm(true);
+              }}
+              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Product</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {!selectedCollection ? (
         <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-sm">Please select a collection from the selector above to manage products.</p>
+          <p className="text-gray-400 text-sm">Please select a collection using the filter above to manage products.</p>
         </div>
       ) : productsLoading ? (
         <div className="animate-pulse space-y-4">
