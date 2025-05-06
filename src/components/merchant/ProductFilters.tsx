@@ -61,41 +61,41 @@ export function ProductFilters({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-2" ref={dropdownRef}>
+    <div className="flex flex-col sm:flex-row w-full gap-3" ref={dropdownRef}>
       {/* Search Box */}
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+      <div className="relative flex-1 min-w-0">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
           type="text"
           placeholder="Search products by name, SKU, description..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full bg-gray-800 rounded-lg pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 sm:w-[400px]">
+      <div className="flex flex-col sm:flex-row gap-3 sm:w-auto md:w-[420px]">
         {/* Category Filter */}
         <div className="w-full sm:w-1/2 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'category' ? null : 'category')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
+            className="w-full h-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-left flex items-center justify-between shadow-sm hover:bg-gray-750 transition-colors"
           >
-            <span>{selectedCategories.length === 0 ? 'Category' : `Category (${selectedCategories.length})`}</span>
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'category' ? 'rotate-180' : ''}`} />
+            <span className="truncate mr-2">{selectedCategories.length === 0 ? 'Category' : `Category (${selectedCategories.length})`}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${openDropdown === 'category' ? 'rotate-180' : ''}`} />
           </button>
           {openDropdown === 'category' && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-20 border border-gray-700">
               {/* Search input */}
               <div className="p-2 border-b border-gray-700">
                 <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search categories..."
                     value={categorySearch}
                     onChange={(e) => setCategorySearch(e.target.value)}
-                    className="w-full bg-gray-700 text-white rounded-md pl-8 pr-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full bg-gray-700 text-white rounded-md pl-9 pr-8 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                     onClick={(e) => e.stopPropagation()}
                   />
                   {categorySearch && (
@@ -113,7 +113,7 @@ export function ProductFilters({
               </div>
               
               {/* Select All option */}
-              <div className="max-h-60 overflow-y-auto">
+              <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
                 <label
                   className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700"
                 >
@@ -123,7 +123,7 @@ export function ProductFilters({
                     onChange={handleSelectAllCategories}
                     className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                   />
-                  <span className="text-xs sm:text-sm font-medium">
+                  <span className="text-sm font-medium">
                     {selectedCategories.length === filteredCategories.length && filteredCategories.length > 0
                       ? 'Deselect All'
                       : 'Select All'}
@@ -141,12 +141,12 @@ export function ProductFilters({
                       onChange={() => handleCategoryChange(category.id)}
                       className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                     />
-                    <span className="text-xs sm:text-sm">{category.name}</span>
+                    <span className="text-sm">{category.name}</span>
                   </label>
                 ))}
                 
                 {filteredCategories.length === 0 && (
-                  <div className="px-3 py-2 text-gray-400 text-xs">
+                  <div className="px-3 py-2 text-gray-400 text-sm">
                     No categories found
                   </div>
                 )}
@@ -159,22 +159,22 @@ export function ProductFilters({
         <div className="w-full sm:w-1/2 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'visibility' ? null : 'visibility')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
+            className="w-full h-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-left flex items-center justify-between shadow-sm hover:bg-gray-750 transition-colors"
           >
-            <span>
+            <span className="truncate mr-2">
               {showVisible === null ? 'Visibility' : showVisible ? 'Visible Only' : 'Hidden Only'}
             </span>
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'visibility' ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${openDropdown === 'visibility' ? 'rotate-180' : ''}`} />
           </button>
           {openDropdown === 'visibility' && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
-              <div className="max-h-60 overflow-y-auto">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-20 border border-gray-700">
+              <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
                 <button
                   onClick={() => {
                     onVisibilityChange(null);
                     setOpenDropdown(null);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-700 text-xs sm:text-sm"
+                  className="w-full text-left px-4 py-2 hover:bg-gray-700 text-sm font-normal"
                 >
                   All Products
                 </button>
@@ -183,7 +183,7 @@ export function ProductFilters({
                     onVisibilityChange(true);
                     setOpenDropdown(null);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-700 text-xs sm:text-sm"
+                  className="w-full text-left px-4 py-2 hover:bg-gray-700 text-sm font-normal"
                 >
                   Visible Only
                 </button>
@@ -192,7 +192,7 @@ export function ProductFilters({
                     onVisibilityChange(false);
                     setOpenDropdown(null);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-700 text-xs sm:text-sm"
+                  className="w-full text-left px-4 py-2 hover:bg-gray-700 text-sm font-normal"
                 >
                   Hidden Only
                 </button>

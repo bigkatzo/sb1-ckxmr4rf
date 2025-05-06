@@ -90,55 +90,55 @@ export function InlineFilterBar() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`
-          inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-sm border transition-colors
+          inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm border transition-colors shadow-sm
           ${hasActiveFilters 
             ? 'border-primary text-primary hover:bg-primary/10' 
-            : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300'}
+            : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:bg-gray-800 hover:text-gray-300'}
         `}
       >
-        <Filter className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">
+        <Filter className="h-4 w-4" />
+        <span className="hidden sm:inline font-medium truncate max-w-[120px]">
           {hasActiveFilters 
             ? `${selectedCollectionName}${selectedCategoryName ? ` • ${selectedCategoryName}` : ''}` 
-            : 'Filter'}
+            : 'Global Filter'}
         </span>
-        {hasActiveFilters && <span className="inline sm:hidden">Active</span>}
-        <ChevronDown className="h-3 w-3" />
+        {hasActiveFilters && <span className="inline sm:hidden font-medium">Active</span>}
+        <ChevronDown className="h-4 w-4" />
       </button>
       
       {/* Clear button (only shown when filters are active) */}
       {hasActiveFilters && (
         <button
           onClick={clearAllSelections}
-          className="ml-1 text-gray-500 hover:text-gray-300 transition-colors"
+          className="ml-2 text-gray-500 hover:text-gray-300 transition-colors bg-gray-800 hover:bg-gray-700 p-1.5 rounded-md"
           title="Clear all filters"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-4 w-4" />
         </button>
       )}
       
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-gray-900 rounded-md border border-gray-800 shadow-xl min-w-[200px] py-1 divide-y divide-gray-800">
+        <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1 z-50 bg-gray-900 rounded-md border border-gray-700 shadow-xl min-w-[250px] py-1 divide-y divide-gray-800">
           {/* Collection selector */}
           <div className="py-1">
             <button
-              className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+              className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
               onClick={() => setActiveSubMenu(activeSubMenu === 'collections' ? null : 'collections')}
             >
               <span className="font-medium">Collection</span>
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-2">
                 {selectedCollectionName && (
-                  <span className="text-primary text-xs">{selectedCollectionName}</span>
+                  <span className="text-primary text-sm font-medium truncate max-w-[100px]">{selectedCollectionName}</span>
                 )}
                 <ChevronDown 
-                  className={`h-3 w-3 transition-transform ${activeSubMenu === 'collections' ? 'rotate-180' : ''}`}
+                  className={`h-4 w-4 text-gray-400 transition-transform ${activeSubMenu === 'collections' ? 'rotate-180' : ''}`}
                 />
               </span>
             </button>
             
             {activeSubMenu === 'collections' && (
-              <div className="max-h-[200px] overflow-y-auto">
+              <div className="max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
                 {collectionsLoading ? (
                   <div className="px-3 py-2 animate-pulse bg-gray-800/50 mx-3 rounded"></div>
                 ) : (
@@ -152,27 +152,27 @@ export function InlineFilterBar() {
           {selectedCollection && (
             <div className="py-1">
               <button
-                className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+                className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
                 onClick={() => setActiveSubMenu(activeSubMenu === 'categories' ? null : 'categories')}
               >
                 <span className="font-medium">Category</span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-2">
                   {selectedCategoryName && (
-                    <span className="text-primary text-xs">{selectedCategoryName}</span>
+                    <span className="text-primary text-sm font-medium truncate max-w-[100px]">{selectedCategoryName}</span>
                   )}
                   <ChevronDown 
-                    className={`h-3 w-3 transition-transform ${activeSubMenu === 'categories' ? 'rotate-180' : ''}`}
+                    className={`h-4 w-4 text-gray-400 transition-transform ${activeSubMenu === 'categories' ? 'rotate-180' : ''}`}
                   />
                 </span>
               </button>
               
               {activeSubMenu === 'categories' && (
-                <div className="max-h-[200px] overflow-y-auto">
+                <div className="max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
                   {categoriesLoading ? (
                     <div className="px-3 py-2 animate-pulse bg-gray-800/50 mx-3 rounded"></div>
                   ) : (
                     <button
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-800 transition-colors ${
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-800 transition-colors ${
                         !selectedCategory ? 'bg-gray-800/50 font-medium text-primary' : 'text-gray-300'
                       }`}
                       onClick={() => handleOptionSelect('category', '')}

@@ -135,41 +135,41 @@ export function OrderFilters({
   const paymentMethods = ['solana', 'stripe'];
 
   return (
-    <div className="flex flex-col sm:flex-row gap-2" ref={dropdownRef}>
+    <div className="flex flex-col sm:flex-row w-full gap-3" ref={dropdownRef}>
       {/* Search Box */}
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+      <div className="relative flex-1 min-w-0">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
           type="text"
-          placeholder="Search by order #, product, SKU, name, address, phone, wallet, transaction..."
+          placeholder="Search by order #, product, name, address..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full bg-gray-800 rounded-lg pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 sm:w-[640px]">
+      <div className="flex flex-col sm:flex-row gap-3 sm:w-auto md:w-[650px]">
         {/* Collection Filter */}
         <div className="w-full sm:w-1/4 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'collection' ? null : 'collection')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
+            className="w-full h-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-left flex items-center justify-between shadow-sm hover:bg-gray-750 transition-colors"
           >
-            <span>{selectedCollections.length === 0 ? 'Collection' : `Collection (${selectedCollections.length})`}</span>
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'collection' ? 'rotate-180' : ''}`} />
+            <span className="truncate mr-2">{selectedCollections.length === 0 ? 'Collection' : `Collection (${selectedCollections.length})`}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${openDropdown === 'collection' ? 'rotate-180' : ''}`} />
           </button>
           {openDropdown === 'collection' && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-20 border border-gray-700">
               {/* Search input */}
               <div className="p-2 border-b border-gray-700">
                 <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search collections..."
                     value={collectionSearch}
                     onChange={(e) => setCollectionSearch(e.target.value)}
-                    className="w-full bg-gray-700 text-white rounded-md pl-8 pr-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full bg-gray-700 text-white rounded-md pl-9 pr-8 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                     onClick={(e) => e.stopPropagation()}
                   />
                   {collectionSearch && (
@@ -187,7 +187,7 @@ export function OrderFilters({
               </div>
               
               {/* Select All option */}
-              <div className="max-h-60 overflow-y-auto">
+              <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
                 <label
                   className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700"
                 >
@@ -197,7 +197,7 @@ export function OrderFilters({
                     onChange={handleSelectAllCollections}
                     className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                   />
-                  <span className="text-xs sm:text-sm font-medium">
+                  <span className="text-sm font-medium">
                     {selectedCollections.length === filteredCollections.length && filteredCollections.length > 0
                       ? 'Deselect All'
                       : 'Select All'}
@@ -215,7 +215,7 @@ export function OrderFilters({
                       onChange={() => handleCollectionChange(collection.id)}
                       className="mr-2 rounded text-primary focus:ring-primary focus:ring-offset-gray-800"
                     />
-                    <span className="text-xs sm:text-sm">{collection.name}</span>
+                    <span className="text-sm">{collection.name}</span>
                   </label>
                 ))}
                 
@@ -233,10 +233,10 @@ export function OrderFilters({
         <div className="w-full sm:w-1/4 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'product' ? null : 'product')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
+            className="w-full h-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-left flex items-center justify-between shadow-sm hover:bg-gray-750 transition-colors"
           >
-            <span>{selectedProducts.length === 0 ? 'Product' : `Product (${selectedProducts.length})`}</span>
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'product' ? 'rotate-180' : ''}`} />
+            <span className="truncate mr-2">{selectedProducts.length === 0 ? 'Product' : `Product (${selectedProducts.length})`}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${openDropdown === 'product' ? 'rotate-180' : ''}`} />
           </button>
           {openDropdown === 'product' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
@@ -313,10 +313,10 @@ export function OrderFilters({
         <div className="w-full sm:w-1/4 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
+            className="w-full h-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-left flex items-center justify-between shadow-sm hover:bg-gray-750 transition-colors"
           >
-            <span>{selectedStatuses.length === 0 ? 'Status' : `Status (${selectedStatuses.length})`}</span>
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'status' ? 'rotate-180' : ''}`} />
+            <span className="truncate mr-2">{selectedStatuses.length === 0 ? 'Status' : `Status (${selectedStatuses.length})`}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${openDropdown === 'status' ? 'rotate-180' : ''}`} />
           </button>
           {openDropdown === 'status' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">
@@ -361,10 +361,10 @@ export function OrderFilters({
         <div className="w-full sm:w-1/4 relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'payment' ? null : 'payment')}
-            className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-left flex items-center justify-between"
+            className="w-full h-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-left flex items-center justify-between shadow-sm hover:bg-gray-750 transition-colors"
           >
-            <span>{selectedPaymentMethods.length === 0 ? 'Payment' : `Payment (${selectedPaymentMethods.length})`}</span>
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${openDropdown === 'payment' ? 'rotate-180' : ''}`} />
+            <span className="truncate mr-2">{selectedPaymentMethods.length === 0 ? 'Payment' : `Payment (${selectedPaymentMethods.length})`}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${openDropdown === 'payment' ? 'rotate-180' : ''}`} />
           </button>
           {openDropdown === 'payment' && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden z-10">

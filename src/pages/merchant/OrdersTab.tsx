@@ -228,22 +228,24 @@ export function OrdersTab() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <OrderFilters
-            collections={collections}
-            products={products}
-            selectedCollections={selectedCollections}
-            selectedProducts={selectedProducts}
-            selectedStatuses={selectedStatuses}
-            selectedPaymentMethods={selectedPaymentMethods}
-            searchQuery={searchQuery}
-            onCollectionChange={setSelectedCollections}
-            onProductChange={setSelectedProducts}
-            onStatusChange={setSelectedStatuses}
-            onPaymentMethodChange={setSelectedPaymentMethods}
-            onSearchChange={setSearchQuery}
-          />
-          <RefreshButton onRefresh={refreshOrders} />
+        <div className="flex flex-col sm:flex-row gap-3 items-start">
+          <div className="flex flex-col sm:flex-row gap-3 items-center w-full">
+            <OrderFilters
+              collections={collections}
+              products={products}
+              selectedCollections={selectedCollections}
+              selectedProducts={selectedProducts}
+              selectedStatuses={selectedStatuses}
+              selectedPaymentMethods={selectedPaymentMethods}
+              searchQuery={searchQuery}
+              onCollectionChange={setSelectedCollections}
+              onProductChange={setSelectedProducts}
+              onStatusChange={setSelectedStatuses}
+              onPaymentMethodChange={setSelectedPaymentMethods}
+              onSearchChange={setSearchQuery}
+            />
+            <RefreshButton onRefresh={refreshOrders} className="flex-shrink-0" />
+          </div>
         </div>
       </div>
 

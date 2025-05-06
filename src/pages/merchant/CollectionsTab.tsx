@@ -151,17 +151,17 @@ export function CollectionsTab() {
           </div>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-2 items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-2 items-center">
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 items-center w-full">
             <InlineFilterBar />
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search collections by name..."
                 value={filters.searchQuery}
                 onChange={(e) => updateSearchQuery(e.target.value)}
-                className="w-full bg-gray-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full bg-gray-800 rounded-lg pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
               />
             </div>
             
@@ -175,14 +175,14 @@ export function CollectionsTab() {
                   updateVisibilityFilter(value === 'true');
                 }
               }}
-              className="bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
+              className="bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm hover:bg-gray-750 transition-colors w-full sm:w-auto"
             >
               <option value="">All Visibility</option>
               <option value="true">Visible Only</option>
               <option value="false">Hidden Only</option>
             </select>
             
-            <RefreshButton onRefresh={refetch} />
+            <RefreshButton onRefresh={refetch} className="flex-shrink-0" />
           </div>
           
           <button
@@ -190,7 +190,7 @@ export function CollectionsTab() {
               setEditingCollection(null);
               setShowForm(true);
             }}
-            className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+            className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap shadow-sm mt-3 sm:mt-0"
           >
             <Plus className="h-4 w-4" />
             <span>Add Collection</span>
