@@ -193,7 +193,7 @@ export function CollectionsTab() {
         {/* Single row with all controls */}
         <div className="flex items-center gap-2">
           {/* Global Filter - Proper width on desktop, more flexible on mobile */}
-          <div className="flex-1 md:flex-initial md:min-w-[180px] md:max-w-[180px] lg:min-w-[220px] lg:max-w-[220px] min-w-0">
+          <div className="w-auto md:w-auto lg:w-auto min-w-0">
             <InlineFilterBar />
           </div>
           

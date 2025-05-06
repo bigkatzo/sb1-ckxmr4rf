@@ -16,11 +16,11 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import { createCategoryIndices } from '../../utils/category-mapping';
-import { ProductFilters } from '../../components/merchant/ProductFilters';
 import { useFilterPersistence } from '../../hooks/useFilterPersistence';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { Plus } from 'lucide-react';
 import { InlineFilterBar } from '../../components/merchant/InlineFilterBar';
+import { CollapsibleSearchBar } from '../../components/merchant/CollapsibleSearchBar';
 
 // Define the filter state type
 interface ProductFilterState {
@@ -226,9 +226,10 @@ export function ProductsTab() {
           
           {/* Search - Take more space on desktop */}
           <div className="flex-1 min-w-0 mr-auto">
-            <ProductFilters
+            <CollapsibleSearchBar
               searchQuery={filters.searchQuery}
               onSearchChange={updateSearchQuery}
+              placeholder="Search products by name, SKU, description..."
             />
           </div>
           

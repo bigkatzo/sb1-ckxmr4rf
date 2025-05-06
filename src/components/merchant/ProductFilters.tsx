@@ -10,7 +10,7 @@ export function ProductFilters({
   onSearchChange
 }: ProductFiltersProps) {
   return (
-    <div className="flex-1 md:max-w-xl">
+    <div className="flex-1 min-w-0">
       <CollapsibleSearchBar
         searchQuery={searchQuery}
         onSearchChange={onSearchChange}
