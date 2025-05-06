@@ -56,27 +56,16 @@ export function CollapsibleSearchBar({
   
   return (
     <div className="relative" ref={searchRef}>
-      {/* Mobile: Collapsed search button with text */}
+      {/* Mobile: Collapsed search icon button */}
       {isMobile && !isExpanded && (
         <button
           onClick={handleExpandSearch}
-          className="flex items-center justify-between w-full gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 transition-colors rounded-lg px-3 py-2.5 text-sm"
+          className="flex items-center justify-center bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 transition-colors rounded-lg p-2.5"
           aria-label="Search"
         >
-          <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-gray-400" />
-            <span className="text-gray-400 truncate">
-              {searchQuery || 'Search...'}
-            </span>
-          </div>
+          <Search className="h-5 w-5 text-gray-400" />
           {searchQuery && (
-            <X 
-              className="h-4 w-4 text-gray-400 hover:text-gray-300" 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleClearSearch();
-              }}
-            />
+            <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-white"></span>
           )}
         </button>
       )}
@@ -85,7 +74,7 @@ export function CollapsibleSearchBar({
       {isMobile && isExpanded && (
         <>
           <div className="fixed inset-0 bg-black/50 z-10" onClick={handleCloseSearch}></div>
-          <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-gray-900 rounded-lg shadow-lg border border-gray-700 p-2">
+          <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-gray-900 rounded-lg shadow-lg border border-gray-700 p-3 w-screen -ml-4 px-4">
             <div className="flex justify-between items-center border-b border-gray-800 pb-2 mb-2">
               <h3 className="text-sm font-medium text-gray-300">Search</h3>
               <button

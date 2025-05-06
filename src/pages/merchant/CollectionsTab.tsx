@@ -189,12 +189,12 @@ export function CollectionsTab() {
       <div className="mb-5">
         {/* Single row with all controls */}
         <div className="flex items-center gap-2">
-          {/* Global Filter - Give more space on mobile */}
-          <div className="flex-1 md:w-[200px] lg:w-[240px] min-w-0">
+          {/* Global Filter - Original width on desktop */}
+          <div className="w-auto md:w-auto lg:w-auto min-w-0">
             <InlineFilterBar />
           </div>
           
-          {/* Search - Take remaining width, but allow buttons to stay right-aligned */}
+          {/* Search - Take more space on desktop */}
           <div className="flex-1 min-w-0 mr-auto">
             <CollapsibleSearchBar
               searchQuery={filters.searchQuery}
