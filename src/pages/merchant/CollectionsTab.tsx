@@ -243,19 +243,19 @@ export function CollectionsTab() {
           {filteredCollections.map((collection) => (
             <div 
               key={collection.id}
-              className={`group cursor-pointer rounded-lg overflow-hidden transition-colors ${
+              className={`group cursor-pointer rounded-lg transition-colors ${
                 selectedCollection === collection.id 
                   ? 'bg-primary/10 border-2 border-primary' 
                   : 'bg-gray-800 hover:bg-gray-700 border-2 border-transparent'
               }`}
               onClick={() => handleSelectCollection(collection.id)}
             >
-              <div className="relative">
+              <div className="relative overflow-hidden">
                 {collection.imageUrl && (
                   <img 
                     src={collection.imageUrl} 
                     alt={collection.name} 
-                    className="w-full h-32 object-cover"
+                    className="w-full h-40 object-cover"
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent opacity-70" />
@@ -292,7 +292,7 @@ export function CollectionsTab() {
                 </div>
               </div>
               
-              <div className="p-4">
+              <div className="p-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium text-lg">{collection.name}</h3>
                   {selectedCollection === collection.id && (
@@ -305,7 +305,7 @@ export function CollectionsTab() {
                 </div>
                 <p className="text-gray-400 text-sm mt-1 line-clamp-2">{collection.description || 'No description'}</p>
                 
-                <div className="mt-4 flex justify-between items-center">
+                <div className="mt-3 flex justify-between items-center">
                   <div className="flex gap-2 text-xs text-gray-400">
                     <span>{collection.productCount || 0} products</span>
                     <span>•</span>
@@ -323,7 +323,7 @@ export function CollectionsTab() {
                           className="scale-90"
                           disabled={actionLoading === collection.id}
                         />
-                        <div className="relative" style={{ zIndex: 50 }}>
+                        <div className="relative" style={{ zIndex: 100 }}>
                           <DropdownMenu
                             items={[
                               {
@@ -362,7 +362,7 @@ export function CollectionsTab() {
                             triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90 ${
                               actionLoading === collection.id ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
-                            menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-50"
+                            menuClassName="fixed bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[9999]"
                             position="left"
                           />
                         </div>
