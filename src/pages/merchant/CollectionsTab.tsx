@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban, User } from 'lucide-react';
+import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban } from 'lucide-react';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { useFilterPersistence } from '../../hooks/useFilterPersistence';
@@ -308,9 +308,8 @@ export function CollectionsTab() {
                 {/* Add owner information for admins */}
                 {isAdmin && collection.owner_username && (
                   <div className="mt-1.5 flex items-center">
-                    <span className="text-xs text-green-300 bg-green-900/40 px-1.5 py-0.5 rounded flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      <span>Owner: {collection.owner_username}</span>
+                    <span className="text-xs text-green-400 bg-green-900/40 px-1.5 py-0.5 rounded">
+                      {collection.owner_username}
                     </span>
                   </div>
                 )}
