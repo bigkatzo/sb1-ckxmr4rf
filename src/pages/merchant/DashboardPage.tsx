@@ -1,11 +1,10 @@
 import React, { lazy, Suspense, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs } from '../../components/ui/Tabs';
-import { Settings, LogOut, ShieldAlert } from 'lucide-react';
+import { Settings, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 import { MerchantDashboardProvider } from '../../contexts/MerchantDashboardContext';
-import { toast } from 'react-toastify';
 
 // Lazy load tab components
 const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
@@ -39,7 +38,6 @@ const adminTabs = [
 export function DashboardPage() {
   const [activeTab, setActiveTab] = React.useState('collections');
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
-  const [isMerchant, setIsMerchant] = React.useState<boolean | null>(null);
   const [hasCollectionAccess, setHasCollectionAccess] = React.useState(false);
   const [checking, setChecking] = React.useState(true);
   const navigate = useNavigate();
@@ -84,10 +82,8 @@ export function DashboardPage() {
           .single();
 
         const userIsAdmin = profile?.role === 'admin';
-        const userIsMerchant = userIsAdmin || profile?.role === 'merchant';
         
         setIsAdmin(userIsAdmin);
-        setIsMerchant(userIsMerchant);
 
         // Allow all authenticated users to access the dashboard
         // No longer redirecting non-merchant users
@@ -141,35 +137,6 @@ export function DashboardPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loading type={LoadingType.PAGE} text="Checking permissions..." />
-      </div>
-    );
-  }
-
-  // If user is not a merchant or admin, show access denied (this is a fallback, they should be redirected)
-  if (isMerchant === false) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-        <ShieldAlert className="h-16 w-16 text-yellow-500 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-200 mb-2">Limited Access</h1>
-        <p className="text-gray-400 max-w-md mb-6">
-          You currently have view access to the merchant dashboard. To gain full merchant access and be able to create collections:
-        </p>
-        <div className="flex flex-col items-center">
-          <a 
-            href="https://t.me/storedotfun" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors mb-4"
-          >
-            Contact Support
-          </a>
-          <button
-            onClick={() => navigate('/')}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            Return to Home
-          </button>
-        </div>
       </div>
     );
   }
