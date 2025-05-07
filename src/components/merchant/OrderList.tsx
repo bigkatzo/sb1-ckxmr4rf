@@ -406,6 +406,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         "Product SKU": "product_sku",
         "Product Name": "product_name",
         "Variant Selections": "variant_selections",
+        "Collection": "collection_name",
+        "Category": "category_name",
         "Tax ID": "shipping_info.taxId",
         "Contact": "contact_value",
         "Contact Method": "contact_info.method",
@@ -489,6 +491,10 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 return escapeCSV(order.product_sku || '');
               case 'product_name':
                 return escapeCSV(order.product_name || '');
+              case 'collection_name':
+                return escapeCSV(order.collection_name || '');
+              case 'category_name':
+                return escapeCSV(order.category_name || '');
               case 'variant_selections':
                 // Use the same approach as getProductInfo since it's working in the UI
                 const variantData = 
