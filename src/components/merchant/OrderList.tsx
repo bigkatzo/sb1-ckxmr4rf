@@ -92,8 +92,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   // Function to check if user has permission to edit order status
   const canEditOrderStatus = (order: Order): boolean => {
-    // Add debug logging to see what access_type we're getting
-    console.log(`Order ${order.id} access_type:`, order.access_type);
+    // Remove debug logging to reduce console spam
     if (!order.access_type) return false;
     return ['admin', 'owner', 'edit'].includes(order.access_type);
   };
@@ -770,10 +769,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   };
 
   const renderStatusSelect = (order: Order) => {
-    // Only show status update controls if user has edit access
-    const canEdit = order.access_type === 'admin' || // Admin access
-                   order.access_type === 'owner' || // Collection owner
-                   order.access_type === 'edit'; // Edit access through collection_access
+    // Use the canEditOrderStatus function for consistency
+    const canEdit = canEditOrderStatus(order);
     
     if (!canEdit) {
       return (
