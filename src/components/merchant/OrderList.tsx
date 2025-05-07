@@ -31,12 +31,12 @@ import { addTracking, deleteTracking } from '../../services/tracking';
 import { 
   getTransactionUrl, 
   formatTransactionSignature, 
-  getTransactionLabel,
-  isStripeReceiptUrl
+  getTransactionLabel
 } from '../../utils/transactions';
 import DeleteTrackingButton from '../tracking/DeleteTrackingButton';
 import { SensitiveInfo } from '../ui/SensitiveInfo';
 import { OrderShippingAddress } from '../OrderShippingAddress';
+import { RefreshButton } from '../ui/RefreshButton';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -993,8 +993,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     <div className="space-y-4">
       {/* Header with Filters and Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
-        {/* Order Counter */}
-        <div className="flex items-center gap-2">
+        {/* Order Counter and Refresh Button */}
+        <div className="flex items-center gap-3">
           <span className="text-sm text-gray-400">
             Showing {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''}
           </span>
@@ -1002,6 +1002,12 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             <span className="text-xs text-gray-500">
               ({orders.length} total)
             </span>
+          )}
+          {refreshOrders && (
+            <RefreshButton
+              onRefresh={refreshOrders}
+              className="text-gray-400 hover:text-gray-200"
+            />
           )}
         </div>
 

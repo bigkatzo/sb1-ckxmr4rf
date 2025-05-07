@@ -4,7 +4,6 @@ import { OrderList } from '../../components/merchant/OrderList';
 import { OrderFilters } from '../../components/merchant/OrderFilters';
 import { useMerchantOrders } from '../../hooks/useMerchantOrders';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
-import { RefreshButton } from '../../components/ui/RefreshButton';
 import { toast } from 'react-toastify';
 import type { OrderStatus } from '../../types/orders';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
@@ -230,28 +229,21 @@ export function OrdersTab() {
 
         {/* Redesigned filter area for better mobile responsiveness */}
         <div className="flex flex-col gap-2">
-          {/* Search and Refresh Row */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 min-w-0">
-              <OrderFilters
-                collections={collections}
-                products={products}
-                selectedCollections={selectedCollections}
-                selectedProducts={selectedProducts}
-                selectedStatuses={selectedStatuses}
-                selectedPaymentMethods={selectedPaymentMethods}
-                searchQuery={searchQuery}
-                onCollectionChange={setSelectedCollections}
-                onProductChange={setSelectedProducts}
-                onStatusChange={setSelectedStatuses}
-                onPaymentMethodChange={setSelectedPaymentMethods}
-                onSearchChange={setSearchQuery}
-              />
-            </div>
-            {/* Refresh button positioned at the end of the filter row */}
-            <RefreshButton 
-              onRefresh={refreshOrders} 
-              className="flex-shrink-0 ml-auto" 
+          {/* Filters Row - Removed refresh button from here */}
+          <div className="relative flex-1 min-w-0">
+            <OrderFilters
+              collections={collections}
+              products={products}
+              selectedCollections={selectedCollections}
+              selectedProducts={selectedProducts}
+              selectedStatuses={selectedStatuses}
+              selectedPaymentMethods={selectedPaymentMethods}
+              searchQuery={searchQuery}
+              onCollectionChange={setSelectedCollections}
+              onProductChange={setSelectedProducts}
+              onStatusChange={setSelectedStatuses}
+              onPaymentMethodChange={setSelectedPaymentMethods}
+              onSearchChange={setSearchQuery}
             />
           </div>
         </div>
