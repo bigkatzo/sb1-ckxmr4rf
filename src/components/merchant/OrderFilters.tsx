@@ -178,7 +178,7 @@ export function OrderFilters({
                     placeholder="Search collections..."
                     value={collectionSearch}
                     onChange={(e) => setCollectionSearch(e.target.value)}
-                    className="w-full bg-gray-700 text-white rounded-md pl-7 pr-7 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full bg-gray-900 text-white rounded-md pl-7 pr-7 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     onClick={(e) => e.stopPropagation()}
                   />
                   {collectionSearch && (
@@ -257,7 +257,7 @@ export function OrderFilters({
                     placeholder="Search products..."
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
-                    className="w-full bg-gray-700 text-white rounded-md pl-7 pr-7 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full bg-gray-900 text-white rounded-md pl-7 pr-7 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     onClick={(e) => e.stopPropagation()}
                   />
                   {productSearch && (
