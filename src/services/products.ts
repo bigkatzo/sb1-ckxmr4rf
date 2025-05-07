@@ -291,13 +291,57 @@ export async function deleteProduct(id: string) {
     const { data: product, error: verifyError } = await retry(async () =>
       await supabase
         .from('products')
-        .select('id, collection_id')
+        .select(`
+          id, 
+          collection_id,
+          collections (
+            user_id
+          )
+        `)
         .eq('id', id)
         .single()
     );
 
     if (verifyError || !product) {
       throw new Error('Product not found or access denied');
+    }
+
+    // Check user authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('User not authenticated');
+
+    // Check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+
+    // If not admin, verify ownership or edit access
+    if (!isAdmin) {
+      const isOwner = product.collections &&
+        Array.isArray(product.collections) &&
+        product.collections.length > 0 &&
+        product.collections[0].user_id === user.id;
+
+      // If not owner, check for edit access
+      if (!isOwner) {
+        const { data: accessPermission } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', product.collection_id)
+          .eq('user_id', user.id)
+          .single();
+        
+        const hasEditAccess = accessPermission?.access_type === 'edit';
+        
+        if (!hasEditAccess) {
+          throw new Error('Access denied');
+        }
+      }
     }
 
     // Delete the product
@@ -331,9 +375,9 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
 
     const isAdmin = userProfile?.role === 'admin';
 
-    // If not admin, verify ownership through the collection
+    // If not admin, verify ownership or edit access through the collection
     if (!isAdmin) {
-      const { data: ownerCheck, error: ownerError } = await supabase
+      const { data: productData, error: productError } = await supabase
         .from('products')
         .select(`
           id,
@@ -346,14 +390,29 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
         .limit(1)
         .maybeSingle();
 
-      const hasOwnership = ownerCheck &&
-        ownerCheck.collections &&
-        Array.isArray(ownerCheck.collections) &&
-        ownerCheck.collections.length > 0 &&
-        ownerCheck.collections[0].user_id === user.id;
-
-      if (ownerError || !hasOwnership) {
+      if (productError || !productData) {
         throw new Error('Product not found or access denied');
+      }
+
+      const isOwner = productData.collections &&
+        Array.isArray(productData.collections) &&
+        productData.collections.length > 0 &&
+        productData.collections[0].user_id === user.id;
+
+      // If not owner, check for edit access through collection_access
+      if (!isOwner) {
+        const { data: accessPermission } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', productData.collection_id)
+          .eq('user_id', user.id)
+          .single();
+        
+        const hasEditAccess = accessPermission?.access_type === 'edit';
+        
+        if (!hasEditAccess) {
+          throw new Error('Access denied');
+        }
       }
     }
 
@@ -385,9 +444,9 @@ export async function toggleProductVisibility(id: string, visible: boolean) {
 
     const isAdmin = userProfile?.role === 'admin';
 
-    // If not admin, verify ownership through the collection
+    // If not admin, verify ownership or edit access through the collection
     if (!isAdmin) {
-      const { data: ownerCheck, error: ownerError } = await supabase
+      const { data: productData, error: productError } = await supabase
         .from('products')
         .select(`
           id,
@@ -400,14 +459,29 @@ export async function toggleProductVisibility(id: string, visible: boolean) {
         .limit(1)
         .maybeSingle();
 
-      const hasOwnership = ownerCheck &&
-        ownerCheck.collections &&
-        Array.isArray(ownerCheck.collections) &&
-        ownerCheck.collections.length > 0 &&
-        ownerCheck.collections[0].user_id === user.id;
-
-      if (ownerError || !hasOwnership) {
+      if (productError || !productData) {
         throw new Error('Product not found or access denied');
+      }
+
+      const isOwner = productData.collections &&
+        Array.isArray(productData.collections) &&
+        productData.collections.length > 0 &&
+        productData.collections[0].user_id === user.id;
+
+      // If not owner, check for edit access through collection_access
+      if (!isOwner) {
+        const { data: accessPermission } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', productData.collection_id)
+          .eq('user_id', user.id)
+          .single();
+        
+        const hasEditAccess = accessPermission?.access_type === 'edit';
+        
+        if (!hasEditAccess) {
+          throw new Error('Access denied');
+        }
       }
     }
 

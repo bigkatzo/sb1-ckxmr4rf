@@ -64,6 +64,59 @@ export async function updateCategory(id: string, data: FormData) {
 
 export async function deleteCategory(id: string) {
   try {
+    // First verify user has access to the category through the collection
+    const { data: category, error: categoryError } = await supabase
+      .from('categories')
+      .select(`
+        id, 
+        collection_id, 
+        collections!inner (
+          user_id
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (categoryError || !category) {
+      throw new Error('Category not found or access denied');
+    }
+
+    // Check if user is admin or owns the collection
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('User not authenticated');
+
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+    
+    // Extract user_id safely from the nested collections array
+    const collectionUserId = category.collections && 
+      Array.isArray(category.collections) && 
+      category.collections.length > 0 &&
+      category.collections[0].user_id;
+    
+    const isOwner = collectionUserId === user.id;
+
+    // Check if user has edit access to the collection
+    const { data: accessPermission } = await supabase
+      .from('collection_access')
+      .select('access_type')
+      .eq('collection_id', category.collection_id)
+      .eq('user_id', user.id)
+      .single();
+    
+    const hasEditAccess = accessPermission?.access_type === 'edit';
+
+    // Allow admin, owner, or users with edit access
+    if (!isAdmin && !isOwner && !hasEditAccess) {
+      throw new Error('Access denied');
+    }
+
     // First check if the category has any products
     const { data: products, error: checkError } = await supabase
       .from('products')
@@ -131,7 +184,18 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
     
     const isOwner = collectionUserId === user.id;
 
-    if (!isAdmin && !isOwner) {
+    // Check if user has edit access to the collection
+    const { data: accessPermission } = await supabase
+      .from('collection_access')
+      .select('access_type')
+      .eq('collection_id', category.collection_id)
+      .eq('user_id', user.id)
+      .single();
+    
+    const hasEditAccess = accessPermission?.access_type === 'edit';
+
+    // Allow admin, owner, or users with edit access
+    if (!isAdmin && !isOwner && !hasEditAccess) {
       throw new Error('Access denied');
     }
 
@@ -189,7 +253,18 @@ export async function toggleVisibility(id: string, visible: boolean) {
     
     const isOwner = collectionUserId === user.id;
 
-    if (!isAdmin && !isOwner) {
+    // Check if user has edit access to the collection
+    const { data: accessPermission } = await supabase
+      .from('collection_access')
+      .select('access_type')
+      .eq('collection_id', category.collection_id)
+      .eq('user_id', user.id)
+      .single();
+    
+    const hasEditAccess = accessPermission?.access_type === 'edit';
+
+    // Allow admin, owner, or users with edit access
+    if (!isAdmin && !isOwner && !hasEditAccess) {
       throw new Error('Access denied');
     }
 

@@ -137,8 +137,9 @@ export async function updateCollection(id: string, data: FormData) {
       throw new Error('Collection not found or access denied');
     }
 
-    // If not admin, verify ownership
+    // If not admin, verify ownership or edit access
     if (!isAdmin) {
+      // Check ownership
       const { data: ownerCheck, error: ownerError } = await supabase
         .from('collections')
         .select('id')
@@ -146,8 +147,22 @@ export async function updateCollection(id: string, data: FormData) {
         .eq('user_id', user.id)
         .single();
 
-      if (ownerError || !ownerCheck) {
-        throw new Error('Collection not found or access denied');
+      const isOwner = !ownerError && !!ownerCheck;
+
+      // If not owner, check for edit access
+      if (!isOwner) {
+        const { data: accessPermission } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', id)
+          .eq('user_id', user.id)
+          .single();
+        
+        const hasEditAccess = accessPermission?.access_type === 'edit';
+        
+        if (!hasEditAccess) {
+          throw new Error('Collection not found or access denied');
+        }
       }
     }
     
@@ -230,8 +245,9 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
 
     const isAdmin = userProfile?.role === 'admin';
 
-    // If not admin, verify ownership
+    // If not admin, verify ownership or edit access
     if (!isAdmin) {
+      // Check ownership
       const { data: ownerCheck, error: ownerError } = await supabase
         .from('collections')
         .select('id')
@@ -239,8 +255,22 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
         .eq('user_id', user.id)
         .single();
 
-      if (ownerError || !ownerCheck) {
-        throw new Error('Collection not found or access denied');
+      const isOwner = !ownerError && !!ownerCheck;
+
+      // If not owner, check for edit access
+      if (!isOwner) {
+        const { data: accessPermission } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', id)
+          .eq('user_id', user.id)
+          .single();
+        
+        const hasEditAccess = accessPermission?.access_type === 'edit';
+        
+        if (!hasEditAccess) {
+          throw new Error('Collection not found or access denied');
+        }
       }
     }
 
@@ -270,8 +300,9 @@ export async function toggleVisibility(id: string, visible: boolean) {
 
     const isAdmin = userProfile?.role === 'admin';
 
-    // If not admin, verify ownership
+    // If not admin, verify ownership or edit access
     if (!isAdmin) {
+      // Check ownership
       const { data: ownerCheck, error: ownerError } = await supabase
         .from('collections')
         .select('id')
@@ -279,8 +310,22 @@ export async function toggleVisibility(id: string, visible: boolean) {
         .eq('user_id', user.id)
         .single();
 
-      if (ownerError || !ownerCheck) {
-        throw new Error('Collection not found or access denied');
+      const isOwner = !ownerError && !!ownerCheck;
+
+      // If not owner, check for edit access
+      if (!isOwner) {
+        const { data: accessPermission } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', id)
+          .eq('user_id', user.id)
+          .single();
+        
+        const hasEditAccess = accessPermission?.access_type === 'edit';
+        
+        if (!hasEditAccess) {
+          throw new Error('Collection not found or access denied');
+        }
       }
     }
 
@@ -312,8 +357,9 @@ export async function toggleFeatured(id: string, featured: boolean) {
 
     const isAdmin = userProfile?.role === 'admin';
 
-    // If not admin, verify ownership
+    // If not admin, verify ownership or edit access
     if (!isAdmin) {
+      // Check ownership
       const { data: ownerCheck, error: ownerError } = await supabase
         .from('collections')
         .select('id')
@@ -321,8 +367,22 @@ export async function toggleFeatured(id: string, featured: boolean) {
         .eq('user_id', user.id)
         .single();
 
-      if (ownerError || !ownerCheck) {
-        throw new Error('Collection not found or access denied');
+      const isOwner = !ownerError && !!ownerCheck;
+
+      // If not owner, check for edit access
+      if (!isOwner) {
+        const { data: accessPermission } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', id)
+          .eq('user_id', user.id)
+          .single();
+        
+        const hasEditAccess = accessPermission?.access_type === 'edit';
+        
+        if (!hasEditAccess) {
+          throw new Error('Collection not found or access denied');
+        }
       }
     }
 
