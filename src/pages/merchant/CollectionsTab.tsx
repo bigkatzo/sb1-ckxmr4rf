@@ -244,7 +244,7 @@ export function CollectionsTab() {
               className={`group cursor-pointer rounded-lg transition-colors ${
                 selectedCollection === collection.id 
                   ? 'bg-primary/10 border-2 border-primary' 
-                  : 'bg-gray-800 hover:bg-gray-700 border-2 border-transparent'
+                  : 'bg-gray-900 hover:bg-gray-800 border-2 border-transparent'
               }`}
               onClick={() => handleSelectCollection(collection.id)}
             >
