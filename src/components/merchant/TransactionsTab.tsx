@@ -191,7 +191,7 @@ export function TransactionsTab() {
             variant="primary"
           >
             {isProcessing ? (
-              <Loading type={LoadingType.ACTION} text="Recovering..." className="scale-90" />
+              <Loading type={LoadingType.ACTION} text="Recovering..." />
             ) : (
               <>
                 <RefreshCw className="h-3 w-3" />
@@ -211,7 +211,7 @@ export function TransactionsTab() {
             variant="destructive"
           >
             {isProcessing ? (
-              <Loading type={LoadingType.ACTION} text="Cancelling..." className="scale-90" />
+              <Loading type={LoadingType.ACTION} text="Cancelling..." />
             ) : (
               <>
                 <Ban className="h-3 w-3" />
@@ -233,7 +233,7 @@ export function TransactionsTab() {
             variant="secondary"
           >
             {isProcessing ? (
-              <Loading type={LoadingType.ACTION} text="Matching..." className="scale-90" />
+              <Loading type={LoadingType.ACTION} text="Matching..." />
             ) : (
               <>
                 <Link className="h-3 w-3" />

@@ -203,7 +203,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
               disabled={loading || uploading || isLoading}
               className="bg-primary hover:bg-primary/80 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
             >
-              {(loading || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
+              {(loading || uploading) && <Loader2 className="h-3 w-3 animate-spin" />}
               {loading ? 'Saving...' : 
                 uploading ? 'Uploading...' : 
                 initialData ? 'Update Product' : 'Create Product'}

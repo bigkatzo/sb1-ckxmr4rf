@@ -58,8 +58,8 @@ export const Loading: React.FC<LoadingProps> = ({ type, className = '', text }) 
       
     case LoadingType.ACTION:
       return (
-        <div className={`inline-flex items-center gap-2 ${className}`}>
-          <Loader2 className="h-4 w-4 animate-spin" />
+        <div className={`inline-flex items-center justify-center gap-2 ${className}`}>
+          <Loader2 className="h-3 w-3 animate-spin text-primary" />
           {text && <span className="text-sm text-gray-400">{text}</span>}
         </div>
       );

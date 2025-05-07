@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ModalForm } from '../../../ui/Modal/ModalForm';
@@ -38,6 +38,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     sku: initialData?.sku || '',
     minimumOrderQuantity: initialData?.minimumOrderQuantity || 50,
     visible: initialData?.visible ?? true,
+    saleEnded: initialData?.saleEnded ?? false,
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
     priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
     // CRITICAL FIX: Ensure notes is properly initialized with valid structure
@@ -197,7 +198,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
               disabled={loading || uploading || isLoading}
               className="bg-primary hover:bg-primary/80 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 text-white flex items-center gap-2"
             >
-              {(loading || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
+              {(loading || uploading) && <Loader2 className="h-3 w-3 animate-spin" />}
               {loading ? 'Saving...' : 
                 uploading ? 'Uploading...' : 
                 initialData ? 'Update Product' : 'Create Product'}
