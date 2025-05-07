@@ -26,11 +26,11 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3 sm:gap-4">
           <div className="flex flex-row items-center justify-center w-full sm:w-auto sm:justify-start order-2 sm:order-1">
-            <div className="flex flex-nowrap items-center">
-              <div className="h-5 sm:h-6 inline-block">
+            <div className="flex flex-nowrap items-center whitespace-nowrap max-w-full min-w-0">
+              <div className="h-5 sm:h-6 inline-flex">
                 <Logo size="sm" />
               </div>
-              <span className="text-[10px] sm:text-xs ml-1.5">© {new Date().getFullYear()}</span>
+              <span className="text-[10px] sm:text-xs ml-1 flex-shrink-0">© {new Date().getFullYear()}</span>
             </div>
           </div>
           
