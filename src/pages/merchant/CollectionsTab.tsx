@@ -269,7 +269,7 @@ export function CollectionsTab() {
                   )}
                 </div>
                 
-                <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                <div className="absolute top-2 right-2 flex flex-row items-center gap-1.5">
                   {!collection.visible && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-400">
                       <EyeOff className="h-3 w-3" />
