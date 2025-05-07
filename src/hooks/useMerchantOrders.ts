@@ -108,6 +108,7 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
       
       // Use direct update approach with properly cast status value
       // The RLS policies will ensure proper access control
+      // This avoids type casting errors with the order_status_enum type
       const { error } = await supabase
         .from('orders')
         .update({ status: status })
