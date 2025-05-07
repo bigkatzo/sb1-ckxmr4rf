@@ -21,7 +21,7 @@ export function Tabs({ tabs, activeId, onChange }: TabsProps) {
             whitespace-nowrap hover:text-white
             ${activeId === tab.id
               ? 'text-primary font-semibold'
-              : 'text-gray-400 hover:text-gray-200'
+              : 'text-gray-300 hover:text-gray-200'
             }
           `}
         >
