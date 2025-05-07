@@ -513,6 +513,9 @@ export async function getProductForDuplication(id: string) {
           category:category_id (
             id,
             name
+          ),
+          collections (
+            user_id
           )
         `)
         .eq('id', id)
@@ -535,20 +538,27 @@ export async function getProductForDuplication(id: string) {
 
       const isAdmin = userProfile?.role === 'admin';
 
-      // If not admin, verify ownership or edit access through collection
+      // If not admin, verify ownership or edit access through the collection
       if (!isAdmin) {
-        const { data: collectionAccess } = await supabase
-          .from('collection_access_view')
-          .select('access_type')
-          .eq('collection_id', product.collection_id)
-          .eq('user_id', user.id)
-          .single();
+        const isOwner = product.collections &&
+          Array.isArray(product.collections) &&
+          product.collections.length > 0 &&
+          product.collections[0].user_id === user.id;
 
-        const hasAccess = collectionAccess && 
-          (collectionAccess.access_type === 'owner' || collectionAccess.access_type === 'edit');
-
-        if (!hasAccess) {
-          throw new Error('You do not have permission to duplicate this product');
+        // If not owner, check for edit access through collection_access
+        if (!isOwner) {
+          const { data: accessPermission } = await supabase
+            .from('collection_access')
+            .select('access_type')
+            .eq('collection_id', product.collection_id)
+            .eq('user_id', user.id)
+            .single();
+          
+          const hasEditAccess = accessPermission?.access_type === 'edit';
+          
+          if (!hasEditAccess) {
+            throw new Error('Access denied');
+          }
         }
       }
       
