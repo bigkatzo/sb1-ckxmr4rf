@@ -228,23 +228,31 @@ export function OrdersTab() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-start">
-          <div className="flex flex-col sm:flex-row gap-3 items-center w-full">
-            <OrderFilters
-              collections={collections}
-              products={products}
-              selectedCollections={selectedCollections}
-              selectedProducts={selectedProducts}
-              selectedStatuses={selectedStatuses}
-              selectedPaymentMethods={selectedPaymentMethods}
-              searchQuery={searchQuery}
-              onCollectionChange={setSelectedCollections}
-              onProductChange={setSelectedProducts}
-              onStatusChange={setSelectedStatuses}
-              onPaymentMethodChange={setSelectedPaymentMethods}
-              onSearchChange={setSearchQuery}
+        {/* Redesigned filter area for better mobile responsiveness */}
+        <div className="flex flex-col gap-2">
+          {/* Search and Refresh Row */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <OrderFilters
+                collections={collections}
+                products={products}
+                selectedCollections={selectedCollections}
+                selectedProducts={selectedProducts}
+                selectedStatuses={selectedStatuses}
+                selectedPaymentMethods={selectedPaymentMethods}
+                searchQuery={searchQuery}
+                onCollectionChange={setSelectedCollections}
+                onProductChange={setSelectedProducts}
+                onStatusChange={setSelectedStatuses}
+                onPaymentMethodChange={setSelectedPaymentMethods}
+                onSearchChange={setSearchQuery}
+              />
+            </div>
+            {/* Refresh button positioned at the end of the filter row */}
+            <RefreshButton 
+              onRefresh={refreshOrders} 
+              className="flex-shrink-0 ml-auto" 
             />
-            <RefreshButton onRefresh={refreshOrders} className="flex-shrink-0" />
           </div>
         </div>
       </div>
