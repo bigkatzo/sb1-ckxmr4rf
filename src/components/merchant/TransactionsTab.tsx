@@ -263,7 +263,7 @@ export function TransactionsTab() {
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div className="flex items-center gap-2">
             <p className="text-sm text-gray-400">
               Manage and resolve transaction issues
@@ -286,71 +286,73 @@ export function TransactionsTab() {
         </div>
         
         {/* Filter Controls */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          <Button
-            size="sm"
-            variant={selectedType === 'all' ? 'primary' : 'secondary'}
-            onClick={() => setSelectedType('all')}
-            className="text-xs whitespace-nowrap"
-          >
-            All
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedType === 'failed_payment' ? 'primary' : 'secondary'}
-            onClick={() => setSelectedType('failed_payment')}
-            className="text-xs whitespace-nowrap"
-          >
-            Failed Payments
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedType === 'rejected_payment' ? 'primary' : 'secondary'}
-            onClick={() => setSelectedType('rejected_payment')}
-            className="text-xs whitespace-nowrap"
-          >
-            Rejected Payments
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedType === 'orphaned_transaction' ? 'primary' : 'secondary'}
-            onClick={() => setSelectedType('orphaned_transaction')}
-            className="text-xs whitespace-nowrap"
-          >
-            Orphaned Transactions
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedType === 'abandoned_order' ? 'primary' : 'secondary'}
-            onClick={() => setSelectedType('abandoned_order')}
-            className="text-xs whitespace-nowrap"
-          >
-            Abandoned Orders
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedType === 'pending_timeout' ? 'primary' : 'secondary'}
-            onClick={() => setSelectedType('pending_timeout')}
-            className="text-xs whitespace-nowrap"
-          >
-            Pending Timeout
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedType === 'mismatched_amount' ? 'primary' : 'secondary'}
-            onClick={() => setSelectedType('mismatched_amount')}
-            className="text-xs whitespace-nowrap"
-          >
-            Amount Mismatch
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedType === 'multiple_transactions' ? 'primary' : 'secondary'}
-            onClick={() => setSelectedType('multiple_transactions')}
-            className="text-xs whitespace-nowrap"
-          >
-            Multiple Transactions
-          </Button>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-2">
+          <div className="flex items-center gap-2 min-w-max pb-0.5 scrollbar-hide">
+            <Button
+              size="sm"
+              variant={selectedType === 'all' ? 'primary' : 'secondary'}
+              onClick={() => setSelectedType('all')}
+              className="text-xs whitespace-nowrap"
+            >
+              All
+            </Button>
+            <Button
+              size="sm"
+              variant={selectedType === 'failed_payment' ? 'primary' : 'secondary'}
+              onClick={() => setSelectedType('failed_payment')}
+              className="text-xs whitespace-nowrap"
+            >
+              Failed Payments
+            </Button>
+            <Button
+              size="sm"
+              variant={selectedType === 'rejected_payment' ? 'primary' : 'secondary'}
+              onClick={() => setSelectedType('rejected_payment')}
+              className="text-xs whitespace-nowrap"
+            >
+              Rejected Payments
+            </Button>
+            <Button
+              size="sm"
+              variant={selectedType === 'orphaned_transaction' ? 'primary' : 'secondary'}
+              onClick={() => setSelectedType('orphaned_transaction')}
+              className="text-xs whitespace-nowrap"
+            >
+              Orphaned Transactions
+            </Button>
+            <Button
+              size="sm"
+              variant={selectedType === 'abandoned_order' ? 'primary' : 'secondary'}
+              onClick={() => setSelectedType('abandoned_order')}
+              className="text-xs whitespace-nowrap"
+            >
+              Abandoned Orders
+            </Button>
+            <Button
+              size="sm"
+              variant={selectedType === 'pending_timeout' ? 'primary' : 'secondary'}
+              onClick={() => setSelectedType('pending_timeout')}
+              className="text-xs whitespace-nowrap"
+            >
+              Pending Timeout
+            </Button>
+            <Button
+              size="sm"
+              variant={selectedType === 'mismatched_amount' ? 'primary' : 'secondary'}
+              onClick={() => setSelectedType('mismatched_amount')}
+              className="text-xs whitespace-nowrap"
+            >
+              Amount Mismatch
+            </Button>
+            <Button
+              size="sm"
+              variant={selectedType === 'multiple_transactions' ? 'primary' : 'secondary'}
+              onClick={() => setSelectedType('multiple_transactions')}
+              className="text-xs whitespace-nowrap"
+            >
+              Multiple Transactions
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -370,7 +372,7 @@ export function TransactionsTab() {
       ) : (
         <div className="space-y-3">
           {filteredAnomalies.map((anomaly) => (
-            <div key={anomaly.id} className="bg-gray-900 rounded-lg p-3 hover:bg-gray-800/50 transition-colors">
+            <div key={anomaly.id} className="bg-gray-900 rounded-lg p-3 sm:p-4 hover:bg-gray-800/50 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 pb-3 border-b border-gray-800">
                 <div className="flex items-center gap-2 min-w-0">
                   {getAnomalyIcon(anomaly.type)}
@@ -400,7 +402,7 @@ export function TransactionsTab() {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-1 sm:mt-0">
                   <span className="text-xs text-gray-400">
                     {formatDistanceToNow(new Date(anomaly.created_at), { addSuffix: true })}
                   </span>
