@@ -89,12 +89,8 @@ export function DashboardPage() {
         setIsAdmin(userIsAdmin);
         setIsMerchant(userIsMerchant);
 
-        // If user is not a merchant or admin, redirect to home with a message
-        if (!userIsMerchant) {
-          toast.error('You don\'t have access to the merchant dashboard. Please contact an administrator.');
-          navigate('/');
-          return;
-        }
+        // Allow all authenticated users to access the dashboard
+        // No longer redirecting non-merchant users
 
         // Check for collections user owns
         const { data: ownedCollections } = await supabase
@@ -153,17 +149,27 @@ export function DashboardPage() {
   if (isMerchant === false) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-        <ShieldAlert className="h-16 w-16 text-red-500 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-200 mb-2">Access Denied</h1>
+        <ShieldAlert className="h-16 w-16 text-yellow-500 mb-4" />
+        <h1 className="text-2xl font-bold text-gray-200 mb-2">Limited Access</h1>
         <p className="text-gray-400 max-w-md mb-6">
-          You don't have permission to access the merchant dashboard. Please contact an administrator.
+          You currently have view access to the merchant dashboard. To gain full merchant access and be able to create collections:
         </p>
-        <button
-          onClick={() => navigate('/')}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          Return to Home
-        </button>
+        <div className="flex flex-col items-center">
+          <a 
+            href="https://t.me/storedotfun" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors mb-4"
+          >
+            Contact Support
+          </a>
+          <button
+            onClick={() => navigate('/')}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            Return to Home
+          </button>
+        </div>
       </div>
     );
   }
