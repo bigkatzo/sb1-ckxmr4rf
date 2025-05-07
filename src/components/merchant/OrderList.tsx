@@ -92,6 +92,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   // Function to check if user has permission to edit order status
   const canEditOrderStatus = (order: Order): boolean => {
+    // Add debug logging to see what access_type we're getting
+    console.log(`Order ${order.id} access_type:`, order.access_type);
     if (!order.access_type) return false;
     return ['admin', 'owner', 'edit'].includes(order.access_type);
   };
@@ -227,11 +229,13 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
     // Check if user has permission to edit order status
     if (!canEditOrderStatus(order)) {
+      console.error(`Permission denied: Cannot update order ${orderId} status. Access type: ${order.access_type}`);
       toast.error('You do not have permission to update this order');
       return;
     }
     
     try {
+      console.log(`Updating order ${orderId} status to ${status}. Access type: ${order.access_type}`);
       setUpdatingOrderId(orderId);
       await onStatusUpdate(orderId, status);
       toast.success('Order status updated successfully');
@@ -253,12 +257,13 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
     // Check if user has permission to edit order
     if (!canEditOrderStatus(order)) {
+      console.error(`Permission denied: Cannot update tracking for order ${orderId}. Access type: ${order.access_type}`);
       toast.error('You do not have permission to update this order');
       return;
     }
     
     try {
-      console.log(`Adding tracking for order ${orderId}: ${trackingNumber}, carrier: ${carrier || 'not specified'}`);
+      console.log(`Adding tracking for order ${orderId}: ${trackingNumber}, carrier: ${carrier || 'not specified'}. Access type: ${order.access_type}`);
       
       // If tracking number is empty, treat it as a removal (though this shouldn't happen with UI changes)
       if (!trackingNumber.trim()) {

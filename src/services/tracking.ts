@@ -118,6 +118,64 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
       return existingTracking as OrderTracking;
     }
     
+    // Before inserting, check if the user has permission to add tracking to this order
+    // First get the order with its collection
+    const { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .select('id, collection_id')
+      .eq('id', orderId)
+      .single();
+      
+    if (orderError || !orderData) {
+      console.error('Error fetching order for permission check:', orderError);
+      throw new Error('Order not found or permission denied');
+    }
+    
+    // Now check if the user has access to the collection
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('Authentication required');
+    
+    // Get user profile to check if admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+      
+    const isAdmin = userProfile?.role === 'admin';
+    
+    if (!isAdmin) {
+      // Check collection ownership
+      const { data: collection, error: collectionError } = await supabase
+        .from('collections')
+        .select('user_id')
+        .eq('id', orderData.collection_id)
+        .single();
+        
+      if (collectionError) {
+        console.error('Error checking collection ownership:', collectionError);
+        throw new Error('Failed to verify collection access');
+      }
+      
+      const isOwner = collection.user_id === user.id;
+      
+      if (!isOwner) {
+        // Check for edit access if not owner
+        const { data: accessData, error: accessError } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', orderData.collection_id)
+          .eq('user_id', user.id)
+          .single();
+          
+        if (accessError || !accessData || accessData.access_type !== 'edit') {
+          console.error('Permission denied: User does not have edit access to this collection');
+          throw new Error('Access denied: Edit permission required to update tracking');
+        }
+      }
+    }
+    
     // Get the carrier name for database storage
     // We store the carrier name in the database as a string
     let carrierName = carrier || 'auto-detect';
@@ -404,7 +462,98 @@ export async function deleteTracking(trackingNumber: string, carrier?: number): 
   let errorMessage = '';
 
   try {
-    // First, delete from our database
+    // First, get the tracking record to verify the order_id
+    const { data: trackingData, error: trackingError } = await supabase
+      .from('order_tracking')
+      .select('id, order_id')
+      .eq('tracking_number', trackingNumber)
+      .single();
+      
+    if (trackingError || !trackingData) {
+      return {
+        success: false,
+        message: 'Tracking number not found',
+        dbSuccess: false,
+        apiSuccess: false
+      };
+    }
+    
+    // Get the order's collection to check permissions
+    const { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .select('id, collection_id')
+      .eq('id', trackingData.order_id)
+      .single();
+      
+    if (orderError || !orderData) {
+      return {
+        success: false,
+        message: 'Order not found',
+        dbSuccess: false,
+        apiSuccess: false
+      };
+    }
+    
+    // Check user permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return {
+        success: false,
+        message: 'Authentication required',
+        dbSuccess: false,
+        apiSuccess: false
+      };
+    }
+    
+    // Check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+      
+    const isAdmin = userProfile?.role === 'admin';
+    
+    if (!isAdmin) {
+      // Check collection ownership
+      const { data: collection, error: collectionError } = await supabase
+        .from('collections')
+        .select('user_id')
+        .eq('id', orderData.collection_id)
+        .single();
+        
+      if (collectionError) {
+        return {
+          success: false,
+          message: 'Failed to verify collection access',
+          dbSuccess: false,
+          apiSuccess: false
+        };
+      }
+      
+      const isOwner = collection.user_id === user.id;
+      
+      if (!isOwner) {
+        // Check for edit access
+        const { data: accessData, error: accessError } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', orderData.collection_id)
+          .eq('user_id', user.id)
+          .single();
+          
+        if (accessError || !accessData || accessData.access_type !== 'edit') {
+          return {
+            success: false,
+            message: 'Access denied: Edit permission required to delete tracking',
+            dbSuccess: false,
+            apiSuccess: false
+          };
+        }
+      }
+    }
+
+    // Delete from our database now that permissions are verified
     const { error } = await supabase
       .from('order_tracking')
       .delete()
