@@ -1009,6 +1009,18 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               className="text-gray-400 hover:text-gray-200"
             />
           )}
+          {/* Export Button - Mobile only */}
+          <Button
+            onClick={() => void exportToCSV()}
+            disabled={isExporting || filteredOrders.length === 0}
+            variant="secondary"
+            size="sm"
+            isLoading={isExporting}
+            className="sm:hidden flex items-center"
+            title="Export to CSV"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Filters and Actions */}
@@ -1066,14 +1078,14 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             </div>
           )}
 
-          {/* Export Button */}
+          {/* Export Button - Desktop only */}
           <Button
             onClick={() => void exportToCSV()}
             disabled={isExporting || filteredOrders.length === 0}
             variant="secondary"
             size="sm"
             isLoading={isExporting}
-            className="flex items-center gap-2"
+            className="hidden sm:flex items-center gap-2"
           >
             <Download className="h-4 w-4" />
             Export to CSV
