@@ -104,13 +104,14 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
 
   const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
     try {
-      console.log(`Calling update_merchant_order_status for order ${orderId} to status ${status}`);
-      // Use the database procedure instead of directly updating the table
-      // This ensures proper permission checks are applied
-      const { error } = await supabase.rpc('update_merchant_order_status', {
-        p_order_id: orderId,
-        p_status: status
-      });
+      console.log(`Updating order ${orderId} status to ${status}`);
+      
+      // Use direct update approach with properly cast status value
+      // The RLS policies will ensure proper access control
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: status })
+        .eq('id', orderId);
 
       if (error) {
         console.error('Database error updating order status:', error);
