@@ -482,6 +482,8 @@ export function OrdersPage() {
                             <Link
                               to={`/tracking/${order.tracking.tracking_number}`}
                               className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                              target="_blank"
+                              rel="noopener noreferrer"
                             >
                               {order.tracking.tracking_number}
                               <ExternalLink className="h-3 w-3" />

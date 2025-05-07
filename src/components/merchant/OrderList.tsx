@@ -963,6 +963,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 <Link 
                   to={`/tracking/${order.tracking.tracking_number}`} 
                   className="text-sm text-gray-300 hover:text-gray-100 flex items-center gap-1"
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
                   <Truck className="h-3 w-3" />
                   {order.tracking.tracking_number}
