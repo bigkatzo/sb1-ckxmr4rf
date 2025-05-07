@@ -271,15 +271,15 @@ export function CollectionsTab() {
                 
                 <div className="absolute top-2 right-2 flex flex-row items-center gap-1">
                   {!collection.visible && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-800/70 text-gray-400">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800/80 text-gray-400">
                       <EyeOff className="h-3 w-3" />
-                      <span className="sm:inline hidden">Hidden</span>
+                      Hidden
                     </span>
                   )}
                   {collection.saleEnded && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-500/30 text-red-300">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/40 text-red-300">
                       <Ban className="h-3 w-3" />
-                      <span className="sm:inline hidden">Sale Ended</span>
+                      Sale Ended
                     </span>
                   )}
                 </div>
@@ -329,7 +329,7 @@ export function CollectionsTab() {
                             setEditingCollection(collection);
                             setShowForm(true);
                           }}
-                          className="scale-75 sm:scale-90"
+                          className="scale-90"
                           disabled={actionLoading === collection.id}
                         />
                         <DropdownMenu
@@ -367,7 +367,7 @@ export function CollectionsTab() {
                               destructive: true
                             }
                           ]}
-                          triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-75 sm:scale-90 ${
+                          triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90 ${
                             actionLoading === collection.id ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                           menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
