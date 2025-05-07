@@ -125,50 +125,51 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
         accessType: orderBefore?.access_type
       });
       
-      // If not admin, explicitly check collection permissions
-      if (orderBefore.access_type !== 'admin') {
-        // Get current user
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) {
-          console.error('Error getting current user:', userError);
-          throw new Error('Authentication required');
-        }
-        
-        if (orderBefore.access_type === 'edit') {
-          // For users with edit access, verify they actually have edit access in collection_access table
-          const { data: access, error: accessError } = await supabase
-            .from('collection_access')
-            .select('access_type')
-            .eq('collection_id', orderBefore.collection_id)
-            .eq('user_id', user.id)
-            .single();
-            
-          console.log('Collection access check:', {
-            userId: user.id,
-            collectionId: orderBefore.collection_id,
-            accessFound: !!access,
-            accessType: access?.access_type,
-            error: accessError
-          });
-          
-          if (accessError || !access || access.access_type !== 'edit') {
-            throw new Error('You do not have permission to update this order');
-          }
-        }
+      // If not admin, owner, or edit, verify permissions
+      if (!['admin', 'owner', 'edit'].includes(orderBefore.access_type)) {
+        throw new Error('You do not have permission to update this order');
       }
       
-      // Perform the update with direct SQL insert to avoid type conversion issues
-      const { data: updateResult, error: updateError } = await supabase
-        .from('orders')
-        .update({ status: status })
-        .eq('id', orderId)
-        .select('id, status');
+      let updateResult;
+      let updateError; 
+      
+      // For admins, use the direct update that was working before
+      // For users with edit or owner access, use the merchant_update_order_status RPC
+      if (orderBefore.access_type === 'admin') {
+        // Original approach that works for admins
+        const result = await supabase
+          .from('orders')
+          .update({ status: status })
+          .eq('id', orderId)
+          .select('id, status');
+          
+        updateResult = result.data;
+        updateError = result.error;
         
-      console.log('Update result:', {
-        success: !updateError,
-        updateResult,
-        error: updateError
-      });
+        console.log('Admin update result:', {
+          success: !updateError,
+          updateResult,
+          error: updateError
+        });
+      } else {
+        // For non-admins (edit, owner), use the RPC function designed for merchant access
+        const result = await supabase
+          .rpc('merchant_update_order_status', { 
+            p_order_id: orderId, 
+            p_status: status 
+          });
+          
+        updateResult = result.data;
+        updateError = result.error;
+        
+        console.log('Merchant update result:', updateResult);
+        
+        // Check for RPC function success flag
+        if (!updateError && updateResult && !updateResult.success) {
+          console.error('Failed to update order status:', updateResult.message);
+          throw new Error(updateResult.message || 'Update failed');
+        }
+      }
       
       if (updateError) {
         console.error('Database error updating order status:', updateError);
