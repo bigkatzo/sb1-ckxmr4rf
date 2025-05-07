@@ -1089,16 +1089,13 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           <Button
             onClick={() => void exportToCSV()}
             disabled={isExporting || filteredOrders.length === 0}
-            className="bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1.5 ml-auto rounded-md text-sm flex items-center gap-1"
+            variant="secondary"
+            size="sm"
+            isLoading={isExporting}
+            className="hidden sm:flex items-center gap-2"
           >
-            {isExporting ? (
-              <Loading type={LoadingType.ACTION} />
-            ) : (
-              <>
-                <Download className="h-3.5 w-3.5" />
-                <span>Export CSV</span>
-              </>
-            )}
+            <Download className="h-4 w-4" />
+            Export to CSV
           </Button>
         </div>
       </div>
