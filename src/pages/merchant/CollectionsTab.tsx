@@ -271,13 +271,13 @@ export function CollectionsTab() {
                 
                 <div className="absolute top-2 right-2 flex flex-row items-center gap-1">
                   {!collection.visible && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800/80 text-gray-400">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800/90 text-gray-300">
                       <EyeOff className="h-3 w-3" />
                       Hidden
                     </span>
                   )}
                   {collection.saleEnded && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/40 text-red-300">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/60 text-red-200">
                       <Ban className="h-3 w-3" />
                       Sale Ended
                     </span>
