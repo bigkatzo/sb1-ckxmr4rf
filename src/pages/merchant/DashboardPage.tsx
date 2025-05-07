@@ -1,10 +1,11 @@
 import React, { lazy, Suspense, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs } from '../../components/ui/Tabs';
-import { Settings, LogOut } from 'lucide-react';
+import { Settings, LogOut, ShieldAlert } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 import { MerchantDashboardProvider } from '../../contexts/MerchantDashboardContext';
+import { toast } from 'react-toastify';
 
 // Lazy load tab components
 const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
@@ -38,7 +39,9 @@ const adminTabs = [
 export function DashboardPage() {
   const [activeTab, setActiveTab] = React.useState('collections');
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
+  const [isMerchant, setIsMerchant] = React.useState<boolean | null>(null);
   const [hasCollectionAccess, setHasCollectionAccess] = React.useState(false);
+  const [checking, setChecking] = React.useState(true);
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -64,41 +67,63 @@ export function DashboardPage() {
 
   React.useEffect(() => {
     async function checkPermissions() {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) return;
+      setChecking(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          navigate('/merchant/signin');
+          return;
+        }
 
-      // Check if admin using user_profiles
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
+        // Check user role from user_profiles
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
 
-      setIsAdmin(profile?.role === 'admin');
+        const userIsAdmin = profile?.role === 'admin';
+        const userIsMerchant = userIsAdmin || profile?.role === 'merchant';
+        
+        setIsAdmin(userIsAdmin);
+        setIsMerchant(userIsMerchant);
 
-      // Check for collections user owns
-      const { data: ownedCollections } = await supabase
-        .from('collections')
-        .select('id')
-        .eq('user_id', user.id);
+        // If user is not a merchant or admin, redirect to home with a message
+        if (!userIsMerchant) {
+          toast.error('You don\'t have access to the merchant dashboard. Please contact an administrator.');
+          navigate('/');
+          return;
+        }
 
-      // Check for collections user has access to
-      const { data: accessibleCollections } = await supabase
-        .from('collection_access')
-        .select('collection_id')
-        .eq('user_id', user.id);
+        // Check for collections user owns
+        const { data: ownedCollections } = await supabase
+          .from('collections')
+          .select('id')
+          .eq('user_id', user.id);
 
-      // User has access if they own collections or have been granted access
-      const hasAccess = Boolean(
-        (ownedCollections && ownedCollections.length > 0) || 
-        (accessibleCollections && accessibleCollections.length > 0)
-      );
+        // Check for collections user has access to
+        const { data: accessibleCollections } = await supabase
+          .from('collection_access')
+          .select('collection_id')
+          .eq('user_id', user.id);
 
-      setHasCollectionAccess(hasAccess);
+        // User has access if they own collections or have been granted access
+        const hasAccess = Boolean(
+          (ownedCollections && ownedCollections.length > 0) || 
+          (accessibleCollections && accessibleCollections.length > 0)
+        );
+
+        setHasCollectionAccess(hasAccess);
+      } catch (error) {
+        console.error('Error checking permissions:', error);
+      } finally {
+        setChecking(false);
+      }
     }
+    
     checkPermissions();
-  }, []);
+  }, [navigate]);
 
   // Reset to a valid tab if user tries to access admin-only tabs
   React.useEffect(() => {
@@ -114,6 +139,34 @@ export function DashboardPage() {
     }
     return merchantTabs;
   }, [isAdmin]);
+
+  // If still checking permissions, show loading state
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loading type={LoadingType.PAGE} text="Checking permissions..." />
+      </div>
+    );
+  }
+
+  // If user is not a merchant or admin, show access denied (this is a fallback, they should be redirected)
+  if (isMerchant === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+        <ShieldAlert className="h-16 w-16 text-red-500 mb-4" />
+        <h1 className="text-2xl font-bold text-gray-200 mb-2">Access Denied</h1>
+        <p className="text-gray-400 max-w-md mb-6">
+          You don't have permission to access the merchant dashboard. Please contact an administrator.
+        </p>
+        <button
+          onClick={() => navigate('/')}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+        >
+          Return to Home
+        </button>
+      </div>
+    );
+  }
 
   // Show empty state message when no collections exist
   const renderTabContent = (tabId: string) => {

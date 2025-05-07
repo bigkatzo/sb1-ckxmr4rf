@@ -292,6 +292,7 @@ export function ProductsTab() {
                   collectionSlug: collection?.slug
                 }}
                 categoryIndex={product.categoryId ? categoryIndices[product.categoryId] : 0}
+                canEdit={canEdit}
                 onEdit={canEdit ? () => {
                   setEditingProduct(product);
                   setShowForm(true);

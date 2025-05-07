@@ -247,6 +247,7 @@ export function CategoriesTab() {
                 category={category}
                 index={index}
                 selected={selectedCategory === category.id}
+                canEdit={canEdit}
                 onEdit={canEdit ? () => {
                   setEditingCategory(category);
                   setShowForm(true);

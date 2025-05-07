@@ -12,6 +12,18 @@ export async function createCollection(data: FormData) {
       if (authError) throw new Error(`Authentication error: ${authError.message}`);
       if (!user) throw new Error('You must be logged in to create a collection');
 
+      // Check if user has merchant permissions
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      
+      // If user isn't a merchant or admin, show a friendly error message
+      if (!profile || (profile.role !== 'merchant' && profile.role !== 'admin')) {
+        throw new Error('You don\'t have permission to create collections. Contact your administrator for access.');
+      }
+
       // Get and validate required fields
       const name = data.get('name');
       if (!name) throw new Error('Collection name is required');
@@ -81,6 +93,10 @@ export async function createCollection(data: FormData) {
       if (insertError) {
         if (insertError.code === '23505') { // Unique violation
           throw new Error('A collection with this ID already exists. Please try a different one.');
+        }
+        // Handle row-level security policy violations with a user-friendly message
+        if (insertError.message && insertError.message.includes('row-level security policy')) {
+          throw new Error('You don\'t have permission to create collections. Contact your administrator for access.');
         }
         throw new Error(`Failed to create collection: ${insertError.message}`);
       }

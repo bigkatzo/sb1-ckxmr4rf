@@ -35,6 +35,7 @@ export function CollectionsTab() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isMerchant, setIsMerchant] = useState(false);
 
   // Use the filter persistence hook
   const [filters, setFilters] = useFilterPersistence<CollectionFilterState>(
@@ -160,9 +161,9 @@ export function CollectionsTab() {
     }
   };
 
-  // Check if user is admin
+  // Check if user is admin or merchant
   useEffect(() => {
-    const checkAdmin = async () => {
+    const checkPermissions = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
@@ -172,10 +173,11 @@ export function CollectionsTab() {
           .single();
         
         setIsAdmin(profile?.role === 'admin');
+        setIsMerchant(profile?.role === 'admin' || profile?.role === 'merchant');
       }
     };
     
-    checkAdmin();
+    checkPermissions();
   }, []);
 
   if (loading) {
@@ -210,16 +212,18 @@ export function CollectionsTab() {
           <div className="flex items-center gap-2 ml-auto flex-shrink-0">
             <RefreshButton onRefresh={refetch} loading={refreshing} />
             
-            <button
-              onClick={() => {
-                setEditingCollection(null);
-                setShowForm(true);
-              }}
-              className="inline-flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white p-2 md:px-4 md:py-2 rounded-lg transition-colors text-sm font-medium shadow-sm whitespace-nowrap"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden md:inline">Add Collection</span>
-            </button>
+            {isMerchant && (
+              <button
+                onClick={() => {
+                  setEditingCollection(null);
+                  setShowForm(true);
+                }}
+                className="inline-flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white p-2 md:px-4 md:py-2 rounded-lg transition-colors text-sm font-medium shadow-sm whitespace-nowrap"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden md:inline">Add Collection</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -230,8 +234,16 @@ export function CollectionsTab() {
         </div>
       ) : filteredCollections.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
-          {collections.length === 0 ? (
-          <p className="text-gray-400 text-sm">No collections created yet.</p>
+          {!isMerchant ? (
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <Ban className="h-10 w-10 text-gray-400 mb-3" />
+              <h3 className="text-lg font-medium text-gray-300 mb-2">No Collection Access</h3>
+              <p className="text-gray-400 max-w-md mx-auto">
+                You don't have permission to create or manage collections. Please contact your administrator if you need access to this feature.
+              </p>
+            </div>
+          ) : collections.length === 0 ? (
+            <p className="text-gray-400 text-sm">No collections created yet.</p>
           ) : (
             <p className="text-gray-400 text-sm">No collections match the current filters.</p>
           )}

@@ -26,6 +26,7 @@ interface CollectionListItemProps {
   onToggleVisibility?: (visible: boolean) => void;
   onToggleSaleEnded?: (saleEnded: boolean) => void;
   onToggleFeatured?: (featured: boolean) => void;
+  canEdit?: boolean;
 }
 
 export function CollectionListItem({
@@ -35,8 +36,12 @@ export function CollectionListItem({
   onDelete,
   onToggleVisibility,
   onToggleSaleEnded,
-  onToggleFeatured
+  onToggleFeatured,
+  canEdit = false
 }: CollectionListItemProps) {
+  // Only show actions if user has edit permission
+  const showActions = canEdit || isAdmin;
+  
   // Generate dropdown menu items based on available actions
   const dropdownItems = [];
   
@@ -51,7 +56,7 @@ export function CollectionListItem({
     });
   }
   
-  if (onToggleVisibility) {
+  if (canEdit && onToggleVisibility) {
     dropdownItems.push({
       label: collection.visible ? 'Hide Collection' : 'Show Collection',
       icon: collection.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
@@ -59,7 +64,7 @@ export function CollectionListItem({
     });
   }
   
-  if (onToggleSaleEnded) {
+  if (canEdit && onToggleSaleEnded) {
     dropdownItems.push({
       label: collection.saleEnded ? 'Resume Sale' : 'End Sale',
       icon: <Tag className="h-4 w-4" />,
@@ -67,7 +72,7 @@ export function CollectionListItem({
     });
   }
   
-  if (onDelete) {
+  if (canEdit && onDelete) {
     dropdownItems.push({
       label: 'Delete',
       icon: <Trash className="h-4 w-4" />,
@@ -148,24 +153,26 @@ export function CollectionListItem({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {isAdmin && onToggleFeatured && (
-                <StarButton
-                  featured={collection.featured || false}
-                  onClick={() => onToggleFeatured(collection.featured || false)}
-                  className="scale-90"
-                />
-              )}
-              {onEdit && <EditButton onClick={onEdit} className="scale-90" />}
-              {dropdownItems.length > 0 && (
-                <DropdownMenu 
-                  items={dropdownItems}
-                  triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
-                  menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
-                  position="auto"
-                />
-              )}
-            </div>
+            {showActions && (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {isAdmin && onToggleFeatured && (
+                  <StarButton
+                    featured={collection.featured || false}
+                    onClick={() => onToggleFeatured(collection.featured || false)}
+                    className="scale-90"
+                  />
+                )}
+                {canEdit && onEdit && <EditButton onClick={onEdit} className="scale-90" />}
+                {dropdownItems.length > 0 && (
+                  <DropdownMenu 
+                    items={dropdownItems}
+                    triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
+                    menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
+                    position="auto"
+                  />
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

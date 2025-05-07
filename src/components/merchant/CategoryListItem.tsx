@@ -23,6 +23,7 @@ interface CategoryListItemProps {
   onDelete?: () => void;
   onToggleVisibility?: (visible: boolean) => void;
   onToggleSaleEnded?: (saleEnded: boolean) => void;
+  canEdit?: boolean;
 }
 
 export function CategoryListItem({
@@ -32,12 +33,16 @@ export function CategoryListItem({
   onEdit,
   onDelete,
   onToggleVisibility,
-  onToggleSaleEnded
+  onToggleSaleEnded,
+  canEdit = false
 }: CategoryListItemProps) {
+  // Only show actions if user has edit permission
+  const showActions = canEdit && (onEdit || onDelete || onToggleVisibility || onToggleSaleEnded);
+  
   // Generate dropdown menu items based on available actions
   const dropdownItems = [];
   
-  if (onToggleVisibility) {
+  if (canEdit && onToggleVisibility) {
     dropdownItems.push({
       label: category.visible ? 'Hide Category' : 'Show Category',
       icon: category.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
@@ -47,7 +52,7 @@ export function CategoryListItem({
     });
   }
   
-  if (onToggleSaleEnded) {
+  if (canEdit && onToggleSaleEnded) {
     dropdownItems.push({
       label: category.saleEnded ? 'Resume Sale' : 'End Sale',
       icon: <Tag className="h-4 w-4" />,
@@ -57,7 +62,7 @@ export function CategoryListItem({
     });
   }
   
-  if (onDelete) {
+  if (canEdit && onDelete) {
     dropdownItems.push({
       label: 'Delete',
       icon: <Trash className="h-4 w-4" />,
@@ -75,29 +80,18 @@ export function CategoryListItem({
   );
 
   return (
-    <div 
-      className={`
-        ${selected ? 'bg-primary/10 border-2 border-primary' : 'bg-gray-900 border-2 border-transparent hover:bg-gray-800'} 
-        rounded-lg p-3 transition-colors
-      `}
-    >
-      <div className="flex items-start gap-3">
-        <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 flex items-center justify-center">
-          {selected ? (
-            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </div>
-          ) : (
+    <div className={`bg-gray-900 hover:bg-gray-800 transition-colors rounded-lg overflow-hidden`}>
+      <div className="flex items-center p-3">
+        <div className="flex-shrink-0 mr-4">
           <CategoryDiamond 
             type={category.type}
             index={index}
-              selected={false}
-            size="lg"
+            selected={selected}
+            size="md"
+            className={selected ? "ring-2 ring-primary" : ""}
           />
-          )}
         </div>
+        
         <div className="flex-1">
           <div className="flex items-start justify-between">
             <div>
@@ -131,22 +125,24 @@ export function CategoryListItem({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-              {onEdit && (
-                <EditButton 
-                  onClick={() => onEdit()} 
-                  className="scale-90" 
-                />
-              )}
-              {dropdownItems.length > 0 && (
-                <DropdownMenu 
-                  items={dropdownItems}
-                  triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
-                  menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
-                  position="auto"
-                />
-              )}
-            </div>
+            {showActions && (
+              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                {canEdit && onEdit && (
+                  <EditButton 
+                    onClick={() => onEdit()} 
+                    className="scale-90" 
+                  />
+                )}
+                {dropdownItems.length > 0 && (
+                  <DropdownMenu 
+                    items={dropdownItems}
+                    triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
+                    menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
+                    position="auto"
+                  />
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

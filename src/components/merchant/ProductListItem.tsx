@@ -16,6 +16,7 @@ interface ProductListItemProps {
   onToggleSaleEnded?: (saleEnded: boolean) => void;
   onClick?: () => void;
   categoryIndex?: number;
+  canEdit?: boolean;
 }
 
 export function ProductListItem({ 
@@ -26,7 +27,8 @@ export function ProductListItem({
   onToggleVisibility,
   onToggleSaleEnded,
   onClick,
-  categoryIndex = 0 
+  categoryIndex = 0,
+  canEdit = false
 }: ProductListItemProps) {
   const { currentOrders, loading } = useOrderStats(product.id);
   
@@ -40,6 +42,9 @@ export function ProductListItem({
     if (remaining <= 0) return `0/${product.stock} (Sold out)`;
     return `${remaining}/${product.stock}`;
   };
+
+  // Only show actions if user has edit permission
+  const showActions = canEdit && (onEdit || onDelete || onDuplicate || onToggleVisibility || onToggleSaleEnded);
 
   // Generate dropdown menu items based on available actions
   const dropdownItems = [];
@@ -55,7 +60,7 @@ export function ProductListItem({
     });
   }
   
-  if (onDuplicate) {
+  if (canEdit && onDuplicate) {
     dropdownItems.push({
       label: 'Duplicate',
       icon: <Copy className="h-4 w-4" />,
@@ -63,7 +68,7 @@ export function ProductListItem({
     });
   }
   
-  if (onToggleVisibility) {
+  if (canEdit && onToggleVisibility) {
     dropdownItems.push({
       label: product.visible ? 'Hide Product' : 'Show Product',
       icon: product.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
@@ -71,7 +76,7 @@ export function ProductListItem({
     });
   }
   
-  if (onToggleSaleEnded && !product.categorySaleEnded && !product.collectionSaleEnded) {
+  if (canEdit && onToggleSaleEnded && !product.categorySaleEnded && !product.collectionSaleEnded) {
     dropdownItems.push({
       label: product.saleEnded ? 'Resume Sale' : 'End Sale',
       icon: <Tag className="h-4 w-4" />,
@@ -79,7 +84,7 @@ export function ProductListItem({
     });
   }
   
-  if (onDelete) {
+  if (canEdit && onDelete) {
     dropdownItems.push({
       label: 'Delete',
       icon: <Trash className="h-4 w-4" />,
@@ -90,28 +95,21 @@ export function ProductListItem({
 
   return (
     <div 
+      className={`bg-gray-900 hover:bg-gray-800 rounded-lg overflow-hidden group transition-colors ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
-      className={`
-        bg-gray-900 rounded-lg group
-        ${onClick ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}
-      `}
     >
-      <div className="flex items-start gap-3 p-3">
-        <div className="relative h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
+      <div className="flex overflow-hidden p-3">
+        <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 bg-gray-800 rounded-md overflow-hidden mr-3">
           {product.imageUrl ? (
             <OptimizedImage
               src={product.imageUrl}
               alt={product.name}
-              width={160}
-              height={160}
-              quality={75}
-              className="object-cover w-full h-full"
+              className="h-full w-full object-cover"
               sizes="80px"
-              priority
             />
           ) : (
-            <div className="h-full w-full flex items-center justify-center">
-              <ImageIcon className="h-6 w-6 text-gray-600" />
+            <div className="flex items-center justify-center h-full w-full bg-gray-800 text-gray-600">
+              <ImageIcon className="h-6 w-6" />
             </div>
           )}
         </div>
@@ -152,17 +150,19 @@ export function ProductListItem({
               )}
             </div>
             
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {onEdit && <EditButton onClick={() => onEdit()} className="scale-90" />}
-              {dropdownItems.length > 0 && (
-                <DropdownMenu 
-                  items={dropdownItems}
-                  triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
-                  menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
-                  position="auto"
-                />
-              )}
-            </div>
+            {showActions && (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                {canEdit && onEdit && <EditButton onClick={() => onEdit()} className="scale-90" />}
+                {dropdownItems.length > 0 && (
+                  <DropdownMenu 
+                    items={dropdownItems}
+                    triggerClassName="p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90"
+                    menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
+                    position="auto"
+                  />
+                )}
+              </div>
+            )}
           </div>
           
           <div className="flex items-center justify-between mt-2">
