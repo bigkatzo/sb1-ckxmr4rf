@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban } from 'lucide-react';
+import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban, User } from 'lucide-react';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { useFilterPersistence } from '../../hooks/useFilterPersistence';
@@ -253,7 +253,7 @@ export function CollectionsTab() {
                   <img 
                     src={collection.imageUrl} 
                     alt={collection.name} 
-                    className="w-full h-32 object-cover"
+                    className="w-full h-40 object-cover"
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent opacity-70" />
@@ -271,13 +271,13 @@ export function CollectionsTab() {
                 
                 <div className="absolute top-2 right-2 flex flex-row items-center gap-1.5">
                   {!collection.visible && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-400">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800/70 text-gray-400">
                       <EyeOff className="h-3 w-3" />
                       Hidden
                     </span>
                   )}
                   {collection.saleEnded && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/30 text-red-300">
                       <Ban className="h-3 w-3" />
                       Sale Ended
                     </span>
@@ -304,6 +304,16 @@ export function CollectionsTab() {
                   )}
                 </div>
                 <p className="text-gray-400 text-sm mt-1 line-clamp-2">{collection.description || 'No description'}</p>
+                
+                {/* Add owner information for admins */}
+                {isAdmin && collection.owner_username && (
+                  <div className="mt-1.5 flex items-center">
+                    <span className="text-xs text-green-300 bg-green-900/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      <span>Owner: {collection.owner_username}</span>
+                    </span>
+                  </div>
+                )}
                 
                 <div className="mt-4 flex justify-between items-center">
                   <div className="flex gap-2 text-xs text-gray-400">

@@ -67,7 +67,7 @@ export function ProductListItem({
     dropdownItems.push({
       label: product.visible ? 'Hide Product' : 'Show Product',
       icon: product.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
-      onClick: () => onToggleVisibility(product.visible || false)
+      onClick: () => onToggleVisibility(!product.visible)
     });
   }
   
@@ -75,7 +75,7 @@ export function ProductListItem({
     dropdownItems.push({
       label: product.saleEnded ? 'Resume Sale' : 'End Sale',
       icon: <Tag className="h-4 w-4" />,
-      onClick: () => onToggleSaleEnded(product.saleEnded || false)
+      onClick: () => onToggleSaleEnded(!product.saleEnded)
     });
   }
   

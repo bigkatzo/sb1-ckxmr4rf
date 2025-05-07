@@ -42,7 +42,7 @@ export function CategoryListItem({
       label: category.visible ? 'Hide Category' : 'Show Category',
       icon: category.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
       onClick: () => {
-        onToggleVisibility(category.visible);
+        onToggleVisibility(!category.visible);
       }
     });
   }
@@ -52,7 +52,7 @@ export function CategoryListItem({
       label: category.saleEnded ? 'Resume Sale' : 'End Sale',
       icon: <Tag className="h-4 w-4" />,
       onClick: () => {
-        onToggleSaleEnded(category.saleEnded);
+        onToggleSaleEnded(!category.saleEnded);
       }
     });
   }
