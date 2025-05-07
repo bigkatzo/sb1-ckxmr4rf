@@ -253,7 +253,7 @@ export function CollectionsTab() {
                   <img 
                     src={collection.imageUrl} 
                     alt={collection.name} 
-                    className="w-full h-40 object-cover"
+                    className="w-full h-32 sm:h-40 object-cover"
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent opacity-70" />
@@ -269,59 +269,59 @@ export function CollectionsTab() {
                   )}
                 </div>
                 
-                <div className="absolute top-2 right-2 flex flex-row items-center gap-1.5">
+                <div className="absolute top-2 right-2 flex flex-row items-center gap-1">
                   {!collection.visible && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800/70 text-gray-400">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-800/70 text-gray-400">
                       <EyeOff className="h-3 w-3" />
-                      Hidden
+                      <span className="sm:inline hidden">Hidden</span>
                     </span>
                   )}
                   {collection.saleEnded && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/30 text-red-300">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-500/30 text-red-300">
                       <Ban className="h-3 w-3" />
-                      Sale Ended
+                      <span className="sm:inline hidden">Sale Ended</span>
                     </span>
                   )}
                 </div>
               </div>
               
-              <div className="p-4">
+              <div className="p-2 sm:p-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <h3 className="font-medium text-lg truncate">{collection.name}</h3>
+                  <div className="flex items-center gap-1 sm:gap-2 overflow-hidden">
+                    <h3 className="font-medium text-base sm:text-lg truncate">{collection.name}</h3>
                     {!collection.isOwner && collection.accessType && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400 whitespace-nowrap flex-shrink-0">
-                        {collection.accessType === 'edit' ? 'Edit Access' : 'View Access'}
+                      <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full bg-blue-900/30 text-blue-400 whitespace-nowrap flex-shrink-0">
+                        {collection.accessType === 'edit' ? 'Edit' : 'View'}
                       </span>
                     )}
                   </div>
                   {selectedCollection === collection.id && (
-                    <div className="flex items-center justify-center h-5 w-5 rounded-full bg-primary flex-shrink-0">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <div className="flex items-center justify-center h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-primary flex-shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     </div>
                   )}
                 </div>
-                <p className="text-gray-400 text-sm mt-1 line-clamp-2">{collection.description || 'No description'}</p>
+                <p className="text-gray-400 text-xs line-clamp-2 mt-0.5 sm:mt-1">{collection.description || 'No description'}</p>
                 
                 {/* Add owner information for admins */}
                 {isAdmin && collection.owner_username && (
-                  <div className="mt-1.5 flex items-center">
-                    <span className="text-xs text-green-400 bg-green-900/40 px-1.5 py-0.5 rounded">
+                  <div className="mt-1 sm:mt-1.5 flex items-center">
+                    <span className="text-[10px] sm:text-xs text-green-400 bg-green-900/40 px-1.5 py-0.5 rounded">
                       {collection.owner_username}
                     </span>
                   </div>
                 )}
                 
-                <div className="mt-4 flex justify-between items-center">
-                  <div className="flex gap-2 text-xs text-gray-400">
+                <div className="mt-2 sm:mt-3 flex justify-between items-center">
+                  <div className="flex gap-1 sm:gap-2 text-[10px] sm:text-xs text-gray-400">
                     <span>{collection.productCount || 0} products</span>
                     <span>•</span>
                     <span>{collection.categoryCount || 0} categories</span>
                   </div>
                   
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                     {collection.isOwner && (
                       <>
                         <EditButton 
@@ -329,7 +329,7 @@ export function CollectionsTab() {
                             setEditingCollection(collection);
                             setShowForm(true);
                           }}
-                          className="scale-90"
+                          className="scale-75 sm:scale-90"
                           disabled={actionLoading === collection.id}
                         />
                         <DropdownMenu
@@ -367,7 +367,7 @@ export function CollectionsTab() {
                               destructive: true
                             }
                           ]}
-                          triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-90 ${
+                          triggerClassName={`p-1 text-gray-400 hover:text-gray-300 transition-colors rounded-md scale-75 sm:scale-90 ${
                             actionLoading === collection.id ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                           menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
