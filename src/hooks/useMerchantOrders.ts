@@ -104,23 +104,80 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
 
   const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
     try {
-      console.log(`Updating order ${orderId} status to ${status}`);
+      console.log(`Attempting to update order ${orderId} status to ${status}`);
       
-      // Use direct update approach with properly cast status value
-      // The RLS policies will ensure proper access control
-      // This avoids type casting errors with the order_status_enum type
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: status })
-        .eq('id', orderId);
-
-      if (error) {
-        console.error('Database error updating order status:', error);
-        throw error;
+      // First, get the order with collection info to verify permissions
+      const { data: orderBefore, error: fetchError } = await supabase
+        .from('merchant_orders')
+        .select('id, status, collection_id, access_type')
+        .eq('id', orderId)
+        .single();
+      
+      if (fetchError) {
+        console.error('Error fetching order:', fetchError);
+        throw fetchError;
       }
       
-      // Refresh orders after status update
+      console.log('Order found with access:', {
+        orderId,
+        currentStatus: orderBefore?.status,
+        newStatus: status,
+        accessType: orderBefore?.access_type
+      });
+      
+      // If not admin, explicitly check collection permissions
+      if (orderBefore.access_type !== 'admin') {
+        // Get current user
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          console.error('Error getting current user:', userError);
+          throw new Error('Authentication required');
+        }
+        
+        if (orderBefore.access_type === 'edit') {
+          // For users with edit access, verify they actually have edit access in collection_access table
+          const { data: access, error: accessError } = await supabase
+            .from('collection_access')
+            .select('access_type')
+            .eq('collection_id', orderBefore.collection_id)
+            .eq('user_id', user.id)
+            .single();
+            
+          console.log('Collection access check:', {
+            userId: user.id,
+            collectionId: orderBefore.collection_id,
+            accessFound: !!access,
+            accessType: access?.access_type,
+            error: accessError
+          });
+          
+          if (accessError || !access || access.access_type !== 'edit') {
+            throw new Error('You do not have permission to update this order');
+          }
+        }
+      }
+      
+      // Perform the update with direct SQL insert to avoid type conversion issues
+      const { data: updateResult, error: updateError } = await supabase
+        .from('orders')
+        .update({ status: status })
+        .eq('id', orderId)
+        .select('id, status');
+        
+      console.log('Update result:', {
+        success: !updateError,
+        updateResult,
+        error: updateError
+      });
+      
+      if (updateError) {
+        console.error('Database error updating order status:', updateError);
+        throw updateError;
+      }
+      
+      // Force reload orders
       await fetchOrders();
+      
     } catch (err) {
       console.error('Error updating order status:', err);
       const errorMessage = handleError(err);
