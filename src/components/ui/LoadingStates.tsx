@@ -1,6 +1,5 @@
 import { Loader2 } from 'lucide-react';
 import { Skeleton } from './Skeleton';
-import { OptimizedImage } from './OptimizedImage';
 
 export enum LoadingType {
   CONTENT = 'content',
@@ -37,12 +36,11 @@ export const Loading: React.FC<LoadingProps> = ({ type, className = '', text }) 
     
     return (
       <div className={`relative ${container} text-white ${containerClassName}`}>
-        <OptimizedImage
+        <img 
           src={logoUrl}
           alt="Loading..."
           className={`${logo} absolute inset-0 m-auto animate-pulse`}
-          objectFit="contain"
-          priority={true}
+          style={{ objectFit: 'contain' }}
         />
         <div 
           className={`absolute ${inset} border-t-2 border-primary rounded-full animate-spin`}
