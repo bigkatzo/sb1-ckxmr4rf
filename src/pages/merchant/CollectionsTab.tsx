@@ -243,7 +243,19 @@ export function CollectionsTab() {
               </p>
             </div>
           ) : collections.length === 0 ? (
-            <p className="text-gray-400 text-sm">No collections created yet.</p>
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <p className="text-gray-400 text-sm mb-4">No collections created yet.</p>
+              <p className="text-gray-400 text-sm">
+                <a 
+                  href="https://t.me/storedotfun" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-purple-400 hover:text-purple-300 underline"
+                >
+                  Contact support
+                </a> to gain merchant access and be able to create collections.
+              </p>
+            </div>
           ) : (
             <p className="text-gray-400 text-sm">No collections match the current filters.</p>
           )}

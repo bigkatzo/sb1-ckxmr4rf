@@ -173,8 +173,18 @@ export function DashboardPage() {
     const NoAccessMessage = () => (
       <div className="flex flex-col items-center justify-center h-[400px] text-center">
         <h3 className="text-lg font-medium text-gray-300 mb-2">No Collection Access</h3>
-        <p className="text-gray-500 max-w-md">
+        <p className="text-gray-500 max-w-md mb-4">
           You need to either create a collection or be granted access to one before you can manage {tabId}.
+        </p>
+        <p className="text-gray-400 max-w-md">
+          <a 
+            href="https://t.me/storedotfun" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-300 underline"
+          >
+            Contact support
+          </a> to gain merchant access and be able to create collections.
         </p>
       </div>
     );
