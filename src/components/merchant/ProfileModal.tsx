@@ -36,15 +36,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    // Update image preview when profileImage changes
-    if (profileData.profileImage) {
-      setImagePreview(profileData.profileImage);
-    } else {
-      setImagePreview(null);
-    }
-  }, [profileData.profileImage]);
-
   async function fetchProfileData() {
     try {
       setIsLoading(true);
@@ -68,13 +59,18 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       // Get display name from auth metadata if it exists
       const displayName = user.user_metadata?.display_name || profile?.display_name || '';
       
+      const profileImage = profile?.profile_image || null;
+      
       setProfileData({
         displayName: displayName,
         description: profile?.description || '',
         payoutWallet: profile?.payout_wallet || '',
-        profileImage: profile?.profile_image || null,
+        profileImage: profileImage,
         websiteUrl: profile?.website_url || ''
       });
+      
+      // Set image preview directly from profile data
+      setImagePreview(profileImage);
     } catch (error) {
       console.error('Error fetching profile:', error);
       toast.error('Failed to load profile data');
@@ -89,6 +85,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
     try {
       setIsUploading(true);
+      
+      // Create a local URL preview immediately - do this first for instant feedback
+      const localImageUrl = URL.createObjectURL(file);
+      setImagePreview(localImageUrl);
       
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -122,11 +122,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         
       console.log('Image public URL:', urlData.publicUrl);
       
-      // Create a local URL preview immediately
-      const imageUrl = URL.createObjectURL(file);
-      setImagePreview(imageUrl);
-      
       // Update profile data state with the Supabase public URL
+      // but don't change the image preview which is already showing the local file
       setProfileData(prev => ({
         ...prev,
         profileImage: urlData.publicUrl
@@ -136,6 +133,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     } catch (error) {
       console.error('Error uploading image:', error);
       toast.error('Failed to upload image');
+      // Reset preview on error
+      setImagePreview(profileData.profileImage);
     } finally {
       setIsUploading(false);
       
