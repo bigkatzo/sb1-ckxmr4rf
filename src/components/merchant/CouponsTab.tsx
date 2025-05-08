@@ -140,22 +140,17 @@ export function CouponsTab() {
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <p className="text-sm text-gray-400">
               Manage discount coupons for your products
             </p>
-            {!loading && (
-              <span className="text-xs text-gray-400">
-                ({coupons.length} coupon{coupons.length !== 1 ? 's' : ''})
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-2">
             <RefreshButton onRefresh={loadCoupons} />
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
             >
               <Plus className="h-4 w-4" />
               <span>Add Coupon</span>
@@ -186,7 +181,7 @@ export function CouponsTab() {
           {coupons.map((coupon) => (
             <div
               key={coupon.id}
-              className="bg-gray-900 rounded-lg p-3 sm:p-4 hover:bg-gray-800/50 transition-colors"
+              className="bg-gray-900 rounded-lg p-3 hover:bg-gray-800/50 transition-colors"
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -226,7 +221,7 @@ export function CouponsTab() {
                   </div>
                 </div>
                 
-                <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-0">
+                <div className="flex items-center gap-2">
                   <Button
                     variant="secondary"
                     size="sm"
@@ -248,14 +243,14 @@ export function CouponsTab() {
                     {coupon.status === 'active' ? 'Deactivate' : 'Activate'}
                   </Button>
                   <Button
-                    variant="danger"
+                    variant="ghost"
                     size="sm"
                     onClick={() => {
                       setDeletingCoupon(coupon);
                       setShowDeleteConfirm(true);
                     }}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -264,36 +259,36 @@ export function CouponsTab() {
         </div>
       )}
 
-      {/* Coupon Form Modal */}
+      {/* Add/Edit Coupon Modal */}
       <Modal
         isOpen={showAddModal}
         onClose={() => {
           setShowAddModal(false);
           setEditingCoupon(null);
         }}
-        title={editingCoupon ? 'Edit Coupon' : 'Create Coupon'}
+        title={editingCoupon ? 'Edit Coupon' : 'Add New Coupon'}
       >
         <CouponForm
-          initialData={editingCoupon || undefined}
-          onSubmit={handleSaveCoupon}
           onClose={() => {
             setShowAddModal(false);
             setEditingCoupon(null);
           }}
+          onSubmit={handleSaveCoupon}
+          initialData={editingCoupon || undefined}
         />
       </Modal>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Modal */}
       <ConfirmDialog
         open={showDeleteConfirm}
         onClose={() => {
           setShowDeleteConfirm(false);
           setDeletingCoupon(null);
         }}
-        onConfirm={handleDeleteCoupon}
         title="Delete Coupon"
         description={`Are you sure you want to delete the coupon "${deletingCoupon?.code}"? This action cannot be undone.`}
         confirmLabel="Delete"
+        onConfirm={handleDeleteCoupon}
       />
     </div>
   );

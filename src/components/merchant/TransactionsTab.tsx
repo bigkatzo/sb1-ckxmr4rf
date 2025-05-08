@@ -15,8 +15,6 @@ import {
 export function TransactionsTab() {
   const [anomalies, setAnomalies] = useState<TransactionAnomaly[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState<Set<string>>(new Set());
   const [selectedType, setSelectedType] = useState<TransactionAnomalyType | 'all'>('all');
 
@@ -24,10 +22,7 @@ export function TransactionsTab() {
     try {
       if (!isRefresh) {
         setLoading(true);
-      } else {
-        setRefreshing(true);
       }
-      setError(null);
 
       const { data, error: fetchError } = await supabase
         .rpc('get_transaction_anomalies', {
@@ -39,10 +34,9 @@ export function TransactionsTab() {
       setAnomalies(data || []);
     } catch (err) {
       console.error('Error fetching anomalies:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch transaction anomalies');
+      toast.error('Failed to fetch transaction anomalies');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -263,102 +257,90 @@ export function TransactionsTab() {
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <p className="text-sm text-gray-400">
               Manage and resolve transaction issues
             </p>
-            <span className="text-xs text-gray-400">
-              ({filteredAnomalies.length} issue{filteredAnomalies.length !== 1 ? 's' : ''})
-            </span>
           </div>
           <div className="flex items-center gap-2">
-            <RefreshButton 
-              onRefresh={() => fetchAnomalies(true)} 
-              loading={refreshing}
-            />
-            {refreshing && (
-              <span className="text-xs text-purple-400">
-                Refreshing...
-              </span>
-            )}
+            <RefreshButton onRefresh={() => fetchAnomalies(true)} />
           </div>
         </div>
         
         {/* Filter Controls */}
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-2">
-          <div className="flex items-center gap-2 min-w-max pb-0.5 scrollbar-hide">
-            <Button
-              size="sm"
-              variant={selectedType === 'all' ? 'primary' : 'secondary'}
-              onClick={() => setSelectedType('all')}
-              className="text-xs whitespace-nowrap"
-            >
-              All
-            </Button>
-            <Button
-              size="sm"
-              variant={selectedType === 'failed_payment' ? 'primary' : 'secondary'}
-              onClick={() => setSelectedType('failed_payment')}
-              className="text-xs whitespace-nowrap"
-            >
-              Failed Payments
-            </Button>
-            <Button
-              size="sm"
-              variant={selectedType === 'rejected_payment' ? 'primary' : 'secondary'}
-              onClick={() => setSelectedType('rejected_payment')}
-              className="text-xs whitespace-nowrap"
-            >
-              Rejected Payments
-            </Button>
-            <Button
-              size="sm"
-              variant={selectedType === 'orphaned_transaction' ? 'primary' : 'secondary'}
-              onClick={() => setSelectedType('orphaned_transaction')}
-              className="text-xs whitespace-nowrap"
-            >
-              Orphaned Transactions
-            </Button>
-            <Button
-              size="sm"
-              variant={selectedType === 'abandoned_order' ? 'primary' : 'secondary'}
-              onClick={() => setSelectedType('abandoned_order')}
-              className="text-xs whitespace-nowrap"
-            >
-              Abandoned Orders
-            </Button>
-            <Button
-              size="sm"
-              variant={selectedType === 'pending_timeout' ? 'primary' : 'secondary'}
-              onClick={() => setSelectedType('pending_timeout')}
-              className="text-xs whitespace-nowrap"
-            >
-              Pending Timeout
-            </Button>
-            <Button
-              size="sm"
-              variant={selectedType === 'mismatched_amount' ? 'primary' : 'secondary'}
-              onClick={() => setSelectedType('mismatched_amount')}
-              className="text-xs whitespace-nowrap"
-            >
-              Amount Mismatch
-            </Button>
-            <Button
-              size="sm"
-              variant={selectedType === 'multiple_transactions' ? 'primary' : 'secondary'}
-              onClick={() => setSelectedType('multiple_transactions')}
-              className="text-xs whitespace-nowrap"
-            >
-              Multiple Transactions
-            </Button>
-          </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <Button
+            size="sm"
+            variant={selectedType === 'all' ? 'primary' : 'secondary'}
+            onClick={() => setSelectedType('all')}
+            className="text-xs whitespace-nowrap"
+          >
+            All
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedType === 'failed_payment' ? 'primary' : 'secondary'}
+            onClick={() => setSelectedType('failed_payment')}
+            className="text-xs whitespace-nowrap"
+          >
+            Failed Payments
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedType === 'rejected_payment' ? 'primary' : 'secondary'}
+            onClick={() => setSelectedType('rejected_payment')}
+            className="text-xs whitespace-nowrap"
+          >
+            Rejected Payments
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedType === 'orphaned_transaction' ? 'primary' : 'secondary'}
+            onClick={() => setSelectedType('orphaned_transaction')}
+            className="text-xs whitespace-nowrap"
+          >
+            Orphaned Transactions
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedType === 'abandoned_order' ? 'primary' : 'secondary'}
+            onClick={() => setSelectedType('abandoned_order')}
+            className="text-xs whitespace-nowrap"
+          >
+            Abandoned Orders
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedType === 'pending_timeout' ? 'primary' : 'secondary'}
+            onClick={() => setSelectedType('pending_timeout')}
+            className="text-xs whitespace-nowrap"
+          >
+            Pending Timeout
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedType === 'mismatched_amount' ? 'primary' : 'secondary'}
+            onClick={() => setSelectedType('mismatched_amount')}
+            className="text-xs whitespace-nowrap"
+          >
+            Amount Mismatch
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedType === 'multiple_transactions' ? 'primary' : 'secondary'}
+            onClick={() => setSelectedType('multiple_transactions')}
+            className="text-xs whitespace-nowrap"
+          >
+            Multiple Transactions
+          </Button>
         </div>
       </div>
 
-      {error ? (
-        <div className="bg-red-500/10 text-red-500 rounded-lg p-4">
-          <p className="text-sm">{error}</p>
+      {/* Anomalies List */}
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loading type={LoadingType.PAGE} text="Loading transaction anomalies..." />
         </div>
       ) : filteredAnomalies.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
@@ -372,65 +354,54 @@ export function TransactionsTab() {
       ) : (
         <div className="space-y-3">
           {filteredAnomalies.map((anomaly) => (
-            <div key={anomaly.id} className="bg-gray-900 rounded-lg p-3 sm:p-4 hover:bg-gray-800/50 transition-colors">
+            <div key={anomaly.id} className="bg-gray-900 rounded-lg p-3 hover:bg-gray-800/50 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 pb-3 border-b border-gray-800">
                 <div className="flex items-center gap-2 min-w-0">
                   {getAnomalyIcon(anomaly.type)}
-                  <span className="text-sm font-medium text-gray-300 truncate">
-                    {anomaly.transaction_signature ? (
-                      <>
-                        {isStripeReceiptUrl(anomaly.transaction_signature) ? (
-                          'Stripe Payment'
-                        ) : (
-                          <>
-                            {anomaly.transaction_signature.slice(0, 8)}...{anomaly.transaction_signature.slice(-8)}
-                          </>
-                        )}
-                        <a
-                          href={getTransactionUrl(anomaly.transaction_signature)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-purple-400 hover:text-purple-300 ml-2"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5 inline" />
-                        </a>
-                      </>
-                    ) : anomaly.order_number ? (
-                      `Order #${anomaly.order_number}`
-                    ) : (
-                      'Unknown'
-                    )}
-                  </span>
+                  <div className="min-w-0">
+                    <h3 className="font-medium text-sm text-white truncate">
+                      {anomaly.order_id ? (
+                        <span>Order #{anomaly.order_id.substring(0, 8)}</span>
+                      ) : (
+                        <span>Transaction {anomaly.transaction_signature?.substring(0, 8)}</span>
+                      )}
+                    </h3>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-xs bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded">
+                        {anomaly.type.replace(/_/g, ' ')}
+                      </span>
+                      {anomaly.amount_sol && (
+                        <span className="text-xs bg-purple-600/20 text-purple-400 px-1.5 py-0.5 rounded">
+                          {anomaly.amount_sol} SOL
+                        </span>
+                      )}
+                      {anomaly.product_name && (
+                        <span className="text-xs text-gray-400 truncate">
+                          {anomaly.product_name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 mt-1 sm:mt-0">
+                <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-400">
                     {formatDistanceToNow(new Date(anomaly.created_at), { addSuffix: true })}
                   </span>
-                  <span className="text-xs text-gray-500">•</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    anomaly.type === 'failed_payment'
-                      ? 'bg-red-500/10 text-red-400'
-                      : anomaly.type === 'rejected_payment'
-                      ? 'bg-yellow-500/10 text-yellow-400'
-                      : anomaly.type === 'orphaned_transaction'
-                      ? 'bg-yellow-500/10 text-yellow-400'
-                      : anomaly.type === 'abandoned_order'
-                      ? 'bg-gray-500/10 text-gray-400'
-                      : anomaly.type === 'pending_timeout'
-                      ? 'bg-yellow-500/10 text-yellow-400'
-                      : anomaly.type === 'mismatched_amount'
-                      ? 'bg-red-500/10 text-red-400'
-                      : anomaly.type === 'multiple_transactions' || anomaly.type === 'multiple_orders'
-                      ? 'bg-yellow-500/10 text-yellow-400'
-                      : 'bg-gray-500/10 text-gray-400'
-                  }`}>
-                    {anomaly.type.split('_').map(word => 
-                      word.charAt(0).toUpperCase() + word.slice(1)
-                    ).join(' ')}
-                  </span>
+                  
+                  {anomaly.transaction_signature && (
+                    <a 
+                      href={getTransactionUrl(anomaly.transaction_signature)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      {isStripeReceiptUrl(anomaly.transaction_signature) ? 'Receipt' : 'Explorer'}
+                    </a>
+                  )}
                 </div>
               </div>
-
+              
               <div className="pt-3 space-y-2">
                 {/* Product Info */}
                 {(anomaly.product_name || anomaly.product_sku) && (
