@@ -15,18 +15,27 @@ export interface Database {
           role: 'admin' | 'merchant' | 'user'
           created_at: string
           updated_at: string
+          display_name?: string | null
+          description?: string | null
+          payout_wallet?: string | null
         }
         Insert: {
           id: string
           role: 'admin' | 'merchant' | 'user'
           created_at?: string
           updated_at?: string
+          display_name?: string | null
+          description?: string | null
+          payout_wallet?: string | null
         }
         Update: {
           id?: string
           role?: 'admin' | 'merchant' | 'user'
           created_at?: string
           updated_at?: string
+          display_name?: string | null
+          description?: string | null
+          payout_wallet?: string | null
         }
       }
       collections: {

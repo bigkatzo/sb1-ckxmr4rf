@@ -5,6 +5,7 @@ import { Settings, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 import { MerchantDashboardProvider } from '../../contexts/MerchantDashboardContext';
+import { ProfileButton } from '../../components/merchant/ProfileButton';
 
 // Lazy load tab components
 const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
@@ -203,6 +204,7 @@ export function DashboardPage() {
                     <span className="hidden sm:inline">Settings</span>
                   </button>
                 )}
+                <ProfileButton />
                 <button
                   onClick={handleLogout}
                   className="inline-flex items-center gap-1.5 bg-gray-600 hover:bg-gray-700 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
