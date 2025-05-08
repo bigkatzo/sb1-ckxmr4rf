@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, Store, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
+import { Users, Shield, Store, ChevronDown, ChevronUp, Pencil, Trash2, Globe, Copy, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
 import { RefreshButton } from '../ui/RefreshButton';
 
 interface User {
+  id: string;
+  email: string;
+  role: 'admin' | 'merchant' | 'user';
+  created_at: string;
+  display_name?: string | null;
+  description?: string | null;
+  website_url?: string | null;
+  profile_image?: string | null;
+  payout_wallet?: string | null;
+}
+
+// Create a type for the basic user data from RPC call
+interface BasicUserData {
   id: string;
   email: string;
   role: 'admin' | 'merchant' | 'user';
@@ -21,6 +34,7 @@ export function UserManagement() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [copiedWallet, setCopiedWallet] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -31,10 +45,45 @@ export function UserManagement() {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase.rpc('list_users');
-
-      if (error) throw error;
-      setUsers(data || []);
+      // First, fetch basic user data
+      const { data: basicUserData, error: basicError } = await supabase.rpc('list_users');
+      
+      if (basicError) throw basicError;
+      
+      if (!basicUserData) {
+        setUsers([]);
+        return;
+      }
+      
+      // Then fetch additional profile data for all users
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, display_name, description, website_url, profile_image, payout_wallet')
+        .in('id', basicUserData.map((user: BasicUserData) => user.id));
+        
+      if (profilesError) throw profilesError;
+      
+      // Merge the data
+      const enrichedUsers = basicUserData.map((user: BasicUserData) => {
+        const profile = profiles?.find(p => p.id === user.id) || {
+          display_name: null,
+          description: null,
+          website_url: null,
+          profile_image: null,
+          payout_wallet: null
+        };
+        
+        return {
+          ...user,
+          display_name: profile.display_name || null,
+          description: profile.description || null,
+          website_url: profile.website_url || null,
+          profile_image: profile.profile_image || null,
+          payout_wallet: profile.payout_wallet || null
+        };
+      });
+      
+      setUsers(enrichedUsers);
     } catch (err) {
       console.error('Error fetching users:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch users';
@@ -97,6 +146,101 @@ export function UserManagement() {
     }
   }
 
+  // Add a function to copy the wallet address to clipboard
+  const copyWalletToClipboard = (wallet: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    
+    navigator.clipboard.writeText(wallet).then(() => {
+      setCopiedWallet(wallet);
+      toast.success('Wallet address copied to clipboard');
+      
+      // Reset the copied status after 2 seconds
+      setTimeout(() => {
+        setCopiedWallet(null);
+      }, 2000);
+    }).catch(err => {
+      console.error('Failed to copy wallet address:', err);
+      toast.error('Failed to copy wallet address');
+    });
+  };
+
+  // Add a function to render the expanded user profile details
+  function renderUserProfileDetails(user: User) {
+    return (
+      <div className="space-y-3 mb-4">
+        <div className="flex items-start gap-4">
+          {/* Profile Image */}
+          <div className="flex-shrink-0">
+            <div className="h-16 w-16 bg-gray-800 rounded-full overflow-hidden flex items-center justify-center">
+              {user.profile_image ? (
+                <img 
+                  src={user.profile_image} 
+                  alt={user.display_name || 'User'} 
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    // Fallback if image fails to load
+                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+                  }}
+                />
+              ) : (
+                <Users className="h-8 w-8 text-gray-500" />
+              )}
+            </div>
+          </div>
+          
+          {/* User Details */}
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-medium">
+                {user.display_name || 'No display name'}
+              </h4>
+              <span className="text-xs text-gray-500">({user.email})</span>
+            </div>
+            
+            {user.description && (
+              <p className="text-xs text-gray-400">{user.description}</p>
+            )}
+            
+            <div className="flex flex-wrap gap-2 mt-1">
+              {user.website_url && (
+                <a 
+                  href={user.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-800 rounded text-xs text-blue-400 hover:text-blue-300"
+                >
+                  <Globe className="h-3 w-3" />
+                  <span className="truncate max-w-[200px]">
+                    {user.website_url.replace(/^https?:\/\//, '')}
+                  </span>
+                </a>
+              )}
+              
+              {user.payout_wallet && (
+                <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-800 rounded text-xs text-gray-400 hover:bg-gray-700 cursor-pointer group">
+                  <span className="font-mono whitespace-nowrap overflow-x-auto max-w-[240px] scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent py-0.5">
+                    Wallet: {user.payout_wallet}
+                  </span>
+                  <button
+                    onClick={(e) => user.payout_wallet && copyWalletToClipboard(user.payout_wallet, e)}
+                    className="p-0.5 hover:bg-gray-600 rounded"
+                    title="Copy wallet address"
+                  >
+                    {copiedWallet === user.payout_wallet ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3 text-gray-400 group-hover:text-white" />
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="animate-pulse space-y-3">
@@ -138,9 +282,11 @@ export function UserManagement() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">{user.email}</p>
+                    <p className="text-xs sm:text-sm font-medium truncate">
+                      {user.display_name || user.email}
+                    </p>
                     <p className="text-[10px] sm:text-xs text-gray-400">
-                      {user.role || 'No role assigned'}
+                      {user.email}
                     </p>
                   </div>
                 </div>
@@ -184,6 +330,10 @@ export function UserManagement() {
 
             {expandedUser === user.id && (
               <div className="px-3 pb-3 border-t border-gray-800 mt-2 pt-3">
+                {/* Render user profile details */}
+                {renderUserProfileDetails(user)}
+                
+                {/* Collection access information */}
                 <CollectionAccess userId={user.id} />
               </div>
             )}
