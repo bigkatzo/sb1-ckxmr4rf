@@ -101,6 +101,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       
+      console.log('Uploading profile image to path:', fileName);
+      
       // Upload the file directly using storage API
       const { data, error } = await supabase.storage
         .from('profile-images')
@@ -111,12 +113,20 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         
       if (error) throw error;
       
+      console.log('Upload successful:', data);
+      
       // Get the public URL
       const { data: urlData } = supabase.storage
         .from('profile-images')
         .getPublicUrl(data.path);
         
-      // Update local state
+      console.log('Image public URL:', urlData.publicUrl);
+      
+      // Create a local URL preview immediately
+      const imageUrl = URL.createObjectURL(file);
+      setImagePreview(imageUrl);
+      
+      // Update profile data state with the Supabase public URL
       setProfileData(prev => ({
         ...prev,
         profileImage: urlData.publicUrl
@@ -143,6 +153,12 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     }));
     setImagePreview(null);
   }
+
+  // Add a function to debug image loading issues
+  const handleImageError = () => {
+    console.error('Failed to load image:', profileData.profileImage);
+    setImagePreview(null);
+  };
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -236,10 +252,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                           src={imagePreview} 
                           alt="Profile" 
                           className="w-full h-full object-cover"
-                          onError={() => {
-                            // Fallback if image fails to load
-                            setImagePreview(null);
-                          }}
+                          onError={handleImageError}
                         />
                       ) : (
                         <User className="h-12 w-12 text-gray-500" />
