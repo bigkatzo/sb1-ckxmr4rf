@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import imageCompression from 'browser-image-compression';
 
-export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets';
+export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets' | 'profile-images';
 
 export interface UploadResult {
   path: string;

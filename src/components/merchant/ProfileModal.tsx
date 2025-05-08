@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, User, Camera, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
+import { uploadImage } from '../../lib/storage';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -12,22 +13,38 @@ interface ProfileData {
   displayName: string;
   description: string;
   payoutWallet: string;
+  profileImage: string | null;
+  websiteUrl: string;
 }
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileData, setProfileData] = useState<ProfileData>({
     displayName: '',
     description: '',
-    payoutWallet: ''
+    payoutWallet: '',
+    profileImage: null,
+    websiteUrl: ''
   });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       fetchProfileData();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    // Update image preview when profileImage changes
+    if (profileData.profileImage) {
+      setImagePreview(profileData.profileImage);
+    } else {
+      setImagePreview(null);
+    }
+  }, [profileData.profileImage]);
 
   async function fetchProfileData() {
     try {
@@ -43,7 +60,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       // Fetch profile data from user_profiles table
       const { data: profile, error } = await supabase
         .from('user_profiles')
-        .select('display_name, description, payout_wallet')
+        .select('display_name, description, payout_wallet, profile_image, website_url')
         .eq('id', user.id)
         .single();
       
@@ -55,7 +72,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setProfileData({
         displayName: displayName,
         description: profile?.description || '',
-        payoutWallet: profile?.payout_wallet || ''
+        payoutWallet: profile?.payout_wallet || '',
+        profileImage: profile?.profile_image || null,
+        websiteUrl: profile?.website_url || ''
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -63,6 +82,47 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      
+      // Upload the image
+      const imageUrl = await uploadImage(file, 'profile-images', {
+        maxSizeMB: 2,
+        upsert: true
+      });
+      
+      // Update local state
+      setProfileData(prev => ({
+        ...prev,
+        profileImage: imageUrl
+      }));
+      
+      toast.success('Image uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setIsUploading(false);
+      
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
+
+  function removeImage() {
+    setProfileData(prev => ({
+      ...prev,
+      profileImage: null
+    }));
+    setImagePreview(null);
   }
 
   async function saveProfile(e: React.FormEvent) {
@@ -83,7 +143,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         .update({
           display_name: profileData.displayName,
           description: profileData.description,
-          payout_wallet: profileData.payoutWallet
+          payout_wallet: profileData.payoutWallet,
+          profile_image: profileData.profileImage,
+          website_url: profileData.websiteUrl
         })
         .eq('id', user.id);
         
@@ -146,6 +208,64 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               </div>
             ) : (
               <form onSubmit={saveProfile} className="space-y-4">
+                {/* Profile Image Upload */}
+                <div className="flex flex-col items-center mb-6">
+                  <div className="relative mb-3">
+                    <div className={`h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gray-800 border-2 border-gray-700 ${isUploading ? 'opacity-50' : ''}`}>
+                      {imagePreview ? (
+                        <img 
+                          src={imagePreview} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover"
+                          onError={() => {
+                            // Fallback if image fails to load
+                            setImagePreview(null);
+                          }}
+                        />
+                      ) : (
+                        <User className="h-12 w-12 text-gray-500" />
+                      )}
+                      
+                      {isUploading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <div className="h-6 w-6 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                      disabled={isUploading}
+                    />
+                    
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 bg-purple-600 hover:bg-purple-700 rounded-full p-1.5 text-white transition-colors disabled:opacity-50"
+                      disabled={isUploading}
+                      title="Upload image"
+                    >
+                      <Camera className="h-4 w-4" />
+                    </button>
+                  </div>
+                  
+                  {imagePreview && (
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="flex items-center text-xs text-red-400 hover:text-red-300"
+                      disabled={isUploading}
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Remove Image
+                    </button>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <label htmlFor="displayName" className="block text-sm font-medium text-gray-300">
                     Display Name
@@ -177,6 +297,21 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 </div>
                 
                 <div className="space-y-2">
+                  <label htmlFor="websiteUrl" className="block text-sm font-medium text-gray-300">
+                    Website or Social Media URL <span className="text-gray-500 text-xs">(Optional)</span>
+                  </label>
+                  <input
+                    type="url"
+                    id="websiteUrl"
+                    name="websiteUrl"
+                    value={profileData.websiteUrl}
+                    onChange={handleChange}
+                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="https://twitter.com/yourusername"
+                  />
+                </div>
+                
+                <div className="space-y-2">
                   <label htmlFor="payoutWallet" className="block text-sm font-medium text-gray-300">
                     Payout Wallet Address
                   </label>
@@ -196,14 +331,14 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     type="button"
                     onClick={onClose}
                     className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
-                    disabled={isSaving}
+                    disabled={isSaving || isUploading}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:pointer-events-none"
-                    disabled={isSaving}
+                    disabled={isSaving || isUploading}
                   >
                     {isSaving ? 'Saving...' : 'Save Changes'}
                   </button>

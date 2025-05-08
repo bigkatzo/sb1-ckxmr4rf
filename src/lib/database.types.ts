@@ -18,6 +18,8 @@ export interface Database {
           display_name?: string | null
           description?: string | null
           payout_wallet?: string | null
+          profile_image?: string | null
+          website_url?: string | null
         }
         Insert: {
           id: string
@@ -27,6 +29,8 @@ export interface Database {
           display_name?: string | null
           description?: string | null
           payout_wallet?: string | null
+          profile_image?: string | null
+          website_url?: string | null
         }
         Update: {
           id?: string
@@ -36,6 +40,8 @@ export interface Database {
           display_name?: string | null
           description?: string | null
           payout_wallet?: string | null
+          profile_image?: string | null
+          website_url?: string | null
         }
       }
       collections: {
