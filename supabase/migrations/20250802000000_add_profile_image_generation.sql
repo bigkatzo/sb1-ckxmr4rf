@@ -5,15 +5,59 @@ ADD COLUMN IF NOT EXISTS website_url TEXT;
 
 -- Create storage bucket for profile images if it doesn't exist
 DO $$
+DECLARE
+  bucket_exists boolean;
 BEGIN
   -- Check if bucket exists
-  PERFORM FROM storage.buckets WHERE name = 'profile-images';
+  SELECT EXISTS (
+    SELECT 1 FROM storage.buckets WHERE name = 'profile-images'
+  ) INTO bucket_exists;
   
   -- Create bucket if it doesn't exist
-  IF NOT FOUND THEN
-    -- Create the bucket with proper public access settings
-    INSERT INTO storage.buckets (id, name, public)
-    VALUES ('profile-images', 'profile-images', true);
+  IF NOT bucket_exists THEN
+    -- Create the bucket
+    INSERT INTO storage.buckets (id, name, public, avif_autodetection)
+    VALUES ('profile-images', 'profile-images', true, false);
+    
+    -- Create policies to control access
+    -- Policy allowing any authenticated user to upload a file to their own folder
+    CREATE POLICY "Users can upload their profile image"
+      ON storage.objects
+      FOR INSERT
+      TO authenticated
+      WITH CHECK (
+        bucket_id = 'profile-images' AND 
+        (auth.uid()::text = owner)
+      );
+      
+    -- Policy allowing users to update their own files
+    CREATE POLICY "Users can update their profile image"
+      ON storage.objects
+      FOR UPDATE
+      TO authenticated
+      USING (
+        bucket_id = 'profile-images' AND 
+        (auth.uid()::text = owner)
+      );
+      
+    -- Policy allowing users to delete their own files
+    CREATE POLICY "Users can delete their profile image"
+      ON storage.objects
+      FOR DELETE
+      TO authenticated
+      USING (
+        bucket_id = 'profile-images' AND 
+        (auth.uid()::text = owner)
+      );
+      
+    -- Policy allowing public to read all files in the bucket
+    CREATE POLICY "Public can read profile images"
+      ON storage.objects
+      FOR SELECT
+      TO public
+      USING (
+        bucket_id = 'profile-images'
+      );
   END IF;
 END $$;
 

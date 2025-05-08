@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, User, Camera, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
-import { uploadImage } from '../../lib/storage';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -91,16 +90,36 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     try {
       setIsUploading(true);
       
-      // Upload the image
-      const imageUrl = await uploadImage(file, 'profile-images', {
-        maxSizeMB: 2,
-        upsert: true
-      });
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
       
+      if (!user) {
+        throw new Error("Not authenticated");
+      }
+      
+      // Create a custom filename with user ID as prefix to comply with RLS policies
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      // Upload the file directly using storage API
+      const { data, error } = await supabase.storage
+        .from('profile-images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+        
+      if (error) throw error;
+      
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from('profile-images')
+        .getPublicUrl(data.path);
+        
       // Update local state
       setProfileData(prev => ({
         ...prev,
-        profileImage: imageUrl
+        profileImage: urlData.publicUrl
       }));
       
       toast.success('Image uploaded successfully');
