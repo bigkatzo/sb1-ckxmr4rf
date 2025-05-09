@@ -257,8 +257,11 @@ export function ProductsTab() {
       </div>
 
       {!selectedCollection ? (
-        <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-sm">Please select a collection using the filter above to manage products.</p>
+        <div className="bg-gray-900 rounded-lg p-4 flex flex-col items-center justify-center py-6 text-center">
+          <h3 className="text-lg font-medium text-gray-300 mb-2">Select a Collection</h3>
+          <p className="text-gray-400 text-sm max-w-md">
+            Please select a collection from the filter above to manage products.
+          </p>
         </div>
       ) : productsLoading ? (
         <div className="animate-pulse space-y-4">
@@ -272,7 +275,23 @@ export function ProductsTab() {
       ) : filteredProducts.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
           {products.length === 0 ? (
-          <p className="text-gray-400 text-sm">No products created for this collection yet.</p>
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <h3 className="text-lg font-medium text-gray-300 mb-2">No Products Yet</h3>
+              <p className="text-gray-400 text-sm max-w-md mb-4">
+                Start adding products to your collection to begin selling.
+              </p>
+              {collections.find(c => c.id === selectedCollection && (c.isOwner || c.accessType === 'edit')) && (
+                <button
+                  onClick={() => {
+                    setEditingProduct(null);
+                    setShowForm(true);
+                  }}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                >
+                  Add First Product
+                </button>
+              )}
+            </div>
           ) : (
             <p className="text-gray-400 text-sm">No products match the current filters.</p>
           )}

@@ -214,8 +214,11 @@ export function CategoriesTab() {
       </div>
 
       {!selectedCollection ? (
-        <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-gray-400 text-sm">Please select a collection using the filter above to manage categories.</p>
+        <div className="bg-gray-900 rounded-lg p-4 flex flex-col items-center justify-center py-6 text-center">
+          <h3 className="text-lg font-medium text-gray-300 mb-2">Select a Collection</h3>
+          <p className="text-gray-400 text-sm max-w-md">
+            Please select a collection from the filter above to manage categories.
+          </p>
         </div>
       ) : categoriesLoading ? (
         <div className="animate-pulse space-y-4">
@@ -225,7 +228,23 @@ export function CategoriesTab() {
       ) : filteredCategories.length === 0 ? (
         <div className="bg-gray-900 rounded-lg p-4">
           {categories.length === 0 ? (
-          <p className="text-gray-400 text-sm">No categories created for this collection yet.</p>
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <h3 className="text-lg font-medium text-gray-300 mb-2">No Categories Yet</h3>
+              <p className="text-gray-400 text-sm max-w-md mb-4">
+                Create categories to organize your products by type, collection, or any other classification.
+              </p>
+              {collections.find(c => c.id === selectedCollection && (c.isOwner || c.accessType === 'edit')) && (
+                <button
+                  onClick={() => {
+                    setEditingCategory(null);
+                    setShowForm(true);
+                  }}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                >
+                  Create First Category
+                </button>
+              )}
+            </div>
           ) : (
             <p className="text-gray-400 text-sm">No categories match the current filters.</p>
           )}

@@ -250,9 +250,12 @@ export function OrdersTab() {
       </div>
 
       {filteredOrders.length === 0 ? (
-        <div className="bg-gray-900 rounded-lg p-4 flex items-center justify-center gap-3">
-          <Package className="h-5 w-5 text-gray-400" />
-          <p className="text-gray-400 text-sm">No orders found.</p>
+        <div className="bg-gray-900 rounded-lg p-4 flex flex-col items-center justify-center py-6 text-center">
+          <Package className="h-10 w-10 text-gray-400 mb-3" />
+          <h3 className="text-lg font-medium text-gray-300 mb-2">No Orders Yet</h3>
+          <p className="text-gray-400 text-sm max-w-md">
+            As customers make purchases, their orders will appear here for you to manage.
+          </p>
         </div>
       ) : (
         <OrderList
