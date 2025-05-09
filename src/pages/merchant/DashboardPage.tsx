@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 import { MerchantDashboardProvider } from '../../contexts/MerchantDashboardContext';
 import { ProfileButton } from '../../components/merchant/ProfileButton';
+import { clearUserFilters } from '../../hooks/useFilterPersistence';
 
 // Lazy load tab components
 const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
@@ -45,8 +46,24 @@ export function DashboardPage() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/merchant/signin');
+    try {
+      // Get current user before signing out
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Clear all filters for the current user
+      if (user) {
+        clearUserFilters(user.id);
+      }
+      
+      // Sign out
+      await supabase.auth.signOut();
+      
+      // Navigate to sign-in page
+      navigate('/merchant/signin');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      navigate('/merchant/signin');
+    }
   };
   
   // Update URL when tab changes
