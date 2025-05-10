@@ -290,9 +290,9 @@ export function UserManagement() {
 
       <div className="space-y-4">
         {/* Search and Filter Controls */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+        <div className="flex gap-2 items-center">
+          <div className="relative flex-1 min-w-0">
+            <div className="absolute inset-y-0 left-2 sm:left-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-400" />
             </div>
             <input
@@ -300,49 +300,55 @@ export function UserManagement() {
               placeholder="Search users..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-800 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+              className="w-full bg-gray-800 rounded-lg pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
             />
           </div>
 
           <div className="relative">
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-2 sm:left-3 flex items-center pointer-events-none sm:hidden">
               <Filter className="h-4 w-4 text-gray-400" />
             </div>
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value as 'all' | 'admin' | 'merchant' | 'user')}
-              className="w-full bg-gray-800 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none"
+              className="h-full bg-gray-800 rounded-lg pl-8 sm:pl-10 pr-3 sm:pr-10 py-1.5 sm:py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none min-w-[44px] sm:min-w-[140px]"
             >
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
               <option value="merchant">Merchant</option>
               <option value="user">User</option>
             </select>
-            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+            <div className="hidden sm:flex absolute inset-y-0 left-3 items-center pointer-events-none">
+              <Filter className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="absolute inset-y-0 right-2 sm:right-3 flex items-center pointer-events-none">
               <ChevronDown className="h-4 w-4 text-gray-400" />
             </div>
           </div>
 
           <div className="relative">
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-2 sm:left-3 flex items-center pointer-events-none sm:hidden">
               <Clock className="h-4 w-4 text-gray-400" />
             </div>
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-              className="w-full bg-gray-800 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none"
+              className="h-full bg-gray-800 rounded-lg pl-8 sm:pl-10 pr-3 sm:pr-10 py-1.5 sm:py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none min-w-[44px] sm:min-w-[140px]"
             >
               <option value="desc">Newest First</option>
               <option value="asc">Oldest First</option>
             </select>
-            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+            <div className="hidden sm:flex absolute inset-y-0 left-3 items-center pointer-events-none">
+              <Clock className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="absolute inset-y-0 right-2 sm:right-3 flex items-center pointer-events-none">
               <ChevronDown className="h-4 w-4 text-gray-400" />
             </div>
           </div>
         </div>
 
         {/* User count */}
-        <div className="text-sm text-gray-400">
+        <div className="text-xs sm:text-sm text-gray-400">
           Showing {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
           {roleFilter !== 'all' && ` with role "${roleFilter}"`}
           {searchQuery && ` matching "${searchQuery}"`}
