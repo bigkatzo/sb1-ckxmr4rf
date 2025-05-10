@@ -16,6 +16,11 @@ interface User {
   website_url?: string | null;
   profile_image?: string | null;
   payout_wallet?: string | null;
+  collections?: Array<{
+    id: string;
+    name: string;
+    isOwner: boolean;
+  }>;
 }
 
 // Create a type for the basic user data from RPC call
@@ -76,8 +81,17 @@ export function UserManagement() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filteredUsers = filteredUsers.filter(user => {
-        return user.email.toLowerCase().includes(query) ||
+        // Search in basic user info
+        const basicMatch = 
+          user.email.toLowerCase().includes(query) ||
           (user.display_name && user.display_name.toLowerCase().includes(query));
+        
+        // Search in collections if available
+        const collectionMatch = user.collections?.some(collection => 
+          collection.name.toLowerCase().includes(query)
+        );
+        
+        return basicMatch || collectionMatch;
       });
     }
     
@@ -106,6 +120,7 @@ export function UserManagement() {
       
       if (!basicUserData) {
         setUsers([]);
+        setAllUsers([]);
         return;
       }
       
@@ -117,15 +132,17 @@ export function UserManagement() {
         
       if (profilesError) throw profilesError;
       
-      // Merge the data
+      // Create a map for fast lookup
+      const profileMap: {[key: string]: any} = {};
+      if (profiles) {
+        profiles.forEach((profile: any) => {
+          profileMap[profile.id] = profile;
+        });
+      }
+      
+      // Combine the data
       const enrichedUsers = basicUserData.map((user: BasicUserData) => {
-        const profile = profiles?.find(p => p.id === user.id) || {
-          display_name: null,
-          description: null,
-          website_url: null,
-          profile_image: null,
-          payout_wallet: null
-        };
+        const profile = profileMap[user.id] || {};
         
         return {
           ...user,
@@ -133,12 +150,74 @@ export function UserManagement() {
           description: profile.description || null,
           website_url: profile.website_url || null,
           profile_image: profile.profile_image || null,
-          payout_wallet: profile.payout_wallet || null
+          payout_wallet: profile.payout_wallet || null,
+          collections: []
         };
       });
-      
+
+      // Set initial data
       setAllUsers(enrichedUsers);
       setUsers(enrichedUsers);
+      
+      // Fetch collections data
+      try {
+        const userIds = enrichedUsers.map((user: BasicUserData) => user.id);
+        let userCollections: {[key: string]: Array<{id: string, name: string, isOwner: boolean}>} = {};
+        
+        // Initialize collections for each user
+        enrichedUsers.forEach((user: User) => {
+          userCollections[user.id] = [];
+        });
+        
+        // Fetch collections owned by users
+        const { data: ownedCollections } = await supabase
+          .from('merchant_collections')
+          .select('id, name, user_id')
+          .in('user_id', userIds);
+        
+        // Fetch collections users have access to
+        const { data: accessCollections } = await supabase
+          .from('collection_access')
+          .select('collection_id, user_id, collections:collection_id(id, name)')
+          .in('user_id', userIds);
+
+        // Add owned collections
+        if (ownedCollections) {
+          ownedCollections.forEach((col: any) => {
+            if (userCollections[col.user_id]) {
+              userCollections[col.user_id].push({
+                id: col.id,
+                name: col.name,
+                isOwner: true
+              });
+            }
+          });
+        }
+        
+        // Add collections with access
+        if (accessCollections) {
+          accessCollections.forEach((acc: any) => {
+            if (userCollections[acc.user_id] && acc.collections) {
+              userCollections[acc.user_id].push({
+                id: acc.collections.id,
+                name: acc.collections.name,
+                isOwner: false
+              });
+            }
+          });
+        }
+        
+        // Update users with their collections
+        const updatedUsers = enrichedUsers.map((user: User) => ({
+          ...user,
+          collections: userCollections[user.id] || []
+        }));
+        
+        setAllUsers(updatedUsers);
+        setUsers(updatedUsers);
+      } catch (collectionError) {
+        console.error("Error fetching collections:", collectionError);
+      }
     } catch (err) {
       console.error('Error fetching users:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch users';
@@ -323,46 +402,53 @@ export function UserManagement() {
         )}
 
         {/* Filter and Search Controls */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex items-center gap-2">
           {/* Search */}
-          <div className="relative flex-grow">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
             <input
               type="text"
-              placeholder="Search by name or email..."
+              placeholder="Search by name, email or collection..."
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full bg-gray-800 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full bg-gray-800 rounded-lg pl-8 sm:pl-10 pr-2 sm:pr-4 py-1.5 sm:py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           
-          {/* Role Filter and Sort */}
-          <div className="flex gap-2">
-            <div className="relative">
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as 'all' | 'admin' | 'merchant' | 'user')}
-                className="appearance-none bg-gray-800 text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="all">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="merchant">Merchant</option>
-                <option value="user">User</option>
-              </select>
-              <Filter className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
+          {/* Role Filter */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-2 sm:left-3 flex items-center pointer-events-none sm:hidden">
+              <Filter className="h-4 w-4 text-gray-400" />
             </div>
-            
-            {/* Sort Toggle */}
-            <button
-              onClick={toggleSortDirection}
-              className="bg-gray-800 text-gray-400 hover:text-white p-2 rounded-lg flex items-center justify-center transition-colors"
-              title={`Sort by date (${sortOption.direction === 'asc' ? 'oldest first' : 'newest first'})`}
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as 'all' | 'admin' | 'merchant' | 'user')}
+              className="h-full bg-gray-800 rounded-lg pl-8 sm:pl-10 pr-2 sm:pr-8 py-1.5 sm:py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none min-w-[44px] sm:min-w-[120px]"
             >
-              {sortOption.direction === 'asc' ? 
-                <SortAsc className="h-4 w-4" /> : 
-                <SortDesc className="h-4 w-4" />
-              }
-            </button>
+              <option value="all">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="merchant">Merchant</option>
+              <option value="user">User</option>
+            </select>
+            <div className="hidden sm:flex absolute inset-y-0 left-3 items-center pointer-events-none">
+              <Filter className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="absolute inset-y-0 right-2 sm:right-3 flex items-center pointer-events-none">
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            </div>
           </div>
+          
+          {/* Sort Toggle */}
+          <button
+            onClick={toggleSortDirection}
+            className="h-full bg-gray-800 text-gray-400 hover:text-white p-1.5 sm:p-2 rounded-lg flex items-center justify-center transition-colors min-w-[36px] sm:min-w-[40px]"
+            title={`Sort by date (${sortOption.direction === 'asc' ? 'oldest first' : 'newest first'})`}
+          >
+            {sortOption.direction === 'asc' ? 
+              <SortAsc className="h-4 w-4" /> : 
+              <SortDesc className="h-4 w-4" />
+            }
+            <span className="hidden sm:inline ml-2">Sort</span>
+          </button>
         </div>
 
         {/* User count */}
@@ -391,9 +477,26 @@ export function UserManagement() {
                       <p className="text-xs sm:text-sm font-medium truncate">
                         {user.display_name || user.email}
                       </p>
-                      <p className="text-[10px] sm:text-xs text-gray-400">
-                        {user.email}
-                      </p>
+                      <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-400">
+                        <span>{user.email}</span>
+                        <span className="text-[8px] mx-1">•</span>
+                        <span className={`
+                          font-medium
+                          ${user.role === 'admin' ? 'text-red-400' : 
+                            user.role === 'merchant' ? 'text-primary' :
+                            'text-blue-400'}
+                        `}>
+                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                        </span>
+                        {user.collections && user.collections.length > 0 && (
+                          <>
+                            <span className="text-[8px] mx-1">•</span>
+                            <span className="text-primary">
+                              {user.collections.length} {user.collections.length === 1 ? 'collection' : 'collections'}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
