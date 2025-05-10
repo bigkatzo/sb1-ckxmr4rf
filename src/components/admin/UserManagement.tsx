@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, Store, ChevronDown, ChevronUp, Pencil, Trash2, Globe, Copy, Check } from 'lucide-react';
+import { Users, Shield, Store, ChevronDown, ChevronUp, Pencil, Trash2, Globe, Copy, Check, Search, Filter, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
@@ -35,10 +35,32 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [copiedWallet, setCopiedWallet] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'merchant' | 'user'>('all');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Filter and sort users
+  const filteredUsers = React.useMemo(() => {
+    return users
+      .filter(user => {
+        const matchesSearch = searchQuery === '' || 
+          user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          user.display_name?.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+        
+        return matchesSearch && matchesRole;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      });
+  }, [users, searchQuery, roleFilter, sortOrder]);
 
   async function fetchUsers() {
     try {
@@ -266,79 +288,140 @@ export function UserManagement() {
         </div>
       )}
 
-      <div className="space-y-2">
-        {users.map((user) => (
-          <div key={user.id} className="bg-gray-900 rounded-lg">
-            <div className="p-2.5 sm:p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="p-1.5 sm:p-2 bg-gray-800 rounded-lg">
-                    {user.role === 'admin' ? (
-                      <Shield className="h-4 w-4 text-red-400" />
-                    ) : user.role === 'merchant' ? (
-                      <Store className="h-4 w-4 text-primary" />
-                    ) : (
-                      <Users className="h-4 w-4 text-blue-400" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">
-                      {user.display_name || user.email}
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-gray-400">
-                      {user.email}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingUser(user);
-                      setShowEditModal(true);
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-                    title="Edit user"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setDeletingUser(user);
-                      setShowDeleteModal(true);
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
-                    title="Delete user"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-
-                  <button
-                    onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}
-                    className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-                  >
-                    {expandedUser === user.id ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
+      <div className="space-y-4">
+        {/* Search and Filter Controls */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400" />
             </div>
-
-            {expandedUser === user.id && (
-              <div className="px-3 pb-3 border-t border-gray-800 mt-2 pt-3">
-                {/* Render user profile details */}
-                {renderUserProfileDetails(user)}
-                
-                {/* Collection access information */}
-                <CollectionAccess userId={user.id} />
-              </div>
-            )}
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-gray-800 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+            />
           </div>
-        ))}
+
+          <div className="relative">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <Filter className="h-4 w-4 text-gray-400" />
+            </div>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as 'all' | 'admin' | 'merchant' | 'user')}
+              className="w-full bg-gray-800 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none"
+            >
+              <option value="all">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="merchant">Merchant</option>
+              <option value="user">User</option>
+            </select>
+            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <Clock className="h-4 w-4 text-gray-400" />
+            </div>
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+              className="w-full bg-gray-800 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none"
+            >
+              <option value="desc">Newest First</option>
+              <option value="asc">Oldest First</option>
+            </select>
+            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* User count */}
+        <div className="text-sm text-gray-400">
+          Showing {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
+          {roleFilter !== 'all' && ` with role "${roleFilter}"`}
+          {searchQuery && ` matching "${searchQuery}"`}
+        </div>
+
+        <div className="space-y-2">
+          {filteredUsers.map((user) => (
+            <div key={user.id} className="bg-gray-900 rounded-lg">
+              <div className="p-2.5 sm:p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="p-1.5 sm:p-2 bg-gray-800 rounded-lg">
+                      {user.role === 'admin' ? (
+                        <Shield className="h-4 w-4 text-red-400" />
+                      ) : user.role === 'merchant' ? (
+                        <Store className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Users className="h-4 w-4 text-blue-400" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-medium truncate">
+                        {user.display_name || user.email}
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-gray-400">
+                        {user.email}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingUser(user);
+                        setShowEditModal(true);
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                      title="Edit user"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setDeletingUser(user);
+                        setShowDeleteModal(true);
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
+                      title="Delete user"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}
+                      className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                    >
+                      {expandedUser === user.id ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {expandedUser === user.id && (
+                <div className="px-3 pb-3 border-t border-gray-800 mt-2 pt-3">
+                  {/* Render user profile details */}
+                  {renderUserProfileDetails(user)}
+                  
+                  {/* Collection access information */}
+                  <CollectionAccess userId={user.id} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {showEditModal && editingUser && (
