@@ -25,6 +25,7 @@ interface CollectionAccessData {
 }
 
 interface Collection extends BaseCollection {
+  accessType: 'view' | 'edit' | null;
   isOwner?: boolean;
 }
 
@@ -206,7 +207,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
         <h3 className="text-lg font-medium">Collection Access</h3>
         <button
           onClick={() => setShowAssignModal(true)}
-          className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-lg transition-colors text-xs"
+          className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-2.5 py-1.5 rounded-lg transition-colors text-xs"
         >
           <Plus className="h-3.5 w-3.5" />
           <span>Assign Collection</span>
@@ -223,7 +224,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
             <div key={collection.id} className="flex items-center justify-between p-3 bg-gray-900 rounded-lg">
               <div>
                 <div className="flex items-center gap-2">
-                  <Store className="h-4 w-4 text-purple-400" />
+                  <Store className="h-4 w-4 text-primary" />
                   <h4 className="font-medium">{collection.name}</h4>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
@@ -234,7 +235,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                   ) : (
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       collection.accessType === 'edit' 
-                        ? 'bg-purple-500/10 text-purple-400'
+                        ? 'bg-primary/10 text-primary'
                         : 'bg-blue-500/10 text-blue-400'
                     }`}>
                       {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
@@ -269,7 +270,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                 <select
                   value={selectedCollection}
                   onChange={(e) => setSelectedCollection(e.target.value)}
-                  className="w-full bg-gray-800 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full bg-gray-800 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">Choose a collection</option>
                   {allCollections
@@ -288,7 +289,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                 <select
                   value={selectedAccessType}
                   onChange={(e) => setSelectedAccessType(e.target.value as 'view' | 'edit')}
-                  className="w-full bg-gray-800 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full bg-gray-800 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="view">View Only</option>
                   <option value="edit">Full Access</option>
@@ -305,7 +306,7 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                 <button
                   onClick={handleAssignCollection}
                   disabled={!selectedCollection}
-                  className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-colors"
+                  className="bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-colors"
                 >
                   Assign Collection
                 </button>

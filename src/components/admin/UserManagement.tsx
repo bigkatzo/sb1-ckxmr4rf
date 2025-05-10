@@ -276,7 +276,7 @@ export function UserManagement() {
                     {user.role === 'admin' ? (
                       <Shield className="h-4 w-4 text-red-400" />
                     ) : user.role === 'merchant' ? (
-                      <Store className="h-4 w-4 text-purple-400" />
+                      <Store className="h-4 w-4 text-primary" />
                     ) : (
                       <Users className="h-4 w-4 text-blue-400" />
                     )}
@@ -355,7 +355,7 @@ export function UserManagement() {
                 <select
                   name="role"
                   defaultValue={editingUser.role}
-                  className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="user">User</option>
                   <option value="merchant">Merchant</option>
@@ -376,7 +376,7 @@ export function UserManagement() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-purple-600 hover:bg-purple-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
+                  className="bg-primary hover:bg-primary-hover px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm"
                 >
                   Update Role
                 </button>

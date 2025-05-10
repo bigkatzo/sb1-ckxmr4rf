@@ -211,7 +211,7 @@ export function WalletManagement() {
           <div className="flex w-full sm:w-auto gap-2">
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg transition-colors text-sm"
             >
               <Plus className="h-4 w-4" />
               <span>Add Wallet</span>
@@ -242,7 +242,7 @@ export function WalletManagement() {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="p-1.5 sm:p-2 bg-gray-800 rounded-lg">
-                    <Wallet className="h-4 w-4 text-purple-400" />
+                    <Wallet className="h-4 w-4 text-primary" />
                   </div>
                   <div className="min-w-0">
                     <p className="font-medium text-xs sm:text-sm truncate">{wallet.label}</p>
@@ -349,7 +349,7 @@ export function WalletManagement() {
                     name="label"
                     defaultValue={editingWallet?.label}
                     required
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
@@ -364,7 +364,7 @@ export function WalletManagement() {
                     required
                     pattern="^[1-9A-HJ-NP-Za-km-z]{32,44}$"
                     title="Enter a valid Solana wallet address"
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-gray-800 rounded-lg px-4 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
@@ -382,7 +382,7 @@ export function WalletManagement() {
                   </button>
                   <button
                     type="submit"
-                    className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition-colors"
+                    className="bg-primary hover:bg-primary-hover px-6 py-2 rounded-lg transition-colors"
                   >
                     {editingWallet ? 'Update' : 'Add'} Wallet
                   </button>
@@ -410,7 +410,7 @@ export function WalletManagement() {
                 <select
                   value={selectedWallet || ''}
                   onChange={(e) => setSelectedWallet(e.target.value)}
-                  className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">Choose a wallet</option>
                   {wallets.map((wallet) => (
@@ -426,7 +426,7 @@ export function WalletManagement() {
                 <select
                   value={selectedCollection || ''}
                   onChange={(e) => setSelectedCollection(e.target.value)}
-                  className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full bg-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">Choose a collection</option>
                   {collections
@@ -450,7 +450,7 @@ export function WalletManagement() {
                 <button
                   onClick={handleAssignWallet}
                   disabled={!selectedWallet || !selectedCollection}
-                  className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 rounded-lg transition-colors"
+                  className="bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 rounded-lg transition-colors"
                 >
                   Assign Wallet
                 </button>
