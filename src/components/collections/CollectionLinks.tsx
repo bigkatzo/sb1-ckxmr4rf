@@ -63,9 +63,9 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
           return;
         }
         
-        // Fetch merchant profile
+        // Fetch merchant profile from the public view
         const { data: profile, error } = await supabase
-          .from('user_profiles')
+          .from('public_user_profiles')
           .select('display_name, description, profile_image, website_url')
           .eq('id', collection.user_id)
           .single();
