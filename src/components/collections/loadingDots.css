@@ -1,0 +1,45 @@
+.loading-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  height: 24px;
+}
+
+.loading-dots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #666;
+  margin: 0 2px;
+  animation: loadingDotsPulse 1.4s infinite ease-in-out both;
+}
+
+.loading-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+/* Smaller dots on mobile */
+@media (max-width: 640px) {
+  .loading-dots span {
+    width: 4px;
+    height: 4px;
+    margin: 0 1px;
+  }
+}
+
+@keyframes loadingDotsPulse {
+  0%, 80%, 100% { 
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% { 
+    transform: scale(1);
+    opacity: 1;
+  }
+} 

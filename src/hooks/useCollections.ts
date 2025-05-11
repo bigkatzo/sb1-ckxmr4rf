@@ -36,25 +36,48 @@ export function useCollections(
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const page = useRef(0); // Track current page for pagination
+  const offset = useRef(0); // Track current offset for pagination
+  const isMounted = useRef(true); // Track component mounted state
+  const isFirstLoad = useRef(true); // Track if this is the first load
+  
+  // Reset state when filter changes
+  useEffect(() => {
+    setCollections([]);
+    setLoading(true);
+    setLoadingMore(false);
+    setError(null);
+    setHasMore(true);
+    offset.current = 0;
+    isFirstLoad.current = true;
+  }, [filter]);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const fetchCollections = useCallback(async (reset = false) => {
+    // Don't fetch if already loading or if there's nothing more to load
+    if ((loading || loadingMore) && !reset) return;
+    if (!hasMore && !reset) return;
+    
     try {
       if (reset) {
         setLoading(true);
-        page.current = 0;
+        offset.current = 0;
       } else {
         setLoadingMore(true);
       }
       
       setError(null);
       
-      // If resetting, start fresh, otherwise keep existing collections
-      const offset = reset ? 0 : collections.length;
-      const limit = reset ? initialLimit : loadMoreCount;
+      // Calculate limit and offset
+      const limit = reset || isFirstLoad.current ? initialLimit : loadMoreCount;
+      const currentOffset = reset ? 0 : offset.current;
       
       // Use the appropriate function based on filter
-      // Add pagination parameters for 'latest' when infinite scroll is enabled
       let queryData;
       
       if (filter === 'latest' && infiniteScroll) {
@@ -63,7 +86,7 @@ export function useCollections(
           'get_latest_collections',
           { 
             p_limit: limit,
-            p_offset: offset
+            p_offset: currentOffset
           }
         );
         queryData = { data, error };
@@ -77,6 +100,8 @@ export function useCollections(
         queryData = { data, error };
       }
       
+      if (!isMounted.current) return; // Don't update state if unmounted
+      
       const { data, error } = queryData;
       if (error) throw error;
       
@@ -87,7 +112,7 @@ export function useCollections(
         return;
       }
 
-      const transformedCollections = (data || []).map((collection: PublicCollection) => ({
+      const transformedCollections = data.map((collection: PublicCollection) => ({
         id: collection.id,
         name: collection.name,
         description: collection.description,
@@ -112,27 +137,37 @@ export function useCollections(
       }
 
       // If we got fewer items than requested, there are no more to load
-      if (transformedCollections.length < limit) {
-        setHasMore(false);
-      }
+      setHasMore(transformedCollections.length >= limit);
 
       // Update collections - either replace or append
       setCollections(prevCollections => 
         reset ? transformedCollections : [...prevCollections, ...transformedCollections]
       );
       
-      // Increment page for next fetch
-      page.current += 1;
+      // Update offset for next fetch
+      offset.current = reset ? transformedCollections.length : offset.current + transformedCollections.length;
+      
+      // No longer first load
+      isFirstLoad.current = false;
 
     } catch (err) {
+      if (!isMounted.current) return; // Don't update state if unmounted
+      
       console.error('Error fetching collections:', err);
       setError(err instanceof Error ? err : new Error(String(err)));
       if (reset) setCollections([]);
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (isMounted.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
-  }, [collections.length, filter, infiniteScroll, initialLimit, loadMoreCount]);
+  }, [filter, infiniteScroll, initialLimit, loadMoreCount, loading, loadingMore, hasMore]);
+
+  // Load initial collections
+  useEffect(() => {
+    fetchCollections(true);
+  }, [fetchCollections]);
 
   // Function to load more collections
   const loadMore = useCallback(() => {
@@ -140,11 +175,6 @@ export function useCollections(
       fetchCollections(false);
     }
   }, [loading, loadingMore, hasMore, fetchCollections]);
-
-  // Reset and fetch collections when filter changes
-  useEffect(() => {
-    fetchCollections(true);
-  }, [filter, fetchCollections]);
 
   return { 
     collections, 

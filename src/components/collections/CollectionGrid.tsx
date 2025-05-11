@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { CollectionCard } from './CollectionCard';
 import { useCollections } from '../../hooks/useCollections';
 import { CategoryGridSkeleton } from '../ui/Skeletons';
 import { Button } from '../ui/Button';
+import './loadingDots.css'; // We'll create this CSS file
 
 interface CollectionGridProps {
   filter: 'upcoming' | 'latest' | 'popular';
@@ -24,32 +25,43 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
   });
   
   const navigate = useNavigate();
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-
-  // Set up intersection observer for infinite scrolling
-  const lastElementRef = useCallback((node: HTMLDivElement | null) => {
-    if (loading || loadingMore) return;
-    
-    if (observerRef.current) observerRef.current.disconnect();
-    
-    observerRef.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        loadMore();
-      }
-    }, { threshold: 0.1 });
-    
-    if (node) observerRef.current.observe(node);
-  }, [loading, loadingMore, hasMore, loadMore]);
-
-  // Clean up observer on unmount
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  
+  // Improved IntersectionObserver for more reliable infinite scrolling
   useEffect(() => {
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
+    if (!infiniteScroll || !hasMore || loading || loadingMore) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          // Adding a small delay to prevent rapid firing
+          setTimeout(() => {
+            if (hasMore && !loadingMore) {
+              loadMore();
+            }
+          }, 100);
+        }
+      },
+      {
+        root: null, // viewport
+        rootMargin: '0px 0px 200px 0px', // trigger earlier for smoother experience
+        threshold: 0.1
       }
+    );
+    
+    const triggerElement = loadMoreTriggerRef.current;
+    if (triggerElement) {
+      observer.observe(triggerElement);
+    }
+    
+    return () => {
+      if (triggerElement) {
+        observer.unobserve(triggerElement);
+      }
+      observer.disconnect();
     };
-  }, []);
+  }, [infiniteScroll, hasMore, loading, loadingMore, loadMore]);
 
   if (loading && collections.length === 0) {
     return <CategoryGridSkeleton />;
@@ -79,14 +91,10 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
           // Set loading priority based on visual position (top-to-bottom, left-to-right)
           // Lower priority value means higher loading priority
           const loadingPriority = row * 100 + col;
-
-          // Determine if this is the last element for infinite scrolling
-          const isLastElement = index === collections.length - 1;
           
           return (
             <div
               key={collection.id}
-              ref={isLastElement && infiniteScroll ? lastElementRef : null}
               onClick={() => navigate(`/${collection.slug}`)}
               className="cursor-pointer animate-fade-in"
             >
@@ -100,9 +108,9 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
         })}
       </div>
       
-      {/* Load more button for non-infinite scroll or fallback */}
+      {/* Load more button for non-infinite scroll mode */}
       {!infiniteScroll && hasMore && (
-        <div className="flex justify-center mt-8" ref={loadMoreRef}>
+        <div className="flex justify-center mt-8">
           <Button
             onClick={loadMore}
             variant="outline"
@@ -114,20 +122,29 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
         </div>
       )}
       
-      {/* Loading indicator for infinite scroll */}
+      {/* Invisible trigger element for infinite scroll - positioned at the bottom */}
+      {infiniteScroll && hasMore && (
+        <div 
+          ref={loadMoreTriggerRef}
+          className="h-10 mb-4"
+          aria-hidden="true"
+        />
+      )}
+      
+      {/* Improved loading indicator for infinite scroll */}
       {infiniteScroll && loadingMore && (
-        <div className="flex justify-center py-4">
-          <div className="animate-pulse flex space-x-2">
-            <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-            <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-            <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+        <div className="flex justify-center py-2">
+          <div className="loading-dots" aria-label="Loading more collections">
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
         </div>
       )}
       
-      {/* "No more collections" notice when we've loaded everything */}
+      {/* "No more collections" notice when all collections have been loaded */}
       {!hasMore && collections.length > 6 && (
-        <div className="text-center py-4 text-gray-500 text-sm">
+        <div className="text-center py-3 text-gray-500 text-xs sm:text-sm">
           No more collections to load
         </div>
       )}
