@@ -14,6 +14,12 @@ export interface Collection {
   saleEnded: boolean;
   slug: string;
   user_id: string;
+  custom_url?: string;
+  x_url?: string;
+  telegram_url?: string;
+  dexscreener_url?: string;
+  pumpfun_url?: string;
+  website_url?: string;
   categories?: any[];
   products?: any[];
   productCount?: number;

@@ -8,6 +8,12 @@ export interface CollectionData {
   visible: boolean;
   featured?: boolean;
   sale_ended: boolean;
+  custom_url?: string;
+  x_url?: string;
+  telegram_url?: string;
+  dexscreener_url?: string;
+  pumpfun_url?: string;
+  website_url?: string;
   tags?: string[];
   user_id: string;
 }

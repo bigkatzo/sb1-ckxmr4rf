@@ -3,7 +3,7 @@ import { X, Plus, Trash2 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Toggle } from '../../ui/Toggle';
 import { formatDateForInput } from '../../../utils/date-helpers';
-import type { Collection } from '../../../types';
+import type { Collection } from '../../../types/collections';
 import { Dialog } from '@headlessui/react';
 import { OptimizedImage } from '../../ui/OptimizedImage';
 
@@ -27,6 +27,12 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const [tags, setTags] = useState<string[]>(collection?.tags || []);
   const [tagInput, setTagInput] = useState('');
   const [description, setDescription] = useState(collection?.description || '');
+  const [customUrl, setCustomUrl] = useState(collection?.custom_url || '');
+  const [xUrl, setXUrl] = useState(collection?.x_url || '');
+  const [telegramUrl, setTelegramUrl] = useState(collection?.telegram_url || '');
+  const [dexscreenerUrl, setDexscreenerUrl] = useState(collection?.dexscreener_url || '');
+  const [pumpfunUrl, setPumpfunUrl] = useState(collection?.pumpfun_url || '');
+  const [websiteUrl, setWebsiteUrl] = useState(collection?.website_url || '');
   const [launchDate, setLaunchDate] = useState(
     collection?.launchDate 
       ? formatDateForInput(collection.launchDate)
@@ -91,6 +97,14 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('visible', visible.toString());
       formData.append('sale_ended', saleEnded.toString());
       formData.append('tags', JSON.stringify(tags));
+      
+      // Add optional URL fields
+      if (customUrl) formData.append('custom_url', customUrl);
+      if (xUrl) formData.append('x_url', xUrl);
+      if (telegramUrl) formData.append('telegram_url', telegramUrl);
+      if (dexscreenerUrl) formData.append('dexscreener_url', dexscreenerUrl);
+      if (pumpfunUrl) formData.append('pumpfun_url', pumpfunUrl);
+      if (websiteUrl) formData.append('website_url', websiteUrl);
 
       // Handle image
       if (image) {
@@ -265,6 +279,103 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                     className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
                     placeholder="Enter collection description"
                   />
+                </div>
+
+                {/* URL Fields */}
+                <div className="space-y-4">
+                  <label className="block text-sm font-medium text-white">
+                    Collection Links (Optional)
+                  </label>
+                  
+                  <div>
+                    <label htmlFor="website_url" className="block text-xs text-gray-400 mb-1">
+                      Website URL
+                    </label>
+                    <input
+                      type="url"
+                      id="website_url"
+                      name="website_url"
+                      value={websiteUrl}
+                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="x_url" className="block text-xs text-gray-400 mb-1">
+                      X / Twitter URL
+                    </label>
+                    <input
+                      type="url"
+                      id="x_url"
+                      name="x_url"
+                      value={xUrl}
+                      onChange={(e) => setXUrl(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                      placeholder="https://x.com/username"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="telegram_url" className="block text-xs text-gray-400 mb-1">
+                      Telegram URL
+                    </label>
+                    <input
+                      type="url"
+                      id="telegram_url"
+                      name="telegram_url"
+                      value={telegramUrl}
+                      onChange={(e) => setTelegramUrl(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                      placeholder="https://t.me/example"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="dexscreener_url" className="block text-xs text-gray-400 mb-1">
+                      DexScreener URL
+                    </label>
+                    <input
+                      type="url"
+                      id="dexscreener_url"
+                      name="dexscreener_url"
+                      value={dexscreenerUrl}
+                      onChange={(e) => setDexscreenerUrl(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                      placeholder="https://dexscreener.com/example"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="pumpfun_url" className="block text-xs text-gray-400 mb-1">
+                      PumpFun URL
+                    </label>
+                    <input
+                      type="url"
+                      id="pumpfun_url"
+                      name="pumpfun_url"
+                      value={pumpfunUrl}
+                      onChange={(e) => setPumpfunUrl(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                      placeholder="https://pump.fun/example"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="custom_url" className="block text-xs text-gray-400 mb-1">
+                      Custom URL
+                    </label>
+                    <input
+                      type="url"
+                      id="custom_url"
+                      name="custom_url"
+                      value={customUrl}
+                      onChange={(e) => setCustomUrl(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                      placeholder="https://example.com"
+                    />
+                  </div>
                 </div>
 
                 <div>

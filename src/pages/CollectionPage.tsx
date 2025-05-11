@@ -13,6 +13,7 @@ import { ShareButton } from '../components/ui/ShareButton';
 import type { Category, Product } from '../types/index';
 import SEO from '../components/SEO';
 import { preloadPageResources } from '../lib/service-worker';
+import { CollectionLinks } from '../components/collections/CollectionLinks';
 
 export function CollectionPage() {
   const { slug } = useParams();
@@ -198,6 +199,9 @@ export function CollectionPage() {
               <p className="text-sm sm:text-base text-gray-300 max-w-xl mt-2 sm:mt-4 line-clamp-2 sm:line-clamp-none">
                 {collection.description}
               </p>
+              
+              {/* Collection Links Component integrated in hero */}
+              <CollectionLinks collection={collection} />
             </div>
           </div>
 

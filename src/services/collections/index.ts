@@ -71,6 +71,12 @@ export async function createCollection(data: FormData) {
         visible: data.get('visible') === 'true',
         sale_ended: data.get('sale_ended') === 'true',
         tags,
+        custom_url: data.get('custom_url') as string || null,
+        x_url: data.get('x_url') as string || null,
+        telegram_url: data.get('telegram_url') as string || null,
+        dexscreener_url: data.get('dexscreener_url') as string || null,
+        pumpfun_url: data.get('pumpfun_url') as string || null,
+        website_url: data.get('website_url') as string || null,
         user_id: user.id
       };
 
@@ -212,6 +218,12 @@ export async function updateCollection(id: string, data: FormData) {
       visible: data.get('visible') === 'true',
       sale_ended: data.get('sale_ended') === 'true',
       tags,
+      custom_url: data.get('custom_url') as string || null,
+      x_url: data.get('x_url') as string || null,
+      telegram_url: data.get('telegram_url') as string || null,
+      dexscreener_url: data.get('dexscreener_url') as string || null,
+      pumpfun_url: data.get('pumpfun_url') as string || null,
+      website_url: data.get('website_url') as string || null,
       updated_at: new Date().toISOString()
     };
 
