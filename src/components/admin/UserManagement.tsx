@@ -5,6 +5,7 @@ import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
 import { RefreshButton } from '../ui/RefreshButton';
 import { debounce } from '../../utils/debounce';
+import { ProfileImage } from '../ui/ProfileImage';
 
 interface User {
   id: string;
@@ -305,21 +306,12 @@ export function UserManagement() {
         <div className="flex items-start gap-4">
           {/* Profile Image */}
           <div className="flex-shrink-0">
-            <div className="h-16 w-16 bg-gray-800 rounded-full overflow-hidden flex items-center justify-center">
-              {user.profile_image ? (
-                <img 
-                  src={user.profile_image} 
-                  alt={user.display_name || 'User'} 
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    // Fallback if image fails to load
-                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
-                  }}
-                />
-              ) : (
-                <Users className="h-8 w-8 text-gray-500" />
-              )}
-            </div>
+            <ProfileImage
+              src={user.profile_image}
+              alt={user.display_name || 'User'}
+              displayName={user.display_name || user.email}
+              size="lg"
+            />
           </div>
           
           {/* User Details */}

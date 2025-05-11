@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ProfileModal } from './ProfileModal';
+import { ProfileImage } from '../ui/ProfileImage';
 
 export function ProfileButton() {
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -52,14 +53,13 @@ export function ProfileButton() {
         title="Profile settings"
       >
         {profileImage ? (
-          <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full overflow-hidden">
-            <img 
-              src={profileImage} 
-              alt="Profile" 
-              className="h-full w-full object-cover"
-              onError={() => setProfileImage(null)} // Fallback if image fails to load
-            />
-          </div>
+          <ProfileImage
+            src={profileImage}
+            alt="Profile"
+            displayName={displayName || "Profile"}
+            size="xs"
+            className="sm:w-5 sm:h-5" // Override size for small screens
+          />
         ) : (
           <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         )}

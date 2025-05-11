@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, User, Camera, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
+import { ProfileImage } from '../ui/ProfileImage';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -153,12 +154,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     setImagePreview(null);
   }
 
-  // Add a function to debug image loading issues
-  const handleImageError = () => {
-    console.error('Failed to load image:', profileData.profileImage);
-    setImagePreview(null);
-  };
-
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     
@@ -245,20 +240,23 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 {/* Profile Image Upload */}
                 <div className="flex flex-col items-center mb-6">
                   <div className="relative mb-3">
-                    <div className={`h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gray-800 border-2 border-gray-700 ${isUploading ? 'opacity-50' : ''}`}>
+                    <div className={`relative ${isUploading ? 'opacity-50' : ''}`}>
                       {imagePreview ? (
-                        <img 
-                          src={imagePreview} 
-                          alt="Profile" 
-                          className="w-full h-full object-cover"
-                          onError={handleImageError}
+                        <ProfileImage
+                          src={imagePreview}
+                          alt={profileData.displayName || "Profile"}
+                          displayName={profileData.displayName}
+                          size="xl"
+                          className="border-2 border-gray-700"
                         />
                       ) : (
-                        <User className="h-12 w-12 text-gray-500" />
+                        <div className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gray-800 border-2 border-gray-700">
+                          <User className="h-12 w-12 text-gray-500" />
+                        </div>
                       )}
                       
                       {isUploading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
                           <div className="h-6 w-6 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
                         </div>
                       )}

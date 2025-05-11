@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { Collection } from '../../types/collections';
 import { supabase } from '../../lib/supabase';
+import { ProfileImage } from '../ui/ProfileImage';
 
 // No longer need the icon components since we're using inline SVGs in the HTML string
 // Just keeping the interface definitions
@@ -175,6 +176,8 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
         </div>
       `;
     } else if (merchantProfile) {
+      // Using a simplified HTML approach for the DOM injected content
+      // We still need to use raw HTML here because we're injecting this into DOM
       const profileImage = merchantProfile.profileImage 
         ? `<img src="${merchantProfile.profileImage}" alt="${merchantProfile.displayName}" class="h-full w-full object-cover" onerror="this.src='https://via.placeholder.com/40'">`
         : `<div class="h-full w-full flex items-center justify-center text-white/70 bg-white/20 text-[10px]">${merchantProfile.displayName.charAt(0).toUpperCase()}</div>`;
@@ -390,29 +393,22 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                       setShowProfileModal(true);
                     }}
                   >
-                    <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0">
-                      {merchantProfile.profileImage ? (
-                        <img
-                          src={merchantProfile.profileImage}
-                          alt={merchantProfile.displayName}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40';
-                          }}
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center text-white/70 bg-white/20 text-[10px]">
-                          {merchantProfile.displayName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+                    <ProfileImage 
+                      src={merchantProfile.profileImage} 
+                      alt={merchantProfile.displayName}
+                      displayName={merchantProfile.displayName}
+                      size="sm"
+                    />
                     <span className="text-xs font-medium truncate max-w-[120px]">{merchantProfile.displayName}</span>
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-1.5 bg-white/10 text-white px-2 py-1 rounded-full">
-                    <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-white/70 bg-white/20 text-[10px]">
-                      A
-                    </div>
+                    <ProfileImage 
+                      src={null} 
+                      alt="Anonymous Creator"
+                      displayName="Anonymous"
+                      size="sm"
+                    />
                     <span className="text-xs font-medium truncate max-w-[120px]">Anonymous Creator</span>
                   </div>
                 )}
@@ -530,22 +526,12 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
           >
             <div className="p-4 sm:p-6 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full overflow-hidden flex-shrink-0">
-                  {merchantProfile.profileImage ? (
-                    <img
-                      src={merchantProfile.profileImage}
-                      alt={merchantProfile.displayName}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40';
-                      }}
-                    />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-white/70 bg-white/20 text-lg">
-                      {merchantProfile.displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
+                <ProfileImage 
+                  src={merchantProfile.profileImage} 
+                  alt={merchantProfile.displayName}
+                  displayName={merchantProfile.displayName}
+                  size="xl"
+                />
                 <div>
                   <h3 className="text-lg font-semibold text-white">{merchantProfile.displayName}</h3>
                   {merchantProfile.websiteUrl && (
