@@ -5,9 +5,12 @@ BEGIN;
 ALTER TABLE collections
 ADD COLUMN IF NOT EXISTS free_notes text;
 
--- Drop existing views that depend on collections
+-- Drop existing views and functions that depend on collections
 DROP VIEW IF EXISTS public_collections CASCADE;
 DROP VIEW IF EXISTS merchant_collections CASCADE;
+DROP FUNCTION IF EXISTS get_featured_collections();
+DROP FUNCTION IF EXISTS get_upcoming_collections();
+DROP FUNCTION IF EXISTS get_latest_collections();
 
 -- Recreate public_collections view to include free_notes
 CREATE VIEW public_collections AS
@@ -55,7 +58,7 @@ WHERE
   c.user_id = auth.uid() OR
   ca.collection_id IS NOT NULL;
 
--- Recreate the get_merchant_collections function
+-- Recreate the merchant functions
 CREATE OR REPLACE FUNCTION get_merchant_collections()
 RETURNS SETOF merchant_collections
 LANGUAGE sql
@@ -66,10 +69,47 @@ AS $$
   ORDER BY created_at DESC;
 $$;
 
+-- Recreate the storefront functions
+CREATE OR REPLACE FUNCTION public.get_featured_collections()
+RETURNS SETOF public_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public_collections
+  WHERE featured = true
+  ORDER BY launch_date DESC;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_upcoming_collections()
+RETURNS SETOF public_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public_collections
+  WHERE launch_date > now()
+  ORDER BY launch_date ASC;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_latest_collections()
+RETURNS SETOF public_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public_collections
+  ORDER BY launch_date DESC
+  LIMIT 6;
+$$;
+
 -- Grant permissions
 GRANT SELECT ON public_collections TO anon;
 GRANT SELECT ON merchant_collections TO authenticated;
 GRANT EXECUTE ON FUNCTION get_merchant_collections() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_featured_collections() TO anon;
+GRANT EXECUTE ON FUNCTION get_upcoming_collections() TO anon;
+GRANT EXECUTE ON FUNCTION get_latest_collections() TO anon;
 
 -- Verify changes
 DO $$

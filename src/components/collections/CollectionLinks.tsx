@@ -207,7 +207,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
       notesHTML = `
         <div class="mb-3 sm:mb-0">
           <h4 class="text-xs text-white/70 uppercase mb-1.5">Notes</h4>
-          <div class="bg-white/10 px-3 py-2 rounded-lg text-sm text-white">
+          <div class="bg-white/10 px-3 py-2 rounded-lg text-sm text-white whitespace-pre-wrap">
             ${collection.free_notes}
           </div>
         </div>
@@ -436,7 +436,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             {hasNotes && (
               <div className="mb-3 sm:mb-0">
                 <h4 className="text-xs text-white/70 uppercase mb-1.5">Notes</h4>
-                <div className="bg-white/10 px-3 py-2 rounded-lg text-sm text-white max-w-sm">
+                <div className="bg-white/10 px-3 py-2 rounded-lg text-sm text-white whitespace-pre-wrap">
                   {collection.free_notes}
                 </div>
               </div>

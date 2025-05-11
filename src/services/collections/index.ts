@@ -77,6 +77,7 @@ export async function createCollection(data: FormData) {
         dexscreener_url: data.get('dexscreener_url') as string || null,
         pumpfun_url: data.get('pumpfun_url') as string || null,
         website_url: data.get('website_url') as string || null,
+        free_notes: data.get('free_notes') as string || null,
         user_id: user.id
       };
 
@@ -224,6 +225,7 @@ export async function updateCollection(id: string, data: FormData) {
       dexscreener_url: data.get('dexscreener_url') as string || null,
       pumpfun_url: data.get('pumpfun_url') as string || null,
       website_url: data.get('website_url') as string || null,
+      free_notes: data.get('free_notes') as string || null,
       updated_at: new Date().toISOString()
     };
 
