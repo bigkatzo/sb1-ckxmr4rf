@@ -293,7 +293,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             class="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
             aria-label="PumpFun"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="8" ry="12"/><ellipse cx="12" cy="12" rx="12" ry="8"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2a6.5 6.5 0 0 0 0 13h7a6.5 6.5 0 0 0 0-13h-7Z"/><path d="M8.5 9a6.5 6.5 0 0 0 0 13h7a6.5 6.5 0 0 0 0-13h-7Z"/></svg>
           </a>
         `;
       }
@@ -491,7 +491,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                         className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                         aria-label="PumpFun"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="8" ry="12"/><ellipse cx="12" cy="12" rx="12" ry="8"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2a6.5 6.5 0 0 0 0 13h7a6.5 6.5 0 0 0 0-13h-7Z"/><path d="M8.5 9a6.5 6.5 0 0 0 0 13h7a6.5 6.5 0 0 0 0-13h-7Z"/></svg>
                       </a>
                     )}
                     
