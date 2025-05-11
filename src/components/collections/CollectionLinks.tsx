@@ -92,11 +92,7 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
     fetchMerchantProfile();
   }, [collection.user_id]);
 
-  // Always render the component if the collection has a user_id, even if we don't have links
-  // Only hide the component if there are no links AND no user_id
-  if (!hasLinks && !collection.user_id && !isFetchingProfile) {
-    return null;
-  }
+  // ALWAYS DISPLAY THE COMPONENT - REMOVED CONDITIONAL RETURN
   
   // Determine if we have enough links to need compact mode on mobile
   const linkCount = [
