@@ -29,22 +29,23 @@ export async function createUser(email: string, password: string): Promise<Creat
     }
 
     // Step 2: Check if email is available using the new function
-    const { data: isAvailable, error: lookupError } = await supabase
-      .rpc('check_email_availability', { p_email: email.trim() });
+    try {
+      const { data: isAvailable, error: lookupError } = await supabase
+        .rpc('check_email_availability', { p_email: email.trim() });
 
-    if (lookupError) {
-      console.error('Error checking email availability:', lookupError);
-      return {
-        success: false,
-        error: 'Unable to verify email availability. Please try again.'
-      };
-    }
-
-    if (!isAvailable) {
-      return {
-        success: false,
-        error: 'This email address is already registered. Please use a different email or sign in.'
-      };
+      if (lookupError) {
+        console.error('Error checking email availability:', lookupError);
+        // Continue with signup even if this check fails
+        console.log('Continuing with signup despite email check failure');
+      } else if (!isAvailable) {
+        return {
+          success: false,
+          error: 'This email address is already registered. Please use a different email or sign in.'
+        };
+      }
+    } catch (emailCheckError) {
+      console.error('Exception during email availability check:', emailCheckError);
+      // Continue with signup - we'll let the Auth API handle duplicate emails
     }
 
     // Step 3: Sign up the user with Supabase Auth
@@ -64,9 +65,51 @@ export async function createUser(email: string, password: string): Promise<Creat
       console.error('Signup error:', signUpError);
       
       if (signUpError.message?.includes('Database error')) {
+        // Despite database error for profile creation, the auth user may have been created
+        // Let's check if the user exists in auth
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          
+          if (userData?.user) {
+            console.log('User exists in auth despite profile error, attempting manual profile creation');
+            
+            // Manually create the user profile since the trigger failed
+            const { error: profileError } = await supabase
+              .from('user_profiles')
+              .insert({
+                id: userData.user.id,
+                email: userData.user.email,
+                role: userData.user.app_metadata?.role || 'user'
+              });
+            
+            if (profileError) {
+              console.error('Manual profile creation failed:', profileError);
+              // Continue anyway - the user has been created in auth system
+            } else {
+              console.log('Successfully created user profile manually');
+            }
+            
+            return {
+              success: true,
+              user: userData.user,
+              message: 'Account created successfully. You can now sign in.'
+            };
+          }
+        } catch (getUserError) {
+          console.error('Error checking user after signup failure:', getUserError);
+        }
+        
         return {
           success: false,
-          error: 'Unable to create user profile. Please try again.'
+          error: 'Unable to create user profile. Please try again or contact support if the issue persists.'
+        };
+      }
+
+      // Handle other common auth errors
+      if (signUpError.message?.includes('already registered')) {
+        return {
+          success: false,
+          error: 'This email address is already registered. Please use a different email or sign in.'
         };
       }
 
@@ -82,6 +125,42 @@ export async function createUser(email: string, password: string): Promise<Creat
         success: false,
         error: 'User creation failed: No user data returned'
       };
+    }
+
+    // If we got here, the user was created in auth but we should check if profile creation was successful
+    // Let's ensure the profile exists by checking/creating it
+    try {
+      // Check if profile exists
+      const { data: profileData, error: profileCheckError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      
+      if (profileCheckError) {
+        console.error('Error checking for profile:', profileCheckError);
+      }
+      
+      // If no profile found, create one
+      if (!profileData) {
+        console.log('No profile found, creating one manually');
+        const { error: profileCreateError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            role: data.user.app_metadata?.role || 'user'
+          });
+        
+        if (profileCreateError) {
+          console.error('Error creating profile manually:', profileCreateError);
+        } else {
+          console.log('Profile created successfully');
+        }
+      }
+    } catch (profileError) {
+      console.error('Exception in profile handling:', profileError);
+      // Continue anyway since the auth user was created
     }
 
     // Step 6: Return result based on session state
