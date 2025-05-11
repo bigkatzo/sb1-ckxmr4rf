@@ -76,6 +76,30 @@ export function CollectionPage() {
   // Keep track of whether the user has returned from a product page
   const hasReturnedFromProduct = useRef(false);
   const hasScrolledAfterReturn = useRef(false);
+  const restoredScrollPosition = useRef<number | null>(null);
+  
+  // Restore all visible products for returning users instead of just the initial batch
+  useEffect(() => {
+    if (hasReturnedFromProduct.current && location.state?.scrollPosition) {
+      // If returning from a product, load enough products to fill the screen up to the previous scroll position
+      const viewportHeight = window.innerHeight;
+      const scrollPosition = location.state.scrollPosition;
+      restoredScrollPosition.current = scrollPosition;
+      
+      // Calculate approximately how many products to load based on scroll position
+      // Use a more aggressive loading strategy for returning users
+      if (scrollPosition > viewportHeight) {
+        // Load more batches if the user had scrolled far down
+        const additionalBatches = Math.ceil(scrollPosition / (viewportHeight * 0.75));
+        // Load up to 3 batches right away to ensure smooth return experience
+        for (let i = 0; i < Math.min(additionalBatches, 3); i++) {
+          if (hasMore && !loadingMore) {
+            loadMore();
+          }
+        }
+      }
+    }
+  }, [hasReturnedFromProduct.current, location.state?.scrollPosition, hasMore, loadingMore, loadMore]);
   
   // Re-enable infinite scroll after user scrolls
   useEffect(() => {
@@ -100,6 +124,9 @@ export function CollectionPage() {
   
   // Handle category change by updating state
   const handleCategoryChange = useCallback((categoryId: string) => {
+    // Store the current scroll position when changing categories
+    const scrollPosition = window.scrollY;
+    
     // Reset the hasReturnedFromProduct flag when user manually changes category
     hasReturnedFromProduct.current = false;
     
@@ -107,9 +134,15 @@ export function CollectionPage() {
       // Clicking the same category again deselects it, showing all products
       setSelectedCategory('');
       resetProducts(); // Reset the pagination when deselecting a category
+      
+      // Scroll back to the top when category is deselected
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       setSelectedCategory(categoryId);
       // The usePaginatedProducts hook will handle filtering by category
+      
+      // Remember this was a category change to improve restoration experience
+      sessionStorage.setItem('lastCategoryChange', Date.now().toString());
     }
   }, [selectedCategory, resetProducts]);
   
@@ -123,17 +156,34 @@ export function CollectionPage() {
         hasReturnedFromProduct.current = true;
         hasScrolledAfterReturn.current = false;
         
-        // Restore scroll position
+        // Preserve currently visible products
+        sessionStorage.setItem('visibleProductCount', paginatedProducts.length.toString());
+        
+        // Restore scroll position with a short delay to allow rendering
         setTimeout(() => {
           window.scrollTo({
             top: location.state.scrollPosition,
             behavior: 'auto'
           });
+          
+          // After scroll restoration, check if we're near the end of loaded products
+          // and preemptively load more if needed
+          const scrollBottom = location.state.scrollPosition + window.innerHeight;
+          const pageHeight = document.documentElement.scrollHeight;
+          const nearBottom = (pageHeight - scrollBottom) < 500; // 500px threshold
+          
+          if (nearBottom && hasMore && !loadingMore) {
+            // We're near the bottom, preload more products
+            loadMore();
+          }
         }, 100);
       } else {
         // Only reset products on initial visit, not when returning from product
         hasReturnedFromProduct.current = false;
         resetProducts();
+        
+        // Clear session storage for products count
+        sessionStorage.removeItem('visibleProductCount');
       }
       
       // Set selected category from location state if available
@@ -141,7 +191,7 @@ export function CollectionPage() {
         setSelectedCategory(location.state.selectedCategoryId);
       }
     }
-  }, [loading, isInitialLoad, location.state, resetProducts]);
+  }, [loading, isInitialLoad, location.state, resetProducts, paginatedProducts.length, hasMore, loadingMore, loadMore]);
   
   // Set up intersection observer for infinite scrolling
   useEffect(() => {
@@ -303,10 +353,13 @@ export function CollectionPage() {
                 {(loadingMore || hasMore) && (
                   <div 
                     ref={loaderRef}
-                    className="flex justify-center py-6"
+                    className={`flex justify-center py-4 transition-opacity duration-300 ${
+                      // Make loader less visible for returning users to avoid distraction
+                      hasReturnedFromProduct.current ? 'opacity-0' : 'opacity-100'
+                    }`}
                   >
                     {loadingMore && (
-                      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] text-gray-400 motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                      <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] text-gray-500/50 motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
                         <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
                       </div>
                     )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Product } from '../types/variants';
 
 interface PaginatedProductsOptions {
@@ -18,15 +18,21 @@ export function usePaginatedProducts(
     loadMoreCount = 12, // Load 12 more products at a time
   } = options;
 
-  // Filter products by category if categoryId is provided
+  // Memoize the filtered products for better performance
+  const filteredProducts = useMemo(() => 
+    categoryId 
+      ? allProducts.filter(product => product.categoryId === categoryId)
+      : allProducts,
+    [allProducts, categoryId]
+  );
+  
+  // Keep a reference to filtered products
   const filteredAllProducts = useRef<Product[]>([]);
   
   // Update filtered products when dependencies change
   useEffect(() => {
-    filteredAllProducts.current = categoryId 
-      ? allProducts.filter(product => product.categoryId === categoryId)
-      : allProducts;
-  }, [allProducts, categoryId]);
+    filteredAllProducts.current = filteredProducts;
+  }, [filteredProducts]);
 
   const [visibleProducts, setVisibleProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +42,7 @@ export function usePaginatedProducts(
   const isMounted = useRef(true); // Track component mounted state
   const isLoadingRef = useRef(false); // Track loading state to prevent concurrent operations
   const initializedRef = useRef(false); // Track if initial load has happened
+  const lastCategoryId = useRef<string | null>(null); // Track last category ID to detect changes
   
   // Function to load more products (or initial load)
   const loadProducts = useCallback((reset = false) => {
@@ -91,11 +98,24 @@ export function usePaginatedProducts(
     }
   }, [initialLimit, loadMoreCount]);
 
-  // Reset state when products or category changes but only during initial load
+  // Reset state when products or category changes
   useEffect(() => {
     const currentProducts = filteredAllProducts.current;
+    const categoryChanged = lastCategoryId.current !== categoryId;
     
-    // Check if current visible products exceeds what we'd expect based on offset
+    // Update the last category ID
+    lastCategoryId.current = categoryId;
+    
+    // If category changed, we need to reset
+    if (categoryChanged && initializedRef.current) {
+      // Reset pagination
+      setVisibleProducts([]);
+      offset.current = 0;
+      loadProducts(true);
+      return;
+    }
+    
+    // For other changes, be more careful with state updates
     if (visibleProducts.length > currentProducts.length) {
       // Products array changed and no longer matches our visible products
       // This can happen when filtering or when data structure changes
