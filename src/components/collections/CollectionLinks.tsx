@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Globe, Send, BarChart3, Pill, Link } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { Collection } from '../../types/collections';
 import { supabase } from '../../lib/supabase';
 
@@ -207,8 +207,10 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
       notesHTML = `
         <div class="mb-3 sm:mb-0">
           <h4 class="text-xs text-white/70 uppercase mb-1.5">Notes</h4>
-          <div class="bg-white px-3 py-2 rounded-full text-sm text-black whitespace-pre-wrap">
-            ${collection.free_notes}
+          <div class="flex flex-wrap gap-1.5">
+            <span class="inline-flex bg-white text-black px-2 py-1 rounded-full text-xs">
+              ${collection.free_notes}
+            </span>
           </div>
         </div>
       `;
@@ -229,7 +231,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             class="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
             aria-label="Website"
           >
-            <Globe size={14} />
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
           </a>
         `;
       }
@@ -261,7 +263,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             class="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
             aria-label="Telegram"
           >
-            <Send size={14} />
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
           </a>
         `;
       }
@@ -276,7 +278,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             class="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
             aria-label="DexScreener"
           >
-            <BarChart3 size={14} />
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16h3V8H7v8Z"/><path d="M14 16h3v-4h-3v4Z"/><path d="M14 8v2"/></svg>
           </a>
         `;
       }
@@ -291,7 +293,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             class="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
             aria-label="PumpFun"
           >
-            <Pill size={14} />
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 6 4 6-4 6-4-6 4-6Z"/></svg>
           </a>
         `;
       }
@@ -306,7 +308,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             class="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
             aria-label="Link"
           >
-            <Link size={14} />
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           </a>
         `;
       }
@@ -426,7 +428,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                         className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                         aria-label="Website"
                       >
-                        <Globe size={14} />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
                       </a>
                     )}
                     
@@ -452,7 +454,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                         className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                         aria-label="Telegram"
                       >
-                        <Send size={14} />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
                       </a>
                     )}
                     
@@ -464,7 +466,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                         className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                         aria-label="DexScreener"
                       >
-                        <BarChart3 size={14} />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16h3V8H7v8Z"/><path d="M14 16h3v-4h-3v4Z"/><path d="M14 8v2"/></svg>
                       </a>
                     )}
                     
@@ -476,7 +478,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                         className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                         aria-label="PumpFun"
                       >
-                        <Pill size={14} />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 6 4 6-4 6-4-6 4-6Z"/></svg>
                       </a>
                     )}
                     
@@ -488,7 +490,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                         className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                         aria-label="Link"
                       >
-                        <Link size={14} />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                       </a>
                     )}
                   </div>
@@ -500,8 +502,10 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             {hasNotes && (
               <div className="mb-3 sm:mb-0">
                 <h4 className="text-xs text-white/70 uppercase mb-1.5">Notes</h4>
-                <div className="bg-white px-3 py-2 rounded-full text-sm text-black whitespace-pre-wrap">
-                  {collection.free_notes}
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="inline-flex bg-white text-black px-2 py-1 rounded-full text-xs">
+                    {collection.free_notes}
+                  </span>
                 </div>
               </div>
             )}
@@ -546,7 +550,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                       rel="noopener noreferrer"
                       className="text-xs text-blue-400 flex items-center gap-1 hover:underline"
                     >
-                      <Globe size={12} />
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
                       <span className="truncate max-w-[200px]">{merchantProfile.websiteUrl}</span>
                     </a>
                   )}
