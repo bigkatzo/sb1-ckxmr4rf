@@ -208,7 +208,13 @@ export function useMerchantCollections(options: {
           user_id,
           access_type,
           owner_username,
-          collection_access(user_id, access_type)
+          collection_access(user_id, access_type),
+          custom_url,
+          x_url,
+          telegram_url,
+          dexscreener_url,
+          pumpfun_url,
+          website_url
         `)
         .order('created_at', { ascending: false });
 
@@ -250,8 +256,14 @@ export function useMerchantCollections(options: {
           saleEnded: collection.sale_ended,
           slug: collection.slug,
           user_id: collection.user_id,
-        productCount: productCountMap[collection.id] || 0,
-        categoryCount: categoryCountMap[collection.id] || 0,
+          custom_url: collection.custom_url || '',
+          x_url: collection.x_url || '',
+          telegram_url: collection.telegram_url || '',
+          dexscreener_url: collection.dexscreener_url || '',
+          pumpfun_url: collection.pumpfun_url || '',
+          website_url: collection.website_url || '',
+          productCount: productCountMap[collection.id] || 0,
+          categoryCount: categoryCountMap[collection.id] || 0,
           accessType: collection.access_type,
           isOwner: collection.user_id === user.id || isAdmin,
           owner_username: collection.owner_username
