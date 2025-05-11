@@ -110,35 +110,28 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
   const needsCompactMode = linkCount > 3;
 
   return (
-    <div className={`relative ${className}`}>
-      {/* Toggle button - Just a chevron on mobile, text+chevron on desktop */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-center gap-1.5 text-white/80 hover:text-white transition-colors sm:static absolute right-0 bottom-0"
-        aria-label={isExpanded ? "Hide details" : "Show details"}
-      >
-        <span className="hidden sm:inline text-xs sm:text-sm font-medium">
-          {isExpanded ? 'Hide details' : 'View details'}
-        </span>
-        <div className="flex items-center justify-center h-8 w-8 sm:bg-transparent">
-          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </div>
-      </button>
+    <>
+      {/* Main component with toggle button */}
+      <div className={`relative ${className}`}>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center justify-center gap-1.5 text-white/80 hover:text-white transition-colors sm:static absolute right-0 bottom-0"
+          aria-label={isExpanded ? "Hide details" : "Show details"}
+        >
+          <span className="hidden sm:inline text-xs sm:text-sm font-medium">
+            {isExpanded ? 'Hide details' : 'View details'}
+          </span>
+          <div className="flex items-center justify-center h-8 w-8 sm:bg-transparent">
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </div>
+        </button>
+      </div>
       
-      {/* Expanded details section - Fixed position for mobile, regular for desktop */}
+      {/* Expanded details section rendered outside the hero component */}
       {isExpanded && (
-        <div className="sm:mt-2 sm:pt-2 sm:border-t sm:border-white/20 fixed sm:absolute left-0 right-0 sm:top-full mt-0 sm:mt-2 sm:static bg-gray-900 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none rounded-lg sm:rounded-none p-4 sm:p-0 shadow-lg sm:shadow-none z-20">
-          {/* Close button for mobile fixed overlay */}
-          <button 
-            onClick={() => setIsExpanded(false)}
-            className="sm:hidden absolute top-3 right-3 text-white/70 hover:text-white"
-            aria-label="Close details"
-          >
-            <ChevronUp size={20} />
-          </button>
-
+        <div className="mt-4 bg-gray-900/50 backdrop-blur-sm rounded-lg p-4 sm:p-6 animate-slideDown">
           {/* Desktop layout: Creator and Links side by side */}
-          <div className="sm:flex sm:justify-between sm:gap-6 pt-6 sm:pt-0">
+          <div className="sm:flex sm:justify-between sm:gap-6">
             {/* Creator section - always show, even if profile data is empty */}
             <div className="mb-3 sm:mb-0">
               <h4 className="text-xs text-white/70 uppercase mb-1.5">Creator</h4>
@@ -333,6 +326,6 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 } 
