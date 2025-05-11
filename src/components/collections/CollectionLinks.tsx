@@ -206,44 +206,50 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
             </div>
           )}
           
-          {/* Creator section - always show if we're waiting for profile data */}
-          {(merchantProfile || isFetchingProfile) && (
-            <div>
-              <h4 className="text-xs text-white/70 uppercase mb-1.5">Creator</h4>
-              {isFetchingProfile ? (
-                <div className="animate-pulse flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded-full w-28">
-                  <div className="h-5 w-5 rounded-full bg-white/20"></div>
-                  <div className="h-3 w-16 bg-white/20 rounded"></div>
+          {/* Creator section - always show, even if profile data is empty */}
+          <div>
+            <h4 className="text-xs text-white/70 uppercase mb-1.5">Creator</h4>
+            {isFetchingProfile ? (
+              <div className="animate-pulse flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded-full w-28">
+                <div className="h-5 w-5 rounded-full bg-white/20"></div>
+                <div className="h-3 w-16 bg-white/20 rounded"></div>
+              </div>
+            ) : merchantProfile ? (
+              <div
+                className="inline-flex items-center gap-1.5 cursor-pointer bg-white/10 hover:bg-white/20 transition-colors text-white px-2 py-1 rounded-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowProfileModal(true);
+                }}
+              >
+                <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0">
+                  {merchantProfile.profileImage ? (
+                    <img
+                      src={merchantProfile.profileImage}
+                      alt={merchantProfile.displayName}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40';
+                      }}
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-white/70 bg-white/20 text-[10px]">
+                      {merchantProfile.displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
-              ) : merchantProfile && (
-                <div
-                  className="inline-flex items-center gap-1.5 cursor-pointer bg-white/10 hover:bg-white/20 transition-colors text-white px-2 py-1 rounded-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowProfileModal(true);
-                  }}
-                >
-                  <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0">
-                    {merchantProfile.profileImage ? (
-                      <img
-                        src={merchantProfile.profileImage}
-                        alt={merchantProfile.displayName}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40';
-                        }}
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-white/70 bg-white/20 text-[10px]">
-                        {merchantProfile.displayName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-xs font-medium truncate max-w-[120px]">{merchantProfile.displayName}</span>
+                <span className="text-xs font-medium truncate max-w-[120px]">{merchantProfile.displayName}</span>
+              </div>
+            ) : (
+              /* Default state when profile failed to load or doesn't exist */
+              <div className="inline-flex items-center gap-1.5 bg-white/10 text-white px-2 py-1 rounded-full">
+                <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-white/70 bg-white/20 text-[10px]">
+                  A
                 </div>
-              )}
-            </div>
-          )}
+                <span className="text-xs font-medium truncate max-w-[120px]">Anonymous Creator</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
       
