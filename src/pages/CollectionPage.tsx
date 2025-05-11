@@ -75,6 +75,28 @@ export function CollectionPage() {
   
   // Keep track of whether the user has returned from a product page
   const hasReturnedFromProduct = useRef(false);
+  const hasScrolledAfterReturn = useRef(false);
+  
+  // Re-enable infinite scroll after user scrolls
+  useEffect(() => {
+    // Only add scroll listener if returning from product
+    if (!hasReturnedFromProduct.current) return;
+    
+    const handleScroll = () => {
+      // Only trigger once after the first scroll
+      if (!hasScrolledAfterReturn.current) {
+        hasScrolledAfterReturn.current = true;
+        // Re-enable infinite scrolling
+        hasReturnedFromProduct.current = false;
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [hasReturnedFromProduct.current]);
   
   // Handle category change by updating state
   const handleCategoryChange = useCallback((categoryId: string) => {
@@ -99,6 +121,7 @@ export function CollectionPage() {
       // Check if returning from a product page
       if (location.state?.returnedFromProduct && location.state?.scrollPosition) {
         hasReturnedFromProduct.current = true;
+        hasScrolledAfterReturn.current = false;
         
         // Restore scroll position
         setTimeout(() => {
@@ -120,11 +143,8 @@ export function CollectionPage() {
     }
   }, [loading, isInitialLoad, location.state, resetProducts]);
   
-  // Set up intersection observer for infinite scrolling only if not returned from product
+  // Set up intersection observer for infinite scrolling
   useEffect(() => {
-    // Don't set up observer if user just returned from a product page
-    if (hasReturnedFromProduct.current) return;
-    
     if (!loaderRef.current || !hasMore) return;
     
     const observer = new IntersectionObserver(
@@ -143,7 +163,7 @@ export function CollectionPage() {
         observer.unobserve(loaderRef.current);
       }
     };
-  }, [hasMore, loadingMore, loadMore]);
+  }, [hasMore, loadingMore, loadMore, hasReturnedFromProduct.current]);
 
   if (!slug) {
     return <Navigate to="/" replace />;
@@ -279,8 +299,8 @@ export function CollectionPage() {
                   loading={loading && !isInitialLoad && !location.state?.returnedFromProduct}
                 />
                 
-                {/* Loading indicator for infinite scroll - only show if not returning from product */}
-                {!hasReturnedFromProduct.current && (loadingMore || hasMore) && (
+                {/* Loading indicator for infinite scroll */}
+                {(loadingMore || hasMore) && (
                   <div 
                     ref={loaderRef}
                     className="flex justify-center py-6"

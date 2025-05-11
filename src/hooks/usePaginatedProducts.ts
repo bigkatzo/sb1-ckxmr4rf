@@ -91,25 +91,25 @@ export function usePaginatedProducts(
     }
   }, [initialLimit, loadMoreCount]);
 
-  // Load initial products only if not initialized yet
+  // Reset state when products or category changes but only during initial load
   useEffect(() => {
-    if (allProducts.length > 0 && !initializedRef.current) {
+    const currentProducts = filteredAllProducts.current;
+    
+    // Check if current visible products exceeds what we'd expect based on offset
+    if (visibleProducts.length > currentProducts.length) {
+      // Products array changed and no longer matches our visible products
+      // This can happen when filtering or when data structure changes
+      setVisibleProducts(currentProducts.slice(0, Math.min(initialLimit, currentProducts.length)));
+      offset.current = Math.min(initialLimit, currentProducts.length);
+      setHasMore(currentProducts.length > initialLimit);
+    } else if (!initializedRef.current && allProducts.length > 0) {
+      // Initial load - set up initial pagination
       loadProducts(true);
+    } else if (initializedRef.current) {
+      // Update hasMore state based on current products
+      setHasMore(offset.current < currentProducts.length);
     }
-  }, [allProducts, loadProducts]);
-  
-  // When category changes, reset pagination only if data exists
-  useEffect(() => {
-    // Only reset if we have products and we've already initialized the view
-    if (allProducts.length > 0 && initializedRef.current) {
-      // Reset the visible products when category changes
-      setVisibleProducts([]);
-      offset.current = 0;
-      
-      // This will cause visible products to update based on new category
-      loadProducts(true);
-    }
-  }, [categoryId, loadProducts]);
+  }, [allProducts, categoryId, initialLimit, loadProducts]);
 
   // Cleanup on unmount
   useEffect(() => {
