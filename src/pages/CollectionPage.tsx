@@ -3,6 +3,7 @@ import { useParams, Navigate, useLocation } from 'react-router-dom';
 import { CategoryTabs } from '../components/collections/CategoryTabs';
 import { ProductGrid } from '../components/products/ProductGrid';
 import { useCollection } from '../hooks/useCollection';
+import { usePaginatedProducts } from '../hooks/usePaginatedProducts';
 import { Clock, Image as ImageIcon, Ban } from 'lucide-react';
 import { CountdownTimer } from '../components/ui/CountdownTimer';
 import { CollectionSkeleton } from '../components/ui/Skeletons';
@@ -21,6 +22,7 @@ export function CollectionPage() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const pageRef = useRef<HTMLDivElement>(null);
   const prevRouteRef = useRef<string>('');
+  const loaderRef = useRef<HTMLDivElement>(null);
   
   const { collection, loading, error } = useCollection(slug || '');
   
@@ -44,38 +46,71 @@ export function CollectionPage() {
   // Categories are already filtered by visibility in the public_categories view
   const categories = collection?.categories || [];
   
+  // Create category indices for consistent colors
+  const categoryIndices = createCategoryIndices(categories);
+  
   // Get selected category from URL or state
   const [selectedCategory, setSelectedCategory] = useState<string>(
     // Initialize with the selectedCategoryId from location state if available
     location.state?.selectedCategoryId || ''
   );
   
-  // Create category indices for consistent colors
-  const categoryIndices = createCategoryIndices(categories);
-
+  // Filter products to only show those in visible categories
+  const visibleProducts = collection?.products?.filter((product: Product) => 
+    !product.categoryId || // Include products without a category
+    categories.some((cat: Category) => cat.id === product.categoryId) // Include products in visible categories
+  ) || [];
+  
+  // Use paginated products hook for infinite scrolling
+  const {
+    products: paginatedProducts,
+    loadingMore,
+    hasMore,
+    loadMore,
+    resetProducts
+  } = usePaginatedProducts(visibleProducts, selectedCategory, {
+    initialLimit: 12,
+    loadMoreCount: 8,
+  });
+  
+  // Keep track of whether the user has returned from a product page
+  const hasReturnedFromProduct = useRef(false);
+  
   // Handle category change by updating state
   const handleCategoryChange = useCallback((categoryId: string) => {
+    // Reset the hasReturnedFromProduct flag when user manually changes category
+    hasReturnedFromProduct.current = false;
+    
     if (selectedCategory === categoryId) {
       // Clicking the same category again deselects it, showing all products
       setSelectedCategory('');
+      resetProducts(); // Reset the pagination when deselecting a category
     } else {
       setSelectedCategory(categoryId);
+      // The usePaginatedProducts hook will handle filtering by category
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, resetProducts]);
   
   // Handle initial load and scroll restoration
   useEffect(() => {
     if (!loading && isInitialLoad) {
       setIsInitialLoad(false);
       
-      // Only restore scroll position if returning directly from a product
+      // Check if returning from a product page
       if (location.state?.returnedFromProduct && location.state?.scrollPosition) {
+        hasReturnedFromProduct.current = true;
+        
+        // Restore scroll position
         setTimeout(() => {
           window.scrollTo({
             top: location.state.scrollPosition,
             behavior: 'auto'
           });
         }, 100);
+      } else {
+        // Only reset products on initial visit, not when returning from product
+        hasReturnedFromProduct.current = false;
+        resetProducts();
       }
       
       // Set selected category from location state if available
@@ -83,15 +118,33 @@ export function CollectionPage() {
         setSelectedCategory(location.state.selectedCategoryId);
       }
     }
-  }, [loading, isInitialLoad, location.state]);
+  }, [loading, isInitialLoad, location.state, resetProducts]);
   
-  // Update selectedCategory when location state changes
+  // Set up intersection observer for infinite scrolling only if not returned from product
   useEffect(() => {
-    if (location.state?.selectedCategoryId) {
-      setSelectedCategory(location.state.selectedCategoryId);
-    }
-  }, [location.state?.selectedCategoryId]);
-  
+    // Don't set up observer if user just returned from a product page
+    if (hasReturnedFromProduct.current) return;
+    
+    if (!loaderRef.current || !hasMore) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    observer.observe(loaderRef.current);
+    
+    return () => {
+      if (loaderRef.current) {
+        observer.unobserve(loaderRef.current);
+      }
+    };
+  }, [hasMore, loadingMore, loadMore]);
+
   if (!slug) {
     return <Navigate to="/" replace />;
   }
@@ -111,12 +164,6 @@ export function CollectionPage() {
   const isNew = collection?.launchDate && !isUpcoming 
     ? (new Date().getTime() - new Date(collection.launchDate).getTime() < 7 * 24 * 60 * 60 * 1000) 
     : false;
-
-  // Filter products to only show those in visible categories
-  const visibleProducts = collection?.products?.filter((product: Product) => 
-    !product.categoryId || // Include products without a category
-    categories.some((cat: Category) => cat.id === product.categoryId) // Include products in visible categories
-  ) || [];
 
   return (
     <div 
@@ -226,11 +273,25 @@ export function CollectionPage() {
             <div className="p-4 sm:p-6">
               <div className="transition-opacity duration-200 ease-in-out">
                 <ProductGrid 
-                  products={visibleProducts}
+                  products={paginatedProducts}
                   categoryId={selectedCategory}
                   categoryIndices={categoryIndices}
                   loading={loading && !isInitialLoad && !location.state?.returnedFromProduct}
                 />
+                
+                {/* Loading indicator for infinite scroll - only show if not returning from product */}
+                {!hasReturnedFromProduct.current && (loadingMore || hasMore) && (
+                  <div 
+                    ref={loaderRef}
+                    className="flex justify-center py-6"
+                  >
+                    {loadingMore && (
+                      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] text-gray-400 motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                        <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
