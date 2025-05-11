@@ -237,6 +237,7 @@ export function useCollection(slug: string) {
           dexscreener_url: collectionData.dexscreener_url || '',
           pumpfun_url: collectionData.pumpfun_url || '',
           website_url: collectionData.website_url || '',
+          free_notes: collectionData.free_notes || '',
           categories: (categoriesResponse.data || []).map(category => ({
             id: category.id,
             name: category.name,

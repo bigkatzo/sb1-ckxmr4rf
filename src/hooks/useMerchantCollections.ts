@@ -214,7 +214,8 @@ export function useMerchantCollections(options: {
           telegram_url,
           dexscreener_url,
           pumpfun_url,
-          website_url
+          website_url,
+          free_notes
         `)
         .order('created_at', { ascending: false });
 
@@ -262,6 +263,7 @@ export function useMerchantCollections(options: {
           dexscreener_url: collection.dexscreener_url || '',
           pumpfun_url: collection.pumpfun_url || '',
           website_url: collection.website_url || '',
+          free_notes: collection.free_notes || '',
           productCount: productCountMap[collection.id] || 0,
           categoryCount: categoryCountMap[collection.id] || 0,
           accessType: collection.access_type,
