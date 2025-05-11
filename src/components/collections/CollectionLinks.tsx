@@ -120,16 +120,25 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
         <span className="hidden sm:inline text-xs sm:text-sm font-medium">
           {isExpanded ? 'Hide details' : 'View details'}
         </span>
-        <div className="flex items-center justify-center h-8 w-8 bg-white/10 hover:bg-white/15 rounded-full sm:bg-transparent">
+        <div className="flex items-center justify-center h-8 w-8 sm:bg-transparent">
           {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
       </button>
       
-      {/* Expanded details section - Positioned outside hero card on mobile */}
+      {/* Expanded details section - Fixed position for mobile, regular for desktop */}
       {isExpanded && (
-        <div className="sm:mt-2 sm:pt-2 sm:border-t sm:border-white/20 absolute left-0 right-0 top-full mt-2 sm:static bg-gray-900/95 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none rounded-md sm:rounded-none p-4 sm:p-0 shadow-lg sm:shadow-none z-10">
+        <div className="sm:mt-2 sm:pt-2 sm:border-t sm:border-white/20 fixed sm:absolute left-0 right-0 sm:top-full mt-0 sm:mt-2 sm:static bg-gray-900 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none rounded-lg sm:rounded-none p-4 sm:p-0 shadow-lg sm:shadow-none z-20">
+          {/* Close button for mobile fixed overlay */}
+          <button 
+            onClick={() => setIsExpanded(false)}
+            className="sm:hidden absolute top-3 right-3 text-white/70 hover:text-white"
+            aria-label="Close details"
+          >
+            <ChevronUp size={20} />
+          </button>
+
           {/* Desktop layout: Creator and Links side by side */}
-          <div className="sm:flex sm:justify-between sm:gap-6">
+          <div className="sm:flex sm:justify-between sm:gap-6 pt-6 sm:pt-0">
             {/* Creator section - always show, even if profile data is empty */}
             <div className="mb-3 sm:mb-0">
               <h4 className="text-xs text-white/70 uppercase mb-1.5">Creator</h4>
