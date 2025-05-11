@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 const TelegramIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
     <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-1.218 19.426c-.554 0-.458-.225-.648-.803l-1.622-5.333 12.488-7.39"></path>
-    <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm0 22c-5.514 0-10-4.486-10-10s4.486-10 10-10 10 4.486 10 10-4.486 10-10 10z"></path>
+    <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm0 22c-5.514 0-10-4.486-10-10s4.486-10 10-10 10 4.486 10 10-5.486 10-10 10z"></path>
     <path d="M15.693 8.132c-.168-.168-.442-.205-.653-.097l-8.071 4.147c-.565.29-.503 1.156.097 1.363l2.053.703 7.911-4.974c.128-.084.277.115.173.222l-6.407 6.635c-.213.219-.127.616.169.616h.016c.096 0 .187-.042.248-.116l1.697-2.074 2.155.738c.398.138.847-.06.985-.454l1.733-6.612c.067-.262.001-.539-.168-.707z"></path>
   </svg>
 );
@@ -49,6 +49,7 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [merchantProfile, setMerchantProfile] = useState<MerchantProfile | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
 
   const hasLinks = collection.custom_url || collection.x_url || collection.telegram_url || 
                    collection.dexscreener_url || collection.pumpfun_url || collection.website_url;
@@ -56,7 +57,9 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
   useEffect(() => {
     async function fetchMerchantProfile() {
       try {
+        setIsFetchingProfile(true);
         if (!collection.user_id) {
+          setIsFetchingProfile(false);
           return;
         }
         
@@ -69,6 +72,7 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
         
         if (error) {
           console.error('Error fetching merchant profile:', error);
+          setIsFetchingProfile(false);
           return;
         }
         
@@ -78,16 +82,19 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
           profileImage: profile.profile_image,
           websiteUrl: profile.website_url || ''
         });
+        setIsFetchingProfile(false);
       } catch (error) {
         console.error('Error:', error);
+        setIsFetchingProfile(false);
       }
     }
     
     fetchMerchantProfile();
   }, [collection.user_id]);
 
-  // If there are no links and no merchant profile, don't render anything
-  if (!hasLinks && !merchantProfile) {
+  // Always render the component if the collection has a user_id, even if we don't have links
+  // Only hide the component if there are no links AND no user_id
+  if (!hasLinks && !collection.user_id && !isFetchingProfile) {
     return null;
   }
   
@@ -203,35 +210,42 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
             </div>
           )}
           
-          {/* Creator section */}
-          {merchantProfile && (
+          {/* Creator section - always show if we're waiting for profile data */}
+          {(merchantProfile || isFetchingProfile) && (
             <div>
               <h4 className="text-xs text-white/70 uppercase mb-1.5">Creator</h4>
-              <div
-                className="inline-flex items-center gap-1.5 cursor-pointer bg-white/10 hover:bg-white/20 transition-colors text-white px-2 py-1 rounded-full"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowProfileModal(true);
-                }}
-              >
-                <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0">
-                  {merchantProfile.profileImage ? (
-                    <img
-                      src={merchantProfile.profileImage}
-                      alt={merchantProfile.displayName}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40';
-                      }}
-                    />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-white/70 bg-white/20 text-[10px]">
-                      {merchantProfile.displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+              {isFetchingProfile ? (
+                <div className="animate-pulse flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded-full w-28">
+                  <div className="h-5 w-5 rounded-full bg-white/20"></div>
+                  <div className="h-3 w-16 bg-white/20 rounded"></div>
                 </div>
-                <span className="text-xs font-medium truncate max-w-[120px]">{merchantProfile.displayName}</span>
-              </div>
+              ) : merchantProfile && (
+                <div
+                  className="inline-flex items-center gap-1.5 cursor-pointer bg-white/10 hover:bg-white/20 transition-colors text-white px-2 py-1 rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowProfileModal(true);
+                  }}
+                >
+                  <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0">
+                    {merchantProfile.profileImage ? (
+                      <img
+                        src={merchantProfile.profileImage}
+                        alt={merchantProfile.displayName}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40';
+                        }}
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-white/70 bg-white/20 text-[10px]">
+                        {merchantProfile.displayName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-xs font-medium truncate max-w-[120px]">{merchantProfile.displayName}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -249,7 +263,7 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
           >
             <div className="p-4 sm:p-6 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-700 flex-shrink-0">
+                <div className="h-12 w-12 rounded-full overflow-hidden flex-shrink-0">
                   {merchantProfile.profileImage ? (
                     <img
                       src={merchantProfile.profileImage}
@@ -260,34 +274,35 @@ export function CollectionLinks({ collection }: CollectionLinksProps) {
                       }}
                     />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center text-gray-400 text-lg">
+                    <div className="h-full w-full flex items-center justify-center text-white/70 bg-white/20 text-lg">
                       {merchantProfile.displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
-                <div className="overflow-hidden">
-                  <h3 className="text-xl font-bold text-white truncate">{merchantProfile.displayName}</h3>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{merchantProfile.displayName}</h3>
                   {merchantProfile.websiteUrl && (
-                    <a 
+                    <a
                       href={merchantProfile.websiteUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline truncate block"
+                      className="text-xs text-blue-400 flex items-center gap-1 hover:underline"
                     >
-                      {new URL(merchantProfile.websiteUrl).hostname}
+                      <Globe size={12} />
+                      <span className="truncate max-w-[200px]">{merchantProfile.websiteUrl}</span>
                     </a>
                   )}
                 </div>
               </div>
               
               {merchantProfile.description && (
-                <p className="text-gray-300 text-sm">{merchantProfile.description}</p>
+                <p className="text-sm text-gray-300">{merchantProfile.description}</p>
               )}
               
-              <div className="flex justify-end pt-2">
+              <div className="pt-4 border-t border-white/10">
                 <button
+                  className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors"
                   onClick={() => setShowProfileModal(false)}
-                  className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm"
                 >
                   Close
                 </button>
