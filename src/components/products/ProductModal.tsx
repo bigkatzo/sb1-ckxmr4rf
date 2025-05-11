@@ -13,7 +13,7 @@ import { ProductNotes } from './ProductNotes';
 import type { Product as BaseProduct } from '../../types/variants';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
 import { prefetchGallery, updateGalleryImage } from '../../lib/service-worker';
-import { validateImages } from '../../utils/imageValidator';
+import { validateImageUrl } from '../../utils/imageValidator';
 
 // Create a local Set to track preloaded images for this component instance
 const preloadedImages = new Set<string>();
@@ -514,11 +514,9 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   useEffect(() => {
     // Allow a brief delay for images to load into the DOM
     const timer = setTimeout(() => {
-      // Validate all images to ensure they use render endpoints
-      const fixedCount = validateImages();
-      if (fixedCount > 0) {
-        console.warn(`Fixed ${fixedCount} images in ProductModal`);
-      }
+      // Validate each image URL in the gallery
+      const updatedImages = images.map(imgUrl => validateImageUrl(imgUrl));
+      console.log('Validated image URLs for gallery images');
       
       // Also specifically check gallery image placeholders
       document.querySelectorAll('.gallery-image-placeholder').forEach(placeholder => {
