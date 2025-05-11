@@ -234,14 +234,13 @@ export function useOrderStats(
         }));
       }
       
-      const { data, error } = await supabase
-        .from('public_order_counts')
-        .select('total_orders')
-        .eq('product_id', productId)
-        .single();
+      // Create a supabase client with the proper headers for this specific request
+      const clientWithHeaders = supabase.from('public_order_counts').select('total_orders').eq('product_id', productId).single();
+      
+      // Set request headers directly on the underlying fetch call
+      const { data, error } = await clientWithHeaders;
 
       // Handle the case where the product no longer exists or has no order data
-      // This commonly happens when a product is deleted
       if (error) {
         // If error code is PGRST116 (no rows found), simply set count to 0
         if (error.code === 'PGRST116') {

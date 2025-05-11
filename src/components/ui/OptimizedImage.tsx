@@ -33,63 +33,8 @@ const getFetchPriority = (
   return 'auto';
 };
 
-// Feature detection for WebP support is implemented but not currently used
-// Kept for potential future use with explicit feature flag
-/* 
-const supportsWebP = (): boolean => {
-  // Return cached result if available
-  if (webpSupportCache !== null) return webpSupportCache;
-  
-  // SSR guard
-  if (typeof window === 'undefined') return false;
-  
-  // Try to get cached value from localStorage
-  try {
-    const cached = window.localStorage?.getItem('webp_support');
-    if (cached !== null) {
-      webpSupportCache = cached === 'true';
-      return webpSupportCache;
-    }
-  } catch (e) {
-    // Ignore storage errors
-  }
-  
-  // Simple feature detection
-  const canvas = document.createElement('canvas');
-  if (canvas.getContext && canvas.getContext('2d')) {
-    // Check if the browser can encode WebP
-    webpSupportCache = canvas.toDataURL('image/webp').startsWith('data:image/webp');
-    
-    // Cache the result
-    try {
-      window.localStorage?.setItem('webp_support', webpSupportCache.toString());
-    } catch (e) {
-      // Ignore storage errors
-    }
-    
-    return webpSupportCache;
-  }
-  
-  // Default to false
-  webpSupportCache = false;
-  return false;
-};
-*/
-
-// Helper to generate optimized URLs
-function generateOptimizedUrl(
-  src: string, 
-  _width?: number, // Unused but kept for API consistency
-  _quality?: number // Unused but kept for API consistency
-): string {
-  if (!src) return '';
-  
-  // Already validate/fix the URL with our robust fix
-  const validatedUrl = validateImageUrl(src);
-  
-  // If the URL is already validated, just return it
-  return validatedUrl;
-}
+// WebP support detection and URL optimization functions have been removed
+// as they're no longer used with our new image validation approach
 
 export function OptimizedImage({
   src,
@@ -107,6 +52,25 @@ export function OptimizedImage({
   loading: propLoading,
   ...props
 }: OptimizedImageProps) {
+  // Validate and normalize the source URL
+  const optimizedSrc = useMemo(() => {
+    // First use our validateImageUrl to normalize Supabase URLs
+    let normalizedUrl = validateImageUrl(src);
+    
+    // If it's a Supabase storage URL with render parameters, use object URL instead
+    if (normalizedUrl.includes('supabase') && 
+        normalizedUrl.includes('/storage/v1/render/image/public/') &&
+        normalizedUrl.includes('?')) {
+      // Remove query parameters and convert to object URL format
+      normalizedUrl = normalizedUrl
+        .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
+        .split('?')[0];
+      console.log('Converted to object URL format:', normalizedUrl);
+    }
+    
+    return normalizedUrl;
+  }, [src]);
+
   // Only consider real high-priority images for eager loading
   // This helps avoid too many concurrent image loads
   const shouldPrioritize = priority || (isLCPCandidate(priority, width, height) && width > 600);
@@ -117,11 +81,6 @@ export function OptimizedImage({
   // More conservative eager loading to prevent too many concurrent requests
   const loadingStrategy = propLoading || (shouldPrioritize ? 'eager' : 'lazy');
   const fetchPriorityValue = propFetchPriority || getFetchPriority(isLCP, priority, inViewport);
-
-  // Optimize the source URL for performance
-  const optimizedSrc = useMemo(() => {
-    return generateOptimizedUrl(src, width, quality);
-  }, [src, width, quality]);
 
   // Only generate responsive sizes if explicitly not provided by the parent component
   // This ensures we don't override specific sizing requirements in different components

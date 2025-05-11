@@ -29,7 +29,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   },
   global: {
     headers: {
-      'X-Client-Info': 'storedot-web'
+      'X-Client-Info': 'storedot-web',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
     },
     // Add global error handling with retry logic
     fetch: async (url, options = {}) => {
