@@ -118,6 +118,7 @@ export function OptimizedImage({
       const img = new Image();
       img.src = optimizedSrc;
       img.fetchPriority = 'high';
+      img.crossOrigin = 'anonymous';
       if (sizes) img.sizes = sizes;
       
       return () => {
@@ -229,6 +230,7 @@ export function OptimizedImage({
         loading={loadingStrategy}
         fetchPriority={fetchPriorityValue}
         sizes={responsiveSizes}
+        crossOrigin="anonymous"
         style={{...containerStyle, ...logoStyle, ...(props.style || {})}}
         onLoad={() => {
           setIsLoading(false);

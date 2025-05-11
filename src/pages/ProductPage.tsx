@@ -39,6 +39,7 @@ export function ProductPage() {
       const img = new Image();
       img.src = possibleImageUrl;
       img.fetchPriority = 'high';
+      img.crossOrigin = 'anonymous';
     }
   }, [collectionSlug, productSlug]);
   
@@ -49,20 +50,22 @@ export function ProductPage() {
       preloadPageResources('product', productSlug);
       
       // Preload main product image if available
-      if (product?.images?.length > 0 && product.images[0]) {
+      if (product && product.images && product.images.length > 0 && product.images[0]) {
         const img = new Image();
         img.src = product.images[0];
         img.fetchPriority = 'high';
+        img.crossOrigin = 'anonymous';
         
         // Preload a few more product images to prepare for carousel
         if (product.images.length > 1) {
           // Initialize intelligent gallery prefetching for the entire image set
-          prefetchGallery(productSlug, product.images, 0);
+          prefetchGallery(productSlug, [...product.images], 0);
           
           // Also explicitly load the second image with high priority
           const secondImg = new Image();
           secondImg.src = product.images[1];
           secondImg.fetchPriority = 'high';
+          secondImg.crossOrigin = 'anonymous';
           
           // If there are more images, preload the third with lower priority 
           if (product.images.length >= 3) {
@@ -71,6 +74,7 @@ export function ProductPage() {
             thirdImgLink.as = 'image';
             thirdImgLink.href = product.images[2];
             thirdImgLink.fetchPriority = 'low';
+            thirdImgLink.crossOrigin = 'anonymous';
             document.head.appendChild(thirdImgLink);
             
             // Clean up preload link after a timeout

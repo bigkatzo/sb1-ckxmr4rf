@@ -436,6 +436,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
       link.as = 'image';
       link.href = images[selectedImageIndex];
       link.fetchPriority = 'high';
+      link.crossOrigin = 'anonymous';
       document.head.appendChild(link);
       
       // Remove the preload link after image is loaded or after a timeout
@@ -515,8 +516,8 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     // Allow a brief delay for images to load into the DOM
     const timer = setTimeout(() => {
       // Validate each image URL in the gallery
-      const updatedImages = images.map(imgUrl => validateImageUrl(imgUrl));
-      console.log('Validated image URLs for gallery images');
+      console.log('Validating gallery image URLs');
+      images.forEach(imgUrl => validateImageUrl(imgUrl));
       
       // Also specifically check gallery image placeholders
       document.querySelectorAll('.gallery-image-placeholder').forEach(placeholder => {

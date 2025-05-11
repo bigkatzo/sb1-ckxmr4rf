@@ -100,6 +100,7 @@ function processQueue(): void {
   };
   
   // Start loading
+  img.crossOrigin = "anonymous";
   img.src = url;
 }
 
@@ -196,4 +197,5 @@ export function getPreloadStats(): {
     queuedCount: preloadQueue.length,
     averageLoadTime
   };
-} 
+}
+
