@@ -134,29 +134,22 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
       )}
       
       {/* Invisible trigger element for infinite scroll - positioned at the bottom */}
-      {infiniteScroll && (
+      {infiniteScroll && hasMore && (
         <div 
           ref={loadMoreTriggerRef}
-          className="h-10 mb-4"
+          className="h-4" // Reduced height to minimize spacing
           aria-hidden="true"
         />
       )}
       
       {/* Improved loading indicator for infinite scroll */}
       {infiniteScroll && loadingMore && (
-        <div className="flex justify-center py-2">
+        <div className="flex justify-center">
           <div className="loading-dots" aria-label="Loading more collections">
             <span></span>
             <span></span>
             <span></span>
           </div>
-        </div>
-      )}
-      
-      {/* "No more collections" notice when all collections have been loaded */}
-      {!hasMore && collections.length > 6 && (
-        <div className="text-center py-3 text-gray-500 text-xs sm:text-sm">
-          No more collections to load
         </div>
       )}
     </div>

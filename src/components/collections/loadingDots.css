@@ -2,8 +2,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 0;
-  height: 24px;
+  padding: 4px 0;
+  height: 20px;
 }
 
 .loading-dots span {
@@ -26,6 +26,11 @@
 
 /* Smaller dots on mobile */
 @media (max-width: 640px) {
+  .loading-dots {
+    padding: 2px 0;
+    height: 16px;
+  }
+  
   .loading-dots span {
     width: 4px;
     height: 4px;
