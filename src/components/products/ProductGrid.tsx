@@ -10,9 +10,16 @@ interface ProductGridProps {
   categoryId?: string;
   categoryIndices: Record<string, number>;
   loading?: boolean;
+  onProductClick?: (product: Product, scrollPosition: number) => void;
 }
 
-export function ProductGrid({ products, categoryId, categoryIndices, loading }: ProductGridProps) {
+export function ProductGrid({ 
+  products, 
+  categoryId, 
+  categoryIndices, 
+  loading,
+  onProductClick
+}: ProductGridProps) {
   const navigate = useNavigate();
   
   const filteredProducts = useMemo(() => 
@@ -60,6 +67,11 @@ export function ProductGrid({ products, categoryId, categoryIndices, loading }: 
 
     // Get current scroll position
     const scrollPosition = window.scrollY;
+    
+    // Call the external handler if provided
+    if (onProductClick) {
+      onProductClick(product, scrollPosition);
+    }
 
     // Navigate to product page with product data, category index, and selected category ID
     navigate(`/${product.collectionSlug}/${product.slug}`, {
@@ -67,7 +79,8 @@ export function ProductGrid({ products, categoryId, categoryIndices, loading }: 
         product,
         categoryIndex: categoryIndices[product.categoryId] || 0,
         selectedCategoryId: categoryId,
-        scrollPosition
+        scrollPosition,
+        returnedFromProduct: true
       }
     });
   };

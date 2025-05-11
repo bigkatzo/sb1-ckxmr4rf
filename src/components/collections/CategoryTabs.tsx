@@ -56,6 +56,7 @@ export function CategoryTabs({ categories, selectedId, onChange, categoryIndices
               key={category.id}
               ref={el => tabRefs.current[category.id] = el}
               onClick={() => handleTabClick(category.id)}
+              data-category-id={category.id}
               className={`
                 flex items-center gap-2 border-b-2 px-2.5 py-3 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors snap-start
                 ${selectedId === category.id

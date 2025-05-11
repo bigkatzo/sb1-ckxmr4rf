@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, Navigate, useLocation } from 'react-router-dom';
 import { CategoryTabs } from '../components/collections/CategoryTabs';
 import { ProductGrid } from '../components/products/ProductGrid';
@@ -124,9 +124,6 @@ export function CollectionPage() {
   
   // Handle category change by updating state
   const handleCategoryChange = useCallback((categoryId: string) => {
-    // Store the current scroll position when changing categories
-    const scrollPosition = window.scrollY;
-    
     // Reset the hasReturnedFromProduct flag when user manually changes category
     hasReturnedFromProduct.current = false;
     
@@ -215,6 +212,150 @@ export function CollectionPage() {
     };
   }, [hasMore, loadingMore, loadMore, hasReturnedFromProduct.current]);
 
+  // Handle product click to improve navigation smoothness
+  const handleProductClick = useCallback((_product: Product, _scrollPosition: number) => {
+    // Before navigating away, store current state in sessionStorage for quick recovery
+    const currentState = {
+      loadedProductCount: paginatedProducts.length,
+      selectedCategory,
+      timestamp: Date.now()
+    };
+    sessionStorage.setItem(`collection_${slug}_state`, JSON.stringify(currentState));
+  }, [paginatedProducts.length, selectedCategory, slug]);
+  
+  // Pass this to the ProductGrid component
+  const productClickHandler = useMemo(() => handleProductClick, [handleProductClick]);
+  
+  // Check for stored state on component mount
+  useEffect(() => {
+    if (!isInitialLoad || !slug) return;
+    
+    try {
+      // Check if we have stored state that we can use for faster recovery
+      const storedStateJson = sessionStorage.getItem(`collection_${slug}_state`);
+      if (storedStateJson) {
+        const storedState = JSON.parse(storedStateJson);
+        const isRecent = Date.now() - storedState.timestamp < 5 * 60 * 1000; // 5 minute expiry
+        
+        if (isRecent && !location.state?.returnedFromProduct) {
+          // If we're not returning from a product but have recent state,
+          // we can use this for faster initial rendering
+          if (storedState.selectedCategory) {
+            setSelectedCategory(storedState.selectedCategory);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error restoring collection state:', err);
+    }
+  }, [isInitialLoad, slug, location.state]);
+  
+  // Clean transition effect for returning from product
+  useEffect(() => {
+    if (hasReturnedFromProduct.current && paginatedProducts.length > 0) {
+      // Add a subtle transition effect when returning to make it feel smoother
+      if (pageRef.current) {
+        pageRef.current.style.opacity = '0.95';
+        setTimeout(() => {
+          if (pageRef.current) {
+            pageRef.current.style.opacity = '1';
+            pageRef.current.style.transition = 'opacity 150ms ease-in';
+          }
+        }, 50);
+      }
+    }
+  }, [hasReturnedFromProduct.current, paginatedProducts.length]);
+
+  // Use a throttled scroll handler to prevent jank
+  const scrollTimeoutRef = useRef<number | null>(null);
+  
+  // Add smooth scrolling optimization
+  useEffect(() => {
+    if (!hasMore) return; // Nothing more to load, no need for optimization
+    
+    // Optimize scroll performance by adding will-change hint before scrolling
+    const handleScrollStart = () => {
+      if (pageRef.current) {
+        pageRef.current.style.willChange = 'transform';
+      }
+      
+      // Clear any existing timeout
+      if (scrollTimeoutRef.current !== null) {
+        window.clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Reset will-change after scrolling stops
+      scrollTimeoutRef.current = window.setTimeout(() => {
+        if (pageRef.current) {
+          pageRef.current.style.willChange = 'auto';
+        }
+        scrollTimeoutRef.current = null;
+      }, 150);
+    };
+    
+    window.addEventListener('scroll', handleScrollStart, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScrollStart);
+      if (scrollTimeoutRef.current !== null) {
+        window.clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [hasMore]);
+  
+  // Preload images for faster navigation
+  useEffect(() => {
+    if (!paginatedProducts.length || hasReturnedFromProduct.current) return;
+    
+    // Preload product images for smoother navigation
+    const preloadImages = () => {
+      const imagesToPreload = paginatedProducts
+        .slice(0, 8) // Only preload first 8 images
+        .map(product => product.imageUrl)
+        .filter(Boolean) as string[];
+        
+      imagesToPreload.forEach(imageUrl => {
+        const img = new Image();
+        img.src = imageUrl;
+      });
+    };
+    
+    // Delay preloading slightly to prioritize visible content first
+    const timer = setTimeout(preloadImages, 300);
+    return () => clearTimeout(timer);
+  }, [paginatedProducts, hasReturnedFromProduct.current]);
+
+  // Handle focus restoration when returning from product page
+  useEffect(() => {
+    if (hasReturnedFromProduct.current && paginatedProducts.length > 0) {
+      // After scroll restoration completes, move focus appropriately
+      const focusTimer = setTimeout(() => {
+        // Find the first category tab if we have one selected
+        if (selectedCategory) {
+          const categoryTab = document.querySelector(`button[data-category-id="${selectedCategory}"]`);
+          if (categoryTab) {
+            (categoryTab as HTMLElement).focus({ preventScroll: true });
+            return;
+          }
+        }
+        
+        // If no category tab to focus, set focus to the page container
+        if (pageRef.current) {
+          pageRef.current.setAttribute('tabindex', '-1');
+          pageRef.current.focus({ preventScroll: true });
+          // Remove tabindex after focus to prevent keyboard tab sequence issues
+          setTimeout(() => {
+            if (pageRef.current) {
+              pageRef.current.removeAttribute('tabindex');
+            }
+          }, 100);
+        }
+      }, 200);
+      
+      return () => clearTimeout(focusTimer);
+    }
+  }, [hasReturnedFromProduct.current, paginatedProducts.length, selectedCategory]);
+
   if (!slug) {
     return <Navigate to="/" replace />;
   }
@@ -239,6 +380,7 @@ export function CollectionPage() {
     <div 
       ref={pageRef}
       className={`space-y-4 sm:space-y-5 md:space-y-6 ${loading && !isInitialLoad && !location.state?.returnedFromProduct ? 'opacity-60' : ''}`}
+      style={{ transition: 'opacity 150ms ease-out' }}
     >
       {/* Only show skeleton on initial load */}
       {loading && isInitialLoad ? (
@@ -347,6 +489,7 @@ export function CollectionPage() {
                   categoryId={selectedCategory}
                   categoryIndices={categoryIndices}
                   loading={loading && !isInitialLoad && !location.state?.returnedFromProduct}
+                  onProductClick={productClickHandler}
                 />
                 
                 {/* Loading indicator for infinite scroll */}
