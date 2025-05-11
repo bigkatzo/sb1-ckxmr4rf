@@ -14,6 +14,7 @@ export interface CollectionData {
   dexscreener_url?: string;
   pumpfun_url?: string;
   website_url?: string;
+  free_notes?: string;
   tags?: string[];
   user_id: string;
 }

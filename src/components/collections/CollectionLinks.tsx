@@ -27,6 +27,8 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
   const hasLinks = collection.custom_url || collection.x_url || collection.telegram_url || 
                    collection.dexscreener_url || collection.pumpfun_url || collection.website_url;
 
+  const hasNotes = collection.free_notes && collection.free_notes.trim().length > 0;
+
   useEffect(() => {
     async function fetchMerchantProfile() {
       try {
@@ -159,6 +161,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
   const renderDetailsContent = () => {
     let creatorHTML = '';
     let linksHTML = '';
+    let notesHTML = '';
     
     // Creator section
     if (isFetchingProfile) {
@@ -194,6 +197,18 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
           <div class="inline-flex items-center gap-1.5 bg-white/10 text-white px-2 py-1 rounded-full">
             <div class="h-5 w-5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-white/70 bg-white/20 text-[10px]">A</div>
             <span class="text-xs font-medium truncate max-w-[120px]">Anonymous Creator</span>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Notes section
+    if (hasNotes) {
+      notesHTML = `
+        <div class="mb-3 sm:mb-0">
+          <h4 class="text-xs text-white/70 uppercase mb-1.5">Notes</h4>
+          <div class="bg-white/10 px-3 py-2 rounded-lg text-sm text-white">
+            ${collection.free_notes}
           </div>
         </div>
       `;
@@ -332,6 +347,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
     return `
       <div class="sm:flex sm:justify-between sm:gap-6">
         ${creatorHTML}
+        ${notesHTML}
         ${hasLinks ? linksHTML : ''}
       </div>
     `;
@@ -415,6 +431,16 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                 </div>
               )}
             </div>
+
+            {/* Notes section */}
+            {hasNotes && (
+              <div className="mb-3 sm:mb-0">
+                <h4 className="text-xs text-white/70 uppercase mb-1.5">Notes</h4>
+                <div className="bg-white/10 px-3 py-2 rounded-lg text-sm text-white max-w-sm">
+                  {collection.free_notes}
+                </div>
+              </div>
+            )}
 
             {/* Links section */}
             {hasLinks && (

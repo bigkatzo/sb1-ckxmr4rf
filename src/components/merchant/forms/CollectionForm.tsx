@@ -27,6 +27,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const [tags, setTags] = useState<string[]>(collection?.tags || []);
   const [tagInput, setTagInput] = useState('');
   const [description, setDescription] = useState(collection?.description || '');
+  const [freeNotes, setFreeNotes] = useState(collection?.free_notes || '');
   const [customUrl, setCustomUrl] = useState(collection?.custom_url || '');
   const [xUrl, setXUrl] = useState(collection?.x_url || '');
   const [telegramUrl, setTelegramUrl] = useState(collection?.telegram_url || '');
@@ -97,6 +98,9 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('visible', visible.toString());
       formData.append('sale_ended', saleEnded.toString());
       formData.append('tags', JSON.stringify(tags));
+      
+      // Add optional fields
+      if (freeNotes) formData.append('free_notes', freeNotes);
       
       // Add optional URL fields
       if (customUrl) formData.append('custom_url', customUrl);
@@ -278,6 +282,21 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                     rows={3}
                     className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
                     placeholder="Enter collection description"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="free_notes" className="block text-sm font-medium text-white mb-1">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    id="free_notes"
+                    name="free_notes"
+                    value={freeNotes}
+                    onChange={(e) => setFreeNotes(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                    placeholder="Add additional information for your customers, e.g., '10% of profits go to charity'"
                   />
                 </div>
 

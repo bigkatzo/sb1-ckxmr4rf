@@ -20,6 +20,7 @@ export interface Collection {
   dexscreener_url?: string;
   pumpfun_url?: string;
   website_url?: string;
+  free_notes?: string;
   categories?: any[];
   products?: any[];
   productCount?: number;
