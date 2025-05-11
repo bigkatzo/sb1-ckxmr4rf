@@ -102,7 +102,7 @@ export function ProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 sm:gap-3 md:gap-4">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 sm:gap-3 md:gap-4 product-grid-container">
       {filteredProducts.map((product, index) => {
         // Calculate row and column position for consistent loading order
         let columns = 2; // Default mobile

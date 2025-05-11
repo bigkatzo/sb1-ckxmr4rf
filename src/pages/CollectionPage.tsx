@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, Navigate, useLocation } from 'react-router-dom';
+import { useParams, Navigate, useLocation, Link } from 'react-router-dom';
 import { CategoryTabs } from '../components/collections/CategoryTabs';
 import { ProductGrid } from '../components/products/ProductGrid';
 import { useCollection } from '../hooks/useCollection';
@@ -16,6 +16,28 @@ import SEO from '../components/SEO';
 import { preloadPageResources } from '../lib/service-worker';
 import { CollectionLinks } from '../components/collections/CollectionLinks';
 
+// Helper to prefetch a page by creating a hidden link and triggering a prefetch
+const prefetchPage = (url: string) => {
+  // Only run in browsers with support for prefetch
+  if (!('IntersectionObserver' in window)) return;
+  
+  // Create a temporary link to enable prefetching
+  const link = document.createElement('link');
+  link.rel = 'prefetch';
+  link.href = url;
+  link.as = 'document';
+  
+  // Add link to head and clean up after prefetch completes
+  document.head.appendChild(link);
+  
+  // Remove link after a few seconds
+  setTimeout(() => {
+    if (document.head.contains(link)) {
+      document.head.removeChild(link);
+    }
+  }, 5000);
+};
+
 export function CollectionPage() {
   const { slug } = useParams();
   const location = useLocation();
@@ -23,6 +45,8 @@ export function CollectionPage() {
   const pageRef = useRef<HTMLDivElement>(null);
   const prevRouteRef = useRef<string>('');
   const loaderRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
+  const hasAddedPrefetchLinks = useRef(false);
   
   const { collection, loading, error } = useCollection(slug || '');
   
@@ -356,6 +380,105 @@ export function CollectionPage() {
     }
   }, [hasReturnedFromProduct.current, paginatedProducts.length, selectedCategory]);
 
+  // Predictive prefetching for likely next navigation
+  useEffect(() => {
+    if (!collection || !paginatedProducts.length || hasAddedPrefetchLinks.current) return;
+    
+    hasAddedPrefetchLinks.current = true;
+    
+    // Prefetch the first few products as they're likely navigation targets
+    const productsToPrefetch = paginatedProducts.slice(0, Math.min(3, paginatedProducts.length));
+    
+    // Delay prefetching slightly to prioritize current page render
+    setTimeout(() => {
+      productsToPrefetch.forEach(product => {
+        if (product.collectionSlug && product.slug) {
+          prefetchPage(`/${product.collectionSlug}/${product.slug}`);
+        }
+      });
+    }, 2000);
+  }, [collection, paginatedProducts]);
+  
+  // Apply content-visibility optimization to improve rendering performance
+  useEffect(() => {
+    if (!mainContentRef.current || !paginatedProducts.length) return;
+    
+    // Use content-visibility: auto for off-screen content to improve rendering
+    const products = mainContentRef.current.querySelectorAll('.product-card');
+    if (!products.length || !('IntersectionObserver' in window)) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          // When product comes near viewport, remove content-visibility
+          if (entry.isIntersecting) {
+            entry.target.classList.remove('content-visibility-auto');
+            // Once visible, no need to keep observing
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { rootMargin: '300px' } // Start loading before item enters viewport
+    );
+    
+    // Observe all product cards except the first visible ones
+    products.forEach((product, index) => {
+      const productElement = product as HTMLElement;
+      if (index > 8) { // First 8 products don't need optimization
+        productElement.classList.add('content-visibility-auto');
+        observer.observe(productElement);
+      }
+    });
+    
+    return () => {
+      products.forEach(product => {
+        observer.unobserve(product);
+      });
+    };
+  }, [paginatedProducts.length]);
+  
+  // Add navigation prediction based on scroll and mouse movement
+  useEffect(() => {
+    if (!paginatedProducts.length || hasReturnedFromProduct.current) return;
+    
+    let hoveredProduct: string | null = null;
+    let hoverTime = 0;
+    
+    // Track product hover to predict navigation
+    const handleProductHover = (e: MouseEvent) => {
+      const productCard = (e.target as HTMLElement).closest('.product-card');
+      if (!productCard) return;
+      
+      const productId = productCard.getAttribute('data-product-id');
+      if (!productId) return;
+      
+      // New product hover
+      if (hoveredProduct !== productId) {
+        hoveredProduct = productId;
+        hoverTime = Date.now();
+        
+        // If user hovers over a product for more than 1 second,
+        // prefetch that product page
+        setTimeout(() => {
+          // Only prefetch if still hovering the same product
+          if (hoveredProduct === productId && 
+              Date.now() - hoverTime > 1000) {
+            const product = paginatedProducts.find(p => p.id === productId);
+            if (product && product.collectionSlug && product.slug) {
+              prefetchPage(`/${product.collectionSlug}/${product.slug}`);
+            }
+          }
+        }, 1000);
+      }
+    };
+    
+    document.addEventListener('mousemove', handleProductHover, { passive: true });
+    
+    return () => {
+      document.removeEventListener('mousemove', handleProductHover);
+    };
+  }, [paginatedProducts, hasReturnedFromProduct.current]);
+
   if (!slug) {
     return <Navigate to="/" replace />;
   }
@@ -483,7 +606,10 @@ export function CollectionPage() {
             )}
 
             <div className="p-4 sm:p-6">
-              <div className="transition-opacity duration-200 ease-in-out">
+              <div 
+                ref={mainContentRef}
+                className="transition-opacity duration-200 ease-in-out"
+              >
                 <ProductGrid 
                   products={paginatedProducts}
                   categoryId={selectedCategory}
@@ -518,6 +644,13 @@ export function CollectionPage() {
           <p className="text-gray-400">No collection data available.</p>
         </div>
       )}
+      
+      {/* Add invisible prefetch links for common navigations */}
+      <div className="hidden">
+        {collection && (
+          <Link to="/" />
+        )}
+      </div>
     </div>
   );
 }

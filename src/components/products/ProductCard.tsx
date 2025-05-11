@@ -16,6 +16,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport, loadingPriority }: ProductCardProps) {
   const [imageLoading, setImageLoading] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
   const { modifiedPrice } = useModifiedPrice({ product });
   
   // Check if sale has ended at any level
@@ -25,6 +26,14 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
     if (onClick) {
       onClick(product);
     }
+  };
+  
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+  
+  const handleMouseLeave = () => {
+    setIsHovered(false);
   };
 
   // Create a product object with explicitly set saleEnded properties to ensure
@@ -38,8 +47,13 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
 
   return (
     <div 
+      className={`product-card relative aspect-square overflow-hidden rounded-xl cursor-pointer transform transition-transform duration-150 hover:scale-[1.015] ${
+        isHovered ? 'shadow-lg shadow-primary/20' : ''
+      }`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onClick={handleClick}
-      className="group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-secondary/50 hover:-translate-y-0.5 transition-all"
+      data-product-id={product.id}
     >
       <div className="relative aspect-square overflow-hidden">
         {product.imageUrl ? (

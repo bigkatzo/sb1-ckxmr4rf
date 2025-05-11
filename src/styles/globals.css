@@ -1,0 +1,24 @@
+/* Add content-visibility optimization for product cards */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 400px; /* Approximate size of product card */
+}
+
+/* Add styles for smoother transitions */
+.product-card {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Optimize rendering performance */
+.product-grid-container {
+  will-change: transform;
+  z-index: 1;
+}
+
+/* Optimize scrolling performance with layer promotion */
+@media (min-width: 640px) {
+  .product-grid-container {
+    transform: translateZ(0);
+  }
+} 
