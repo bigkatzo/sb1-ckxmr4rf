@@ -293,7 +293,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             class="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
             aria-label="PumpFun"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 6 4 6-4 6-4-6 4-6Z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="8" ry="12"/><ellipse cx="12" cy="12" rx="12" ry="8"/></svg>
           </a>
         `;
       }
@@ -323,13 +323,14 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
       `;
     }
     
+    // Mobile view layout - Keep notes at the bottom
     return `
       <div class="space-y-3 sm:space-y-4">
         <div class="sm:flex sm:justify-between sm:gap-6">
           ${creatorHTML}
+          ${hasNotes ? notesHTML : ''}
           ${hasLinks ? linksHTML : ''}
         </div>
-        ${notesHTML}
       </div>
     `;
   };
@@ -369,7 +370,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
         <div className="hidden sm:block sm:mt-2 sm:pt-2 sm:border-t sm:border-white/20">
           {/* Desktop layout structure */}
           <div className="space-y-3">
-            {/* Creator and Links in the first row */}
+            {/* Creator, Notes, and Links in the same row */}
             <div className="sm:flex sm:justify-between sm:gap-6">
               {/* Creator section */}
               <div className="mb-3 sm:mb-0">
@@ -414,6 +415,18 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                   </div>
                 )}
               </div>
+
+              {/* Notes section - Moved to middle position on desktop */}
+              {hasNotes && (
+                <div className="mb-3 sm:mb-0">
+                  <h4 className="text-xs text-white/70 uppercase mb-1.5">Notes</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="inline-flex bg-white text-black px-2 py-1 rounded-full text-xs">
+                      {collection.free_notes}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Links section */}
               {hasLinks && (
@@ -478,7 +491,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                         className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                         aria-label="PumpFun"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 6 4 6-4 6-4-6 4-6Z"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="8" ry="12"/><ellipse cx="12" cy="12" rx="12" ry="8"/></svg>
                       </a>
                     )}
                     
@@ -497,18 +510,6 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                 </div>
               )}
             </div>
-            
-            {/* Notes section below */}
-            {hasNotes && (
-              <div className="mb-3 sm:mb-0">
-                <h4 className="text-xs text-white/70 uppercase mb-1.5">Notes</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="inline-flex bg-white text-black px-2 py-1 rounded-full text-xs">
-                    {collection.free_notes}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
