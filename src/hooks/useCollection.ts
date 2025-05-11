@@ -231,6 +231,12 @@ export function useCollection(slug: string) {
           saleEnded: collectionData.sale_ended ?? false,
           slug: collectionData.slug,
           user_id: collectionData.user_id || '',
+          custom_url: collectionData.custom_url || '',
+          x_url: collectionData.x_url || '',
+          telegram_url: collectionData.telegram_url || '',
+          dexscreener_url: collectionData.dexscreener_url || '',
+          pumpfun_url: collectionData.pumpfun_url || '',
+          website_url: collectionData.website_url || '',
           categories: (categoriesResponse.data || []).map(category => ({
             id: category.id,
             name: category.name,
