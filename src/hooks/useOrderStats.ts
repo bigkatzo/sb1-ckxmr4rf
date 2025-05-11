@@ -5,6 +5,10 @@ import { debounce } from 'lodash';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+// Access environment variables directly
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 interface OrderStats {
   currentOrders: number;
   loading: boolean;
@@ -234,17 +238,28 @@ export function useOrderStats(
         }));
       }
       
-      // Create a supabase client with the proper headers for this specific request
-      const clientWithHeaders = supabase.from('public_order_counts').select('total_orders').eq('product_id', productId).single();
+      // Use a direct fetch with proper headers instead of Supabase client
+      const apiUrl = `${SUPABASE_URL}/rest/v1/public_order_counts?select=total_orders&product_id=eq.${productId}`;
       
-      // Set request headers directly on the underlying fetch call
-      const { data, error } = await clientWithHeaders;
-
-      // Handle the case where the product no longer exists or has no order data
-      if (error) {
-        // If error code is PGRST116 (no rows found), simply set count to 0
-        if (error.code === 'PGRST116') {
-          // Product likely deleted or has no orders - set to 0 quietly
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        }
+      });
+      
+      if (!response.ok) {
+        // Handle API errors similar to Supabase client
+        if (response.status === 406) {
+          console.warn(`Accept header issue for order counts (product_id: ${productId})`);
+        }
+        
+        if (response.status === 404 || response.status === 204) {
+          // No data found - similar to PGRST116 error
           setStats({
             currentOrders: 0,
             loading: false,
@@ -262,11 +277,11 @@ export function useOrderStats(
           return; // Exit gracefully
         }
         
-        // Other errors should be thrown
-        throw error;
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
       }
-
-      const orderCount = data?.total_orders || 0;
+      
+      const data = await response.json();
+      const orderCount = data.length > 0 ? data[0].total_orders || 0 : 0;
 
       // Update cache with REALTIME durations - new options format
       await cacheManager.set(
@@ -379,7 +394,7 @@ export function useOrderStats(
     cleanupFnsRef.current = [];
     
     // Check if channel already exists
-    const channelKey = `realtime:public_order_counts:filtered:product_id=eq.${productId}`;
+    const channelKey = `realtime:order_counts:${productId}`;
     let channel = activeChannels.get(channelKey);
     
     // If channel exists but is in error state or closed, remove it
@@ -402,11 +417,8 @@ export function useOrderStats(
         // Don't create new channel if component is unmounted
         if (!isMountedRef.current) return;
 
-        channel = supabase.channel(channelKey, {
-          config: {
-            broadcast: { self: true }
-          }
-        });
+        // Create a simpler channel with a better name
+        channel = supabase.channel(channelKey);
         
         // Add subscription before storing the channel
         channel
@@ -576,7 +588,7 @@ export function useOrderStats(
       // Remove from all tracking
       subscriptionPriorities.delete(productId);
       pollingProducts.delete(productId);
-      const channelKey = `realtime:public_order_counts:filtered:product_id=eq.${productId}`;
+      const channelKey = `realtime:order_counts:${productId}`;
       activeChannels.delete(channelKey);
       
       // Cancel any pending debounced fetches
