@@ -201,8 +201,15 @@ export function CollectionPage() {
               </p>
               
               {/* Collection Links toggle button in hero */}
-              <CollectionLinks collection={collection} />
+              <div className="collection-toggle">
+                <CollectionLinks collection={collection} />
+              </div>
             </div>
+          </div>
+          
+          {/* Collection Links expanded content - Outside hero card */}
+          <div className="collection-details">
+            {/* Content will appear here when expanded */}
           </div>
 
           {/* Content Section */}
