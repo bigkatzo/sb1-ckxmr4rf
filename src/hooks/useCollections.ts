@@ -39,6 +39,7 @@ export function useCollections(
   const offset = useRef(0); // Track current offset for pagination
   const isMounted = useRef(true); // Track component mounted state
   const isFirstLoad = useRef(true); // Track if this is the first load
+  const isLoadingRef = useRef(false); // Track loading state to prevent concurrent requests
   
   // Reset state when filter changes
   useEffect(() => {
@@ -49,6 +50,7 @@ export function useCollections(
     setHasMore(true);
     offset.current = 0;
     isFirstLoad.current = true;
+    isLoadingRef.current = false;
   }, [filter]);
   
   // Cleanup on unmount
@@ -59,9 +61,9 @@ export function useCollections(
   }, []);
 
   const fetchCollections = useCallback(async (reset = false) => {
-    // Don't fetch if already loading or if there's nothing more to load
-    if ((loading || loadingMore) && !reset) return;
-    if (!hasMore && !reset) return;
+    // CRITICAL: Emergency circuit breaker to prevent infinite fetch loops
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
     
     try {
       if (reset) {
@@ -100,7 +102,10 @@ export function useCollections(
         queryData = { data, error };
       }
       
-      if (!isMounted.current) return; // Don't update state if unmounted
+      if (!isMounted.current) {
+        isLoadingRef.current = false;
+        return;
+      }
       
       const { data, error } = queryData;
       if (error) throw error;
@@ -109,6 +114,7 @@ export function useCollections(
       if (!data || data.length === 0) {
         setHasMore(false);
         if (reset) setCollections([]);
+        isLoadingRef.current = false;
         return;
       }
 
@@ -151,7 +157,10 @@ export function useCollections(
       isFirstLoad.current = false;
 
     } catch (err) {
-      if (!isMounted.current) return; // Don't update state if unmounted
+      if (!isMounted.current) {
+        isLoadingRef.current = false;
+        return;
+      }
       
       console.error('Error fetching collections:', err);
       setError(err instanceof Error ? err : new Error(String(err)));
@@ -161,20 +170,37 @@ export function useCollections(
         setLoading(false);
         setLoadingMore(false);
       }
+      // CRITICAL: Reset the loading flag
+      isLoadingRef.current = false;
     }
-  }, [filter, infiniteScroll, initialLimit, loadMoreCount, loading, loadingMore, hasMore]);
+  // FIXED: Remove loading, loadingMore, hasMore from dependency array to prevent infinite loop
+  }, [filter, infiniteScroll, initialLimit, loadMoreCount]);
 
-  // Load initial collections
+  // Load initial collections - with separate effect to prevent repeating
   useEffect(() => {
-    fetchCollections(true);
+    let mounted = true;
+    
+    const initialLoad = async () => {
+      if (mounted) {
+        await fetchCollections(true);
+      }
+    };
+    
+    initialLoad();
+    
+    return () => {
+      mounted = false;
+    };
+  // Only run this effect once on mount and when fetchCollections changes
   }, [fetchCollections]);
 
   // Function to load more collections
   const loadMore = useCallback(() => {
-    if (!loading && !loadingMore && hasMore) {
+    // Add safety check to prevent duplicate loading
+    if (!isLoadingRef.current && hasMore) {
       fetchCollections(false);
     }
-  }, [loading, loadingMore, hasMore, fetchCollections]);
+  }, [hasMore, fetchCollections]);
 
   return { 
     collections, 

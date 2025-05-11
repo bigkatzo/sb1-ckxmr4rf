@@ -26,40 +26,51 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
   
   const navigate = useNavigate();
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
   
-  // Improved IntersectionObserver for more reliable infinite scrolling
+  // Use one stable effect for setting up and cleaning up the observer
   useEffect(() => {
-    if (!infiniteScroll || !hasMore || loading || loadingMore) return;
-    
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (entry.isIntersecting) {
-          // Adding a small delay to prevent rapid firing
-          setTimeout(() => {
-            if (hasMore && !loadingMore) {
-              loadMore();
-            }
-          }, 100);
-        }
-      },
-      {
-        root: null, // viewport
-        rootMargin: '0px 0px 200px 0px', // trigger earlier for smoother experience
-        threshold: 0.1
+    // Cleanup function to disconnect any existing observer
+    const cleanup = () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
       }
-    );
+    };
     
-    const triggerElement = loadMoreTriggerRef.current;
-    if (triggerElement) {
-      observer.observe(triggerElement);
+    // Don't set up observer if not using infinite scroll or no more content
+    if (!infiniteScroll || !hasMore || loading) {
+      cleanup();
+      return cleanup;
     }
     
+    // Wait a bit before setting up to avoid immediate triggering
+    const setupTimeout = setTimeout(() => {
+      if (!loadMoreTriggerRef.current || loadingMore) return;
+      
+      cleanup(); // Ensure we don't have multiple observers
+      
+      // Create new observer
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting && hasMore && !loadingMore) {
+            loadMore();
+          }
+        },
+        {
+          rootMargin: '200px 0px',
+          threshold: 0.1
+        }
+      );
+      
+      // Start observing
+      observerRef.current.observe(loadMoreTriggerRef.current);
+    }, 300);
+    
+    // Clean up on unmount or when dependencies change
     return () => {
-      if (triggerElement) {
-        observer.unobserve(triggerElement);
-      }
-      observer.disconnect();
+      cleanup();
+      clearTimeout(setupTimeout);
     };
   }, [infiniteScroll, hasMore, loading, loadingMore, loadMore]);
 
@@ -123,7 +134,7 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
       )}
       
       {/* Invisible trigger element for infinite scroll - positioned at the bottom */}
-      {infiniteScroll && hasMore && (
+      {infiniteScroll && (
         <div 
           ref={loadMoreTriggerRef}
           className="h-10 mb-4"
