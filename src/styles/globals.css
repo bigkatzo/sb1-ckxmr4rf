@@ -4,12 +4,6 @@
   contain-intrinsic-size: 0 400px; /* Approximate size of product card */
 }
 
-/* Add styles for smoother transitions */
-.product-card {
-  transform: translateZ(0);
-  backface-visibility: hidden;
-}
-
 /* Optimize rendering performance */
 .product-grid-container {
   will-change: transform;

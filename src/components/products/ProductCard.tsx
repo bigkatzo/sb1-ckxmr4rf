@@ -47,12 +47,10 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
 
   return (
     <div 
-      className={`product-card relative aspect-square overflow-hidden rounded-xl cursor-pointer transform transition-transform duration-150 hover:scale-[1.015] ${
-        isHovered ? 'shadow-lg shadow-primary/20' : ''
-      }`}
+      onClick={handleClick}
+      className="product-card group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-secondary/50 hover:-translate-y-0.5 transition-all"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={handleClick}
       data-product-id={product.id}
     >
       <div className="relative aspect-square overflow-hidden">
