@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { OptimizedImage } from './OptimizedImage';
 
-// Default placeholder as colored initial (used when no image URL and displayName is available)
+// Default placeholder as colored initial
 const DEFAULT_INITIAL = 'A'; // 'A' for Anonymous
 
 export interface ProfileImageProps {
@@ -11,12 +10,10 @@ export interface ProfileImageProps {
   displayName?: string;
   className?: string;
   onClick?: () => void;
-  priority?: boolean;
 }
 
 /**
- * A consistent, robust profile image component used across the app
- * Handles all error states and fallbacks automatically
+ * A simple profile image component that falls back to initials
  */
 export function ProfileImage({
   src,
@@ -25,7 +22,6 @@ export function ProfileImage({
   displayName,
   className = '',
   onClick,
-  priority = false,
 }: ProfileImageProps) {
   const [imageError, setImageError] = useState(false);
   
@@ -53,22 +49,30 @@ export function ProfileImage({
     ${onClick ? 'cursor-pointer' : ''}
   `;
   
+  // Convert object URL to direct URL if it's a Supabase storage URL
+  // This fixes the most common issue with profile images
+  let imageUrl: string | undefined = undefined;
+  if (src && src.includes('supabase') && src.includes('/storage/v1/render/image/public/')) {
+    imageUrl = src.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+  } else if (src) {
+    imageUrl = src;
+  }
+  
   return (
     <div 
       className={containerClasses}
       style={{ width: `${width}px`, height: `${height}px` }}
       onClick={onClick}
     >
-      {showImage ? (
-        // Image is available, use OptimizedImage for best loading experience
-        <OptimizedImage
-          src={src}
+      {showImage && imageUrl ? (
+        // Simple direct image with error handling
+        <img
+          src={imageUrl}
           alt={alt}
-          width={width}
-          height={height}
           className="w-full h-full object-cover"
           onError={() => setImageError(true)}
-          priority={priority}
+          loading="eager"
+          crossOrigin="anonymous"
         />
       ) : (
         // Fallback to display initial in styled container

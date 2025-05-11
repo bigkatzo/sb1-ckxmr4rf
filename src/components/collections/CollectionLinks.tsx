@@ -179,7 +179,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
       // Using a simplified HTML approach for the DOM injected content
       // We still need to use raw HTML here because we're injecting this into DOM
       const profileImage = merchantProfile.profileImage 
-        ? `<img src="${merchantProfile.profileImage}" alt="${merchantProfile.displayName}" class="h-full w-full object-cover" onerror="this.onerror=null; this.src='https://via.placeholder.com/40'; console.warn('Profile image failed, using fallback');">`
+        ? `<img src="${merchantProfile.profileImage}" alt="${merchantProfile.displayName}" class="h-full w-full object-cover" onerror="this.src='';">`
         : `<div class="h-full w-full flex items-center justify-center text-white/70 bg-white/20 text-[10px]">${merchantProfile.displayName.charAt(0).toUpperCase()}</div>`;
       
       creatorHTML = `

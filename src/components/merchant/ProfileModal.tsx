@@ -123,11 +123,18 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         
       console.log('Image public URL:', urlData.publicUrl);
       
+      // Make sure we're using the object URL format
+      let imageUrl = urlData.publicUrl;
+      if (imageUrl.includes('/storage/v1/render/image/public/')) {
+        imageUrl = imageUrl.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+        console.log('Converted to object URL format:', imageUrl);
+      }
+      
       // Update profile data state with the Supabase public URL
       // but don't change the image preview which is already showing the local file
       setProfileData(prev => ({
         ...prev,
-        profileImage: urlData.publicUrl
+        profileImage: imageUrl
       }));
       
       toast.success('Image uploaded successfully');

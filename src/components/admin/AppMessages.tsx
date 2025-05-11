@@ -262,10 +262,17 @@ export function AppMessages() {
               return;
             }
             
+            // Ensure we're using object URL format instead of render URL
+            let imageUrl = result.url;
+            if (imageUrl && imageUrl.includes('supabase') && imageUrl.includes('/storage/v1/render/image/public/')) {
+              imageUrl = imageUrl.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
+              console.log('Converted to object URL format:', imageUrl);
+            }
+            
             // Update the current message with the new image URL
             setCurrentMessage({
               ...currentMessage,
-              header_image_url: result.url
+              header_image_url: imageUrl
             });
             
             toast.success('Image uploaded successfully');
