@@ -111,7 +111,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
 
   return (
     <>
-      {/* Main component with toggle button */}
+      {/* Toggle button - Just a chevron in the corner */}
       <div className={`relative ${className}`}>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -127,9 +127,9 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
         </button>
       </div>
       
-      {/* Expanded details section rendered outside the hero component */}
+      {/* Expanded details section - Always rendered OUTSIDE the hero card */}
       {isExpanded && (
-        <div className="mt-4 bg-gray-900/50 backdrop-blur-sm rounded-lg p-4 sm:p-6 animate-slideDown">
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 mt-4 mb-4 w-full">
           {/* Desktop layout: Creator and Links side by side */}
           <div className="sm:flex sm:justify-between sm:gap-6">
             {/* Creator section - always show, even if profile data is empty */}

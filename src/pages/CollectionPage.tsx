@@ -200,7 +200,7 @@ export function CollectionPage() {
                 {collection.description}
               </p>
               
-              {/* Collection Links toggle button inside hero */}
+              {/* Collection Links toggle button in hero */}
               <CollectionLinks collection={collection} />
             </div>
           </div>
