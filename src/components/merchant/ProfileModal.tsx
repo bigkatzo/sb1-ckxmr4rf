@@ -281,7 +281,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute bottom-0 right-0 bg-purple-600 hover:bg-purple-700 rounded-full p-1.5 text-white transition-colors disabled:opacity-50"
+                      className="absolute bottom-0 right-0 bg-primary hover:bg-primary/80 rounded-full p-1.5 text-white transition-colors disabled:opacity-50"
                       disabled={isUploading}
                       title="Upload image"
                     >
@@ -312,7 +312,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     name="displayName"
                     value={profileData.displayName}
                     onChange={handleChange}
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Your display name"
                   />
                 </div>
@@ -327,7 +327,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     value={profileData.description}
                     onChange={handleChange}
                     rows={4}
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Tell us a bit about yourself or your store"
                   />
                 </div>
@@ -342,7 +342,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     name="websiteUrl"
                     value={profileData.websiteUrl}
                     onChange={handleChange}
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="https://twitter.com/yourusername"
                   />
                 </div>
@@ -357,7 +357,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     name="payoutWallet"
                     value={profileData.payoutWallet}
                     onChange={handleChange}
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Solana wallet address for payouts"
                   />
                 </div>
@@ -373,7 +373,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   </button>
                   <button
                     type="submit"
-                    className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:pointer-events-none"
+                    className="bg-primary hover:bg-primary/80 px-4 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:pointer-events-none"
                     disabled={isSaving || isUploading}
                   >
                     {isSaving ? 'Saving...' : 'Save Changes'}
