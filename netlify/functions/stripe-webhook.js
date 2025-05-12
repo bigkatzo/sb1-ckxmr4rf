@@ -60,7 +60,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Handle the event
+    // Handle the event based on type
     switch (stripeEvent.type) {
       case 'payment_intent.created': {
         const paymentIntent = stripeEvent.data.object;
@@ -74,7 +74,7 @@ exports.handler = async (event, context) => {
 
         if (error) {
           console.error('Error updating to pending_payment status:', error);
-          throw error;
+          // Don't throw, just log - we want to acknowledge the webhook
         }
         break;
       }
@@ -82,163 +82,14 @@ exports.handler = async (event, context) => {
       case 'payment_intent.succeeded': {
         const paymentIntent = stripeEvent.data.object;
         console.log('Payment succeeded:', paymentIntent.id);
-        
-        try {
-          // Get order ID for this payment intent
-          const { data: order, error: fetchError } = await supabase
-            .from('orders')
-            .select('id, status')
-            .eq('transaction_signature', paymentIntent.id)
-            .single();
-
-          if (fetchError) {
-            console.error('Error fetching order:', fetchError);
-            throw fetchError;
-          }
-
-          if (!order) {
-            console.error('No order found for payment:', paymentIntent.id);
-            throw new Error('Order not found');
-          }
-
-          console.log('Found order:', order.id, 'with status:', order.status);
-
-          // Use the Stripe-specific function to confirm the payment
-          // This will handle both draft->pending_payment and pending_payment->confirmed transitions
-          const { error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
-            p_payment_id: paymentIntent.id
-          });
-
-          if (confirmError) {
-            console.error('Error confirming payment:', confirmError);
-            throw confirmError;
-          }
-
-          // Get the receipt URL from the charge
-          try {
-            // Get the charge details from Stripe
-            const charges = await stripe.charges.list({
-              payment_intent: paymentIntent.id,
-              limit: 1
-            });
-            
-            // Extract charge ID and receipt URL
-            if (charges.data.length > 0) {
-              const charge = charges.data[0];
-              const chargeId = charge.id;
-              const receiptUrl = charge.receipt_url;
-              
-              console.log('Found charge details:', { chargeId, receiptUrl });
-
-              if (chargeId && receiptUrl) {
-                // Update the transaction signature to use the receipt URL
-                const { error: signatureError } = await supabase.rpc('update_stripe_payment_signature', {
-                  p_payment_id: paymentIntent.id,
-                  p_charge_id: chargeId,
-                  p_receipt_url: receiptUrl
-                });
-
-                if (signatureError) {
-                  console.error('Error updating transaction signature:', signatureError);
-                  // Continue processing since payment is confirmed
-                } else {
-                  console.log('Updated transaction signature to receipt URL:', receiptUrl);
-                }
-              }
-            }
-          } catch (stripeError) {
-            console.error('Error fetching charge details:', stripeError);
-            // Continue processing since payment is confirmed
-          }
-
-          // Verify the order status was updated
-          const { data: confirmedOrder, error: verifyError } = await supabase
-            .from('orders')
-            .select('id, status, transaction_signature')
-            .eq('id', order.id)
-            .single();
-
-          if (verifyError || !confirmedOrder) {
-            console.error('Error verifying order status:', verifyError);
-            throw verifyError || new Error('Could not verify order status');
-          }
-
-          console.log('Payment confirmed successfully for order:', confirmedOrder.id, 'new status:', confirmedOrder.status);
-        } catch (error) {
-          console.error('Failed to process payment webhook:', error);
-          return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to process payment webhook' })
-          };
-        }
+        await handleSuccessfulPayment(paymentIntent);
         break;
       }
 
       case 'payment_intent.payment_failed': {
         const paymentIntent = stripeEvent.data.object;
         console.log('Payment failed:', paymentIntent.id);
-        const errorMessage = paymentIntent.last_payment_error?.message || 'Unknown payment error';
-        const errorCode = paymentIntent.last_payment_error?.code || 'unknown_error';
-        
-        try {
-          // Store more detailed error information
-          const paymentErrorDetails = {
-            code: errorCode,
-            message: errorMessage,
-            payment_method_type: paymentIntent.last_payment_error?.payment_method?.type || null,
-            decline_code: paymentIntent.last_payment_error?.decline_code || null,
-            timestamp: new Date().toISOString()
-          };
-          
-          // Get the order for this payment intent
-          const { data: order, error: fetchError } = await supabase
-            .from('orders')
-            .select('id, payment_metadata')
-            .eq('transaction_signature', paymentIntent.id)
-            .single();
-            
-          if (fetchError) {
-            console.error('Error fetching order for failed payment:', fetchError);
-          } else if (order) {
-            console.log('Found order for failed payment:', order.id);
-            
-            // Update payment metadata with error details for potential recovery
-            const updatedMetadata = {
-              ...order.payment_metadata,
-              payment_error: paymentErrorDetails,
-              retry_eligible: ['authentication_required', 'insufficient_funds', 'card_declined'].includes(errorCode)
-            };
-            
-            // Update order metadata
-            const { error: metadataError } = await supabase
-              .from('orders')
-              .update({ payment_metadata: updatedMetadata })
-              .eq('id', order.id);
-              
-            if (metadataError) {
-              console.error('Error updating payment metadata:', metadataError);
-            }
-          }
-          
-          // Update the payment status to failed
-          const { error } = await supabase.rpc('fail_stripe_payment', {
-            p_payment_id: paymentIntent.id,
-            p_error: errorMessage
-          });
-
-          if (error) {
-            console.error('Error handling failed payment:', error);
-            throw error;
-          }
-          
-          console.log('Payment failure handled for intent:', paymentIntent.id);
-        } catch (error) {
-          console.error('Failed to process payment failure webhook:', error);
-          return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to process payment failure webhook' })
-          };
-        }
+        await handleFailedPayment(paymentIntent);
         break;
       }
 
@@ -247,18 +98,215 @@ exports.handler = async (event, context) => {
         console.log('Unhandled event type:', stripeEvent.type);
     }
 
+    // Always acknowledge receipt of the event
     return {
       statusCode: 200,
       body: JSON.stringify({ received: true })
     };
   } catch (err) {
     console.error('Webhook error:', err.message);
+    // Still return 200 to acknowledge receipt - we don't want Stripe to retry
     return {
-      statusCode: 500,
+      statusCode: 200,
       body: JSON.stringify({ 
-        error: 'Webhook handler failed',
+        received: true,
+        error: 'Webhook processing failed, but event was received',
         details: err.message 
       }),
     };
   }
-}; 
+};
+
+// Find an order by payment intent ID
+async function findOrderByPaymentIntent(paymentIntentId) {
+  // First try by transaction_signature
+  const { data: order, error } = await supabase
+    .from('orders')
+    .select('id, status')
+    .eq('transaction_signature', paymentIntentId)
+    .single();
+  
+  if (!error && order) {
+    console.log('Found order by transaction_signature:', order.id);
+    return order;
+  }
+  
+  // If not found, try by payment_intent_id in metadata
+  const { data: metadataOrder, error: metadataError } = await supabase
+    .from('orders')
+    .select('id, status')
+    .filter('payment_metadata->payment_intent_id', 'eq', paymentIntentId)
+    .single();
+  
+  if (!metadataError && metadataOrder) {
+    console.log('Found order by payment_intent_id in metadata:', metadataOrder.id);
+    return metadataOrder;
+  }
+  
+  // If still not found, check for payment metadata directly
+  const { data: allOrders, error: allOrdersError } = await supabase
+    .from('orders')
+    .select('id, status, payment_metadata')
+    .eq('payment_metadata->>paymentMethod', 'stripe');
+    
+  if (!allOrdersError && allOrders) {
+    const matchingOrder = allOrders.find(o => 
+      o.payment_metadata && 
+      (o.payment_metadata.stripePaymentIntentId === paymentIntentId || 
+       o.payment_metadata.payment_intent_id === paymentIntentId)
+    );
+    
+    if (matchingOrder) {
+      console.log('Found order by deep metadata search:', matchingOrder.id);
+      return matchingOrder;
+    }
+  }
+  
+  console.error('No order found for payment intent:', paymentIntentId);
+  return null;
+}
+
+// Handle successful payment
+async function handleSuccessfulPayment(paymentIntent) {
+  try {
+    const order = await findOrderByPaymentIntent(paymentIntent.id);
+    if (!order) {
+      console.error('Order not found for successful payment:', paymentIntent.id);
+      return;
+    }
+    
+    // Process the payment success
+    return await processSuccessfulPayment(order, paymentIntent);
+  } catch (error) {
+    console.error('Failed to process payment webhook:', error);
+  }
+}
+
+// Handle failed payment
+async function handleFailedPayment(paymentIntent) {
+  try {
+    const errorMessage = paymentIntent.last_payment_error?.message || 'Unknown payment error';
+    const errorCode = paymentIntent.last_payment_error?.code || 'unknown_error';
+    
+    // Store more detailed error information
+    const paymentErrorDetails = {
+      code: errorCode,
+      message: errorMessage,
+      payment_method_type: paymentIntent.last_payment_error?.payment_method?.type || null,
+      decline_code: paymentIntent.last_payment_error?.decline_code || null,
+      timestamp: new Date().toISOString()
+    };
+    
+    const order = await findOrderByPaymentIntent(paymentIntent.id);
+    if (order) {
+      console.log('Found order for failed payment:', order.id);
+      
+      // Update payment metadata with error details for potential recovery
+      const { data: orderData, error: fetchError } = await supabase
+        .from('orders')
+        .select('payment_metadata')
+        .eq('id', order.id)
+        .single();
+        
+      if (!fetchError && orderData) {
+        const updatedMetadata = {
+          ...orderData.payment_metadata,
+          payment_error: paymentErrorDetails,
+          retry_eligible: ['authentication_required', 'insufficient_funds', 'card_declined'].includes(errorCode)
+        };
+        
+        // Update order metadata
+        const { error: metadataError } = await supabase
+          .from('orders')
+          .update({ payment_metadata: updatedMetadata })
+          .eq('id', order.id);
+          
+        if (metadataError) {
+          console.error('Error updating payment metadata:', metadataError);
+        }
+      }
+    }
+    
+    // Update the payment status to failed
+    const { error } = await supabase.rpc('fail_stripe_payment', {
+      p_payment_id: paymentIntent.id,
+      p_error: errorMessage
+    });
+
+    if (error) {
+      console.error('Error handling failed payment:', error);
+    } else {
+      console.log('Payment failure handled for intent:', paymentIntent.id);
+    }
+  } catch (error) {
+    console.error('Failed to process payment failure webhook:', error);
+  }
+}
+
+// Helper function to process a successful payment
+async function processSuccessfulPayment(order, paymentIntent) {
+  try {
+    // Use the Stripe-specific function to confirm the payment
+    // This will handle both draft->pending_payment and pending_payment->confirmed transitions
+    const { error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
+      p_payment_id: paymentIntent.id
+    });
+
+    if (confirmError) {
+      console.error('Error confirming payment:', confirmError);
+      return;
+    }
+
+    // Get the receipt URL from the charge
+    try {
+      // Get the charge details from Stripe
+      const charges = await stripe.charges.list({
+        payment_intent: paymentIntent.id,
+        limit: 1
+      });
+      
+      // Extract charge ID and receipt URL
+      if (charges.data.length > 0) {
+        const charge = charges.data[0];
+        const chargeId = charge.id;
+        const receiptUrl = charge.receipt_url;
+        
+        console.log('Found charge details:', { chargeId, receiptUrl });
+
+        if (chargeId && receiptUrl) {
+          // Update the transaction signature to use the receipt URL
+          const { error: signatureError } = await supabase.rpc('update_stripe_payment_signature', {
+            p_payment_id: paymentIntent.id,
+            p_charge_id: chargeId,
+            p_receipt_url: receiptUrl
+          });
+
+          if (signatureError) {
+            console.error('Error updating transaction signature:', signatureError);
+            // Continue processing since payment is confirmed
+          } else {
+            console.log('Updated transaction signature to receipt URL:', receiptUrl);
+          }
+        }
+      }
+    } catch (stripeError) {
+      console.error('Error fetching charge details:', stripeError);
+      // Continue processing since payment is confirmed
+    }
+
+    // Verify the order status was updated
+    const { data: confirmedOrder, error: verifyError } = await supabase
+      .from('orders')
+      .select('id, status, transaction_signature')
+      .eq('id', order.id)
+      .single();
+
+    if (verifyError || !confirmedOrder) {
+      console.error('Error verifying order status:', verifyError);
+    } else {
+      console.log('Payment confirmed successfully for order:', confirmedOrder.id, 'new status:', confirmedOrder.status);
+    }
+  } catch (error) {
+    console.error('Error in processSuccessfulPayment:', error);
+  }
+} 
