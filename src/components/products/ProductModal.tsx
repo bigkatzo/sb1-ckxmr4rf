@@ -752,7 +752,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
               </div>
 
               {/* Buy button for mobile - fixed position */}
-              <div className="fixed md:hidden bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-30 safe-area-bottom">
+              <div className="fixed md:hidden bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-[9999] safe-area-bottom">
                 <ProductBuyButton
                   product={product}
                   selectedOptions={selectedOptions}

@@ -6,6 +6,7 @@ import { ProductModalSkeleton } from '../components/ui/Skeletons';
 import { useEffect, useState, useRef } from 'react';
 import SEO from '../components/SEO';
 import { preloadPageResources, prefetchGallery } from '../lib/service-worker';
+import { createPortal } from 'react-dom';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
@@ -154,6 +155,21 @@ export function ProductPage() {
   const productTitle = `${enrichedProduct.name} | ${enrichedProduct.collectionName || 'store.fun'}`;
   const productDescription = enrichedProduct.description || `${enrichedProduct.name} - Available at store.fun`;
 
+  // Render the modal using a portal at the root level, just like in BestSellers
+  const renderProductModal = () => {
+    if (!enrichedProduct) return null;
+    
+    return createPortal(
+      <ProductModal
+        product={enrichedProduct}
+        onClose={handleClose}
+        categoryIndex={categoryIndex}
+        loading={loading} // Pass loading state to modal
+      />,
+      document.body // Render directly to the body just like BestSellers does
+    );
+  };
+
   return (
     <>
       <SEO 
@@ -164,12 +180,7 @@ export function ProductPage() {
         type="product"
         product={enrichedProduct}
       />
-      <ProductModal
-        product={enrichedProduct}
-        onClose={handleClose}
-        categoryIndex={categoryIndex}
-        loading={loading} // Pass loading state to modal
-      />
+      {renderProductModal()}
     </>
   );
 }
