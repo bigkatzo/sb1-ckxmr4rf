@@ -325,58 +325,103 @@ async function processSuccessfulPayment(order, paymentIntent) {
     if (confirmError) {
       console.error('Error confirming payment:', confirmError);
       console.error('Error details:', JSON.stringify(confirmError));
-      return;
+    } else {
+      console.log('Payment confirmation result:', confirmResult || 'No result returned (success)');
     }
+
+    // Get the receipt URL and other details
+    let chargeId = null;
+    let receiptUrl = null;
     
-    console.log('Payment confirmation result:', confirmResult || 'No result returned (success)');
-
-    // Get the receipt URL from the charge
     try {
-      // Get the charge details from Stripe
-      console.log('Fetching charge details for payment intent:', paymentIntent.id);
-      const charges = await stripe.charges.list({
-        payment_intent: paymentIntent.id,
-        limit: 1
-      });
-      
-      // Extract charge ID and receipt URL
-      if (charges.data.length > 0) {
-        const charge = charges.data[0];
-        const chargeId = charge.id;
-        const receiptUrl = charge.receipt_url;
+      // Check for latest_charge in the payment intent
+      if (paymentIntent.latest_charge) {
+        console.log('Payment intent has latest_charge:', paymentIntent.latest_charge);
         
-        console.log('Found charge details:', { chargeId, receiptUrl });
-
-        if (chargeId && receiptUrl) {
-          // Update the transaction signature to use the receipt URL
-          console.log('Calling update_stripe_payment_signature with:', {
-            payment_id: paymentIntent.id,
-            charge_id: chargeId, 
-            receipt_url: receiptUrl
-          });
-          
-          const { data: updateResult, error: signatureError } = await supabase.rpc('update_stripe_payment_signature', {
-            p_payment_id: paymentIntent.id,
-            p_charge_id: chargeId,
-            p_receipt_url: receiptUrl
-          });
-
-          if (signatureError) {
-            console.error('Error updating transaction signature:', signatureError);
-            console.error('Error details:', JSON.stringify(signatureError));
-            // Continue processing since payment is confirmed
-          } else {
-            console.log('Updated transaction signature to receipt URL:', receiptUrl);
-            console.log('Update result:', updateResult || 'No result returned (success)');
+        // Try to get charge details based on the type of ID
+        if (paymentIntent.latest_charge.startsWith('ch_')) {
+          // Standard charge
+          console.log('Fetching standard charge details');
+          const charge = await stripe.charges.retrieve(paymentIntent.latest_charge);
+          if (charge) {
+            chargeId = charge.id;
+            receiptUrl = charge.receipt_url;
           }
+        } else if (paymentIntent.latest_charge.startsWith('py_')) {
+          // This is a Payment element - handle differently
+          console.log('Latest charge is a Payment element, using payment intent as receipt');
+          chargeId = paymentIntent.latest_charge;
+          // For payment elements, we might not have a receipt URL, so let's create one
+          receiptUrl = `https://dashboard.stripe.com/payments/${paymentIntent.id}`;
         }
       } else {
-        console.warn('No charges found for payment intent:', paymentIntent.id);
+        // Fallback to listing charges
+        console.log('No latest_charge found, falling back to listing charges');
+        const charges = await stripe.charges.list({
+          payment_intent: paymentIntent.id,
+          limit: 1
+        });
+        
+        if (charges.data.length > 0) {
+          const charge = charges.data[0];
+          chargeId = charge.id;
+          receiptUrl = charge.receipt_url;
+        }
+      }
+      
+      console.log('Found charge details:', { chargeId, receiptUrl });
+
+      // Even if we couldn't get a receipt URL, we should still update the order status
+      if (!chargeId && !receiptUrl) {
+        console.warn('No charge details found, using payment intent ID as fallback');
+        chargeId = paymentIntent.id;
+        receiptUrl = `https://dashboard.stripe.com/payments/${paymentIntent.id}`;
+      }
+
+      // Update the transaction signature to use the receipt URL
+      if (chargeId && receiptUrl) {
+        console.log('Calling update_stripe_payment_signature with:', {
+          payment_id: paymentIntent.id,
+          charge_id: chargeId, 
+          receipt_url: receiptUrl
+        });
+        
+        const { data: updateResult, error: signatureError } = await supabase.rpc('update_stripe_payment_signature', {
+          p_payment_id: paymentIntent.id,
+          p_charge_id: chargeId,
+          p_receipt_url: receiptUrl
+        });
+
+        if (signatureError) {
+          console.error('Error updating transaction signature:', signatureError);
+          console.error('Error details:', JSON.stringify(signatureError));
+          // Continue processing since payment is confirmed
+        } else {
+          console.log('Updated transaction signature to receipt URL:', receiptUrl);
+          console.log('Update result:', updateResult || 'No result returned (success)');
+        }
       }
     } catch (stripeError) {
       console.error('Error fetching charge details:', stripeError);
       console.error('Stripe error details:', JSON.stringify(stripeError));
       // Continue processing since payment is confirmed
+    }
+
+    // Always force the order status to confirmed regardless of previous steps
+    console.log('Performing direct order status update to ensure confirmation');
+    const { error: directUpdateError } = await supabase
+      .from('orders')
+      .update({ 
+        status: 'confirmed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', order.id);
+    
+    if (directUpdateError) {
+      console.error('Failed to directly update order status:', directUpdateError);
+      console.error('Error details:', JSON.stringify(directUpdateError));
+    } else {
+      console.log('Direct order confirmation successful');
     }
 
     // Verify the order status was updated
@@ -396,22 +441,7 @@ async function processSuccessfulPayment(order, paymentIntent) {
       // Check if status is actually confirmed
       if (confirmedOrder.status !== 'confirmed') {
         console.error('WARNING: Order status not updated to confirmed. Current status:', confirmedOrder.status);
-        console.log('Attempting to manually confirm order...');
-        
-        // Try once more with a direct update
-        const { error: directUpdateError } = await supabase
-          .from('orders')
-          .update({ 
-            status: 'confirmed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', order.id);
-          
-        if (directUpdateError) {
-          console.error('Failed to manually update order status:', directUpdateError);
-        } else {
-          console.log('Manual order confirmation successful');
-        }
+        console.error('This suggests a permissions issue or a database constraint is preventing the update');
       }
     }
   } catch (error) {
