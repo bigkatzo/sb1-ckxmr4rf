@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { ProductCardCompact } from './ProductCardCompact';
 import { ProductModal } from './ProductModal';
 import { useBestSellers } from '../../hooks/useBestSellers';
@@ -67,6 +68,20 @@ export function BestSellers() {
     scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   };
 
+  // Render the modal using a portal at the root level
+  const renderModal = () => {
+    if (!selectedProduct) return null;
+    
+    return createPortal(
+      <ProductModal 
+        product={selectedProduct} 
+        onClose={() => setSelectedProduct(null)}
+        categoryIndex={categoryIndices[selectedProduct.categoryId]}
+      />,
+      document.body // Render directly to the body
+    );
+  };
+
   if (loading && !contentLoaded) {
     return <BestSellersSkeleton />;
   }
@@ -111,13 +126,8 @@ export function BestSellers() {
         </button>
       </div>
 
-      {selectedProduct && (
-        <ProductModal 
-          product={selectedProduct} 
-          onClose={() => setSelectedProduct(null)}
-          categoryIndex={categoryIndices[selectedProduct.categoryId]}
-        />
-      )}
+      {/* Render modal through portal instead of directly */}
+      {renderModal()}
     </>
   );
 }
