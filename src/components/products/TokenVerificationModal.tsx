@@ -905,7 +905,38 @@ export function TokenVerificationModal({
     try {
       console.log('Stripe payment successful:', { orderId, paymentIntentId });
       
-      // Create a proper order details object 
+      // Try to fetch the latest order data first to get the correct order number
+      try {
+        const { data: order, error } = await supabase
+          .from('orders')
+          .select('id, order_number, status')
+          .eq('id', orderId)
+          .single();
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (order && order.order_number) {
+          console.log('Found order details:', order);
+          
+          // Use the retrieved order number
+          setOrderDetails({
+            orderNumber: order.order_number,
+            transactionSignature: paymentIntentId
+          });
+          
+          // Always show success view and toast for Stripe payments
+          setShowSuccessView(true);
+          toastService.showOrderSuccess();
+          onSuccess();
+          return;
+        }
+      } catch (fetchError) {
+        console.warn('Could not fetch order details, using fallback:', fetchError);
+      }
+      
+      // Create a proper order details object as fallback
       const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
       setOrderDetails({
         orderNumber: fallbackOrderNumber,
