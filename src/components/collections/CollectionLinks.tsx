@@ -30,31 +30,6 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
 
   const hasNotes = collection.free_notes && collection.free_notes.trim().length > 0;
 
-  // Load expanded state from localStorage on initial render
-  useEffect(() => {
-    try {
-      // Make state specific to this collection
-      const storageKey = `collectionDetails_${collection.id}_expanded`;
-      const savedState = localStorage.getItem(storageKey);
-      if (savedState !== null) {
-        setIsExpanded(savedState === 'true');
-      }
-    } catch (error) {
-      console.error('Error loading collection details state:', error);
-    }
-  }, [collection.id]);
-
-  // Save expanded state to localStorage when it changes
-  useEffect(() => {
-    try {
-      // Make state specific to this collection
-      const storageKey = `collectionDetails_${collection.id}_expanded`;
-      localStorage.setItem(storageKey, isExpanded.toString());
-    } catch (error) {
-      console.error('Error saving collection details state:', error);
-    }
-  }, [isExpanded, collection.id]);
-
   useEffect(() => {
     async function fetchMerchantProfile() {
       try {
