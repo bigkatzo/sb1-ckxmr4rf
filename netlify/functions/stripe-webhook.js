@@ -314,13 +314,21 @@ async function handleFailedPayment(paymentIntent) {
 async function processSuccessfulPayment(order, paymentIntent) {
   try {
     console.log('Processing successful payment for order:', order.id, 'with payment intent:', paymentIntent.id);
+    console.log('Current transaction_signature in DB:', order.transaction_signature);
     
     // Use the Stripe-specific function to confirm the payment
     // This will handle both draft->pending_payment and pending_payment->confirmed transitions
     console.log('Calling confirm_stripe_payment with payment ID:', paymentIntent.id);
-    const { data: confirmResult, error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
+    
+    // Call the function with debugging
+    const rpcCall = await supabase.rpc('confirm_stripe_payment', {
       p_payment_id: paymentIntent.id
     });
+    
+    // Log the full response including any SQL error
+    console.log('RPC call raw response:', JSON.stringify(rpcCall));
+    
+    const { data: confirmResult, error: confirmError } = rpcCall;
 
     if (confirmError) {
       console.error('Error confirming payment:', confirmError);
@@ -329,6 +337,17 @@ async function processSuccessfulPayment(order, paymentIntent) {
       console.log('Payment confirmation result:', confirmResult || 'No result returned (success)');
     }
 
+    // Check current order status directly to see if it was actually updated
+    console.log('Checking current order status after RPC call');
+    const { data: currentStatus } = await supabase
+      .from('orders')
+      .select('id, status, transaction_signature')
+      .eq('id', order.id)
+      .single();
+    
+    console.log('Current order status:', currentStatus ? currentStatus.status : 'unknown');
+    console.log('Current transaction_signature:', currentStatus ? currentStatus.transaction_signature : 'unknown');
+    
     // Get the receipt URL and other details
     let chargeId = null;
     let receiptUrl = null;
