@@ -119,6 +119,29 @@ exports.handler = async (event, context) => {
 
 // Find an order by payment intent ID
 async function findOrderByPaymentIntent(paymentIntentId) {
+  // For free orders, the paymentIntentId might be prefixed with "free_"
+  const isFreeOrderSignature = paymentIntentId.startsWith('free_');
+  
+  if (isFreeOrderSignature) {
+    console.log('Processing webhook for free order with signature:', paymentIntentId);
+    
+    // Look up the order directly by the free order signature
+    const { data: freeOrder, error: freeOrderError } = await supabase
+      .from('orders')
+      .select('id, status')
+      .eq('transaction_signature', paymentIntentId)
+      .single();
+    
+    if (!freeOrderError && freeOrder) {
+      console.log('Found free order by transaction_signature:', freeOrder.id);
+      return freeOrder;
+    }
+    
+    console.error('Free order not found with signature:', paymentIntentId);
+    return null;
+  }
+  
+  // For regular Stripe orders, continue with existing flow
   // First try by transaction_signature
   const { data: order, error } = await supabase
     .from('orders')
@@ -169,6 +192,38 @@ async function findOrderByPaymentIntent(paymentIntentId) {
 // Handle successful payment
 async function handleSuccessfulPayment(paymentIntent) {
   try {
+    // Check if this is a free order based on the payment intent ID
+    if (paymentIntent.id.startsWith('free_')) {
+      console.log('Processing successful free order webhook:', paymentIntent.id);
+      
+      // For free orders, they are already confirmed during creation
+      // Just verify the order exists and is in the right state
+      const order = await findOrderByPaymentIntent(paymentIntent.id);
+      if (!order) {
+        console.error('Free order not found for webhook:', paymentIntent.id);
+        return;
+      }
+      
+      if (order.status !== 'confirmed') {
+        console.log('Free order needs confirmation:', order.id);
+        // Confirm the order if not already confirmed
+        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+          p_order_id: order.id
+        });
+        
+        if (confirmError) {
+          console.error('Error confirming free order:', confirmError);
+        } else {
+          console.log('Free order confirmed successfully:', order.id);
+        }
+      } else {
+        console.log('Free order already confirmed:', order.id);
+      }
+      
+      return;
+    }
+    
+    // Regular Stripe order flow
     const order = await findOrderByPaymentIntent(paymentIntent.id);
     if (!order) {
       console.error('Order not found for successful payment:', paymentIntent.id);
@@ -185,6 +240,12 @@ async function handleSuccessfulPayment(paymentIntent) {
 // Handle failed payment
 async function handleFailedPayment(paymentIntent) {
   try {
+    // Free orders should never fail as they don't go through payment processing
+    if (paymentIntent.id.startsWith('free_')) {
+      console.log('Received failure webhook for free order - this should not happen:', paymentIntent.id);
+      return;
+    }
+    
     const errorMessage = paymentIntent.last_payment_error?.message || 'Unknown payment error';
     const errorCode = paymentIntent.last_payment_error?.code || 'unknown_error';
     
