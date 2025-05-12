@@ -24,6 +24,7 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 exports.handler = async (event, context) => {
   console.log('Webhook received:', event.httpMethod);
+  console.log('Webhook headers:', JSON.stringify(event.headers));
   
   if (event.httpMethod !== 'POST') {
     return {
@@ -46,14 +47,19 @@ exports.handler = async (event, context) => {
     // Verify the event
     let stripeEvent;
     try {
+      // Log raw body content length
+      console.log('Webhook raw body size:', event.body.length);
+      
       stripeEvent = stripe.webhooks.constructEvent(
         event.body,
         signature,
         webhookSecret
       );
       console.log('Webhook verified. Event:', stripeEvent.type);
+      console.log('Webhook event details:', JSON.stringify(stripeEvent.data.object.id));
     } catch (err) {
       console.error('Webhook signature verification failed:', err.message);
+      console.error('Webhook secret used:', webhookSecret?.substring(0, 5) + '...');
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Invalid signature' }),
@@ -307,20 +313,27 @@ async function handleFailedPayment(paymentIntent) {
 // Helper function to process a successful payment
 async function processSuccessfulPayment(order, paymentIntent) {
   try {
+    console.log('Processing successful payment for order:', order.id, 'with payment intent:', paymentIntent.id);
+    
     // Use the Stripe-specific function to confirm the payment
     // This will handle both draft->pending_payment and pending_payment->confirmed transitions
-    const { error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
+    console.log('Calling confirm_stripe_payment with payment ID:', paymentIntent.id);
+    const { data: confirmResult, error: confirmError } = await supabase.rpc('confirm_stripe_payment', {
       p_payment_id: paymentIntent.id
     });
 
     if (confirmError) {
       console.error('Error confirming payment:', confirmError);
+      console.error('Error details:', JSON.stringify(confirmError));
       return;
     }
+    
+    console.log('Payment confirmation result:', confirmResult || 'No result returned (success)');
 
     // Get the receipt URL from the charge
     try {
       // Get the charge details from Stripe
+      console.log('Fetching charge details for payment intent:', paymentIntent.id);
       const charges = await stripe.charges.list({
         payment_intent: paymentIntent.id,
         limit: 1
@@ -336,7 +349,13 @@ async function processSuccessfulPayment(order, paymentIntent) {
 
         if (chargeId && receiptUrl) {
           // Update the transaction signature to use the receipt URL
-          const { error: signatureError } = await supabase.rpc('update_stripe_payment_signature', {
+          console.log('Calling update_stripe_payment_signature with:', {
+            payment_id: paymentIntent.id,
+            charge_id: chargeId, 
+            receipt_url: receiptUrl
+          });
+          
+          const { data: updateResult, error: signatureError } = await supabase.rpc('update_stripe_payment_signature', {
             p_payment_id: paymentIntent.id,
             p_charge_id: chargeId,
             p_receipt_url: receiptUrl
@@ -344,18 +363,24 @@ async function processSuccessfulPayment(order, paymentIntent) {
 
           if (signatureError) {
             console.error('Error updating transaction signature:', signatureError);
+            console.error('Error details:', JSON.stringify(signatureError));
             // Continue processing since payment is confirmed
           } else {
             console.log('Updated transaction signature to receipt URL:', receiptUrl);
+            console.log('Update result:', updateResult || 'No result returned (success)');
           }
         }
+      } else {
+        console.warn('No charges found for payment intent:', paymentIntent.id);
       }
     } catch (stripeError) {
       console.error('Error fetching charge details:', stripeError);
+      console.error('Stripe error details:', JSON.stringify(stripeError));
       // Continue processing since payment is confirmed
     }
 
     // Verify the order status was updated
+    console.log('Verifying order status update for order ID:', order.id);
     const { data: confirmedOrder, error: verifyError } = await supabase
       .from('orders')
       .select('id, status, transaction_signature')
@@ -364,10 +389,33 @@ async function processSuccessfulPayment(order, paymentIntent) {
 
     if (verifyError || !confirmedOrder) {
       console.error('Error verifying order status:', verifyError);
+      console.error('Error details:', JSON.stringify(verifyError));
     } else {
       console.log('Payment confirmed successfully for order:', confirmedOrder.id, 'new status:', confirmedOrder.status);
+      
+      // Check if status is actually confirmed
+      if (confirmedOrder.status !== 'confirmed') {
+        console.error('WARNING: Order status not updated to confirmed. Current status:', confirmedOrder.status);
+        console.log('Attempting to manually confirm order...');
+        
+        // Try once more with a direct update
+        const { error: directUpdateError } = await supabase
+          .from('orders')
+          .update({ 
+            status: 'confirmed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', order.id);
+          
+        if (directUpdateError) {
+          console.error('Failed to manually update order status:', directUpdateError);
+        } else {
+          console.log('Manual order confirmation successful');
+        }
+      }
     }
   } catch (error) {
     console.error('Error in processSuccessfulPayment:', error);
+    console.error('Error stack:', error.stack);
   }
 } 
