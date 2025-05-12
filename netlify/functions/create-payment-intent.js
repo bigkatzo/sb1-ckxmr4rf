@@ -68,110 +68,71 @@ exports.handler = async (event, context) => {
 
     // Special handling for free orders (100% discount)
     if (is100PercentDiscount) {
-      console.log('Processing free order with 100% discount server-side');
+      console.log('Processing free order with 100% discount - forwarding to create-order endpoint');
       
       // Generate a consistent transaction ID for free orders
       const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'stripe'}_${paymentMetadata.timestamp || Date.now()}`;
       
-      // Create a structured transaction signature
-      const uniqueSignature = `free_${transactionId}`;
-      
-      // Check if an order with this transaction signature already exists to prevent duplicates
-      console.log('Checking for existing orders with signature:', uniqueSignature);
-      const { data: existingOrders, error: searchError } = await supabase
-        .from('orders')
-        .select('id, status, created_at')
-        .eq('transaction_signature', uniqueSignature);
-      
-      if (searchError) {
-        console.error('Error searching for duplicate orders:', searchError);
-        // Continue with order creation even if search fails
-      } else if (existingOrders && existingOrders.length > 0) {
-        console.log('Duplicate order detected:', {
-          orderId: existingOrders[0].id,
-          orderStatus: existingOrders[0].status,
-          created: existingOrders[0].created_at,
-          transactionSignature: uniqueSignature
+      // Forward to create-order endpoint for consistent handling of free orders
+      try {
+        // Prepare the request body for create-order endpoint
+        const createOrderBody = {
+          productId,
+          variants,
+          shippingInfo,
+          walletAddress: walletAddress || 'anonymous',
+          paymentMetadata: {
+            ...paymentMetadata,
+            paymentMethod: 'free_stripe',
+            couponCode,
+            couponDiscount,
+            originalPrice,
+            isFreeOrder: true,
+            transactionId
+          }
+        };
+        
+        // Import the create-order handler
+        const createOrderHandler = require('./create-order');
+        
+        // Call the create-order handler directly
+        const result = await createOrderHandler.handler({
+          httpMethod: 'POST',
+          body: JSON.stringify(createOrderBody)
+        }, context);
+        
+        // Parse the response
+        const createOrderResponse = JSON.parse(result.body);
+        
+        console.log('Free order creation result:', {
+          statusCode: result.statusCode,
+          isDuplicate: !!createOrderResponse.isDuplicate,
+          orderId: createOrderResponse.orderId
         });
         
-        // Return the existing order instead of creating a new one
+        // Return the result directly
         return {
-          statusCode: 200,
+          statusCode: result.statusCode,
           headers: {
             'Access-Control-Allow-Origin': '*',
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            orderId: existingOrders[0].id,
-            paymentIntentId: uniqueSignature,
-            isFreeOrder: true,
-            isDuplicate: true
-          }),
+          body: result.body
+        };
+      } catch (error) {
+        console.error('Error forwarding to create-order:', error);
+        return {
+          statusCode: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            error: 'Failed to process free order',
+            details: error.message
+          })
         };
       }
-      
-      // Prepare metadata with free order details
-      const freeOrderMetadata = {
-        ...paymentMetadata,
-        paymentMethod: 'free',
-        orderType: 'stripe_free',
-        couponCode,
-        couponDiscount,
-        originalPrice,
-        transactionId
-      };
-      
-      // Create the order record
-      const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
-        p_product_id: productId,
-        p_variants: variants || [],
-        p_shipping_info: shippingInfo,
-        p_wallet_address: walletAddress || 'stripe',
-        p_payment_metadata: freeOrderMetadata
-      });
-      
-      if (orderError) {
-        console.error('Error creating free order:', orderError);
-        throw orderError;
-      }
-      
-      // Update the order transaction details
-      const { error: updateError } = await supabase.rpc('update_order_transaction', {
-        p_order_id: orderId,
-        p_transaction_signature: uniqueSignature,
-        p_amount_sol: 0
-      });
-      
-      if (updateError) {
-        console.error('Error updating free order transaction:', updateError);
-        throw updateError;
-      }
-      
-      // Confirm the order immediately since it's free
-      const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-        p_order_id: orderId
-      });
-      
-      if (confirmError) {
-        console.error('Error confirming free order:', confirmError);
-        throw confirmError;
-      }
-      
-      console.log('Free order created and confirmed successfully:', orderId);
-      
-      // Return success with order details but no client secret (since it's free)
-      return {
-        statusCode: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId,
-          paymentIntentId: uniqueSignature,
-          isFreeOrder: true
-        }),
-      };
     }
 
     // Regular payment flow for non-free orders

@@ -215,7 +215,7 @@ async function handleSuccessfulPayment(paymentIntent) {
     if (paymentIntent.id.startsWith('free_')) {
       console.log('Processing successful free order webhook:', paymentIntent.id);
       
-      // For free orders, they are already confirmed during creation
+      // For free orders, they are already confirmed during creation via the create-order endpoint
       // Just verify the order exists and is in the right state
       const order = await findOrderByPaymentIntent(paymentIntent.id);
       if (!order) {

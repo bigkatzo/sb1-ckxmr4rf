@@ -407,10 +407,10 @@ export function StripePaymentModal({
           // Prevent duplicate calls
           setIsProcessingOrder(true);
           
-          // Generate a unique transaction ID with proper prefix
-          const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
-          
           try {
+            // Generate a unique transaction ID with proper prefix
+            const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
+            
             // Use the server-side API endpoint instead of direct Supabase calls
             const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
               method: 'POST',
@@ -449,25 +449,23 @@ export function StripePaymentModal({
               throw new Error(data.error);
             }
             
-            if (data.orderId) {
-              // Order created successfully or existing order returned
-              if (data.isDuplicate) {
-                console.log('Using existing order:', data);
-              }
-              
-              // Order created successfully
-              setOrderId(data.orderId);
-              
-              // Use the transactionSignature field if available, fall back to paymentIntentId for backwards compatibility
-              const transactionSignature = data.transactionSignature || data.paymentIntentId || `free_stripe_${productId}_${Date.now()}`;
-              
-              // Use the order number from the response if available
-              const orderNumber = data.orderNumber || data.orderId;
-              
-              // Call onSuccess with the order ID/number and transaction signature
-              onSuccess(orderNumber, transactionSignature);
-              return;
+            // Order created successfully or existing order returned
+            if (data.isDuplicate) {
+              console.log('Using existing order:', data);
             }
+            
+            // Order created successfully
+            setOrderId(data.orderId);
+            
+            // Use the transactionSignature field if available, fall back to paymentIntentId for backwards compatibility
+            const transactionSignature = data.transactionSignature || data.paymentIntentId || `free_stripe_${productId}_${Date.now()}`;
+            
+            // Use the order number from the response if available
+            const orderNumber = data.orderNumber || data.orderId;
+            
+            // Call onSuccess with the order ID/number and transaction signature
+            onSuccess(orderNumber, transactionSignature);
+            return;
           } catch (freeOrderError) {
             console.error('Error creating free order:', freeOrderError);
             throw new Error('Failed to create free order with coupon');
