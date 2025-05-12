@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { toast } from 'react-toastify';
 import { normalizeStorageUrl } from '../lib/storage';
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Collection, AccessType } from '../types/collections';
 
 // Cache admin status for 5 minutes
@@ -10,6 +11,9 @@ const ADMIN_CACHE_DURATION = 5 * 60 * 1000;
 
 // Global admin status cache
 const globalAdminCache: { [key: string]: { isAdmin: boolean; timestamp: number } } = {};
+
+// Cache key for merchant collections
+const getMerchantCollectionsCacheKey = (userId: string) => `merchant_collections:${userId}`;
 
 export function useMerchantCollections(options: {
   deferLoad?: boolean;
@@ -24,6 +28,7 @@ export function useMerchantCollections(options: {
   const isFetchingRef = useRef(false);
   const isMountedRef = useRef(false);
   const fetchTimeoutRef = useRef<NodeJS.Timeout>();
+  const cacheKeyRef = useRef<string | null>(null);
 
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(!deferLoad);
@@ -32,27 +37,30 @@ export function useMerchantCollections(options: {
   const [changingAccessId, setChangingAccessId] = useState<string | null>(null);
   
   const checkAdminStatus = useCallback(async (userId: string) => {
-    // Return cached value if still valid
-    if (adminCacheRef.current[userId] && 
-        Date.now() - adminCacheRef.current[userId].timestamp < ADMIN_CACHE_DURATION) {
-      return adminCacheRef.current[userId].isAdmin;
+    if (!userId) return false;
+
+    // Check in-memory cache first
+    const now = Date.now();
+    const cachedAdmin = adminCacheRef.current[userId];
+    if (cachedAdmin && now - cachedAdmin.timestamp < ADMIN_CACHE_DURATION) {
+      return cachedAdmin.isAdmin;
     }
 
     try {
-      const { data: profile, error: profileError } = await supabase
+      // Query user profile to check admin status
+      const { data: profile, error } = await supabase
         .from('user_profiles')
         .select('role')
         .eq('id', userId)
         .single();
 
-      if (profileError) throw profileError;
-
+      if (error) throw error;
       const isAdmin = profile?.role === 'admin';
-      
-      // Cache the result per user
+
+      // Update cache
       adminCacheRef.current[userId] = {
         isAdmin,
-        timestamp: Date.now()
+        timestamp: now
       };
 
       return isAdmin;
@@ -190,6 +198,31 @@ export function useMerchantCollections(options: {
         throw authError || new Error('Not authenticated');
       }
 
+      // Set up cache key
+      const cacheKey = getMerchantCollectionsCacheKey(user.id);
+      cacheKeyRef.current = cacheKey;
+
+      // Check if we can use cached data (only if not explicitly refreshing)
+      if (!isRefresh) {
+        const { value: cachedData, needsRevalidation } = await cacheManager.get<Collection[]>(cacheKey);
+        
+        if (cachedData) {
+          // Use cached data immediately
+          setCollections(cachedData);
+          setLoading(false);
+          
+          // If data needs revalidation, fetch fresh data in background
+          if (needsRevalidation) {
+            // Continue with the fetch but don't show loading state
+            setRefreshing(true);
+          } else {
+            // If data is fresh, return early
+            isFetchingRef.current = false;
+            return;
+          }
+        }
+      }
+
       const isAdmin = await checkAdminStatus(user.id);
       
       // Fetch collections
@@ -223,6 +256,17 @@ export function useMerchantCollections(options: {
 
       if (!data?.length) {
         setCollections([]);
+        
+        // Cache empty array too
+        if (cacheKeyRef.current) {
+          cacheManager.set(
+            cacheKeyRef.current,
+            [],
+            CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+            { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
+          );
+        }
+        
         return;
       }
 
@@ -273,6 +317,16 @@ export function useMerchantCollections(options: {
 
       if (isMountedRef.current) {
         setCollections(transformedCollections);
+        
+        // Cache the result
+        if (cacheKeyRef.current) {
+          cacheManager.set(
+            cacheKeyRef.current,
+            transformedCollections,
+            CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+            { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
+          );
+        }
       }
     } catch (err) {
       console.error('Error fetching collections:', err);
@@ -311,6 +365,11 @@ export function useMerchantCollections(options: {
           });
 
         if (error) throw error;
+      }
+
+      // Invalidate the collections cache
+      if (cacheKeyRef.current) {
+        cacheManager.invalidateKey(cacheKeyRef.current);
       }
 
       await fetchCollections();

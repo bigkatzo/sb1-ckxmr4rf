@@ -1,59 +1,111 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError, isValidId } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Product } from '../types/variants';
+
+// Cache key for products
+const getProductsCacheKey = (collectionId?: string, categoryId?: string) => 
+  `merchant_products:${collectionId || 'all'}:${categoryId || 'all'}`;
 
 export function useProducts(collectionId?: string, categoryId?: string, isMerchant: boolean = false) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+  const isFetchingRef = useRef(false);
 
-  const fetchProducts = useCallback(async () => {
-    setError(null);
+  const fetchProducts = useCallback(async (isRefresh = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    
+    if (!isRefresh) {
+      setError(null);
+      setLoading(true);
+    }
+    
     setProducts([]);
 
     if (!collectionId) {
       setLoading(false);
+      isFetchingRef.current = false;
       return;
     }
 
     if (!isValidId(collectionId) || (categoryId && !isValidId(categoryId))) {
       setError('Invalid identifier format');
       setLoading(false);
+      isFetchingRef.current = false;
       return;
     }
 
-    try {
-      setLoading(true);
+    // Cache key for this query
+    const cacheKey = getProductsCacheKey(collectionId, categoryId);
 
+    try {
+      // Check cache first if not explicitly refreshing
+      if (!isRefresh) {
+        const { value: cachedProducts, needsRevalidation } = await cacheManager.get<Product[]>(cacheKey);
+        
+        if (cachedProducts) {
+          if (isMountedRef.current) {
+            setProducts(cachedProducts);
+            setLoading(false);
+          }
+          
+          // If data is still fresh, return early
+          if (!needsRevalidation) {
+            isFetchingRef.current = false;
+            return;
+          }
+          // Otherwise continue with the fetch in the background
+        }
+      }
+
+      // Build query
       let query = supabase
-        .from(isMerchant ? 'merchant_products' : 'public_products_with_categories')
-        .select('*')
-        .eq('collection_id', collectionId)
-        .order('id', { ascending: true });
-      
+        .from('merchant_products')
+        .select('*');
+
+      // Apply filters
+      query = query.eq('collection_id', collectionId);
       if (categoryId) {
         query = query.eq('category_id', categoryId);
       }
 
-      const { data, error } = await query;
+      // Only include visible products for non-merchant users
+      if (!isMerchant) {
+        query = query.eq('visible', true);
+      }
+
+      // Execute query
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
+      // Transform the data
       const transformedProducts = (data || []).map(product => {
         // Handle notes properly - check if notes is a valid object with properties
-        const hasValidNotes = product.notes && typeof product.notes === 'object' && Object.keys(product.notes).length > 0;
+        let notesObject: Record<string, string> = {};
+        let freeNotesValue = '';
         
-        // CRITICAL FIX: Properly preserve the notes values from the database
-        const notesObject = {
-          shipping: hasValidNotes && typeof product.notes.shipping === 'string' ? product.notes.shipping : '',
-          quality: hasValidNotes && typeof product.notes.quality === 'string' ? product.notes.quality : '',
-          returns: hasValidNotes && typeof product.notes.returns === 'string' ? product.notes.returns : ''
-        };
-        
-        // Process free_notes with proper type handling
-        const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
+        try {
+          if (product.notes && typeof product.notes === 'object') {
+            notesObject = product.notes;
+          } else if (product.notes && typeof product.notes === 'string') {
+            try {
+              notesObject = JSON.parse(product.notes);
+            } catch (e) {
+              // If it can't be parsed as JSON, store it as free notes
+              freeNotesValue = product.notes;
+            }
+          }
+          
+          freeNotesValue = product.free_notes || freeNotesValue;
+        } catch (err) {
+          console.error('Error processing product notes:', err);
+        }
 
         return {
           id: product.id,
@@ -95,23 +147,44 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
         };
       });
 
-      setProducts(transformedProducts);
+      if (isMountedRef.current) {
+        setProducts(transformedProducts);
+        setLoading(false);
+      }
+      
+      // Cache the transformed products
+      await cacheManager.set(
+        cacheKey,
+        transformedProducts,
+        CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
+        { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
+      );
     } catch (err) {
       console.error('Error fetching products:', err);
-      setError(handleError(err));
+      if (isMountedRef.current) {
+        setError(handleError(err));
+        setLoading(false);
+      }
     } finally {
-      setLoading(false);
+      isFetchingRef.current = false;
     }
   }, [collectionId, categoryId, isMerchant]);
 
   useEffect(() => {
-    fetchProducts();
+    isMountedRef.current = true;
+    fetchProducts(false);
+    
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [fetchProducts]);
+
+  const refreshProducts = useCallback(() => fetchProducts(true), [fetchProducts]);
 
   return { 
     products, 
     loading, 
     error,
-    refreshProducts: fetchProducts
+    refreshProducts
   };
 }

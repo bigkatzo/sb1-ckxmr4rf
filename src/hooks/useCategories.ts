@@ -1,12 +1,18 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError, isValidId } from '../lib/error-handling';
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Category } from '../types/index';
+
+// Cache key for categories
+const getCategoriesCacheKey = (collectionId: string) => `merchant_categories:${collectionId}`;
 
 export function useCategories(collectionId: string) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+  const isFetchingRef = useRef(false);
 
   // Helper function to fetch product counts for categories
   const fetchProductCounts = async (categoryIds: string[]) => {
@@ -44,24 +50,53 @@ export function useCategories(collectionId: string) {
     }
   };
 
-  const fetchCategories = useCallback(async () => {
-    setError(null);
+  const fetchCategories = useCallback(async (isRefresh = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    
+    if (!isRefresh) {
+      setError(null);
+      setLoading(true);
+    }
+    
     setCategories([]);
 
     if (!collectionId) {
       setLoading(false);
+      isFetchingRef.current = false;
       return;
     }
 
     if (!isValidId(collectionId)) {
       setError('Invalid collection identifier');
       setLoading(false);
+      isFetchingRef.current = false;
       return;
     }
 
-    try {
-      setLoading(true);
+    // Cache key for this collection's categories
+    const cacheKey = getCategoriesCacheKey(collectionId);
 
+    try {
+      // Check cache first if not explicitly refreshing
+      if (!isRefresh) {
+        const { value: cachedCategories, needsRevalidation } = await cacheManager.get<Category[]>(cacheKey);
+        
+        if (cachedCategories) {
+          if (isMountedRef.current) {
+            setCategories(cachedCategories);
+            setLoading(false);
+          }
+          
+          // If data is still fresh, return early
+          if (!needsRevalidation) {
+            isFetchingRef.current = false;
+            return;
+          }
+          // Otherwise continue with the fetch in the background
+        }
+      }
+      
       const { data, error } = await supabase
         .from('categories')
         .select('*, eligibility_rules')
@@ -71,8 +106,20 @@ export function useCategories(collectionId: string) {
       if (error) throw error;
       
       if (!data || data.length === 0) {
-        setCategories([]);
-        setLoading(false);
+        if (isMountedRef.current) {
+          setCategories([]);
+          setLoading(false);
+        }
+        
+        // Cache empty result too
+        await cacheManager.set(
+          cacheKey,
+          [],
+          CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+          { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
+        );
+        
+        isFetchingRef.current = false;
         return;
       }
 
@@ -95,18 +142,40 @@ export function useCategories(collectionId: string) {
         productCount: productCountMap[category.id] || 0
       }));
 
-      setCategories(transformedCategories);
+      if (isMountedRef.current) {
+        setCategories(transformedCategories);
+        setLoading(false);
+      }
+      
+      // Cache the transformed categories
+      await cacheManager.set(
+        cacheKey,
+        transformedCategories,
+        CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
+        { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
+      );
+      
     } catch (err) {
       console.error('Error fetching categories:', err);
-      setError(handleError(err));
+      if (isMountedRef.current) {
+        setError(handleError(err));
+        setLoading(false);
+      }
     } finally {
-      setLoading(false);
+      isFetchingRef.current = false;
     }
   }, [collectionId]);
 
   useEffect(() => {
-    fetchCategories();
+    isMountedRef.current = true;
+    fetchCategories(false);
+    
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [fetchCategories]);
 
-  return { categories, loading, error, refreshCategories: fetchCategories };
+  const refreshCategories = useCallback(() => fetchCategories(true), [fetchCategories]);
+
+  return { categories, loading, error, refreshCategories };
 }

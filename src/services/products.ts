@@ -1,5 +1,26 @@
 import { supabase, retry } from '../lib/supabase';
 import { uploadProductImages } from './products/upload';
+import { handleError } from '../lib/error-handling';
+import { cacheManager } from '../lib/cache';
+
+// Helper to invalidate product-related caches
+const invalidateProductCaches = (collectionId: string, categoryId?: string) => {
+  // Invalidate merchant products cache for this collection
+  cacheManager.invalidateKey(`merchant_products:${collectionId}:all`);
+  
+  // If we have a category, invalidate that specific cache as well
+  if (categoryId) {
+    cacheManager.invalidateKey(`merchant_products:${collectionId}:${categoryId}`);
+  }
+  
+  // Also invalidate the collection cache as product counts may have changed
+  cacheManager.invalidateKey(`merchant_collections:${supabase.auth.getSession().then(({ data }) => data.session?.user.id)}`);
+  
+  // Invalidate category cache as product counts may have changed
+  if (collectionId) {
+    cacheManager.invalidateKey(`merchant_categories:${collectionId}`);
+  }
+};
 
 export async function createProduct(collectionId: string, data: FormData) {
   try {
@@ -134,6 +155,9 @@ export async function createProduct(collectionId: string, data: FormData) {
 
     if (error) throw error;
 
+    // Invalidate caches after successful creation
+    invalidateProductCaches(collectionId, categoryId);
+
     return { success: true };
   } catch (error) {
     console.error('Error creating product:', error);
@@ -146,7 +170,7 @@ export async function updateProduct(id: string, data: FormData) {
     // First, get the current product to ensure proper updates
     const { data: currentProduct, error: fetchError } = await supabase
       .from('products')
-      .select('images, variants, variant_prices, notes, free_notes')
+      .select('images, variants, variant_prices, notes, free_notes, collection_id, category_id')
       .eq('id', id)
       .single();
     
@@ -190,27 +214,32 @@ export async function updateProduct(id: string, data: FormData) {
     const returnsNote = data.get('notes.returns');
     
     // Only add notes if at least one note field has a value (handle empty strings too)
-    const hasShippingNote = shippingNote && shippingNote !== '';
-    const hasQualityNote = qualityNote && qualityNote !== '';
-    const hasReturnsNote = returnsNote && returnsNote !== '';
+    const hasShippingNote = shippingNote && String(shippingNote) !== '';
+    const hasQualityNote = qualityNote && String(qualityNote) !== '';
+    const hasReturnsNote = returnsNote && String(returnsNote) !== '';
     
     if (hasShippingNote || hasQualityNote || hasReturnsNote) {
       updateData.notes = {};
-      if (hasShippingNote) updateData.notes.shipping = shippingNote as string;
-      if (hasQualityNote) updateData.notes.quality = qualityNote as string;
-      if (hasReturnsNote) updateData.notes.returns = returnsNote as string;
+      
+      if (hasShippingNote) {
+        updateData.notes.shipping = String(shippingNote);
+      }
+      
+      if (hasQualityNote) {
+        updateData.notes.quality = String(qualityNote);
+      }
+      
+      if (hasReturnsNote) {
+        updateData.notes.returns = String(returnsNote);
+      }
     } else {
-      // If there are no notes, explicitly set to null instead of empty object
-      updateData.notes = null;
+      // If all note fields are empty, set notes to an empty object or null
+      updateData.notes = {};
     }
     
-    // Handle free notes separately
+    // Handle free notes
     const freeNotesValue = data.get('freeNotes');
-    if (freeNotesValue !== null) {
-      // Make sure it's assigned to free_notes (not freeNotes) to match DB column name
-      // If empty string, store as null to be consistent
-      updateData.free_notes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
-    }
+    updateData.free_notes = freeNotesValue ? String(freeNotesValue) : '';
     
     // 1. Process variant data if provided
     if (data.get('variants') !== null) {
@@ -278,6 +307,19 @@ export async function updateProduct(id: string, data: FormData) {
       throw updateError;
     }
     
+    // Get collectionId from the current product or query
+    const collectionId = currentProduct.collection_id;
+    
+    // Handle category changes for cache invalidation
+    const oldCategoryId = currentProduct.category_id;
+    const newCategoryId = categoryId;
+    
+    // Invalidate caches for both old and new categories if they've changed
+    invalidateProductCaches(collectionId, oldCategoryId);
+    if (oldCategoryId !== newCategoryId) {
+      invalidateProductCaches(collectionId, newCategoryId);
+    }
+    
     return { success: true };
   } catch (error) {
     console.error('Error updating product:', error);
@@ -294,6 +336,7 @@ export async function deleteProduct(id: string) {
         .select(`
           id, 
           collection_id,
+          category_id,
           collections (
             user_id
           )
@@ -344,6 +387,9 @@ export async function deleteProduct(id: string) {
       }
     }
 
+    // Extract collection and category IDs for cache invalidation
+    const { collection_id: collectionId, category_id: categoryId } = product;
+
     // Delete the product
     const { error: deleteError } = await retry(async () => 
       await supabase
@@ -353,6 +399,11 @@ export async function deleteProduct(id: string) {
     );
 
     if (deleteError) throw deleteError;
+    
+    // Invalidate caches after successful deletion
+    invalidateProductCaches(collectionId, categoryId);
+    
+    return { success: true };
   } catch (error) {
     console.error('Error deleting product:', error);
     throw error;
@@ -376,12 +427,14 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
     const isAdmin = userProfile?.role === 'admin';
 
     // If not admin, verify ownership or edit access through the collection
+    let productData;
     if (!isAdmin) {
-      const { data: productData, error: productError } = await supabase
+      const { data, error: productError } = await supabase
         .from('products')
         .select(`
           id,
           collection_id,
+          category_id,
           collections (
             user_id
           )
@@ -390,9 +443,11 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
         .limit(1)
         .maybeSingle();
 
-      if (productError || !productData) {
+      if (productError || !data) {
         throw new Error('Product not found or access denied');
       }
+      
+      productData = data;
 
       const isOwner = productData.collections &&
         Array.isArray(productData.collections) &&
@@ -414,6 +469,18 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
           throw new Error('Access denied');
         }
       }
+    } else {
+      // If admin, still need to fetch product data for cache invalidation
+      const { data, error: productError } = await supabase
+        .from('products')
+        .select('collection_id, category_id')
+        .eq('id', id)
+        .limit(1)
+        .maybeSingle();
+        
+      if (!productError && data) {
+        productData = data;
+      }
     }
 
     // Update the sale_ended status directly instead of using the RPC function
@@ -423,6 +490,11 @@ export async function toggleSaleEnded(id: string, saleEnded: boolean) {
       .eq('id', id);
 
     if (error) throw error;
+    
+    // Invalidate caches after successful update
+    if (productData) {
+      invalidateProductCaches(productData.collection_id, productData.category_id);
+    }
     
     return { success: true };
   });
@@ -445,12 +517,14 @@ export async function toggleProductVisibility(id: string, visible: boolean) {
     const isAdmin = userProfile?.role === 'admin';
 
     // If not admin, verify ownership or edit access through the collection
+    let productData;
     if (!isAdmin) {
-      const { data: productData, error: productError } = await supabase
+      const { data, error: productError } = await supabase
         .from('products')
         .select(`
           id,
           collection_id,
+          category_id,
           collections (
             user_id
           )
@@ -459,9 +533,11 @@ export async function toggleProductVisibility(id: string, visible: boolean) {
         .limit(1)
         .maybeSingle();
 
-      if (productError || !productData) {
+      if (productError || !data) {
         throw new Error('Product not found or access denied');
       }
+      
+      productData = data;
 
       const isOwner = productData.collections &&
         Array.isArray(productData.collections) &&
@@ -483,6 +559,18 @@ export async function toggleProductVisibility(id: string, visible: boolean) {
           throw new Error('Access denied');
         }
       }
+    } else {
+      // If admin, still need to fetch product data for cache invalidation
+      const { data, error: productError } = await supabase
+        .from('products')
+        .select('collection_id, category_id')
+        .eq('id', id)
+        .limit(1)
+        .maybeSingle();
+        
+      if (!productError && data) {
+        productData = data;
+      }
     }
 
     // Update product visibility
@@ -492,6 +580,11 @@ export async function toggleProductVisibility(id: string, visible: boolean) {
       .eq('id', id);
 
     if (error) throw error;
+    
+    // Invalidate caches after successful update
+    if (productData) {
+      invalidateProductCaches(productData.collection_id, productData.category_id);
+    }
     
     return { success: true };
   });
