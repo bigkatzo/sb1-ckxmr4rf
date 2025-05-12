@@ -211,8 +211,12 @@ export function OptimizedImage({
     >
       {isLoading && !isLogo && (
         <div 
-          className="absolute inset-0 bg-gray-800 animate-pulse" 
-          style={containerStyle}
+          className="absolute inset-0 bg-gradient-to-tr from-gray-800 to-gray-700 animate-pulse" 
+          style={{
+            ...containerStyle,
+            backgroundSize: '200% 200%',
+            animationDuration: '1.5s',
+          }}
         />
       )}
       

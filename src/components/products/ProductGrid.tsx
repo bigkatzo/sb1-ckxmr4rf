@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProductCard } from './ProductCard';
 import { ProductGridSkeleton } from '../ui/Skeletons';
 import { isValidProductNavigation } from '../../utils/validation';
+import { smoothScrollOnNewContent } from '../../utils/scrollUtils';
 import type { Product } from '../../types/variants';
 
 interface ProductGridProps {
@@ -11,6 +12,7 @@ interface ProductGridProps {
   categoryIndices: Record<string, number>;
   loading?: boolean;
   onProductClick?: (product: Product, scrollPosition: number) => void;
+  loadingMore?: boolean;
 }
 
 export function ProductGrid({ 
@@ -18,9 +20,12 @@ export function ProductGrid({
   categoryId, 
   categoryIndices, 
   loading,
-  onProductClick
+  onProductClick,
+  loadingMore
 }: ProductGridProps) {
   const navigate = useNavigate();
+  const gridRef = useRef<HTMLDivElement>(null);
+  const prevProductsLength = useRef<number>(0);
   
   const filteredProducts = useMemo(() => 
     categoryId 
@@ -28,6 +33,15 @@ export function ProductGrid({
       : products,
     [products, categoryId]
   );
+
+  // Effect for handling smooth scrolling when new products are loaded
+  useEffect(() => {
+    if (prevProductsLength.current < filteredProducts.length && !loading) {
+      // Smooth scroll when new products are loaded
+      smoothScrollOnNewContent(gridRef.current);
+      prevProductsLength.current = filteredProducts.length;
+    }
+  }, [filteredProducts.length, loading]);
 
   // Calculate how many products are visible in the initial viewport based on screen size
   const getInitialViewportCount = () => {
@@ -102,7 +116,10 @@ export function ProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 sm:gap-3 md:gap-4 product-grid-container">
+    <div 
+      ref={gridRef}
+      className={`grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 sm:gap-3 md:gap-4 product-grid-container ${loadingMore ? 'staggered-fade-in' : ''}`}
+    >
       {filteredProducts.map((product, index) => {
         // Calculate row and column position for consistent loading order
         let columns = 2; // Default mobile

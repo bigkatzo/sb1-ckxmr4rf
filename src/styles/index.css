@@ -1,0 +1,95 @@
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.fade-in-scale {
+  animation: fadeInScale 0.35s ease-out forwards;
+}
+
+.staggered-fade-in > * {
+  animation: fadeInScale 0.35s ease-out forwards;
+  opacity: 0;
+}
+
+/* Explicit staggered delays instead of SASS @for loop */
+.staggered-fade-in > *:nth-child(1) { animation-delay: 0.03s; }
+.staggered-fade-in > *:nth-child(2) { animation-delay: 0.06s; }
+.staggered-fade-in > *:nth-child(3) { animation-delay: 0.09s; }
+.staggered-fade-in > *:nth-child(4) { animation-delay: 0.12s; }
+.staggered-fade-in > *:nth-child(5) { animation-delay: 0.15s; }
+.staggered-fade-in > *:nth-child(6) { animation-delay: 0.18s; }
+.staggered-fade-in > *:nth-child(7) { animation-delay: 0.21s; }
+.staggered-fade-in > *:nth-child(8) { animation-delay: 0.24s; }
+.staggered-fade-in > *:nth-child(9) { animation-delay: 0.27s; }
+.staggered-fade-in > *:nth-child(10) { animation-delay: 0.30s; }
+.staggered-fade-in > *:nth-child(11) { animation-delay: 0.33s; }
+.staggered-fade-in > *:nth-child(12) { animation-delay: 0.36s; }
+.staggered-fade-in > *:nth-child(13) { animation-delay: 0.39s; }
+.staggered-fade-in > *:nth-child(14) { animation-delay: 0.42s; }
+.staggered-fade-in > *:nth-child(15) { animation-delay: 0.45s; }
+.staggered-fade-in > *:nth-child(16) { animation-delay: 0.48s; }
+.staggered-fade-in > *:nth-child(17) { animation-delay: 0.51s; }
+.staggered-fade-in > *:nth-child(18) { animation-delay: 0.54s; }
+.staggered-fade-in > *:nth-child(19) { animation-delay: 0.57s; }
+.staggered-fade-in > *:nth-child(20) { animation-delay: 0.60s; }
+
+/* Slide up animation for smooth scrolling content */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-up {
+  animation: slideUp 0.4s ease-out forwards;
+  will-change: transform, opacity;
+}
+
+/* Staggered slide up animation for multiple items */
+.staggered-slide-up > * {
+  animation: slideUp 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+/* Explicit staggered delays for slide up animation */
+.staggered-slide-up > *:nth-child(1) { animation-delay: 0.05s; }
+.staggered-slide-up > *:nth-child(2) { animation-delay: 0.10s; }
+.staggered-slide-up > *:nth-child(3) { animation-delay: 0.15s; }
+.staggered-slide-up > *:nth-child(4) { animation-delay: 0.20s; }
+.staggered-slide-up > *:nth-child(5) { animation-delay: 0.25s; }
+.staggered-slide-up > *:nth-child(6) { animation-delay: 0.30s; }
+.staggered-slide-up > *:nth-child(7) { animation-delay: 0.35s; }
+.staggered-slide-up > *:nth-child(8) { animation-delay: 0.40s; }
+.staggered-slide-up > *:nth-child(9) { animation-delay: 0.45s; }
+.staggered-slide-up > *:nth-child(10) { animation-delay: 0.50s; }
+.staggered-slide-up > *:nth-child(11) { animation-delay: 0.55s; }
+.staggered-slide-up > *:nth-child(12) { animation-delay: 0.60s; }
+.staggered-slide-up > *:nth-child(13) { animation-delay: 0.65s; }
+.staggered-slide-up > *:nth-child(14) { animation-delay: 0.70s; }
+.staggered-slide-up > *:nth-child(15) { animation-delay: 0.75s; }
+.staggered-slide-up > *:nth-child(16) { animation-delay: 0.80s; }
+.staggered-slide-up > *:nth-child(17) { animation-delay: 0.85s; }
+.staggered-slide-up > *:nth-child(18) { animation-delay: 0.90s; }
+.staggered-slide-up > *:nth-child(19) { animation-delay: 0.95s; }
+.staggered-slide-up > *:nth-child(20) { animation-delay: 1.00s; }
+
+/* Animation utility classes */
+.animate-once {
+  animation-iteration-count: 1;
+}
+
+.animate-smooth {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+} 

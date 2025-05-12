@@ -145,7 +145,7 @@ export function CollectionPage() {
       window.removeEventListener('scroll', handleScroll);
     };
   }, [hasReturnedFromProduct.current]);
-  
+
   // Handle category change by updating state
   const handleCategoryChange = useCallback((categoryId: string) => {
     // Reset the hasReturnedFromProduct flag when user manually changes category
@@ -289,7 +289,7 @@ export function CollectionPage() {
       }
     }
   }, [hasReturnedFromProduct.current, paginatedProducts.length]);
-
+  
   // Use a throttled scroll handler to prevent jank
   const scrollTimeoutRef = useRef<number | null>(null);
   
@@ -415,7 +415,7 @@ export function CollectionPage() {
             entry.target.classList.remove('content-visibility-auto');
             // Once visible, no need to keep observing
             observer.unobserve(entry.target);
-          }
+    }
         });
       },
       { rootMargin: '300px' } // Start loading before item enters viewport
@@ -478,7 +478,7 @@ export function CollectionPage() {
       document.removeEventListener('mousemove', handleProductHover);
     };
   }, [paginatedProducts, hasReturnedFromProduct.current]);
-
+  
   if (!slug) {
     return <Navigate to="/" replace />;
   }

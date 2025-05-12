@@ -30,18 +30,18 @@ export async function createUser(email: string, password: string): Promise<Creat
 
     // Step 2: Check if email is available using the new function
     try {
-      const { data: isAvailable, error: lookupError } = await supabase
-        .rpc('check_email_availability', { p_email: email.trim() });
+    const { data: isAvailable, error: lookupError } = await supabase
+      .rpc('check_email_availability', { p_email: email.trim() });
 
-      if (lookupError) {
-        console.error('Error checking email availability:', lookupError);
+    if (lookupError) {
+      console.error('Error checking email availability:', lookupError);
         // Continue with signup even if this check fails
         console.log('Continuing with signup despite email check failure');
       } else if (!isAvailable) {
-        return {
-          success: false,
-          error: 'This email address is already registered. Please use a different email or sign in.'
-        };
+      return {
+        success: false,
+        error: 'This email address is already registered. Please use a different email or sign in.'
+      };
       }
     } catch (emailCheckError) {
       console.error('Exception during email availability check:', emailCheckError);

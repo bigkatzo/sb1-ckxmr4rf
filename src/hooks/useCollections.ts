@@ -67,7 +67,7 @@ export function useCollections(
     
     try {
       if (reset) {
-        setLoading(true);
+      setLoading(true);
         offset.current = 0;
       } else {
         setLoadingMore(true);
@@ -78,7 +78,7 @@ export function useCollections(
       // Calculate limit and offset
       const limit = reset || isFirstLoad.current ? initialLimit : loadMoreCount;
       const currentOffset = reset ? 0 : offset.current;
-      
+
       // Use the appropriate function based on filter
       let queryData;
       
@@ -94,11 +94,11 @@ export function useCollections(
         queryData = { data, error };
       } else {
         // Use original functions without pagination for other filters
-        const { data, error } = await supabase.rpc(
-          filter === 'upcoming' ? 'get_upcoming_collections' :
-          filter === 'latest' ? 'get_latest_collections' :
-          'get_latest_collections' // For 'popular', use latest and sort client-side
-        );
+      const { data, error } = await supabase.rpc(
+        filter === 'upcoming' ? 'get_upcoming_collections' :
+        filter === 'latest' ? 'get_latest_collections' :
+        'get_latest_collections' // For 'popular', use latest and sort client-side
+      );
         queryData = { data, error };
       }
       
@@ -109,7 +109,7 @@ export function useCollections(
       
       const { data, error } = queryData;
       if (error) throw error;
-      
+
       // Check if there's no more data to load
       if (!data || data.length === 0) {
         setHasMore(false);
@@ -167,7 +167,7 @@ export function useCollections(
       if (reset) setCollections([]);
     } finally {
       if (isMounted.current) {
-        setLoading(false);
+      setLoading(false);
         setLoadingMore(false);
       }
       // CRITICAL: Reset the loading flag

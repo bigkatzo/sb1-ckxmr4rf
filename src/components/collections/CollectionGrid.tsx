@@ -4,6 +4,7 @@ import { CollectionCard } from './CollectionCard';
 import { useCollections } from '../../hooks/useCollections';
 import { CategoryGridSkeleton } from '../ui/Skeletons';
 import { Button } from '../ui/Button';
+import { smoothScrollOnNewContent } from '../../utils/scrollUtils';
 import './loadingDots.css'; // We'll create this CSS file
 
 interface CollectionGridProps {
@@ -27,6 +28,17 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
   const navigate = useNavigate();
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const prevCollectionsLength = useRef<number>(0);
+  
+  // Effect for handling new content loading
+  useEffect(() => {
+    if (prevCollectionsLength.current < collections.length && !loading) {
+      // Smooth scroll when new collections are loaded
+      smoothScrollOnNewContent(gridRef.current);
+      prevCollectionsLength.current = collections.length;
+    }
+  }, [collections.length, loading]);
   
   // Use one stable effect for setting up and cleaning up the observer
   useEffect(() => {
@@ -88,35 +100,38 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 sm:gap-3 md:gap-4 lg:gap-5">
-        {collections.map((collection, index) => {
-          // Calculate row and column position for consistent loading order
-          let columns = 1; // Default mobile
-          if (window.innerWidth >= 1024) columns = 3; // lg:grid-cols-3
-          else if (window.innerWidth >= 640) columns = 2; // sm:grid-cols-2
-          
-          // Calculate row and column based on index
-          const row = Math.floor(index / columns);
-          const col = index % columns;
-          
-          // Set loading priority based on visual position (top-to-bottom, left-to-right)
-          // Lower priority value means higher loading priority
-          const loadingPriority = row * 100 + col;
-          
-          return (
-            <div
-              key={collection.id}
-              onClick={() => navigate(`/${collection.slug}`)}
-              className="cursor-pointer animate-fade-in"
-            >
-              <CollectionCard 
-                collection={collection} 
-                variant="large"
-                loadingPriority={loadingPriority}
-              />
-            </div>
-          );
-        })}
+    <div 
+      ref={gridRef}
+      className={`grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 sm:gap-3 md:gap-4 lg:gap-5 ${loadingMore ? 'staggered-fade-in' : ''}`}
+    >
+      {collections.map((collection, index) => {
+        // Calculate row and column position for consistent loading order
+        let columns = 1; // Default mobile
+        if (window.innerWidth >= 1024) columns = 3; // lg:grid-cols-3
+        else if (window.innerWidth >= 640) columns = 2; // sm:grid-cols-2
+        
+        // Calculate row and column based on index
+        const row = Math.floor(index / columns);
+        const col = index % columns;
+        
+        // Set loading priority based on visual position (top-to-bottom, left-to-right)
+        // Lower priority value means higher loading priority
+        const loadingPriority = row * 100 + col;
+        
+        return (
+          <div
+            key={collection.id}
+            onClick={() => navigate(`/${collection.slug}`)}
+            className="cursor-pointer"
+          >
+            <CollectionCard 
+              collection={collection} 
+              variant="large"
+              loadingPriority={loadingPriority}
+            />
+          </div>
+        );
+      })}
       </div>
       
       {/* Load more button for non-infinite scroll mode */}
@@ -144,7 +159,7 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
       
       {/* Improved loading indicator for infinite scroll */}
       {infiniteScroll && loadingMore && (
-        <div className="flex justify-center">
+        <div className="loading-indicator">
           <div className="loading-dots" aria-label="Loading more collections">
             <span></span>
             <span></span>
