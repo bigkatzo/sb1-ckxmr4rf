@@ -247,11 +247,11 @@ export function DashboardPage() {
   return (
     <MerchantDashboardProvider>
       <div className="flex flex-col min-h-screen">
-        {/* Dashboard header with normal positioning */}
-        <div className="bg-gray-900 shadow-lg border-b border-gray-800">
-          <div className="px-4 sm:px-6 lg:px-8 py-3">
-            <div className="flex justify-between items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold leading-tight">Merchant Dashboard</h1>
+        {/* Dashboard header with improved styling and integration */}
+        <div className="bg-gray-950 border-b border-gray-800">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex justify-between items-center gap-2 mb-3">
+              <h1 className="text-xl sm:text-2xl font-bold leading-tight text-white">Merchant Dashboard</h1>
               <div className="flex items-center gap-2">
                 {isAdmin && (
                   <button
@@ -266,7 +266,7 @@ export function DashboardPage() {
                 <ProfileButton />
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center gap-1.5 bg-gray-600 hover:bg-gray-700 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
                 >
                   <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <span>Log Out</span>
@@ -274,14 +274,14 @@ export function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-3">
+            <div className="bg-gray-900 rounded-lg overflow-hidden">
               <Tabs tabs={availableTabs} activeId={activeTab} onChange={setActiveTab} />
             </div>
           </div>
         </div>
 
         {/* Main content area */}
-        <div className="flex-grow">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-grow">
           {renderTabContent(activeTab)}
         </div>
       </div>
