@@ -201,10 +201,53 @@ export function CollectionPage() {
       } else {
         // Only reset products on initial visit, not when returning from product
         hasReturnedFromProduct.current = false;
-        resetProducts();
+        
+        // Check if we've visited this collection before
+        const storedStateJson = sessionStorage.getItem(`collection_${slug}_state`);
+        const hasVisitedBefore = sessionStorage.getItem(`collection_${slug}_visited`);
+        
+        // If we're returning to a recently visited collection, try to restore a larger initial batch
+        if (hasVisitedBefore && storedStateJson) {
+          try {
+            const storedState = JSON.parse(storedStateJson);
+            const isRecent = Date.now() - storedState.timestamp < 30 * 60 * 1000; // 30 minute expiry
+            
+            if (isRecent && storedState.loadedProductCount > 12) {
+              // If we have a cached state with more products, load more products upfront
+              // for a smoother experience rather than waiting for infinite scroll
+              resetProducts();
+              
+              // Preload more products after a brief delay to match the previous state
+              setTimeout(() => {
+                // Load more batches to approximately match previous state
+                const additionalBatchesNeeded = Math.ceil((storedState.loadedProductCount - 12) / 8);
+                
+                // Load up to the previous amount of products, but with a limit to prevent 
+                // excessive loading on slow connections (maximum 3 batches)
+                for (let i = 0; i < Math.min(additionalBatchesNeeded, 3); i++) {
+                  if (hasMore && !loadingMore) {
+                    loadMore();
+                  }
+                }
+              }, 200);
+            } else {
+              // Just do a normal reset if the cached state is not recent
+              resetProducts();
+            }
+          } catch (err) {
+            console.error('Error processing stored collection state:', err);
+            resetProducts();
+          }
+        } else {
+          // First visit to this collection, just reset to initial state
+          resetProducts();
+        }
         
         // Clear session storage for products count
         sessionStorage.removeItem('visibleProductCount');
+        
+        // Don't automatically scroll to products section on initial page load
+        // This fixes the issue with automatic scrolling to products, especially on mobile
       }
       
       // Set selected category from location state if available
@@ -212,11 +255,24 @@ export function CollectionPage() {
         setSelectedCategory(location.state.selectedCategoryId);
       }
     }
-  }, [loading, isInitialLoad, location.state, resetProducts, paginatedProducts.length, hasMore, loadingMore, loadMore]);
+  }, [loading, isInitialLoad, location.state, resetProducts, paginatedProducts.length, hasMore, loadingMore, loadMore, slug]);
   
   // Set up intersection observer for infinite scrolling
   useEffect(() => {
     if (!loaderRef.current || !hasMore) return;
+    
+    // Check if we've visited this collection before in this session
+    // If so, don't set up infinite scroll for a smoother cached experience
+    const hasVisitedBefore = sessionStorage.getItem(`collection_${slug}_visited`);
+    
+    // If we're returning to a collection we've seen before and it's not from a product page,
+    // don't re-enable infinite scroll to maintain the current state
+    if (hasVisitedBefore && !hasReturnedFromProduct.current && !location.state?.returnedFromProduct) {
+      return; // Skip setting up the intersection observer for smoother navigation
+    }
+    
+    // Mark this collection as visited for future navigation
+    sessionStorage.setItem(`collection_${slug}_visited`, 'true');
     
     const observer = new IntersectionObserver(
       (entries) => {
@@ -234,7 +290,7 @@ export function CollectionPage() {
         observer.unobserve(loaderRef.current);
       }
     };
-  }, [hasMore, loadingMore, loadMore, hasReturnedFromProduct.current]);
+  }, [hasMore, loadingMore, loadMore, hasReturnedFromProduct.current, slug, location.state]);
 
   // Handle product click to improve navigation smoothness
   const handleProductClick = useCallback((_product: Product, _scrollPosition: number) => {

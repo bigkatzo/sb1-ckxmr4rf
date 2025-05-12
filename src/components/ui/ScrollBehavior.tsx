@@ -34,6 +34,7 @@ export function ScrollBehavior() {
     // Get previous path reference from ref
     const prevPath = prevPathRef.current;
     
+    // IMPORTANT: This navigation scroll persistence feature must be preserved.
     // Don't scroll to top when navigating between collection and its products
     // Collection path format: /:collectionSlug
     // Product path format: /:collectionSlug/:productSlug
@@ -54,6 +55,7 @@ export function ScrollBehavior() {
     // Handle scrolling behavior
     if (isCollectionProductNavigation) {
       // For collection-product navigation, use smooth scrolling if going back to collection
+      // This scroll restoration is part of the tab persistence feature that should be preserved
       if (segments.length === 1 && prevPath?.startsWith(`/${segments[0]}/`)) {
         const savedPosition = scrollPositionsRef.current[pathname] || 0;
         // Use requestAnimationFrame for smoother transition
