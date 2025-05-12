@@ -101,6 +101,13 @@ exports.handler = async (event, context) => {
           }
         }
         
+        // If we still don't have a receipt URL but have the payment intent ID,
+        // use the customer-facing format for Stripe receipts
+        if (!receiptUrl && paymentIntentId) {
+          receiptUrl = `https://pay.stripe.com/receipts/payment/${paymentIntentId}`;
+          console.log(`Using customer-facing receipt URL as fallback for order ${order.id}:`, receiptUrl);
+        }
+        
         // Update the order
         if (receiptUrl) {
           const { error: updateError } = await supabase.rpc('update_stripe_payment_signature', {

@@ -436,6 +436,13 @@ async function processSuccessfulPayment(order, paymentIntent) {
         chargeId = paymentIntent.id;
       }
       
+      // If we still don't have a receipt URL but have a payment intent ID,
+      // use the customer-facing format for Stripe receipts
+      if (!receiptUrl && paymentIntent.id) {
+        receiptUrl = `https://pay.stripe.com/receipts/payment/${paymentIntent.id}`;
+        console.log('Using customer-facing receipt URL as fallback:', receiptUrl);
+      }
+      
       // Only try to update if we have a receipt URL
       if (chargeId && receiptUrl) {
         console.log('Calling update_stripe_payment_signature with:', {
