@@ -138,7 +138,7 @@ export function HomePage() {
       {/* Featured Collection with consistent spacing regardless of loading state */}
       <TransitionWrapper
         identifier={featuredCollections.length > 0 ? featuredCollections[0].id : 'loading'}
-        duration={400}
+        duration={300}
         maintainSize={true}
         className="featured-collection-wrapper"
       >

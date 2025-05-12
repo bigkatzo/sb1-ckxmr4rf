@@ -11,12 +11,12 @@ export function FeaturedCollectionSkeleton() {
         }}
       >
         {/* Background placeholder with subtle gradient animation */}
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-700">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-600/10 to-transparent skeleton-shimmer" />
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-100">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-300/10 to-transparent skeleton-shimmer" />
         </div>
         
         {/* Content placeholder with gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-800/90 via-gray-800/50 to-transparent">
           {/* Status tag placeholder */}
           <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-8 md:left-8">
             <div className="bg-gray-600/70 backdrop-blur-sm w-32 h-8 sm:w-40 sm:h-10 md:w-48 md:h-12 rounded-2xl animate-pulse" />

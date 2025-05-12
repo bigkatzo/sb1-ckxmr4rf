@@ -34,15 +34,8 @@ export function FeaturedCollection() {
   // Mark content as loaded after initial delay for smooth transition
   useEffect(() => {
     if (!loading && collections.length > 0 && !contentLoaded) {
-      initialLoadTimeoutRef.current = setTimeout(() => {
-        setContentLoaded(true);
-      }, 100);
-
-      return () => {
-        if (initialLoadTimeoutRef.current) {
-          clearTimeout(initialLoadTimeoutRef.current);
-        }
-      };
+      // Remove the artificial delay - load immediately
+      setContentLoaded(true);
     }
   }, [loading, collections, contentLoaded]);
 
@@ -320,7 +313,7 @@ export function FeaturedCollection() {
     : -(currentIndex * 100);
 
   return (
-    <div className={`space-y-2 ${contentLoaded ? 'content-fade-in' : 'opacity-0'}`}>
+    <div className="space-y-2">
       <div 
         ref={sliderRef}
         className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing select-none"
@@ -353,7 +346,7 @@ export function FeaturedCollection() {
                   }
                 }}
               >
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
                   {collection.imageUrl ? (
                     <OptimizedImage
                       src={collection.imageUrl}
