@@ -366,8 +366,22 @@ async function processSuccessfulPayment(order, paymentIntent) {
     let receiptUrl = null;
     
     try {
-      // Check for latest_charge in the payment intent
-      if (paymentIntent.latest_charge) {
+      // Direct way to get receipt URL from charges
+      const charges = paymentIntent.charges?.data || [];
+      
+      if (charges.length > 0) {
+        const charge = charges[0];
+        chargeId = charge.id;
+        receiptUrl = charge.receipt_url;
+        
+        console.log('Found charge details from payment intent charges:', { 
+          chargeId, 
+          receiptUrl,
+          charge_status: charge.status 
+        });
+      } 
+      // Fallback to previous approach if charges not available in the payload
+      else if (paymentIntent.latest_charge) {
         console.log('Payment intent has latest_charge:', paymentIntent.latest_charge);
         
         // Try to get charge details based on the type of ID
@@ -381,14 +395,27 @@ async function processSuccessfulPayment(order, paymentIntent) {
           }
         } else if (paymentIntent.latest_charge.startsWith('py_')) {
           // This is a Payment element - handle differently
-          console.log('Latest charge is a Payment element, using payment intent as receipt');
+          console.log('Latest charge is a Payment element, fetching details');
           chargeId = paymentIntent.latest_charge;
-          // For payment elements, generate a customer-facing receipt URL
-          receiptUrl = `https://invoice.stripe.com/i/${paymentIntent.id.replace('pi_', '')}`;
+          
+          // Fetch the charge to get the receipt URL instead of constructing it
+          try {
+            const chargeList = await stripe.charges.list({
+              payment_intent: paymentIntent.id,
+              limit: 1
+            });
+            
+            if (chargeList.data.length > 0) {
+              receiptUrl = chargeList.data[0].receipt_url;
+              console.log('Retrieved receipt URL from charge list:', receiptUrl);
+            }
+          } catch (chargeErr) {
+            console.error('Error fetching charge for Payment element:', chargeErr);
+          }
         }
       } else {
         // Fallback to listing charges
-        console.log('No latest_charge found, falling back to listing charges');
+        console.log('No charges in payment intent, falling back to listing charges');
         const charges = await stripe.charges.list({
           payment_intent: paymentIntent.id,
           limit: 1
@@ -404,18 +431,12 @@ async function processSuccessfulPayment(order, paymentIntent) {
       console.log('Found charge details:', { chargeId, receiptUrl });
 
       // Even if we couldn't get a receipt URL, we should still update the order status
-      if (!chargeId && !receiptUrl) {
+      if (!chargeId) {
         console.warn('No charge details found, using payment intent ID as fallback');
         chargeId = paymentIntent.id;
-        // Try to create a customer-facing receipt URL from the payment intent ID
-        if (paymentIntent.id.startsWith('pi_')) {
-          receiptUrl = `https://invoice.stripe.com/i/${paymentIntent.id.replace('pi_', '')}`;
-        } else {
-          receiptUrl = `https://dashboard.stripe.com/payments/${paymentIntent.id}`;
-        }
       }
-
-      // Update the transaction signature to use the receipt URL
+      
+      // Only try to update if we have a receipt URL
       if (chargeId && receiptUrl) {
         console.log('Calling update_stripe_payment_signature with:', {
           payment_id: paymentIntent.id,

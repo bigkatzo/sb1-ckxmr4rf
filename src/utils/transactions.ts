@@ -20,9 +20,10 @@ export function getTransactionUrl(signature: string): string {
     return signature; // It's already a URL
   }
   
-  // For Stripe payment intents, try to generate a receipt URL
+  // For Stripe payment intents, redirect to the Stripe dashboard
+  // as constructing invoice URLs might not work consistently
   if (signature?.startsWith('pi_')) {
-    return `https://invoice.stripe.com/i/${signature.replace('pi_', '')}`;
+    return `https://dashboard.stripe.com/payments/${signature}`;
   }
   
   // Default to Solscan for Solana transactions

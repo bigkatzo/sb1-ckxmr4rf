@@ -49,13 +49,23 @@ exports.handler = async (event, context) => {
         const paymentIntentId = order.transaction_signature;
         
         // Fetch the payment intent from Stripe
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+          expand: ['charges']
+        });
         
         // Get charge details
         let chargeId = null;
         let receiptUrl = null;
         
-        if (paymentIntent.latest_charge) {
+        // First try to get it directly from the expanded charges
+        if (paymentIntent.charges && paymentIntent.charges.data.length > 0) {
+          const charge = paymentIntent.charges.data[0];
+          chargeId = charge.id;
+          receiptUrl = charge.receipt_url;
+          console.log(`Found receipt URL directly from charges for order ${order.id}:`, receiptUrl);
+        }
+        // If not available in expanded charges, try other methods
+        else if (paymentIntent.latest_charge) {
           if (paymentIntent.latest_charge.startsWith('ch_')) {
             // Standard charge
             const charge = await stripe.charges.retrieve(paymentIntent.latest_charge);
@@ -64,9 +74,18 @@ exports.handler = async (event, context) => {
               receiptUrl = charge.receipt_url;
             }
           } else if (paymentIntent.latest_charge.startsWith('py_')) {
-            // Payment element
+            // Payment element - fetch charge separately
             chargeId = paymentIntent.latest_charge;
-            receiptUrl = `https://invoice.stripe.com/i/${paymentIntentId.replace('pi_', '')}`;
+            
+            const charges = await stripe.charges.list({
+              payment_intent: paymentIntentId,
+              limit: 1
+            });
+            
+            if (charges.data.length > 0) {
+              const charge = charges.data[0];
+              receiptUrl = charge.receipt_url;
+            }
           }
         } else {
           // Fallback to listing charges
@@ -80,11 +99,6 @@ exports.handler = async (event, context) => {
             chargeId = charge.id;
             receiptUrl = charge.receipt_url;
           }
-        }
-        
-        // If we still don't have a receipt URL, generate one
-        if (!receiptUrl) {
-          receiptUrl = `https://invoice.stripe.com/i/${paymentIntentId.replace('pi_', '')}`;
         }
         
         // Update the order
@@ -113,7 +127,7 @@ exports.handler = async (event, context) => {
           results.push({
             orderId: order.id,
             success: false,
-            error: 'Could not generate receipt URL'
+            error: 'Could not find receipt URL'
           });
         }
       } catch (orderError) {
