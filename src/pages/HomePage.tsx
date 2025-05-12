@@ -167,7 +167,7 @@ export function HomePage() {
   const hasBestSellers = !bestSellersLoading && bestSellerProducts.length > 0;
 
   return (
-    <div className="scroll-smooth space-y-8 sm:space-y-10 md:space-y-16">
+    <div className="scroll-smooth space-y-6 sm:space-y-8 md:space-y-12">
       {/* Default SEO for homepage */}
       <SEO 
         title={seoTitle}
