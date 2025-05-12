@@ -1,6 +1,12 @@
 -- Start transaction
 BEGIN;
 
+-- Drop existing functions if they exist
+DROP FUNCTION IF EXISTS public.get_order_by_id(uuid);
+DROP FUNCTION IF EXISTS public.get_order_details_by_id(uuid);
+DROP FUNCTION IF EXISTS public.get_orders_by_wallet(text);
+DROP FUNCTION IF EXISTS public.confirm_order_by_id(uuid);
+
 -- Create a function to get order details by ID (no RLS)
 CREATE OR REPLACE FUNCTION public.get_order_by_id(order_id uuid)
 RETURNS SETOF orders
