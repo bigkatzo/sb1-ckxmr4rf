@@ -34,10 +34,32 @@ html, body {
   }
 }
 
-/* Ensure toasts always show on top */
+/* Proper z-index hierarchy for modals in purchase flow */
 .Toastify__toast-container {
   position: fixed !important;
   z-index: 99999 !important;
+}
+
+/* Product modal z-index (first in flow) */
+[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] {
+  z-index: 50 !important;
+}
+
+/* Token verification modal z-index (second in flow) */
+[aria-modal="true"][role="dialog"]:not([aria-labelledby="modal-title"]) {
+  z-index: 60 !important;
+}
+
+/* Stripe payment modal z-index (third in flow) */
+.StripePaymentElement, 
+.StripeElement,
+.stripe-modal {
+  z-index: 70 !important;
+}
+
+/* Success view z-index (final in flow) */
+div[class*="fixed inset-0 flex items-center justify-center z-50"] {
+  z-index: 80 !important;
 }
 
 @keyframes progress {
