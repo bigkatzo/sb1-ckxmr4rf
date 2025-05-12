@@ -5,6 +5,10 @@ import { normalizeStorageUrl } from '../lib/storage';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Product } from '../types/variants';
 
+// Get Supabase URL and key from environment variables
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 // Cache key for products
 const getProductsCacheKey = (collectionId?: string, categoryId?: string) => 
   `merchant_products:${collectionId || 'all'}:${categoryId || 'all'}`;
@@ -79,13 +83,44 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
         query = query.eq('visible', true);
       }
 
-      // Execute query
-      const { data, error } = await query.order('created_at', { ascending: false });
-
+      // Execute query with better error handling
+      let result;
+      try {
+        result = await query.order('created_at', { ascending: false });
+      } catch (initialError) {
+        console.error('Initial query error:', initialError);
+        
+        // If it's likely a 400 error, try a direct fetch with fixed URL formatting
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error('No authentication session');
+          
+          // Build a proper URL manually
+          const url = `${SUPABASE_URL}/rest/v1/merchant_products?select=*&collection_id=eq.${collectionId}${categoryId ? `&category_id=eq.${categoryId}` : ''}&order=created_at.desc`;
+          
+          const response = await fetch(url, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+          
+          const data = await response.json();
+          result = { data, error: null };
+        } catch (fallbackError) {
+          console.error('Fallback query error:', fallbackError);
+          throw initialError; // Re-throw the original error if fallback fails
+        }
+      }
+      
+      const { data, error } = result;
       if (error) throw error;
 
       // Transform the data
-      const transformedProducts = (data || []).map(product => {
+      const transformedProducts = (data || []).map((product: any) => {
         // Handle notes properly - check if notes is a valid object with properties
         let notesObject: Record<string, string> = {};
         let freeNotesValue = '';

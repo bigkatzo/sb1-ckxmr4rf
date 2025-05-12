@@ -15,6 +15,10 @@ const globalAdminCache: { [key: string]: { isAdmin: boolean; timestamp: number }
 // Cache key for merchant collections
 const getMerchantCollectionsCacheKey = (userId: string) => `merchant_collections:${userId}`;
 
+// Get Supabase URL and key from environment variables
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 export function useMerchantCollections(options: {
   deferLoad?: boolean;
   elementRef?: React.RefObject<HTMLDivElement>;
@@ -225,33 +229,64 @@ export function useMerchantCollections(options: {
 
       const isAdmin = await checkAdminStatus(user.id);
       
-      // Fetch collections
-      const { data, error } = await supabase
-        .from('merchant_collections')
-        .select(`
-          id,
-          name,
-          description,
-          image_url,
-          launch_date,
-          featured,
-          visible,
-          sale_ended,
-          slug,
-          user_id,
-          access_type,
-          owner_username,
-          collection_access(user_id, access_type),
-          custom_url,
-          x_url,
-          telegram_url,
-          dexscreener_url,
-          pumpfun_url,
-          website_url,
-          free_notes
-        `)
-        .order('created_at', { ascending: false });
-
+      // Fetch collections with error handling
+      let result;
+      try {
+        result = await supabase
+          .from('merchant_collections')
+          .select(`
+            id,
+            name,
+            description,
+            image_url,
+            launch_date,
+            featured,
+            visible,
+            sale_ended,
+            slug,
+            user_id,
+            access_type,
+            owner_username,
+            collection_access(user_id, access_type),
+            custom_url,
+            x_url,
+            telegram_url,
+            dexscreener_url,
+            pumpfun_url,
+            website_url,
+            free_notes
+          `)
+          .order('created_at', { ascending: false });
+      } catch (initialError) {
+        console.error('Error fetching collections:', initialError);
+        
+        // If it's likely a 400 error, try a direct fetch with fixed URL formatting
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error('No authentication session');
+          
+          // Build a proper URL manually
+          const url = `${SUPABASE_URL}/rest/v1/merchant_collections?select=id,name,description,image_url,launch_date,featured,visible,sale_ended,slug,user_id,access_type,owner_username,collection_access(user_id,access_type),custom_url,x_url,telegram_url,dexscreener_url,pumpfun_url,website_url,free_notes&order=created_at.desc`;
+          
+          const response = await fetch(url, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+          
+          const data = await response.json();
+          result = { data, error: null };
+        } catch (fallbackError) {
+          console.error('Fallback collections query error:', fallbackError);
+          throw initialError; // Re-throw the original error if fallback fails
+        }
+      }
+      
+      const { data, error } = result;
       if (error) throw error;
 
       if (!data?.length) {
@@ -271,14 +306,14 @@ export function useMerchantCollections(options: {
       }
 
       // Filter collections based on access
-      const filteredCollections = data.filter(collection => {
+      const filteredCollections = data.filter((collection: any) => {
           return collection.user_id === user.id || 
                  collection.access_type !== null ||
                  isAdmin;
       });
       
       // Extract collection IDs for fetching counts
-      const collectionIds = filteredCollections.map(c => c.id);
+      const collectionIds = filteredCollections.map((c: any) => c.id);
       
       // Fetch product and category counts in parallel
       const [productCountMap, categoryCountMap] = await Promise.all([
@@ -287,7 +322,7 @@ export function useMerchantCollections(options: {
       ]);
 
       // Transform collections with counts
-      const transformedCollections = filteredCollections.map(collection => ({
+      const transformedCollections = filteredCollections.map((collection: any) => ({
           id: collection.id,
           name: collection.name,
           description: collection.description || '',

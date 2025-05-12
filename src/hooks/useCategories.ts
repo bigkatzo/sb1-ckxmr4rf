@@ -4,6 +4,10 @@ import { handleError, isValidId } from '../lib/error-handling';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Category } from '../types/index';
 
+// Get Supabase URL and key from environment variables
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 // Cache key for categories
 const getCategoriesCacheKey = (collectionId: string) => `merchant_categories:${collectionId}`;
 
@@ -97,11 +101,44 @@ export function useCategories(collectionId: string) {
         }
       }
       
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*, eligibility_rules')
-        .eq('collection_id', collectionId)
-        .order('created_at', { ascending: true }); // Order by creation time instead of id
+      // Execute query with better error handling
+      let result;
+      try {
+        result = await supabase
+          .from('categories')
+          .select('*, eligibility_rules')
+          .eq('collection_id', collectionId)
+          .order('created_at', { ascending: true });
+      } catch (initialError) {
+        console.error('Initial categories query error:', initialError);
+        
+        // If it's likely a 400 error, try a direct fetch with fixed URL formatting
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error('No authentication session');
+          
+          // Build a proper URL manually
+          const url = `${SUPABASE_URL}/rest/v1/categories?select=*,eligibility_rules&collection_id=eq.${collectionId}&order=created_at.asc`;
+          
+          const response = await fetch(url, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+          
+          const data = await response.json();
+          result = { data, error: null };
+        } catch (fallbackError) {
+          console.error('Fallback categories query error:', fallbackError);
+          throw initialError; // Re-throw the original error if fallback fails
+        }
+      }
+      
+      const { data, error } = result;
 
       if (error) throw error;
       
@@ -124,12 +161,12 @@ export function useCategories(collectionId: string) {
       }
 
       // Extract category IDs for fetching product counts
-      const categoryIds = data.map(c => c.id);
+      const categoryIds = data.map((c: any) => c.id);
       
       // Fetch product counts for categories
       const productCountMap = await fetchProductCounts(categoryIds);
       
-      const transformedCategories = data.map(category => ({
+      const transformedCategories = data.map((category: any) => ({
         id: category.id,
         name: category.name,
         description: category.description,
