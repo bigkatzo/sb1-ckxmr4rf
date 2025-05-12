@@ -86,7 +86,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
       // Execute query with better error handling
       let result;
       try {
-        result = await query.order('created_at', { ascending: false });
+        result = await query.order('id', { ascending: false });
       } catch (initialError) {
         console.error('Initial query error:', initialError);
         
@@ -96,7 +96,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           if (!session) throw new Error('No authentication session');
           
           // Build a proper URL manually
-          const url = `${SUPABASE_URL}/rest/v1/merchant_products?select=*&collection_id=eq.${collectionId}${categoryId ? `&category_id=eq.${categoryId}` : ''}&order=created_at.desc`;
+          const url = `${SUPABASE_URL}/rest/v1/merchant_products?select=*&collection_id=eq.${collectionId}${categoryId ? `&category_id=eq.${categoryId}` : ''}&order=id.desc`;
           
           const response = await fetch(url, {
             headers: {
