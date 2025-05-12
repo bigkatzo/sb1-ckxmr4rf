@@ -421,7 +421,7 @@ export function TokenVerificationModal({
       if (is100PercentDiscount) {
         try {
           setSubmitting(true);
-          // For 100% discount, use the create-payment-intent endpoint with a flag for SOL free orders
+          // For 100% discount, use the create-order endpoint for free orders
           updateProgressStep(0, 'processing', 'Creating your free order...');
           
           // Generate a consistent transaction ID for free orders to prevent duplicates
@@ -436,27 +436,25 @@ export function TokenVerificationModal({
           // Add retry logic for handling potential race conditions
           while (!success && currentRetry <= maxRetries) {
             try {
-              // Call the create-payment-intent with the free order flag
-              response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
+              // Call the create-order endpoint with the free order flag
+              response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                  solAmount: 0, // Free order
-                  solPrice: 1, // Placeholder value
-                  productName: product.name,
                   productId: product.id,
                   variants: formattedVariantSelections,
                   shippingInfo: formattedShippingInfo,
                   walletAddress,
-                  couponCode: couponResult?.couponCode,
-                  couponDiscount: couponResult?.couponDiscount,
-                  originalPrice: couponResult?.originalPrice,
                   paymentMetadata: {
                     ...paymentMetadata,
-                    paymentMethod: 'free_sol',
+                    paymentMethod: 'free_token',
+                    couponCode: couponResult?.couponCode,
+                    couponDiscount: couponResult?.couponDiscount,
+                    originalPrice: couponResult?.originalPrice,
                     transactionId,
+                    isFreeOrder: true,
                     orderSource: 'token_modal'
                   }
                 })
@@ -478,35 +476,6 @@ export function TokenVerificationModal({
                   success = true;
                   break;
                 } else {
-                  // If it's a duplicate key constraint, it's actually a success case
-                  if (responseData.details && responseData.details.includes('duplicate key value')) {
-                    console.log('Duplicate order detected by database constraint, treating as success');
-                    // Try to extract the order ID from the error message if possible
-                    success = true;
-                    
-                    // Try to get the order details from the database directly as a fallback
-                    try {
-                      const { data: orderBySignature } = await supabase
-                        .from('orders')
-                        .select('id')
-                        .eq('transaction_signature', `free_${transactionId}`)
-                        .single();
-                        
-                      if (orderBySignature) {
-                        responseData = {
-                          orderId: orderBySignature.id,
-                          paymentIntentId: `free_${transactionId}`,
-                          isFreeOrder: true,
-                          isDuplicate: true
-                        };
-                        console.log('Found duplicate order in database:', responseData);
-                      }
-                    } catch (dbErr) {
-                      console.error('Error looking up duplicate order:', dbErr);
-                    }
-                    break;
-                  }
-                  
                   throw new Error(responseData.error || 'Server returned an error');
                 }
               } catch (parseError) {

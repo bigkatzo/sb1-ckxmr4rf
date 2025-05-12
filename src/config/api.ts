@@ -26,4 +26,5 @@ export const API_BASE_URL = getBaseUrl();
 export const API_ENDPOINTS = {
   createPaymentIntent: '/.netlify/functions/create-payment-intent',
   stripeWebhook: '/.netlify/functions/stripe-webhook',
+  createOrder: '/.netlify/functions/create-order'
 } as const; 

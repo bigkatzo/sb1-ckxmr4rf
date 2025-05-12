@@ -12,7 +12,6 @@ import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
-import { useSupabaseWithWallet } from '../../hooks/useSupabaseWithWallet';
 
 // Replace the early initialization with a function
 function getStripe() {
@@ -374,8 +373,6 @@ export function StripePaymentModal({
   const [orderId, setOrderId] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
   const { walletAddress } = useWallet();
-  // Initialize Supabase client that doesn't require auth token
-  const { client: supabaseWithoutAuth } = useSupabaseWithWallet({ allowMissingToken: true });
   const { price: rawSolPrice } = useSolanaPrice();
   const solPrice = rawSolPrice || 0;
 
@@ -406,53 +403,52 @@ export function StripePaymentModal({
         if (solAmount === 0 || (couponDiscount > 0 && couponDiscount >= originalPrice)) {
           console.log('Creating free order with 100% discount');
           
-          if (!supabaseWithoutAuth) {
-            throw new Error('Cannot create free order: Supabase client not initialized');
-          }
-          
           try {
-            // Create order directly using the Supabase client
-            const { data: createdOrderId, error: orderError } = await supabaseWithoutAuth.rpc('create_order', {
-              p_product_id: productId,
-              p_variants: variants || [],
-              p_shipping_info: {
-                shipping_address: shippingInfo.shipping_address,
-                contact_info: shippingInfo.contact_info
+            // Use the server-side API endpoint instead of direct Supabase calls
+            const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
               },
-              p_wallet_address: walletAddress || 'anonymous',
-              p_payment_metadata: {
-                paymentMethod: 'coupon',
-                couponCode,
-                couponDiscount,
-                originalPrice,
-                isFreeOrder: true
-              }
+              body: JSON.stringify({
+                productId,
+                variants: variants || [],
+                shippingInfo: {
+                  shipping_address: shippingInfo.shipping_address,
+                  contact_info: shippingInfo.contact_info
+                },
+                walletAddress: walletAddress || 'anonymous',
+                paymentMetadata: {
+                  paymentMethod: 'coupon',
+                  couponCode,
+                  couponDiscount,
+                  originalPrice,
+                  isFreeOrder: true,
+                  transactionId: `FREE_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`
+                }
+              }),
             });
             
-            if (orderError) {
-              throw orderError;
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('Free order API error:', errorText);
+              throw new Error(`Failed to create free order: ${response.status} ${response.statusText}`);
             }
             
-            if (createdOrderId) {
+            const data = await response.json();
+            
+            if (data.error) {
+              throw new Error(data.error);
+            }
+            
+            if (data.orderId) {
               // Order created successfully
-              setOrderId(createdOrderId);
-              
-              // Generate a fake transaction ID for free orders
-              const fakeTransactionId = `FREE_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-              
-              // Update the order with the transaction
-              const { error: updateError } = await supabaseWithoutAuth.rpc('update_order_transaction', {
-                p_order_id: createdOrderId,
-                p_transaction_signature: fakeTransactionId,
-                p_amount_sol: 0
-              });
-              
-              if (updateError) {
-                console.error('Error updating free order transaction:', updateError);
-              }
+              setOrderId(data.orderId);
+              const fakeTransactionId = data.transactionId || `FREE_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
               
               // Call onSuccess with the order ID and transaction ID
-              onSuccess(createdOrderId, fakeTransactionId);
+              onSuccess(data.orderId, fakeTransactionId);
               return;
             }
           } catch (freeOrderError) {
@@ -540,7 +536,7 @@ export function StripePaymentModal({
 
     createPaymentIntent();
   }, [solPrice, solAmount, productId, productName, walletAddress, shippingInfo, couponCode, 
-      couponDiscount, originalPrice, variants, isLoading, clientSecret, supabaseWithoutAuth, onSuccess]);
+      couponDiscount, originalPrice, variants, isLoading, clientSecret, onSuccess]);
 
   // Handle successful payment
   const handlePaymentSuccess = React.useCallback((paymentIntentId: string) => {
