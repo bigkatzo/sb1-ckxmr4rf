@@ -2,8 +2,13 @@ export function FeaturedCollectionSkeleton() {
   return (
     <div className="space-y-2">
       <div 
-        className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl"
-        style={{ aspectRatio: '16/9' }}
+        className="relative h-[40vh] sm:h-[50vh] md:h-[60vh] lg:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl"
+        style={{ 
+          aspectRatio: '16/9',
+          minHeight: '300px',
+          maxHeight: '80vh',
+          width: '100%' 
+        }}
       >
         {/* Background placeholder with subtle gradient animation */}
         <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-700">

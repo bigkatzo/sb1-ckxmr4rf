@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { normalizeStorageUrl } from '../lib/storage';
 import type { Collection } from '../types';
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 
 interface PublicCollection {
   id: string;
@@ -111,13 +112,79 @@ export function useCollections(
         );
         queryData = { data, error };
       } else {
+        // Check cache for non-paginated collections
+        const cacheKey = `collections:${filter}`;
+        
+        // Only try cache for initial loads 
+        if (isFirstLoad.current && !reset) {
+          try {
+            const { value: cachedData, needsRevalidation } = await cacheManager.get<PublicCollection[]>(cacheKey);
+            
+            if (cachedData) {
+              // Transform cached data
+              const transformedCollections = cachedData.map((collection: PublicCollection) => ({
+                id: collection.id,
+                name: collection.name,
+                description: collection.description,
+                imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
+                launchDate: new Date(collection.launch_date),
+                featured: collection.featured,
+                visible: collection.visible,
+                saleEnded: collection.sale_ended,
+                slug: collection.slug,
+                products: [],
+                categories: []
+              }));
+              
+              if (isMounted.current) {
+                setCollections(transformedCollections);
+                setLoading(false);
+                setLoadingMore(false);
+                isLoadingRef.current = false;
+                
+                // If cache is stale, revalidate in background
+                if (needsRevalidation) {
+                  setTimeout(() => {
+                    fetchCollections(true);
+                  }, 3000);  
+                }
+              }
+              
+              return;
+            }
+          } catch (err) {
+            console.error('Cache error for collections:', err);
+            // Continue with normal fetching on cache error 
+          }
+        }
+        
         // Use original functions without pagination for other filters
-      const { data, error } = await supabase.rpc(
-        filter === 'upcoming' ? 'get_upcoming_collections' :
-        filter === 'latest' ? 'get_latest_collections' :
-        'get_latest_collections' // For 'popular', use latest and sort client-side
-      );
+        const { data, error } = await supabase.rpc(
+          filter === 'upcoming' ? 'get_upcoming_collections' :
+          filter === 'latest' ? 'get_latest_collections' :
+          'get_latest_collections' // For 'popular', use latest and sort client-side
+        );
         queryData = { data, error };
+        
+        // Cache non-paginated results for filter types
+        if (!currentOffset && data && data.length > 0) {
+          // Use SEMI_DYNAMIC duration for upcoming/popular
+          const cacheDuration = filter === 'upcoming' ? 
+            CACHE_DURATIONS.SEMI_DYNAMIC : 
+            CACHE_DURATIONS.PRODUCT;
+            
+          cacheManager.set(
+            cacheKey,
+            data,
+            cacheDuration.TTL,
+            {
+              staleTime: cacheDuration.STALE,
+              priority: cacheDuration.PRIORITY
+            }
+          ).catch(err => {
+            console.error('Error caching collections:', err);
+          });
+        }
       }
       
       if (!isMounted.current) {

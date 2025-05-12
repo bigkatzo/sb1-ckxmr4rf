@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { useFeaturedCollections } from '../hooks/useFeaturedCollections';
 import { useCollections } from '../hooks/useCollections';
 import { useBestSellers } from '../hooks/useBestSellers';
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 
 export function HomePage() {
   const [siteSettings, setSiteSettings] = useState({
@@ -20,9 +21,11 @@ export function HomePage() {
   
   // Store a reference to the page's mount state to prevent state updates on unmount
   const isMounted = useRef(true);
+  // Track if settings are loaded from cache
+  const settingsLoaded = useRef(false);
   
   // Get collection data for conditional rendering
-  const { collections: featuredCollections, loading: featuredLoading } = useFeaturedCollections();
+  const { collections: featuredCollections } = useFeaturedCollections();
   const { collections: upcomingCollections, loading: upcomingLoading } = useCollections('upcoming');
   const { collections: latestCollections, loading: latestLoading } = useCollections('latest', {
     initialLimit: 9, // Increased for better initial grid view
@@ -30,16 +33,51 @@ export function HomePage() {
   });
   const { products: bestSellerProducts, loading: bestSellersLoading } = useBestSellers(10);
   
+  // Cleanup on unmount
   useEffect(() => {
-    // Cleanup on unmount
     return () => {
       isMounted.current = false;
     };
   }, []);
   
+  // Load site settings with caching
   useEffect(() => {
-    // Fetch site settings
-    async function fetchSettings() {
+    const loadSiteSettings = async () => {
+      try {
+        // Try to get from cache first
+        const cacheKey = 'site_settings';
+        const { value: cachedSettings, needsRevalidation } = await cacheManager.get<{
+          site_name: string;
+          site_description: string;
+          homepage_tagline: string;
+        }>(cacheKey);
+        
+        // Use cached settings if available
+        if (cachedSettings && !settingsLoaded.current) {
+          setSiteSettings(cachedSettings);
+          settingsLoaded.current = true;
+          
+          // If cached data is stale, refresh in the background
+          if (needsRevalidation) {
+            fetchFreshSettings(cacheKey);
+          }
+          return;
+        }
+        
+        if (!settingsLoaded.current) {
+          await fetchFreshSettings(cacheKey);
+        }
+      } catch (err) {
+        console.error('Error loading site settings:', err);
+        if (!settingsLoaded.current) {
+          await fetchFreshSettings();
+        }
+      }
+    };
+    
+    const fetchFreshSettings = async (cacheKey?: string) => {
+      if (!isMounted.current) return;
+      
       try {
         const { data, error } = await supabase
           .from('site_settings')
@@ -52,18 +90,34 @@ export function HomePage() {
         }
         
         if (data && isMounted.current) {
-          setSiteSettings({
+          const newSettings = {
             site_name: data.site_name || 'store.fun',
             site_description: data.site_description || 'Merch Marketplace',
             homepage_tagline: data.homepage_tagline || 'Discover and shop unique merchandise collections at store.fun'
-          });
+          };
+          
+          setSiteSettings(newSettings);
+          settingsLoaded.current = true;
+          
+          // Cache the settings
+          if (cacheKey) {
+            cacheManager.set(
+              cacheKey,
+              newSettings,
+              CACHE_DURATIONS.STATIC.TTL,
+              {
+                staleTime: CACHE_DURATIONS.STATIC.STALE,
+                priority: CACHE_DURATIONS.STATIC.PRIORITY
+              }
+            );
+          }
         }
       } catch (err) {
         console.error('Unexpected error:', err);
       }
-    }
+    };
     
-    fetchSettings();
+    loadSiteSettings();
   }, []);
   
   const seoTitle = `${siteSettings.site_name} | ${siteSettings.site_description}`;
@@ -85,6 +139,8 @@ export function HomePage() {
       <TransitionWrapper
         identifier={featuredCollections.length > 0 ? featuredCollections[0].id : 'loading'}
         duration={400}
+        maintainSize={true}
+        className="featured-collection-wrapper"
       >
         <FeaturedCollection />
       </TransitionWrapper>
