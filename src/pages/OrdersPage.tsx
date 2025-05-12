@@ -460,7 +460,7 @@ export function OrdersPage() {
                               href={getTransactionUrl(order.transactionSignature)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`text-xs ${isStripeReceiptUrl(order.transactionSignature) ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
+                              className={`text-xs ${isStripeReceiptUrl(order.transactionSignature) || order.transactionSignature?.startsWith('pi_') ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
                             >
                               {formatTransactionSignature(order.transactionSignature)}
                               <ExternalLink className="h-3 w-3" />

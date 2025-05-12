@@ -8,7 +8,8 @@
 export function isStripeReceiptUrl(signature: string): boolean {
   return signature.startsWith('https://') && 
          (signature.includes('stripe.com/receipts') || 
-          signature.includes('pay.stripe.com'));
+          signature.includes('pay.stripe.com') ||
+          signature.includes('invoice.stripe.com'));
 }
 
 /**
@@ -17,6 +18,11 @@ export function isStripeReceiptUrl(signature: string): boolean {
 export function getTransactionUrl(signature: string): string {
   if (isStripeReceiptUrl(signature)) {
     return signature; // It's already a URL
+  }
+  
+  // For Stripe payment intents, try to generate a receipt URL
+  if (signature?.startsWith('pi_')) {
+    return `https://invoice.stripe.com/i/${signature.replace('pi_', '')}`;
   }
   
   // Default to Solscan for Solana transactions
@@ -31,6 +37,11 @@ export function formatTransactionSignature(signature: string): string {
     return 'Stripe Receipt';
   }
   
+  // For Stripe payment intents
+  if (signature?.startsWith('pi_')) {
+    return 'Payment Receipt';
+  }
+  
   // For Solana transactions, show abbreviated form
   return `${signature.slice(0, 8)}...${signature.slice(-8)}`;
 }
@@ -41,6 +52,10 @@ export function formatTransactionSignature(signature: string): string {
 export function getTransactionLabel(signature: string): string {
   if (isStripeReceiptUrl(signature)) {
     return 'Payment Receipt';
+  }
+  
+  if (signature?.startsWith('pi_')) {
+    return 'Payment';
   }
   
   return 'Transaction';

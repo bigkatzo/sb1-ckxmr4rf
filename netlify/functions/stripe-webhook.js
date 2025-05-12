@@ -383,8 +383,8 @@ async function processSuccessfulPayment(order, paymentIntent) {
           // This is a Payment element - handle differently
           console.log('Latest charge is a Payment element, using payment intent as receipt');
           chargeId = paymentIntent.latest_charge;
-          // For payment elements, we might not have a receipt URL, so let's create one
-          receiptUrl = `https://dashboard.stripe.com/payments/${paymentIntent.id}`;
+          // For payment elements, generate a customer-facing receipt URL
+          receiptUrl = `https://invoice.stripe.com/i/${paymentIntent.id.replace('pi_', '')}`;
         }
       } else {
         // Fallback to listing charges
@@ -407,7 +407,12 @@ async function processSuccessfulPayment(order, paymentIntent) {
       if (!chargeId && !receiptUrl) {
         console.warn('No charge details found, using payment intent ID as fallback');
         chargeId = paymentIntent.id;
-        receiptUrl = `https://dashboard.stripe.com/payments/${paymentIntent.id}`;
+        // Try to create a customer-facing receipt URL from the payment intent ID
+        if (paymentIntent.id.startsWith('pi_')) {
+          receiptUrl = `https://invoice.stripe.com/i/${paymentIntent.id.replace('pi_', '')}`;
+        } else {
+          receiptUrl = `https://dashboard.stripe.com/payments/${paymentIntent.id}`;
+        }
       }
 
       // Update the transaction signature to use the receipt URL

@@ -274,16 +274,19 @@ export function OrderSuccessView({
                   href={getTransactionUrl(transactionSignature)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`${isStripeReceiptUrl(transactionSignature) ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
+                  className={`${isStripeReceiptUrl(transactionSignature) || transactionSignature?.startsWith('pi_') ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
                 >
                   {isStripeReceiptUrl(transactionSignature) 
                     ? 'View Receipt' 
-                    : `${transactionSignature.slice(0, 6)}...${transactionSignature.slice(-6)}`}
+                    : transactionSignature?.startsWith('pi_')
+                      ? 'View Receipt'
+                      : `${transactionSignature.slice(0, 6)}...${transactionSignature.slice(-6)}`}
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
 
-              {receiptUrl && !isStripeReceiptUrl(transactionSignature) && (
+              {/* Only show separate receipt URL if we have one and the transaction signature isn't already a receipt URL */}
+              {receiptUrl && !isStripeReceiptUrl(transactionSignature) && !transactionSignature?.startsWith('pi_') && (
                 <div className="flex items-center justify-center space-x-2 text-xs sm:text-sm">
                   <span className="text-gray-400">Receipt:</span>
                   <a
@@ -295,12 +298,6 @@ export function OrderSuccessView({
                     View Receipt
                     <ExternalLink className="w-3 h-3" />
                   </a>
-                </div>
-              )}
-
-              {transactionSignature.startsWith('pi_') && (
-                <div className="flex items-center justify-center space-x-2 text-xs sm:text-sm mt-1">
-                  <span className="text-gray-400/80 italic">Receipt will be available shortly</span>
                 </div>
               )}
             </div>
