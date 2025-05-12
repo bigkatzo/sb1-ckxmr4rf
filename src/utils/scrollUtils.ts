@@ -5,7 +5,7 @@
  */
 export function smoothScrollOnNewContent(
   container: HTMLElement | null, 
-  offset: number = 100
+  offset: number = 80
 ): void {
   if (!container) return;
   
@@ -17,8 +17,9 @@ export function smoothScrollOnNewContent(
   const containerBottom = rect.bottom + window.scrollY;
   
   // Only scroll if we're already near the container's bottom
+  // Increased threshold for a more responsive feel
   const isNearBottom = 
-    containerBottom - (window.innerHeight + currentScroll) < 200;
+    containerBottom - (window.innerHeight + currentScroll) < 300;
   
   if (isNearBottom) {
     // Calculate target position with offset
@@ -26,10 +27,34 @@ export function smoothScrollOnNewContent(
     
     // Only scroll if it would move us forward
     if (targetPosition > currentScroll) {
-      window.scrollTo({
-        top: targetPosition,
-        behavior: 'smooth'
-      });
+      // Use a more gentle scroll animation with custom easing
+      const startPosition = currentScroll;
+      const distance = targetPosition - startPosition;
+      const duration = 400; // ms
+      const startTime = performance.now();
+      
+      // Easing function for more natural feel
+      const easeOutCubic = (t: number): number => {
+        return 1 - Math.pow(1 - t, 3);
+      };
+      
+      // Perform the scroll animation
+      function scrollAnimation(currentTime: number) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeProgress = easeOutCubic(progress);
+        
+        window.scrollTo({
+          top: startPosition + distance * easeProgress,
+          behavior: 'auto' // We're manually animating
+        });
+        
+        if (progress < 1) {
+          requestAnimationFrame(scrollAnimation);
+        }
+      }
+      
+      requestAnimationFrame(scrollAnimation);
     }
   }
 }

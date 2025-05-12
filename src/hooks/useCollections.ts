@@ -21,6 +21,19 @@ interface CollectionOptions {
   infiniteScroll?: boolean; // Whether to enable infinite scrolling
 }
 
+// Debounce helper function
+function debounce<T extends (...args: any[]) => void>(
+  func: T, 
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  
+  return function(...args: Parameters<T>) {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
 export function useCollections(
   filter: 'upcoming' | 'latest' | 'popular',
   options: CollectionOptions = {}
@@ -67,7 +80,7 @@ export function useCollections(
     
     try {
       if (reset) {
-      setLoading(true);
+        setLoading(true);
         offset.current = 0;
       } else {
         setLoadingMore(true);
@@ -78,6 +91,11 @@ export function useCollections(
       // Calculate limit and offset
       const limit = reset || isFirstLoad.current ? initialLimit : loadMoreCount;
       const currentOffset = reset ? 0 : offset.current;
+
+      // Add a small timeout for better UI experience on very fast connections
+      if (!reset && infiniteScroll) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
       // Use the appropriate function based on filter
       let queryData;
@@ -167,11 +185,13 @@ export function useCollections(
       if (reset) setCollections([]);
     } finally {
       if (isMounted.current) {
-      setLoading(false);
+        setLoading(false);
         setLoadingMore(false);
       }
       // CRITICAL: Reset the loading flag
-      isLoadingRef.current = false;
+      setTimeout(() => {
+        isLoadingRef.current = false;
+      }, 300); // Short cooldown to prevent rapid re-fetching
     }
   // FIXED: Remove loading, loadingMore, hasMore from dependency array to prevent infinite loop
   }, [filter, infiniteScroll, initialLimit, loadMoreCount]);
@@ -202,6 +222,15 @@ export function useCollections(
     }
   }, [hasMore, fetchCollections]);
 
+  // Debounced version of loadMore for better scroll performance
+  const debouncedLoadMore = useCallback(
+    debounce(() => {
+      if (hasMore && !loadingMore && !loading) {
+        loadMore();
+      }
+    }, 150), // 150ms debounce
+  [hasMore, loadingMore, loading, loadMore]);
+
   return { 
     collections, 
     loading, 
@@ -209,6 +238,6 @@ export function useCollections(
     error, 
     hasMore,
     refreshCollections: () => fetchCollections(true),
-    loadMore
+    loadMore: infiniteScroll ? debouncedLoadMore : loadMore
   };
 }

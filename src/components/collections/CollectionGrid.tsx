@@ -56,34 +56,28 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
       return cleanup;
     }
     
-    // Wait a bit before setting up to avoid immediate triggering
-    const setupTimeout = setTimeout(() => {
-      if (!loadMoreTriggerRef.current || loadingMore) return;
-      
-      cleanup(); // Ensure we don't have multiple observers
-      
-      // Create new observer
-      observerRef.current = new IntersectionObserver(
-        (entries) => {
-          if (entries[0]?.isIntersecting && hasMore && !loadingMore) {
-            loadMore();
-          }
-        },
-        {
-          rootMargin: '200px 0px',
-          threshold: 0.1
+    if (!loadMoreTriggerRef.current || loadingMore) return cleanup;
+    
+    cleanup(); // Ensure we don't have multiple observers
+    
+    // Create new observer with improved configuration
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasMore && !loadingMore) {
+          loadMore();
         }
-      );
-      
-      // Start observing
-      observerRef.current.observe(loadMoreTriggerRef.current);
-    }, 300);
+      },
+      {
+        rootMargin: '400px 0px', // Increased rootMargin for earlier loading
+        threshold: 0.1
+      }
+    );
+    
+    // Start observing
+    observerRef.current.observe(loadMoreTriggerRef.current);
     
     // Clean up on unmount or when dependencies change
-    return () => {
-      cleanup();
-      clearTimeout(setupTimeout);
-    };
+    return cleanup;
   }, [infiniteScroll, hasMore, loading, loadingMore, loadMore]);
 
   if (loading && collections.length === 0) {
@@ -100,38 +94,43 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
 
   return (
     <div className="space-y-6">
-    <div 
-      ref={gridRef}
-      className={`grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 sm:gap-3 md:gap-4 lg:gap-5 ${loadingMore ? 'staggered-fade-in' : ''}`}
-    >
-      {collections.map((collection, index) => {
-        // Calculate row and column position for consistent loading order
-        let columns = 1; // Default mobile
-        if (window.innerWidth >= 1024) columns = 3; // lg:grid-cols-3
-        else if (window.innerWidth >= 640) columns = 2; // sm:grid-cols-2
-        
-        // Calculate row and column based on index
-        const row = Math.floor(index / columns);
-        const col = index % columns;
-        
-        // Set loading priority based on visual position (top-to-bottom, left-to-right)
-        // Lower priority value means higher loading priority
-        const loadingPriority = row * 100 + col;
-        
-        return (
-          <div
-            key={collection.id}
-            onClick={() => navigate(`/${collection.slug}`)}
-            className="cursor-pointer"
-          >
-            <CollectionCard 
-              collection={collection} 
-              variant="large"
-              loadingPriority={loadingPriority}
-            />
-          </div>
-        );
-      })}
+      <div 
+        ref={gridRef}
+        className={`grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 sm:gap-3 md:gap-4 lg:gap-5 ${loadingMore ? 'staggered-fade-in' : ''}`}
+        style={{ contain: 'content' }} // Use the standard 'contain' property instead of 'containment'
+      >
+        {collections.map((collection, index) => {
+          // Calculate row and column position for consistent loading order
+          let columns = 1; // Default mobile
+          if (window.innerWidth >= 1024) columns = 3; // lg:grid-cols-3
+          else if (window.innerWidth >= 640) columns = 2; // sm:grid-cols-2
+          
+          // Calculate row and column based on index
+          const row = Math.floor(index / columns);
+          const col = index % columns;
+          
+          // Set loading priority based on visual position (top-to-bottom, left-to-right)
+          // Lower priority value means higher loading priority
+          const loadingPriority = row * 100 + col;
+          
+          return (
+            <div
+              key={collection.id}
+              onClick={() => navigate(`/${collection.slug}`)}
+              className="cursor-pointer new-item-reveal"
+              style={{
+                animationDelay: `${(index % 6) * 0.05}s`,
+                contain: 'content'
+              }}
+            >
+              <CollectionCard 
+                collection={collection} 
+                variant="large"
+                loadingPriority={loadingPriority}
+              />
+            </div>
+          );
+        })}
       </div>
       
       {/* Load more button for non-infinite scroll mode */}

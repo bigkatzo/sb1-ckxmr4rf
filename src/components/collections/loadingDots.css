@@ -70,4 +70,30 @@
     transform: translateY(0);
     opacity: 1;
   }
+}
+
+/* New item reveal animation for smooth infinite scroll */
+.new-item-reveal {
+  animation: fadeInUp 0.4s ease-out both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* For staggered loading effects */
+.staggered-fade-in > * {
+  animation-name: fadeInUp;
+  animation-duration: 0.4s;
+  animation-fill-mode: both;
+  animation-timing-function: ease-out;
 } 
