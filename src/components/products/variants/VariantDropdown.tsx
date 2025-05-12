@@ -15,7 +15,7 @@ export function VariantDropdown({ variant, selectedValue, onChange }: VariantDro
       <select
         value={selectedValue}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+        className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
       >
         <option value="">Select {variant.name}</option>
         {variant.options.map((option) => (
