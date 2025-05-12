@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ImageIcon, Ban } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
@@ -17,10 +17,39 @@ interface ProductCardProps {
 export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport, loadingPriority }: ProductCardProps) {
   const [imageLoading, setImageLoading] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
   const { modifiedPrice } = useModifiedPrice({ product });
   
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
+
+  // Observe when card becomes visible to apply entrance animations
+  useEffect(() => {
+    if (!cardRef.current) return;
+    
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          // Wait a small amount of time proportional to loading priority
+          // This creates a staggered entrance effect
+          const delay = isInInitialViewport ? 0 : Math.min((loadingPriority || 0) * 50, 300);
+          setTimeout(() => {
+            setIsVisible(true);
+            // Stop observing once visible
+            observer.unobserve(entry.target);
+          }, delay);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    observer.observe(cardRef.current);
+    
+    return () => {
+      if (cardRef.current) observer.unobserve(cardRef.current);
+    };
+  }, [isInInitialViewport, loadingPriority]);
 
   const handleClick = () => {
     if (onClick) {
@@ -47,18 +76,23 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
 
   return (
     <div 
+      ref={cardRef}
       onClick={handleClick}
-      className="product-card group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-secondary/50 hover:-translate-y-0.5 transition-all"
+      className={`product-card group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-secondary/50 hover:-translate-y-0.5 transition-all duration-300
+        ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       data-product-id={product.id}
+      style={{ 
+        transitionDelay: isInInitialViewport ? '0ms' : `${Math.min((loadingPriority || 0) * 50, 300)}ms`
+      }}
     >
       <div className="relative aspect-square overflow-hidden">
         {product.imageUrl ? (
           <>
             <div 
               className={`
-                absolute inset-0 bg-gray-800
+                absolute inset-0 bg-gradient-to-tr from-gray-800 to-gray-700
                 ${imageLoading ? 'animate-pulse' : 'animate-none'}
               `}
             />
@@ -111,6 +145,16 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
             </span>
           </div>
         )}
+        
+        {/* Hover Overlay - Improved visual feedback */}
+        <div 
+          className={`absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200
+            ${isHovered ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        >
+          <span className="px-3 py-1.5 bg-secondary/90 text-white rounded-full text-sm font-medium transform transition-transform duration-200 group-hover:scale-105">
+            View Details
+          </span>
+        </div>
       </div>
       
       <div className="px-2.5 py-2">

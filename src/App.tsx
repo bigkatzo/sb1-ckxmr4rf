@@ -8,6 +8,7 @@ import { HowItWorksProvider } from './contexts/HowItWorksContext';
 import { AppMessagesProvider } from './contexts/AppMessagesContext';
 import { UserRoleProvider } from './contexts/UserRoleContext';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { PageTransition } from './components/ui/PageTransition';
 import { validateEnvironmentVariables } from './utils/env-validation';
 import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
@@ -94,7 +95,12 @@ function AppContent() {
     };
   }, [session]); // Add session as dependency
 
-  return <Outlet />; // Render the Outlet to show nested routes
+  // Wrap the Outlet with PageTransition for smooth navigation
+  return (
+    <PageTransition>
+      <Outlet />
+    </PageTransition>
+  );
 }
 
 export function App() {

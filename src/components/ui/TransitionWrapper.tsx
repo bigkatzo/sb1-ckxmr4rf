@@ -1,4 +1,5 @@
-import { ReactNode, useEffect, useState, useRef } from 'react';
+import { ReactNode, useEffect, useState, useRef, CSSProperties } from 'react';
+import { TIMING, EASING } from '../../utils/transitions';
 
 interface TransitionWrapperProps {
   children: ReactNode;
@@ -21,7 +22,7 @@ export function TransitionWrapper({
   children, 
   identifier, 
   className = '',
-  duration = 300,
+  duration = TIMING.MEDIUM,
   maintainSize = true
 }: TransitionWrapperProps) {
   const [previousChildren, setPreviousChildren] = useState<ReactNode>(children);
@@ -61,9 +62,12 @@ export function TransitionWrapper({
   }, [children, identifier, previousIdentifier, duration, maintainSize]);
   
   // Calculate the style based on transition state
-  const style = {
-    transition: `opacity ${duration}ms ease-in-out`,
+  const style: CSSProperties = {
+    transition: `opacity ${duration}ms ${EASING.STANDARD}`,
     opacity: isTransitioning ? 0 : 1,
+    backfaceVisibility: 'hidden' as 'hidden',
+    transform: 'translateZ(0)',
+    willChange: 'opacity, transform',
     ...(maintainSize && isTransitioning ? {
       width: dimensions.width,
       height: dimensions.height,

@@ -1,44 +1,26 @@
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { pageTransitionVariants } from '../../utils/transitions';
 
 interface PageTransitionProps {
   children: ReactNode;
 }
 
+/**
+ * Component that provides smooth transitions between pages
+ * Maintains the current design while improving performance
+ */
 export function PageTransition({ children }: PageTransitionProps) {
   const location = useLocation();
   
-  // Animation variants for page transitions
-  // Simplified for better performance
-  const variants = {
-    initial: { 
-      opacity: 0.95
-    },
-    animate: { 
-      opacity: 1,
-      transition: { 
-        duration: 0.15,
-        ease: "easeOut",
-        opacity: { duration: 0.1 }
-      }
-    },
-    exit: { 
-      opacity: 0,
-      transition: { 
-        duration: 0.10,
-        ease: "easeIn"
-      }
-    }
-  };
-
   return (
     <motion.div
       key={location.pathname}
       initial="initial"
       animate="animate"
       exit="exit"
-      variants={variants}
+      variants={pageTransitionVariants}
       className="w-full"
     >
       {children}

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './routes';
 import './index.css';
+import './styles/transitions.css';
 import { initializeImageHandling } from './utils/imageValidator';
 
 // Initialize image handling immediately

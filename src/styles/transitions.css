@@ -1,0 +1,70 @@
+/* Transitions CSS */
+
+/* Page transition animations */
+.page-transition {
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+.page-transition.fadeIn {
+  animation: fadeIn 0.25s cubic-bezier(0.0, 0.0, 0.2, 1) forwards;
+}
+
+.page-transition.fadeOut {
+  animation: fadeOut 0.15s cubic-bezier(0.4, 0.0, 1, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* Product card staggered entrance */
+.product-card {
+  transition: opacity 300ms cubic-bezier(0.4, 0.0, 0.2, 1),
+              transform 300ms cubic-bezier(0.4, 0.0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0.0, 0.2, 1);
+  backface-visibility: hidden;
+}
+
+/* Body class for scroll optimization */
+body.is-scrolling .product-card:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Performance optimization during scrolling */
+body.is-scrolling .animated-element {
+  transition: none !important;
+  animation-play-state: paused !important;
+}
+
+/* Content visibility optimization for off-screen content */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 300px; /* Estimated size to avoid layout shifts */
+}
+
+/* Optimize transitions with hardware acceleration */
+.hw-accelerated {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+} 
