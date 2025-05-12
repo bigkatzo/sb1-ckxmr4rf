@@ -684,7 +684,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
 
             {/* Product info section - now part of the main scroll on mobile */}
             <div className="flex-1 md:h-[600px] flex flex-col relative">
-              <div className="flex-1 overflow-y-auto pb-[100px] md:pb-4">
+              <div className="flex-1 overflow-y-auto pb-[120px] md:pb-4">
                 <div className="p-4 space-y-4">
                   {product.collectionSlug && product.collectionName && (
                     <Link
@@ -752,7 +752,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
               </div>
 
               {/* Buy button for mobile - fixed position */}
-              <div className="fixed md:hidden bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800">
+              <div className="fixed md:hidden bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-30 safe-area-bottom">
                 <ProductBuyButton
                   product={product}
                   selectedOptions={selectedOptions}
