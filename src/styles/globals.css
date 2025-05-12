@@ -8,6 +8,10 @@
 .product-grid-container {
   will-change: transform;
   z-index: 1;
+  width: 100%;
+  overscroll-behavior-x: none;
+  overflow-x: clip;
+  contain: layout;
 }
 
 /* Optimize scrolling performance with layer promotion */
@@ -15,4 +19,26 @@
   .product-grid-container {
     transform: translateZ(0);
   }
+}
+
+/* Fix scrolling issues on mobile */
+@media (max-width: 639px) {
+  body {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    position: relative;
+  }
+  
+  /* Prevent horizontal scrollbar on infinite scroll */
+  .loading-indicator {
+    width: 100%;
+    contain: layout;
+    overflow-x: hidden;
+  }
+}
+
+/* Ensure intersection observers don't cause layout issues */
+[aria-hidden="true"] {
+  contain: layout;
+  overflow: hidden;
 } 

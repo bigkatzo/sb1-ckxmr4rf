@@ -151,14 +151,15 @@ export function CollectionGrid({ filter, infiniteScroll = filter === 'latest' }:
       {infiniteScroll && hasMore && (
         <div 
           ref={loadMoreTriggerRef}
-          className="h-4" // Reduced height to minimize spacing
+          className="h-4 w-full overflow-hidden" // Added w-full and overflow-hidden
+          style={{ contain: 'layout size' }} // Added contain property for better performance
           aria-hidden="true"
         />
       )}
       
       {/* Improved loading indicator for infinite scroll */}
       {infiniteScroll && loadingMore && (
-        <div className="loading-indicator">
+        <div className="loading-indicator w-full overflow-hidden">
           <div className="loading-dots" aria-label="Loading more collections">
             <span></span>
             <span></span>

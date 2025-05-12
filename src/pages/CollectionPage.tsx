@@ -678,10 +678,15 @@ export function CollectionPage() {
                 {(loadingMore || hasMore) && (
                   <div 
                     ref={loaderRef}
-                    className={`flex justify-center py-4 transition-opacity duration-300 ${
+                    className={`flex justify-center py-4 w-full overflow-hidden transition-opacity duration-300 ${
                       // Make loader less visible for returning users to avoid distraction
                       hasReturnedFromProduct.current ? 'opacity-0' : 'opacity-100'
                     }`}
+                    style={{ 
+                      contain: 'layout size', 
+                      height: loadingMore ? 'auto' : '4px',
+                      overscrollBehavior: 'none' 
+                    }}
                   >
                     {loadingMore && (
                       <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] text-gray-500/50 motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">

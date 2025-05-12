@@ -112,14 +112,14 @@ export function AnimatedLayout() {
   };
 
   return (
-    <div className={`min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden ${isNavigating ? 'pointer-events-none' : ''}`}>
+    <div className={`min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden will-change-transform ${isNavigating ? 'pointer-events-none' : ''}`}>
       <AppMessagesRenderer />
       
       <ScrollBehavior />
       
       <Navbar />
       
-      <main className={`flex-1 ${activeMarquee ? 'pt-20' : 'pt-12'}`}>
+      <main className={`flex-1 ${activeMarquee ? 'pt-20' : 'pt-12'} overflow-x-hidden`}>
         <NotificationsWrapper />
         <div className={`max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4 w-full ${getContainerMinHeight()}`}>
           <AnimatePresence
@@ -158,4 +158,4 @@ export function AnimatedLayout() {
       <HowItWorksModal />
     </div>
   );
-} 
+}

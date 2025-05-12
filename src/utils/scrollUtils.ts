@@ -21,6 +21,19 @@ export function smoothScrollOnNewContent(
   const isNearBottom = 
     containerBottom - (window.innerHeight + currentScroll) < 300;
   
+  // On mobile, use a more conservative approach to prevent layout issues
+  const isMobile = window.innerWidth < 640;
+  if (isMobile) {
+    // For mobile, only scroll if very close to bottom to prevent jumpiness
+    if (containerBottom - (window.innerHeight + currentScroll) < 100) {
+      window.scrollTo({
+        top: currentScroll + 50, // Smaller jump on mobile
+        behavior: 'smooth'
+      });
+    }
+    return;
+  }
+  
   if (isNearBottom) {
     // Calculate target position with offset
     const targetPosition = containerBottom - window.innerHeight + offset;
