@@ -905,6 +905,21 @@ export function TokenVerificationModal({
     try {
       console.log('Stripe payment successful:', { orderId, paymentIntentId });
       
+      // Call the server-side fallback endpoint to ensure order gets confirmed
+      try {
+        const response = await fetch('/.netlify/functions/confirm-stripe-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, paymentIntentId })
+        });
+        
+        const result = await response.json();
+        console.log('Client-side order confirmation result:', result);
+      } catch (confirmError) {
+        console.error('Error with client-side order confirmation:', confirmError);
+        // Continue with the process even if this fails
+      }
+      
       // Try to fetch the latest order data first to get the correct order number
       try {
         const { data: order, error } = await supabase
