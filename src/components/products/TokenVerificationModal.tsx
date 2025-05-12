@@ -425,7 +425,8 @@ export function TokenVerificationModal({
           updateProgressStep(0, 'processing', 'Creating your free order...');
           
           // Generate a consistent transaction ID for free orders to prevent duplicates
-          const transactionId = `free_token_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || ''}_${Date.now()}`;
+          // Ensure it has the proper free_token_ prefix
+          const transactionId = `free_token_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
           
           let response;
           let responseData;
@@ -446,7 +447,7 @@ export function TokenVerificationModal({
                   productId: product.id,
                   variants: formattedVariantSelections,
                   shippingInfo: formattedShippingInfo,
-                  walletAddress,
+                  walletAddress: walletAddress || 'anonymous',
                   paymentMetadata: {
                     ...paymentMetadata,
                     paymentMethod: 'free_token',
@@ -467,7 +468,7 @@ export function TokenVerificationModal({
                 
                 // Handle duplicate orders gracefully - they're not an error
                 if (responseData.isDuplicate) {
-                  console.log('Server returned existing order:', responseData);
+                  console.log('Using existing order:', responseData);
                   success = true;
                   break;
                 }
@@ -501,12 +502,25 @@ export function TokenVerificationModal({
           console.log('Free order processed successfully:', responseData);
           
           orderId = responseData.orderId;
-          const uniqueSignature = responseData.paymentIntentId;
+          // Use the transactionSignature field if available, fall back to paymentIntentId for backwards compatibility
+          const uniqueSignature = responseData.transactionSignature || responseData.paymentIntentId || `free_token_${product.id}_${Date.now()}`;
           
           // Update progress steps
           updateProgressStep(0, 'completed');
           updateProgressStep(1, 'completed');
           updateProgressStep(2, 'completed');
+
+          // If we have the order number directly from the response, use it
+          if (responseData.orderNumber) {
+            setOrderDetails({
+              orderNumber: responseData.orderNumber,
+              transactionSignature: uniqueSignature
+            });
+            setShowSuccessView(true);
+            toastService.showOrderSuccess();
+            onSuccess();
+            return;
+          }
 
           // Helper function to consistently show success - can be called from multiple places
           const showSuccessWithFallback = (orderNum: string, txSignature: string) => {
@@ -622,10 +636,17 @@ export function TokenVerificationModal({
           } catch (err) {
             console.error('Error fetching order details:', err);
             
-            // Use fallback order number if an error occurs
-            const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-            showSuccessWithFallback(fallbackOrderNumber, uniqueSignature);
+            // If we have orderNumber from the API response, use it instead of generating fallback
+            if (responseData.orderNumber) {
+              showSuccessWithFallback(responseData.orderNumber, uniqueSignature);
+            } else {
+              // Use fallback order number if an error occurs and we don't have one from API
+              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+              showSuccessWithFallback(fallbackOrderNumber, uniqueSignature);
+            }
           }
+          // Return early to prevent proceeding to regular payment flow
+          return;
         } catch (error) {
           console.error('Free order error:', error);
           const errorMessage = error instanceof Error ? error.message : 'Failed to process free order';
@@ -633,6 +654,8 @@ export function TokenVerificationModal({
             autoClose: false
           });
           setSubmitting(false);
+          // Return early to prevent proceeding to regular payment flow
+          return;
         }
       }
 

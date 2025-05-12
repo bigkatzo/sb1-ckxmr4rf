@@ -83,28 +83,56 @@ exports.handler = async (event, context) => {
     };
   }
 
+  // Update transaction signature
+  const amountSolFloat = parseFloat(amountSol || 0);
+  
+  // Check if this is a free order (transaction signature starts with 'free_')
+  const isFreeOrder = transactionSignature && transactionSignature.startsWith('free_');
+  
+  console.log('Updating order transaction:', {
+    orderId, 
+    transactionSignature,
+    amountSol: amountSolFloat,
+    isFreeOrder
+  });
+
   try {
-    console.log('Updating order transaction with service role permissions');
-    
-    // Call update_order_transaction function with service role permissions
-    const { data, error } = await supabase.rpc('update_order_transaction', {
+    // Update the transaction signature
+    const { error: updateError } = await supabase.rpc('update_order_transaction', {
       p_order_id: orderId,
       p_transaction_signature: transactionSignature,
-      p_amount_sol: amountSol
+      p_amount_sol: amountSolFloat
     });
 
-    if (error) {
-      console.error('Error updating order transaction:', error);
+    if (updateError) {
+      console.error('Error updating order transaction:', updateError);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: error.message })
+        body: JSON.stringify({ error: updateError.message })
       };
+    }
+    
+    // For free orders, automatically confirm the transaction
+    if (isFreeOrder) {
+      console.log('Auto-confirming free order:', orderId);
+      
+      // Confirm the order 
+      const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+        p_order_id: orderId
+      });
+      
+      if (confirmError) {
+        console.error('Error confirming free order:', confirmError);
+        // Don't fail the entire request, just log the error
+      } else {
+        console.log('Free order confirmed successfully');
+      }
     }
 
     console.log('Order transaction updated successfully');
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, data })
+      body: JSON.stringify({ success: true, data: { orderId, transactionSignature, amountSol: amountSolFloat } })
     };
   } catch (err) {
     console.error('Error in update-order-transaction function:', err);

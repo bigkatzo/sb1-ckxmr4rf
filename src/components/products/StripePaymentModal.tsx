@@ -403,6 +403,9 @@ export function StripePaymentModal({
         if (solAmount === 0 || (couponDiscount > 0 && couponDiscount >= originalPrice)) {
           console.log('Creating free order with 100% discount');
           
+          // Generate a unique transaction ID with proper prefix
+          const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
+          
           try {
             // Use the server-side API endpoint instead of direct Supabase calls
             const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
@@ -420,12 +423,12 @@ export function StripePaymentModal({
                 },
                 walletAddress: walletAddress || 'anonymous',
                 paymentMetadata: {
-                  paymentMethod: 'coupon',
+                  paymentMethod: 'free_stripe', // Use consistent naming for payment method
                   couponCode,
                   couponDiscount,
                   originalPrice,
                   isFreeOrder: true,
-                  transactionId: `FREE_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`
+                  transactionId
                 }
               }),
             });
@@ -443,12 +446,22 @@ export function StripePaymentModal({
             }
             
             if (data.orderId) {
+              // Order created successfully or existing order returned
+              if (data.isDuplicate) {
+                console.log('Using existing order:', data);
+              }
+              
               // Order created successfully
               setOrderId(data.orderId);
-              const fakeTransactionId = data.transactionId || `FREE_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
               
-              // Call onSuccess with the order ID and transaction ID
-              onSuccess(data.orderId, fakeTransactionId);
+              // Use the transactionSignature field if available, fall back to paymentIntentId for backwards compatibility
+              const transactionSignature = data.transactionSignature || data.paymentIntentId || `free_stripe_${productId}_${Date.now()}`;
+              
+              // Use the order number from the response if available
+              const orderNumber = data.orderNumber || data.orderId;
+              
+              // Call onSuccess with the order ID/number and transaction signature
+              onSuccess(orderNumber, transactionSignature);
               return;
             }
           } catch (freeOrderError) {
