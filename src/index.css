@@ -34,12 +34,6 @@ html, body {
   }
 }
 
-/* Merchant dashboard styles */
-[class*="fixed top-[3.5rem] sm:top-16 left-0 right-0 z-20"] {
-  max-width: 100%;
-  width: 100%;
-}
-
 /* Fix for filter sections in merchant dashboard tabs */
 .flex-col.gap-3.mb-6 {
   padding-top: 0.5rem;

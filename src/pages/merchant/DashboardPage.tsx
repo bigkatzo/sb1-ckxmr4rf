@@ -247,8 +247,8 @@ export function DashboardPage() {
   return (
     <MerchantDashboardProvider>
       <div className="flex flex-col min-h-screen">
-        {/* Dashboard header with fixed position instead of sticky */}
-        <div className="fixed top-[3.5rem] sm:top-16 left-0 right-0 z-20 bg-gray-900 shadow-lg border-b border-gray-800">
+        {/* Dashboard header with normal positioning */}
+        <div className="bg-gray-900 shadow-lg border-b border-gray-800">
           <div className="px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex justify-between items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold leading-tight">Merchant Dashboard</h1>
@@ -279,9 +279,6 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
-
-        {/* Add a spacer to account for the fixed header height */}
-        <div className="h-[105px] sm:h-[115px]"></div>
 
         {/* Main content area */}
         <div className="flex-grow">
