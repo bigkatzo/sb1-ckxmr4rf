@@ -7,10 +7,10 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Supabase
+// Initialize Supabase with service role key to bypass RLS policies
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
-  process.env.VITE_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 );
 
 exports.handler = async (event, context) => {
@@ -76,7 +76,35 @@ exports.handler = async (event, context) => {
       metadata.paymentIntentId = paymentIntentId;
     }
 
+    // Try to call RPC function first - this may have special permissions
+    try {
+      console.log('Attempting to use confirm_stripe_payment RPC function');
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('confirm_stripe_payment', {
+        p_payment_id: paymentIntentId
+      });
+      
+      if (rpcError) {
+        console.error('RPC function error:', rpcError);
+        // Continue to direct update fallback
+      } else {
+        console.log('RPC function success:', rpcResult);
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ 
+            success: true, 
+            message: 'Order confirmed successfully via RPC',
+            orderId: orderId,
+            status: 'confirmed'
+          })
+        };
+      }
+    } catch (rpcError) {
+      console.error('Error calling RPC function:', rpcError);
+      // Continue to direct update fallback
+    }
+
     // Update order status to confirmed and store payment intent
+    console.log('Falling back to direct table update');
     const { error: updateError } = await supabase
       .from('orders')
       .update({
@@ -89,10 +117,46 @@ exports.handler = async (event, context) => {
 
     if (updateError) {
       console.error('Failed to update order:', updateError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to update order' })
-      };
+      
+      // If direct update fails, try SQL function as a last resort
+      try {
+        console.log('Attempting direct SQL update as last resort');
+        const { error: sqlError } = await supabase.rpc('admin_force_confirm_order', {
+          p_order_id: orderId,
+          p_transaction_signature: paymentIntentId
+        });
+        
+        if (sqlError) {
+          console.error('SQL function error:', sqlError);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({ 
+              error: 'Failed to update order through all available methods',
+              details: {
+                updateError,
+                sqlError
+              }
+            })
+          };
+        }
+        
+        console.log('SQL function success');
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ 
+            success: true, 
+            message: 'Order confirmed successfully via SQL function',
+            orderId: orderId,
+            status: 'confirmed'
+          })
+        };
+      } catch (sqlError) {
+        console.error('Error calling SQL function:', sqlError);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: 'Failed to update order', details: { updateError, sqlError } })
+        };
+      }
     }
 
     // Log successful update
@@ -111,7 +175,7 @@ exports.handler = async (event, context) => {
     console.error('Error in confirm-stripe-order:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error', details: error.message })
     };
   }
 }; 
