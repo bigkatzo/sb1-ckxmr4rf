@@ -4,7 +4,7 @@ import { getStateFromZipCode } from '../lib/validation';
 /**
  * Countries that require tax ID for shipping
  */
-export const COUNTRIES_REQUIRING_TAX_ID = ['ZA', 'MX', 'NO', 'CL', 'TR']; // South Africa, Mexico, Norway, Chile, Turkey
+export const COUNTRIES_REQUIRING_TAX_ID = ['ZA', 'MX', 'NO', 'CL', 'TR', 'KR']; // South Africa, Mexico, Norway, Chile, Turkey, Republic of Korea
 
 /**
  * Check if a country requires tax ID for shipping

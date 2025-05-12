@@ -147,7 +147,7 @@ export function ComboBox({
           onKeyDown={handleKeyDown}
           disabled={disabled}
           placeholder={placeholder}
-          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed pr-10"
+          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed pr-10"
           aria-expanded={isOpen}
           aria-autocomplete="list"
           aria-controls={`${id || name}-listbox`}
@@ -222,7 +222,7 @@ export function ComboBox({
                     <span className="text-xs text-gray-400">{option.secondaryLabel}</span>
                   )}
                   {value === option.value && (
-                    <Check className="h-4 w-4 text-purple-400 ml-2" />
+                    <Check className="h-4 w-4 text-primary ml-2" />
                   )}
                 </div>
               </li>
