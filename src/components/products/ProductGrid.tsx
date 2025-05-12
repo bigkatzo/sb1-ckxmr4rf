@@ -43,6 +43,20 @@ export function ProductGrid({
     }
   }, [filteredProducts.length, loading]);
 
+  // Create placeholders for products that are loading
+  const generatePlaceholders = () => {
+    // Only add placeholders if we're loading more and have some products already
+    if (!loadingMore || filteredProducts.length === 0) return [];
+    
+    // Add 4-8 placeholders depending on screen size
+    const placeholderCount = window.innerWidth >= 768 ? 8 : 4;
+    
+    return Array(placeholderCount).fill(null).map((_, i) => ({
+      id: `placeholder-${i}`,
+      isPlaceholder: true
+    }));
+  };
+
   // Calculate how many products are visible in the initial viewport based on screen size
   const getInitialViewportCount = () => {
     // Get viewport width
@@ -66,8 +80,17 @@ export function ProductGrid({
   };
 
   const initialViewportCount = useMemo(() => getInitialViewportCount(), []);
+  
+  // Combine actual products with placeholders
+  const displayProducts = useMemo(() => {
+    const placeholders = generatePlaceholders();
+    return [...filteredProducts, ...placeholders];
+  }, [filteredProducts, loadingMore]);
 
   const handleProductClick = (product: Product) => {
+    // Don't process clicks on placeholders
+    if ((product as any).isPlaceholder) return;
+    
     if (!isValidProductNavigation(product)) {
       console.error('Invalid product data for navigation:', {
         id: product.id,
@@ -99,11 +122,11 @@ export function ProductGrid({
     });
   };
 
-  if (loading) {
+  if (loading && filteredProducts.length === 0) {
     return <ProductGridSkeleton />;
   }
 
-  if (!Array.isArray(filteredProducts) || filteredProducts.length === 0) {
+  if (!loading && (!Array.isArray(filteredProducts) || filteredProducts.length === 0)) {
     return (
       <div className="text-center py-12 bg-gray-900 rounded-xl">
         <p className="text-gray-400">
@@ -119,8 +142,12 @@ export function ProductGrid({
     <div 
       ref={gridRef}
       className={`grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 sm:gap-3 md:gap-4 product-grid-container ${loadingMore ? 'staggered-fade-in' : ''}`}
+      style={{ 
+        minHeight: filteredProducts.length > 0 ? '200px' : 'auto', 
+        contain: 'content' 
+      }}
     >
-      {filteredProducts.map((product, index) => {
+      {displayProducts.map((product, index) => {
         // Calculate row and column position for consistent loading order
         let columns = 2; // Default mobile
         if (window.innerWidth >= 768) columns = 4; // md:grid-cols-4
@@ -134,12 +161,22 @@ export function ProductGrid({
         // Lower priority value means higher loading priority
         const loadingPriority = row * 100 + col;
         
+        // For placeholders, render a skeleton card
+        if ((product as any).isPlaceholder) {
+          return (
+            <div 
+              key={`placeholder-${index}`}
+              className="product-placeholder animate-pulse bg-gray-800 rounded-xl aspect-square"
+            />
+          );
+        }
+        
         return (
           <ProductCard 
             key={product.id} 
-            product={product} 
-            onClick={() => handleProductClick(product)}
-            categoryIndex={categoryIndices[product.categoryId] || 0}
+            product={product as Product} 
+            onClick={() => handleProductClick(product as Product)}
+            categoryIndex={categoryIndices[(product as Product).categoryId] || 0}
             isInInitialViewport={index < initialViewportCount}
             loadingPriority={loadingPriority}
           />

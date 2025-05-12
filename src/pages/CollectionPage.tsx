@@ -93,8 +93,10 @@ export function CollectionPage() {
     loadMore,
     resetProducts
   } = usePaginatedProducts(visibleProducts, selectedCategory, {
-    initialLimit: 12,
-    loadMoreCount: 8,
+    initialLimit: 16, // Increased from 12 for faster initial load
+    loadMoreCount: 12,
+    preloadThreshold: 0.3, // Start preloading when 30% away from bottom
+    cacheKey: slug || '', // Use slug as cache key for persistence
   });
   
   // Keep track of whether the user has returned from a product page
@@ -678,19 +680,23 @@ export function CollectionPage() {
                 {(loadingMore || hasMore) && (
                   <div 
                     ref={loaderRef}
-                    className={`flex justify-center py-4 w-full overflow-hidden transition-opacity duration-300 ${
+                    className={`flex justify-center py-2 w-full overflow-hidden transition-opacity duration-300 ${
                       // Make loader less visible for returning users to avoid distraction
-                      hasReturnedFromProduct.current ? 'opacity-0' : 'opacity-100'
+                      hasReturnedFromProduct.current ? 'opacity-0' : loadingMore ? 'opacity-100' : 'opacity-0'
                     }`}
                     style={{ 
                       contain: 'layout size', 
                       height: loadingMore ? 'auto' : '4px',
-                      overscrollBehavior: 'none' 
+                      overscrollBehavior: 'none',
+                      transition: 'opacity 150ms ease-in-out'
                     }}
                   >
                     {loadingMore && (
-                      <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] text-gray-500/50 motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
-                        <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                      <div className="flex flex-col items-center justify-center py-2">
+                        <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] text-gray-500/50 motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                          <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                        </div>
+                        <span className="text-xs text-gray-500 mt-1">Loading more...</span>
                       </div>
                     )}
                   </div>

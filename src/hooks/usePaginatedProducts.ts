@@ -4,6 +4,8 @@ import type { Product } from '../types/variants';
 interface PaginatedProductsOptions {
   initialLimit?: number; // Initial number of items to load
   loadMoreCount?: number; // Number of items to load on "load more"
+  preloadThreshold?: number; // How many screens ahead to preload (0-1)
+  cacheKey?: string; // Optional key for caching pagination state
 }
 
 // This hook handles pagination of products locally
@@ -16,7 +18,12 @@ export function usePaginatedProducts(
   const {
     initialLimit = 12, // Default to 12 products initially
     loadMoreCount = 12, // Load 12 more products at a time
+    preloadThreshold = 0.5, // Preload when user is halfway through current batch
+    cacheKey = '', // Optional cache key for persistence between sessions
   } = options;
+
+  // Create a cache key combining collection/category info
+  const actualCacheKey = `products_${cacheKey}_${categoryId}`;
 
   // Memoize the filtered products for better performance
   const filteredProducts = useMemo(() => 
@@ -34,27 +41,78 @@ export function usePaginatedProducts(
     filteredAllProducts.current = filteredProducts;
   }, [filteredProducts]);
 
-  const [visibleProducts, setVisibleProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Try to restore from sessionStorage on initial mount
+  const getInitialState = () => {
+    if (typeof window === 'undefined') return [];
+    
+    try {
+      const cached = sessionStorage.getItem(actualCacheKey);
+      if (cached) {
+        const { ids, timestamp } = JSON.parse(cached);
+        
+        // Only use cache if it's recent (last 30 minutes)
+        const isCacheRecent = Date.now() - timestamp < 30 * 60 * 1000;
+        
+        if (isCacheRecent && Array.isArray(ids) && ids.length > 0) {
+          // Rebuild product array from cached IDs
+          const cachedProducts = ids
+            .map(id => allProducts.find(p => p.id === id))
+            .filter(Boolean) as Product[];
+            
+          if (cachedProducts.length > 0) {
+            return cachedProducts;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error restoring cached products:', e);
+    }
+    
+    return [];
+  };
+
+  const [visibleProducts, setVisibleProducts] = useState<Product[]>(getInitialState);
+  const [loading, setLoading] = useState(visibleProducts.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const offset = useRef(0); // Track current offset for pagination
+  const offset = useRef(visibleProducts.length); // Track current offset for pagination
   const isMounted = useRef(true); // Track component mounted state
   const isLoadingRef = useRef(false); // Track loading state to prevent concurrent operations
-  const initializedRef = useRef(false); // Track if initial load has happened
+  const initializedRef = useRef(visibleProducts.length > 0); // Track if initial load has happened
   const lastCategoryId = useRef<string | null>(null); // Track last category ID to detect changes
+  const preloadingRef = useRef(false); // Track if we're preloading the next batch
+  
+  // Save current visible products to session storage for persistence
+  useEffect(() => {
+    if (visibleProducts.length === 0 || typeof window === 'undefined') return;
+    
+    try {
+      // Only store IDs to keep cache size small
+      const productIds = visibleProducts.map(p => p.id);
+      sessionStorage.setItem(actualCacheKey, JSON.stringify({
+        ids: productIds, 
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.warn('Error caching products:', e);
+    }
+  }, [visibleProducts, actualCacheKey]);
   
   // Function to load more products (or initial load)
-  const loadProducts = useCallback((reset = false) => {
+  const loadProducts = useCallback((reset = false, isPreloading = false) => {
     // Don't load if already loading or if there's nothing more to load
-    if (isLoadingRef.current) return;
-    isLoadingRef.current = true;
+    if (isLoadingRef.current && !isPreloading) return;
+    if (isPreloading) {
+      preloadingRef.current = true;
+    } else {
+      isLoadingRef.current = true;
+    }
     
     try {
       if (reset) {
         setLoading(true);
         offset.current = 0;
-      } else {
+      } else if (!isPreloading) {
         setLoadingMore(true);
       }
       
@@ -76,9 +134,12 @@ export function usePaginatedProducts(
       if (isMounted.current) {
         setHasMore(moreAvailable);
         
-        setVisibleProducts(prevProducts => 
-          reset ? paginatedProducts : [...prevProducts, ...paginatedProducts]
-        );
+        // Only update visible products if not preloading
+        if (!isPreloading) {
+          setVisibleProducts(prevProducts => 
+            reset ? paginatedProducts : [...prevProducts, ...paginatedProducts]
+          );
+        }
         
         // Update offset for next load
         offset.current = reset 
@@ -90,13 +151,46 @@ export function usePaginatedProducts(
     } catch (error) {
       console.error('Error loading products:', error);
     } finally {
-      if (isMounted.current) {
+      if (isMounted.current && !isPreloading) {
         setLoading(false);
         setLoadingMore(false);
       }
-      isLoadingRef.current = false;
+      
+      if (isPreloading) {
+        preloadingRef.current = false;
+      } else {
+        isLoadingRef.current = false;
+      }
     }
   }, [initialLimit, loadMoreCount]);
+
+  // Preload next batch when scrolling
+  useEffect(() => {
+    // Skip if no more products or already preloading
+    if (!hasMore || preloadingRef.current || loadingMore || loading) return;
+    
+    // Set up scroll listener for preloading
+    const handleScroll = () => {
+      if (preloadingRef.current || isLoadingRef.current) return;
+      
+      // Calculate how far down the page the user has scrolled
+      const scrollTop = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      
+      // Calculate scroll percentage (0-1)
+      const scrollPercentage = (scrollTop + windowHeight) / docHeight;
+      
+      // If user has scrolled past threshold, preload next batch
+      if (scrollPercentage > 1 - preloadThreshold) {
+        // Preload next batch silently
+        loadProducts(false, true);
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasMore, loadingMore, loading, loadProducts, preloadThreshold]);
 
   // Reset state when products or category changes
   useEffect(() => {
@@ -129,7 +223,7 @@ export function usePaginatedProducts(
       // Update hasMore state based on current products
       setHasMore(offset.current < currentProducts.length);
     }
-  }, [allProducts, categoryId, initialLimit, loadProducts]);
+  }, [allProducts, categoryId, initialLimit, loadProducts, visibleProducts.length]);
 
   // Cleanup on unmount
   useEffect(() => {

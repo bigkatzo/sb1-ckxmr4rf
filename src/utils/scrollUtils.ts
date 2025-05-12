@@ -17,17 +17,18 @@ export function smoothScrollOnNewContent(
   const containerBottom = rect.bottom + window.scrollY;
   
   // Only scroll if we're already near the container's bottom
-  // Increased threshold for a more responsive feel
+  // Reduced threshold to prevent scrolling too early
   const isNearBottom = 
-    containerBottom - (window.innerHeight + currentScroll) < 300;
+    containerBottom - (window.innerHeight + currentScroll) < 200;
   
   // On mobile, use a more conservative approach to prevent layout issues
   const isMobile = window.innerWidth < 640;
   if (isMobile) {
     // For mobile, only scroll if very close to bottom to prevent jumpiness
-    if (containerBottom - (window.innerHeight + currentScroll) < 100) {
+    if (containerBottom - (window.innerHeight + currentScroll) < 80) {
+      // Use a smaller offset to prevent overshooting
       window.scrollTo({
-        top: currentScroll + 50, // Smaller jump on mobile
+        top: currentScroll + 30,
         behavior: 'smooth'
       });
     }
@@ -43,7 +44,7 @@ export function smoothScrollOnNewContent(
       // Use a more gentle scroll animation with custom easing
       const startPosition = currentScroll;
       const distance = targetPosition - startPosition;
-      const duration = 400; // ms
+      const duration = 300; // Reduced from 400ms for faster response
       const startTime = performance.now();
       
       // Easing function for more natural feel
