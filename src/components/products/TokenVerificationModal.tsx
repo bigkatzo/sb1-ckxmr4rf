@@ -420,6 +420,12 @@ export function TokenVerificationModal({
 
       if (is100PercentDiscount) {
         try {
+          // Don't attempt to create another order if we're already in the process
+          if (submitting) {
+            console.log('Already processing an order, skipping duplicate request');
+            return;
+          }
+          
           setSubmitting(true);
           // For 100% discount, use the create-order endpoint for free orders
           updateProgressStep(0, 'processing', 'Creating your free order...');
@@ -899,7 +905,7 @@ export function TokenVerificationModal({
       
       // Call the server-side fallback endpoint to ensure order gets confirmed
       try {
-        const response = await fetch('/.netlify/functions/confirm-stripe-order', {
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.confirmStripeOrder}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orderId, paymentIntentId })

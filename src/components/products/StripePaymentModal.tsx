@@ -372,6 +372,7 @@ export function StripePaymentModal({
   const [error, setError] = React.useState<string | null>(null);
   const [orderId, setOrderId] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
+  const [isProcessingOrder, setIsProcessingOrder] = React.useState(false);
   const { walletAddress } = useWallet();
   const { price: rawSolPrice } = useSolanaPrice();
   const solPrice = rawSolPrice || 0;
@@ -383,7 +384,7 @@ export function StripePaymentModal({
 
   // Create payment intent when component mounts
   React.useEffect(() => {
-    if (!solPrice || !shippingInfo?.shipping_address || isLoading || clientSecret) return;
+    if (!solPrice || !shippingInfo?.shipping_address || isLoading || clientSecret || isProcessingOrder) return;
     
     async function createPaymentIntent() {
       setIsLoading(true);
@@ -402,6 +403,9 @@ export function StripePaymentModal({
         // and create the order directly
         if (solAmount === 0 || (couponDiscount > 0 && couponDiscount >= originalPrice)) {
           console.log('Creating free order with 100% discount');
+          
+          // Prevent duplicate calls
+          setIsProcessingOrder(true);
           
           // Generate a unique transaction ID with proper prefix
           const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
@@ -467,6 +471,8 @@ export function StripePaymentModal({
           } catch (freeOrderError) {
             console.error('Error creating free order:', freeOrderError);
             throw new Error('Failed to create free order with coupon');
+          } finally {
+            setIsProcessingOrder(false);
           }
         }
 
@@ -549,7 +555,7 @@ export function StripePaymentModal({
 
     createPaymentIntent();
   }, [solPrice, solAmount, productId, productName, walletAddress, shippingInfo, couponCode, 
-      couponDiscount, originalPrice, variants, isLoading, clientSecret, onSuccess]);
+      couponDiscount, originalPrice, variants, isLoading, clientSecret, onSuccess, isProcessingOrder]);
 
   // Handle successful payment
   const handlePaymentSuccess = React.useCallback((paymentIntentId: string) => {
