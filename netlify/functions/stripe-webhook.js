@@ -172,6 +172,18 @@ async function findOrderByPaymentIntent(paymentIntentId) {
     return metadataOrder;
   }
   
+  // Look for paymentIntentId directly in metadata (client-side format)
+  const { data: clientOrder, error: clientError } = await supabase
+    .from('orders')
+    .select('id, status')
+    .filter('payment_metadata->paymentIntentId', 'eq', paymentIntentId)
+    .single();
+  
+  if (!clientError && clientOrder) {
+    console.log('Found order by client-side paymentIntentId in metadata:', clientOrder.id);
+    return clientOrder;
+  }
+  
   // If still not found, check for payment metadata directly
   const { data: allOrders, error: allOrdersError } = await supabase
     .from('orders')
@@ -182,7 +194,8 @@ async function findOrderByPaymentIntent(paymentIntentId) {
     const matchingOrder = allOrders.find(o => 
       o.payment_metadata && 
       (o.payment_metadata.stripePaymentIntentId === paymentIntentId || 
-       o.payment_metadata.payment_intent_id === paymentIntentId)
+       o.payment_metadata.payment_intent_id === paymentIntentId ||
+       o.payment_metadata.paymentIntentId === paymentIntentId)
     );
     
     if (matchingOrder) {

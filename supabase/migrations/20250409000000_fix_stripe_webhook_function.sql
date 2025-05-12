@@ -46,7 +46,7 @@ BEGIN
       status = 'pending_payment',
       updated_at = now()
     WHERE 
-      payment_metadata->>'payment_intent_id' = p_payment_id
+      (payment_metadata->>'payment_intent_id' = p_payment_id OR payment_metadata->>'paymentIntentId' = p_payment_id)
       AND status = 'draft'
     RETURNING * INTO v_metadata_rows;
 
@@ -56,7 +56,7 @@ BEGIN
       status = 'confirmed',
       updated_at = now()
     WHERE 
-      payment_metadata->>'payment_intent_id' = p_payment_id
+      (payment_metadata->>'payment_intent_id' = p_payment_id OR payment_metadata->>'paymentIntentId' = p_payment_id)
       AND status = 'pending_payment'
     RETURNING * INTO v_metadata_rows;
 
