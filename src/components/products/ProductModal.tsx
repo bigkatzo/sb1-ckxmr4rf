@@ -737,7 +737,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
 
                   {product.category && (
                     <div className="border-t border-gray-800 pt-4">
-                      <h3 className="text-sm font-medium mb-2">Category & Eligibility</h3>
+                      <h3 className="text-sm font-medium text-white mb-2">Category & Eligibility</h3>
                       <div className="bg-gray-950/50 rounded-lg p-3">
                         <CategoryDescription 
                           category={product.category} 
