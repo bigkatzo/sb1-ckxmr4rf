@@ -4,6 +4,7 @@ import { ArrowRight, Clock, Image as ImageIcon, ChevronLeft, ChevronRight } from
 import { useFeaturedCollections } from '../../hooks/useFeaturedCollections';
 import { CountdownTimer } from '../ui/CountdownTimer';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { FeaturedCollectionSkeleton } from './FeaturedCollectionSkeleton';
 
 export function FeaturedCollection() {
   const { collections, loading } = useFeaturedCollections();
@@ -16,10 +17,12 @@ export function FeaturedCollection() {
   const [dragStartTime, setDragStartTime] = useState(0);
   const [dragVelocity, setDragVelocity] = useState(0);
   const [scrollDirection, setScrollDirection] = useState<'horizontal' | 'vertical' | null>(null);
+  const [contentLoaded, setContentLoaded] = useState(false);
   const autoScrollTimer = useRef<NodeJS.Timeout>();
   const sliderRef = useRef<HTMLDivElement>(null);
   const mouseDownPos = useRef<number | null>(null);
   const isAnimating = useRef(false);
+  const initialLoadTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Required minimum swipe distance in pixels
   const minSwipeDistance = 50;
@@ -27,6 +30,21 @@ export function FeaturedCollection() {
   const velocityThreshold = 0.5;
   // Angle threshold for determining vertical vs horizontal movement (in degrees)
   const angleThreshold = 30;
+
+  // Mark content as loaded after initial delay for smooth transition
+  useEffect(() => {
+    if (!loading && collections.length > 0 && !contentLoaded) {
+      initialLoadTimeoutRef.current = setTimeout(() => {
+        setContentLoaded(true);
+      }, 100);
+
+      return () => {
+        if (initialLoadTimeoutRef.current) {
+          clearTimeout(initialLoadTimeoutRef.current);
+        }
+      };
+    }
+  }, [loading, collections, contentLoaded]);
 
   // Reset auto-scroll timer
   const resetAutoScroll = useCallback(() => {
@@ -283,11 +301,8 @@ export function FeaturedCollection() {
     }, 50); // Reduced to 50ms for very fast response
   };
 
-  if (loading) {
-    return (
-      <div className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl animate-pulse bg-gray-800" 
-           style={{ aspectRatio: '16/9' }} />
-    );
+  if (loading && !contentLoaded) {
+    return <FeaturedCollectionSkeleton />;
   }
 
   if (!collections.length) {
@@ -305,7 +320,7 @@ export function FeaturedCollection() {
     : -(currentIndex * 100);
 
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${contentLoaded ? 'content-fade-in' : 'opacity-0'}`}>
       <div 
         ref={sliderRef}
         className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing select-none"
@@ -345,13 +360,18 @@ export function FeaturedCollection() {
                       alt={collection.name}
                       width={1200}
                       height={675}
-                      quality={80}
+                      quality={90}
                       className="absolute inset-0 h-full w-full object-cover"
                       sizes="100vw"
                       priority={index === currentIndex}
                       loading={index === currentIndex ? "eager" : "lazy"} 
                       fetchPriority={index === currentIndex ? "high" : "auto"}
                       style={{ aspectRatio: '16/9' }}
+                      onLoad={() => {
+                        if (index === currentIndex && !contentLoaded) {
+                          setContentLoaded(true);
+                        }
+                      }}
                     />
                   ) : (
                     <ImageIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-600" />
@@ -399,7 +419,7 @@ export function FeaturedCollection() {
 
                     <Link
                       to={`/${collection.slug}`}
-                      className="mt-3 sm:mt-4 md:mt-6 inline-flex items-center space-x-2 rounded-full bg-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-6 md:py-3 text-xs sm:text-sm font-medium text-black transition-colors hover:bg-gray-100"
+                      className="mt-3 sm:mt-4 md:mt-6 inline-flex items-center space-x-2 rounded-full bg-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-6 md:py-3 text-xs sm:text-sm font-medium text-black transition-all hover:bg-gray-100 hover:scale-105"
                       onClick={(e) => {
                         // Prevent navigation if we're dragging
                         if (isDragging && Math.abs(dragOffset) > minSwipeDistance) {

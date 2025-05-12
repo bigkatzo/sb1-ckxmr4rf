@@ -92,4 +92,38 @@
 
 .animate-smooth {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Shimmer animation for skeleton loading states */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  animation: shimmer 2s infinite;
+  will-change: transform;
+}
+
+/* Fade-in animation for content that replaces skeletons */
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.content-fade-in {
+  animation: contentFadeIn 0.5s ease-out forwards;
+}
+
+/* Smooth transition for content that might move or resize */
+.content-transition {
+  transition: all 0.3s ease-out;
 } 

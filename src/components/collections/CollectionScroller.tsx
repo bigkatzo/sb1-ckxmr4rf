@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CollectionCard } from './CollectionCard';
@@ -15,9 +15,23 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
   const navigate = useNavigate();
   const [touchStartTime, setTouchStartTime] = useState<Record<string, number>>({});
   const [touchStartPosition, setTouchStartPosition] = useState<Record<string, {x: number, y: number}>>({});
+  const [contentLoaded, setContentLoaded] = useState(false);
+  const initialLoadTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // No need for visibleCount as we're using index-based loading priority
-  // This simplifies the component without changing functionality
+  // Mark content as loaded after a brief delay for smooth transition
+  useEffect(() => {
+    if (!loading && collections.length > 0 && !contentLoaded) {
+      initialLoadTimeoutRef.current = setTimeout(() => {
+        setContentLoaded(true);
+      }, 150);
+
+      return () => {
+        if (initialLoadTimeoutRef.current) {
+          clearTimeout(initialLoadTimeoutRef.current);
+        }
+      };
+    }
+  }, [loading, collections, contentLoaded]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -82,7 +96,7 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
     });
   };
 
-  if (loading) {
+  if (loading && !contentLoaded) {
     return <CollectionScrollerSkeleton />;
   }
 
@@ -91,10 +105,10 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
   }
 
   return (
-    <div className="relative group">
+    <div className={`relative group ${contentLoaded ? 'content-fade-in' : 'opacity-0'}`}>
       <div
         ref={scrollRef}
-        className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
+        className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory will-change-transform"
       >
         {collections.map((collection, index) => (
           <div
@@ -117,6 +131,7 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
         onClick={() => scroll('left')}
         className="absolute -left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-black transition-all disabled:opacity-0"
         disabled={loading}
+        aria-label="Scroll left"
       >
         <ChevronLeft className="h-5 w-5" />
       </button>
@@ -124,6 +139,7 @@ export function CollectionScroller({ filter }: CollectionScrollerProps) {
         onClick={() => scroll('right')}
         className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-black transition-all disabled:opacity-0"
         disabled={loading}
+        aria-label="Scroll right"
       >
         <ChevronRight className="h-5 w-5" />
       </button>

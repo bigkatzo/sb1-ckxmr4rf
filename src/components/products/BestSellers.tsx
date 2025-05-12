@@ -11,12 +11,29 @@ export function BestSellers() {
   const { products: rawProducts, categoryIndices, loading } = useBestSellers(10);
   const [selectedProduct, setSelectedProduct] = useState<VariantsProduct | null>(null);
   const [visibleItemCount, setVisibleItemCount] = useState(3); // Default to mobile
+  const [contentLoaded, setContentLoaded] = useState(false);
+  const initialLoadTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Ensure products have all required properties for VariantsProduct
   const products = rawProducts.map(product => ({
     ...product,
     visible: product.visible === undefined ? true : product.visible // Ensure visible is defined
   })) as unknown as VariantsProduct[];
+
+  // Mark content as loaded after a brief delay for smooth transition
+  useEffect(() => {
+    if (!loading && products.length > 0 && !contentLoaded) {
+      initialLoadTimeoutRef.current = setTimeout(() => {
+        setContentLoaded(true);
+      }, 150);
+
+      return () => {
+        if (initialLoadTimeoutRef.current) {
+          clearTimeout(initialLoadTimeoutRef.current);
+        }
+      };
+    }
+  }, [loading, products, contentLoaded]);
 
   // Update visible items count based on screen size
   useEffect(() => {
@@ -50,19 +67,22 @@ export function BestSellers() {
     scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   };
 
-  if (loading) {
+  if (loading && !contentLoaded) {
     return <BestSellersSkeleton />;
   }
 
   return (
     <>
-      <div className="relative group">
+      <div className={`relative group ${contentLoaded ? 'content-fade-in' : 'opacity-0'}`}>
         <div
           ref={scrollRef}
           className="flex gap-1.5 sm:gap-2 md:gap-3 overflow-x-auto pb-2 scrollbar-hide scroll-smooth snap-x snap-mandatory"
         >
           {products.map((product, index) => (
-            <div key={product.id} className="flex-shrink-0 w-[140px] sm:w-[200px] snap-start">
+            <div 
+              key={product.id} 
+              className="flex-shrink-0 w-[140px] sm:w-[200px] snap-start"
+            >
               <ProductCardCompact 
                 product={product}
                 onClick={() => setSelectedProduct(product)}
