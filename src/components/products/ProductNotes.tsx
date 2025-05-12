@@ -29,7 +29,7 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
 
   return (
     <div className="border-t border-gray-800 pt-4">
-      <h3 className="text-sm font-medium mb-2">Product Notes</h3>
+      <h3 className="text-sm font-medium text-white mb-2">Product Notes</h3>
       <div className="space-y-2">
         {displayNotes.shipping && (
           <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
