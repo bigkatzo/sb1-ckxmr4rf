@@ -145,16 +145,6 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
             </span>
           </div>
         )}
-        
-        {/* Hover Overlay - Improved visual feedback */}
-        <div 
-          className={`absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200
-            ${isHovered ? 'pointer-events-auto' : 'pointer-events-none'}`}
-        >
-          <span className="px-3 py-1.5 bg-secondary/90 text-white rounded-full text-sm font-medium transform transition-transform duration-200 group-hover:scale-105">
-            View Details
-          </span>
-        </div>
       </div>
       
       <div className="px-2.5 py-2">
