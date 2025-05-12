@@ -19,6 +19,27 @@ html, body {
   }
 }
 
+/* Fix for toast notifications and modals */
+.toast-container {
+  position: fixed !important;
+  z-index: 99999 !important;
+  right: 20px !important;
+  bottom: 20px !important;
+  max-width: 90vw !important;
+}
+
+@media (min-width: 640px) {
+  .toast-container {
+    max-width: 400px !important;
+  }
+}
+
+/* Ensure toasts always show on top */
+.Toastify__toast-container {
+  position: fixed !important;
+  z-index: 99999 !important;
+}
+
 @keyframes progress {
   0% {
     transform: translateX(-100%);

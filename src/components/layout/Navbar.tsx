@@ -137,7 +137,7 @@ export default function Navbar() {
     <nav 
       className={`fixed ${
         activeMarquee ? 'top-8' : 'top-0'
-      } w-full bg-black/95 backdrop-blur-sm text-white z-40 transition-all duration-200 ${
+      } w-full bg-black/95 backdrop-blur-sm text-white z-50 transition-all duration-200 ${
         isScrolled ? 'shadow-md' : ''
       }`}
     >

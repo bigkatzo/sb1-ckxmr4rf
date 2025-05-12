@@ -112,7 +112,7 @@ export function AnimatedLayout() {
   };
 
   return (
-    <div className={`min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden will-change-transform ${isNavigating ? 'pointer-events-none' : ''}`}>
+    <div className={`min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden ${isNavigating ? 'pointer-events-none' : ''}`}>
       <AppMessagesRenderer />
       
       <ScrollBehavior />
@@ -151,8 +151,7 @@ export function AnimatedLayout() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        className="z-[99999] max-w-[90vw] sm:max-w-md"
-        style={{ zIndex: 99999 }}
+        className="toast-container"
       />
       
       <HowItWorksModal />
