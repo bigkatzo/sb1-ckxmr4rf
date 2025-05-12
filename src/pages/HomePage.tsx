@@ -12,6 +12,14 @@ import { useCollections } from '../hooks/useCollections';
 import { useBestSellers } from '../hooks/useBestSellers';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 
+// Keep track of whether sections have been loaded before
+let sectionsLoadedBefore = {
+  featured: false,
+  bestSellers: false,
+  upcoming: false,
+  latest: false
+};
+
 export function HomePage() {
   const [siteSettings, setSiteSettings] = useState({
     site_name: 'store.fun',
@@ -32,6 +40,38 @@ export function HomePage() {
     loadMoreCount: 6
   });
   const { products: bestSellerProducts, loading: bestSellersLoading } = useBestSellers(10);
+  
+  // Track initial loads for each section to avoid redundant transitions
+  const [initialLoads, setInitialLoads] = useState({
+    featured: !sectionsLoadedBefore.featured,
+    bestSellers: !sectionsLoadedBefore.bestSellers,
+    upcoming: !sectionsLoadedBefore.upcoming,
+    latest: !sectionsLoadedBefore.latest
+  });
+  
+  // Update loaded state for sections
+  useEffect(() => {
+    if (featuredCollections && featuredCollections.length > 0 && initialLoads.featured) {
+      sectionsLoadedBefore.featured = true;
+      setInitialLoads(prev => ({ ...prev, featured: false }));
+    }
+    
+    if (bestSellerProducts && bestSellerProducts.length > 0 && initialLoads.bestSellers) {
+      sectionsLoadedBefore.bestSellers = true;
+      setInitialLoads(prev => ({ ...prev, bestSellers: false }));
+    }
+    
+    if (upcomingCollections && upcomingCollections.length > 0 && initialLoads.upcoming) {
+      sectionsLoadedBefore.upcoming = true;
+      setInitialLoads(prev => ({ ...prev, upcoming: false }));
+    }
+    
+    if (latestCollections && latestCollections.length > 0 && initialLoads.latest) {
+      sectionsLoadedBefore.latest = true;
+      setInitialLoads(prev => ({ ...prev, latest: false }));
+    }
+  }, [featuredCollections, bestSellerProducts, upcomingCollections, latestCollections, 
+      initialLoads.featured, initialLoads.bestSellers, initialLoads.upcoming, initialLoads.latest]);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -137,8 +177,8 @@ export function HomePage() {
       
       {/* Featured Collection with consistent spacing regardless of loading state */}
       <TransitionWrapper
-        identifier={featuredCollections.length > 0 ? featuredCollections[0].id : 'loading'}
-        duration={300}
+        identifier={initialLoads.featured ? 'featured-loading' : 'featured-loaded'}
+        duration={initialLoads.featured ? 300 : 0}
         maintainSize={true}
         className="featured-collection-wrapper"
       >
@@ -147,8 +187,8 @@ export function HomePage() {
       
       {/* Best Sellers with smooth transition */}
       <TransitionWrapper
-        identifier={bestSellerProducts.length > 0 ? 'best-sellers-loaded' : 'best-sellers-loading'}
-        duration={350}
+        identifier={initialLoads.bestSellers ? 'best-sellers-loading' : 'best-sellers-loaded'}
+        duration={initialLoads.bestSellers ? 350 : 0}
       >
         {hasBestSellers && (
           <section>
@@ -162,8 +202,8 @@ export function HomePage() {
 
       {/* Upcoming Collections */}
       <TransitionWrapper
-        identifier={upcomingCollections.length > 0 ? 'upcoming-loaded' : 'upcoming-loading'}
-        duration={350}
+        identifier={initialLoads.upcoming ? 'upcoming-loading' : 'upcoming-loaded'}
+        duration={initialLoads.upcoming ? 350 : 0}
       >
         {hasUpcomingCollections && (
           <section>
@@ -177,8 +217,8 @@ export function HomePage() {
 
       {/* Latest Collections with infinite scroll */}
       <TransitionWrapper
-        identifier={latestCollections.length > 0 ? 'latest-loaded' : 'latest-loading'}
-        duration={350}
+        identifier={initialLoads.latest ? 'latest-loading' : 'latest-loaded'}
+        duration={initialLoads.latest ? 350 : 0}
       >
         {hasLatestCollections && (
           <section>

@@ -6,6 +6,10 @@ import { CountdownTimer } from '../ui/CountdownTimer';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { FeaturedCollectionSkeleton } from './FeaturedCollectionSkeleton';
 
+// Keep track of whether the component has been loaded before
+// This is outside the component to persist across re-renders
+let hasLoadedBefore = false;
+
 export function FeaturedCollection() {
   const { collections, loading } = useFeaturedCollections();
   const navigate = useNavigate();
@@ -17,12 +21,12 @@ export function FeaturedCollection() {
   const [dragStartTime, setDragStartTime] = useState(0);
   const [dragVelocity, setDragVelocity] = useState(0);
   const [scrollDirection, setScrollDirection] = useState<'horizontal' | 'vertical' | null>(null);
-  const [contentLoaded, setContentLoaded] = useState(false);
+  const [contentLoaded, setContentLoaded] = useState(hasLoadedBefore);
+  const isFirstLoad = !hasLoadedBefore;
   const autoScrollTimer = useRef<NodeJS.Timeout>();
   const sliderRef = useRef<HTMLDivElement>(null);
   const mouseDownPos = useRef<number | null>(null);
   const isAnimating = useRef(false);
-  const initialLoadTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Required minimum swipe distance in pixels
   const minSwipeDistance = 50;
@@ -36,6 +40,8 @@ export function FeaturedCollection() {
     if (!loading && collections.length > 0 && !contentLoaded) {
       // Remove the artificial delay - load immediately
       setContentLoaded(true);
+      // Set global flag so future renders don't show the fade
+      hasLoadedBefore = true;
     }
   }, [loading, collections, contentLoaded]);
 
@@ -313,7 +319,11 @@ export function FeaturedCollection() {
     : -(currentIndex * 100);
 
   return (
-    <div className="space-y-2">
+    <div className={isFirstLoad && !contentLoaded ? "space-y-2 opacity-0" : "space-y-2"} 
+         style={isFirstLoad && contentLoaded ? {
+           transition: "opacity 300ms ease-out",
+           opacity: 1
+         } : undefined}>
       <div 
         ref={sliderRef}
         className="relative h-[30vh] sm:h-[60vh] md:h-[70vh] overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl group cursor-grab active:cursor-grabbing select-none"
