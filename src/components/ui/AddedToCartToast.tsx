@@ -12,7 +12,7 @@ export function AddedToCartToast({ productName, onViewClick }: AddedToCartToastP
           e.stopPropagation();
           onViewClick();
         }}
-        className="ml-2 text-[#38bdf8] hover:text-[#0ea5e9] font-medium underline hover:no-underline"
+        className="ml-4 text-[#38bdf8] hover:text-[#0ea5e9] font-medium underline text-sm"
       >
         View
       </button>

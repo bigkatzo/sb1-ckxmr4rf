@@ -16,9 +16,9 @@ export function CartButton({ className = '', size = 'md' }: CartButtonProps) {
   };
   
   const badgeClasses = {
-    sm: 'h-3.5 w-3.5 text-[8px] top-0 right-0',
-    md: 'h-4.5 w-4.5 text-[9px] -top-1 -right-1',
-    lg: 'h-5 w-5 text-[10px] -top-1.5 -right-1.5'
+    sm: 'h-4 w-4 text-[8px] -top-1 -right-1',
+    md: 'min-w-[18px] h-[18px] text-[10px] -top-1.5 -right-1.5',
+    lg: 'min-w-[20px] h-5 text-[11px] -top-2 -right-2'
   };
 
   return (
@@ -29,7 +29,7 @@ export function CartButton({ className = '', size = 'md' }: CartButtonProps) {
     >
       <ShoppingCart className={sizeClasses[size]} />
       {count > 0 && (
-        <span className={`absolute ${badgeClasses[size]} flex items-center justify-center rounded-full bg-secondary text-white font-bold`}>
+        <span className={`absolute ${badgeClasses[size]} flex items-center justify-center rounded-full bg-secondary text-white font-bold px-1`}>
           {count > 99 ? '99+' : count}
         </span>
       )}

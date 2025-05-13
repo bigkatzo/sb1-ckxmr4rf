@@ -19,8 +19,10 @@ export const toastService = {
       />, 
       {
         position: 'bottom-center',
-        autoClose: 2000,
-        hideProgressBar: true
+        autoClose: 3000,
+        hideProgressBar: true,
+        closeOnClick: false,
+        className: 'added-to-cart-toast'
       }
     );
   }
