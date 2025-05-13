@@ -54,9 +54,9 @@ export function CartDrawer() {
       {/* Cart Drawer UI */}
       {isOpen && (
         <>
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50" onClick={closeCart}></div>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm cart-backdrop" onClick={closeCart}></div>
           
-          <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[450px] bg-gray-900 shadow-xl z-50 flex flex-col">
+          <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[450px] bg-gray-900 shadow-xl cart-content flex flex-col">
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <h2 className="text-lg font-medium text-white flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5" />

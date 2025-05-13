@@ -552,7 +552,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
 
   return (
     <div 
-      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain" 
+      className="fixed inset-0 z-[55] overflow-y-auto overscroll-contain" 
       aria-modal="true" 
       role="dialog"
       aria-labelledby="modal-title"
