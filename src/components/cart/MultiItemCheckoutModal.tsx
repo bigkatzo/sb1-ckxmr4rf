@@ -167,6 +167,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     
     // Verify wallet connection for Solana payments
     if (paymentMethod === 'solana' && !isConnected) {
+      toast.info("Please connect your wallet to proceed with payment", {
+        position: "bottom-center",
+        autoClose: 3000
+      });
       setVisible(true);
       return;
     }
@@ -654,6 +658,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                 >
                   {processingPayment ? (
                     <Loading type={LoadingType.ACTION} />
+                  ) : !isConnected && paymentMethod === 'solana' ? (
+                    <>
+                      <Wallet className="h-4 w-4" />
+                      <span>Connect Wallet</span>
+                    </>
                   ) : (
                     <>
                       <span>Continue to Payment</span>

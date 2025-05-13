@@ -74,6 +74,18 @@ export function AddToCartButton({
       return;
     }
     
+    // Check if wallet is connected first
+    if (!walletAddress) {
+      toast.info("Please connect your wallet to add items to cart", {
+        position: "bottom-center",
+        autoClose: 3000
+      });
+      
+      // Show wallet connection modal
+      setVisible(true);
+      return;
+    }
+    
     // Prepare pricing information
     const variantKey = product.variants ? getVariantKey(product.variants, selectedOptions) : null;
     const priceInfo = {

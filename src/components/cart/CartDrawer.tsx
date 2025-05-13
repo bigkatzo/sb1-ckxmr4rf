@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { X, Trash2, Plus, Minus, ChevronRight, ShoppingCart } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ChevronRight, ShoppingCart, Wallet } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
+import { useWallet } from '../../contexts/WalletContext';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { toast } from 'react-toastify';
 // @ts-ignore - These modules exist but TypeScript can't find them
 import { formatPrice } from '../../utils/formatters';
 // @ts-ignore
@@ -18,12 +21,27 @@ export function CartDrawer() {
     getTotalPrice 
   } = useCart();
   
+  const { isConnected } = useWallet();
+  const { setVisible: showWalletModal } = useWalletModal();
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   
   // Use the getTotalPrice function from the cart context
   const totalPrice = getTotalPrice();
 
   const handleCheckout = () => {
+    // Check if wallet is connected first
+    if (!isConnected) {
+      toast.info("Please connect your wallet to proceed with checkout", {
+        position: "bottom-center",
+        autoClose: 3000
+      });
+      
+      // Show wallet connection modal
+      showWalletModal(true);
+      return;
+    }
+    
+    // Wallet is connected, proceed with checkout
     setIsCheckoutModalOpen(true);
     // Close the cart drawer after a small delay to ensure the modal is properly opened first
     setTimeout(() => {
@@ -226,8 +244,17 @@ export function CartDrawer() {
                   onClick={handleCheckout}
                   className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
                 >
-                  <span>Checkout</span>
-                  <ChevronRight className="h-4 w-4" />
+                  {!isConnected ? (
+                    <>
+                      <Wallet className="h-4 w-4" />
+                      <span>Connect Wallet</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Checkout</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </>
+                  )}
                 </button>
               </div>
             )}
