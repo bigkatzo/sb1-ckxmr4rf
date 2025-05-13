@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
@@ -86,7 +86,7 @@ export function TokenVerificationModal({
   shippingInfo = {},
   paymentMetadata = {}
 }: TokenVerificationModalProps) {
-  const { walletAddress, walletAuthToken, ensureAuthenticated } = useWallet();
+  const { walletAddress, isConnected } = useWallet();
   const { processPayment } = usePayment();
   const [verifying, setVerifying] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -348,456 +348,147 @@ export function TokenVerificationModal({
     verifyAccess();
   }, [walletAddress, product]);
 
-  // Add a function to ensure wallet is authenticated before critical operations
-  const ensureWalletAuth = useCallback(async () => {
-    const isAuthenticated = await ensureAuthenticated();
-    if (!isAuthenticated) {
-      console.warn('Wallet authentication required for checkout');
-      toast.warn('Please verify your wallet to continue', { 
-        position: 'bottom-center'
-      });
-      return false;
-    }
-    return true;
-  }, [ensureAuthenticated]);
-
   const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate phone number before submission
-    const phoneValidation = validatePhoneNumber(shippingInfoState.phoneNumber);
-    if (phoneValidation.error) {
-      setPhoneError(phoneValidation.error);
-      return;
-    }
-    
-    // Validate ZIP code before submission
-    const countryObj = countries.find(c => c.name === shippingInfoState.country);
-    const countryCode = countryObj?.code;
-    const zipValidation = validateZipCode(shippingInfoState.zip, countryCode);
-    if (zipValidation.error) {
-      setZipError(zipValidation.error);
-      return;
-    }
-    
-    // Validate state/province is selected if available for country
-    if (availableStates.length > 0 && !shippingInfoState.state) {
-      toast.error('Please select a state/province');
-      return;
-    }
-    
-    if (selectedOption === null) {
-      toast.error("Please select an option");
-      return;
-    }
-    
-    // Ensure wallet is authenticated
-    const isAuthenticated = await ensureWalletAuth();
-    if (!isAuthenticated) return;
-
-    let signature: string | null = null;
-    let orderId: string | null = null;
-    let orderNumber: string | null = null;
-    let transactionId = crypto.randomUUID?.() || Date.now().toString(); // Unique ID for this transaction attempt
-    
     try {
-      setSubmitting(true);
-
-      // Format shipping info for database
-      const formattedShippingInfo = {
-        shipping_address: {
-          address: shippingInfoState.address,
-          city: shippingInfoState.city,
-          country: shippingInfoState.country,
-          zip: shippingInfoState.zip,
-          state: shippingInfoState.state || undefined,
-          taxId: shippingInfoState.taxId || undefined
-        },
-        contact_info: {
-          method: shippingInfoState.contactMethod,
-          value: shippingInfoState.contactValue,
-          firstName: shippingInfoState.firstName,
-          lastName: shippingInfoState.lastName,
-          phoneNumber: shippingInfoState.phoneNumber
-        }
-      };
-
+      if (!isConnected) {
+        toast.error('Please connect your wallet first');
+        return;
+      }
+      
       // Format variant selections for database
       const formattedVariantSelections = Object.entries(selectedOption).map(([variantId, value]) => {
         // Find the variant name from product.variants
         const variant = product.variants?.find(v => v.id === variantId);
         return {
           name: variant?.name || variantId, // Use variant name, fallback to variant ID
-          value: value
+          value
         };
       });
-
-      // Add coupon information if applied
-      const paymentMetadata = {
-        couponCode: couponResult?.couponDiscount ? couponCode : undefined,
-        originalPrice: couponResult?.originalPrice,
-        couponDiscount: couponResult?.couponDiscount
-      };
-
-      // Check if it's a 100% discount
-      const is100PercentDiscount = couponResult?.couponDiscount && 
-        couponResult.originalPrice && 
-        couponResult.couponDiscount >= couponResult.originalPrice;
-
-      if (is100PercentDiscount) {
-        try {
-          // Don't attempt to create another order if we're already in the process
-          if (submitting) {
-            console.log('Already processing an order, skipping duplicate request');
-            return;
-          }
-          
-          setSubmitting(true);
-          // For 100% discount, use the create-order endpoint for free orders
-          updateProgressStep(0, 'processing', 'Creating your free order...');
-          
-          // Generate a consistent transaction ID for free orders to prevent duplicates
-          // Ensure it has the proper free_token_ prefix
-          const transactionId = `free_order_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
-          
-          let response;
-          let responseData;
-          let maxRetries = 2;
-          let currentRetry = 0;
-          let success = false;
-          
-          // Add retry logic for handling potential race conditions
-          while (!success && currentRetry <= maxRetries) {
-            try {
-              // Call the create-order endpoint with the free order flag
-              response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  productId: product.id,
-                  variants: formattedVariantSelections,
-                  shippingInfo: formattedShippingInfo,
-                  walletAddress: walletAddress || 'anonymous',
-                  paymentMetadata: {
-                    ...paymentMetadata,
-                    paymentMethod: 'free_order',
-                    couponCode: couponResult?.couponCode,
-                    couponDiscount: couponResult?.couponDiscount,
-                    originalPrice: couponResult?.originalPrice,
-                    transactionId,
-                    isFreeOrder: true,
-                    orderSource: 'token_modal'
-                  }
-                })
-              });
-              
-              const responseText = await response.text();
-              try {
-                responseData = JSON.parse(responseText);
-                console.log('Free order server response:', responseData);
-                
-                // Handle duplicate orders gracefully - they're not an error
-                if (responseData.isDuplicate) {
-                  console.log('Using existing order:', responseData);
-                  success = true;
-                  break;
-                }
-                
-                if (response.ok) {
-                  success = true;
-                  break;
-                } else {
-                  throw new Error(responseData.error || 'Server returned an error');
-                }
-              } catch (parseError) {
-                console.error('Error parsing server response:', parseError, responseText);
-                throw new Error(`Invalid server response: ${responseText}`);
-              }
-            } catch (fetchError) {
-              currentRetry++;
-              console.warn(`Attempt ${currentRetry}/${maxRetries} failed:`, fetchError);
-              if (currentRetry <= maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * currentRetry));
-                updateProgressStep(0, 'processing', `Retrying order creation (attempt ${currentRetry + 1}/${maxRetries + 1})...`);
-              } else {
-                throw fetchError;
-              }
-            }
-          }
-          
-          if (!success || !responseData) {
-            throw new Error('Failed to create free order after multiple attempts');
-          }
-          
-          console.log('Free order processed successfully:', responseData);
-          
-          orderId = responseData.orderId;
-          // Use the transactionSignature field if available, fall back to paymentIntentId for backwards compatibility
-          const uniqueSignature = responseData.transactionSignature || responseData.paymentIntentId || `free_token_${product.id}_${Date.now()}`;
-          
-          // Update progress steps
-          updateProgressStep(0, 'completed');
-          updateProgressStep(1, 'completed');
-          updateProgressStep(2, 'completed');
-
-          // If we have the order number directly from the response, use it
-          if (responseData.orderNumber) {
-            setOrderDetails({
-              orderNumber: responseData.orderNumber,
-              transactionSignature: uniqueSignature
-            });
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
-            onSuccess();
-            return;
-          }
-
-          // Helper function to consistently show success - can be called from multiple places
-          const showSuccessWithFallback = (orderNum: string, txSignature: string) => {
-            // Don't check successTriggered here, we'll use the component state
-            setOrderDetails({
-              orderNumber: orderNum,
-              transactionSignature: txSignature
-            });
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
-            onSuccess();
-          };
-
-          // Try to get order number but use fallback if needed
-          try {
-            console.log(`Attempting to fetch order details for order ID: ${orderId}`);
-            
-            // Use auth-aware fetch to get order details
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-            
-            if (!supabaseUrl || !supabaseKey) {
-              throw new Error('Supabase URL or key not found');
-            }
-            
-            if (!orderId) {
-              throw new Error('Order ID is missing');
-            }
-            
-            // First attempt: Try using a direct RPC function that doesn't rely on RLS
-            try {
-              const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                'apikey': supabaseKey,
-                'Authorization': `Bearer ${supabaseKey}`
-              };
-              
-              // Add wallet headers if available
-              if (walletAddress) {
-                headers['X-Wallet-Address'] = walletAddress;
-              }
-              
-              if (walletAuthToken) {
-                headers['X-Wallet-Auth-Token'] = walletAuthToken;
-              }
-              
-              const response = await fetch(
-                `${supabaseUrl}/rest/v1/rpc/get_order_by_id`,
-                {
-                  method: 'POST',
-                  headers: headers,
-                  body: JSON.stringify({ order_id: orderId })
-                }
-              );
-              
-              if (response.ok) {
-                const orderData = await response.json();
-                if (orderData && orderData.order_number) {
-                  showSuccessWithFallback(orderData.order_number, uniqueSignature);
-                  return;
-                }
-              }
-            } catch (rpcError) {
-              console.warn('RPC method failed, falling back to alternative method:', rpcError);
-            }
-            
-            // Second attempt: Try direct orders table access with service key
-            try {
-              const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                'apikey': supabaseKey,
-                'Authorization': `Bearer ${supabaseKey}`
-              };
-              
-              // Add wallet headers if available
-              if (walletAddress) {
-                headers['X-Wallet-Address'] = walletAddress;
-              }
-              
-              if (walletAuthToken) {
-                headers['X-Wallet-Auth-Token'] = walletAuthToken;
-              }
-              
-              const response = await fetch(
-                `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=order_number`,
-                {
-                  method: 'GET',
-                  headers: headers
-                }
-              );
-              
-              if (response.ok) {
-                const orderData = await response.json();
-                
-                if (Array.isArray(orderData) && orderData.length > 0 && orderData[0].order_number && orderId) {
-                  // Use the order number from the response
-                  showSuccessWithFallback(orderData[0].order_number, uniqueSignature);
-                  return;
-                }
-              } else {
-                console.warn(`Second attempt failed with status: ${response.status}`);
-              }
-            } catch (secondAttemptError) {
-              console.warn('Second attempt failed:', secondAttemptError);
-            }
-            
-            // If we get here and success hasn't been triggered, use fallback
-            if (!showSuccessView) {
-              console.warn('API calls completed but success not triggered yet, using fallback');
-              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-              showSuccessWithFallback(fallbackOrderNumber, uniqueSignature);
-            }
-          } catch (err) {
-            console.error('Error fetching order details:', err);
-            
-            // If we have orderNumber from the API response, use it instead of generating fallback
-            if (responseData.orderNumber) {
-              showSuccessWithFallback(responseData.orderNumber, uniqueSignature);
-            } else {
-              // Use fallback order number if an error occurs and we don't have one from API
-              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-              showSuccessWithFallback(fallbackOrderNumber, uniqueSignature);
-            }
-          }
-          // Return early to prevent proceeding to regular payment flow
-          return;
-        } catch (error) {
-          console.error('Free order error:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Failed to process free order';
-          toast.error(errorMessage, {
-            autoClose: false
-          });
-          setSubmitting(false);
-          // Return early to prevent proceeding to regular payment flow
-          return;
-        }
+      
+      setSubmitting(true);
+      setProgressSteps(prevSteps => 
+        prevSteps.map((step, i) => 
+          i === 0 ? { ...step, status: 'processing' } : step
+        )
+      );
+      
+      // For free orders with 100% discount, use a different flow
+      if (isFreeOrder && couponResult) {
+        await handleFreeOrder();
+        return;
       }
 
-      // Regular payment flow for non-100% discounts
+      // Start order creation process
       updateProgressStep(0, 'processing', 'Creating your order...');
       
-      // Retry order creation up to 3 times
-      for (let i = 0; i < 3; i++) {
-        try {
-          // Check if this is a cart order (batch) or a regular single order
-          const isBatchOrder = paymentMetadata && 'isCartOrder' in paymentMetadata && paymentMetadata.isCartOrder === true;
-          
-          let orderResponse;
-          
-          if (isBatchOrder) {
-            // For batch orders, use the batch order endpoint
-            orderResponse = await fetch('/.netlify/functions/create-batch-order', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                items: [
-                  {
-                    product,
-                    selectedOptions: selectedOption,
-                    quantity: 1
-                  }
-                ],
-                shippingInfo: formattedShippingInfo,
-                walletAddress,
-                paymentMetadata: {
-                  ...paymentMetadata,
-                  transactionId, // Add the transaction ID
-                  orderSource: 'token_modal'
-                }
-              })
-            });
-            
-            if (!orderResponse.ok) {
-              const errorData = await orderResponse.json();
-              throw new Error(errorData.error || 'Failed to create batch order');
-            }
-            
-            const batchData = await orderResponse.json();
-            
-            if (!batchData.success) {
-              throw new Error(batchData.error || 'Failed to create batch order');
-            }
-            
-            orderId = batchData.orders?.[0]?.orderId; // Get the first order ID
-            
-            // Get order number from the response
-            orderNumber = batchData.orderNumber;
-          } else {
-            // For regular single orders, use the regular order endpoint
-            orderResponse = await fetch('/.netlify/functions/create-order', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                productId: product.id,
-                variants: formattedVariantSelections,
-                shippingInfo: formattedShippingInfo,
-                walletAddress,
-                paymentMetadata: {
-                  ...paymentMetadata,
-                  orderSource: 'token_modal',
-                  paymentMethod: 'solana',
-                  isBatchOrder: false,
-                  isSingleItemOrder: true
-                }
-              })
-            });
-            
-            if (!orderResponse.ok) {
-              const errorData = await orderResponse.json();
-              throw new Error(errorData.error || 'Failed to create order');
-            }
-            
-            const orderData = await orderResponse.json();
-            if (orderData.error) {
-              throw new Error(orderData.error);
-            }
-            
-            orderId = orderData.orderId;
-            orderNumber = orderData.orderNumber || 
-                         orderData.orders?.[0]?.orderNumber || 
-                         `SF-${Date.now().toString().slice(-6)}`;  // Fallback that matches pattern
-          }
-
-          updateProgressStep(0, 'completed');
-          break;
-        } catch (err) {
-          console.error(`Order creation attempt ${i + 1} failed:`, err);
-          if (i < 2) {
-            updateProgressStep(0, 'processing', `Retrying order creation (attempt ${i + 2} of 3)...`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
-          } else {
-            updateProgressStep(0, 'error', 'Failed to create order');
-            throw err;
-          }
-        }
-      }
-
-      if (!orderId) {
-        throw new Error('Failed to create order');
-      }
+      let orderResponse;
+      let orderId;
+      let orderNumber;
       
+      // If user has a batch checkout from cart, use batch order endpoint
+      if (paymentMetadata?.isBatchOrder) {
+        // For batch orders, use the batch order endpoint
+        orderResponse = await fetch('/.netlify/functions/create-batch-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            items: [{
+              product,
+              selectedOptions: selectedOption,
+              quantity: 1
+            }],
+            shippingInfo: {
+              shipping_address: {
+                address: shippingInfoState.address,
+                city: shippingInfoState.city,
+                country: shippingInfoState.country,
+                state: shippingInfoState.state || undefined,
+                zip: shippingInfoState.zip,
+                taxId: shippingInfoState.taxId || undefined
+              },
+              contact_info: {
+                method: shippingInfoState.contactMethod,
+                value: shippingInfoState.contactValue,
+                firstName: shippingInfoState.firstName,
+                lastName: shippingInfoState.lastName,
+                phoneNumber: shippingInfoState.phoneNumber
+              }
+            },
+            walletAddress,
+            paymentMetadata: {
+              ...paymentMetadata,
+              paymentMethod: 'solana'
+            }
+          })
+        });
+            
+        const batchData = await orderResponse.json();
+            
+        if (!batchData.success) {
+          throw new Error(batchData.error || 'Failed to create batch order');
+        }
+            
+        orderId = batchData.orders?.[0]?.orderId; // Get the first order ID
+            
+        // Get order number from the response
+        orderNumber = batchData.orderNumber;
+      } else {
+        // For regular single orders, use the regular order endpoint
+        orderResponse = await fetch('/.netlify/functions/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            productId: product.id,
+            variants: formattedVariantSelections,
+            shippingInfo: {
+              shipping_address: {
+                address: shippingInfoState.address,
+                city: shippingInfoState.city,
+                country: shippingInfoState.country,
+                state: shippingInfoState.state || undefined,
+                zip: shippingInfoState.zip,
+                taxId: shippingInfoState.taxId || undefined
+              },
+              contact_info: {
+                method: shippingInfoState.contactMethod,
+                value: shippingInfoState.contactValue,
+                firstName: shippingInfoState.firstName,
+                lastName: shippingInfoState.lastName,
+                phoneNumber: shippingInfoState.phoneNumber
+              }
+            },
+            walletAddress,
+            paymentMetadata: {
+              ...paymentMetadata,
+              orderSource: 'token_modal',
+              paymentMethod: 'solana',
+              isBatchOrder: false,
+              isSingleItemOrder: true
+            }
+          })
+        });
+
+        const orderData = await orderResponse.json();
+        if (orderData.error) {
+          throw new Error(orderData.error);
+        }
+        
+        orderId = orderData.orderId;
+        
+        // Get order number from any of the formats
+        orderNumber = orderData.orderNumber || 
+                     orderData.orders?.[0]?.orderNumber || 
+                     `SF-${Date.now().toString().slice(-6)}`;  // Fallback that matches pattern
+      }
+
+      updateProgressStep(0, 'completed');
+
       // Start payment processing
       updateProgressStep(1, 'processing', 'Initiating payment on Solana network...');
       
@@ -832,8 +523,6 @@ export function TokenVerificationModal({
         throw new Error('Payment failed');
       }
 
-      signature = txSignature;
-
       // Update order with transaction signature
       try {
         const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
@@ -843,7 +532,7 @@ export function TokenVerificationModal({
           },
           body: JSON.stringify({
             orderId,
-            transactionSignature: signature,
+            transactionSignature: txSignature,
             amountSol: finalPrice
           })
         });
@@ -876,7 +565,7 @@ export function TokenVerificationModal({
         
         // Monitor transaction status and confirm on chain
         const transactionSuccess = await monitorTransaction(
-          signature,
+          txSignature,
           (status) => {
             console.log('Transaction status update:', status);
             if (status.error) {
@@ -892,7 +581,7 @@ export function TokenVerificationModal({
               // Important: Force full sequence order, use functional state update
               setOrderDetails({
                 orderNumber: displayOrderNumber,
-                transactionSignature: signature || ''
+                transactionSignature: txSignature || ''
               });
               
               // Force re-render by triggering in the next tick
@@ -918,7 +607,7 @@ export function TokenVerificationModal({
               const displayOrderNumber = orderNumber || `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
               setOrderDetails({
                 orderNumber: displayOrderNumber,
-                transactionSignature: signature || ''
+                transactionSignature: txSignature || ''
               });
               
               // Force re-render by triggering in the next tick
@@ -941,7 +630,7 @@ export function TokenVerificationModal({
           // Force reliable state update sequence
           setOrderDetails({
             orderNumber: displayOrderNumber,
-            transactionSignature: signature || ''
+            transactionSignature: txSignature || ''
           });
           
           // Use setTimeout to ensure state updates processed in order

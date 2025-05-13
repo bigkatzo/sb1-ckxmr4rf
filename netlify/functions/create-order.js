@@ -139,6 +139,21 @@ exports.handler = async (event, context) => {
     };
   }
 
+  // Format variants to be consistent with cart checkout
+  // This ensures variant_selections is always an array of {name, value} objects
+  let formattedVariants = [];
+  if (Array.isArray(variants)) {
+    formattedVariants = variants;
+  } else if (typeof variants === 'object' && variants !== null) {
+    // Convert object format to array format for consistency
+    formattedVariants = Object.entries(variants).map(([name, value]) => ({
+      name,
+      value
+    }));
+  }
+  
+  console.log('Formatted variants:', formattedVariants);
+
   // Check for free order with 100% discount
   const isFreeOrder = 
     // Explicitly marked as free
@@ -287,7 +302,7 @@ exports.handler = async (event, context) => {
     // Call create_order function with service role permissions
     const { data: orderId, error } = await supabase.rpc('create_order', {
       p_product_id: productId,
-      p_variants: variants || {},
+      p_variants: formattedVariants,
       p_shipping_info: shippingInfo,
       p_wallet_address: walletAddress,
       p_payment_metadata: finalPaymentMetadata
