@@ -1007,7 +1007,7 @@ export function TokenVerificationModal({
             {index < progressSteps.length - 1 && (
               <div className={`absolute left-[15px] top-8 w-[2px] h-[calc(100%+8px)] -ml-px transition-colors duration-300 ${
                 step.status === 'completed' ? 'bg-green-500/50' :
-                step.status === 'processing' ? 'bg-purple-500/50 animate-pulse' :
+                step.status === 'processing' ? 'bg-secondary-500/50 animate-pulse' :
                 'bg-gray-700'
               }`} />
             )}
@@ -1018,7 +1018,7 @@ export function TokenVerificationModal({
               {/* Status indicator */}
               <div className={`relative flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300 ${
                 step.status === 'completed' ? 'bg-green-500/20 text-green-400 ring-2 ring-green-500/30' :
-                step.status === 'processing' ? 'bg-purple-500/20 text-purple-400 ring-2 ring-purple-500/30 scale-110' :
+                step.status === 'processing' ? 'bg-secondary-500/20 text-secondary-400 ring-2 ring-secondary-500/30 scale-110' :
                 step.status === 'error' ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/30' :
                 'bg-gray-700/50 text-gray-400'
               }`}>
@@ -1028,7 +1028,7 @@ export function TokenVerificationModal({
                   <div className="relative">
                     <Loading type={LoadingType.ACTION} />
                     <div className="absolute inset-0 rounded-full animate-[ping_2s_ease-in-out_infinite]">
-                      <div className="absolute inset-0 rounded-full bg-purple-500/30 animate-[ping_2s_ease-in-out_infinite_0.75s]" />
+                      <div className="absolute inset-0 rounded-full bg-secondary-500/30 animate-[ping_2s_ease-in-out_infinite_0.75s]" />
                     </div>
                   </div>
                 ) : step.status === 'error' ? (
@@ -1043,7 +1043,7 @@ export function TokenVerificationModal({
                 <div className="flex items-center justify-between">
                   <p className={`text-sm font-medium transition-colors duration-300 ${
                     step.status === 'completed' ? 'text-green-400' :
-                    step.status === 'processing' ? 'text-purple-400' :
+                    step.status === 'processing' ? 'text-secondary-400' :
                     step.status === 'error' ? 'text-red-400' :
                     'text-gray-400'
                   }`}>
@@ -1060,7 +1060,7 @@ export function TokenVerificationModal({
                     <p className="text-xs text-red-400/80 animate-fadeIn">{step.details.error}</p>
                   )}
                   {step.status === 'processing' && (
-                    <p className="text-xs text-purple-400/80 animate-pulse">Processing...</p>
+                    <p className="text-xs text-secondary-400/80 animate-pulse">Processing...</p>
                   )}
                   {step.description && (
                     <p className="text-xs text-gray-500">{step.description}</p>

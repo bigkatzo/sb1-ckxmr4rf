@@ -273,7 +273,7 @@ function StripeCheckoutForm({
             {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (
               <div className="text-sm">
                 <span className="text-gray-400 line-through">${((originalPrice ?? 0) * solPrice).toFixed(2)}</span>
-                <span className="text-purple-400 ml-2">Coupon applied</span>
+                <span className="text-primary-400 ml-2">Coupon applied</span>
               </div>
             )}
             {solAmount * solPrice < 0.50 && (
@@ -321,7 +321,7 @@ function StripeCheckoutForm({
         ref={submitButtonRef}
         type="submit"
         disabled={isProcessing || !elementsReady || !stripe || !isPaymentMethodSelected}
-        className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+        className="w-full bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
       >
         {isProcessing ? (
           <>
@@ -345,7 +345,7 @@ function StripeCheckoutForm({
           <button
             type="button"
             onClick={() => setPaymentStatus('idle')}
-            className="block w-full mt-2 text-purple-400 hover:text-purple-300"
+            className="block w-full mt-2 text-primary-400 hover:text-primary-300"
           >
             Cancel Payment
           </button>
@@ -536,7 +536,7 @@ export function StripePaymentModal({
                   setClientSecret(null);
                   setOrderId(null);
                 }}
-                className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium"
+                className="mt-4 text-primary-400 hover:text-primary-300 text-sm font-medium"
               >
                 Try Again
               </button>
@@ -551,7 +551,7 @@ export function StripePaymentModal({
               <div className="text-sm text-gray-400 mb-4">Please try refreshing the page.</div>
               <button
                 onClick={() => window.location.reload()}
-                className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-medium block w-full"
+                className="mt-4 text-primary-400 hover:text-primary-300 text-sm font-medium block w-full"
               >
                 Refresh Page
               </button>
@@ -594,7 +594,7 @@ export function StripePaymentModal({
                   <p>Failed to load payment form.</p>
                   <button
                     onClick={() => window.location.reload()}
-                    className="mt-4 text-primary hover:text-primary-light text-sm font-medium"
+                    className="mt-4 text-primary-400 hover:text-primary-300 text-sm font-medium"
                   >
                     Refresh Page
                   </button>
