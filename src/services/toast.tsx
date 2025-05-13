@@ -1,5 +1,6 @@
 import { toast } from 'react-toastify';
 import { OrderSuccessToast } from '../components/ui/OrderSuccessToast';
+import { AddedToCartToast } from '../components/ui/AddedToCartToast';
 
 export const toastService = {
   showOrderSuccess: () => {
@@ -8,5 +9,19 @@ export const toastService = {
       hideProgressBar: true,
       closeOnClick: false
     });
+  },
+
+  showAddedToCart: (productName: string, onViewClick?: () => void) => {
+    toast.success(
+      <AddedToCartToast 
+        productName={productName} 
+        onViewClick={onViewClick || (() => {})} 
+      />, 
+      {
+        position: 'bottom-center',
+        autoClose: 2000,
+        hideProgressBar: true
+      }
+    );
   }
 }; 

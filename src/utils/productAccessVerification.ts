@@ -4,6 +4,7 @@ import { verifyWhitelistAccess } from './whitelist-verification';
 import type { CategoryRule } from '../types';
 import { toast } from 'react-toastify';
 import type { CartItemPriceInfo } from '../contexts/CartContext';
+import { toastService } from '../services/toast';
 
 /**
  * Verifies if a user has access to a product based on its category rules
@@ -101,16 +102,11 @@ export async function verifyAndAddToCart(
   if (!product.category?.eligibilityRules?.groups?.length) {
     addToCartFn(product, selectedOptions, quantity, true, priceInfo);
     
-    // Show success toast with clickable notification
+    // Show success toast with View link
     if (toggleCartFn) {
-      toast.success(`${product.name} added to cart`, {
-        position: 'bottom-center',
-        autoClose: 2000,
-        hideProgressBar: true,
-        onClick: () => toggleCartFn()
-      });
+      toastService.showAddedToCart(product.name, toggleCartFn);
     } else {
-      toast.success(`${product.name} added to cart`);
+      toastService.showAddedToCart(product.name);
     }
     
     return true;
@@ -131,16 +127,11 @@ export async function verifyAndAddToCart(
   if (result.isValid) {
     addToCartFn(product, selectedOptions, quantity, true, priceInfo);
     
-    // Show success toast with clickable notification
+    // Show success toast with View link
     if (toggleCartFn) {
-      toast.success(`${product.name} added to cart`, {
-        position: 'bottom-center',
-        autoClose: 2000,
-        hideProgressBar: true,
-        onClick: () => toggleCartFn()
-      });
+      toastService.showAddedToCart(product.name, toggleCartFn);
     } else {
-      toast.success(`${product.name} added to cart`);
+      toastService.showAddedToCart(product.name);
     }
     
     return true;
