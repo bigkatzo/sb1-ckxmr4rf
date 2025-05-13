@@ -26,7 +26,7 @@ export function AddToCartButton({
   showText = false,
   size = 'md'
 }: AddToCartButtonProps) {
-  const { addItem } = useCart();
+  const { addItem, toggleCart } = useCart();
   const { walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -107,7 +107,8 @@ export function AddToCartButton({
           selectedOptions,
           1,
           () => setVisible(true), // Function to show wallet connection modal if needed
-          priceInfo
+          priceInfo,
+          toggleCart  // Pass toggle cart function for the View link
         );
       } catch (error) {
         console.error('Error verifying product access:', error);
@@ -119,11 +120,12 @@ export function AddToCartButton({
       // No access restrictions, directly add to cart
       addItem(product, selectedOptions, 1, false, priceInfo);
       
-      // Show success toast
-      toast.success(`${product.name} added to cart`, {
+      // Show success toast with View Cart link
+      toast.success(`${product.name} added to cart. Click to view cart.`, {
         position: 'bottom-center',
-        autoClose: 2000,
-        hideProgressBar: true
+        autoClose: 3000,
+        hideProgressBar: false,
+        onClick: () => toggleCart()
       });
     }
   };

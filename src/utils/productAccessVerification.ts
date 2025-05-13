@@ -84,6 +84,7 @@ async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ 
  * @param quantity - Quantity to add
  * @param showConnectWalletFn - Function to show wallet connection modal
  * @param priceInfo - Price information including modified price and variant adjustments
+ * @param toggleCartFn - Function to toggle cart drawer
  * @returns A promise that resolves to a boolean indicating if the item was added
  */
 export async function verifyAndAddToCart(
@@ -93,12 +94,25 @@ export async function verifyAndAddToCart(
   selectedOptions: Record<string, string>,
   quantity: number = 1,
   showConnectWalletFn?: () => void,
-  priceInfo?: CartItemPriceInfo
+  priceInfo?: CartItemPriceInfo,
+  toggleCartFn?: () => void
 ): Promise<boolean> {
   // Skip verification for products without access rules
   if (!product.category?.eligibilityRules?.groups?.length) {
     addToCartFn(product, selectedOptions, quantity, true, priceInfo);
-    toast.success(`Added to cart: ${product.name}`);
+    
+    // Show success toast with View Cart option
+    if (toggleCartFn) {
+      toast.success(`Added to cart: ${product.name}. Click to view cart.`, {
+        position: 'bottom-center',
+        autoClose: 3000,
+        hideProgressBar: false,
+        onClick: () => toggleCartFn()
+      });
+    } else {
+      toast.success(`Added to cart: ${product.name}`);
+    }
+    
     return true;
   }
 
@@ -116,7 +130,19 @@ export async function verifyAndAddToCart(
   
   if (result.isValid) {
     addToCartFn(product, selectedOptions, quantity, true, priceInfo);
-    toast.success(`Added to cart: ${product.name}`);
+    
+    // Show success toast with View Cart option
+    if (toggleCartFn) {
+      toast.success(`Added to cart: ${product.name}. Click to view cart.`, {
+        position: 'bottom-center',
+        autoClose: 3000,
+        hideProgressBar: false,
+        onClick: () => toggleCartFn()
+      });
+    } else {
+      toast.success(`Added to cart: ${product.name}`);
+    }
+    
     return true;
   } else {
     toast.error(`Access denied: ${result.error || 'You don\'t have access to this product'}`);
