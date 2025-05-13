@@ -35,8 +35,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     state: string;
     zip: string;
     country: string;
-    email: string;
-    phone: string;
+    contactMethod: string;
+    contactValue: string;
+    phoneNumber: string;
     taxId?: string;
   }>({
     firstName: '',
@@ -46,8 +47,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     state: '',
     zip: '',
     country: '',
-    email: '',
-    phone: '',
+    contactMethod: 'email',
+    contactValue: '',
+    phoneNumber: '',
     taxId: ''
   });
   
@@ -109,8 +111,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           state: parsedShipping.state || '',
           zip: parsedShipping.zip || '',
           country: parsedShipping.country || '',
-          email: parsedShipping.contactValue || '',
-          phone: parsedShipping.phoneNumber || '',
+          contactMethod: parsedShipping.contactMethod || 'email',
+          contactValue: parsedShipping.contactValue || '',
+          phoneNumber: parsedShipping.phoneNumber || '',
           taxId: parsedShipping.taxId || ''
         });
       } catch (error) {
@@ -129,10 +132,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       state: shipping.state,
       zip: shipping.zip,
       country: shipping.country,
-      contactValue: shipping.email,
-      phoneNumber: shipping.phone,
-      taxId: shipping.taxId,
-      contactMethod: 'email' // For compatibility with TokenVerificationModal
+      contactMethod: shipping.contactMethod,
+      contactValue: shipping.contactValue,
+      phoneNumber: shipping.phoneNumber,
+      taxId: shipping.taxId
     }));
   }, [shipping]);
 
@@ -209,7 +212,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     const value = e.target.value;
     setShipping(prev => ({
       ...prev,
-      phone: value
+      phoneNumber: value
     }));
     
     const validation = validatePhoneNumber(value);
@@ -381,7 +384,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     e.preventDefault();
     
     // Validate form
-    const requiredFields = ['firstName', 'lastName', 'address', 'city', 'zip', 'country', 'email'];
+    const requiredFields = ['firstName', 'lastName', 'address', 'city', 'zip', 'country', 'contactValue'];
     for (const field of requiredFields) {
       if (!shipping[field as keyof typeof shipping]) {
         toast.error(`Please fill in your ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
@@ -390,8 +393,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     }
     
     // Validate phone number before submission
-    if (shipping.phone) {
-      const phoneValidation = validatePhoneNumber(shipping.phone);
+    if (shipping.phoneNumber) {
+      const phoneValidation = validatePhoneNumber(shipping.phoneNumber);
       if (phoneValidation.error) {
         setPhoneError(phoneValidation.error);
         toast.error("Please enter a valid phone number");
@@ -450,16 +453,21 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         const transactionId = `free_order_batch_${Date.now()}_${walletAddress || 'anonymous'}`;
         
         const formattedShippingInfo = {
-          address: shipping.address,
-          city: shipping.city,
-          country: shipping.country,
-          state: shipping.state || undefined,
-          zip: shipping.zip,
-          firstName: shipping.firstName,
-          lastName: shipping.lastName,
-          email: shipping.email,
-          phone: shipping.phone,
-          taxId: shipping.taxId || undefined
+          shipping_address: {
+            address: shipping.address,
+            city: shipping.city,
+            country: shipping.country,
+            state: shipping.state || undefined,
+            zip: shipping.zip,
+            taxId: shipping.taxId || undefined
+          },
+          contact_info: {
+            method: shipping.contactMethod,
+            value: shipping.contactValue,
+            firstName: shipping.firstName,
+            lastName: shipping.lastName,
+            phoneNumber: shipping.phoneNumber
+          }
         };
         
         const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
@@ -536,16 +544,21 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       
       // Format shipping info correctly for API
       const formattedShippingInfo = {
-        address: shipping.address,
-        city: shipping.city,
-        country: shipping.country,
-        state: shipping.state || undefined,
-        zip: shipping.zip,
-        firstName: shipping.firstName,
-        lastName: shipping.lastName,
-        email: shipping.email,
-        phone: shipping.phone,
-        taxId: shipping.taxId || undefined
+        shipping_address: {
+          address: shipping.address,
+          city: shipping.city,
+          country: shipping.country,
+          state: shipping.state || undefined,
+          zip: shipping.zip,
+          taxId: shipping.taxId || undefined
+        },
+        contact_info: {
+          method: shipping.contactMethod,
+          value: shipping.contactValue,
+          firstName: shipping.firstName,
+          lastName: shipping.lastName,
+          phoneNumber: shipping.phoneNumber
+        }
       };
       
       // For Stripe, open the Stripe modal instead of directly calling the API
@@ -824,14 +837,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                 address: shipping.address,
                 city: shipping.city,
                 country: shipping.country,
-                zip: shipping.zip,
+                zip: shipping.zip
               },
               contact_info: {
-                method: 'email',
-                value: shipping.email,
+                method: shipping.contactMethod,
+                value: shipping.contactValue,
                 firstName: shipping.firstName,
                 lastName: shipping.lastName,
-                phoneNumber: shipping.phone,
+                phoneNumber: shipping.phoneNumber
               }
             }}
             variants={[]}
@@ -1092,33 +1105,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
 
               <form onSubmit={handleCheckout} className="space-y-4">
                 <h3 className="text-sm font-medium text-gray-300 mb-2">Shipping Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div>
-                    <label htmlFor="firstName" className="block text-xs text-gray-400 mb-1">First Name</label>
-                    <input
-                      type="text"
-                      id="firstName"
-                      name="firstName"
-                      value={shipping.firstName}
-                      onChange={handleShippingChange}
-                      required
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="lastName" className="block text-xs text-gray-400 mb-1">Last Name</label>
-                    <input
-                      type="text"
-                      id="lastName"
-                      name="lastName"
-                      value={shipping.lastName}
-                      onChange={handleShippingChange}
-                      required
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label htmlFor="address" className="block text-xs text-gray-400 mb-1">Address</label>
+                    <label className="block text-sm font-medium text-gray-200 mb-2">
+                      Street Address
+                    </label>
                     <input
                       type="text"
                       id="address"
@@ -1126,120 +1117,169 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       value={shipping.address}
                       onChange={handleShippingChange}
                       required
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                      disabled={processingPayment}
+                      className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder="Enter your street address"
                     />
                   </div>
-                  <div>
-                    <label htmlFor="city" className="block text-xs text-gray-400 mb-1">City</label>
-                    <input
-                      type="text"
-                      id="city"
-                      name="city"
-                      value={shipping.city}
-                      onChange={handleShippingChange}
-                      required
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="state" className="block text-xs text-gray-400 mb-1">State/Province</label>
-                    {availableStates.length > 0 ? (
-                      <ComboBox
-                        value={shipping.state}
-                        onChange={(value) => setShipping(prev => ({
-                          ...prev,
-                          state: value
-                        }))}
-                        options={availableStates.map(state => ({
-                          value: state.name,
-                          label: state.name,
-                          secondaryLabel: state.code
-                        }))}
-                        required={availableStates.length > 0}
-                        disabled={processingPayment}
-                        placeholder="Type or select state/province"
-                        name="state"
-                        id="state"
-                      />
-                    ) : (
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">
+                        City
+                      </label>
                       <input
                         type="text"
-                        id="state"
-                        name="state"
-                        value={shipping.state}
+                        id="city"
+                        name="city"
+                        value={shipping.city}
                         onChange={handleShippingChange}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                        required
+                        disabled={processingPayment}
+                        className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        placeholder="City"
                       />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">
+                        ZIP / Postal Code
+                      </label>
+                      <input
+                        type="text"
+                        id="zip"
+                        name="zip"
+                        value={shipping.zip}
+                        onChange={handleZipChange}
+                        required
+                        disabled={processingPayment}
+                        className={`w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          zipError ? 'border border-red-500' : ''
+                        }`}
+                        placeholder="ZIP code"
+                      />
+                      {zipError && (
+                        <p className="mt-1 text-sm text-red-500">{zipError}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">
+                        Country
+                      </label>
+                      <ComboBox
+                        value={shipping.country}
+                        onChange={(value) => setShipping(prev => ({
+                          ...prev,
+                          country: value,
+                          state: '' // Reset state when country changes
+                        }))}
+                        options={countries.map(country => ({
+                          value: country.name,
+                          label: country.name,
+                          secondaryLabel: country.code
+                        }))}
+                        required
+                        disabled={processingPayment}
+                        placeholder="Type country name or code (e.g. US, Canada)"
+                        name="country"
+                        id="country"
+                      />
+                    </div>
+
+                    {availableStates.length > 0 ? (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
+                          State / Province
+                        </label>
+                        <ComboBox
+                          value={shipping.state || ''}
+                          onChange={(value) => setShipping(prev => ({
+                            ...prev,
+                            state: value
+                          }))}
+                          options={availableStates.map(state => ({
+                            value: state.name,
+                            label: state.name,
+                            secondaryLabel: state.code
+                          }))}
+                          required
+                          disabled={processingPayment}
+                          placeholder="Type or select state/province"
+                          name="state"
+                          id="state"
+                        />
+                      </div>
+                    ) : (
+                      <div className="hidden sm:block"> {/* Empty div for grid alignment when no state field */}
+                      </div>
                     )}
                   </div>
-                  <div>
-                    <label htmlFor="zip" className="block text-xs text-gray-400 mb-1">ZIP/Postal Code</label>
-                    <input
-                      type="text"
-                      id="zip"
-                      name="zip"
-                      value={shipping.zip}
-                      onChange={handleZipChange}
-                      required
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                    />
-                    {zipError && (
-                      <p className="text-xs text-red-400 mt-1">{zipError}</p>
-                    )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        id="firstName"
+                        name="firstName"
+                        value={shipping.firstName}
+                        onChange={handleShippingChange}
+                        required
+                        disabled={processingPayment}
+                        className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        placeholder="First name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        id="lastName"
+                        name="lastName"
+                        value={shipping.lastName}
+                        onChange={handleShippingChange}
+                        required
+                        disabled={processingPayment}
+                        className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        placeholder="Last name"
+                      />
+                    </div>
                   </div>
+
                   <div>
-                    <label htmlFor="country" className="block text-xs text-gray-400 mb-1">Country</label>
-                    <ComboBox
-                      value={shipping.country}
-                      onChange={(value) => setShipping(prev => ({
-                        ...prev,
-                        country: value,
-                        state: '' // Reset state when country changes
-                      }))}
-                      options={countries.map(country => ({
-                        value: country.name,
-                        label: country.name,
-                        secondaryLabel: country.code
-                      }))}
-                      required
-                      disabled={processingPayment}
-                      placeholder="Type country name or code (e.g. US, Canada)"
-                      name="country"
-                      id="country"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="email" className="block text-xs text-gray-400 mb-1">Email</label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={shipping.email}
-                      onChange={handleShippingChange}
-                      required
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="phone" className="block text-xs text-gray-400 mb-1">Phone</label>
+                    <label className="block text-sm font-medium text-gray-200 mb-2">
+                      Phone Number
+                    </label>
                     <input
                       type="tel"
-                      id="phone"
-                      name="phone"
-                      value={shipping.phone}
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      value={shipping.phoneNumber}
                       onChange={handlePhoneChange}
                       required
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                      disabled={processingPayment}
+                      className={`w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        phoneError ? 'border border-red-500' : ''
+                      }`}
+                      placeholder="+1234567890"
                     />
                     {phoneError && (
-                      <p className="text-xs text-red-400 mt-1">{phoneError}</p>
+                      <p className="mt-1 text-sm text-red-500">{phoneError}</p>
                     )}
                   </div>
+
+                  {/* Conditional Tax ID field for countries that require it */}
                   {requiresTaxId && (
-                    <div className="md:col-span-2">
-                      <label htmlFor="taxId" className="block text-xs text-gray-400 mb-1">
-                        Tax ID {shipping.country === 'United States' ? '(EIN/SSN)' : '(VAT/GST/Tax Number)'}
-                        <span className="text-red-400">*</span>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">
+                        Tax ID <span className="text-red-400">*</span>
                       </label>
                       <input
                         type="text"
@@ -1248,14 +1288,55 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                         value={shipping.taxId || ''}
                         onChange={handleShippingChange}
                         required={requiresTaxId}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                        disabled={processingPayment}
+                        className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         placeholder={`Enter your ${shipping.country === 'United States' ? 'EIN or SSN' : 'tax ID'}`}
                       />
-                      <p className="text-xs text-gray-400 mt-1">
-                        Required for {shipping.country} residents as per local tax regulations
+                      <p className="mt-1 text-xs text-amber-400">
+                        A tax ID is required for shipping to {shipping.country}
                       </p>
                     </div>
                   )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-200 mb-2">
+                      Contact Method
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <select
+                        value={shipping.contactMethod}
+                        onChange={(e) => setShipping(prev => ({
+                          ...prev,
+                          contactMethod: e.target.value,
+                          contactValue: '' // Reset value when changing method
+                        }))}
+                        className="w-full sm:w-auto bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-secondary"
+                        disabled={processingPayment}
+                      >
+                        <option value="telegram">Telegram</option>
+                        <option value="email">Email</option>
+                        <option value="x">X (Twitter)</option>
+                      </select>
+                      <div className="flex-1 min-w-0">
+                        <input
+                          type={shipping.contactMethod === 'email' ? 'email' : 'text'}
+                          value={shipping.contactValue}
+                          onChange={(e) => setShipping(prev => ({
+                            ...prev,
+                            contactValue: e.target.value
+                          }))}
+                          required
+                          disabled={processingPayment}
+                          className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500 truncate disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder={
+                            shipping.contactMethod === 'telegram' ? '@username' :
+                            shipping.contactMethod === 'email' ? 'email@example.com' :
+                            '@handle'
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Payment Method Selection */}
@@ -1314,7 +1395,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                 <div className="pt-4 border-t border-gray-800 mt-4">
                   <button
                     type="submit"
-                    disabled={processingPayment || (paymentMethod === 'solana' && !isConnected) || !paymentMethod}
+                    disabled={processingPayment || (paymentMethod === 'solana' && !isConnected) || !paymentMethod || 
+                      !shipping.address || !shipping.city || 
+                      !shipping.country || !shipping.zip || 
+                      (availableStates.length > 0 && !shipping.state) ||
+                      !shipping.contactValue || !shipping.firstName ||
+                      !shipping.lastName || !shipping.phoneNumber || 
+                      (shipping.country && doesCountryRequireTaxId(shipping.country) && !shipping.taxId) ||
+                      !!phoneError || !!zipError}
                     className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {processingPayment ? (
