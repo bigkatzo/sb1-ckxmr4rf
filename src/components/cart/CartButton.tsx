@@ -10,13 +10,13 @@ export function CartButton({ className = '', size = 'md' }: CartButtonProps) {
   const { toggleCart, count } = useCart();
   
   const sizeClasses = {
-    sm: 'h-4.5 w-4.5',
+    sm: 'h-4 w-4',
     md: 'h-5 w-5',
     lg: 'h-6 w-6'
   };
   
   const badgeClasses = {
-    sm: 'min-w-[16px] h-4 text-[9px] -top-1 -right-1',
+    sm: 'min-w-[14px] h-3.5 text-[8px] -top-1 -right-1',
     md: 'min-w-[18px] h-[18px] text-[10px] -top-1.5 -right-1.5',
     lg: 'min-w-[20px] h-5 text-[11px] -top-2 -right-2'
   };
