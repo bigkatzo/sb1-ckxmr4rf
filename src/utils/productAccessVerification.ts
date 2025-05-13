@@ -101,16 +101,16 @@ export async function verifyAndAddToCart(
   if (!product.category?.eligibilityRules?.groups?.length) {
     addToCartFn(product, selectedOptions, quantity, true, priceInfo);
     
-    // Show success toast with View Cart option
+    // Show success toast with clickable notification
     if (toggleCartFn) {
-      toast.success(`Added to cart: ${product.name}. Click to view cart.`, {
+      toast.success(`${product.name} added to cart`, {
         position: 'bottom-center',
-        autoClose: 3000,
-        hideProgressBar: false,
+        autoClose: 2000,
+        hideProgressBar: true,
         onClick: () => toggleCartFn()
       });
     } else {
-      toast.success(`Added to cart: ${product.name}`);
+      toast.success(`${product.name} added to cart`);
     }
     
     return true;
@@ -131,16 +131,16 @@ export async function verifyAndAddToCart(
   if (result.isValid) {
     addToCartFn(product, selectedOptions, quantity, true, priceInfo);
     
-    // Show success toast with View Cart option
+    // Show success toast with clickable notification
     if (toggleCartFn) {
-      toast.success(`Added to cart: ${product.name}. Click to view cart.`, {
+      toast.success(`${product.name} added to cart`, {
         position: 'bottom-center',
-        autoClose: 3000,
-        hideProgressBar: false,
+        autoClose: 2000,
+        hideProgressBar: true,
         onClick: () => toggleCartFn()
       });
     } else {
-      toast.success(`Added to cart: ${product.name}`);
+      toast.success(`${product.name} added to cart`);
     }
     
     return true;

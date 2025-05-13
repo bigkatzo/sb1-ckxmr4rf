@@ -117,16 +117,22 @@ export function AddToCartButton({
         setIsVerifying(false);
       }
     } else {
-      // No access restrictions, directly add to cart
-      addItem(product, selectedOptions, 1, false, priceInfo);
-      
-      // Show success toast with View Cart link
-      toast.success(`${product.name} added to cart. Click to view cart.`, {
-        position: 'bottom-center',
-        autoClose: 3000,
-        hideProgressBar: false,
-        onClick: () => toggleCart()
-      });
+      // No access restrictions, but still use the verification flow for consistent toast handling
+      try {
+        await verifyAndAddToCart(
+          product, 
+          walletAddress,
+          addItem,
+          selectedOptions,
+          1,
+          () => setVisible(true),
+          priceInfo,
+          toggleCart
+        );
+      } catch (error) {
+        console.error('Error adding to cart:', error);
+        toast.error('There was an error adding the product to cart');
+      }
     }
   };
 
