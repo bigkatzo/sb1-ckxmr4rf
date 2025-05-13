@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, CreditCard, Wallet, Tag, Check } from 'lucide-react';
-import { useCart } from '../../contexts/CartContext';
+import { useCart, CartItem } from '../../contexts/CartContext';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { formatPrice } from '../../utils/formatters';
 import { useWallet } from '../../contexts/WalletContext';
@@ -78,29 +78,26 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     }
   }, []);
   
+  // Display item prices in the order summary section
+  const renderItemPrice = (item: CartItem) => {
+    const price = item.priceInfo?.modifiedPrice || item.product.price;
+    return (
+      <div className="text-sm text-gray-200 mt-1">
+        {formatPrice(price)} × {item.quantity}
+      </div>
+    );
+  };
+
+  // Calculate subtotal before any discounts
+  const calculateSubtotal = () => {
+    return items.reduce((total, item) => {
+      const price = item.priceInfo?.modifiedPrice || item.product.price;
+      return total + (price * item.quantity);
+    }, 0);
+  };
+  
   // Calculate total price of all items in cart
-  const totalPrice = items.reduce((total, item) => {
-    const basePrice = item.product.price || 0;
-    
-    // Apply variant price adjustments if any
-    let variantPriceAdjustment = 0;
-    if (item.product.variants) {
-      item.product.variants.forEach(variant => {
-        const selectedOptionValue = item.selectedOptions[variant.id];
-        if (selectedOptionValue) {
-          const selectedOption = variant.options.find(
-            option => option.value === selectedOptionValue
-          );
-          if (selectedOption && selectedOption.priceAdjustment) {
-            variantPriceAdjustment += selectedOption.priceAdjustment;
-          }
-        }
-      });
-    }
-    
-    const itemPrice = (basePrice + variantPriceAdjustment) * item.quantity;
-    return total + itemPrice;
-  }, 0);
+  const totalPrice = calculateSubtotal();
   
   // Calculate final price with coupon discount
   const finalPrice = appliedCoupon 
@@ -375,17 +372,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                           })}
                         </div>
                       )}
-                      <div className="text-sm text-gray-200 mt-1">
-                        {formatPrice(
-                          (item.product.price || 0) +
-                          (item.product.variants?.reduce((total, variant) => {
-                            const selectedOption = variant.options.find(
-                              option => option.value === item.selectedOptions[variant.id]
-                            );
-                            return total + (selectedOption?.priceAdjustment || 0);
-                          }, 0) || 0)
-                        )} × {item.quantity}
-                      </div>
+                      {renderItemPrice(item)}
                     </div>
                   </div>
                 ))}
@@ -442,7 +429,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Subtotal</span>
-                    <span className="text-gray-300">{formatPrice(totalPrice)}</span>
+                    <span className="text-gray-300">{formatPrice(calculateSubtotal())}</span>
                   </div>
                   
                   {appliedCoupon && (
@@ -451,7 +438,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       <span className="text-secondary">
                         -{formatPrice(
                           appliedCoupon.discountPercentage 
-                            ? totalPrice * (appliedCoupon.discountPercentage / 100) 
+                            ? calculateSubtotal() * (appliedCoupon.discountPercentage / 100) 
                             : appliedCoupon.discountAmount
                         )}
                       </span>

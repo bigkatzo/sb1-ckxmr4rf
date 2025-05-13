@@ -8,32 +8,20 @@ import { formatPrice } from '../../utils/formatters';
 import { MultiItemCheckoutModal } from './MultiItemCheckoutModal';
 
 export function CartDrawer() {
-  const { items, removeItem, updateQuantity, isOpen, closeCart, count } = useCart();
+  const { 
+    items, 
+    removeItem, 
+    updateQuantity, 
+    isOpen, 
+    closeCart, 
+    count, 
+    getTotalPrice 
+  } = useCart();
+  
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   
-  // Calculate total price of all items in cart
-  const totalPrice = items.reduce((total, item) => {
-    const basePrice = item.product.price || 0;
-    
-    // Apply variant price adjustments if any
-    let variantPriceAdjustment = 0;
-    if (item.product.variants) {
-      item.product.variants.forEach(variant => {
-        const selectedOptionValue = item.selectedOptions[variant.id];
-        if (selectedOptionValue) {
-          const selectedOption = variant.options.find(
-            option => option.value === selectedOptionValue
-          );
-          if (selectedOption && selectedOption.priceAdjustment) {
-            variantPriceAdjustment += selectedOption.priceAdjustment;
-          }
-        }
-      });
-    }
-    
-    const itemPrice = (basePrice + variantPriceAdjustment) * item.quantity;
-    return total + itemPrice;
-  }, 0);
+  // Use the getTotalPrice function from the cart context
+  const totalPrice = getTotalPrice();
 
   const handleCheckout = () => {
     setIsCheckoutModalOpen(true);
@@ -147,13 +135,7 @@ export function CartDrawer() {
                       
                       <div className="text-white">
                         {formatPrice(
-                          (item.product.price || 0) * item.quantity + 
-                          (item.product.variants?.reduce((total, variant) => {
-                            const selectedOption = variant.options.find(
-                              option => option.value === item.selectedOptions[variant.id]
-                            );
-                            return total + (selectedOption?.priceAdjustment || 0);
-                          }, 0) || 0) * item.quantity
+                          (item.priceInfo?.modifiedPrice || item.product.price) * item.quantity
                         )}
                       </div>
                     </div>

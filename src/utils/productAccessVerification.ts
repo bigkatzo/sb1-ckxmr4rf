@@ -3,6 +3,7 @@ import { verifyNFTHolding } from './nft-verification';
 import { verifyWhitelistAccess } from './whitelist-verification';
 import type { CategoryRule } from '../types';
 import { toast } from 'react-toastify';
+import type { CartItemPriceInfo } from '../contexts/CartContext';
 
 /**
  * Verifies if a user has access to a product based on its category rules
@@ -82,19 +83,21 @@ async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ 
  * @param selectedOptions - Selected product options/variants
  * @param quantity - Quantity to add
  * @param showConnectWalletFn - Function to show wallet connection modal
+ * @param priceInfo - Price information including modified price and variant adjustments
  * @returns A promise that resolves to a boolean indicating if the item was added
  */
 export async function verifyAndAddToCart(
   product: any,
   walletAddress: string | null,
-  addToCartFn: (product: any, selectedOptions: Record<string, string>, quantity: number) => void,
+  addToCartFn: (product: any, selectedOptions: Record<string, string>, quantity: number, verified: boolean, priceInfo?: CartItemPriceInfo) => void,
   selectedOptions: Record<string, string>,
   quantity: number = 1,
-  showConnectWalletFn?: () => void
+  showConnectWalletFn?: () => void,
+  priceInfo?: CartItemPriceInfo
 ): Promise<boolean> {
   // Skip verification for products without access rules
   if (!product.category?.eligibilityRules?.groups?.length) {
-    addToCartFn(product, selectedOptions, quantity);
+    addToCartFn(product, selectedOptions, quantity, true, priceInfo);
     toast.success(`Added to cart: ${product.name}`);
     return true;
   }
@@ -112,7 +115,7 @@ export async function verifyAndAddToCart(
   const result = await verifyProductAccess(product, walletAddress);
   
   if (result.isValid) {
-    addToCartFn(product, selectedOptions, quantity);
+    addToCartFn(product, selectedOptions, quantity, true, priceInfo);
     toast.success(`Added to cart: ${product.name}`);
     return true;
   } else {

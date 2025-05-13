@@ -2,10 +2,19 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Product } from '../types/variants';
 import { verifyProductAccess } from '../utils/productAccessVerification';
 
+// Interface for price information
+export interface CartItemPriceInfo {
+  basePrice: number;
+  modifiedPrice: number;
+  variantKey: string | null;
+  variantPriceAdjustments: number;
+}
+
 export interface CartItem {
   product: Product;
   selectedOptions: Record<string, string>;
   quantity: number;
+  priceInfo: CartItemPriceInfo;
   verificationStatus?: {
     verified: boolean;
     timestamp: number;
@@ -15,7 +24,13 @@ export interface CartItem {
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product, selectedOptions: Record<string, string>, quantity?: number, verified?: boolean) => void;
+  addItem: (
+    product: Product, 
+    selectedOptions: Record<string, string>, 
+    quantity?: number, 
+    verified?: boolean,
+    priceInfo?: CartItemPriceInfo
+  ) => void;
   removeItem: (itemIndex: number) => void;
   updateQuantity: (itemIndex: number, quantity: number) => void;
   clearCart: () => void;
@@ -24,6 +39,7 @@ interface CartContextType {
   closeCart: () => void;
   toggleCart: () => void;
   count: number;
+  getTotalPrice: () => number;
   verifyAllItems: (walletAddress: string | null) => Promise<boolean>;
 }
 
@@ -38,6 +54,7 @@ const CartContext = createContext<CartContextType>({
   closeCart: () => {},
   toggleCart: () => {},
   count: 0,
+  getTotalPrice: () => 0,
   verifyAllItems: async () => false
 });
 
@@ -76,11 +93,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items]);
 
+  // Calculate total price of all items in cart
+  const getTotalPrice = (): number => {
+    return items.reduce((total, item) => {
+      const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
+      return total + (itemPrice * item.quantity);
+    }, 0);
+  };
+
   const addItem = (
     product: Product, 
     selectedOptions: Record<string, string>, 
     quantity = 1,
-    verified = false
+    verified = false,
+    priceInfo?: CartItemPriceInfo
   ) => {
     setItems(prevItems => {
       // Check if this exact product + options combination already exists in cart
@@ -89,10 +115,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         JSON.stringify(item.selectedOptions) === JSON.stringify(selectedOptions)
       );
 
+      // Default price info if not provided
+      const defaultPriceInfo: CartItemPriceInfo = priceInfo || {
+        basePrice: product.price,
+        modifiedPrice: product.price,
+        variantKey: null,
+        variantPriceAdjustments: 0
+      };
+
       if (existingItemIndex !== -1) {
         // Update quantity of existing item
         const newItems = [...prevItems];
         newItems[existingItemIndex].quantity += quantity;
+        // Also update price info in case it changed
+        newItems[existingItemIndex].priceInfo = defaultPriceInfo;
         return newItems;
       } else {
         // Add new item with verification status if verified
@@ -100,6 +136,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           product, 
           selectedOptions, 
           quantity,
+          priceInfo: defaultPriceInfo,
           ...(verified && {
             verificationStatus: {
               verified: true,
@@ -236,6 +273,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       closeCart,
       toggleCart,
       count,
+      getTotalPrice,
       verifyAllItems
     }}>
       {children}

@@ -6,6 +6,8 @@ import type { Product } from '../../types/variants';
 import { toast } from 'react-toastify';
 import { verifyAndAddToCart } from '../../utils/productAccessVerification';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { useModifiedPrice } from '../../hooks/useModifiedPrice';
+import { getVariantKey } from '../../utils/variant-helpers';
 
 interface AddToCartButtonProps {
   product: Product;
@@ -29,6 +31,9 @@ export function AddToCartButton({
   const { setVisible } = useWalletModal();
   const [isVerifying, setIsVerifying] = useState(false);
   
+  // Get the correctly modified price based on product, variants and dynamic pricing
+  const { modifiedPrice } = useModifiedPrice({ product, selectedOptions });
+  
   const sizeClasses = {
     sm: 'h-3.5 w-3.5',
     md: 'h-5 w-5',
@@ -41,6 +46,24 @@ export function AddToCartButton({
     
     return product.variants.every(variant => selectedOptions[variant.id]);
   };
+  
+  // Function to get price adjustments from variant options
+  const getVariantPriceAdjustments = (): number => {
+    if (!product.variants) return 0;
+    
+    return product.variants.reduce((total, variant) => {
+      const selectedOptionValue = selectedOptions[variant.id];
+      if (selectedOptionValue) {
+        const selectedOption = variant.options.find(
+          option => option.value === selectedOptionValue
+        );
+        if (selectedOption && selectedOption.priceAdjustment) {
+          return total + selectedOption.priceAdjustment;
+        }
+      }
+      return total;
+    }, 0);
+  };
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -50,6 +73,15 @@ export function AddToCartButton({
       toast.error('Please select all options before adding to cart');
       return;
     }
+    
+    // Prepare pricing information
+    const variantKey = product.variants ? getVariantKey(product.variants, selectedOptions) : null;
+    const priceInfo = {
+      basePrice: product.price,
+      modifiedPrice,
+      variantKey,
+      variantPriceAdjustments: getVariantPriceAdjustments()
+    };
     
     // Check if the product has access restrictions before adding to cart
     if (product.category?.eligibilityRules?.groups?.length) {
@@ -62,7 +94,8 @@ export function AddToCartButton({
           addItem,
           selectedOptions,
           1,
-          () => setVisible(true) // Function to show wallet connection modal if needed
+          () => setVisible(true), // Function to show wallet connection modal if needed
+          priceInfo
         );
       } catch (error) {
         console.error('Error verifying product access:', error);
@@ -72,7 +105,7 @@ export function AddToCartButton({
       }
     } else {
       // No access restrictions, directly add to cart
-      addItem(product, selectedOptions);
+      addItem(product, selectedOptions, 1, false, priceInfo);
       
       // Show success toast
       toast.success(`${product.name} added to cart`, {
