@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, ChevronRight, CreditCard, Wallet, Tag, Check } from 'lucide-react';
 import { useCart, CartItem } from '../../contexts/CartContext';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -8,6 +8,11 @@ import { useModal } from '../../contexts/ModalContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { toast } from 'react-toastify';
 import { Loading, LoadingType } from '../ui/LoadingStates';
+import { CouponService } from '../../services/coupons';
+import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../../lib/validation';
+import { countries, getStatesByCountryCode } from '../../data/countries';
+import { ComboBox } from '../ui/ComboBox';
+import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -30,6 +35,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     country: string;
     email: string;
     phone: string;
+    taxId?: string;
   }>({
     firstName: '',
     lastName: '',
@@ -39,8 +45,24 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     zip: '',
     country: '',
     email: '',
-    phone: ''
+    phone: '',
+    taxId: ''
   });
+  
+  // Add validation states
+  const [zipError, setZipError] = useState<string>('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  
+  // Get states for the selected country
+  const availableStates = useMemo(() => {
+    const countryCode = countries.find(c => c.name === shipping.country)?.code;
+    return countryCode ? getStatesByCountryCode(countryCode) : [];
+  }, [shipping.country]);
+  
+  // Check if the selected country requires a tax ID
+  const requiresTaxId = useMemo(() => {
+    return doesCountryRequireTaxId(shipping.country);
+  }, [shipping.country]);
   
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -70,13 +92,117 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           zip: parsedShipping.zip || '',
           country: parsedShipping.country || '',
           email: parsedShipping.contactValue || '',
-          phone: parsedShipping.phoneNumber || ''
+          phone: parsedShipping.phoneNumber || '',
+          taxId: parsedShipping.taxId || ''
         });
       } catch (error) {
         console.error('Failed to parse saved shipping info:', error);
       }
     }
   }, []);
+  
+  // Save shipping info to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('lastShippingInfo', JSON.stringify({
+      firstName: shipping.firstName,
+      lastName: shipping.lastName,
+      address: shipping.address,
+      city: shipping.city,
+      state: shipping.state,
+      zip: shipping.zip,
+      country: shipping.country,
+      contactValue: shipping.email,
+      phoneNumber: shipping.phone,
+      taxId: shipping.taxId,
+      contactMethod: 'email' // For compatibility with TokenVerificationModal
+    }));
+  }, [shipping]);
+
+  // Enhanced zip code change handler with country/state detection
+  const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newZip = e.target.value;
+    setShipping(prev => ({
+      ...prev,
+      zip: newZip
+    }));
+    
+    // Clear any previous errors
+    setZipError('');
+
+    if (!newZip || newZip.length < 4) {
+      return; // Skip validation for very short ZIPs
+    }
+    
+    // If the country is already set, use that for validation
+    if (shipping.country) {
+      const countryObj = countries.find(c => c.name === shipping.country);
+      const countryCode = countryObj?.code;
+      
+      // Validate ZIP code
+      const validation = validateZipCode(newZip, countryCode);
+      if (validation.error) {
+        setZipError(validation.error);
+      }
+      
+      // Try to auto-detect state for US zip codes
+      if (countryCode === 'US' && !validation.error) {
+        const stateCode = getStateFromZipCode(newZip);
+        if (stateCode) {
+          // Get the state/province from the states list
+          const country = countries.find(c => c.code === 'US');
+          if (country && country.states && country.states[stateCode]) {
+            const stateName = country.states[stateCode][0];
+            if (stateName && (!shipping.state || shipping.state !== stateName)) {
+              setShipping(prev => ({
+                ...prev,
+                state: stateName
+              }));
+              
+              toast.info(`State automatically set to ${stateName}`, {
+                position: 'bottom-center',
+                autoClose: 2000
+              });
+            }
+          }
+        }
+      }
+    } 
+    // If country is not set, try to detect it from ZIP format
+    else if (!shipping.country && newZip.length >= 5) {
+      const locationInfo = getLocationFromZip(newZip);
+      
+      if (locationInfo) {
+        setShipping(prev => ({
+          ...prev,
+          country: locationInfo.country,
+          state: locationInfo.state || ''
+        }));
+        
+        toast.info(`Country detected: ${locationInfo.country}${locationInfo.state ? `. State: ${locationInfo.state}` : ''}`, {
+          position: 'bottom-center',
+          autoClose: 3000
+        });
+      }
+    }
+  };
+
+  // Handle phone number validation on change
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setShipping(prev => ({
+      ...prev,
+      phone: value
+    }));
+    
+    const validation = validatePhoneNumber(value);
+    setPhoneError(validation.error || null);
+  };
+
+  // Update the generic shipping change handler to work with the enhanced input fields
+  const handleShippingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setShipping(prev => ({ ...prev, [name]: value }));
+  };
   
   // Display item prices in the order summary section
   const renderItemPrice = (item: CartItem) => {
@@ -106,11 +232,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       : totalPrice - appliedCoupon.discountAmount
     : totalPrice;
   
-  const handleShippingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setShipping(prev => ({ ...prev, [name]: value }));
-  };
-  
   // Handle coupon application
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
@@ -121,23 +242,35 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setValidatingCoupon(true);
     
     try {
-      // Mock coupon validation - in a real implementation, you'd call your API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Get the collection ID from the first item in the cart for validation
+      const firstItemCollectionId = items[0]?.product.collectionId;
       
-      // Simulating a valid coupon with 10% off for "CART10"
-      if (couponCode.toUpperCase() === 'CART10') {
+      // Use the CouponService to validate and calculate the discount
+      const result = await CouponService.calculateDiscount(
+        totalPrice,
+        couponCode,
+        walletAddress || '',
+        firstItemCollectionId
+      );
+      
+      if (result.error || result.couponDiscount <= 0) {
+        toast.error(result.error || "Invalid coupon code");
+        setAppliedCoupon(null);
+      } else {
+        // Set applied coupon with correct format
         setAppliedCoupon({
           code: couponCode.toUpperCase(),
-          discountAmount: 0,
-          discountPercentage: 10
+          discountAmount: result.couponDiscount,
+          discountPercentage: result.discountDisplay?.includes('%') 
+            ? parseFloat(result.discountDisplay) 
+            : 0
         });
-        toast.success("Coupon applied: 10% off your order");
-      } else {
-        toast.error("Invalid coupon code");
+        
+        toast.success(`Coupon applied: ${result.discountDisplay || result.couponDiscount + ' SOL off'}`);
       }
     } catch (error) {
-      toast.error("Error validating coupon");
       console.error("Coupon validation error:", error);
+      toast.error("Error validating coupon");
     } finally {
       setValidatingCoupon(false);
     }
@@ -165,6 +298,38 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       }
     }
     
+    // Validate phone number before submission
+    if (shipping.phone) {
+      const phoneValidation = validatePhoneNumber(shipping.phone);
+      if (phoneValidation.error) {
+        setPhoneError(phoneValidation.error);
+        toast.error("Please enter a valid phone number");
+        return;
+      }
+    }
+    
+    // Validate ZIP code before submission
+    const countryObj = countries.find(c => c.name === shipping.country);
+    const countryCode = countryObj?.code;
+    const zipValidation = validateZipCode(shipping.zip, countryCode);
+    if (zipValidation.error) {
+      setZipError(zipValidation.error);
+      toast.error("Please enter a valid ZIP/postal code");
+      return;
+    }
+    
+    // Validate state/province is selected if available for country
+    if (availableStates.length > 0 && !shipping.state) {
+      toast.error('Please select a state/province');
+      return;
+    }
+    
+    // Validate tax ID if required for the country
+    if (requiresTaxId && !shipping.taxId) {
+      toast.error(`Tax ID is required for ${shipping.country}`);
+      return;
+    }
+    
     // Verify wallet connection for Solana payments
     if (paymentMethod === 'solana' && !isConnected) {
       toast.info("Please connect your wallet to proceed with payment", {
@@ -179,6 +344,76 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     if (!paymentMethod) {
       toast.error("Please select a payment method");
       return;
+    }
+    
+    // Check if the coupon provides a 100% discount (free order)
+    const isFreeOrder = appliedCoupon && 
+      totalPrice > 0 && 
+      ((appliedCoupon.discountPercentage === 100) || 
+       (appliedCoupon.discountAmount >= totalPrice));
+    
+    if (isFreeOrder) {
+      setProcessingPayment(true);
+      try {
+        // For 100% discount, use the create-batch-order endpoint but mark it as a free order
+        const transactionId = `free_order_batch_${Date.now()}_${walletAddress || 'anonymous'}`;
+        
+        const formattedShippingInfo = {
+          address: shipping.address,
+          city: shipping.city,
+          country: shipping.country,
+          state: shipping.state || undefined,
+          zip: shipping.zip,
+          firstName: shipping.firstName,
+          lastName: shipping.lastName,
+          email: shipping.email,
+          phone: shipping.phone,
+          taxId: shipping.taxId || undefined
+        };
+        
+        const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            items: items.map(item => ({
+              product: item.product,
+              selectedOptions: item.selectedOptions,
+              quantity: item.quantity
+            })),
+            shippingInfo: formattedShippingInfo,
+            walletAddress: walletAddress || 'anonymous',
+            paymentMetadata: {
+              paymentMethod: 'free_order',
+              couponCode: appliedCoupon.code,
+              couponDiscount: totalPrice, // The entire amount is discounted
+              originalPrice: totalPrice,
+              isFreeOrder: true,
+              transactionId
+            }
+          })
+        });
+        
+        const batchOrderData = await batchOrderResponse.json();
+        
+        if (!batchOrderData.success) {
+          throw new Error(batchOrderData.error || 'Failed to create free order');
+        }
+        
+        // Show success message for free order
+        toast.success(`Free order #${batchOrderData.orderNumber} created successfully!`);
+        
+        // Clear cart and close modal
+        clearCart();
+        onClose();
+        return; // Exit early to skip regular payment flow
+      } catch (error) {
+        console.error("Free order error:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to process free order");
+        setProcessingPayment(false);
+        return; // Exit early if there's an error
+      }
     }
     
     setProcessingPayment(true);
@@ -202,6 +437,20 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         }
       }
       
+      // Format shipping info correctly for API
+      const formattedShippingInfo = {
+        address: shipping.address,
+        city: shipping.city,
+        country: shipping.country,
+        state: shipping.state || undefined,
+        zip: shipping.zip,
+        firstName: shipping.firstName,
+        lastName: shipping.lastName,
+        email: shipping.email,
+        phone: shipping.phone,
+        taxId: shipping.taxId || undefined
+      };
+      
       // For Stripe, handle Stripe checkout flow
       if (paymentMethod === 'stripe') {
         // In a real implementation, you'd call your batch order endpoint first to get an order number
@@ -219,17 +468,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               selectedOptions: item.selectedOptions,
               quantity: item.quantity
             })),
-            shippingInfo: {
-              address: shipping.address,
-              city: shipping.city,
-              country: shipping.country,
-              state: shipping.state || undefined,
-              zip: shipping.zip,
-              firstName: shipping.firstName,
-              lastName: shipping.lastName,
-              email: shipping.email,
-              phone: shipping.phone
-            },
+            shippingInfo: formattedShippingInfo,
             walletAddress: walletAddress || 'anonymous',
             paymentMetadata: {
               paymentMethod: 'stripe',
@@ -279,19 +518,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               : appliedCoupon.discountAmount)
             : 0,
           originalPrice: totalPrice
-        };
-        
-        // Format shipping info for the verification modal
-        const formattedShippingInfo = {
-          address: shipping.address,
-          city: shipping.city,
-          country: shipping.country,
-          state: shipping.state || undefined,
-          zip: shipping.zip,
-          firstName: shipping.firstName,
-          lastName: shipping.lastName,
-          email: shipping.email,
-          phone: shipping.phone
         };
         
         // Use the existing verification modal with the first item
@@ -538,14 +764,34 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                 </div>
                 <div>
                   <label htmlFor="state" className="block text-xs text-gray-400 mb-1">State/Province</label>
-                  <input
-                    type="text"
-                    id="state"
-                    name="state"
-                    value={shipping.state}
-                    onChange={handleShippingChange}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
+                  {availableStates.length > 0 ? (
+                    <ComboBox
+                      value={shipping.state}
+                      onChange={(value) => setShipping(prev => ({
+                        ...prev,
+                        state: value
+                      }))}
+                      options={availableStates.map(state => ({
+                        value: state.name,
+                        label: state.name,
+                        secondaryLabel: state.code
+                      }))}
+                      required={availableStates.length > 0}
+                      disabled={processingPayment}
+                      placeholder="Type or select state/province"
+                      name="state"
+                      id="state"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      id="state"
+                      name="state"
+                      value={shipping.state}
+                      onChange={handleShippingChange}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                    />
+                  )}
                 </div>
                 <div>
                   <label htmlFor="zip" className="block text-xs text-gray-400 mb-1">ZIP/Postal Code</label>
@@ -554,21 +800,33 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     id="zip"
                     name="zip"
                     value={shipping.zip}
-                    onChange={handleShippingChange}
+                    onChange={handleZipChange}
                     required
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
                   />
+                  {zipError && (
+                    <p className="text-xs text-red-400 mt-1">{zipError}</p>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="country" className="block text-xs text-gray-400 mb-1">Country</label>
-                  <input
-                    type="text"
-                    id="country"
-                    name="country"
+                  <ComboBox
                     value={shipping.country}
-                    onChange={handleShippingChange}
+                    onChange={(value) => setShipping(prev => ({
+                      ...prev,
+                      country: value,
+                      state: '' // Reset state when country changes
+                    }))}
+                    options={countries.map(country => ({
+                      value: country.name,
+                      label: country.name,
+                      secondaryLabel: country.code
+                    }))}
                     required
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                    disabled={processingPayment}
+                    placeholder="Type country name or code (e.g. US, Canada)"
+                    name="country"
+                    id="country"
                   />
                 </div>
                 <div>
@@ -590,11 +848,35 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     id="phone"
                     name="phone"
                     value={shipping.phone}
-                    onChange={handleShippingChange}
+                    onChange={handlePhoneChange}
                     required
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
                   />
+                  {phoneError && (
+                    <p className="text-xs text-red-400 mt-1">{phoneError}</p>
+                  )}
                 </div>
+                {requiresTaxId && (
+                  <div className="md:col-span-2">
+                    <label htmlFor="taxId" className="block text-xs text-gray-400 mb-1">
+                      Tax ID {shipping.country === 'United States' ? '(EIN/SSN)' : '(VAT/GST/Tax Number)'}
+                      <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="taxId"
+                      name="taxId"
+                      value={shipping.taxId || ''}
+                      onChange={handleShippingChange}
+                      required={requiresTaxId}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                      placeholder={`Enter your ${shipping.country === 'United States' ? 'EIN or SSN' : 'tax ID'}`}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Required for {shipping.country} residents as per local tax regulations
+                    </p>
+                  </div>
+                )}
               </div>
               
               {/* Payment Method Selection */}
