@@ -6,6 +6,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { v4: uuidv4 } = require('uuid');
 
 // Environment variables
 const ENV = {
@@ -25,6 +26,68 @@ try {
 } catch (err) {
   console.error('Failed to initialize Supabase client:', err.message);
 }
+
+// Generate a user-friendly order number (shared with create-batch-order.js to ensure consistency)
+const generateOrderNumber = async () => {
+  try {
+    // Get the current highest order number
+    const { data, error } = await supabase
+      .from('orders')
+      .select('order_number')
+      .order('order_number', { ascending: false })
+      .limit(1);
+    
+    if (error) {
+      console.error('Error getting latest order number:', error);
+      // Fallback to a simpler format with timestamp
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const day = now.getDate();
+      // Format: SF-MMDD-XXXX (e.g., SF-0415-1234)
+      return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+    
+    // If no orders exist, start with a sequential number
+    if (!data || data.length === 0 || !data[0].order_number) {
+      return 'SF-1001';
+    }
+    
+    // Extract current highest order number
+    const currentNumber = data[0].order_number;
+    
+    // Check if it's our standard format starting with SF-
+    if (currentNumber.startsWith('SF-')) {
+      // If it's our short format (SF-XXXX), increment
+      if (/^SF-\d+$/.test(currentNumber)) {
+        const numPart = currentNumber.split('-')[1];
+        const nextNum = parseInt(numPart, 10) + 1;
+        return `SF-${nextNum}`;
+      }
+      
+      // If it's our date format (SF-MMDD-XXXX), create a new one with today's date
+      if (/^SF-\d{4}-\d{4}$/.test(currentNumber)) {
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        // Format: SF-MMDD-XXXX (e.g., SF-0415-1234)
+        return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+    }
+    
+    // For any other format, or if we can't parse the existing format, 
+    // default to our date-based format to ensure consistency
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+  } catch (err) {
+    console.error('Error generating order number:', err);
+    // If anything fails, use a timestamp-based fallback that matches our SF- pattern
+    const now = new Date();
+    const timestamp = now.getTime().toString().slice(-6);
+    return `SF-${timestamp}`;
+  }
+};
 
 exports.handler = async (event, context) => {
   // Only allow POST requests
@@ -208,6 +271,19 @@ exports.handler = async (event, context) => {
 
     console.log('Creating order with service role permissions');
     
+    // Generate an order number and batch order ID (even for single orders)
+    const orderNumber = await generateOrderNumber();
+    const batchOrderId = uuidv4();
+    
+    // Add additional metadata for consistent batch order handling
+    const finalPaymentMetadata = {
+      ...paymentMetadata,
+      orderId: transactionId, // For backward compatibility
+      batchOrderId, // Link to batch ID even for single orders
+      isBatchOrder: paymentMetadata.isBatchOrder || false,
+      isSingleItemOrder: paymentMetadata.isSingleItemOrder || true
+    };
+    
     // Call create_order function with service role permissions
     const { data: orderId, error } = await supabase.rpc('create_order', {
       p_product_id: productId,
@@ -225,8 +301,26 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // Update the order with the generated order number and batch ID
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        order_number: orderNumber,
+        batch_order_id: batchOrderId,
+        item_index: 1, // For single orders, always index 1
+        total_items_in_batch: 1 // For single orders, always 1 item
+      })
+      .eq('id', orderId);
+      
+    if (updateError) {
+      console.warn('Error updating order number:', updateError);
+      // Continue anyway - don't fail the entire request
+    }
+
     console.log('Order created successfully:', {
       orderId,
+      orderNumber,
+      batchOrderId,
       productId,
       isFreeOrder,
       transactionId,
@@ -265,7 +359,7 @@ exports.handler = async (event, context) => {
     // Get the order_number to include in the response
     const { data: orderDetails, error: fetchError } = await supabase
       .from('orders')
-      .select('order_number')
+      .select('order_number, status')
       .eq('id', orderId)
       .single();
       
@@ -276,12 +370,24 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 200,
       body: JSON.stringify({ 
+        success: true,
         orderId,
-        orderNumber: orderDetails?.order_number,
+        orderNumber: orderDetails?.order_number || orderNumber,
+        batchOrderId,
         isFreeOrder,
         transactionId,
         transactionSignature: isFreeOrder ? transactionSignature : undefined,
-        paymentIntentId: isFreeOrder ? transactionSignature : undefined
+        paymentIntentId: isFreeOrder ? transactionSignature : undefined,
+        // Match batch order format
+        orders: [
+          {
+            orderId,
+            orderNumber: orderDetails?.order_number || orderNumber,
+            status: orderDetails?.status || 'pending',
+            itemIndex: 1,
+            totalItems: 1
+          }
+        ]
       })
     };
   } catch (err) {

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ChevronRight, CreditCard, Wallet, Tag, Check } from 'lucide-react';
+import { X, ChevronRight, CreditCard, Wallet, Tag, Check, AlertTriangle } from 'lucide-react';
 import { useCart, CartItem } from '../../contexts/CartContext';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { formatPrice } from '../../utils/formatters';
 import { useWallet } from '../../contexts/WalletContext';
-import { useModal } from '../../contexts/ModalContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { toast } from 'react-toastify';
 import { Loading, LoadingType } from '../ui/LoadingStates';
@@ -13,6 +12,9 @@ import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../..
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
+import { usePayment } from '../../hooks/usePayment';
+import { StripePaymentModal } from '../products/StripePaymentModal';
+import { monitorTransaction } from '../../utils/transaction-monitor.tsx';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -22,7 +24,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   const { items, clearCart, verifyAllItems } = useCart();
   const { isConnected, walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
-  const { showVerificationModal } = useModal();
+  const { processPayment } = usePayment();
   
   // Form state
   const [shipping, setShipping] = useState<{
@@ -76,6 +78,22 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   // Payment method state
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'solana' | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
+  
+  // Add state for order progress tracking
+  const [orderProgress, setOrderProgress] = useState<{
+    step: 'idle' | 'creating_order' | 'processing_payment' | 'confirming_transaction' | 'completed' | 'error';
+    error?: string;
+  }>({
+    step: 'idle'
+  });
+  
+  // Add state for Stripe payment modal
+  const [showStripeModal, setShowStripeModal] = useState(false);
+  const [orderData, setOrderData] = useState<{
+    orderId?: string;
+    orderNumber?: string;
+    transactionSignature?: string;
+  }>({});
   
   // Try to load shipping info from localStorage
   useEffect(() => {
@@ -286,6 +304,79 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setPaymentMethod(method);
   };
   
+  // Add handler for Stripe payment success
+  const handleStripeSuccess = async (orderId: string, paymentIntentId: string) => {
+    console.log('Stripe payment successful:', { orderId, paymentIntentId });
+    
+    try {
+      // Update order status with Stripe payment info
+      setOrderProgress({ step: 'processing_payment' });
+      
+      // Update the order with the Stripe payment intent ID
+      const updateResponse = await fetch('/.netlify/functions/update-stripe-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          orderId,
+          paymentIntentId
+        })
+      });
+      
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Error updating order with Stripe payment:', errorData);
+        setOrderProgress({ 
+          step: 'error', 
+          error: errorData.error || 'Failed to update order with payment information' 
+        });
+        
+        // Still show success since Stripe payment went through
+        toast.info('Payment processed. Order status will update shortly.');
+      } else {
+        setOrderProgress({ step: 'completed' });
+        
+        // Get the updated order data
+        try {
+          const orderData = await updateResponse.json();
+          console.log('Order updated successfully:', orderData);
+          
+          // Get order number from any of the formats
+          const displayOrderNumber = orderData.orderNumber || 
+                                    orderData.orders?.[0]?.orderNumber || 
+                                    'Unknown';
+          
+          if (displayOrderNumber && displayOrderNumber !== 'Unknown') {
+            toast.success(`Order #${displayOrderNumber} placed successfully!`);
+          } else {
+            toast.success('Payment successful! Your order has been placed.');
+          }
+        } catch (parseError) {
+          console.error('Error parsing order response:', parseError);
+          toast.success('Payment successful! Your order has been placed.');
+        }
+      }
+      
+      // Clear cart and close modal with slight delay to ensure user sees the success state
+      setTimeout(() => {
+        clearCart();
+        onClose();
+      }, 2000);
+    } catch (error) {
+      console.error('Error processing Stripe payment success:', error);
+      setOrderProgress({ 
+        step: 'error', 
+        error: error instanceof Error ? error.message : 'There was an issue completing your order'
+      });
+      
+      // Still show success since the payment went through on Stripe
+      toast.info('Payment processed. Please contact support if you have issues with your order.');
+      
+      // Don't close automatically on error - let user decide
+    }
+  };
+  
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -401,8 +492,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           throw new Error(batchOrderData.error || 'Failed to create free order');
         }
         
+        // Get the order number from either format of response
+        const orderNumber = batchOrderData.orderNumber || batchOrderData.orders?.[0]?.orderNumber;
+        
         // Show success message for free order
-        toast.success(`Free order #${batchOrderData.orderNumber} created successfully!`);
+        toast.success(`Free order #${orderNumber} created successfully!`);
         
         // Clear cart and close modal
         clearCart();
@@ -416,6 +510,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       }
     }
     
+    // Update to set order progress for both payment methods
+    setOrderProgress({ step: 'creating_order' });
     setProcessingPayment(true);
     
     try {
@@ -432,6 +528,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         if (unverifiedItems.length > 0) {
           const itemNames = unverifiedItems.map(item => item.product.name).join(', ');
           toast.error(`You don't have access to these items: ${itemNames}. Please remove them from your cart.`);
+          setOrderProgress({ step: 'error', error: 'Some items in your cart could not be verified' });
           setProcessingPayment(false);
           return;
         }
@@ -451,92 +548,252 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         taxId: shipping.taxId || undefined
       };
       
-      // For Stripe, handle Stripe checkout flow
+      // For Stripe, open the Stripe modal instead of directly calling the API
       if (paymentMethod === 'stripe') {
-        // In a real implementation, you'd call your batch order endpoint first to get an order number
-        // Then proceed with Stripe checkout
-        
-        // Example of calling the batch order endpoint
-        const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            items: items.map(item => ({
-              product: item.product,
-              selectedOptions: item.selectedOptions,
-              quantity: item.quantity
-            })),
-            shippingInfo: formattedShippingInfo,
-            walletAddress: walletAddress || 'anonymous',
-            paymentMetadata: {
-              paymentMethod: 'stripe',
-              couponCode: appliedCoupon?.code,
-              couponDiscount: appliedCoupon 
-                ? (appliedCoupon.discountPercentage 
-                  ? (totalPrice * appliedCoupon.discountPercentage / 100) 
-                  : appliedCoupon.discountAmount)
-                : 0,
-              originalPrice: totalPrice
-            }
-          })
-        });
-        
-        const batchOrderData = await batchOrderResponse.json();
-        
-        if (!batchOrderData.success) {
-          throw new Error(batchOrderData.error || 'Failed to create batch order');
-        }
-        
-        // Store the order information for confirmation
-        const orderNumber = batchOrderData.orderNumber;
-        
-        // Now proceed with Stripe payment using the order number
-        // In a real implementation, you'd redirect to Stripe checkout
-        // For now, we'll just show a success message
-        
-        toast.success(`Order #${orderNumber} created! Redirecting to Stripe checkout...`);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // After successful payment, clear cart
-        clearCart();
-        onClose();
-      }
-      // For Solana, use the existing token verification modal
-      else if (paymentMethod === 'solana' && items.length > 0) {
-        const firstItem = items[0];
-        
-        // Add the coupon and cart metadata to the payment
-        const paymentMetadata = {
-          isCartOrder: true,
-          cartItemCount: items.length,
-          couponCode: appliedCoupon?.code,
-          couponDiscount: appliedCoupon 
-            ? (appliedCoupon.discountPercentage 
-              ? (totalPrice * appliedCoupon.discountPercentage / 100) 
-              : appliedCoupon.discountAmount)
-            : 0,
-          originalPrice: totalPrice
-        };
-        
-        // Use the existing verification modal with the first item
-        showVerificationModal(
-          firstItem.product, 
-          firstItem.selectedOptions,
-          {
-            shippingInfo: formattedShippingInfo,
-            paymentMetadata
+        try {
+          // Create batch order first to get the order ID
+          setOrderProgress({ step: 'creating_order' });
+          console.log('Creating batch order for Stripe payment');
+          
+          const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              items: items.map(item => ({
+                product: item.product,
+                selectedOptions: item.selectedOptions,
+                quantity: item.quantity
+              })),
+              shippingInfo: formattedShippingInfo,
+              walletAddress: walletAddress || 'anonymous',
+              paymentMetadata: {
+                paymentMethod: 'stripe',
+                couponCode: appliedCoupon?.code,
+                couponDiscount: appliedCoupon 
+                  ? (appliedCoupon.discountPercentage 
+                    ? (totalPrice * appliedCoupon.discountPercentage / 100) 
+                    : appliedCoupon.discountAmount)
+                  : 0,
+                originalPrice: totalPrice
+              }
+            })
+          });
+          
+          const batchOrderData = await batchOrderResponse.json();
+          
+          if (!batchOrderData.success) {
+            setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
+            throw new Error(batchOrderData.error || 'Failed to create batch order');
           }
-        );
-        
-        // After successful checkout, clear the cart
-        clearCart();
-        onClose();
+          
+          console.log('Batch order created successfully:', batchOrderData);
+          
+          // Store the order information
+          const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
+          const orderNumber = batchOrderData.orderNumber;
+          
+          setOrderData({
+            orderId,
+            orderNumber
+          });
+          
+          // Show the Stripe payment modal and pass necessary information
+          setOrderProgress({ step: 'idle' }); // Reset progress indicator for Stripe modal
+          setProcessingPayment(false);
+          setShowStripeModal(true);
+          return;
+        } catch (error) {
+          console.error("Stripe order creation error:", error);
+          toast.error(error instanceof Error ? error.message : "Failed to create order");
+          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'Order creation failed' });
+          setProcessingPayment(false);
+          return;
+        }
+      }
+      // For Solana payments, use the processPayment function from usePayment
+      else if (paymentMethod === 'solana' && items.length > 0) {
+        try {
+          // Get collection ID from the first item (this is consistent with TokenVerificationModal)
+          const collectionId = items[0].product.collectionId;
+          
+          // First create the batch order
+          setOrderProgress({ step: 'creating_order' });
+          console.log('Creating batch order for multiple items');
+          
+          const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              items: items.map(item => ({
+                product: item.product,
+                selectedOptions: item.selectedOptions,
+                quantity: item.quantity
+              })),
+              shippingInfo: formattedShippingInfo,
+              walletAddress: walletAddress || 'anonymous',
+              paymentMetadata: {
+                paymentMethod: 'solana',
+                couponCode: appliedCoupon?.code,
+                couponDiscount: appliedCoupon 
+                  ? (appliedCoupon.discountPercentage 
+                    ? (totalPrice * appliedCoupon.discountPercentage / 100) 
+                    : appliedCoupon.discountAmount)
+                  : 0,
+                originalPrice: totalPrice
+              }
+            })
+          });
+          
+          const batchOrderData = await batchOrderResponse.json();
+          
+          if (!batchOrderData.success) {
+            setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
+            throw new Error(batchOrderData.error || 'Failed to create batch order');
+          }
+          
+          console.log('Batch order created successfully:', batchOrderData);
+          
+          // Store the order information - handle both batch and single order response formats
+          const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
+          const orderNumber = batchOrderData.orderNumber;
+          
+          setOrderData({
+            orderId,
+            orderNumber
+          });
+          
+          // Process payment step
+          setOrderProgress({ step: 'processing_payment' });
+          console.log('Processing Solana payment for amount:', finalPrice);
+          
+          // Use the usePayment hook's processPayment function
+          const { success: paymentSuccess, signature: txSignature } = await processPayment(finalPrice, collectionId);
+          
+          if (!paymentSuccess || !txSignature) {
+            setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
+            
+            // Update order to pending_payment status even if payment fails
+            try {
+              const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  orderId,
+                  transactionSignature: 'rejected',
+                  amountSol: finalPrice
+                })
+              });
+              
+              if (!updateResponse.ok) {
+                const errorData = await updateResponse.json();
+                console.error('Failed to update order status:', errorData.error);
+              }
+            } catch (err) {
+              console.error('Error updating order status:', err);
+            }
+            
+            throw new Error('Payment failed or was cancelled');
+          }
+          
+          console.log('Payment processed successfully with signature:', txSignature);
+          
+          // Save transaction signature to state
+          setOrderData(prev => ({
+            ...prev,
+            transactionSignature: txSignature
+          }));
+          
+          // Update order with transaction signature
+          try {
+            const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                orderId,
+                transactionSignature: txSignature,
+                amountSol: finalPrice
+              })
+            });
+            
+            if (!updateResponse.ok) {
+              const errorData = await updateResponse.json();
+              console.error('Failed to update order transaction:', errorData.error);
+              // Continue with process despite error
+            } else {
+              console.log('Order transaction updated successfully');
+            }
+          } catch (error) {
+            console.error('Error updating order with transaction:', error);
+            // Continue with process despite error - the background job will handle it
+          }
+          
+          // Start transaction confirmation
+          setOrderProgress({ step: 'confirming_transaction' });
+          console.log('Confirming transaction on-chain');
+          
+          // Expected transaction details for server verification
+          const expectedDetails = {
+            amount: finalPrice,
+            buyer: walletAddress || '',
+            recipient: collectionId
+          };
+          
+          // Monitor transaction status and confirm on chain
+          const transactionSuccess = await monitorTransaction(
+            txSignature,
+            (status) => {
+              console.log('Transaction status update:', status);
+              if (status.error) {
+                console.error('Transaction error:', status.error);
+                setOrderProgress({ step: 'error', error: status.error });
+              } else if (status.paymentConfirmed === true) {
+                console.log('Transaction confirmed successfully');
+                setOrderProgress({ step: 'completed' });
+                
+                // Show success message
+                toast.success(`Order #${orderNumber} placed successfully!`);
+                
+                // Clear cart and close modal after short delay to ensure UI updates
+                setTimeout(() => {
+                  clearCart();
+                  onClose();
+                }, 1000);
+              }
+            },
+            expectedDetails,
+            orderId
+          );
+          
+          if (!transactionSuccess) {
+            console.warn('Transaction verification timeout or failure');
+            setOrderProgress({ 
+              step: 'error', 
+              error: 'Transaction verification is still pending. Your order will be reviewed by the merchant.' 
+            });
+            
+            // Show warning but still close cart as the order is created
+            toast.warning('Your payment is being processed. Order will be fulfilled when payment is confirmed.');
+            
+            // Don't close automatically on failure - let user decide
+          }
+        } catch (error) {
+          console.error("Solana payment error:", error);
+          toast.error(error instanceof Error ? error.message : "An error occurred during payment");
+          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'An unknown error occurred' });
+        }
       }
     } catch (error) {
       console.error("Checkout error:", error);
       toast.error("An error occurred during checkout");
+      setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'An unknown error occurred' });
     } finally {
       setProcessingPayment(false);
     }
@@ -554,408 +811,531 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
       
       <div className="relative min-h-screen flex items-center justify-center p-4">
-        <div className="relative bg-gray-900 w-full max-w-2xl rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-gray-800 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-white">Checkout</h2>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-              aria-label="Close modal"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          
-          <div className="p-4 max-h-[80vh] overflow-y-auto">
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-300 mb-3">Order Summary</h3>
-              <div className="space-y-3">
-                {items.map((item, index) => (
-                  <div key={index} className="flex gap-3 bg-gray-800/50 p-2 rounded-lg">
-                    <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-900 flex-shrink-0">
-                      <OptimizedImage
-                        src={item.product.imageUrl}
-                        alt={item.product.name}
-                        width={48}
-                        height={48}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between">
-                        <h4 className="text-sm font-medium text-white">{item.product.name}</h4>
-                        <span className="text-sm text-gray-300">Qty: {item.quantity}</span>
-                      </div>
-                      {Object.keys(item.selectedOptions).length > 0 && (
-                        <div className="mt-1 text-xs text-gray-400">
-                          {/* Debug output */}
-                          {(() => {
-                            console.log(`[Checkout] Rendering variants for ${item.product.name}:`, item.selectedOptions);
-                            console.log(`[Checkout] Product variants:`, item.product.variants);
-                            return null;
-                          })()}
-                          
-                          {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
-                            console.log(`[Checkout] Processing variant ${variantId} with value ${optionValue}`);
-                            
-                            const variant = item.product.variants?.find(v => v.id === variantId);
-                            console.log(`[Checkout] Found variant:`, variant);
-                            
-                            if (!variant) {
-                              console.warn(`[Checkout] Variant with ID ${variantId} not found in product`, item.product);
-                              return (
-                                <div key={variantId}>
-                                  Option: {optionValue}
-                                </div>
-                              );
-                            }
-                            
-                            const option = variant.options?.find(o => o.value === optionValue);
-                            console.log(`[Checkout] Found option:`, option);
-                            
-                            if (!option) {
-                              console.warn(`[Checkout] Option with value ${optionValue} not found in variant ${variant.name}`, variant);
-                              return (
-                                <div key={variantId}>
-                                  {variant.name}: {optionValue}
-                                </div>
-                              );
-                            }
-                            
-                            return (
-                              <div key={variantId}>
-                                {variant.name}: {option.label || optionValue}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {renderItemPrice(item)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Coupon Section */}
-              <div className="mt-4 border-t border-gray-800 pt-4">
-                {appliedCoupon ? (
-                  <div className="flex items-center justify-between bg-gray-800/70 rounded-lg p-3">
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-4 w-4 text-secondary" />
-                      <div>
-                        <span className="text-sm font-medium text-white">Coupon: {appliedCoupon.code}</span>
-                        <p className="text-xs text-gray-400">
-                          {appliedCoupon.discountPercentage 
-                            ? `${appliedCoupon.discountPercentage}% off` 
-                            : formatPrice(appliedCoupon.discountAmount) + ' off'}
-                        </p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={handleRemoveCoupon}
-                      className="text-xs text-gray-400 hover:text-red-400 transition-colors"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Enter coupon code"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                    />
-                    <button
-                      onClick={handleApplyCoupon}
-                      disabled={validatingCoupon || !couponCode.trim()}
-                      className="bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                    >
-                      {validatingCoupon ? (
-                        <Loading type={LoadingType.ACTION} />
-                      ) : (
-                        'Apply'
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {/* Price Summary */}
-              <div className="mt-4 border-t border-gray-800 pt-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Subtotal</span>
-                    <span className="text-gray-300">{formatPrice(calculateSubtotal())}</span>
-                  </div>
-                  
-                  {appliedCoupon && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Discount</span>
-                      <span className="text-secondary">
-                        -{formatPrice(
-                          appliedCoupon.discountPercentage 
-                            ? calculateSubtotal() * (appliedCoupon.discountPercentage / 100) 
-                            : appliedCoupon.discountAmount
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between font-medium pt-2">
-                    <span className="text-gray-300">Total</span>
-                    <span className="text-lg text-white">{formatPrice(finalPrice)}</span>
-                  </div>
-                </div>
-              </div>
+        {/* Render Stripe modal when needed */}
+        {showStripeModal ? (
+          <StripePaymentModal
+            onClose={() => setShowStripeModal(false)}
+            onSuccess={handleStripeSuccess}
+            solAmount={finalPrice}
+            productName={items[0]?.product.name || 'Cart Items'}
+            productId={items[0]?.product.id || ''}
+            shippingInfo={{
+              shipping_address: {
+                address: shipping.address,
+                city: shipping.city,
+                country: shipping.country,
+                zip: shipping.zip,
+              },
+              contact_info: {
+                method: 'email',
+                value: shipping.email,
+                firstName: shipping.firstName,
+                lastName: shipping.lastName,
+                phoneNumber: shipping.phone,
+              }
+            }}
+            variants={[]}
+            couponCode={appliedCoupon?.code}
+            couponDiscount={appliedCoupon?.discountAmount || 
+              (appliedCoupon?.discountPercentage ? (totalPrice * appliedCoupon.discountPercentage / 100) : 0)}
+            originalPrice={totalPrice}
+          />
+        ) : (
+          <div className="relative bg-gray-900 w-full max-w-2xl rounded-xl overflow-hidden">
+            <div className="p-4 border-b border-gray-800 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-white">Checkout</h2>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
             
-            <form onSubmit={handleCheckout} className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-300 mb-2">Shipping Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="firstName" className="block text-xs text-gray-400 mb-1">First Name</label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    name="firstName"
-                    value={shipping.firstName}
-                    onChange={handleShippingChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="lastName" className="block text-xs text-gray-400 mb-1">Last Name</label>
-                  <input
-                    type="text"
-                    id="lastName"
-                    name="lastName"
-                    value={shipping.lastName}
-                    onChange={handleShippingChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label htmlFor="address" className="block text-xs text-gray-400 mb-1">Address</label>
-                  <input
-                    type="text"
-                    id="address"
-                    name="address"
-                    value={shipping.address}
-                    onChange={handleShippingChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="city" className="block text-xs text-gray-400 mb-1">City</label>
-                  <input
-                    type="text"
-                    id="city"
-                    name="city"
-                    value={shipping.city}
-                    onChange={handleShippingChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="state" className="block text-xs text-gray-400 mb-1">State/Province</label>
-                  {availableStates.length > 0 ? (
-                    <ComboBox
-                      value={shipping.state}
-                      onChange={(value) => setShipping(prev => ({
-                        ...prev,
-                        state: value
-                      }))}
-                      options={availableStates.map(state => ({
-                        value: state.name,
-                        label: state.name,
-                        secondaryLabel: state.code
-                      }))}
-                      required={availableStates.length > 0}
-                      disabled={processingPayment}
-                      placeholder="Type or select state/province"
-                      name="state"
-                      id="state"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      id="state"
-                      name="state"
-                      value={shipping.state}
-                      onChange={handleShippingChange}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                    />
-                  )}
-                </div>
-                <div>
-                  <label htmlFor="zip" className="block text-xs text-gray-400 mb-1">ZIP/Postal Code</label>
-                  <input
-                    type="text"
-                    id="zip"
-                    name="zip"
-                    value={shipping.zip}
-                    onChange={handleZipChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
-                  {zipError && (
-                    <p className="text-xs text-red-400 mt-1">{zipError}</p>
-                  )}
-                </div>
-                <div>
-                  <label htmlFor="country" className="block text-xs text-gray-400 mb-1">Country</label>
-                  <ComboBox
-                    value={shipping.country}
-                    onChange={(value) => setShipping(prev => ({
-                      ...prev,
-                      country: value,
-                      state: '' // Reset state when country changes
-                    }))}
-                    options={countries.map(country => ({
-                      value: country.name,
-                      label: country.name,
-                      secondaryLabel: country.code
-                    }))}
-                    required
-                    disabled={processingPayment}
-                    placeholder="Type country name or code (e.g. US, Canada)"
-                    name="country"
-                    id="country"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-xs text-gray-400 mb-1">Email</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={shipping.email}
-                    onChange={handleShippingChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="phone" className="block text-xs text-gray-400 mb-1">Phone</label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    value={shipping.phone}
-                    onChange={handlePhoneChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
-                  {phoneError && (
-                    <p className="text-xs text-red-400 mt-1">{phoneError}</p>
-                  )}
-                </div>
-                {requiresTaxId && (
-                  <div className="md:col-span-2">
-                    <label htmlFor="taxId" className="block text-xs text-gray-400 mb-1">
-                      Tax ID {shipping.country === 'United States' ? '(EIN/SSN)' : '(VAT/GST/Tax Number)'}
-                      <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="taxId"
-                      name="taxId"
-                      value={shipping.taxId || ''}
-                      onChange={handleShippingChange}
-                      required={requiresTaxId}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                      placeholder={`Enter your ${shipping.country === 'United States' ? 'EIN or SSN' : 'tax ID'}`}
-                    />
-                    <p className="text-xs text-gray-400 mt-1">
-                      Required for {shipping.country} residents as per local tax regulations
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              {/* Payment Method Selection */}
-              <div className="pt-4 border-t border-gray-800 mt-4">
-                <h3 className="text-sm font-medium text-gray-300 mb-3">Payment Method</h3>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button 
-                    type="button"
-                    onClick={() => handlePaymentMethodSelect('stripe')}
-                    className={`flex-1 flex items-center justify-between p-3 rounded-lg border ${
-                      paymentMethod === 'stripe' 
-                        ? 'border-secondary bg-gray-800' 
-                        : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800/80'
-                    } transition-colors`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <CreditCard className={`h-5 w-5 ${paymentMethod === 'stripe' ? 'text-secondary' : 'text-gray-400'}`} />
-                      <span className={`text-sm ${paymentMethod === 'stripe' ? 'text-white' : 'text-gray-300'}`}>
-                        Credit Card
-                      </span>
+            <div className="p-4 max-h-[80vh] overflow-y-auto">
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-300 mb-3">Order Summary</h3>
+                <div className="space-y-3">
+                  {items.map((item, index) => (
+                    <div key={index} className="flex gap-3 bg-gray-800/50 p-2 rounded-lg">
+                      <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-900 flex-shrink-0">
+                        <OptimizedImage
+                          src={item.product.imageUrl}
+                          alt={item.product.name}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between">
+                          <h4 className="text-sm font-medium text-white">{item.product.name}</h4>
+                          <span className="text-sm text-gray-300">Qty: {item.quantity}</span>
+                        </div>
+                        {Object.keys(item.selectedOptions).length > 0 && (
+                          <div className="mt-1 text-xs text-gray-400">
+                            {/* Debug output */}
+                            {(() => {
+                              console.log(`[Checkout] Rendering variants for ${item.product.name}:`, item.selectedOptions);
+                              console.log(`[Checkout] Product variants:`, item.product.variants);
+                              return null;
+                            })()}
+                            
+                            {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
+                              console.log(`[Checkout] Processing variant ${variantId} with value ${optionValue}`);
+                              
+                              const variant = item.product.variants?.find(v => v.id === variantId);
+                              console.log(`[Checkout] Found variant:`, variant);
+                              
+                              if (!variant) {
+                                console.warn(`[Checkout] Variant with ID ${variantId} not found in product`, item.product);
+                                return (
+                                  <div key={variantId}>
+                                    Option: {optionValue}
+                                  </div>
+                                );
+                              }
+                              
+                              const option = variant.options?.find(o => o.value === optionValue);
+                              console.log(`[Checkout] Found option:`, option);
+                              
+                              if (!option) {
+                                console.warn(`[Checkout] Option with value ${optionValue} not found in variant ${variant.name}`, variant);
+                                return (
+                                  <div key={variantId}>
+                                    {variant.name}: {optionValue}
+                                  </div>
+                                );
+                              }
+                              
+                              return (
+                                <div key={variantId}>
+                                  {variant.name}: {option.label || optionValue}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {renderItemPrice(item)}
+                      </div>
                     </div>
-                    {paymentMethod === 'stripe' && (
-                      <Check className="h-4 w-4 text-secondary" />
-                    )}
-                  </button>
-                  
-                  <button 
-                    type="button"
-                    onClick={() => handlePaymentMethodSelect('solana')}
-                    className={`flex-1 flex items-center justify-between p-3 rounded-lg border ${
-                      paymentMethod === 'solana' 
-                        ? 'border-secondary bg-gray-800' 
-                        : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800/80'
-                    } transition-colors`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Wallet className={`h-5 w-5 ${paymentMethod === 'solana' ? 'text-secondary' : 'text-gray-400'}`} />
-                      <span className={`text-sm ${paymentMethod === 'solana' ? 'text-white' : 'text-gray-300'}`}>
-                        Solana {isConnected ? '(Connected)' : ''}
-                      </span>
-                    </div>
-                    {paymentMethod === 'solana' && (
-                      <Check className="h-4 w-4 text-secondary" />
-                    )}
-                  </button>
+                  ))}
                 </div>
                 
-                {paymentMethod === 'solana' && !isConnected && (
-                  <p className="mt-2 text-xs text-yellow-400">
-                    Please connect your wallet to continue with Solana payment
-                  </p>
-                )}
+                {/* Coupon Section */}
+                <div className="mt-4 border-t border-gray-800 pt-4">
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between bg-gray-800/70 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-secondary" />
+                        <div>
+                          <span className="text-sm font-medium text-white">Coupon: {appliedCoupon.code}</span>
+                          <p className="text-xs text-gray-400">
+                            {appliedCoupon.discountPercentage 
+                              ? `${appliedCoupon.discountPercentage}% off` 
+                              : formatPrice(appliedCoupon.discountAmount) + ' off'}
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={handleRemoveCoupon}
+                        className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter coupon code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                      />
+                      <button
+                        onClick={handleApplyCoupon}
+                        disabled={validatingCoupon || !couponCode.trim()}
+                        className="bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        {validatingCoupon ? (
+                          <Loading type={LoadingType.ACTION} />
+                        ) : (
+                          'Apply'
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Price Summary */}
+                <div className="mt-4 border-t border-gray-800 pt-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Subtotal</span>
+                      <span className="text-gray-300">{formatPrice(calculateSubtotal())}</span>
+                    </div>
+                    
+                    {appliedCoupon && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Discount</span>
+                        <span className="text-secondary">
+                          -{formatPrice(
+                            appliedCoupon.discountPercentage 
+                              ? calculateSubtotal() * (appliedCoupon.discountPercentage / 100) 
+                              : appliedCoupon.discountAmount
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between font-medium pt-2">
+                      <span className="text-gray-300">Total</span>
+                      <span className="text-lg text-white">{formatPrice(finalPrice)}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              {/* Checkout button */}
-              <div className="pt-4 border-t border-gray-800 mt-4">
-                <button
-                  type="submit"
-                  disabled={processingPayment || (paymentMethod === 'solana' && !isConnected) || !paymentMethod}
-                  className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {processingPayment ? (
-                    <Loading type={LoadingType.ACTION} />
-                  ) : !isConnected && paymentMethod === 'solana' ? (
-                    <>
-                      <Wallet className="h-4 w-4" />
-                      <span>Connect Wallet</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Continue to Payment</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </>
+              {/* Add loading/progress overlay when processing payment */}
+              {orderProgress.step !== 'idle' && (
+                <div className="absolute inset-0 bg-gray-900/90 backdrop-blur-sm flex items-center justify-center z-10">
+                  <div className="max-w-md w-full p-6 bg-gray-800 rounded-lg">
+                    <div className="space-y-6">
+                      <div className="text-center">
+                        <h3 className="text-lg font-medium text-white mb-2">Processing Your Order</h3>
+                        <p className="text-gray-400 text-sm">Please keep this window open until your order is complete.</p>
+                      </div>
+                      
+                      {/* Order progress steps */}
+                      <div className="space-y-4 mt-6">
+                        <div className="flex items-center gap-3">
+                          {orderProgress.step === 'creating_order' ? (
+                            <Loading type={LoadingType.ACTION} />
+                          ) : orderProgress.step === 'error' ? (
+                            <AlertTriangle className="h-5 w-5 text-red-500" />
+                          ) : ['completed', 'processing_payment', 'confirming_transaction'].includes(orderProgress.step) ? (
+                            <Check className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border border-gray-600" />
+                          )}
+                          <span className={`text-sm ${orderProgress.step === 'creating_order' ? 'text-white' : 'text-gray-400'}`}>
+                            Creating Order
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          {orderProgress.step === 'processing_payment' ? (
+                            <Loading type={LoadingType.ACTION} />
+                          ) : orderProgress.step === 'error' ? (
+                            <AlertTriangle className="h-5 w-5 text-red-500" />
+                          ) : ['completed', 'confirming_transaction'].includes(orderProgress.step) ? (
+                            <Check className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border border-gray-600" />
+                          )}
+                          <span className={`text-sm ${orderProgress.step === 'processing_payment' ? 'text-white' : 'text-gray-400'}`}>
+                            Processing Payment
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          {orderProgress.step === 'confirming_transaction' ? (
+                            <Loading type={LoadingType.ACTION} />
+                          ) : orderProgress.step === 'error' ? (
+                            <AlertTriangle className="h-5 w-5 text-red-500" />
+                          ) : orderProgress.step === 'completed' ? (
+                            <Check className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border border-gray-600" />
+                          )}
+                          <span className={`text-sm ${orderProgress.step === 'confirming_transaction' ? 'text-white' : 'text-gray-400'}`}>
+                            Confirming Transaction
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Show error message if there is one */}
+                      {orderProgress.error && (
+                        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                          <p className="text-red-500 text-sm">{orderProgress.error}</p>
+                        </div>
+                      )}
+                      
+                      {/* Show order info if available */}
+                      {orderData.orderNumber && (
+                        <div className="mt-4 p-3 bg-gray-700/20 border border-gray-700 rounded-lg">
+                          <p className="text-gray-300 text-sm">Order #{orderData.orderNumber}</p>
+                          {orderData.transactionSignature && (
+                            <p className="text-xs text-gray-400 mt-1 truncate">
+                              Transaction: {orderData.transactionSignature}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Add cancel button */}
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleCheckout} className="space-y-4">
+                <h3 className="text-sm font-medium text-gray-300 mb-2">Shipping Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="firstName" className="block text-xs text-gray-400 mb-1">First Name</label>
+                    <input
+                      type="text"
+                      id="firstName"
+                      name="firstName"
+                      value={shipping.firstName}
+                      onChange={handleShippingChange}
+                      required
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="lastName" className="block text-xs text-gray-400 mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      id="lastName"
+                      name="lastName"
+                      value={shipping.lastName}
+                      onChange={handleShippingChange}
+                      required
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label htmlFor="address" className="block text-xs text-gray-400 mb-1">Address</label>
+                    <input
+                      type="text"
+                      id="address"
+                      name="address"
+                      value={shipping.address}
+                      onChange={handleShippingChange}
+                      required
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="city" className="block text-xs text-gray-400 mb-1">City</label>
+                    <input
+                      type="text"
+                      id="city"
+                      name="city"
+                      value={shipping.city}
+                      onChange={handleShippingChange}
+                      required
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="state" className="block text-xs text-gray-400 mb-1">State/Province</label>
+                    {availableStates.length > 0 ? (
+                      <ComboBox
+                        value={shipping.state}
+                        onChange={(value) => setShipping(prev => ({
+                          ...prev,
+                          state: value
+                        }))}
+                        options={availableStates.map(state => ({
+                          value: state.name,
+                          label: state.name,
+                          secondaryLabel: state.code
+                        }))}
+                        required={availableStates.length > 0}
+                        disabled={processingPayment}
+                        placeholder="Type or select state/province"
+                        name="state"
+                        id="state"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        id="state"
+                        name="state"
+                        value={shipping.state}
+                        onChange={handleShippingChange}
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="zip" className="block text-xs text-gray-400 mb-1">ZIP/Postal Code</label>
+                    <input
+                      type="text"
+                      id="zip"
+                      name="zip"
+                      value={shipping.zip}
+                      onChange={handleZipChange}
+                      required
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                    />
+                    {zipError && (
+                      <p className="text-xs text-red-400 mt-1">{zipError}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="country" className="block text-xs text-gray-400 mb-1">Country</label>
+                    <ComboBox
+                      value={shipping.country}
+                      onChange={(value) => setShipping(prev => ({
+                        ...prev,
+                        country: value,
+                        state: '' // Reset state when country changes
+                      }))}
+                      options={countries.map(country => ({
+                        value: country.name,
+                        label: country.name,
+                        secondaryLabel: country.code
+                      }))}
+                      required
+                      disabled={processingPayment}
+                      placeholder="Type country name or code (e.g. US, Canada)"
+                      name="country"
+                      id="country"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="email" className="block text-xs text-gray-400 mb-1">Email</label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={shipping.email}
+                      onChange={handleShippingChange}
+                      required
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="phone" className="block text-xs text-gray-400 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      value={shipping.phone}
+                      onChange={handlePhoneChange}
+                      required
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                    />
+                    {phoneError && (
+                      <p className="text-xs text-red-400 mt-1">{phoneError}</p>
+                    )}
+                  </div>
+                  {requiresTaxId && (
+                    <div className="md:col-span-2">
+                      <label htmlFor="taxId" className="block text-xs text-gray-400 mb-1">
+                        Tax ID {shipping.country === 'United States' ? '(EIN/SSN)' : '(VAT/GST/Tax Number)'}
+                        <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="taxId"
+                        name="taxId"
+                        value={shipping.taxId || ''}
+                        onChange={handleShippingChange}
+                        required={requiresTaxId}
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                        placeholder={`Enter your ${shipping.country === 'United States' ? 'EIN or SSN' : 'tax ID'}`}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Required for {shipping.country} residents as per local tax regulations
+                      </p>
+                    </div>
                   )}
-                </button>
-              </div>
-            </form>
+                </div>
+                
+                {/* Payment Method Selection */}
+                <div className="pt-4 border-t border-gray-800 mt-4">
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Payment Method</h3>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button 
+                      type="button"
+                      onClick={() => handlePaymentMethodSelect('stripe')}
+                      className={`flex-1 flex items-center justify-between p-3 rounded-lg border ${
+                        paymentMethod === 'stripe' 
+                          ? 'border-secondary bg-gray-800' 
+                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800/80'
+                      } transition-colors`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <CreditCard className={`h-5 w-5 ${paymentMethod === 'stripe' ? 'text-secondary' : 'text-gray-400'}`} />
+                        <span className={`text-sm ${paymentMethod === 'stripe' ? 'text-white' : 'text-gray-300'}`}>
+                          Credit Card
+                        </span>
+                      </div>
+                      {paymentMethod === 'stripe' && (
+                        <Check className="h-4 w-4 text-secondary" />
+                      )}
+                    </button>
+                    
+                    <button 
+                      type="button"
+                      onClick={() => handlePaymentMethodSelect('solana')}
+                      className={`flex-1 flex items-center justify-between p-3 rounded-lg border ${
+                        paymentMethod === 'solana' 
+                          ? 'border-secondary bg-gray-800' 
+                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800/80'
+                      } transition-colors`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Wallet className={`h-5 w-5 ${paymentMethod === 'solana' ? 'text-secondary' : 'text-gray-400'}`} />
+                        <span className={`text-sm ${paymentMethod === 'solana' ? 'text-white' : 'text-gray-300'}`}>
+                          Solana {isConnected ? '(Connected)' : ''}
+                        </span>
+                      </div>
+                      {paymentMethod === 'solana' && (
+                        <Check className="h-4 w-4 text-secondary" />
+                      )}
+                    </button>
+                  </div>
+                  
+                  {paymentMethod === 'solana' && !isConnected && (
+                    <p className="mt-2 text-xs text-yellow-400">
+                      Please connect your wallet to continue with Solana payment
+                    </p>
+                  )}
+                </div>
+                
+                {/* Checkout button */}
+                <div className="pt-4 border-t border-gray-800 mt-4">
+                  <button
+                    type="submit"
+                    disabled={processingPayment || (paymentMethod === 'solana' && !isConnected) || !paymentMethod}
+                    className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {processingPayment ? (
+                      <Loading type={LoadingType.ACTION} />
+                    ) : !isConnected && paymentMethod === 'solana' ? (
+                      <>
+                        <Wallet className="h-4 w-4" />
+                        <span>Connect Wallet</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Continue to Payment</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

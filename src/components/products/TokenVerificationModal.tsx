@@ -733,8 +733,15 @@ export function TokenVerificationModal({
             }
             
             const batchData = await orderResponse.json();
-            orderId = batchData.orders[0]?.orderId; // Get the first order ID
-            orderNumber = batchData.orderNumber; // Get the shared order number
+            
+            if (!batchData.success) {
+              throw new Error(batchData.error || 'Failed to create batch order');
+            }
+            
+            orderId = batchData.orders?.[0]?.orderId; // Get the first order ID
+            
+            // Get order number from the response
+            orderNumber = batchData.orderNumber;
           } else {
             // For regular single orders, use the regular order endpoint
             orderResponse = await fetch('/.netlify/functions/create-order', {
@@ -749,7 +756,10 @@ export function TokenVerificationModal({
                 walletAddress,
                 paymentMetadata: {
                   ...paymentMetadata,
-                  orderSource: 'token_modal'
+                  orderSource: 'token_modal',
+                  paymentMethod: 'solana',
+                  isBatchOrder: false,
+                  isSingleItemOrder: true
                 }
               })
             });
@@ -760,8 +770,14 @@ export function TokenVerificationModal({
             }
             
             const orderData = await orderResponse.json();
+            if (orderData.error) {
+              throw new Error(orderData.error);
+            }
+            
             orderId = orderData.orderId;
-            orderNumber = orderData.orderNumber;
+            orderNumber = orderData.orderNumber || 
+                         orderData.orders?.[0]?.orderNumber || 
+                         `SF-${Date.now().toString().slice(-6)}`;  // Fallback that matches pattern
           }
 
           updateProgressStep(0, 'completed');
@@ -1205,9 +1221,15 @@ export function TokenVerificationModal({
         
         console.log('Free order created successfully:', responseData);
           
+        // Get order number from any of the formats
+        const displayOrderNumber = responseData.orderNumber || 
+                                   responseData.orders?.[0]?.orderNumber || 
+                                   responseData.orderId || 
+                                   'Unknown';
+        
         // Show order success
         setOrderDetails({
-          orderNumber: responseData.orderNumber || responseData.orderId,
+          orderNumber: displayOrderNumber,
           transactionSignature: responseData.transactionSignature || responseData.paymentIntentId || transactionId
         });
           
@@ -1277,7 +1299,7 @@ export function TokenVerificationModal({
           productName={product.name}
           collectionName={product.collectionName || 'Unknown Collection'}
           productImage={product.imageUrl}
-          orderNumber={orderDetails.orderNumber}
+          orderNumber={orderDetails.orderNumber || `SF-${Date.now().toString().slice(-6)}`}
           transactionSignature={orderDetails.transactionSignature}
           onClose={onSuccess}
         />

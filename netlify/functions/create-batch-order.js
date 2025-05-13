@@ -7,33 +7,66 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Generate a unique order number (same format as existing single orders)
+// Generate a user-friendly order number (shorter and more memorable)
 const generateOrderNumber = async () => {
-  // Get the current highest order number
-  const { data, error } = await supabase
-    .from('orders')
-    .select('order_number')
-    .order('order_number', { ascending: false })
-    .limit(1);
-  
-  if (error) {
-    console.error('Error getting latest order number:', error);
-    // Fallback pattern if query fails
-    return `SF-${Date.now().toString().slice(-8)}`;
-  }
-  
-  // Extract current highest order number or start with SF-10000
-  let nextNumber = 10000;
-  if (data && data.length > 0 && data[0].order_number) {
-    const currentNumber = data[0].order_number;
-    // Extract the numeric part if it follows the SF-XXXXX pattern
-    const match = currentNumber.match(/SF-(\d+)/);
-    if (match && match[1]) {
-      nextNumber = parseInt(match[1], 10) + 1;
+  try {
+    // Get the current highest order number
+    const { data, error } = await supabase
+      .from('orders')
+      .select('order_number')
+      .order('order_number', { ascending: false })
+      .limit(1);
+    
+    if (error) {
+      console.error('Error getting latest order number:', error);
+      // Fallback to a simpler format with timestamp
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const day = now.getDate();
+      // Format: SF-MMDD-XXXX (e.g., SF-0415-1234)
+      return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
+    
+    // If no orders exist, start with a sequential number
+    if (!data || data.length === 0 || !data[0].order_number) {
+      return 'SF-1001';
+    }
+    
+    // Extract current highest order number
+    const currentNumber = data[0].order_number;
+    
+    // Check if it's our standard format starting with SF-
+    if (currentNumber.startsWith('SF-')) {
+      // If it's our short format (SF-XXXX), increment
+      if (/^SF-\d+$/.test(currentNumber)) {
+        const numPart = currentNumber.split('-')[1];
+        const nextNum = parseInt(numPart, 10) + 1;
+        return `SF-${nextNum}`;
+      }
+      
+      // If it's our date format (SF-MMDD-XXXX), create a new one with today's date
+      if (/^SF-\d{4}-\d{4}$/.test(currentNumber)) {
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        // Format: SF-MMDD-XXXX (e.g., SF-0415-1234)
+        return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+    }
+    
+    // For any other format, or if we can't parse the existing format, 
+    // default to our date-based format to ensure consistency
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+  } catch (err) {
+    console.error('Error generating order number:', err);
+    // If anything fails, use a timestamp-based fallback that matches our SF- pattern
+    const now = new Date();
+    const timestamp = now.getTime().toString().slice(-6);
+    return `SF-${timestamp}`;
   }
-  
-  return `SF-${nextNumber}`;
 };
 
 exports.handler = async (event, context) => {
