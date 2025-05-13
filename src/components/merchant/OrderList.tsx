@@ -787,8 +787,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   const getProductInfo = (order: Order) => {
     // Get variant data from any available source in order of preference
     const variantData = 
-      (order.variant_selections && order.variant_selections.length > 0) ? order.variant_selections :
-      (order.order_variants && order.order_variants.length > 0) ? order.order_variants : 
+      (order.variant_selections && Array.isArray(order.variant_selections) && order.variant_selections.length > 0) ? order.variant_selections :
+      (order.order_variants && Array.isArray(order.order_variants) && order.order_variants.length > 0) ? order.order_variants : 
       [];
     
     return {
@@ -1291,7 +1291,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
                     {/* Variant Info Section */}
                     <div className="flex flex-wrap gap-2 mt-4">
-                      {group[0].variant_selections?.map((variant, index) => (
+                      {Array.isArray(group[0].variant_selections) && group[0].variant_selections.map((variant, index) => (
                         <div
                           key={`${variant.name}-${index}`}
                           className="bg-gray-700/30 px-2 py-1 rounded text-xs text-gray-300"
@@ -1369,7 +1369,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm text-white truncate">{item.product_name}</p>
-                                {item.variant_selections && item.variant_selections.length > 0 && (
+                                {item.variant_selections && Array.isArray(item.variant_selections) && item.variant_selections.length > 0 && (
                                   <p className="text-xs text-gray-400">
                                     {item.variant_selections.map(v => `${v.name}: ${v.value}`).join(', ')}
                                   </p>

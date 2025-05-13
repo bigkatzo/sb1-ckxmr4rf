@@ -447,7 +447,7 @@ export function OrdersPage() {
                           <p className="text-xs text-gray-400">SKU: {group[0].product_sku}</p>
                         )}
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {group[0].variant_selections && group[0].variant_selections.length > 0 && (
+                          {group[0].variant_selections && Array.isArray(group[0].variant_selections) && group[0].variant_selections.length > 0 && (
                             <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
                               {group[0].variant_selections.map((v) => `${v.name}: ${v.value}`).join(', ')}
                             </span>
@@ -555,7 +555,7 @@ export function OrdersPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs text-white truncate">{item.product_name}</p>
-                                {item.variant_selections && item.variant_selections.length > 0 && (
+                                {item.variant_selections && Array.isArray(item.variant_selections) && item.variant_selections.length > 0 && (
                                   <p className="text-xs text-gray-400 truncate">
                                     {item.variant_selections.map(v => `${v.name}: ${v.value}`).join(', ')}
                                   </p>
