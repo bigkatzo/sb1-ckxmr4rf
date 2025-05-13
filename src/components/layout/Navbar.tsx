@@ -187,7 +187,7 @@ export default function Navbar() {
               >
                 <Search className="h-5 w-5" />
               </button>
-              <CartButton size="sm" />
+              <CartButton size="sm" className="p-2" />
               <WalletButton />
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
