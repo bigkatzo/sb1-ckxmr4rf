@@ -557,12 +557,12 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
       role="dialog"
       aria-labelledby="modal-title"
     >
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[40]" onClick={onClose} />
 
       <div className="min-h-screen w-full flex items-start justify-center p-0 pt-14 sm:p-4 sm:pt-16 sm:items-center">
         <div 
           ref={modalRef}
-          className="relative bg-gray-900 w-full min-h-[calc(100vh-56px)] sm:min-h-0 sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden"
+          className="relative bg-gray-900 w-full min-h-[calc(100vh-56px)] sm:min-h-0 sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden z-[45]"
         >
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <ShareButton 
