@@ -138,7 +138,7 @@ export default function Navbar() {
     <nav 
       className={`fixed ${
         activeMarquee ? 'top-8' : 'top-0'
-      } w-full bg-black/95 backdrop-blur-sm text-white z-[60] transition-all duration-200 ${
+      } w-full bg-black/95 backdrop-blur-sm text-white z-[50] transition-all duration-200 ${
         isScrolled ? 'shadow-md' : ''
       }`}
     >
@@ -200,7 +200,7 @@ export default function Navbar() {
 
           {/* Mobile Menu */}
           {isMenuOpen && (
-            <div className="md:hidden absolute right-0 top-14 w-48 bg-gray-900 rounded-bl-lg border-l border-b border-gray-800 z-[60]">
+            <div className="md:hidden absolute right-0 top-14 w-48 bg-gray-900 rounded-bl-lg border-l border-b border-gray-800 z-[50]">
               <MenuContent />
             </div>
           )}
@@ -215,7 +215,7 @@ export default function Navbar() {
 
         {/* Desktop Menu Dropdown */}
         {isMenuOpen && (
-          <div className="absolute right-4 top-14 w-56 mt-2 bg-gray-900 rounded-lg shadow-lg border border-gray-800 overflow-hidden z-[60] hidden md:block">
+          <div className="absolute right-4 top-14 w-56 mt-2 bg-gray-900 rounded-lg shadow-lg border border-gray-800 overflow-hidden z-[50] hidden md:block">
             <MenuContent />
           </div>
         )}

@@ -45,31 +45,32 @@ html, body {
   z-index: 99999 !important;
 }
 
-/* Navigation bar z-index (stays above modal backdrop) */
-nav.fixed.w-full {
-  z-index: 60 !important;
+/* Product modal backdrop z-index (lowest in flow) */
+[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] .fixed.inset-0.bg-black\/80 {
+  z-index: 40 !important;
 }
 
-/* Product modal backdrop z-index (under the nav bar) */
-[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] .fixed.inset-0.bg-black\/80 {
+/* Product modal content z-index (first in flow) */
+[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] {
+  z-index: 45 !important;
+}
+
+/* Navigation bar z-index (stays above product modal) */
+nav.fixed.w-full {
   z-index: 50 !important;
 }
 
-/* Product modal content z-index (first in flow, above nav) */
-[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] {
+/* Cart drawer backdrop (above nav) */
+.cart-backdrop {
   z-index: 55 !important;
 }
 
-/* Cart drawer backdrop and content z-index (above product modal) */
-.cart-backdrop {
-  z-index: 65 !important;
-}
-
+/* Cart drawer content (above its backdrop) */
 .cart-content {
-  z-index: 65 !important;
+  z-index: 60 !important;
 }
 
-/* Token verification modal z-index (second in flow) */
+/* Token verification modal z-index (above cart) */
 [aria-modal="true"][role="dialog"]:not([aria-labelledby="modal-title"]) {
   z-index: 70 !important;
 }
