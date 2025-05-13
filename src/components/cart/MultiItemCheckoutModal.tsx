@@ -360,9 +360,24 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                         <div className="mt-1 text-xs text-gray-400">
                           {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
                             const variant = item.product.variants?.find(v => v.id === variantId);
-                            if (!variant) return null;
+                            if (!variant) {
+                              console.warn(`Variant with ID ${variantId} not found in product`, item.product);
+                              return (
+                                <div key={variantId}>
+                                  Option: {optionValue}
+                                </div>
+                              );
+                            }
+                            
                             const option = variant.options.find(o => o.value === optionValue);
-                            if (!option) return null;
+                            if (!option) {
+                              console.warn(`Option with value ${optionValue} not found in variant ${variant.name}`, variant);
+                              return (
+                                <div key={variantId}>
+                                  {variant.name}: {optionValue}
+                                </div>
+                              );
+                            }
                             
                             return (
                               <div key={variantId}>

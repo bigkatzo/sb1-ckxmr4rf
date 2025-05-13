@@ -123,17 +123,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         variantPriceAdjustments: 0
       };
 
+      // Ensure the product has all necessary variant data
+      const enrichedProduct = { 
+        ...product,
+        // Make sure variants is defined and preserved
+        variants: product.variants || []
+      };
+
       if (existingItemIndex !== -1) {
         // Update quantity of existing item
         const newItems = [...prevItems];
         newItems[existingItemIndex].quantity += quantity;
         // Also update price info in case it changed
         newItems[existingItemIndex].priceInfo = defaultPriceInfo;
+        // Ensure product data is up to date
+        newItems[existingItemIndex].product = enrichedProduct;
         return newItems;
       } else {
         // Add new item with verification status if verified
         const newItem: CartItem = { 
-          product, 
+          product: enrichedProduct, 
           selectedOptions, 
           quantity,
           priceInfo: defaultPriceInfo,

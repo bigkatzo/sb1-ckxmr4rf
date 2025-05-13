@@ -100,11 +100,27 @@ export function CartDrawer() {
                             {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
                               // Find the variant name
                               const variant = item.product.variants?.find(v => v.id === variantId);
-                              if (!variant) return null;
+                              if (!variant) {
+                                console.warn(`Variant with ID ${variantId} not found in product`, item.product);
+                                return (
+                                  <div key={variantId} className="flex">
+                                    <span className="font-medium">Option:</span>
+                                    <span className="ml-1">{optionValue}</span>
+                                  </div>
+                                );
+                              }
                               
                               // Find the option label
                               const option = variant.options.find(o => o.value === optionValue);
-                              if (!option) return null;
+                              if (!option) {
+                                console.warn(`Option with value ${optionValue} not found in variant ${variant.name}`, variant);
+                                return (
+                                  <div key={variantId} className="flex">
+                                    <span className="font-medium">{variant.name}:</span>
+                                    <span className="ml-1">{optionValue}</span>
+                                  </div>
+                                );
+                              }
                               
                               return (
                                 <div key={variantId} className="flex">
