@@ -7,6 +7,8 @@ import { ModalProvider } from './contexts/ModalContext';
 import { HowItWorksProvider } from './contexts/HowItWorksContext';
 import { AppMessagesProvider } from './contexts/AppMessagesContext';
 import { UserRoleProvider } from './contexts/UserRoleContext';
+import { CartProvider } from './contexts/CartContext';
+import { CartDrawer } from './components/cart/CartDrawer';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { PageTransition } from './components/ui/PageTransition';
 import { validateEnvironmentVariables } from './utils/env-validation';
@@ -99,6 +101,7 @@ function AppContent() {
   return (
     <PageTransition>
       <Outlet />
+      <CartDrawer />
     </PageTransition>
   );
 }
@@ -157,7 +160,9 @@ export function App() {
               <ModalProvider>
                 <HowItWorksProvider>
                   <AppMessagesProvider>
-                    <AppContent />
+                    <CartProvider>
+                      <AppContent />
+                    </CartProvider>
                   </AppMessagesProvider>
                 </HowItWorksProvider>
               </ModalProvider>

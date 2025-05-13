@@ -3,6 +3,8 @@ import type { Category } from './index';
 export interface ProductVariantOption {
   id: string;
   value: string;
+  label: string;
+  priceAdjustment?: number; // Additional cost in cents for this option
 }
 
 export interface ProductVariant {

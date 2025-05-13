@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingBag, ExternalLink, Share2, X } from 'lucide-react';
+import { ShoppingBag, ExternalLink, Share2, X, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toPng } from 'html-to-image';
 import { 
@@ -84,7 +84,7 @@ const ShareableView = ({ productImage, collectionName }: { productImage?: string
       </p>
 
       <img 
-        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAB4CAYAAADc36SXAAAACXBIWXMAAAsSAAALEgHS3X78AAAAAXNSR0IArs4c6QAAIABJREFUeF7tnQe4dUV199fa50XI52eMYkGiiRU1ErtYEmyoxMRuINZEYsMoxF5iVESMBSOooBFsGAtKNCqfDWtsKBgR64cxRrEAakzUaPLKe/bK/C6z77vPueecPXtmTuPOep77XHjvnvbfs2fNzFrrv1SKFAQKAgWBgkBBIAIBjShTihQECgIFgYJAQUCKAimToCBQECgIFASiECgKJAq2UqggUBAoCBQEigIpc6AgUBAoCBQEohAoCiQKtlKoIFAQKAgUBIoCKXOgIFAQKAgUBKIQKAokCrZSqCBQECgIFASKAilzoCBQECgIFASiECgKJAq2UqggUBAoCBQEigIpc6AgUBAoCBQEohAoCiQKtlKoIFAQKAgUBIoCKXOgIFAQKAgUBKIQKAokCrZSqCBQECgIFASKAilzoCBQECgIFASiECgKJAq2UqggUBAoCBYGCwHZFoCiQ7frmy7gLAgWBgkAiAkWBJAJYihcECgIFge2KQFEg2/XNl3EXBAoCBYFEBIoCSQSwFC8IFAQKAtsVgaJAtuubL+MuCBQECgKJCBQFkghgKV4QKAgUBLYrAkWBbNc3X8ZdECgIFAQSESgKJBHAUrwgUBAoCGxXBIoC2a5vvoy7IFAQKAgkIlAUSCKApXhBoCBQENiuCBQFsl3ffBl3QaAgUBBIROB/AfFsIE6Xn1y4AAAAAElFTkSuQmCC"
+        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAB4CAYAAADc36SXAAAACXBIWXMAAAsSAAALEgHS3X78AAAAAXNSR0IArs4c6QAAIABJREFUeF7tnQe4dUV199fa50XI52eMYkGiiRU1ErtYEmyoxMRuINZEYsMoxF5iVESMBSOooBFsGAtKNCqfDWtsKBgR64cxRrEAakzUaPLKe/bK/C6z77vPueecPXtmTuPOep77XHjvnvbfs2fNzFrrv1SKFAQKAgWBgkBBIAIBjShTihQECgIFgYJAQUCKAimToCBQECgIFASiECgKJAq2UqggUBAoCBQEigIpc6AgUBAoCBQEohAoCiQKtlKoIFAQKAgUBIoCKXOgIFAQKAgUBKIQKAokCrZSqCBQECgIFASKAilzoCBQECgIFASiECgKJAq2UqggUBAoCBQEigIpc6AgUBAoCBQEohAoCiQKtlKoIFAQKAgUBIoCKXOgIFAQKAgUBKIQKAokCrZSqCBQECgIFASKAilzoCBQECgIFASiECgKJAq2UqggUBAoCBQEigIpc6AgUBAoCBQEohAoCiQKtlKoIFAQKAgUBIoCSQSwFC8IFAQKAtsVgaJAtuubL+MuCBQECgKJCBQFkghgKV4QKAgUBLYrAkWBbNc3X8ZdECgIFAQSESgKJBHAUrwgUBAoCGxXBIoC2a5vvoy7IFAQKAgkIlAUSCKApXhBoCBQENiuCBQFsl3ffBl3QaAgUBBIRKAokEQAS/GCQEGgILBdESgKZLu++TLugkBBoCCQiEBRIIkAluIFgYJAQWC7IlAUSCKApXhBoCBQENiuCBQFsl3ffBl3QaAgUBBIRORo0xjsAAAAAElFTkSuQmCC"
         alt="Store.fun Logo"
         style={{
           width: '200px',
@@ -103,8 +103,12 @@ interface OrderSuccessViewProps {
   orderNumber: string;
   transactionSignature: string;
   onClose: () => void;
-  collectionSlug: string;
   receiptUrl?: string;
+  
+  // New optional props for batch orders
+  totalItems?: number;
+  itemPosition?: number;
+  isBatchOrder?: boolean;
 }
 
 export function OrderSuccessView({
@@ -114,60 +118,70 @@ export function OrderSuccessView({
   orderNumber,
   transactionSignature,
   onClose,
-  collectionSlug,
-  receiptUrl
+  receiptUrl,
+  totalItems,
+  itemPosition,
+  isBatchOrder
 }: OrderSuccessViewProps) {
   const navigate = useNavigate();
   const { ensureAuthenticated } = useWallet();
-
+  
   const handleOrdersNavigation = useCallback(async () => {
-    await ensureAuthenticated();
-    onClose();
-    navigate('/orders');
-  }, [ensureAuthenticated, navigate, onClose]);
+    const isAuthenticated = await ensureAuthenticated();
+    if (isAuthenticated) {
+      onClose();
+      navigate('/orders');
+    }
+  }, [ensureAuthenticated, onClose, navigate]);
 
   const handleShare = async () => {
     try {
-      const shareableElement = document.getElementById('shareable-success');
-      if (!shareableElement) {
-        throw new Error('Could not find shareable element');
-      }
-
-      // Generate the PNG
-      const dataUrl = await toPng(shareableElement, {
-        quality: 1,
-        pixelRatio: 2
-      });
-
-      // Convert to blob and create file
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const file = new File([blob], 'nft-success.png', { type: 'image/png' });
-
-      // Prepare share text
-      const cashtag = collectionSlug.replace(/[\s-]/g, '');
-      const collectionUrl = `https://store.fun/${collectionSlug}`;
-      const shareText = `Just got my ${collectionName} merch on @storedotfun! 📦 ${collectionUrl} get yours $${cashtag}`;
-
-      // Check if we're on mobile
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-      if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // If we can use the Web Share API, try that first
+      if (navigator.share) {
         await navigator.share({
-          files: [file],
-          text: shareText
+          title: `${collectionName} Order Confirmation`,
+          text: `Just got my ${collectionName} merch on Store.fun! 📦`,
+          url: window.location.origin
         });
         return;
       }
-
-      // Twitter fallback
-      const tweetText = encodeURIComponent(shareText);
-      window.open(
-        `https://twitter.com/intent/tweet?text=${tweetText}`,
-        '_blank',
-        'noopener,noreferrer'
-      );
-
+      
+      // Try to generate an image for social sharing
+      const shareableElement = document.getElementById('shareable-success');
+      if (!shareableElement) {
+        throw new Error('Shareable element not found');
+      }
+      
+      const dataUrl = await toPng(shareableElement, {
+        quality: 0.95,
+        pixelRatio: 2
+      });
+      
+      // Create a blob from the dataURL
+      const blob = await (await fetch(dataUrl)).blob();
+      
+      // Try to use the navigator.clipboard API for images
+      try {
+        // @ts-ignore - This is a newer API that TypeScript might not recognize
+        if (navigator.clipboard?.write) {
+          const clipboardItem = new ClipboardItem({
+            [blob.type]: blob
+          });
+          // @ts-ignore
+          await navigator.clipboard.write([clipboardItem]);
+          alert('Image copied to clipboard! You can paste it into social media.');
+          return;
+        }
+      } catch (clipError) {
+        console.error('Clipboard API failed:', clipError);
+      }
+      
+      // Fallback: create a download link
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `${collectionName.replace(/\s+/g, '-').toLowerCase()}-order.png`;
+      link.click();
+      
     } catch (error) {
       console.error('Share failed:', error);
       // Twitter fallback
@@ -225,7 +239,11 @@ export function OrderSuccessView({
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", delay: 0.4 }}
               >
-                <ShoppingBag className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                {isBatchOrder ? (
+                  <ShoppingCart className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                ) : (
+                  <ShoppingBag className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                )}
               </motion.div>
             </div>
           </motion.div>
@@ -250,6 +268,11 @@ export function OrderSuccessView({
               <div className="relative p-3 sm:p-4 bg-black/50 rounded-lg">
                 <h3 className="text-lg sm:text-xl font-semibold text-white mb-1 sm:mb-2">{productName}</h3>
                 <p className="text-sm text-secondary-light">by {collectionName}</p>
+                {isBatchOrder && totalItems && totalItems > 0 && itemPosition && (
+                  <div className="mt-2 text-xs font-medium text-blue-400">
+                    Item {itemPosition} of {totalItems}
+                  </div>
+                )}
                 <div className="mt-3 sm:mt-4">
                   <img
                     src={productImage}

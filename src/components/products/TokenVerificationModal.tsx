@@ -28,6 +28,8 @@ interface TokenVerificationModalProps {
   onClose: () => void;
   onSuccess: () => void;
   selectedOption?: Record<string, string>;
+  shippingInfo?: any;
+  paymentMetadata?: any;
 }
 
 interface ShippingInfo {
@@ -80,7 +82,9 @@ export function TokenVerificationModal({
   product, 
   onClose, 
   onSuccess,
-  selectedOption = {}
+  selectedOption = {},
+  shippingInfo = {},
+  paymentMetadata = {}
 }: TokenVerificationModalProps) {
   const { walletAddress, walletAuthToken, ensureAuthenticated } = useWallet();
   const { processPayment } = usePayment();
@@ -149,8 +153,28 @@ export function TokenVerificationModal({
   // Calculate final price including variants, modifications, and coupon
   const finalPrice = couponResult?.finalPrice ?? baseModifiedPrice;
 
-  // Initialize shipping info from localStorage if available
-  const [shippingInfo, setShippingInfo] = useState<ShippingInfo>(() => {
+  // Initialize shipping info from props first (if provided by cart checkout) or localStorage
+  const [shippingInfoState, setShippingInfoState] = useState<ShippingInfo>(() => {
+    // If we have shipping info from props, use that
+    if (shippingInfo && Object.keys(shippingInfo).length > 0) {
+      // Format from cart checkout format to TokenVerificationModal format
+      const propsShippingInfo = {
+        address: shippingInfo.address || '',
+        city: shippingInfo.city || '',
+        country: shippingInfo.country || '',
+        state: shippingInfo.state || '',
+        zip: shippingInfo.zip || '',
+        contactMethod: 'telegram', // Default contact method
+        contactValue: shippingInfo.email || '',
+        firstName: shippingInfo.firstName || '',
+        lastName: shippingInfo.lastName || '',
+        phoneNumber: shippingInfo.phone || '',
+        taxId: ''
+      };
+      return propsShippingInfo;
+    }
+    
+    // Otherwise, use localStorage
     const savedInfo = localStorage.getItem(STORAGE_KEY);
     return savedInfo ? JSON.parse(savedInfo) : {
       address: '',
@@ -172,14 +196,14 @@ export function TokenVerificationModal({
   
   // Get states for the selected country
   const availableStates = useMemo(() => {
-    const countryCode = countries.find(c => c.name === shippingInfo.country)?.code;
+    const countryCode = countries.find(c => c.name === shippingInfoState.country)?.code;
     return countryCode ? getStatesByCountryCode(countryCode) : [];
-  }, [shippingInfo.country]);
+  }, [shippingInfoState.country]);
 
   // Enhance the handleZipChange function to detect country when possible
   const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newZip = e.target.value;
-    setShippingInfo(prev => ({
+    setShippingInfoState(prev => ({
       ...prev,
       zip: newZip
     }));
@@ -192,8 +216,8 @@ export function TokenVerificationModal({
     }
     
     // If the country is already set, use that for validation
-    if (shippingInfo.country) {
-      const countryObj = countries.find(c => c.name === shippingInfo.country);
+    if (shippingInfoState.country) {
+      const countryObj = countries.find(c => c.name === shippingInfoState.country);
       const countryCode = countryObj?.code;
       
       // Validate ZIP code
@@ -210,8 +234,8 @@ export function TokenVerificationModal({
           const country = countries.find(c => c.code === 'US');
           if (country && country.states && country.states[stateCode]) {
             const stateName = country.states[stateCode][0];
-            if (stateName && (!shippingInfo.state || shippingInfo.state !== stateName)) {
-              setShippingInfo(prev => ({
+            if (stateName && (!shippingInfoState.state || shippingInfoState.state !== stateName)) {
+              setShippingInfoState(prev => ({
                 ...prev,
                 state: stateName
               }));
@@ -226,11 +250,11 @@ export function TokenVerificationModal({
       }
     } 
     // If country is not set, try to detect it from ZIP format
-    else if (!shippingInfo.country && newZip.length >= 5) {
+    else if (!shippingInfoState.country && newZip.length >= 5) {
       const locationInfo = getLocationFromZip(newZip);
       
       if (locationInfo) {
-        setShippingInfo(prev => ({
+        setShippingInfoState(prev => ({
           ...prev,
           country: locationInfo.country,
           state: locationInfo.state || ''
@@ -246,14 +270,14 @@ export function TokenVerificationModal({
 
   // Save shipping info to localStorage whenever it changes
   useEffect(() => {
-    console.log('Shipping info updated:', shippingInfo);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfo));
-  }, [shippingInfo]);
+    console.log('Shipping info updated:', shippingInfoState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(shippingInfoState));
+  }, [shippingInfoState]);
 
   // Validate phone number on initial load
   useEffect(() => {
-    if (shippingInfo.phoneNumber) {
-      const validation = validatePhoneNumber(shippingInfo.phoneNumber);
+    if (shippingInfoState.phoneNumber) {
+      const validation = validatePhoneNumber(shippingInfoState.phoneNumber);
       setPhoneError(validation.error || '');
     }
   }, []);
@@ -341,23 +365,23 @@ export function TokenVerificationModal({
     e.preventDefault();
     
     // Validate phone number before submission
-    const phoneValidation = validatePhoneNumber(shippingInfo.phoneNumber);
+    const phoneValidation = validatePhoneNumber(shippingInfoState.phoneNumber);
     if (phoneValidation.error) {
       setPhoneError(phoneValidation.error);
       return;
     }
     
     // Validate ZIP code before submission
-    const countryObj = countries.find(c => c.name === shippingInfo.country);
+    const countryObj = countries.find(c => c.name === shippingInfoState.country);
     const countryCode = countryObj?.code;
-    const zipValidation = validateZipCode(shippingInfo.zip, countryCode);
+    const zipValidation = validateZipCode(shippingInfoState.zip, countryCode);
     if (zipValidation.error) {
       setZipError(zipValidation.error);
       return;
     }
     
     // Validate state/province is selected if available for country
-    if (availableStates.length > 0 && !shippingInfo.state) {
+    if (availableStates.length > 0 && !shippingInfoState.state) {
       toast.error('Please select a state/province');
       return;
     }
@@ -371,8 +395,10 @@ export function TokenVerificationModal({
     const isAuthenticated = await ensureWalletAuth();
     if (!isAuthenticated) return;
 
-    let orderId: string | null = null;
     let signature: string | null = null;
+    let orderId: string | null = null;
+    let orderNumber: string | null = null;
+    let transactionId = crypto.randomUUID?.() || Date.now().toString(); // Unique ID for this transaction attempt
     
     try {
       setSubmitting(true);
@@ -380,19 +406,19 @@ export function TokenVerificationModal({
       // Format shipping info for database
       const formattedShippingInfo = {
         shipping_address: {
-          address: shippingInfo.address,
-          city: shippingInfo.city,
-          country: shippingInfo.country,
-          zip: shippingInfo.zip,
-          state: shippingInfo.state || undefined,
-          taxId: shippingInfo.taxId || undefined
+          address: shippingInfoState.address,
+          city: shippingInfoState.city,
+          country: shippingInfoState.country,
+          zip: shippingInfoState.zip,
+          state: shippingInfoState.state || undefined,
+          taxId: shippingInfoState.taxId || undefined
         },
         contact_info: {
-          method: shippingInfo.contactMethod,
-          value: shippingInfo.contactValue,
-          firstName: shippingInfo.firstName,
-          lastName: shippingInfo.lastName,
-          phoneNumber: shippingInfo.phoneNumber
+          method: shippingInfoState.contactMethod,
+          value: shippingInfoState.contactValue,
+          firstName: shippingInfoState.firstName,
+          lastName: shippingInfoState.lastName,
+          phoneNumber: shippingInfoState.phoneNumber
         }
       };
 
@@ -671,27 +697,73 @@ export function TokenVerificationModal({
       // Retry order creation up to 3 times
       for (let i = 0; i < 3; i++) {
         try {
-          const response = await fetch('/.netlify/functions/create-order', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              productId: product.id,
-              variants: formattedVariantSelections,
-              shippingInfo: formattedShippingInfo,
-              walletAddress,
-              paymentMetadata
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create order');
+          // Check if this is a cart order (batch) or a regular single order
+          const isBatchOrder = paymentMetadata && 'isCartOrder' in paymentMetadata && paymentMetadata.isCartOrder === true;
+          
+          let orderResponse;
+          
+          if (isBatchOrder) {
+            // For batch orders, use the batch order endpoint
+            orderResponse = await fetch('/.netlify/functions/create-batch-order', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                items: [
+                  {
+                    product,
+                    selectedOptions: selectedOption,
+                    quantity: 1
+                  }
+                ],
+                shippingInfo: formattedShippingInfo,
+                walletAddress,
+                paymentMetadata: {
+                  ...paymentMetadata,
+                  transactionId, // Add the transaction ID
+                  orderSource: 'token_modal'
+                }
+              })
+            });
+            
+            if (!orderResponse.ok) {
+              const errorData = await orderResponse.json();
+              throw new Error(errorData.error || 'Failed to create batch order');
+            }
+            
+            const batchData = await orderResponse.json();
+            orderId = batchData.orders[0]?.orderId; // Get the first order ID
+            orderNumber = batchData.orderNumber; // Get the shared order number
+          } else {
+            // For regular single orders, use the regular order endpoint
+            orderResponse = await fetch('/.netlify/functions/create-order', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                productId: product.id,
+                variants: formattedVariantSelections,
+                shippingInfo: formattedShippingInfo,
+                walletAddress,
+                paymentMetadata: {
+                  ...paymentMetadata,
+                  orderSource: 'token_modal'
+                }
+              })
+            });
+            
+            if (!orderResponse.ok) {
+              const errorData = await orderResponse.json();
+              throw new Error(errorData.error || 'Failed to create order');
+            }
+            
+            const orderData = await orderResponse.json();
+            orderId = orderData.orderId;
+            orderNumber = orderData.orderNumber;
           }
 
-          const data = await response.json();
-          orderId = data.orderId;
           updateProgressStep(0, 'completed');
           break;
         } catch (err) {
@@ -798,12 +870,12 @@ export function TokenVerificationModal({
               
               // Add immediate success trigger when paymentConfirmed is true
               console.log('Payment confirmed, triggering success view');
-              // Get fallback order number in case the normal flow fails
-              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+              // Use the order number from the API response, fall back to a generated one if not available
+              const displayOrderNumber = orderNumber || `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
               
               // Important: Force full sequence order, use functional state update
               setOrderDetails({
-                orderNumber: fallbackOrderNumber,
+                orderNumber: displayOrderNumber,
                 transactionSignature: signature || ''
               });
               
@@ -827,9 +899,9 @@ export function TokenVerificationModal({
             // Check if the success view is showing by looking at the state
             if (!showSuccessView) {
               console.log('SAFETY TIMEOUT: Forcing success view to show as callback may have failed');
-              const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+              const displayOrderNumber = orderNumber || `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
               setOrderDetails({
-                orderNumber: fallbackOrderNumber,
+                orderNumber: displayOrderNumber,
                 transactionSignature: signature || ''
               });
               
@@ -847,12 +919,12 @@ export function TokenVerificationModal({
           updateProgressStep(2, 'error', undefined, 'Transaction verification failed. Order will remain in pending_payment status for merchant review.');
           // Don't throw error here, let the merchant handle it
           
-          // Create fallback order details for the success view
-          const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+          // Create order details for the success view using real order number if available
+          const displayOrderNumber = orderNumber || `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
           
           // Force reliable state update sequence
           setOrderDetails({
-            orderNumber: fallbackOrderNumber,
+            orderNumber: displayOrderNumber,
             transactionSignature: signature || ''
           });
           
@@ -890,7 +962,7 @@ export function TokenVerificationModal({
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setShippingInfo(prev => ({
+    setShippingInfoState(prev => ({
       ...prev,
       phoneNumber: value
     }));
@@ -1099,18 +1171,18 @@ export function TokenVerificationModal({
             variants: selectedOption || {},
             shippingInfo: {
               shipping_address: {
-                address: shippingInfo.address,
-                city: shippingInfo.city,
-                country: shippingInfo.country,
-                state: shippingInfo.state,
-                zip: shippingInfo.zip
+                address: shippingInfoState.address,
+                city: shippingInfoState.city,
+                country: shippingInfoState.country,
+                state: shippingInfoState.state,
+                zip: shippingInfoState.zip
               },
               contact_info: {
-                method: shippingInfo.contactMethod,
-                value: shippingInfo.contactValue,
-                firstName: shippingInfo.firstName,
-                lastName: shippingInfo.lastName,
-                phoneNumber: shippingInfo.phoneNumber
+                method: shippingInfoState.contactMethod,
+                value: shippingInfoState.contactValue,
+                firstName: shippingInfoState.firstName,
+                lastName: shippingInfoState.lastName,
+                phoneNumber: shippingInfoState.phoneNumber
               }
             },
             walletAddress: walletAddress || 'anonymous',
@@ -1181,6 +1253,23 @@ export function TokenVerificationModal({
     }
   };
 
+  // Initialize coupon data from paymentMetadata if available
+  useEffect(() => {
+    if (paymentMetadata && paymentMetadata.couponCode) {
+      setCouponCode(paymentMetadata.couponCode);
+      
+      // Set coupon result for cart checkouts with valid coupon
+      if (paymentMetadata.originalPrice && paymentMetadata.couponDiscount) {
+        setCouponResult({
+          couponCode: paymentMetadata.couponCode,
+          originalPrice: paymentMetadata.originalPrice,
+          couponDiscount: paymentMetadata.couponDiscount,
+          finalPrice: paymentMetadata.originalPrice - paymentMetadata.couponDiscount
+        });
+      }
+    }
+  }, [paymentMetadata]);
+
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
       {showSuccessView && orderDetails ? (
@@ -1191,7 +1280,6 @@ export function TokenVerificationModal({
           orderNumber={orderDetails.orderNumber}
           transactionSignature={orderDetails.transactionSignature}
           onClose={onSuccess}
-          collectionSlug={product.collectionSlug || ''}
         />
       ) : showStripeModal ? (
         <StripePaymentModal
@@ -1202,17 +1290,17 @@ export function TokenVerificationModal({
           productId={product.id}
           shippingInfo={{
             shipping_address: {
-              address: shippingInfo.address,
-              city: shippingInfo.city,
-              country: shippingInfo.country,
-              zip: shippingInfo.zip,
+              address: shippingInfoState.address,
+              city: shippingInfoState.city,
+              country: shippingInfoState.country,
+              zip: shippingInfoState.zip,
             },
             contact_info: {
-              method: shippingInfo.contactMethod,
-              value: shippingInfo.contactValue,
-              firstName: shippingInfo.firstName,
-              lastName: shippingInfo.lastName,
-              phoneNumber: shippingInfo.phoneNumber,
+              method: shippingInfoState.contactMethod,
+              value: shippingInfoState.contactValue,
+              firstName: shippingInfoState.firstName,
+              lastName: shippingInfoState.lastName,
+              phoneNumber: shippingInfoState.phoneNumber,
             }
           }}
           variants={Object.entries(selectedOption).map(([variantId, value]) => {
@@ -1299,8 +1387,8 @@ export function TokenVerificationModal({
                         </label>
                         <input
                           type="text"
-                          value={shippingInfo.address}
-                          onChange={(e) => setShippingInfo(prev => ({
+                          value={shippingInfoState.address}
+                          onChange={(e) => setShippingInfoState(prev => ({
                             ...prev,
                             address: e.target.value
                           }))}
@@ -1318,8 +1406,8 @@ export function TokenVerificationModal({
                           </label>
                           <input
                             type="text"
-                            value={shippingInfo.city}
-                            onChange={(e) => setShippingInfo(prev => ({
+                            value={shippingInfoState.city}
+                            onChange={(e) => setShippingInfoState(prev => ({
                               ...prev,
                               city: e.target.value
                             }))}
@@ -1336,7 +1424,7 @@ export function TokenVerificationModal({
                           </label>
                           <input
                             type="text"
-                            value={shippingInfo.zip}
+                            value={shippingInfoState.zip}
                             onChange={handleZipChange}
                             required
                             disabled={submitting}
@@ -1357,8 +1445,8 @@ export function TokenVerificationModal({
                             Country
                           </label>
                           <ComboBox
-                            value={shippingInfo.country}
-                            onChange={(value) => setShippingInfo(prev => ({
+                            value={shippingInfoState.country}
+                            onChange={(value) => setShippingInfoState(prev => ({
                               ...prev,
                               country: value,
                               state: '' // Reset state when country changes
@@ -1382,8 +1470,8 @@ export function TokenVerificationModal({
                               State / Province
                             </label>
                             <ComboBox
-                              value={shippingInfo.state || ''}
-                              onChange={(value) => setShippingInfo(prev => ({
+                              value={shippingInfoState.state || ''}
+                              onChange={(value) => setShippingInfoState(prev => ({
                                 ...prev,
                                 state: value
                               }))}
@@ -1412,8 +1500,8 @@ export function TokenVerificationModal({
                           </label>
                           <input
                             type="text"
-                            value={shippingInfo.firstName}
-                            onChange={(e) => setShippingInfo(prev => ({
+                            value={shippingInfoState.firstName}
+                            onChange={(e) => setShippingInfoState(prev => ({
                               ...prev,
                               firstName: e.target.value
                             }))}
@@ -1429,8 +1517,8 @@ export function TokenVerificationModal({
                           </label>
                           <input
                             type="text"
-                            value={shippingInfo.lastName}
-                            onChange={(e) => setShippingInfo(prev => ({
+                            value={shippingInfoState.lastName}
+                            onChange={(e) => setShippingInfoState(prev => ({
                               ...prev,
                               lastName: e.target.value
                             }))}
@@ -1448,7 +1536,7 @@ export function TokenVerificationModal({
                         </label>
                         <input
                           type="tel"
-                          value={shippingInfo.phoneNumber}
+                          value={shippingInfoState.phoneNumber}
                           onChange={handlePhoneChange}
                           required
                           disabled={submitting}
@@ -1463,15 +1551,15 @@ export function TokenVerificationModal({
                       </div>
 
                       {/* Conditional Tax ID field for countries that require it */}
-                      {shippingInfo.country && doesCountryRequireTaxId(shippingInfo.country) && (
+                      {shippingInfoState.country && doesCountryRequireTaxId(shippingInfoState.country) && (
                         <div>
                           <label className="block text-sm font-medium text-gray-200 mb-2">
                             Tax ID <span className="text-red-400">*</span>
                           </label>
                           <input
                             type="text"
-                            value={shippingInfo.taxId || ''}
-                            onChange={(e) => setShippingInfo(prev => ({
+                            value={shippingInfoState.taxId || ''}
+                            onChange={(e) => setShippingInfoState(prev => ({
                               ...prev,
                               taxId: e.target.value
                             }))}
@@ -1481,7 +1569,7 @@ export function TokenVerificationModal({
                             placeholder="Enter your tax ID number"
                           />
                           <p className="mt-1 text-xs text-amber-400">
-                            A tax ID is required for shipping to {shippingInfo.country}
+                            A tax ID is required for shipping to {shippingInfoState.country}
                           </p>
                         </div>
                       )}
@@ -1493,8 +1581,8 @@ export function TokenVerificationModal({
                       </label>
                       <div className="flex flex-col sm:flex-row gap-4">
                         <select
-                          value={shippingInfo.contactMethod}
-                          onChange={(e) => setShippingInfo(prev => ({
+                          value={shippingInfoState.contactMethod}
+                          onChange={(e) => setShippingInfoState(prev => ({
                             ...prev,
                             contactMethod: e.target.value,
                             contactValue: '' // Reset value when changing method
@@ -1508,9 +1596,9 @@ export function TokenVerificationModal({
                         </select>
                         <div className="flex-1 min-w-0">
                           <input
-                            type={shippingInfo.contactMethod === 'email' ? 'email' : 'text'}
-                            value={shippingInfo.contactValue}
-                            onChange={(e) => setShippingInfo(prev => ({
+                            type={shippingInfoState.contactMethod === 'email' ? 'email' : 'text'}
+                            value={shippingInfoState.contactValue}
+                            onChange={(e) => setShippingInfoState(prev => ({
                               ...prev,
                               contactValue: e.target.value
                             }))}
@@ -1518,8 +1606,8 @@ export function TokenVerificationModal({
                             disabled={submitting}
                             className="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 truncate disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder={
-                              shippingInfo.contactMethod === 'telegram' ? '@username' :
-                              shippingInfo.contactMethod === 'email' ? 'email@example.com' :
+                              shippingInfoState.contactMethod === 'telegram' ? '@username' :
+                              shippingInfoState.contactMethod === 'email' ? 'email@example.com' :
                               '@handle'
                             }
                           />
@@ -1597,12 +1685,12 @@ export function TokenVerificationModal({
                         type="button"
                         onClick={handlePaymentClick('solana')}
                         disabled={submitting || !verificationResult?.isValid || 
-                          !shippingInfo.address || !shippingInfo.city || 
-                          !shippingInfo.country || !shippingInfo.zip || 
-                          (availableStates.length > 0 && !shippingInfo.state) ||
-                          !shippingInfo.contactValue || !shippingInfo.firstName ||
-                          !shippingInfo.lastName || !shippingInfo.phoneNumber || 
-                          (shippingInfo.country && doesCountryRequireTaxId(shippingInfo.country) && !shippingInfo.taxId) ||
+                          !shippingInfoState.address || !shippingInfoState.city || 
+                          !shippingInfoState.country || !shippingInfoState.zip || 
+                          (availableStates.length > 0 && !shippingInfoState.state) ||
+                          !shippingInfoState.contactValue || !shippingInfoState.firstName ||
+                          !shippingInfoState.lastName || !shippingInfoState.phoneNumber || 
+                          (shippingInfoState.country && doesCountryRequireTaxId(shippingInfoState.country) && !shippingInfoState.taxId) ||
                           !!phoneError || !!zipError}
                         className="w-full bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
@@ -1615,12 +1703,12 @@ export function TokenVerificationModal({
                           type="button"
                           onClick={handlePaymentClick('stripe')}
                           disabled={submitting || 
-                            !shippingInfo.address || !shippingInfo.city || 
-                            !shippingInfo.country || !shippingInfo.zip || 
-                            (availableStates.length > 0 && !shippingInfo.state) ||
-                            !shippingInfo.contactValue || !shippingInfo.firstName ||
-                            !shippingInfo.lastName || !shippingInfo.phoneNumber || 
-                            (shippingInfo.country && doesCountryRequireTaxId(shippingInfo.country) && !shippingInfo.taxId) ||
+                            !shippingInfoState.address || !shippingInfoState.city || 
+                            !shippingInfoState.country || !shippingInfoState.zip || 
+                            (availableStates.length > 0 && !shippingInfoState.state) ||
+                            !shippingInfoState.contactValue || !shippingInfoState.firstName ||
+                            !shippingInfoState.lastName || !shippingInfoState.phoneNumber || 
+                            (shippingInfoState.country && doesCountryRequireTaxId(shippingInfoState.country) && !shippingInfoState.taxId) ||
                             !!phoneError || !!zipError}
                           className="text-primary hover:text-primary/80 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >

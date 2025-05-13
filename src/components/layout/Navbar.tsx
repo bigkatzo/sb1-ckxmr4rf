@@ -4,6 +4,7 @@ import { Search, Menu, X as XIcon, Package, Twitter, Mail, Send } from 'lucide-r
 import { SearchBar } from '../search/SearchBar';
 import { Logo } from '../ui/Logo';
 import { WalletButton } from '../wallet/WalletButton';
+import { CartButton } from '../cart/CartButton';
 import { useHowItWorks } from '../../contexts/HowItWorksContext';
 import { useAppMessages } from '../../contexts/AppMessagesContext';
 
@@ -168,6 +169,7 @@ export default function Navbar() {
           <div className="flex items-center ml-auto">
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-4">
+              <CartButton />
               <WalletButton />
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -185,6 +187,7 @@ export default function Navbar() {
               >
                 <Search className="h-5 w-5" />
               </button>
+              <CartButton size="sm" />
               <WalletButton />
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}

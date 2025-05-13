@@ -226,6 +226,10 @@ export function useOrders() {
         updatedAt: new Date(order.updated_at || order.updatedAt || new Date()),
         // Set tracking to null if not available
         tracking: order.tracking || null,
+        // Include batch order information
+        batch_order_id: order.batch_order_id || undefined,
+        item_index: order.item_index || undefined,
+        total_items_in_batch: order.total_items_in_batch || undefined
       };
     });
     

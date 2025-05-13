@@ -108,6 +108,10 @@ export interface Order {
   product_image_url?: string;
   order_variants?: OrderVariant[];
   product_variant_prices?: Record<string, any>;
+  // Batch order information
+  batch_order_id?: string;
+  item_index?: number;
+  total_items_in_batch?: number;
 }
 
 // Type for the public order counts view

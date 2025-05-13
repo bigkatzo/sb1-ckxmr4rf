@@ -1,6 +1,6 @@
 import { useWallet } from '../contexts/WalletContext';
 import { useOrders } from '../hooks/useOrders';
-import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter, Bug, PackageOpen, HelpCircle } from 'lucide-react';
+import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter, Bug, PackageOpen, HelpCircle, ShoppingCart } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../types/orders';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
@@ -225,6 +225,36 @@ export function OrdersPage() {
     return null;
   };
 
+  // Group orders by batch_order_id for display
+  const groupOrdersByBatch = (orders: Order[]) => {
+    // Create a map of batch_order_id to arrays of orders
+    const batchMap = new Map<string, Order[]>();
+    
+    // Add orders to their respective batches
+    orders.forEach(order => {
+      if (order.batch_order_id) {
+        // If this order is part of a batch
+        const batchId = order.batch_order_id;
+        if (!batchMap.has(batchId)) {
+          batchMap.set(batchId, []);
+        }
+        batchMap.get(batchId)!.push(order);
+      } else {
+        // If this is a standalone order, use its ID as the key
+        batchMap.set(order.id, [order]);
+      }
+    });
+    
+    // Convert map to array of batches
+    return Array.from(batchMap.values()).sort((a, b) => {
+      // Sort batches by creation date, newest first
+      return new Date(b[0].createdAt).getTime() - new Date(a[0].createdAt).getTime();
+    });
+  };
+
+  // Group the orders for display
+  const orderGroups = groupOrdersByBatch(orders);
+
   if (!walletAddress) {
     return (
       <div className="space-y-6">
@@ -338,40 +368,40 @@ export function OrdersPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {orders.map((order) => (
-            <div key={order.id} className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-secondary/20 transition-all">
+          {orderGroups.map((group) => (
+            <div key={group[0].batch_order_id || group[0].id} className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-secondary/20 transition-all">
               {/* Order Number Header */}
               <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
                 <div className="flex flex-col gap-0.5 sm:gap-2">
                   {/* Mobile Layout */}
                   <div className="flex items-center justify-between sm:hidden">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Order</span>
-                      <span className="font-mono text-sm font-medium text-white truncate">{order.order_number}</span>
+                      <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Batch</span>
+                      <span className="font-mono text-sm font-medium text-white truncate">{group[0].batch_order_id || group[0].id}</span>
                     </div>
-                    <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
-                      {getStatusIcon(order.status)}
-                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}</span>
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusColor(group[0].status)}`}>
+                      {getStatusIcon(group[0].status)}
+                      <span>{group[0].status.charAt(0).toUpperCase() + group[0].status.slice(1).replace('_', ' ')}</span>
                     </div>
                   </div>
                   {/* Mobile Date */}
                   <div className="sm:hidden">
-                    <span className="text-[10px] text-gray-400">{formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}</span>
+                    <span className="text-[10px] text-gray-400">{formatDistanceToNow(safeParseDate(group[0].createdAt), { addSuffix: true })}</span>
                   </div>
 
                   {/* Desktop Layout - All inline */}
                   <div className="hidden sm:flex sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
-                        <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
+                        <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Batch</span>
+                        <span className="font-mono font-medium text-white truncate">{group[0].batch_order_id || group[0].id}</span>
                       </div>
                       <span className="text-gray-600">•</span>
-                      <span className="text-xs text-gray-400">{formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}</span>
+                      <span className="text-xs text-gray-400">{formatDistanceToNow(safeParseDate(group[0].createdAt), { addSuffix: true })}</span>
                     </div>
-                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(order.status)}`}>
-                      {getStatusIcon(order.status)}
-                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}</span>
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide ${getStatusColor(group[0].status)}`}>
+                      {getStatusIcon(group[0].status)}
+                      <span>{group[0].status.charAt(0).toUpperCase() + group[0].status.slice(1).replace('_', ' ')}</span>
                     </div>
                   </div>
                 </div>
@@ -382,11 +412,11 @@ export function OrdersPage() {
                   {/* Product Image */}
                   <div className="relative h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
                     {(() => {
-                      const imageUrl = getProductImage(order);
+                      const imageUrl = getProductImage(group[0]);
                       return imageUrl ? (
                         <OptimizedImage
                           src={imageUrl}
-                          alt={order.product_name || 'Product'}
+                          alt={group[0].product_name || 'Product'}
                           width={160}
                           height={160}
                           quality={75}
@@ -406,44 +436,52 @@ export function OrdersPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium text-sm truncate">{order.product_name}</h3>
-                          {order.collection_name && (
+                          <h3 className="font-medium text-sm truncate">{group[0].product_name}</h3>
+                          {group[0].collection_name && (
                             <span className="text-xs bg-secondary/40 text-secondary px-2 py-0.5 rounded-full shadow-sm shadow-secondary/10 backdrop-blur-sm font-medium shrink-0">
-                              {order.collection_name}
+                              {group[0].collection_name}
                             </span>
                           )}
                         </div>
-                        {order.product_sku && (
-                          <p className="text-xs text-gray-400">SKU: {order.product_sku}</p>
+                        {group[0].product_sku && (
+                          <p className="text-xs text-gray-400">SKU: {group[0].product_sku}</p>
                         )}
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {order.variant_selections && order.variant_selections.length > 0 && (
+                          {group[0].variant_selections && group[0].variant_selections.length > 0 && (
                             <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
-                              {order.variant_selections.map((v) => `${v.name}: ${v.value}`).join(', ')}
+                              {group[0].variant_selections.map((v) => `${v.name}: ${v.value}`).join(', ')}
                             </span>
                           )}
                         </div>
                         <p className="text-gray-400 text-xs mt-2">
-                          Amount: {typeof order.amountSol === 'number' ? order.amountSol.toFixed(2) : '0.00'} SOL
+                          Amount: {typeof group[0].amountSol === 'number' ? group[0].amountSol.toFixed(2) : '0.00'} SOL
                         </p>
+                        
+                        {/* Show batch indicator if this is a batch order */}
+                        {group.length > 1 && (
+                          <div className="mt-2 bg-indigo-500/15 text-indigo-400 px-2 py-1 rounded text-xs inline-flex items-center gap-1.5">
+                            <ShoppingCart className="h-3 w-3" />
+                            <span>Batch Order ({group.length} items)</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
                     {/* Order Details */}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
                       {/* Shipping Info */}
-                      {order.shippingAddress && (
+                      {group[0].shippingAddress && (
                         <div>
                           <h4 className="text-xs font-medium text-gray-400 mb-2">Shipping Address</h4>
-                          {formatShippingAddress(order.shippingAddress)}
+                          {formatShippingAddress(group[0].shippingAddress)}
                         </div>
                       )}
                       
                       {/* Contact Info */}
-                      {order.contactInfo && (
+                      {group[0].contactInfo && (
                         <div>
                           <h4 className="text-xs font-medium text-gray-400 mb-2">Contact</h4>
-                          {formatContactInfo(order.contactInfo)}
+                          {formatContactInfo(group[0].contactInfo)}
                         </div>
                       )}
                     </div>
@@ -453,16 +491,16 @@ export function OrdersPage() {
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-400">
-                            {order.transactionSignature ? getTransactionLabel(order.transactionSignature) : "Transaction"}:
+                            {group[0].transactionSignature ? getTransactionLabel(group[0].transactionSignature) : "Transaction"}:
                           </span>
-                          {order.transactionSignature ? (
+                          {group[0].transactionSignature ? (
                             <a
-                              href={getTransactionUrl(order.transactionSignature)}
+                              href={getTransactionUrl(group[0].transactionSignature)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`text-xs ${isStripeReceiptUrl(order.transactionSignature) || order.transactionSignature?.startsWith('pi_') ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
+                              className={`text-xs ${isStripeReceiptUrl(group[0].transactionSignature) || group[0].transactionSignature?.startsWith('pi_') ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
                             >
-                              {formatTransactionSignature(order.transactionSignature)}
+                              {formatTransactionSignature(group[0].transactionSignature)}
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           ) : (
@@ -473,19 +511,19 @@ export function OrdersPage() {
                     </div>
 
                     {/* Tracking Info */}
-                    {order.tracking && (
+                    {group[0].tracking && (
                       <div className="mt-4 pt-4 border-t border-gray-800">
                         <div className="flex items-center gap-2">
                           <Truck className="h-4 w-4 text-secondary" />
                           <span className="text-xs text-gray-400">Tracking Number:</span>
-                          {order.tracking.tracking_number ? (
+                          {group[0].tracking.tracking_number ? (
                             <Link
-                              to={`/tracking/${order.tracking.tracking_number}`}
+                              to={`/tracking/${group[0].tracking.tracking_number}`}
                               className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
                               target="_blank"
                               rel="noopener noreferrer"
                             >
-                              {order.tracking.tracking_number}
+                              {group[0].tracking.tracking_number}
                               <ExternalLink className="h-3 w-3" />
                             </Link>
                           ) : (
@@ -494,14 +532,41 @@ export function OrdersPage() {
                             </span>
                           )}
                         </div>
-                        {order.tracking.status && (
+                        {group[0].tracking.status && (
                           <div className="mt-2 text-xs text-secondary">
-                            {order.tracking.status}
-                            {order.tracking.status_details && (
-                              <span className="text-gray-400 ml-1">- {order.tracking.status_details}</span>
+                            {group[0].tracking.status}
+                            {group[0].tracking.status_details && (
+                              <span className="text-gray-400 ml-1">- {group[0].tracking.status_details}</span>
                             )}
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Show batch order details if this is a batch */}
+                    {group.length > 1 && (
+                      <div className="mt-4 pt-4 border-t border-gray-800">
+                        <h4 className="text-xs font-medium text-gray-400 mb-2">Order Items</h4>
+                        <div className="space-y-2">
+                          {group.map((item, index) => (
+                            <div key={item.id} className="bg-gray-800/30 rounded p-2 flex items-center gap-2">
+                              <div className="bg-gray-700/50 h-6 w-6 rounded-full flex items-center justify-center text-xs text-gray-300 font-medium">
+                                {item.item_index || index + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-white truncate">{item.product_name}</p>
+                                {item.variant_selections && item.variant_selections.length > 0 && (
+                                  <p className="text-xs text-gray-400 truncate">
+                                    {item.variant_selections.map(v => `${v.name}: ${v.value}`).join(', ')}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-300 font-medium">
+                                {typeof item.amountSol === 'number' ? item.amountSol.toFixed(2) : '0.00'} SOL
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

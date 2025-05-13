@@ -3,7 +3,14 @@ import { TokenVerificationModal } from '../components/products/TokenVerification
 import type { Product } from '../types/variants';
 
 interface ModalContextType {
-  showVerificationModal: (product: Product, selectedOptions?: Record<string, string>) => void;
+  showVerificationModal: (
+    product: Product, 
+    selectedOptions?: Record<string, string>,
+    additionalData?: {
+      shippingInfo?: any;
+      paymentMetadata?: any;
+    }
+  ) => void;
   hideVerificationModal: () => void;
 }
 
@@ -17,12 +24,23 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     isOpen: boolean;
     product?: Product;
     selectedOptions?: Record<string, string>;
+    additionalData?: {
+      shippingInfo?: any;
+      paymentMetadata?: any;
+    };
   }>({
     isOpen: false
   });
 
-  const showVerificationModal = (product: Product, selectedOptions?: Record<string, string>) => {
-    setModalState({ isOpen: true, product, selectedOptions });
+  const showVerificationModal = (
+    product: Product, 
+    selectedOptions?: Record<string, string>,
+    additionalData?: {
+      shippingInfo?: any;
+      paymentMetadata?: any;
+    }
+  ) => {
+    setModalState({ isOpen: true, product, selectedOptions, additionalData });
   };
 
   const hideVerificationModal = () => {
@@ -40,6 +58,8 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
           onSuccess={() => {
             hideVerificationModal();
           }}
+          shippingInfo={modalState.additionalData?.shippingInfo}
+          paymentMetadata={modalState.additionalData?.paymentMetadata}
         />
       )}
     </ModalContext.Provider>

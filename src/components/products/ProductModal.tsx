@@ -10,6 +10,7 @@ import { OptimizedImage } from '../ui/OptimizedImage';
 import { ShareButton } from '../ui/ShareButton';
 import { ProductModalSkeleton } from '../ui/Skeletons';
 import { ProductNotes } from './ProductNotes';
+import { AddToCartButton } from '../cart/AddToCartButton';
 import type { Product as BaseProduct } from '../../types/variants';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
 import { prefetchGallery, updateGalleryImage } from '../../lib/service-worker';
@@ -83,13 +84,23 @@ function ProductBuyButton({
   const isDisabled = (product.stock !== null && product.stock === 0) || (hasVariants && !allOptionsSelected);
 
   return (
-    <BuyButton
-      product={product}
-      selectedOptions={selectedOptions}
-      disabled={isDisabled}
-      className="w-full flex items-center justify-center gap-2 py-3 text-sm sm:text-base"
-      showModal={true}
-    />
+    <div className="flex gap-2 w-full">
+      <BuyButton
+        product={product}
+        selectedOptions={selectedOptions}
+        disabled={isDisabled}
+        className="flex-1 flex items-center justify-center gap-2 py-3 text-sm sm:text-base"
+        showModal={true}
+      />
+      
+      <AddToCartButton
+        product={product}
+        selectedOptions={selectedOptions}
+        disabled={isDisabled}
+        size="md"
+        className="px-3 py-3"
+      />
+    </div>
   );
 }
 

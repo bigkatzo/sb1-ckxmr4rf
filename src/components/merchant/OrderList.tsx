@@ -16,11 +16,12 @@ import {
   Tag,
   Search,
   PackageOpen,
-  Ban
+  Ban,
+  ShoppingCart
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { OrderAnalytics } from './OrderAnalytics';
 import { toast } from 'react-toastify';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -557,6 +558,39 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   };
 
   const filteredOrders = filterOrdersByDate(orders, dateFilter);
+
+  // Group orders by batch ID for displaying batched orders together
+  const groupOrdersByBatch = useCallback((orders: Order[]) => {
+    // Create a map of batch_order_id to arrays of orders
+    const batchMap = new Map<string, Order[]>();
+    
+    // First pass: collect orders into their batch groups
+    orders.forEach(order => {
+      if (order.batch_order_id) {
+        const batchId = order.batch_order_id;
+        if (!batchMap.has(batchId)) {
+          batchMap.set(batchId, []);
+        }
+        batchMap.get(batchId)!.push(order);
+      } else {
+        // If this is a standalone order, use its ID as the key
+        batchMap.set(order.id, [order]);
+      }
+    });
+    
+    // Convert map to array of order groups
+    const orderGroups = Array.from(batchMap.values());
+    
+    // Sort groups by date (using the first order's date in each group)
+    return orderGroups.sort((a, b) => {
+      return new Date(b[0].createdAt).getTime() - new Date(a[0].createdAt).getTime();
+    });
+  }, []);
+  
+  // Group the filtered orders by batch
+  const groupedOrders = useMemo(() => {
+    return groupOrdersByBatch(filteredOrders);
+  }, [filteredOrders, groupOrdersByBatch]);
 
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
@@ -1121,12 +1155,12 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           <p className="text-gray-400">No orders found for the selected time period</p>
         </div>
       ) : (
-        filteredOrders.map((order) => {
-          const productInfo = getProductInfo(order);
+        groupedOrders.map((group) => {
+          const productInfo = getProductInfo(group[0]);
           
           return (
             <div 
-              key={order.id}
+              key={group[0].id}
               className="bg-gray-900 rounded-lg overflow-hidden"
             >
               {/* Order Header - Status Bar */}
@@ -1136,16 +1170,16 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                   <div className="flex items-center justify-between sm:hidden">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Order</span>
-                      <span className="font-mono text-sm font-medium text-white truncate">{order.order_number}</span>
+                      <span className="font-mono text-sm font-medium text-white truncate">{group[0].order_number}</span>
                     </div>
                     <div className="shrink-0">
                       <div className="flex items-center gap-2">
-                        {updatingOrderId === order.id ? (
+                        {updatingOrderId === group[0].id ? (
                           <div className="relative inline-flex items-center justify-center py-1.5 px-4">
                             <Loading type={LoadingType.ACTION} />
                           </div>
                         ) : (
-                          renderStatusSelect(order)
+                          renderStatusSelect(group[0])
                         )}
                       </div>
                     </div>
@@ -1153,7 +1187,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                   {/* Mobile Date */}
                   <div className="sm:hidden">
                     <span className="text-[10px] text-gray-400">
-                      {formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}
+                      {formatDistanceToNow(safeParseDate(group[0].createdAt), { addSuffix: true })}
                     </span>
                   </div>
 
@@ -1162,21 +1196,21 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
-                        <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
+                        <span className="font-mono font-medium text-white truncate">{group[0].order_number}</span>
                       </div>
                       <span className="text-gray-600">•</span>
                       <span className="text-xs text-gray-400">
-                        {formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}
+                        {formatDistanceToNow(safeParseDate(group[0].createdAt), { addSuffix: true })}
                       </span>
                     </div>
                     <div className="shrink-0">
                       <div className="flex items-center gap-2">
-                        {updatingOrderId === order.id ? (
+                        {updatingOrderId === group[0].id ? (
                           <div className="relative inline-flex items-center justify-center py-1.5 px-4">
                             <Loading type={LoadingType.ACTION} />
                           </div>
                         ) : (
-                          renderStatusSelect(order)
+                          renderStatusSelect(group[0])
                         )}
                       </div>
                     </div>
@@ -1233,32 +1267,58 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                           )}
                         </div>
                         <div className="flex flex-col gap-2">
-                          <p className="text-gray-400 text-xs">Amount: {order.amountSol} SOL</p>
+                          <div className="text-sm text-gray-300 font-medium whitespace-nowrap">
+                            {productInfo.variantPrices && Array.isArray(productInfo.variantPrices) && productInfo.variantPrices.map((item: any) => (
+                              <div key={item.name}>
+                                {item.name}: {item.value}
+                              </div>
+                            ))}
+                          </div>
                           <div className="flex flex-wrap items-center gap-1.5">
-                            {renderPaymentMetadataTags(order)}
+                            {renderPaymentMetadataTags(group[0])}
                           </div>
                         </div>
                       </div>
                     </div>
 
+                    {/* Display batch badge if this is a batch order with multiple items */}
+                    {group.length > 1 && (
+                      <div className="mt-2 bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded flex items-center gap-2 w-fit">
+                        <ShoppingCart className="h-4 w-4" />
+                        <span className="text-xs font-medium">Batch Order ({group.length} items)</span>
+                      </div>
+                    )}
+
+                    {/* Variant Info Section */}
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {group[0].variant_selections?.map((variant, index) => (
+                        <div
+                          key={`${variant.name}-${index}`}
+                          className="bg-gray-700/30 px-2 py-1 rounded text-xs text-gray-300"
+                        >
+                          {variant.name}: {variant.value}
+                        </div>
+                      ))}
+                    </div>
+
                     {/* Tracking Number Section */}
-                    {renderTrackingSection(order)}
+                    {renderTrackingSection(group[0])}
 
                     {/* Order Details */}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
                       {/* Shipping Info */}
-                      {order.shippingAddress && (
+                      {group[0].shippingAddress && (
                         <div>
                           <h4 className="text-xs font-medium text-gray-400 mb-2">Shipping Address</h4>
-                          {formatShippingAddress(order.shippingAddress)}
+                          {formatShippingAddress(group[0].shippingAddress)}
                         </div>
                       )}
                       
                       {/* Contact Info */}
-                      {order.contactInfo && (
+                      {group[0].contactInfo && (
                         <div>
                           <h4 className="text-xs font-medium text-gray-400 mb-2">Contact</h4>
-                          {formatContactInfo(order.contactInfo)}
+                          {formatContactInfo(group[0].contactInfo)}
                         </div>
                       )}
                     </div>
@@ -1266,40 +1326,63 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     {/* Transaction Info */}
                     <div className="mt-4 pt-4 border-t border-gray-800">
                       <div className="flex flex-col gap-2">
-                        {/* Wallet Address */}
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-400">Wallet:</span>
                           <a
-                            href={`https://solscan.io/account/${order.walletAddress}`}
+                            href={`https://solscan.io/account/${group[0].walletAddress}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs font-mono text-gray-300 hover:text-gray-100 flex items-center gap-1"
                           >
-                            {order.walletAddress.slice(0, 8)}...{order.walletAddress.slice(-8)}
+                            {group[0].walletAddress.slice(0, 8)}...{group[0].walletAddress.slice(-8)}
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
-                        {order.transactionSignature ? (
+                        {group[0].transactionSignature ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">{getTransactionLabel(order.transactionSignature)}:</span>
+                            <span className="text-xs text-gray-400">{getTransactionLabel(group[0].transactionSignature)}:</span>
                             <a
-                              href={getTransactionUrl(order.transactionSignature)}
+                              href={getTransactionUrl(group[0].transactionSignature)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs font-mono text-gray-300 hover:text-gray-100 flex items-center gap-1"
                             >
-                              {formatTransactionSignature(order.transactionSignature)}
+                              {formatTransactionSignature(group[0].transactionSignature)}
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">Transaction:</span>
-                            <span className="text-xs text-gray-500">Pending</span>
-                          </div>
+                          <span className="text-xs text-gray-500">No transaction signature</span>
                         )}
                       </div>
                     </div>
+
+                    {/* Show batch order items if this is a batch with multiple items */}
+                    {group.length > 1 && (
+                      <div className="mt-4 pt-4 border-t border-gray-800">
+                        <h4 className="text-xs font-medium text-gray-400 mb-2">Batch Order Items</h4>
+                        <div className="space-y-2">
+                          {group.map((item, idx) => (
+                            <div key={item.id} className="bg-gray-800/20 rounded-md p-2 flex items-center gap-3">
+                              <div className="bg-gray-700/40 h-6 w-6 rounded-full flex items-center justify-center text-xs text-gray-300">
+                                {item.item_index || idx + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-white truncate">{item.product_name}</p>
+                                {item.variant_selections && item.variant_selections.length > 0 && (
+                                  <p className="text-xs text-gray-400">
+                                    {item.variant_selections.map(v => `${v.name}: ${v.value}`).join(', ')}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-300 font-medium whitespace-nowrap">
+                                {item.amountSol.toFixed(2)} SOL
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

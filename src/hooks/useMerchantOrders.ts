@@ -70,7 +70,11 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
         product_snapshot: order.product_snapshot || {},
         collection_snapshot: order.collection_snapshot || {},
         tracking: order.tracking || null,
-        payment_metadata: order.payment_metadata || undefined
+        payment_metadata: order.payment_metadata || undefined,
+        // Batch order information
+        batch_order_id: order.batch_order_id || undefined,
+        item_index: order.item_index || undefined,
+        total_items_in_batch: order.total_items_in_batch || undefined
       }));
 
       setOrders(transformedOrders);

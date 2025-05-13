@@ -98,3 +98,16 @@ export interface WhitelistVerificationResult {
 }
 
 export type { TransactionStatus } from './transactions';
+
+// Re-export types from other files to ensure they are available
+// Commenting out because some types are already exported explicitly above
+// export * from './variants';
+// export * from './collections'; 
+// export * from './orders';
+// export * from './coupons';
+// export * from './price';
+// export * from './transactions';
+
+// Explicitly add path to utils formatters for TypeScript resolution
+import { formatPrice } from '../utils/formatters';
+export { formatPrice };
