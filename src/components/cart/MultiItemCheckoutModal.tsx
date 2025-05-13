@@ -14,7 +14,7 @@ interface MultiItemCheckoutModalProps {
 }
 
 export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps) {
-  const { items, clearCart } = useCart();
+  const { items, clearCart, verifyAllItems } = useCart();
   const { isConnected, walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
   const { showVerificationModal } = useModal();
@@ -183,6 +183,24 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setProcessingPayment(true);
     
     try {
+      // Verify all items in the cart again just before checkout as a safety measure
+      const allItemsVerified = await verifyAllItems(walletAddress);
+      
+      if (!allItemsVerified) {
+        // Find unverified items
+        const unverifiedItems = items.filter(item => 
+          item.product.category?.eligibilityRules?.groups?.length && 
+          (!item.verificationStatus?.verified)
+        );
+        
+        if (unverifiedItems.length > 0) {
+          const itemNames = unverifiedItems.map(item => item.product.name).join(', ');
+          toast.error(`You don't have access to these items: ${itemNames}. Please remove them from your cart.`);
+          setProcessingPayment(false);
+          return;
+        }
+      }
+      
       // For Stripe, handle Stripe checkout flow
       if (paymentMethod === 'stripe') {
         // In a real implementation, you'd call your batch order endpoint first to get an order number

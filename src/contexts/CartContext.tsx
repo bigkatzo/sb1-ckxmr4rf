@@ -1,15 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Product } from '../types/variants';
+import { verifyProductAccess } from '../utils/productAccessVerification';
 
 export interface CartItem {
   product: Product;
   selectedOptions: Record<string, string>;
   quantity: number;
+  verificationStatus?: {
+    verified: boolean;
+    timestamp: number;
+    error?: string;
+  };
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product, selectedOptions: Record<string, string>, quantity?: number) => void;
+  addItem: (product: Product, selectedOptions: Record<string, string>, quantity?: number, verified?: boolean) => void;
   removeItem: (itemIndex: number) => void;
   updateQuantity: (itemIndex: number, quantity: number) => void;
   clearCart: () => void;
@@ -18,6 +24,7 @@ interface CartContextType {
   closeCart: () => void;
   toggleCart: () => void;
   count: number;
+  verifyAllItems: (walletAddress: string | null) => Promise<boolean>;
 }
 
 const CartContext = createContext<CartContextType>({
@@ -30,10 +37,13 @@ const CartContext = createContext<CartContextType>({
   openCart: () => {},
   closeCart: () => {},
   toggleCart: () => {},
-  count: 0
+  count: 0,
+  verifyAllItems: async () => false
 });
 
 const CART_STORAGE_KEY = 'store_cart';
+// 1 hour in milliseconds - after this time, verification expires
+const VERIFICATION_EXPIRY = 60 * 60 * 1000;
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -66,7 +76,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items]);
 
-  const addItem = (product: Product, selectedOptions: Record<string, string>, quantity = 1) => {
+  const addItem = (
+    product: Product, 
+    selectedOptions: Record<string, string>, 
+    quantity = 1,
+    verified = false
+  ) => {
     setItems(prevItems => {
       // Check if this exact product + options combination already exists in cart
       const existingItemIndex = prevItems.findIndex(item =>
@@ -80,8 +95,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         newItems[existingItemIndex].quantity += quantity;
         return newItems;
       } else {
-        // Add new item
-        return [...prevItems, { product, selectedOptions, quantity }];
+        // Add new item with verification status if verified
+        const newItem: CartItem = { 
+          product, 
+          selectedOptions, 
+          quantity,
+          ...(verified && {
+            verificationStatus: {
+              verified: true,
+              timestamp: Date.now()
+            }
+          })
+        };
+        return [...prevItems, newItem];
       }
     });
   };
@@ -126,6 +152,78 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // New function to verify all items in the cart before checkout
+  const verifyAllItems = async (walletAddress: string | null): Promise<boolean> => {
+    if (!walletAddress) {
+      return false;
+    }
+    
+    // Create a copy of the items array to update
+    const updatedItems = [...items];
+    let allVerified = true;
+    
+    // Check each item in cart
+    for (let i = 0; i < updatedItems.length; i++) {
+      const item = updatedItems[i];
+      
+      // Skip items without access restrictions
+      if (!item.product.category?.eligibilityRules?.groups?.length) {
+        updatedItems[i] = {
+          ...item,
+          verificationStatus: {
+            verified: true,
+            timestamp: Date.now()
+          }
+        };
+        continue;
+      }
+      
+      // Check if current verification is still valid
+      const currentTime = Date.now();
+      const isVerificationValid = item.verificationStatus?.verified &&
+        (currentTime - (item.verificationStatus?.timestamp || 0)) < VERIFICATION_EXPIRY;
+      
+      if (isVerificationValid) {
+        continue; // Skip reverification if current verification is still valid
+      }
+      
+      // Verify the item
+      try {
+        const result = await verifyProductAccess(item.product, walletAddress);
+        
+        // Update the item's verification status
+        updatedItems[i] = {
+          ...item,
+          verificationStatus: {
+            verified: result.isValid,
+            timestamp: currentTime,
+            error: result.error
+          }
+        };
+        
+        if (!result.isValid) {
+          allVerified = false;
+        }
+      } catch (error) {
+        console.error(`Error verifying item ${i}:`, error);
+        updatedItems[i] = {
+          ...item,
+          verificationStatus: {
+            verified: false,
+            timestamp: currentTime,
+            error: error instanceof Error ? error.message : 'Unknown error during verification'
+          }
+        };
+        allVerified = false;
+      }
+    }
+    
+    // Update the items state with new verification statuses
+    setItems(updatedItems);
+    
+    return allVerified;
+  };
+
   return (
     <CartContext.Provider value={{
       items,
@@ -137,7 +235,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       openCart,
       closeCart,
       toggleCart,
-      count
+      count,
+      verifyAllItems
     }}>
       {children}
     </CartContext.Provider>

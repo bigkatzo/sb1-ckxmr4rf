@@ -1,8 +1,11 @@
-import React from 'react';
-import { ShoppingCart, Plus } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShoppingCart, Plus, Loader2 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
+import { useWallet } from '../../contexts/WalletContext';
 import type { Product } from '../../types/variants';
 import { toast } from 'react-toastify';
+import { verifyAndAddToCart } from '../../utils/productAccessVerification';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
 interface AddToCartButtonProps {
   product: Product;
@@ -22,6 +25,9 @@ export function AddToCartButton({
   size = 'md'
 }: AddToCartButtonProps) {
   const { addItem } = useCart();
+  const { walletAddress } = useWallet();
+  const { setVisible } = useWalletModal();
+  const [isVerifying, setIsVerifying] = useState(false);
   
   const sizeClasses = {
     sm: 'h-3.5 w-3.5',
@@ -36,7 +42,7 @@ export function AddToCartButton({
     return product.variants.every(variant => selectedOptions[variant.id]);
   };
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     
@@ -45,28 +51,54 @@ export function AddToCartButton({
       return;
     }
     
-    addItem(product, selectedOptions);
-    
-    // Show success toast
-    toast.success(`${product.name} added to cart`, {
-      position: 'bottom-center',
-      autoClose: 2000,
-      hideProgressBar: true
-    });
+    // Check if the product has access restrictions before adding to cart
+    if (product.category?.eligibilityRules?.groups?.length) {
+      setIsVerifying(true);
+      
+      try {
+        await verifyAndAddToCart(
+          product, 
+          walletAddress,
+          addItem,
+          selectedOptions,
+          1,
+          () => setVisible(true) // Function to show wallet connection modal if needed
+        );
+      } catch (error) {
+        console.error('Error verifying product access:', error);
+        toast.error('There was an error verifying access to this product');
+      } finally {
+        setIsVerifying(false);
+      }
+    } else {
+      // No access restrictions, directly add to cart
+      addItem(product, selectedOptions);
+      
+      // Show success toast
+      toast.success(`${product.name} added to cart`, {
+        position: 'bottom-center',
+        autoClose: 2000,
+        hideProgressBar: true
+      });
+    }
   };
 
   return (
     <button
       onClick={handleAddToCart}
-      disabled={disabled || !areAllOptionsSelected()}
+      disabled={disabled || isVerifying || !areAllOptionsSelected()}
       className={`flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       aria-label="Add to cart"
     >
-      <div className="relative">
-        <ShoppingCart className={sizeClasses[size]} />
-        <Plus className="absolute -right-1 -top-1 h-2.5 w-2.5" />
-      </div>
-      {showText && <span>Add to Cart</span>}
+      {isVerifying ? (
+        <Loader2 className={`${sizeClasses[size]} animate-spin`} />
+      ) : (
+        <div className="relative">
+          <ShoppingCart className={sizeClasses[size]} />
+          <Plus className="absolute -right-1 -top-1 h-2.5 w-2.5" />
+        </div>
+      )}
+      {showText && <span>{isVerifying ? 'Verifying...' : 'Add to Cart'}</span>}
     </button>
   );
 } 
