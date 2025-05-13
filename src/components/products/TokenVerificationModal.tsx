@@ -432,7 +432,7 @@ export function TokenVerificationModal({
           
           // Generate a consistent transaction ID for free orders to prevent duplicates
           // Ensure it has the proper free_token_ prefix
-          const transactionId = `free_token_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
+          const transactionId = `free_order_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
           
           let response;
           let responseData;
@@ -456,7 +456,7 @@ export function TokenVerificationModal({
                   walletAddress: walletAddress || 'anonymous',
                   paymentMetadata: {
                     ...paymentMetadata,
-                    paymentMethod: 'free_token',
+                    paymentMethod: 'free_order',
                     couponCode: couponResult?.couponCode,
                     couponDiscount: couponResult?.couponDiscount,
                     originalPrice: couponResult?.originalPrice,
@@ -903,28 +903,48 @@ export function TokenVerificationModal({
     try {
       console.log('Stripe payment successful:', { orderId, paymentIntentId });
       
-      // Call the server-side fallback endpoint to ensure order gets confirmed
-      try {
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.confirmStripeOrder}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, paymentIntentId })
-        });
-        
-        const result = await response.json();
-        console.log('Client-side order confirmation result:', result);
-      } catch (confirmError) {
-        console.error('Error with client-side order confirmation:', confirmError);
-        // Continue with the process even if this fails
+      // Skip confirmation call for free orders - they are already confirmed during creation
+      const isFreeOrder = paymentIntentId.startsWith('free_');
+      
+      // Only call the confirmation endpoint for regular Stripe payments, not free orders
+      if (!isFreeOrder) {
+        try {
+          const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.confirmStripeOrder}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId, paymentIntentId })
+          });
+          
+          const result = await response.json();
+          console.log('Client-side order confirmation result:', result);
+        } catch (confirmError) {
+          console.error('Error with client-side order confirmation:', confirmError);
+          // Continue with the process even if this fails
+        }
       }
       
       // Try to fetch the latest order data first to get the correct order number
       try {
-        const { data: order, error } = await supabase
-          .from('orders')
-          .select('id, order_number, status')
-          .eq('id', orderId)
-          .single();
+        // Check if orderId is a UUID or an order number 
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+        
+        let query;
+        if (isUuid) {
+          query = supabase
+            .from('orders')
+            .select('id, order_number, status')
+            .eq('id', orderId)
+            .single();
+        } else {
+          // If it's an order number (e.g., ORD12345), query by order_number
+          query = supabase
+            .from('orders')
+            .select('id, order_number, status')
+            .eq('order_number', orderId)
+            .single();
+        }
+        
+        const { data: order, error } = await query;
         
         if (error) {
           throw error;

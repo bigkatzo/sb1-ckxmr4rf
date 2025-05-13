@@ -104,6 +104,17 @@ exports.handler = async (event, context) => {
       paymentSource = 'token';
     } else if (paymentMethod.includes('solana')) {
       paymentSource = 'solana';
+    } else if (paymentMethod === 'free_order') {
+      // For generic free orders, keep track of original source if available
+      if (transactionId && transactionId.includes('_stripe_')) {
+        paymentSource = 'stripe';
+      } else if (transactionId && transactionId.includes('_token_')) {
+        paymentSource = 'token';
+      } else if (transactionId && transactionId.includes('_solana_')) {
+        paymentSource = 'solana';
+      } else {
+        paymentSource = 'order'; // Default for free_order with no clear source
+      }
     }
     
     // Create appropriate prefix based on payment source

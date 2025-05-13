@@ -408,8 +408,8 @@ export function StripePaymentModal({
           setIsProcessingOrder(true);
           
           try {
-            // Generate a unique transaction ID with proper prefix
-            const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
+            // Generate a unique transaction ID with proper prefix - use free_order prefix for consistency
+            const transactionId = `free_order_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
             
             // Use the server-side API endpoint instead of direct Supabase calls
             const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
@@ -427,7 +427,7 @@ export function StripePaymentModal({
                 },
                 walletAddress: walletAddress || 'anonymous',
                 paymentMetadata: {
-                  paymentMethod: 'free_stripe', // Use consistent naming for payment method
+                  paymentMethod: 'free_order', // Use consistent naming for all free orders regardless of source
                   couponCode,
                   couponDiscount,
                   originalPrice,
@@ -458,7 +458,7 @@ export function StripePaymentModal({
             setOrderId(data.orderId);
             
             // Use the transactionSignature field if available, fall back to paymentIntentId for backwards compatibility
-            const transactionSignature = data.transactionSignature || data.paymentIntentId || `free_stripe_${productId}_${Date.now()}`;
+            const transactionSignature = data.transactionSignature || data.paymentIntentId || transactionId;
             
             // Use the order number from the response if available
             const orderNumber = data.orderNumber || data.orderId;

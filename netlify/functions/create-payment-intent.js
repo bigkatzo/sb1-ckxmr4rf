@@ -71,7 +71,7 @@ exports.handler = async (event, context) => {
       console.log('Processing free order with 100% discount - forwarding to create-order endpoint');
       
       // Generate a consistent transaction ID for free orders
-      const transactionId = `free_stripe_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'stripe'}_${paymentMetadata.timestamp || Date.now()}`;
+      const transactionId = `free_order_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'stripe'}_${paymentMetadata.timestamp || Date.now()}`;
       
       // Forward to create-order endpoint for consistent handling of free orders
       try {
@@ -83,7 +83,7 @@ exports.handler = async (event, context) => {
           walletAddress: walletAddress || 'anonymous',
           paymentMetadata: {
             ...paymentMetadata,
-            paymentMethod: 'free_stripe',
+            paymentMethod: 'free_order',
             couponCode,
             couponDiscount,
             originalPrice,
