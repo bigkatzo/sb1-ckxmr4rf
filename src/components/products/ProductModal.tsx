@@ -564,7 +564,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
           ref={modalRef}
           className="relative bg-gray-900 w-full min-h-[calc(100vh-56px)] sm:min-h-0 sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden z-[45]"
         >
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          <div className="absolute top-4 right-4 z-[46] flex items-center gap-2">
             <ShareButton 
               url={product.collectionSlug && product.slug ? `${window.location.origin}/${product.collectionSlug}/${product.slug}` : undefined}
               title={`${product.name} | ${product.collectionName || 'store.fun'}`}
@@ -588,20 +588,20 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                 <>
                   <button
                     onClick={prevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10 hidden md:flex"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-[46] hidden md:flex"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={nextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10 hidden md:flex"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-[46] hidden md:flex"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
 
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-[46]">
                     {images.map((_: string, index: number) => (
                       <button
                         key={index}
@@ -763,7 +763,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
               </div>
 
               {/* Buy button for mobile - fixed position */}
-              <div className="fixed md:hidden bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-[9999] safe-area-bottom">
+              <div className="fixed md:hidden bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-[47] safe-area-bottom">
                 <ProductBuyButton
                   product={product}
                   selectedOptions={selectedOptions}

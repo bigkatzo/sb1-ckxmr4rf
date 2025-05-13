@@ -55,9 +55,9 @@ html, body {
   z-index: 45 !important;
 }
 
-/* Product modal content container */
-[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] .min-h-screen > div.relative {
-  z-index: 45 !important;
+/* Product modal buttons, controls and interactive elements */
+[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] .z-\[46\] {
+  z-index: 46 !important;
 }
 
 /* Navigation bar z-index (stays above product modal) */
