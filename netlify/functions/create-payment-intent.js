@@ -66,73 +66,22 @@ exports.handler = async (event, context) => {
       walletAddress: walletAddress || 'stripe'
     });
 
-    // Special handling for free orders (100% discount)
+    // For free orders, tell client to use create-order directly
     if (is100PercentDiscount) {
-      console.log('Processing free order with 100% discount - forwarding to create-order endpoint');
+      console.log('Stripe - Free order detected (100% discount)');
       
-      // Generate a consistent transaction ID for free orders
-      const transactionId = `free_order_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'stripe'}_${paymentMetadata.timestamp || Date.now()}`;
-      
-      // Forward to create-order endpoint for consistent handling of free orders
-      try {
-        // Prepare the request body for create-order endpoint
-        const createOrderBody = {
-          productId,
-          variants,
-          shippingInfo,
-          walletAddress: walletAddress || 'anonymous',
-          paymentMetadata: {
-            ...paymentMetadata,
-            paymentMethod: 'free_order',
-            couponCode,
-            couponDiscount,
-            originalPrice,
-            isFreeOrder: true,
-            transactionId
-          }
-        };
-        
-        // Import the create-order handler
-        const createOrderHandler = require('./create-order');
-        
-        // Call the create-order handler directly
-        const result = await createOrderHandler.handler({
-          httpMethod: 'POST',
-          body: JSON.stringify(createOrderBody)
-        }, context);
-        
-        // Parse the response
-        const createOrderResponse = JSON.parse(result.body);
-        
-        console.log('Free order creation result:', {
-          statusCode: result.statusCode,
-          isDuplicate: !!createOrderResponse.isDuplicate,
-          orderId: createOrderResponse.orderId
-        });
-        
-        // Return the result directly
-        return {
-          statusCode: result.statusCode,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-          },
-          body: result.body
-        };
-      } catch (error) {
-        console.error('Error forwarding to create-order:', error);
-        return {
-          statusCode: 500,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            error: 'Failed to process free order',
-            details: error.message
-          })
-        };
-      }
+      return {
+        statusCode: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          error: 'Free orders should be processed directly via the create-order endpoint',
+          code: 'FREE_ORDER',
+          isFreeOrder: true
+        })
+      };
     }
 
     // Regular payment flow for non-free orders

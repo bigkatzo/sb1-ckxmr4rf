@@ -372,10 +372,13 @@ export function StripePaymentModal({
   const [error, setError] = React.useState<string | null>(null);
   const [orderId, setOrderId] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
-  const [isProcessingOrder, setIsProcessingOrder] = React.useState(false);
+  const isProcessingOrder = false; // Replace the state with a constant since we no longer need to change it
   const { walletAddress } = useWallet();
   const { price: rawSolPrice } = useSolanaPrice();
   const solPrice = rawSolPrice || 0;
+  
+  // Add a ref to track if a free order has been processed to prevent duplicates
+  const orderProcessedRef = React.useRef(false);
 
   // Initialize Stripe only when modal is opened
   React.useEffect(() => {
@@ -384,7 +387,11 @@ export function StripePaymentModal({
 
   // Create payment intent when component mounts
   React.useEffect(() => {
+    // Skip if necessary data is missing, already loading, already have clientSecret, or already processing an order
     if (!solPrice || !shippingInfo?.shipping_address || isLoading || clientSecret || isProcessingOrder) return;
+    
+    // Skip if we've already successfully processed an order in this component lifecycle
+    if (orderProcessedRef.current) return;
     
     async function createPaymentIntent() {
       setIsLoading(true);
@@ -399,80 +406,9 @@ export function StripePaymentModal({
           walletAddress
         });
 
-        // If amount is zero (100% discount), we can bypass the payment flow entirely 
-        // and create the order directly
-        if (solAmount === 0 || (couponDiscount > 0 && couponDiscount >= originalPrice)) {
-          console.log('Creating free order with 100% discount');
-          
-          // Prevent duplicate calls
-          setIsProcessingOrder(true);
-          
-          try {
-            // Generate a unique transaction ID with proper prefix - use free_order prefix for consistency
-            const transactionId = `free_order_${productId}_${couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
-            
-            // Use the server-side API endpoint instead of direct Supabase calls
-            const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-              },
-              body: JSON.stringify({
-                productId,
-                variants: variants || [],
-                shippingInfo: {
-                  shipping_address: shippingInfo.shipping_address,
-                  contact_info: shippingInfo.contact_info
-                },
-                walletAddress: walletAddress || 'anonymous',
-                paymentMetadata: {
-                  paymentMethod: 'free_order', // Use consistent naming for all free orders regardless of source
-                  couponCode,
-                  couponDiscount,
-                  originalPrice,
-                  isFreeOrder: true,
-                  transactionId
-                }
-              }),
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('Free order API error:', errorText);
-              throw new Error(`Failed to create free order: ${response.status} ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            
-            // Order created successfully or existing order returned
-            if (data.isDuplicate) {
-              console.log('Using existing order:', data);
-            }
-            
-            // Order created successfully
-            setOrderId(data.orderId);
-            
-            // Use the transactionSignature field if available, fall back to paymentIntentId for backwards compatibility
-            const transactionSignature = data.transactionSignature || data.paymentIntentId || transactionId;
-            
-            // Use the order number from the response if available
-            const orderNumber = data.orderNumber || data.orderId;
-            
-            // Call onSuccess with the order ID/number and transaction signature
-            onSuccess(orderNumber, transactionSignature);
-            return;
-          } catch (freeOrderError) {
-            console.error('Error creating free order:', freeOrderError);
-            throw new Error('Failed to create free order with coupon');
-          } finally {
-            setIsProcessingOrder(false);
-          }
-        }
+        // We no longer handle free orders in the Stripe modal
+        // They are now handled by the parent component (TokenVerificationModal)
+        // This prevents duplicate order creation issues
 
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
           method: 'POST',
@@ -552,11 +488,22 @@ export function StripePaymentModal({
     }
 
     createPaymentIntent();
+    
+    // Return cleanup function to reset the order processed state when component is unmounted
+    return () => {
+      orderProcessedRef.current = false;
+    };
   }, [solPrice, solAmount, productId, productName, walletAddress, shippingInfo, couponCode, 
       couponDiscount, originalPrice, variants, isLoading, clientSecret, onSuccess, isProcessingOrder]);
 
   // Handle successful payment
   const handlePaymentSuccess = React.useCallback((paymentIntentId: string) => {
+    // Skip if we've already processed a successful payment
+    if (orderProcessedRef.current) return;
+    
+    // Mark as processed
+    orderProcessedRef.current = true;
+    
     if (orderId) {
       console.log('Payment successful, notifying parent with order ID:', orderId);
       onSuccess(orderId, paymentIntentId);

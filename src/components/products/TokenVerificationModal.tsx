@@ -1074,6 +1074,113 @@ export function TokenVerificationModal({
     </div>
   );
 
+  // Add this function to handle free orders consistently in the parent component
+  const handleFreeOrder = async (paymentMethod = 'free_order') => {
+    try {
+      console.log('Processing free order in parent component');
+      setSubmitting(true);
+      
+      // Generate a consistent transaction ID for free orders to prevent duplicates
+      const transactionId = `free_order_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
+      
+      let response;
+      let responseData;
+      
+      try {
+        // Call the create-order endpoint with the free order flag
+        response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            productId: product.id,
+            variants: selectedOption || {},
+            shippingInfo: {
+              shipping_address: {
+                address: shippingInfo.address,
+                city: shippingInfo.city,
+                country: shippingInfo.country,
+                state: shippingInfo.state,
+                zip: shippingInfo.zip
+              },
+              contact_info: {
+                method: shippingInfo.contactMethod,
+                value: shippingInfo.contactValue,
+                firstName: shippingInfo.firstName,
+                lastName: shippingInfo.lastName,
+                phoneNumber: shippingInfo.phoneNumber
+              }
+            },
+            walletAddress: walletAddress || 'anonymous',
+            paymentMetadata: {
+              paymentMethod,
+              couponCode: couponResult?.couponCode,
+              couponDiscount: couponResult?.couponDiscount,
+              originalPrice: baseModifiedPrice,
+              isFreeOrder: true,
+              transactionId
+            }
+          }),
+        });
+          
+        responseData = await response.json();
+          
+        if (responseData.error) {
+          throw new Error(responseData.error);
+        }
+        
+        console.log('Free order created successfully:', responseData);
+          
+        // Show order success
+        setOrderDetails({
+          orderNumber: responseData.orderNumber || responseData.orderId,
+          transactionSignature: responseData.transactionSignature || responseData.paymentIntentId || transactionId
+        });
+          
+        setShowSuccessView(true);
+        toastService.showOrderSuccess();
+        onSuccess();
+      } catch (error) {
+        console.error('Error creating free order:', error);
+        toast.error('Failed to process order');
+      } finally {
+        setSubmitting(false);
+      }
+    } catch (error) {
+      console.error('Free order error:', error);
+      setSubmitting(false);
+    }
+  };
+
+  // Add a helper method to check if an order is free
+  const isFreeOrder = useMemo(() => {
+    return couponResult?.couponDiscount !== undefined && 
+      baseModifiedPrice !== undefined &&
+      couponResult.couponDiscount > 0 && 
+      (couponResult.couponDiscount >= baseModifiedPrice || 
+       (baseModifiedPrice > 0 && (couponResult.couponDiscount / baseModifiedPrice) * 100 >= 100));
+  }, [couponResult, baseModifiedPrice]);
+
+  // Add a click handler for the payment method buttons
+  const handlePaymentClick = (method: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // For free orders, handle them directly regardless of the payment method selected
+    if (isFreeOrder) {
+      handleFreeOrder(`free_order_${method}`);
+      return;
+    }
+    
+    // For non-free orders, proceed with normal payment flow
+    if (method === 'stripe') {
+      setShowStripeModal(true);
+    } else if (method === 'solana') {
+      handleShippingSubmit(new Event('submit') as unknown as React.FormEvent);
+    }
+  };
+
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg">
       {showSuccessView && orderDetails ? (
@@ -1487,7 +1594,8 @@ export function TokenVerificationModal({
 
                       {/* Solana Payment Button - requires wallet verification */}
                       <button
-                        type="submit"
+                        type="button"
+                        onClick={handlePaymentClick('solana')}
                         disabled={submitting || !verificationResult?.isValid || 
                           !shippingInfo.address || !shippingInfo.city || 
                           !shippingInfo.country || !shippingInfo.zip || 
@@ -1505,7 +1613,7 @@ export function TokenVerificationModal({
                         {/* Credit Card Button - only requires shipping info */}
                         <button
                           type="button"
-                          onClick={() => setShowStripeModal(true)}
+                          onClick={handlePaymentClick('stripe')}
                           disabled={submitting || 
                             !shippingInfo.address || !shippingInfo.city || 
                             !shippingInfo.country || !shippingInfo.zip || 
