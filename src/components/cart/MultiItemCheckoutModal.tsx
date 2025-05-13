@@ -358,10 +358,21 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       </div>
                       {Object.keys(item.selectedOptions).length > 0 && (
                         <div className="mt-1 text-xs text-gray-400">
+                          {/* Debug output */}
+                          {(() => {
+                            console.log(`[Checkout] Rendering variants for ${item.product.name}:`, item.selectedOptions);
+                            console.log(`[Checkout] Product variants:`, item.product.variants);
+                            return null;
+                          })()}
+                          
                           {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
+                            console.log(`[Checkout] Processing variant ${variantId} with value ${optionValue}`);
+                            
                             const variant = item.product.variants?.find(v => v.id === variantId);
+                            console.log(`[Checkout] Found variant:`, variant);
+                            
                             if (!variant) {
-                              console.warn(`Variant with ID ${variantId} not found in product`, item.product);
+                              console.warn(`[Checkout] Variant with ID ${variantId} not found in product`, item.product);
                               return (
                                 <div key={variantId}>
                                   Option: {optionValue}
@@ -369,9 +380,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                               );
                             }
                             
-                            const option = variant.options.find(o => o.value === optionValue);
+                            const option = variant.options?.find(o => o.value === optionValue);
+                            console.log(`[Checkout] Found option:`, option);
+                            
                             if (!option) {
-                              console.warn(`Option with value ${optionValue} not found in variant ${variant.name}`, variant);
+                              console.warn(`[Checkout] Option with value ${optionValue} not found in variant ${variant.name}`, variant);
                               return (
                                 <div key={variantId}>
                                   {variant.name}: {optionValue}
@@ -381,7 +394,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                             
                             return (
                               <div key={variantId}>
-                                {variant.name}: {option.label}
+                                {variant.name}: {option.label || optionValue}
                               </div>
                             );
                           })}
