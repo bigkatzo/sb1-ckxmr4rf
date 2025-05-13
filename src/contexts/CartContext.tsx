@@ -85,7 +85,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Save cart to localStorage whenever it changes
   useEffect(() => {
     try {
+      // Debug cart contents
+      console.log('Cart contents before saving:', JSON.stringify(items, null, 2));
+      
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+      
+      // Check if variants are preserved after serialization
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+      if (savedCart) {
+        const parsedCart = JSON.parse(savedCart);
+        console.log('Cart contents after loading from localStorage:');
+        parsedCart.forEach((item: CartItem, index: number) => {
+          console.log(`Item ${index}: ${item.product.name}`);
+          console.log('Selected options:', item.selectedOptions);
+          console.log('Has variants array:', !!item.product.variants);
+          if (item.product.variants) {
+            console.log('Variants count:', item.product.variants.length);
+            item.product.variants.forEach((v, i) => {
+              console.log(`Variant ${i}: ${v.name}, Options:`, v.options?.length || 0);
+            });
+          }
+        });
+      }
+      
       // Update count
       setCount(items.reduce((total, item) => total + item.quantity, 0));
     } catch (error) {
@@ -123,12 +145,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         variantPriceAdjustments: 0
       };
 
-      // Ensure the product has all necessary variant data
-      const enrichedProduct = { 
-        ...product,
-        // Make sure variants is defined and preserved
-        variants: product.variants || []
+      // Create a deep clone to ensure all nested properties are preserved
+      const deepCloneProduct = () => {
+        // First do a stringify/parse to get a basic deep clone
+        const productCopy = JSON.parse(JSON.stringify(product));
+        
+        // Make sure variants array is defined
+        if (!productCopy.variants) {
+          productCopy.variants = [];
+        }
+        
+        // Make sure each variant has its options with complete data
+        if (productCopy.variants && Array.isArray(productCopy.variants)) {
+          productCopy.variants = productCopy.variants.map((variant: any) => {
+            if (!variant.options) {
+              variant.options = [];
+            }
+            return variant;
+          });
+        }
+        
+        // Log to verify variant data is correct
+        console.log("Adding to cart with variants:", productCopy.variants);
+        
+        return productCopy;
       };
+      
+      // Clone the product with full variant information
+      const clonedProduct = deepCloneProduct();
 
       if (existingItemIndex !== -1) {
         // Update quantity of existing item
@@ -136,13 +180,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         newItems[existingItemIndex].quantity += quantity;
         // Also update price info in case it changed
         newItems[existingItemIndex].priceInfo = defaultPriceInfo;
-        // Ensure product data is up to date
-        newItems[existingItemIndex].product = enrichedProduct;
+        // Preserve variant data in case it was updated
+        newItems[existingItemIndex].product = clonedProduct;
         return newItems;
       } else {
         // Add new item with verification status if verified
         const newItem: CartItem = { 
-          product: enrichedProduct, 
+          product: clonedProduct, 
           selectedOptions, 
           quantity,
           priceInfo: defaultPriceInfo,

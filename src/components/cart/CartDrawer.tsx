@@ -94,12 +94,60 @@ export function CartDrawer() {
                           </button>
                         </div>
                         
+                        {/* Debug button - only in development */}
+                        {process.env.NODE_ENV !== 'production' && (
+                          <button
+                            onClick={() => {
+                              console.log('Item debug:', item);
+                              console.log('Product:', item.product);
+                              console.log('Selected options:', item.selectedOptions);
+                              console.log('Variants:', item.product.variants);
+                              if (item.product.variants) {
+                                item.product.variants.forEach((v, i) => {
+                                  console.log(`Variant ${i}:`, v);
+                                  if (v.options) {
+                                    console.log(`Options for variant ${i}:`, v.options);
+                                  } else {
+                                    console.log(`No options found for variant ${i}`);
+                                  }
+                                });
+                              }
+                              
+                              // Try to find the selected options manually
+                              Object.entries(item.selectedOptions).forEach(([variantId, optionValue]) => {
+                                console.log(`Finding data for variant ID ${variantId} with selected value ${optionValue}`);
+                                const foundVariant = item.product.variants?.find(v => v.id === variantId);
+                                console.log('Found variant:', foundVariant);
+                                if (foundVariant) {
+                                  const foundOption = foundVariant.options?.find(o => o.value === optionValue);
+                                  console.log('Found option:', foundOption);
+                                }
+                              });
+                            }}
+                            className="text-xs text-blue-500 hover:text-blue-400 mt-1"
+                          >
+                            Debug
+                          </button>
+                        )}
+                        
                         {/* Show selected options */}
                         {Object.keys(item.selectedOptions).length > 0 && (
                           <div className="mt-1 text-xs text-gray-400">
+                            {/* Debug output */}
+                            {(() => {
+                              console.log(`Rendering selected options for ${item.product.name}:`, item.selectedOptions);
+                              console.log(`Product variants:`, item.product.variants);
+                              return null;
+                            })()}
+                            
                             {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
+                              // Debug output
+                              console.log(`Processing variant ${variantId} with selected value ${optionValue}`);
+                              
                               // Find the variant name
                               const variant = item.product.variants?.find(v => v.id === variantId);
+                              console.log(`Found variant object:`, variant);
+                              
                               if (!variant) {
                                 console.warn(`Variant with ID ${variantId} not found in product`, item.product);
                                 return (
@@ -111,7 +159,9 @@ export function CartDrawer() {
                               }
                               
                               // Find the option label
-                              const option = variant.options.find(o => o.value === optionValue);
+                              const option = variant.options?.find(o => o.value === optionValue);
+                              console.log(`Found option object:`, option);
+                              
                               if (!option) {
                                 console.warn(`Option with value ${optionValue} not found in variant ${variant.name}`, variant);
                                 return (
@@ -125,7 +175,7 @@ export function CartDrawer() {
                               return (
                                 <div key={variantId} className="flex">
                                   <span className="font-medium">{variant.name}:</span>
-                                  <span className="ml-1">{option.label}</span>
+                                  <span className="ml-1">{option.label || optionValue}</span>
                                 </div>
                               );
                             })}

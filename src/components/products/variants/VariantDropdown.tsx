@@ -20,7 +20,7 @@ export function VariantDropdown({ variant, selectedValue, onChange }: VariantDro
         <option value="">Select {variant.name}</option>
         {variant.options.map((option) => (
           <option key={option.id} value={option.value}>
-            {option.value}
+            {option.label || option.value}
           </option>
         ))}
       </select>
