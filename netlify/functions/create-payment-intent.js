@@ -130,7 +130,8 @@ exports.handler = async (event, context) => {
       is100PercentDiscount,
       walletAddress: walletAddress || 'stripe',
       isCartCheckout,
-      hasCartItems: !!cartItems?.length
+      hasCartItems: !!cartItems?.length,
+      existingOrderId: existingOrderId || 'none'
     });
 
     // For free orders, tell client to use create-order directly
@@ -156,92 +157,91 @@ exports.handler = async (event, context) => {
     const usdAmount = Math.max(solAmount * solPrice, 0.50);
     const amountInCents = Math.round(usdAmount * 100);
 
-    // Generate order number and batch ID for consistent naming
-    let orderNumber = await generateOrderNumber();
-    let batchOrderId = uuidv4();
+    // We must have an existing order ID
+    if (!existingOrderId) {
+      console.error('No existing order ID provided');
+      return {
+        statusCode: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'Missing required order ID',
+          details: 'An order must be created before initiating payment'
+        })
+      };
+    }
 
-    // Create a draft order with payment method info
+    // Retrieve the existing order with all needed information
+    console.log('Retrieving existing order:', existingOrderId);
+    const { data: existingOrder, error: fetchError } = await supabase
+      .from('orders')
+      .select('id, order_number, batch_order_id, status')
+      .eq('id', existingOrderId)
+      .single();
+      
+    if (fetchError || !existingOrder) {
+      console.error('Error fetching existing order:', fetchError || 'Order not found');
+      return {
+        statusCode: 404,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'Order not found',
+          details: 'The specified order ID could not be found'
+        })
+      };
+    }
+
+    console.log('Found existing order:', {
+      id: existingOrder.id,
+      orderNumber: existingOrder.order_number,
+      batchOrderId: existingOrder.batch_order_id || 'none',
+      status: existingOrder.status
+    });
+
+    // Extract order information
+    const orderId = existingOrder.id;
+    const orderNumber = existingOrder.order_number;
+    const batchOrderId = existingOrder.batch_order_id;
+
+    // Create payment metadata
     const finalPaymentMetadata = {
       ...paymentMetadata,
       paymentMethod: 'stripe',
       couponCode,
       couponDiscount,
       originalPrice,
-      batchOrderId,
-      isBatchOrder: isCartCheckout || paymentMetadata.isBatchOrder || false,
-      isSingleItemOrder: !isCartCheckout && (paymentMetadata.isSingleItemOrder || true)
+      isBatchOrder: isCartCheckout || !!batchOrderId || paymentMetadata.isBatchOrder || false,
+      isSingleItemOrder: !isCartCheckout && !batchOrderId && (paymentMetadata.isSingleItemOrder || true)
     };
-    
-    let orderId;
-    
-    // If an existing order ID was provided, use it instead of creating a new order
-    if (existingOrderId) {
-      console.log('Using existing order ID:', existingOrderId);
-      orderId = existingOrderId;
+
+    // Update existing order with payment method info
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        payment_metadata: finalPaymentMetadata,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', orderId);
       
-      // Look up the batch order ID and order number for the existing order
-      const { data: existingOrder, error: fetchError } = await supabase
-        .from('orders')
-        .select('id, order_number, batch_order_id')
-        .eq('id', existingOrderId)
-        .single();
-        
-      if (fetchError) {
-        console.error('Error fetching existing order:', fetchError);
-        throw new Error('Failed to fetch existing order information');
-      }
-      
-      if (existingOrder) {
-        console.log('Found existing order details:', existingOrder);
-        // Use the existing batch ID and order number
-        orderNumber = existingOrder.order_number;
-        batchOrderId = existingOrder.batch_order_id || batchOrderId;
-        
-        // Update order with payment information
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({
-            payment_metadata: finalPaymentMetadata,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingOrderId);
-          
-        if (updateError) {
-          console.error('Error updating existing order with payment information:', updateError);
-          // Continue anyway - not critical
-        }
-      } else {
-        console.warn('Existing order not found in database:', existingOrderId);
-        throw new Error('Order not found. Please try again.');
-      }
-    }
-    // STOP creating new orders here - require an existing order ID
-    else {
-      console.error('No existing order ID provided');
-      throw new Error('Missing required order ID. Please create an order before initiating payment.');
+    if (updateError) {
+      console.warn('Error updating order with payment metadata:', updateError);
+      // Non-critical, continue with payment intent creation
     }
 
-    // IMPORTANT: Stripe metadata must be flat key-value pairs with string values only
-    // Carefully prepare metadata without circular references or complex objects
-    // Truncate long values to stay under Stripe's metadata limits
-    
-    // Simplified shipping address - keep only simple string fields
-    const simplifiedAddress = {
-      address: shippingInfo.shipping_address.address || '',
-      city: shippingInfo.shipping_address.city || '',
-      country: shippingInfo.shipping_address.country || '',
-      zip: shippingInfo.shipping_address.zip || ''
-    };
-    
-    // Simplified contact info - keep only simple string fields
+    // Prepare Stripe metadata (flat key-value pairs only)
     const simplifiedContact = {
-      method: shippingInfo.contact_info.method || 'email',
-      value: shippingInfo.contact_info.value || '',
-      firstName: shippingInfo.contact_info.firstName || '',
-      lastName: shippingInfo.contact_info.lastName || ''
+      method: shippingInfo.contact_info?.method || 'email',
+      value: shippingInfo.contact_info?.value || '',
+      firstName: shippingInfo.contact_info?.firstName || '',
+      lastName: shippingInfo.contact_info?.lastName || ''
     };
     
-    // Create FLAT metadata object with string values only - no nested objects
+    // Create FLAT metadata object with string values only
     const stripeMetadata = {
       orderIdStr: String(orderId || ''),
       batchOrderIdStr: String(batchOrderId || ''),
@@ -254,7 +254,7 @@ exports.handler = async (event, context) => {
     };
 
     console.log('Creating Stripe payment intent with metadata:', stripeMetadata);
-    console.log('ORDER ID TO BE INCLUDED IN METADATA:', orderId);
+    console.log('ORDER ID INCLUDED IN METADATA:', orderId);
 
     // Create a payment intent with the simplified metadata
     try {
@@ -299,15 +299,15 @@ exports.handler = async (event, context) => {
       }
 
       // Now that the payment intent is created, update the order with the payment intent ID
-      if (isCartCheckout && cartItems && cartItems.length > 0) {
-        // For cart checkout, update all orders in the batch
+      // For batch orders, we need to update all orders in the batch
+      if (batchOrderId) {
         console.log(`Updating all orders in batch ${batchOrderId} with payment intent ID:`, paymentIntent.id);
         
         const { error: batchUpdateError } = await supabase
           .from('orders')
           .update({
             transaction_signature: paymentIntent.id,
-            amount_sol: solAmount / cartItems.length, // Divide amount among items
+            amount_sol: solAmount / (cartItems?.length || 1), // Divide amount among items
             status: 'pending_payment' // Update status from draft to pending_payment
           })
           .eq('batch_order_id', batchOrderId);
@@ -320,7 +320,7 @@ exports.handler = async (event, context) => {
         }
       } else {
         // For single product checkout, update just the one order
-        console.log('Updating order with payment intent ID:', paymentIntent.id);
+        console.log('Updating single order with payment intent ID:', paymentIntent.id);
         const { error: paymentUpdateError } = await supabase
           .from('orders')
           .update({
@@ -332,15 +332,13 @@ exports.handler = async (event, context) => {
 
         if (paymentUpdateError) {
           console.error('Error updating order with payment intent ID:', paymentUpdateError);
-          // Don't throw here, we still want to return the client secret
-          // The payment can still be processed and the order will be updated later
           console.warn('Payment intent created but order not updated - will be fixed during payment confirmation');
         }
       }
 
-      // Before returning, get order IDs for any cart checkout to ensure we can send correct IDs back
+      // Get order details to return to the client
       let orderIds = [];
-      if (isCartCheckout && cartItems && cartItems.length > 0) {
+      if (batchOrderId) {
         try {
           const { data: batchOrders, error: fetchError } = await supabase
             .from('orders')
@@ -353,8 +351,8 @@ exports.handler = async (event, context) => {
               orderId: order.id,
               orderNumber: order.order_number,
               status: order.status,
-              itemIndex: order.item_index,
-              totalItems: order.total_items_in_batch
+              itemIndex: order.item_index || 1,
+              totalItems: order.total_items_in_batch || batchOrders.length
             }));
             console.log(`Retrieved ${orderIds.length} order IDs for batch ${batchOrderId}`);
           }
@@ -378,14 +376,13 @@ exports.handler = async (event, context) => {
           batchOrderId: batchOrderId,
           paymentIntentId: paymentIntent.id,
           success: true,
-          // Match batch order format - if we have orderIds from a batch, use them, otherwise create a single-item array
           orders: orderIds.length > 0 ? orderIds : [
             {
               orderId,
               orderNumber: orderNumber,
               status: 'pending_payment',
               itemIndex: 1,
-              totalItems: isCartCheckout ? cartItems.length : 1
+              totalItems: cartItems?.length || 1
             }
           ]
         }),
@@ -393,8 +390,7 @@ exports.handler = async (event, context) => {
     } catch (stripeError) {
       console.error('Error creating payment intent with Stripe:', stripeError);
       
-      // If we created an order but failed to create a payment intent, 
-      // mark the order as failed to prevent orphaned orders
+      // Mark the order as error if payment intent creation failed
       try {
         await supabase
           .from('orders')
@@ -407,7 +403,17 @@ exports.handler = async (event, context) => {
         console.error('Failed to mark order as error after payment intent failure:', cleanupError);
       }
       
-      throw stripeError;
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'Error creating payment intent with Stripe',
+          details: stripeError.message
+        }),
+      };
     }
   } catch (error) {
     console.error('Error creating payment intent:', error);
