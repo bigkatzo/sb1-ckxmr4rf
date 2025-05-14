@@ -16,6 +16,7 @@ import { usePayment } from '../../hooks/usePayment';
 import { StripePaymentModal } from '../products/StripePaymentModal';
 import { monitorTransaction } from '../../utils/transaction-monitor.tsx';
 import { updateOrderTransactionSignature } from '../../services/orders';
+import { Button } from '../ui/Button';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -873,13 +874,15 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           <div className="relative bg-gray-900 w-full max-w-2xl rounded-xl overflow-hidden">
             <div className="p-4 border-b border-gray-800 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-white">Checkout</h2>
-              <button
+              <Button
                 onClick={onClose}
-                className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+                variant="ghost"
+                size="sm"
+                className="p-2 rounded-full text-gray-400 hover:text-white"
                 aria-label="Close modal"
               >
                 <X className="h-5 w-5" />
-              </button>
+              </Button>
             </div>
             
             <div className="p-4 max-h-[80vh] overflow-y-auto">
@@ -967,12 +970,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                           </p>
                         </div>
                       </div>
-                      <button 
+                      <Button 
                         onClick={handleRemoveCoupon}
-                        className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-gray-400 hover:text-red-400"
                       >
                         Remove
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -983,17 +988,15 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                         onChange={(e) => setCouponCode(e.target.value)}
                         className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
                       />
-                      <button
+                      <Button
                         onClick={handleApplyCoupon}
+                        variant="outline"
+                        size="sm"
+                        isLoading={validatingCoupon}
                         disabled={validatingCoupon || !couponCode.trim()}
-                        className="bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                       >
-                        {validatingCoupon ? (
-                          <Loading type={LoadingType.ACTION} />
-                        ) : (
-                          'Apply'
-                        )}
-                      </button>
+                        Apply
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -1106,13 +1109,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       
                       {/* Add cancel button */}
                       <div className="pt-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
                           onClick={onClose}
-                          className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors"
+                          className="w-full"
                         >
                           Close
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -1409,8 +1413,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                 
                 {/* Checkout button */}
                 <div className="pt-4 border-t border-gray-800 mt-4">
-                  <button
+                  <Button
                     type="submit"
+                    variant="primary"
+                    size="lg"
+                    isLoading={processingPayment}
+                    loadingText={processingPayment ? "Processing..." : ""}
                     disabled={processingPayment || (paymentMethod === 'solana' && !isConnected) || !paymentMethod || 
                       !shipping.address || !shipping.city || 
                       !shipping.country || !shipping.zip || 
@@ -1419,22 +1427,20 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       !shipping.lastName || !shipping.phoneNumber || 
                       (shipping.country && doesCountryRequireTaxId(shipping.country) && !shipping.taxId) ||
                       !!phoneError || !!zipError}
-                    className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full"
                   >
-                    {processingPayment ? (
-                      <Loading type={LoadingType.ACTION} />
-                    ) : !isConnected && paymentMethod === 'solana' ? (
+                    {!isConnected && paymentMethod === 'solana' ? (
                       <>
-                        <Wallet className="h-4 w-4" />
+                        <Wallet className="h-4 w-4 mr-2" />
                         <span>Connect Wallet</span>
                       </>
                     ) : (
                       <>
                         <span>Continue to Payment</span>
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="h-4 w-4 ml-2" />
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>

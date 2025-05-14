@@ -12,6 +12,7 @@ import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
+import { Button } from '../ui/Button';
 
 // Replace the early initialization with a function
 function getStripe() {
@@ -323,38 +324,30 @@ function StripeCheckoutForm({
         </div>
       )}
 
-      <button
+      <Button
         ref={submitButtonRef}
         type="submit"
+        variant="primary"
+        size="lg"
+        isLoading={isProcessing}
+        loadingText={paymentStatus === 'requires_action' ? 'Waiting for confirmation...' : 'Processing payment...'}
         disabled={isProcessing || !elementsReady || !stripe || !isPaymentMethodSelected}
-        className="w-full bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+        className="w-full"
       >
-        {isProcessing ? (
-          <>
-            <Loading type={LoadingType.ACTION} />
-            <span>
-              {paymentStatus === 'requires_action' 
-                ? 'Waiting for confirmation...' 
-                : 'Processing payment...'}
-            </span>
-          </>
-        ) : !elementsReady ? (
-          <span>Loading payment options...</span>
-        ) : (
-          <span>Pay ${usdAmount}</span>
-        )}
-      </button>
+        {!elementsReady ? 'Loading payment options...' : `Pay $${usdAmount}`}
+      </Button>
 
       {paymentStatus === 'requires_action' && (
         <div className="text-sm text-gray-400 text-center mt-2">
           Please complete the additional authentication steps in the popup window.
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={() => setPaymentStatus('idle')}
-            className="block w-full mt-2 text-primary-400 hover:text-primary-300"
+            className="block w-full mt-2"
           >
             Cancel Payment
-          </button>
+          </Button>
         </div>
       )}
     </form>
@@ -526,27 +519,30 @@ export function StripePaymentModal({
       <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6 my-8">
         <div className="p-4 sm:p-6 border-b border-gray-800 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
           <h2 className="text-lg font-semibold text-white">Credit Card Payment</h2>
-          <button
+          <Button
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
+            variant="ghost"
+            size="sm"
+            className="text-gray-400 hover:text-white p-2 rounded-lg"
           >
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(100vh-12rem)]">
           {error ? (
             <div className="text-red-500 p-4 text-center">
               {error}
-              <button
+              <Button
                 onClick={() => {
                   setError(null);
                   setClientSecret(null);
                 }}
-                className="mt-4 text-primary-400 hover:text-primary-300 text-sm font-medium"
+                variant="link"
+                className="mt-4 text-sm font-medium"
               >
                 Try Again
-              </button>
+              </Button>
             </div>
           ) : isLoading ? (
             <div className="flex items-center justify-center p-8">
@@ -556,12 +552,13 @@ export function StripePaymentModal({
             <div className="text-red-500 p-4 text-center">
               <div className="mb-2">Failed to initialize payment provider.</div>
               <div className="text-sm text-gray-400 mb-4">Please try refreshing the page.</div>
-              <button
+              <Button
                 onClick={() => window.location.reload()}
-                className="mt-4 text-primary-400 hover:text-primary-300 text-sm font-medium block w-full"
+                variant="link"
+                className="mt-4 text-sm font-medium block w-full"
               >
                 Refresh Page
-              </button>
+              </Button>
             </div>
           ) : !clientSecret ? (
             <div className="flex items-center justify-center p-8">
@@ -599,12 +596,13 @@ export function StripePaymentModal({
               <ErrorBoundary fallback={
                 <div className="p-4 text-red-500 text-center">
                   <p>Failed to load payment form.</p>
-                  <button
+                  <Button
                     onClick={() => window.location.reload()}
-                    className="mt-4 text-primary-400 hover:text-primary-300 text-sm font-medium"
+                    variant="link"
+                    className="mt-4 text-sm font-medium"
                   >
                     Refresh Page
-                  </button>
+                  </Button>
                 </div>
               }>
                 <StripeCheckoutForm 
