@@ -351,3 +351,58 @@ export async function updateOrderTransactionSignature(
   
   return false;
 }
+
+/**
+ * Fetch order details using the secure server endpoint
+ * Uses the get-order endpoint to bypass RLS issues
+ */
+export async function getOrderDetails(orderId: string) {
+  try {
+    console.log('Fetching order details via server endpoint for:', orderId);
+    const response = await fetch(`/.netlify/functions/get-order?orderId=${orderId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return {
+      success: true,
+      order: data.order
+    };
+  } catch (error) {
+    console.error('Error fetching order details:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch order details'
+    };
+  }
+}
+
+/**
+ * Fetch orders by batch ID using the secure server endpoint
+ * Uses the get-order endpoint to bypass RLS issues
+ */
+export async function getBatchOrderDetails(batchOrderId: string) {
+  try {
+    console.log('Fetching batch order details via server endpoint for:', batchOrderId);
+    const response = await fetch(`/.netlify/functions/get-order?batchOrderId=${batchOrderId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return {
+      success: true,
+      orders: data.orders,
+      orderCount: data.orderCount
+    };
+  } catch (error) {
+    console.error('Error fetching batch order details:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch batch order details'
+    };
+  }
+}

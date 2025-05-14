@@ -10,7 +10,6 @@ import type { Product } from '../../types/variants';
 import type { CategoryRule } from '../../types';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { Loading, LoadingType } from '../ui/LoadingStates';
-import { supabase } from '../../lib/supabase';
 import { verifyNFTHolding } from '../../utils/nft-verification';
 import { monitorTransaction } from '../../utils/transaction-monitor';
 import { OrderSuccessView } from '../OrderSuccessView';
@@ -22,7 +21,7 @@ import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
-import { updateOrderTransactionSignature } from '../../services/orders';
+import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -712,37 +711,16 @@ export function TokenVerificationModal({
       // Try to fetch the latest order data first to get the correct order number
       try {
         if (createdOrderId) {
-          // Check if orderId is a UUID or an order number 
-          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(createdOrderId);
+          console.log('Fetching order details via helper function for:', createdOrderId);
           
-          let query;
-          if (isUuid) {
-            query = supabase
-              .from('orders')
-              .select('id, order_number, status')
-              .eq('id', createdOrderId)
-              .single();
-          } else {
-            // If it's an order number (e.g., ORD12345), query by order_number
-            query = supabase
-              .from('orders')
-              .select('id, order_number, status')
-              .eq('order_number', createdOrderId)
-              .single();
-          }
+          const orderDetailsResult = await getOrderDetails(createdOrderId);
           
-          const { data: order, error } = await query;
-          
-          if (error) {
-            throw error;
-          }
-          
-          if (order && order.order_number) {
-            console.log('Found order details:', order);
+          if (orderDetailsResult.success && orderDetailsResult.order) {
+            console.log('Found order details:', orderDetailsResult.order);
             
             // Use the retrieved order number
             setOrderDetails({
-              orderNumber: order.order_number,
+              orderNumber: orderDetailsResult.order.order_number,
               transactionSignature: paymentIntentId
             });
             
@@ -751,6 +729,9 @@ export function TokenVerificationModal({
             toastService.showOrderSuccess();
             onSuccess();
             return;
+          } else {
+            console.warn('Could not fetch order details from helper:', orderDetailsResult.error);
+            throw new Error('Order details not found');
           }
         }
       } catch (fetchError) {

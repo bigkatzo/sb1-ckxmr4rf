@@ -15,7 +15,7 @@ import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/address
 import { usePayment } from '../../hooks/usePayment';
 import { StripePaymentModal } from '../products/StripePaymentModal';
 import { monitorTransaction } from '../../utils/transaction-monitor.tsx';
-import { updateOrderTransactionSignature } from '../../services/orders';
+import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
 import { Button } from '../ui/Button';
 
 interface MultiItemCheckoutModalProps {
@@ -449,19 +449,20 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       
       // Fetch the order details to show the customer the correct order number
       try {
-        const orderDetailsResponse = await fetch(`/.netlify/functions/get-order?id=${orderId}`);
-        if (orderDetailsResponse.ok) {
-          const orderDetails = await orderDetailsResponse.json();
-          if (orderDetails && orderDetails.order_number) {
-            // Update order data with the fetched details
-            setOrderData(prev => ({
-              ...prev,
-              orderNumber: orderDetails.order_number
-            }));
-          }
+        console.log('Fetching order details via getOrderDetails helper function:', orderId);
+        const orderDetailsResult = await getOrderDetails(orderId);
+        
+        if (orderDetailsResult.success && orderDetailsResult.order) {
+          // Update order data with the fetched details
+          setOrderData(prev => ({
+            ...prev,
+            orderNumber: orderDetailsResult.order.order_number
+          }));
+        } else {
+          console.warn('Could not fetch order details from helper:', orderDetailsResult.error);
         }
       } catch (error) {
-        console.error('Could not fetch order details, using fallback:', error);
+        console.error('Error fetching order details:', error);
       }
       
       // Show success view even if the update had issues
