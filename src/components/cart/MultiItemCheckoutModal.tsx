@@ -326,40 +326,127 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setPaymentMethod(method);
   };
   
-  // Add handler for Stripe payment success
-  const handleStripeSuccess = async (paymentIntentId: string) => {
-    console.log('Stripe payment successful:', { orderId: orderData.orderId, paymentIntentId });
+  // Update the handleStripeSuccess function to accept the orderId parameter and handle server errors better
+  const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string) => {
+    console.log('Stripe payment successful:', { 
+      orderId: orderData.orderId, 
+      stripeOrderId, 
+      paymentIntentId 
+    });
     
     try {
       // Update order status with Stripe payment info
       setOrderProgress({ step: 'processing_payment' });
       
-      // Get the order ID from our state
-      const orderId = orderData.orderId;
+      // Get the order ID from our state or from the stripeOrderId parameter
+      const orderId = stripeOrderId || orderData.orderId;
       if (!orderId) {
-        throw new Error('Missing order ID for Stripe payment');
+        console.warn('Missing orderId in orderData:', orderData);
+        
+        // Try to find the order by paymentIntentId - this is a recovery path
+        try {
+          setOrderProgress({ step: 'confirming_transaction' });
+          const response = await fetch('/.netlify/functions/find-order-by-payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ paymentIntentId })
+          });
+          
+          if (response.ok) {
+            const findResult = await response.json();
+            if (findResult.success && findResult.orderId) {
+              // Found the order, proceed with update
+              try {
+                const updateResponse = await fetch('/.netlify/functions/update-stripe-order', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    orderId: findResult.orderId,
+                    paymentIntentId
+                  })
+                });
+                
+                const result = await updateResponse.json();
+                console.log('Retrieved and updated order:', result);
+              } catch (updateError) {
+                console.error('Error updating found order:', updateError);
+                // Continue even if update fails - payment was successful
+              }
+              
+              // Show success view
+              setOrderProgress({ step: 'success' });
+              
+              // Clear cart
+              if (clearCart) clearCart();
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error finding order by payment ID:', error);
+        }
+        
+        // Even if we couldn't find the order, still mark as success
+        // The background job will eventually link this payment
+        setOrderProgress({ step: 'success' });
+        
+        // Show limited success message
+        toast.success('Payment processed! Your order will be completed shortly.');
+        
+        // Clear cart
+        if (clearCart) clearCart();
+        return;
       }
       
-      // Update the order with the Stripe payment intent ID
+      // Continue with normal flow if we have orderId
       setOrderProgress({ step: 'confirming_transaction' });
-      const updateResponse = await fetch('/.netlify/functions/update-stripe-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          orderId,
-          paymentIntentId
-        })
-      });
       
-      if (!updateResponse.ok) {
-        const errorData = await updateResponse.json();
-        console.error('Failed to update Stripe order status:', errorData);
-        // Continue anyway since payment was received
-      } else {
-        const result = await updateResponse.json();
-        console.log('Stripe order update result:', result);
+      // Use fetch with timeout to prevent hanging request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      try {
+        const updateResponse = await fetch('/.netlify/functions/update-stripe-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            orderId,
+            paymentIntentId
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!updateResponse.ok) {
+          // For server errors (500), we still treat this as a partial success
+          if (updateResponse.status >= 500) {
+            console.warn(`Server error ${updateResponse.status} updating order, but payment was successful`);
+            toast.warning("Order recorded, but status update pending. We'll process your order shortly.");
+          } else {
+            const errorData = await updateResponse.json().catch(() => ({ error: 'Unknown error' }));
+            console.error('Failed to update Stripe order status:', errorData);
+          }
+        } else {
+          try {
+            const result = await updateResponse.json();
+            console.log('Stripe order update result:', result);
+          } catch (parseError) {
+            console.error('Error parsing server response:', parseError);
+          }
+        }
+      } catch (fetchError) {
+        console.error('Network error updating order:', fetchError);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          toast.warning('Server request timed out, but your payment was successful. Order will be processed automatically.');
+        } else {
+          toast.warning('Network error updating order status, but payment was successful. Order will be processed automatically.');
+        }
       }
       
       // Show success view even if the update had issues
@@ -374,6 +461,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       console.error('Error processing Stripe success:', err);
       // Still show success since payment was completed successfully
       setOrderProgress({ step: 'success' });
+      
+      // Show partial success to the user
+      toast.success('Payment successful! Your order will be processed shortly.');
       
       // Clear cart even if there was an error in status update
       if (clearCart) {
@@ -583,8 +673,24 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           
           console.log('Batch order created successfully:', batchOrderData);
           
-          // Store the order information
-          const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
+          // Store the order information - extract orderId from response
+          // Extract orderId - check all possible locations in the API response
+          let orderId = null;
+          // First check if there's a direct orderId field
+          if (batchOrderData.orderId) {
+            orderId = batchOrderData.orderId;
+          } 
+          // Check if orders array has entries with orderId
+          else if (batchOrderData.orders && batchOrderData.orders.length > 0) {
+            // Take the first order's ID
+            if (batchOrderData.orders[0].orderId) {
+              orderId = batchOrderData.orders[0].orderId;
+            }
+          }
+          
+          console.log('Extracted order ID:', orderId);
+          
+          // Get order number from the response
           const orderNumber = batchOrderData.orderNumber;
           
           setOrderData({

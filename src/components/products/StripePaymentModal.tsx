@@ -58,7 +58,7 @@ interface ShippingInfo {
 
 interface StripePaymentModalProps {
   onClose: () => void;
-  onSuccess: (paymentIntentId: string) => void;
+  onSuccess: (paymentIntentId: string, orderId?: string) => void;
   solAmount: number;
   productName: string;
   productId: string;
@@ -83,7 +83,7 @@ function StripeCheckoutForm({
   shippingInfo
 }: {
   solAmount: number;
-  onSuccess: (paymentIntentId: string) => void;
+  onSuccess: (paymentIntentId: string, orderId?: string) => void;
   couponDiscount?: number;
   originalPrice?: number;
   solPrice: number;
@@ -371,6 +371,7 @@ export function StripePaymentModal({
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
+  const [orderId, setOrderId] = React.useState<string | null>(null);
   const isProcessingOrder = false; // Replace the state with a constant since we no longer need to change it
   const { walletAddress } = useWallet();
   const { price: rawSolPrice } = useSolanaPrice();
@@ -470,6 +471,15 @@ export function StripePaymentModal({
           throw new Error('No client secret returned from the server');
         }
 
+        // Save orderId from response if available
+        if (data.orderId) {
+          console.log('Received order ID from payment intent creation:', data.orderId);
+          // Store it in component state
+          setOrderId(data.orderId);
+        } else {
+          console.warn('No orderId received from payment intent creation');
+        }
+
         console.log('Setting client secret:', data.clientSecret.substring(0, 10) + '...');
         setClientSecret(data.clientSecret);
       } catch (err) {
@@ -489,7 +499,7 @@ export function StripePaymentModal({
   }, [solPrice, solAmount, productId, productName, walletAddress, shippingInfo, couponCode, 
       couponDiscount, originalPrice, variants, isLoading, clientSecret, onSuccess, isProcessingOrder]);
 
-  // Handle successful payment
+  // Handle successful payment - pass orderId if available
   const handlePaymentSuccess = React.useCallback((paymentIntentId: string) => {
     // Skip if we've already processed a successful payment
     if (orderProcessedRef.current) return;
@@ -498,8 +508,12 @@ export function StripePaymentModal({
     orderProcessedRef.current = true;
     
     console.log('Payment successful with payment intent ID:', paymentIntentId);
-    onSuccess(paymentIntentId);
-  }, [onSuccess]);
+    console.log('Order ID to pass to parent:', orderId);
+    
+    // Call the parent's onSuccess with the payment intent ID
+    // The parent component can use this to fetch order details
+    onSuccess(paymentIntentId, orderId || undefined);
+  }, [onSuccess, orderId]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg overflow-y-auto">
