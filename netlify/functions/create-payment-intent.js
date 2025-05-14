@@ -151,27 +151,6 @@ exports.handler = async (event, context) => {
     const usdAmount = Math.max(solAmount * solPrice, 0.50);
     const amountInCents = Math.round(usdAmount * 100);
 
-    // Ensure payment method is included in metadata
-    const stripeMetadata = {
-      productName,
-      customerName: shippingInfo.contact_info.fullName,
-      shippingAddress: JSON.stringify(shippingInfo.shipping_address),
-      contactInfo: JSON.stringify(shippingInfo.contact_info),
-      solAmount: solAmount.toString(),
-      solPrice: solPrice.toString(),
-      walletAddress: walletAddress || 'stripe', // Store wallet address in metadata
-    };
-
-    // Create a payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: 'usd',
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      metadata: stripeMetadata,
-    });
-
     // Generate order number and batch ID for consistent naming
     const orderNumber = await generateOrderNumber();
     const batchOrderId = uuidv4();
@@ -188,6 +167,8 @@ exports.handler = async (event, context) => {
       isSingleItemOrder: paymentMetadata.isSingleItemOrder || true
     };
     
+    // Create the order first, before creating the payment intent
+    console.log('Creating order record in database before payment intent');
     const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
       p_product_id: productId,
       p_variants: variants || [],
@@ -197,10 +178,13 @@ exports.handler = async (event, context) => {
     });
 
     if (orderError) {
+      console.error('Error creating order:', orderError);
       throw orderError;
     }
 
-    // Update order with batch ID, order number and payment intent ID
+    console.log('Order created successfully with ID:', orderId);
+
+    // Update order with batch ID and order number
     const { error: updateError } = await supabase
       .from('orders')
       .update({
@@ -208,13 +192,54 @@ exports.handler = async (event, context) => {
         batch_order_id: batchOrderId,
         item_index: 1, // For single orders, always index 1
         total_items_in_batch: 1, // For single orders, always 1 item
-        transaction_signature: paymentIntent.id,
-        amount_sol: solAmount // Store the SOL amount for reference
       })
       .eq('id', orderId);
 
     if (updateError) {
+      console.error('Error updating order with batch details:', updateError);
       throw updateError;
+    }
+
+    // Ensure payment method is included in metadata
+    const stripeMetadata = {
+      productName,
+      customerName: shippingInfo.contact_info.fullName,
+      shippingAddress: JSON.stringify(shippingInfo.shipping_address),
+      contactInfo: JSON.stringify(shippingInfo.contact_info),
+      solAmount: solAmount.toString(),
+      solPrice: solPrice.toString(),
+      walletAddress: walletAddress || 'stripe', // Store wallet address in metadata
+      orderId, // Add order ID to metadata so it can be retrieved client-side
+      batchOrderId, // Add batch order ID to metadata
+      orderNumber // Add order number to metadata
+    };
+
+    // Create a payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: 'usd',
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      metadata: stripeMetadata,
+    });
+
+    // Now that the payment intent is created, update the order with the payment intent ID
+    console.log('Payment intent created, updating order with payment intent ID');
+    const { error: paymentUpdateError } = await supabase
+      .from('orders')
+      .update({
+        transaction_signature: paymentIntent.id,
+        amount_sol: solAmount, // Store the SOL amount for reference
+        status: 'pending_payment' // Update status from draft to pending_payment
+      })
+      .eq('id', orderId);
+
+    if (paymentUpdateError) {
+      console.error('Error updating order with payment intent ID:', paymentUpdateError);
+      // Don't throw here, we still want to return the client secret
+      // The payment can still be processed and the order will be updated later
+      console.warn('Payment intent created but order not updated - will be fixed during payment confirmation');
     }
 
     return {

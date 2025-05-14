@@ -510,8 +510,20 @@ export function StripePaymentModal({
     console.log('Order ID to pass to parent:', orderIdFromPayment || orderId);
     console.log('Batch order ID to pass to parent:', batchOrderIdFromPayment);
     
+    // IMPORTANT: We must use the orderIdFromPayment from Stripe's response
+    // If we don't have this, we can fall back to the local state, but this should be avoided
+    const finalOrderId = orderIdFromPayment || orderId;
+    
+    if (!orderIdFromPayment && orderId) {
+      console.warn('Using local orderId instead of Stripe orderId - possible mismatch!');
+    } else if (!finalOrderId) {
+      console.error('No valid order ID available!');
+    }
+    
     // Call the parent's onSuccess with the payment intent ID and order IDs
-    onSuccess(paymentIntentId, orderIdFromPayment || orderId || undefined, batchOrderIdFromPayment);
+    // Use undefined instead of null to match the expected type
+    const orderIdParam = finalOrderId === null ? undefined : finalOrderId;
+    onSuccess(paymentIntentId, orderIdParam, batchOrderIdFromPayment);
   }, [onSuccess, orderId]);
 
   return (

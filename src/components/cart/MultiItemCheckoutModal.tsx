@@ -342,18 +342,40 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       // Update order status with Stripe payment info
       setOrderProgress({ step: 'processing_payment' });
       
-      // Get the order ID from our state, from the stripeOrderId parameter, or use batchOrderId
-      const orderId = stripeOrderId || orderData.orderId;
+      // IMPORTANT: Use the stripeOrderId from Stripe's response instead of our local orderData
+      // This ensures we're using the actual order ID that was created during payment intent creation
+      const orderId = stripeOrderId;
+      
+      // If we don't have a stripeOrderId, this is an error condition
+      if (!orderId) {
+        console.error('Missing order ID from Stripe payment response');
+        toast.error('Payment successful, but order details could not be retrieved');
+        
+        // Show a generic success but log the error
+        setOrderProgress({ step: 'success' });
+        if (clearCart) {
+          clearCart();
+        }
+        return;
+      }
       
       // Store batchOrderId in orderData if provided
       if (batchOrderId) {
         setOrderData(prev => ({
           ...prev,
-          batchOrderId
+          batchOrderId,
+          // Also update the orderId to match what Stripe created
+          orderId
+        }));
+      } else {
+        // Always update our local orderData with the correct stripe order ID
+        setOrderData(prev => ({
+          ...prev,
+          orderId
         }));
       }
       
-      // Continue with normal flow if we have orderId
+      // Continue with normal flow
       setOrderProgress({ step: 'confirming_transaction' });
       
       // Use fetch with timeout to prevent hanging request
@@ -387,7 +409,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         } else {
           try {
             const result = await updateResponse.json();
-            console.log('Stripe order update result:', result);
+            console.log('Client-side order confirmation result:', result);
           } catch (parseError) {
             console.error('Error parsing server response:', parseError);
           }
@@ -399,6 +421,23 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         } else {
           toast.warning('Network error updating order status, but payment was successful. Order will be processed automatically.');
         }
+      }
+      
+      // Fetch the order details to show the customer the correct order number
+      try {
+        const orderDetailsResponse = await fetch(`/.netlify/functions/get-order?id=${orderId}`);
+        if (orderDetailsResponse.ok) {
+          const orderDetails = await orderDetailsResponse.json();
+          if (orderDetails && orderDetails.order_number) {
+            // Update order data with the fetched details
+            setOrderData(prev => ({
+              ...prev,
+              orderNumber: orderDetails.order_number
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Could not fetch order details, using fallback:', error);
       }
       
       // Show success view even if the update had issues
