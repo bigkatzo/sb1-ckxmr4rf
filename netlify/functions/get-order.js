@@ -97,6 +97,32 @@ exports.handler = async (event, context) => {
 
   try {
     log('info', 'Fetching order details for:', orderId);
+    
+    // First, try to use the RPC function for bypassing RLS
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_get_order_by_id', {
+      p_order_id: orderId
+    });
+    
+    if (!rpcError && rpcResult) {
+      log('info', 'Order found via RPC:', { 
+        id: rpcResult.id, 
+        status: rpcResult.status,
+        orderNumber: rpcResult.order_number
+      });
+      
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify(rpcResult)
+      };
+    }
+    
+    // If RPC fails, log the error and fall back to direct query
+    if (rpcError) {
+      log('warn', 'RPC query error, falling back to direct query:', rpcError);
+    }
+    
+    // Try a direct query next
     const { data: order, error } = await supabase
       .from('orders')
       .select('id, order_number, status, batch_order_id, product_id, transaction_signature')
@@ -108,47 +134,80 @@ exports.handler = async (event, context) => {
       
       // Handle RLS policy errors differently
       if (error.code === '42P17' && error.message.includes('infinite recursion detected in policy')) {
-        log('error', 'RLS policy recursion error. Attempting direct query with service role.');
+        log('error', 'RLS policy recursion error. Attempting lookup by transaction signature.');
         
+        // The ID might actually be a transaction signature - try that as a fallback
         try {
-          // We're already using the service role key in the Supabase client,
-          // so we can just try to bypass RLS by using a direct query instead of RPC
-          const directQueryResult = await supabase
-            .from('orders')
-            .select('id, order_number, status, batch_order_id, product_id, transaction_signature')
-            .eq('id', orderId)
-            .single();
-            
-          if (directQueryResult.error) {
-            log('error', 'Direct query error:', directQueryResult.error);
-            return {
-              statusCode: 500,
-              headers,
-              body: JSON.stringify({ 
-                error: 'Database error', 
-                message: 'Could not retrieve order with direct query', 
-                details: directQueryResult.error.message 
-              })
-            };
-          }
+          log('debug', 'Querying orders by transaction signature');
+          const { data: transactionOrders, error: transactionError } = await supabase.rpc('admin_get_orders_by_transaction', {
+            p_transaction_signature: orderId
+          });
           
-          if (directQueryResult.data) {
-            log('info', 'Successfully retrieved order with direct query:', { 
-              id: directQueryResult.data.id, 
-              status: directQueryResult.data.status 
+          if (!transactionError && transactionOrders && transactionOrders.length > 0) {
+            log('info', 'Found order by transaction signature:', {
+              id: transactionOrders[0].id,
+              status: transactionOrders[0].status
             });
             
             return {
               statusCode: 200,
               headers,
-              body: JSON.stringify(directQueryResult.data)
+              body: JSON.stringify(transactionOrders[0])
+            };
+          }
+          
+          if (transactionError) {
+            log('warn', 'Error querying by transaction signature:', transactionError);
+          }
+        } catch (transactionLookupError) {
+          log('error', 'Error during transaction lookup:', transactionLookupError);
+        }
+        
+        // If we still haven't found the order, try a direct query with a service role
+        // as a final fallback
+        try {
+          log('debug', 'Attempting direct table query as final fallback');
+          const { data: directOrder, error: directError } = await supabase
+            .from('orders')
+            .select('id, order_number, status, batch_order_id, product_id, transaction_signature')
+            .eq('id', orderId)
+            .single();
+          
+          if (!directError && directOrder) {
+            log('info', 'Found order via direct query fallback:', {
+              id: directOrder.id,
+              status: directOrder.status
+            });
+            
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify(directOrder)
+            };
+          }
+          
+          if (directError) {
+            log('error', 'Direct query fallback error:', directError);
+            
+            // All attempts failed - return an error with debugging details
+            return {
+              statusCode: 500,
+              headers,
+              body: JSON.stringify({
+                error: 'All lookup methods failed',
+                rpcError: rpcError?.message,
+                directError: directError?.message,
+                code: directError?.code,
+                details: "The order could not be retrieved due to database permission issues."
+              })
             };
           }
         } catch (directQueryError) {
-          log('error', 'Error running direct query:', directQueryError);
+          log('error', 'Error during direct query fallback:', directQueryError);
         }
       }
       
+      // Return standard error response if all special handling failed
       return {
         statusCode: 500,
         headers,
@@ -162,11 +221,9 @@ exports.handler = async (event, context) => {
       // Try to search by transaction ID as a fallback
       try {
         log('info', 'Attempting to find order by transaction signature instead');
-        const { data: ordersByTx, error: txError } = await supabase
-          .from('orders')
-          .select('id, order_number, status, batch_order_id, product_id, transaction_signature')
-          .eq('transaction_signature', orderId)
-          .limit(1);
+        const { data: ordersByTx, error: txError } = await supabase.rpc('admin_get_orders_by_transaction', {
+          p_transaction_signature: orderId
+        });
         
         if (txError) {
           log('error', 'Error searching by transaction signature:', txError);

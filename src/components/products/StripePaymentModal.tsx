@@ -527,20 +527,48 @@ export function StripePaymentModal({
     console.log('Order ID to pass to parent:', orderIdFromPayment || orderId);
     console.log('Batch order ID to pass to parent:', batchOrderIdFromPayment);
     
-    // IMPORTANT: We must use the orderIdFromPayment from Stripe's response
-    // If we don't have this, we can fall back to the local state, but this should be avoided
-    const finalOrderId = orderIdFromPayment || orderId;
+    // IMPORTANT: We must use the orderIdFromPayment from Stripe's response instead of our local orderData
+    // This ensures we're using the actual order ID that was created during payment intent creation
+    // But if stripeOrderId is missing or the special value "use_local_order_id", fall back to local orderData
+    let finalOrderId: string | undefined;
     
-    if (!orderIdFromPayment && orderId) {
-      console.warn('Using local orderId instead of Stripe orderId - possible mismatch!');
-    } else if (!finalOrderId) {
-      console.error('No valid order ID available!');
+    if (!orderIdFromPayment || orderIdFromPayment === 'use_local_order_id') {
+      // Stripe didn't provide metadata - use our local orderData instead
+      console.log('Using local order ID due to missing metadata in Stripe payment intent');
+      finalOrderId = orderId || undefined;
+      
+      // Check session storage for recently created orders (from MultiItemCheckoutModal)
+      const lastCreatedOrderId = window.sessionStorage.getItem('lastCreatedOrderId');
+      if (lastCreatedOrderId && !finalOrderId) {
+        console.log('Using order ID from session storage:', lastCreatedOrderId);
+        finalOrderId = lastCreatedOrderId;
+      }
+    } else {
+      // Use the order ID from Stripe's metadata
+      finalOrderId = orderIdFromPayment;
     }
     
-    // Call the parent's onSuccess with the payment intent ID and order IDs
-    // Use undefined instead of null to match the expected type
+    // If we don't have any orderId, this is an error condition
+    if (!finalOrderId) {
+      console.error('Missing order ID from both Stripe payment response and local state');
+    }
+    
+    // Compare IDs to detect mismatch issues
+    if (orderId && finalOrderId && orderId !== finalOrderId) {
+      console.warn('Order ID mismatch detected:', {
+        localOrderId: orderId,
+        stripeOrderId: finalOrderId
+      });
+    }
+    
+    // For backward compatibility, ensure we always have an orderId to pass,
+    // even if it's undefined
     const orderIdParam = finalOrderId === null ? undefined : finalOrderId;
-    onSuccess(paymentIntentId, orderIdParam, batchOrderIdFromPayment);
+    
+    // Use the batch ID either from payment or local state
+    const batchOrderIdParam = batchOrderIdFromPayment || window.sessionStorage.getItem('lastBatchOrderId') || undefined;
+    
+    onSuccess(paymentIntentId, orderIdParam, batchOrderIdParam as string | undefined);
   }, [onSuccess, orderId]);
 
   return (

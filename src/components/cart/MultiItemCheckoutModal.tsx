@@ -117,6 +117,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     orderNumber?: string;
     transactionSignature?: string;
     batchOrderId?: string;
+    createdOrderIds?: string[];
   }>({});
   
   // Try to load shipping info from localStorage
@@ -632,6 +633,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setProcessingPayment(true);
     
     try {
+      // Keep track of created orders to detect duplicates
+      const createdOrderIds = new Set<string>();
+      
       // Verify all items in the cart again just before checkout as a safety measure
       const allItemsVerified = await verifyAllItems(walletAddress);
       
@@ -698,12 +702,16 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           // First check if there's a direct orderId field
           if (batchOrderData.orderId) {
             orderId = batchOrderData.orderId;
+            // Record this order ID to detect duplicates
+            createdOrderIds.add(orderId);
           } 
           // Check if orders array has entries with orderId
           else if (batchOrderData.orders && batchOrderData.orders.length > 0) {
             // Take the first order's ID
             if (batchOrderData.orders[0].orderId) {
               orderId = batchOrderData.orders[0].orderId;
+              // Record this order ID to detect duplicates
+              createdOrderIds.add(orderId);
             }
           }
           
@@ -713,10 +721,15 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           const orderNumber = batchOrderData.orderNumber;
           const batchOrderId = batchOrderData.batchOrderId;
           
+          // Store order IDs and other details for duplicate detection
+          window.sessionStorage.setItem('lastCreatedOrderId', orderId || '');
+          window.sessionStorage.setItem('lastBatchOrderId', batchOrderId || '');
+          
           setOrderData({
             orderId,
             orderNumber,
-            batchOrderId
+            batchOrderId,
+            createdOrderIds: Array.from(createdOrderIds)
           });
           
           // Show the Stripe payment modal

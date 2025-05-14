@@ -200,76 +200,152 @@ exports.handler = async (event, context) => {
       throw updateError;
     }
 
-    // Ensure payment method is included in metadata
+    // IMPORTANT: Stripe metadata must be flat key-value pairs with string values only
+    // Carefully prepare metadata without circular references or complex objects
+    // Truncate long values to stay under Stripe's metadata limits
+    
+    // Simplified shipping address
+    const simplifiedAddress = {
+      address: shippingInfo.shipping_address.address || '',
+      city: shippingInfo.shipping_address.city || '',
+      country: shippingInfo.shipping_address.country || '',
+      zip: shippingInfo.shipping_address.zip || ''
+    };
+    
+    // Simplified contact info
+    const simplifiedContact = {
+      method: shippingInfo.contact_info.method || 'email',
+      value: shippingInfo.contact_info.value || '',
+      firstName: shippingInfo.contact_info.firstName || '',
+      lastName: shippingInfo.contact_info.lastName || ''
+    };
+    
+    // Create metadata object with string values only
     const stripeMetadata = {
-      productName,
-      customerName: shippingInfo.contact_info.firstName + ' ' + shippingInfo.contact_info.lastName,
-      // Stripe metadata values must be strings, not objects
-      shippingAddress: JSON.stringify(shippingInfo.shipping_address).substring(0, 500),
-      contactInfo: JSON.stringify(shippingInfo.contact_info).substring(0, 500),
-      solAmount: solAmount.toString(),
-      solPrice: solPrice.toString(),
-      walletAddress: walletAddress || 'stripe', // Store wallet address in metadata
-      orderId: orderId, // Add order ID to metadata so it can be retrieved client-side
-      batchOrderId: batchOrderId, // Add batch order ID to metadata
-      orderNumber: orderNumber // Add order number to metadata
+      productName: String(productName || '').substring(0, 100),
+      customerName: `${simplifiedContact.firstName} ${simplifiedContact.lastName}`.substring(0, 100),
+      addressStr: JSON.stringify(simplifiedAddress).substring(0, 100),
+      contactStr: JSON.stringify(simplifiedContact).substring(0, 100),
+      solAmount: String(solAmount || 0),
+      solPrice: String(solPrice || 0),
+      walletAddress: String(walletAddress || 'stripe').substring(0, 100),
+      orderId: String(orderId || ''),
+      batchOrderId: String(batchOrderId || ''),
+      orderNumber: String(orderNumber || '')
     };
 
     console.log('Creating Stripe payment intent with metadata:', stripeMetadata);
 
-    // Create a payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: 'usd',
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      metadata: stripeMetadata,
-    });
+    // Create a payment intent with the simplified metadata
+    try {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: 'usd',
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        metadata: stripeMetadata,
+      });
+      
+      console.log('Payment intent created successfully:', {
+        id: paymentIntent.id,
+        hasMetadata: !!paymentIntent.metadata,
+        metadataKeys: Object.keys(paymentIntent.metadata || {})
+      });
+      
+      // VERIFICATION STEP: Retrieve the payment intent to ensure metadata was saved
+      const retrievedIntent = await stripe.paymentIntents.retrieve(paymentIntent.id);
+      
+      if (!retrievedIntent.metadata || Object.keys(retrievedIntent.metadata).length === 0) {
+        console.error('Metadata verification failed - missing metadata on payment intent:', {
+          intentId: paymentIntent.id,
+          retrievedMetadata: retrievedIntent.metadata
+        });
+        
+        // Try to update the payment intent with metadata again
+        try {
+          console.log('Attempting to re-attach metadata to payment intent');
+          await stripe.paymentIntents.update(paymentIntent.id, { metadata: stripeMetadata });
+          
+          // Verify again
+          const reVerifiedIntent = await stripe.paymentIntents.retrieve(paymentIntent.id);
+          console.log('Metadata re-verification result:', {
+            success: !!(reVerifiedIntent.metadata && Object.keys(reVerifiedIntent.metadata).length > 0),
+            metadataKeys: Object.keys(reVerifiedIntent.metadata || {})
+          });
+        } catch (metadataUpdateError) {
+          console.error('Failed to update metadata on payment intent:', metadataUpdateError);
+        }
+      } else {
+        console.log('Metadata verification successful:', {
+          orderId: retrievedIntent.metadata.orderId,
+          metadataCount: Object.keys(retrievedIntent.metadata).length
+        });
+      }
 
-    // Now that the payment intent is created, update the order with the payment intent ID
-    console.log('Payment intent created, updating order with payment intent ID');
-    const { error: paymentUpdateError } = await supabase
-      .from('orders')
-      .update({
-        transaction_signature: paymentIntent.id,
-        amount_sol: solAmount, // Store the SOL amount for reference
-        status: 'pending_payment' // Update status from draft to pending_payment
-      })
-      .eq('id', orderId);
+      // Now that the payment intent is created, update the order with the payment intent ID
+      console.log('Updating order with payment intent ID:', paymentIntent.id);
+      const { error: paymentUpdateError } = await supabase
+        .from('orders')
+        .update({
+          transaction_signature: paymentIntent.id,
+          amount_sol: solAmount, // Store the SOL amount for reference
+          status: 'pending_payment' // Update status from draft to pending_payment
+        })
+        .eq('id', orderId);
 
-    if (paymentUpdateError) {
-      console.error('Error updating order with payment intent ID:', paymentUpdateError);
-      // Don't throw here, we still want to return the client secret
-      // The payment can still be processed and the order will be updated later
-      console.warn('Payment intent created but order not updated - will be fixed during payment confirmation');
+      if (paymentUpdateError) {
+        console.error('Error updating order with payment intent ID:', paymentUpdateError);
+        // Don't throw here, we still want to return the client secret
+        // The payment can still be processed and the order will be updated later
+        console.warn('Payment intent created but order not updated - will be fixed during payment confirmation');
+      }
+
+      // Return the payment intent data and order information
+      return {
+        statusCode: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientSecret: paymentIntent.client_secret,
+          orderId: orderId,
+          orderNumber: orderNumber,
+          batchOrderId: batchOrderId,
+          paymentIntentId: paymentIntent.id,
+          success: true,
+          // Match batch order format
+          orders: [
+            {
+              orderId,
+              orderNumber: orderNumber,
+              status: 'pending_payment',
+              itemIndex: 1,
+              totalItems: 1
+            }
+          ]
+        }),
+      };
+    } catch (stripeError) {
+      console.error('Error creating payment intent with Stripe:', stripeError);
+      
+      // If we created an order but failed to create a payment intent, 
+      // mark the order as failed to prevent orphaned orders
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            status: 'error',
+            transaction_signature: `error_${Date.now()}`
+          })
+          .eq('id', orderId);
+      } catch (cleanupError) {
+        console.error('Failed to mark order as error after payment intent failure:', cleanupError);
+      }
+      
+      throw stripeError;
     }
-
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        clientSecret: paymentIntent.client_secret,
-        orderId: orderId,
-        orderNumber: orderNumber,
-        batchOrderId: batchOrderId,
-        paymentIntentId: paymentIntent.id,
-        success: true,
-        // Match batch order format
-        orders: [
-          {
-            orderId,
-            orderNumber: orderNumber,
-            status: 'pending_payment',
-            itemIndex: 1,
-            totalItems: 1
-          }
-        ]
-      }),
-    };
   } catch (error) {
     console.error('Error creating payment intent:', error);
     return {
