@@ -58,7 +58,7 @@ interface ShippingInfo {
 
 interface StripePaymentModalProps {
   onClose: () => void;
-  onSuccess: (paymentIntentId: string, orderId?: string) => void;
+  onSuccess: (paymentIntentId: string, orderId?: string, batchOrderId?: string) => void;
   solAmount: number;
   productName: string;
   productId: string;
@@ -83,7 +83,7 @@ function StripeCheckoutForm({
   shippingInfo
 }: {
   solAmount: number;
-  onSuccess: (paymentIntentId: string, orderId?: string) => void;
+  onSuccess: (paymentIntentId: string, orderId?: string, batchOrderId?: string) => void;
   couponDiscount?: number;
   originalPrice?: number;
   solPrice: number;
@@ -194,7 +194,13 @@ function StripeCheckoutForm({
         switch (result.paymentIntent.status) {
           case 'succeeded':
             setPaymentStatus('succeeded');
-            onSuccess(result.paymentIntent.id);
+            // The PaymentIntent type doesn't declare metadata, so we need to use type assertion
+            const paymentMeta = (result.paymentIntent as any).metadata || {};
+            onSuccess(
+              result.paymentIntent.id, 
+              paymentMeta.orderId, 
+              paymentMeta.batchOrderId
+            );
             break;
           case 'processing':
             setPaymentStatus('processing');
@@ -500,7 +506,7 @@ export function StripePaymentModal({
       couponDiscount, originalPrice, variants, isLoading, clientSecret, onSuccess, isProcessingOrder]);
 
   // Handle successful payment - pass orderId if available
-  const handlePaymentSuccess = React.useCallback((paymentIntentId: string) => {
+  const handlePaymentSuccess = React.useCallback((paymentIntentId: string, orderIdFromPayment?: string, batchOrderIdFromPayment?: string) => {
     // Skip if we've already processed a successful payment
     if (orderProcessedRef.current) return;
     
@@ -508,11 +514,11 @@ export function StripePaymentModal({
     orderProcessedRef.current = true;
     
     console.log('Payment successful with payment intent ID:', paymentIntentId);
-    console.log('Order ID to pass to parent:', orderId);
+    console.log('Order ID to pass to parent:', orderIdFromPayment || orderId);
+    console.log('Batch order ID to pass to parent:', batchOrderIdFromPayment);
     
-    // Call the parent's onSuccess with the payment intent ID
-    // The parent component can use this to fetch order details
-    onSuccess(paymentIntentId, orderId || undefined);
+    // Call the parent's onSuccess with the payment intent ID and order IDs
+    onSuccess(paymentIntentId, orderIdFromPayment || orderId || undefined, batchOrderIdFromPayment);
   }, [onSuccess, orderId]);
 
   return (

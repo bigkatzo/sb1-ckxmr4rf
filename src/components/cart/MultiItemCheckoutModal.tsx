@@ -15,6 +15,7 @@ import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/address
 import { usePayment } from '../../hooks/usePayment';
 import { StripePaymentModal } from '../products/StripePaymentModal';
 import { monitorTransaction } from '../../utils/transaction-monitor.tsx';
+import { updateOrderTransactionSignature } from '../../services/orders';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -114,6 +115,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     orderId?: string;
     orderNumber?: string;
     transactionSignature?: string;
+    batchOrderId?: string;
   }>({});
   
   // Try to load shipping info from localStorage
@@ -326,79 +328,28 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setPaymentMethod(method);
   };
   
-  // Update the handleStripeSuccess function to accept the orderId parameter and handle server errors better
-  const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string) => {
+  // Update the handleStripeSuccess function to receive and use batchOrderId
+  const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string, batchOrderId?: string) => {
     console.log('Stripe payment successful:', { 
       orderId: orderData.orderId, 
       stripeOrderId, 
-      paymentIntentId 
+      paymentIntentId,
+      batchOrderId
     });
     
     try {
       // Update order status with Stripe payment info
       setOrderProgress({ step: 'processing_payment' });
       
-      // Get the order ID from our state or from the stripeOrderId parameter
+      // Get the order ID from our state, from the stripeOrderId parameter, or use batchOrderId
       const orderId = stripeOrderId || orderData.orderId;
-      if (!orderId) {
-        console.warn('Missing orderId in orderData:', orderData);
-        
-        // Try to find the order by paymentIntentId - this is a recovery path
-        try {
-          setOrderProgress({ step: 'confirming_transaction' });
-          const response = await fetch('/.netlify/functions/find-order-by-payment', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ paymentIntentId })
-          });
-          
-          if (response.ok) {
-            const findResult = await response.json();
-            if (findResult.success && findResult.orderId) {
-              // Found the order, proceed with update
-              try {
-                const updateResponse = await fetch('/.netlify/functions/update-stripe-order', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    orderId: findResult.orderId,
-                    paymentIntentId
-                  })
-                });
-                
-                const result = await updateResponse.json();
-                console.log('Retrieved and updated order:', result);
-              } catch (updateError) {
-                console.error('Error updating found order:', updateError);
-                // Continue even if update fails - payment was successful
-              }
-              
-              // Show success view
-              setOrderProgress({ step: 'success' });
-              
-              // Clear cart
-              if (clearCart) clearCart();
-              return;
-            }
-          }
-        } catch (error) {
-          console.error('Error finding order by payment ID:', error);
-        }
-        
-        // Even if we couldn't find the order, still mark as success
-        // The background job will eventually link this payment
-        setOrderProgress({ step: 'success' });
-        
-        // Show limited success message
-        toast.success('Payment processed! Your order will be completed shortly.');
-        
-        // Clear cart
-        if (clearCart) clearCart();
-        return;
+      
+      // Store batchOrderId in orderData if provided
+      if (batchOrderId) {
+        setOrderData(prev => ({
+          ...prev,
+          batchOrderId
+        }));
       }
       
       // Continue with normal flow if we have orderId
@@ -692,10 +643,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           
           // Get order number from the response
           const orderNumber = batchOrderData.orderNumber;
+          const batchOrderId = batchOrderData.batchOrderId;
           
           setOrderData({
             orderId,
-            orderNumber
+            orderNumber,
+            batchOrderId
           });
           
           // Show the Stripe payment modal
@@ -754,10 +707,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           // Store the order information
           const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
           const orderNumber = batchOrderData.orderNumber;
+          const batchOrderId = batchOrderData.batchOrderId;
           
           setOrderData({
             orderId,
-            orderNumber
+            orderNumber,
+            batchOrderId
           });
           
           // Process payment step
@@ -772,22 +727,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             
             // Update order to pending_payment status even if payment fails - consistent with TokenVerificationModal
             try {
-              const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  orderId,
-                  transactionSignature: 'rejected',
-                  amountSol: finalPrice
-                })
+              await updateOrderTransactionSignature({
+                orderId,
+                transactionSignature: 'rejected',
+                amountSol: finalPrice,
+                batchOrderId: orderData.batchOrderId
               });
-              
-              if (!updateResponse.ok) {
-                const errorData = await updateResponse.json();
-                console.error('Failed to update order status:', errorData.error);
-              }
             } catch (err) {
               console.error('Error updating order status:', err);
             }
@@ -834,40 +779,32 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           setOrderProgress({ step: 'confirming_transaction' });
           console.log('Confirming transaction on-chain');
           
-          // Expected transaction details for server verification
-          const expectedDetails = {
-            amount: finalPrice,
-            buyer: walletAddress || '',
-            recipient: collectionId
-          };
-          
-          // Monitor transaction status and confirm on chain
-          const transactionSuccess = await monitorTransaction(
+          // Monitor transaction and confirm on chain
+          const success = await monitorTransaction(
             txSignature,
-            (status) => {
-              console.log('Transaction status update:', status);
+            async (status) => {
+              // Handle transaction status updates
               if (status.error) {
-                console.error('Transaction error:', status.error);
                 setOrderProgress({ step: 'error', error: status.error });
-              } else if (status.paymentConfirmed === true) {
-                console.log('Transaction confirmed successfully');
+              } else if (status.paymentConfirmed) {
+                // Transaction confirmed with server verification
                 setOrderProgress({ step: 'success' });
-                
-                // Show success message
-                toast.success(`Order #${orderNumber} placed successfully!`);
-                
-                // Clear cart and close modal after short delay to ensure UI updates
-                setTimeout(() => {
-                  clearCart();
-                  onClose();
-                }, 1000);
+                setOrderData(prev => ({
+                  ...prev,
+                  transactionSignature: txSignature
+                }));
               }
             },
-            expectedDetails,
-            orderId
+            { 
+              amount: finalPrice,
+              buyer: walletAddress || '',
+              recipient: collectionId
+            },
+            orderId,
+            orderData.batchOrderId // Add batch order ID for batch orders
           );
           
-          if (!transactionSuccess) {
+          if (!success) {
             console.warn('Transaction verification timeout or failure');
             setOrderProgress({ 
               step: 'error', 

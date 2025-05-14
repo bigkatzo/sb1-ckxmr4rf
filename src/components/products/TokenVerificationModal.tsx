@@ -22,6 +22,7 @@ import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
+import { updateOrderTransactionSignature } from '../../services/orders';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -526,30 +527,16 @@ export function TokenVerificationModal({
 
       // Update order with transaction signature
       try {
-        const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            orderId,
-            transactionSignature: txSignature,
-            amountSol: finalPrice,
-            walletAddress: walletAddress || 'anonymous'
-          })
+        const success = await updateOrderTransactionSignature({
+          orderId,
+          transactionSignature: txSignature,
+          amountSol: finalPrice,
+          walletAddress: walletAddress || 'anonymous',
+          batchOrderId: paymentMetadata?.batchOrderId
         });
 
-        if (!updateResponse.ok) {
-          const errorData = await updateResponse.json();
-          
-          // Check if this is the error about order not being in draft status
-          // This can happen if the server already processed the order
-          if (errorData.error && errorData.error.includes('not in draft status')) {
-            console.log('Order already processed by server, continuing with transaction monitoring');
-            // We can continue without treating this as an error
-          } else {
-            throw new Error(errorData.error || 'Failed to update order transaction');
-          }
+        if (!success) {
+          throw new Error('Failed to update order transaction');
         }
         
         // Payment initiated successfully
@@ -595,7 +582,8 @@ export function TokenVerificationModal({
             }
           },
           expectedDetails,
-          orderId
+          orderId,
+          paymentMetadata?.batchOrderId
         );
 
         // SAFETY: Add a timeout for direct success if callbacks aren't working

@@ -448,8 +448,13 @@ exports.handler = async (event, context) => {
   }
 
   // Validate request parameters
-  const { orderId, signature, expectedDetails } = requestBody;
+  const { orderId, signature, expectedDetails, batchOrderId, isBatchOrder } = requestBody;
   
+  // Add logging for batch orders
+  if (batchOrderId || isBatchOrder) {
+    console.log(`Processing batch order: ${batchOrderId} (isBatchOrder=${isBatchOrder})`);
+  }
+
   if (!signature) {
     return {
       statusCode: 400,
@@ -668,6 +673,31 @@ exports.handler = async (event, context) => {
         }
       } catch (findError) {
         console.error('Error finding related orders:', findError);
+      }
+    }
+    
+    // If a batch order ID was provided or we're handling a batch order
+    if (batchOrderId && verification.isValid) {
+      console.log(`Looking for orders in batch: ${batchOrderId}`);
+      
+      // Find all orders in this batch
+      const { data: batchOrders, error: batchError } = await supabase
+        .from('orders')
+        .select('id, status, transaction_signature, batch_order_id')
+        .eq('batch_order_id', batchOrderId)
+        .in('status', ['pending_payment', 'draft']);
+        
+      if (!batchError && batchOrders && batchOrders.length > 0) {
+        console.log(`Found ${batchOrders.length} orders in batch ${batchOrderId}`);
+        
+        // Add all order IDs from this batch
+        batchOrders.forEach(order => {
+          if (!orderIds.includes(order.id)) {
+            orderIds.push(order.id);
+          }
+        });
+      } else {
+        console.warn(`No orders found for batch ${batchOrderId} or error: ${batchError?.message}`);
       }
     }
     

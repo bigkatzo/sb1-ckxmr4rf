@@ -213,76 +213,135 @@ exports.handler = async (event, context) => {
     if (isBatchOrder) {
       console.log('Processing batch order:', order.batch_order_id);
       
-      // First update the transaction signature and set status to pending_payment for all orders in the batch
-      const { data: batchOrders, error: batchError } = await supabase
+      // First check if any orders in the batch already have a transaction_signature
+      const { data: existingSignatures, error: signatureError } = await supabase
         .from('orders')
-        .update({
-          status: 'pending_payment',
-          transaction_signature: paymentIntentId,
-          payment_metadata: metadata,
-          updated_at: new Date().toISOString()
-        })
+        .select('transaction_signature')
         .eq('batch_order_id', order.batch_order_id)
-        .select('id, status, order_number');
+        .not('transaction_signature', 'is', null)
+        .limit(1);
       
-      if (batchError) {
-        console.error('Failed to update batch transaction signatures:', batchError);
-        return {
-          statusCode: 500,
-          body: JSON.stringify({ error: 'Failed to update batch orders', details: batchError.message })
-        };
-      }
-      
-      // Now update the status to confirmed for each batch order
-      updatedOrders = await Promise.all(batchOrders.map(async (batchOrder) => {
+      // If there's already a signature in the batch, handle it specially
+      if (!signatureError && existingSignatures && existingSignatures.length > 0) {
+        console.log('Found existing transaction signature in batch:', existingSignatures[0].transaction_signature);
+        
         try {
-          // Try to use confirm_stripe_payment RPC function first
-          const { data: rpcResult, error: rpcError } = await supabase.rpc('confirm_stripe_payment', {
-            p_payment_id: paymentIntentId,
-            p_order_id: batchOrder.id
+          // Update batch orders to pending_payment status first
+          const { error: statusError } = await supabase
+            .from('orders')
+            .update({
+              status: 'pending_payment',
+              payment_metadata: metadata,
+              updated_at: new Date().toISOString()
+            })
+            .eq('batch_order_id', order.batch_order_id)
+            .eq('status', 'draft');
+          
+          if (statusError) {
+            console.error('Failed to update batch order statuses:', statusError);
+            return {
+              statusCode: 500,
+              body: JSON.stringify({ error: 'Failed to update batch orders', details: statusError.message })
+            };
+          }
+          
+          // Now update confirmed status for all batch orders
+          const { error: confirmError } = await supabase.rpc('confirm_batch_order_transaction', {
+            p_batch_order_id: order.batch_order_id
           });
           
-          if (rpcError) {
-            console.error(`RPC function error for order ${batchOrder.id}:`, rpcError);
-            
-            // Fall back to direct update to set status to confirmed
-            const { error: updateError } = await supabase
+          if (confirmError) {
+            console.error('Failed to confirm batch orders:', confirmError);
+            // Try direct update as fallback
+            const { error: directError } = await supabase
               .from('orders')
               .update({
                 status: 'confirmed',
                 updated_at: new Date().toISOString()
               })
-              .eq('id', batchOrder.id);
+              .eq('batch_order_id', order.batch_order_id)
+              .eq('status', 'pending_payment');
             
-            if (updateError) {
-              console.error(`Failed to update order ${batchOrder.id}:`, updateError);
+            if (directError) {
+              console.error('Failed direct batch confirmation:', directError);
               return {
-                orderId: batchOrder.id,
-                orderNumber: batchOrder.order_number,
-                status: 'pending_payment', // We at least moved it to pending_payment
-                updated: false,
-                error: updateError.message
+                statusCode: 500,
+                body: JSON.stringify({ error: 'Failed to confirm batch orders', details: directError.message })
               };
             }
           }
           
           return {
-            orderId: batchOrder.id,
-            orderNumber: batchOrder.order_number,
-            status: 'confirmed',
-            updated: true
+            statusCode: 200,
+            body: JSON.stringify({
+              success: true,
+              message: 'Batch orders updated and confirmed successfully',
+              batchOrderId: order.batch_order_id
+            })
           };
-        } catch (orderError) {
-          console.error(`Error processing order ${batchOrder.id}:`, orderError);
+        } catch (batchUpdateError) {
+          console.error('Error in batch order processing:', batchUpdateError);
           return {
-            orderId: batchOrder.id,
-            orderNumber: batchOrder.order_number,
-            status: 'pending_payment',
-            updated: false,
-            error: orderError.message
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Batch order processing error', details: batchUpdateError.message })
           };
         }
-      }));
+      }
+      
+      // If no existing signature, proceed with normal update
+      // First update the transaction signature and set status to pending_payment for all orders in the batch
+      try {
+        // Use batch update transaction function if available
+        const { error: batchError } = await supabase.rpc('update_batch_order_transaction', {
+          p_batch_order_id: order.batch_order_id,
+          p_transaction_signature: paymentIntentId,
+          p_amount_sol: order.amount_sol || 0
+        });
+        
+        if (batchError) {
+          console.error('Failed to update batch transaction with RPC:', batchError);
+          // Fallback to direct update
+          const { data: batchOrders, error: fetchError } = await supabase
+            .from('orders')
+            .update({
+              status: 'pending_payment',
+              transaction_signature: paymentIntentId,
+              payment_metadata: metadata,
+              updated_at: new Date().toISOString()
+            })
+            .eq('batch_order_id', order.batch_order_id)
+            .eq('status', 'draft')
+            .select('id, status, order_number');
+          
+          if (fetchError) {
+            console.error('Failed to update batch orders directly:', fetchError);
+            return {
+              statusCode: 500,
+              body: JSON.stringify({ error: 'Failed to update batch orders', details: fetchError.message })
+            };
+          }
+          
+          updatedOrders = batchOrders || [];
+        } else {
+          // Successful RPC call, now fetch the updated orders
+          const { data: batchOrders, error: fetchError } = await supabase
+            .from('orders')
+            .select('id, status, order_number')
+            .eq('batch_order_id', order.batch_order_id);
+          
+          if (fetchError) {
+            console.error('Failed to fetch batch orders after update:', fetchError);
+          } else {
+            updatedOrders = batchOrders || [];
+          }
+        }
+      } catch (batchError) {
+        console.error('Error in batch order processing:', batchError);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: 'Batch order processing error', details: batchError.message })
+        };
+      }
       
       // Count successfully updated orders
       const successCount = updatedOrders.filter(o => o.updated).length;

@@ -250,3 +250,104 @@ export async function updateTransactionStatus(
 
   throw lastError || new Error('Failed to update transaction status after retries');
 }
+
+/**
+ * Updates order transaction signature for a single order or batch order
+ * Will automatically determine if batch order and use the appropriate endpoint
+ */
+export async function updateOrderTransactionSignature(
+  params: {
+    orderId?: string;
+    batchOrderId?: string;
+    transactionSignature: string;
+    amountSol: number;
+    walletAddress?: string;
+  },
+  maxRetries = 3
+): Promise<boolean> {
+  const { orderId, batchOrderId, transactionSignature, amountSol, walletAddress } = params;
+  
+  if (!orderId && !batchOrderId) {
+    console.error('Either orderId or batchOrderId must be provided');
+    return false;
+  }
+  
+  if (!transactionSignature) {
+    console.error('Transaction signature is required');
+    return false;
+  }
+  
+  // Determine if this is a batch order
+  const isBatchOrder = !!batchOrderId;
+  
+  // Retry logic for order transaction updates
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`Attempting to update order transaction (attempt ${attempt + 1}/${maxRetries})`);
+      
+      const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          orderId,
+          batchOrderId,
+          transactionSignature,
+          amountSol,
+          walletAddress,
+          isBatchOrder
+        })
+      });
+      
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        
+        // Check if this is the error about order not being in draft status
+        // This can happen if the server already processed the order
+        if (errorData.error && (
+          errorData.error.includes('not in draft status') || 
+          errorData.error.includes('duplicate key value')
+        )) {
+          console.log('Order may already be processed, treating as success:', errorData.error);
+          return true;
+        }
+        
+        // For batch orders, if we get an error about unique constraint violation,
+        // the server will attempt recovery automatically
+        if (isBatchOrder && errorData.error && errorData.error.includes('unique constraint')) {
+          console.log('Unique constraint error for batch order, server will attempt recovery:', errorData.error);
+          // Wait a moment to allow the server to process
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return true;
+        }
+        
+        if (attempt < maxRetries - 1) {
+          console.warn(`Error updating order transaction (attempt ${attempt + 1}):`, errorData.error);
+          const delay = getBackoffDelay(attempt);
+          console.log(`Retrying in ${Math.round(delay / 1000)} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        throw new Error(errorData.error || 'Failed to update order transaction');
+      }
+      
+      const responseData = await updateResponse.json();
+      console.log('Order transaction updated successfully:', responseData);
+      return true;
+    } catch (err) {
+      if (attempt === maxRetries - 1) {
+        console.error('Failed to update order transaction after retries:', err);
+        return false;
+      }
+      
+      console.warn(`Order transaction update attempt ${attempt + 1} failed:`, err);
+      const delay = getBackoffDelay(attempt);
+      console.log(`Retrying in ${Math.round(delay / 1000)} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  return false;
+}

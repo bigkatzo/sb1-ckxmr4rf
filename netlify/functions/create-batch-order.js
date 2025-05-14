@@ -115,9 +115,11 @@ exports.handler = async (event, context) => {
     // Array to store created order IDs
     const createdOrders = [];
     
-    // Check if this is a free order
+    // Check if this is a free order - ensure consistent signature for the entire batch
     const isFreeOrder = paymentMetadata?.isFreeOrder === true;
-    const transactionSignature = isFreeOrder ? (paymentMetadata?.transactionId || `free_order_batch_${Date.now()}`) : null;
+    const transactionSignature = isFreeOrder 
+      ? (paymentMetadata?.transactionId || `free_order_batch_${batchOrderId}_${Date.now()}`) 
+      : null;
 
     // Process each item in the cart
     for (const item of items) {
@@ -185,12 +187,45 @@ exports.handler = async (event, context) => {
       });
     }
     
-    // If it's a free order, make sure we set the transaction signature and update status
+    // After the orders are created, for free orders confirm that all have transaction signature:
+    // In the if (isFreeOrder && createdOrders.length > 0 && transactionSignature) block
     if (isFreeOrder && createdOrders.length > 0 && transactionSignature) {
       console.log('Free order confirmed with transaction ID:', transactionSignature);
       
-      // We don't need to do anything extra here since we already set the status to confirmed
-      // when creating the orders, but we could add additional logic if needed
+      // For free orders, ensure all items have their status set to confirmed and transaction signature set
+      // This is a backup in case the status wasn't set during order creation
+      try {
+        // First verify if any orders need their transaction signature updated
+        const { data: ordersNeedingUpdate, error: checkError } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('batch_order_id', batchOrderId)
+          .is('transaction_signature', null); // Look for orders without transaction signature
+        
+        if (!checkError && ordersNeedingUpdate && ordersNeedingUpdate.length > 0) {
+          console.log(`Found ${ordersNeedingUpdate.length} orders in batch needing transaction signature update`);
+          
+          // Update these orders with the transaction signature and confirmed status
+          const orderIds = ordersNeedingUpdate.map(order => order.id);
+          
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update({ 
+              transaction_signature: transactionSignature,
+              status: 'confirmed',
+              updated_at: new Date().toISOString()
+            })
+            .in('id', orderIds);
+          
+          if (updateError) {
+            console.error('Error updating free orders transaction signatures:', updateError);
+          } else {
+            console.log('Updated transaction signatures for free batch orders');
+          }
+        }
+      } catch (err) {
+        console.error('Error checking/updating free orders batch transaction signatures:', err);
+      }
     }
 
     // Return success response with created orders

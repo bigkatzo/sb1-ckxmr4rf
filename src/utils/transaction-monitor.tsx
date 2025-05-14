@@ -30,7 +30,8 @@ export async function monitorTransaction(
   signature: string,
   onStatusUpdate: (status: TransactionStatus) => void,
   expectedDetails?: TransactionDetails,
-  orderId?: string // Order ID to link transaction to
+  orderId?: string, // Order ID to link transaction to
+  batchOrderId?: string // Batch order ID for multi-item orders
 ): Promise<boolean> {
   // Validate input
   if (!signature || typeof signature !== 'string') {
@@ -48,7 +49,8 @@ export async function monitorTransaction(
   console.log('Starting transaction monitoring with params:', { 
     signature: signature.substring(0, 10) + '...',
     hasExpectedDetails: !!expectedDetails,
-    orderId: orderId || 'none'
+    orderId: orderId || 'none',
+    batchOrderId: batchOrderId || 'none'
   });
 
   // Skip monitoring for non-Solana transactions (e.g. Stripe or free orders)
@@ -102,17 +104,32 @@ export async function monitorTransaction(
             // No auth token needed for server-side operations
             console.log('Transaction finalized on blockchain, sending to server for verification');
 
+            // When constructing the POST request JSON, update it to include batchOrderId:
+            const payload: any = {
+              signature,
+              status: 'confirmed'
+            };
+
+            if (orderId) {
+              payload.orderId = orderId;
+            }
+
+            if (batchOrderId) {
+              payload.batchOrderId = batchOrderId;
+              payload.isBatchOrder = true;
+            }
+
+            if (expectedDetails) {
+              payload.expectedDetails = expectedDetails;
+            }
+
             // Send transaction to server for verification - ALL verification happens server-side
             const response = await fetch('/.netlify/functions/verify-transaction', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({
-                signature,
-                expectedDetails,
-                orderId
-              })
+              body: JSON.stringify(payload)
             });
             
             // Handle server response
