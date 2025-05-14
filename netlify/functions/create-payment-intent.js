@@ -102,11 +102,13 @@ exports.handler = async (event, context) => {
       productName, 
       shippingInfo, 
       productId, 
-      variants, 
+      variants,
       walletAddress,
       couponCode,
       couponDiscount,
       originalPrice,
+      cartItems,          // New parameter for cart items
+      isCartCheckout,     // Flag to indicate if this is coming from cart
       paymentMetadata = {}
     } = JSON.parse(event.body);
 
@@ -125,7 +127,9 @@ exports.handler = async (event, context) => {
       originalPrice,
       couponDiscount,
       is100PercentDiscount,
-      walletAddress: walletAddress || 'stripe'
+      walletAddress: walletAddress || 'stripe',
+      isCartCheckout,
+      hasCartItems: !!cartItems?.length
     });
 
     // For free orders, tell client to use create-order directly
@@ -163,41 +167,106 @@ exports.handler = async (event, context) => {
       couponDiscount,
       originalPrice,
       batchOrderId,
-      isBatchOrder: paymentMetadata.isBatchOrder || false,
-      isSingleItemOrder: paymentMetadata.isSingleItemOrder || true
+      isBatchOrder: isCartCheckout || paymentMetadata.isBatchOrder || false,
+      isSingleItemOrder: !isCartCheckout && (paymentMetadata.isSingleItemOrder || true)
     };
     
-    // Create the order first, before creating the payment intent
-    console.log('Creating order record in database before payment intent');
-    const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
-      p_product_id: productId,
-      p_variants: variants || [],
-      p_shipping_info: shippingInfo,
-      p_wallet_address: walletAddress || 'stripe',
-      p_payment_metadata: finalPaymentMetadata
-    });
+    let orderId;
+    
+    // Handle cart checkout vs. single product checkout
+    if (isCartCheckout && cartItems && cartItems.length > 0) {
+      // This is a cart checkout with multiple items - use create-batch-order functionality
+      console.log('Creating batch order for cart items:', cartItems.length);
+      
+      try {
+        // Use the batch order creation functionality directly
+        const { data: batchResult, error: batchError } = await supabase.rpc('create_batch_order', {
+          p_items: cartItems.map(item => ({
+            product: item.product,
+            selected_options: item.selectedOptions || {},
+            quantity: item.quantity || 1
+          })),
+          p_shipping_info: shippingInfo,
+          p_wallet_address: walletAddress || 'stripe',
+          p_payment_metadata: finalPaymentMetadata
+        });
+        
+        if (batchError) {
+          console.error('Error creating batch order:', batchError);
+          throw batchError;
+        }
+        
+        console.log('Batch order created with result:', batchResult);
+        
+        // If we have a straightforward orderId directly, use it
+        if (batchResult && typeof batchResult === 'string') {
+          orderId = batchResult;
+        }
+        // Otherwise try to get the first order ID from the result
+        else if (batchResult && typeof batchResult === 'object') {
+          if (batchResult.orderId) {
+            orderId = batchResult.orderId;
+          } else if (batchResult.orders && batchResult.orders.length > 0) {
+            orderId = batchResult.orders[0].orderId;
+          }
+        }
+        
+        if (!orderId) {
+          throw new Error('Failed to extract order ID from batch order creation');
+        }
+        
+        // Update all orders in the batch with batch ID and order number
+        const { error: batchUpdateError } = await supabase
+          .from('orders')
+          .update({
+            order_number: orderNumber,
+            batch_order_id: batchOrderId,
+            status: 'draft'
+          })
+          .eq('batch_order_id', batchOrderId);
+      
+        if (batchUpdateError) {
+          console.error('Error updating batch orders:', batchUpdateError);
+          // Continue anyway since the orders were created
+        }
+      } catch (batchError) {
+        console.error('Failed to create batch order:', batchError);
+        throw new Error('Failed to create orders for cart items: ' + batchError.message);
+      }
+    } else {
+      // This is a single product checkout - use the original flow
+      console.log('Creating order record in database before payment intent');
+      const { data: createdOrderId, error: orderError } = await supabase.rpc('create_order', {
+        p_product_id: productId,
+        p_variants: variants || [],
+        p_shipping_info: shippingInfo,
+        p_wallet_address: walletAddress || 'stripe',
+        p_payment_metadata: finalPaymentMetadata
+      });
 
-    if (orderError) {
-      console.error('Error creating order:', orderError);
-      throw orderError;
-    }
+      if (orderError) {
+        console.error('Error creating order:', orderError);
+        throw orderError;
+      }
 
-    console.log('Order created successfully with ID:', orderId);
+      orderId = createdOrderId;
+      console.log('Order created successfully with ID:', orderId);
 
-    // Update order with batch ID and order number
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        order_number: orderNumber,
-        batch_order_id: batchOrderId,
-        item_index: 1, // For single orders, always index 1
-        total_items_in_batch: 1, // For single orders, always 1 item
-      })
-      .eq('id', orderId);
+      // Update order with batch ID and order number
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          order_number: orderNumber,
+          batch_order_id: batchOrderId,
+          item_index: 1, // For single orders, always index 1
+          total_items_in_batch: 1, // For single orders, always 1 item
+        })
+        .eq('id', orderId);
 
-    if (updateError) {
-      console.error('Error updating order with batch details:', updateError);
-      throw updateError;
+      if (updateError) {
+        console.error('Error updating order with batch details:', updateError);
+        throw updateError;
+      }
     }
 
     // IMPORTANT: Stripe metadata must be flat key-value pairs with string values only

@@ -401,10 +401,28 @@ export function StripePaymentModal({
     setStripePromise(getStripe());
   }, []);
 
+  // Try to get checkout data from session storage (added for cart flow)
+  const getCheckoutDataFromStorage = React.useCallback(() => {
+    try {
+      const storedData = window.sessionStorage.getItem('stripeCheckoutData');
+      if (storedData) {
+        const parsedData = JSON.parse(storedData);
+        console.log('Retrieved checkout data from session storage', {
+          hasItems: !!parsedData.items?.length,
+          hasShippingInfo: !!parsedData.shippingInfo
+        });
+        return parsedData;
+      }
+    } catch (err) {
+      console.error('Error parsing checkout data from session storage:', err);
+    }
+    return null;
+  }, []);
+
   // Create payment intent when component mounts
   React.useEffect(() => {
     // Skip if necessary data is missing, already loading, already have clientSecret, or already processing an order
-    if (!solPrice || !shippingInfo?.shipping_address || isLoading || clientSecret || isProcessingOrder) return;
+    if (!solPrice || isLoading || clientSecret || isProcessingOrder) return;
     
     // Skip if we've already successfully processed an order in this component lifecycle
     if (orderProcessedRef.current) return;
@@ -413,13 +431,29 @@ export function StripePaymentModal({
       setIsLoading(true);
       setError(null);
       try {
+        // Try to get checkout data from session storage for cart flow
+        const checkoutData = getCheckoutDataFromStorage();
+        
+        // Use the checkout data if available, otherwise use props
+        const finalShippingInfo = checkoutData?.shippingInfo || shippingInfo;
+        const finalItems = checkoutData?.items || [];
+        const finalCouponCode = checkoutData?.couponCode || couponCode;
+        const finalCouponDiscount = checkoutData?.couponDiscount || couponDiscount;
+        const finalOriginalPrice = checkoutData?.originalPrice || originalPrice;
+        
+        // Make sure we have shipping info
+        if (!finalShippingInfo?.shipping_address) {
+          throw new Error('Shipping information is required');
+        }
+        
         console.log('Creating payment intent for', {
           solAmount,
           productName,
           productId,
-          hasShippingInfo: !!shippingInfo,
+          hasShippingInfo: !!finalShippingInfo,
           hasVariants: !!(variants && variants.length > 0),
-          walletAddress
+          walletAddress,
+          isCartCheckout: !!checkoutData
         });
 
         // We no longer handle free orders in the Stripe modal
@@ -439,14 +473,17 @@ export function StripePaymentModal({
             productId,
             variants,
             walletAddress,
-            shippingInfo,
-            couponCode,
-            couponDiscount,
-            originalPrice,
+            shippingInfo: finalShippingInfo,
+            couponCode: finalCouponCode,
+            couponDiscount: finalCouponDiscount,
+            originalPrice: finalOriginalPrice,
+            // Include cart items if this is a cart checkout
+            cartItems: checkoutData ? finalItems : undefined,
+            isCartCheckout: !!checkoutData,
             paymentMetadata: {
-              couponCode,
-              originalPrice,
-              couponDiscount,
+              couponCode: finalCouponCode,
+              originalPrice: finalOriginalPrice,
+              couponDiscount: finalCouponDiscount,
               paymentMethod: 'stripe',
               timestamp: Date.now()
             }

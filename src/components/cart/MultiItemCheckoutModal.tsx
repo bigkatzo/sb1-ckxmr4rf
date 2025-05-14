@@ -633,9 +633,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setProcessingPayment(true);
     
     try {
-      // Keep track of created orders to detect duplicates
-      const createdOrderIds = new Set<string>();
-      
       // Verify all items in the cart again just before checkout as a safety measure
       const allItemsVerified = await verifyAllItems(walletAddress);
       
@@ -658,89 +655,34 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       // For Stripe, create batch order and open the Stripe modal
       if (paymentMethod === 'stripe') {
         try {
-          console.log('Creating batch order for Stripe payment');
+          // IMPORTANT: Skip creating a batch order here - let create-payment-intent handle the order creation
+          console.log('Initializing Stripe payment flow');
           
-          const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              items: items.map(item => ({
-                product: item.product,
-                selectedOptions: item.selectedOptions,
-                quantity: item.quantity
-              })),
-              shippingInfo: formattedShippingInfo,
-              walletAddress: walletAddress || 'anonymous',
-              paymentMetadata: {
-                paymentMethod: 'stripe',
-                couponCode: appliedCoupon?.code,
-                couponDiscount,
-                originalPrice: totalPrice
-              }
-            })
-          });
+          // Store shipping and payment information for Stripe checkout
+          const stripeCheckoutData = {
+            items: items.map(item => ({
+              product: item.product,
+              selectedOptions: item.selectedOptions,
+              quantity: item.quantity
+            })),
+            shippingInfo: formattedShippingInfo,
+            couponCode: appliedCoupon?.code,
+            couponDiscount,
+            originalPrice: totalPrice
+          };
           
-          const batchOrderData = await batchOrderResponse.json();
+          // Store in session storage for recovery if needed
+          window.sessionStorage.setItem('stripeCheckoutData', JSON.stringify(stripeCheckoutData));
           
-          if (!batchOrderData.success) {
-            setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
-            throw new Error(batchOrderData.error || 'Failed to create batch order');
-          }
-          
-          console.log('Batch order created for Stripe payment:', {
-            batchOrderId: batchOrderData.batchOrderId,
-            orderNumber: batchOrderData.orderNumber,
-            orderCount: batchOrderData.orders?.length,
-            firstOrderId: batchOrderData.orderId
-          });
-          
-          // Store the order information - extract orderId from response
-          // Extract orderId - check all possible locations in the API response
-          let orderId = null;
-          // First check if there's a direct orderId field
-          if (batchOrderData.orderId) {
-            orderId = batchOrderData.orderId;
-            // Record this order ID to detect duplicates
-            createdOrderIds.add(orderId);
-          } 
-          // Check if orders array has entries with orderId
-          else if (batchOrderData.orders && batchOrderData.orders.length > 0) {
-            // Take the first order's ID
-            if (batchOrderData.orders[0].orderId) {
-              orderId = batchOrderData.orders[0].orderId;
-              // Record this order ID to detect duplicates
-              createdOrderIds.add(orderId);
-            }
-          }
-          
-          console.log('Extracted order ID:', orderId);
-          
-          // Get order number from the response
-          const orderNumber = batchOrderData.orderNumber;
-          const batchOrderId = batchOrderData.batchOrderId;
-          
-          // Store order IDs and other details for duplicate detection
-          window.sessionStorage.setItem('lastCreatedOrderId', orderId || '');
-          window.sessionStorage.setItem('lastBatchOrderId', batchOrderId || '');
-          
-          setOrderData({
-            orderId,
-            orderNumber,
-            batchOrderId,
-            createdOrderIds: Array.from(createdOrderIds)
-          });
-          
-          // Show the Stripe payment modal
-          setOrderProgress({ step: 'initial' }); // Reset progress indicator for Stripe modal
+          // Reset progress indicator for Stripe modal
+          setOrderProgress({ step: 'initial' });
           setProcessingPayment(false);
           setShowStripeModal(true);
           return;
         } catch (error) {
-          console.error("Stripe order creation error:", error);
-          toast.error(error instanceof Error ? error.message : "Failed to create order");
-          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'Order creation failed' });
+          console.error("Stripe checkout preparation error:", error);
+          toast.error(error instanceof Error ? error.message : "Failed to prepare checkout");
+          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'Checkout preparation failed' });
           setProcessingPayment(false);
           return;
         }
