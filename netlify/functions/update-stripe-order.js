@@ -7,6 +7,36 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
+// Enable detailed logging
+const DEBUG = true;
+
+/**
+ * Enhanced logging function with prefixes and timestamps
+ */
+function log(level, message, data = null) {
+  const prefix = '[UPDATE-STRIPE-ORDER]';
+  const timestamp = new Date().toISOString();
+  
+  const logMessage = `${timestamp} ${prefix} ${message}`;
+  
+  switch (level) {
+    case 'debug':
+      if (DEBUG) console.log(logMessage, data !== null ? data : '');
+      break;
+    case 'info':
+      console.log(logMessage, data !== null ? data : '');
+      break;
+    case 'warn':
+      console.warn(logMessage, data !== null ? data : '');
+      break;
+    case 'error':
+      console.error(logMessage, data !== null ? data : '');
+      break;
+    default:
+      console.log(logMessage, data !== null ? data : '');
+  }
+}
+
 // Add better Supabase connection handling
 // Initialize Supabase with service role key to bypass RLS policies
 let supabase;
@@ -15,9 +45,9 @@ try {
     process.env.VITE_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY
   );
-  console.log('Supabase client initialized with URL:', process.env.VITE_SUPABASE_URL);
+  log('info', 'Supabase client initialized with URL:', process.env.VITE_SUPABASE_URL);
 } catch (initError) {
-  console.error('Failed to initialize Supabase client:', initError);
+  log('error', 'Failed to initialize Supabase client:', initError);
 }
 
 exports.handler = async (event, context) => {
@@ -38,6 +68,7 @@ exports.handler = async (event, context) => {
 
   // Only accept POST requests
   if (event.httpMethod !== 'POST') {
+    log('warn', 'Method not allowed:', event.httpMethod);
     return {
       statusCode: 405,
       headers,
@@ -49,8 +80,12 @@ exports.handler = async (event, context) => {
   let body;
   try {
     body = JSON.parse(event.body);
+    log('info', 'Received request body:', {
+      ...body,
+      paymentIntentId: body.paymentIntentId ? `${body.paymentIntentId.substring(0, 8)}...` : 'missing'
+    });
   } catch (error) {
-    console.error('Failed to parse request body:', error, 'Raw body:', event.body);
+    log('error', 'Failed to parse request body:', error, 'Raw body:', event.body);
     return {
       statusCode: 400,
       headers,
@@ -61,7 +96,7 @@ exports.handler = async (event, context) => {
   const { orderId, paymentIntentId } = body;
 
   if (!orderId || !paymentIntentId) {
-    console.error('Missing required parameters:', { orderId, paymentIntentId });
+    log('error', 'Missing required parameters:', { orderId, paymentIntentId });
     return {
       statusCode: 400,
       headers,
@@ -71,7 +106,7 @@ exports.handler = async (event, context) => {
 
   // Validate Supabase client
   if (!supabase) {
-    console.error('Supabase client not initialized');
+    log('error', 'Supabase client not initialized');
     return {
       statusCode: 503,
       headers,
@@ -83,13 +118,16 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Log request details
-  console.log('Stripe order update request:', { orderId, paymentIntentId });
+  log('info', 'Stripe order update request:', { 
+    orderId, 
+    paymentIntentId: paymentIntentId.substring(0, 8) + '...' 
+  });
 
   try {
     // Check current order status and if it's part of a batch
     let order;
     try {
+      log('debug', 'Fetching order details for', orderId);
       const { data, error } = await supabase
         .from('orders')
         .select('id, status, transaction_signature, payment_metadata, batch_order_id, order_number')
@@ -97,30 +135,39 @@ exports.handler = async (event, context) => {
         .single();
       
       if (error) {
+        log('error', 'Error fetching order details:', error);
         throw error;
       }
       
       order = data;
+      log('info', 'Retrieved order details:', {
+        id: order.id,
+        status: order.status,
+        orderNumber: order.order_number,
+        batchOrderId: order.batch_order_id || 'none',
+        hasTransactionSignature: !!order.transaction_signature
+      });
     } catch (orderFetchError) {
-      console.error('Error fetching order:', orderFetchError);
+      log('error', 'Error fetching order:', orderFetchError);
       
       // Try to force update even if we can't fetch the order details
       try {
-        console.log('Trying direct update without fetching order first');
+        log('info', 'Trying direct update without fetching order first as recovery path');
         
         // First try to update with RPC
         try {
+          log('debug', 'Attempting RPC recovery with confirm_stripe_payment');
           const { error: rpcError } = await supabase.rpc('confirm_stripe_payment', {
             p_payment_id: paymentIntentId,
             p_order_id: orderId
           });
           
           if (rpcError) {
-            console.warn('RPC confirmation failed:', rpcError);
+            log('warn', 'RPC confirmation failed:', rpcError);
             throw rpcError;
           }
           
-          console.log('RPC function recovery succeeded');
+          log('info', 'RPC function recovery succeeded');
           return {
             statusCode: 200,
             headers,
@@ -132,10 +179,11 @@ exports.handler = async (event, context) => {
             })
           };
         } catch (rpcError) {
-          console.warn('RPC recovery failed, trying direct table update');
+          log('warn', 'RPC recovery failed, trying direct table update');
         }
         
         // Fall back to direct table update
+        log('debug', 'Attempting direct table update recovery');
         const { error: directUpdateError } = await supabase
           .from('orders')
           .update({
@@ -150,11 +198,11 @@ exports.handler = async (event, context) => {
           .eq('id', orderId);
         
         if (directUpdateError) {
-          console.warn('Direct update recovery failed:', directUpdateError);
+          log('warn', 'Direct update recovery failed:', directUpdateError);
           throw directUpdateError;
         }
         
-        console.log('Direct table update recovery succeeded');
+        log('info', 'Direct table update recovery succeeded');
         return {
           statusCode: 200,
           headers,
@@ -166,7 +214,7 @@ exports.handler = async (event, context) => {
           })
         };
       } catch (recoveryError) {
-        console.error('Recovery attempt failed:', recoveryError);
+        log('error', 'Recovery attempt failed:', recoveryError);
         
         // Return partial success because payment was processed
         return {
@@ -183,15 +231,16 @@ exports.handler = async (event, context) => {
       }
     }
 
-    console.log('Current order status:', order.status);
+    log('info', 'Current order status:', order.status);
     
     // Check if this is a batch order
     const isBatchOrder = !!order.batch_order_id;
-    console.log('Is batch order:', isBatchOrder);
+    log('info', 'Is batch order:', isBatchOrder);
     
     // Check order status - should be in 'draft' status for new orders
     // We only want to process orders in draft status, as we'll update them to pending_payment
     if (order.status !== 'draft') {
+      log('info', 'Order already processed with status:', order.status);
       return {
         statusCode: 200,
         body: JSON.stringify({ 
@@ -211,9 +260,10 @@ exports.handler = async (event, context) => {
     
     // If this is a batch order, update all orders in the batch
     if (isBatchOrder) {
-      console.log('Processing batch order:', order.batch_order_id);
+      log('info', 'Processing batch order:', order.batch_order_id);
       
       // First check if any orders in the batch already have a transaction_signature
+      log('debug', 'Checking for existing transaction signatures in batch');
       const { data: existingSignatures, error: signatureError } = await supabase
         .from('orders')
         .select('transaction_signature')
@@ -223,10 +273,13 @@ exports.handler = async (event, context) => {
       
       // If there's already a signature in the batch, handle it specially
       if (!signatureError && existingSignatures && existingSignatures.length > 0) {
-        console.log('Found existing transaction signature in batch:', existingSignatures[0].transaction_signature);
+        log('info', 'Found existing transaction signature in batch:', 
+          existingSignatures[0].transaction_signature ? 
+          existingSignatures[0].transaction_signature.substring(0, 8) + '...' : 'null');
         
         try {
           // Update batch orders to pending_payment status first
+          log('debug', 'Updating remaining batch orders to pending_payment status');
           const { error: statusError } = await supabase
             .from('orders')
             .update({
@@ -238,7 +291,7 @@ exports.handler = async (event, context) => {
             .eq('status', 'draft');
           
           if (statusError) {
-            console.error('Failed to update batch order statuses:', statusError);
+            log('error', 'Failed to update batch order statuses:', statusError);
             return {
               statusCode: 500,
               body: JSON.stringify({ error: 'Failed to update batch orders', details: statusError.message })
@@ -246,13 +299,15 @@ exports.handler = async (event, context) => {
           }
           
           // Now update confirmed status for all batch orders
+          log('debug', 'Attempting to confirm all batch orders with RPC function');
           const { error: confirmError } = await supabase.rpc('confirm_batch_order_transaction', {
             p_batch_order_id: order.batch_order_id
           });
           
           if (confirmError) {
-            console.error('Failed to confirm batch orders:', confirmError);
+            log('warn', 'Failed to confirm batch orders with RPC:', confirmError);
             // Try direct update as fallback
+            log('debug', 'Falling back to direct update for batch confirmation');
             const { error: directError } = await supabase
               .from('orders')
               .update({
@@ -263,12 +318,16 @@ exports.handler = async (event, context) => {
               .eq('status', 'pending_payment');
             
             if (directError) {
-              console.error('Failed direct batch confirmation:', directError);
+              log('error', 'Failed direct batch confirmation:', directError);
               return {
                 statusCode: 500,
                 body: JSON.stringify({ error: 'Failed to confirm batch orders', details: directError.message })
               };
+            } else {
+              log('info', 'Batch orders confirmed successfully via direct update');
             }
+          } else {
+            log('info', 'Batch orders confirmed successfully via RPC');
           }
           
           return {
@@ -280,7 +339,7 @@ exports.handler = async (event, context) => {
             })
           };
         } catch (batchUpdateError) {
-          console.error('Error in batch order processing:', batchUpdateError);
+          log('error', 'Error in batch order processing:', batchUpdateError);
           return {
             statusCode: 500,
             body: JSON.stringify({ error: 'Batch order processing error', details: batchUpdateError.message })
@@ -292,6 +351,7 @@ exports.handler = async (event, context) => {
       // First update the transaction signature and set status to pending_payment for all orders in the batch
       try {
         // Use batch update transaction function if available
+        log('debug', 'Attempting to update batch orders with RPC function');
         const { error: batchError } = await supabase.rpc('update_batch_order_transaction', {
           p_batch_order_id: order.batch_order_id,
           p_transaction_signature: paymentIntentId,
@@ -299,8 +359,9 @@ exports.handler = async (event, context) => {
         });
         
         if (batchError) {
-          console.error('Failed to update batch transaction with RPC:', batchError);
+          log('warn', 'Failed to update batch transaction with RPC:', batchError);
           // Fallback to direct update
+          log('debug', 'Falling back to direct update for batch orders');
           const { data: batchOrders, error: fetchError } = await supabase
             .from('orders')
             .update({
@@ -314,7 +375,7 @@ exports.handler = async (event, context) => {
             .select('id, status, order_number');
           
           if (fetchError) {
-            console.error('Failed to update batch orders directly:', fetchError);
+            log('error', 'Failed to update batch orders directly:', fetchError);
             return {
               statusCode: 500,
               body: JSON.stringify({ error: 'Failed to update batch orders', details: fetchError.message })
@@ -322,30 +383,66 @@ exports.handler = async (event, context) => {
           }
           
           updatedOrders = batchOrders || [];
+          log('info', `Updated ${updatedOrders.length} batch orders via direct update`);
         } else {
           // Successful RPC call, now fetch the updated orders
+          log('info', 'Batch orders updated successfully via RPC');
+          log('debug', 'Fetching updated batch orders');
           const { data: batchOrders, error: fetchError } = await supabase
             .from('orders')
             .select('id, status, order_number')
             .eq('batch_order_id', order.batch_order_id);
           
           if (fetchError) {
-            console.error('Failed to fetch batch orders after update:', fetchError);
+            log('error', 'Failed to fetch batch orders after update:', fetchError);
           } else {
             updatedOrders = batchOrders || [];
+            log('info', `Found ${updatedOrders.length} orders in batch`);
           }
         }
       } catch (batchError) {
-        console.error('Error in batch order processing:', batchError);
+        log('error', 'Error in batch order processing:', batchError);
         return {
           statusCode: 500,
           body: JSON.stringify({ error: 'Batch order processing error', details: batchError.message })
         };
       }
+
+      // Now confirm all orders that are in pending_payment status
+      log('debug', 'Confirming all pending batch orders');
+      try {
+        const { error: confirmError } = await supabase.rpc('confirm_batch_order_transaction', {
+          p_batch_order_id: order.batch_order_id
+        });
+        
+        if (confirmError) {
+          log('warn', 'Failed to confirm batch orders with RPC:', confirmError);
+          // Try direct update as fallback
+          log('debug', 'Falling back to direct update for batch confirmation');
+          const { error: directError } = await supabase
+            .from('orders')
+            .update({
+              status: 'confirmed',
+              updated_at: new Date().toISOString()
+            })
+            .eq('batch_order_id', order.batch_order_id)
+            .eq('status', 'pending_payment');
+          
+          if (directError) {
+            log('error', 'Failed direct batch confirmation:', directError);
+          } else {
+            log('info', 'Batch orders confirmed successfully via direct update');
+          }
+        } else {
+          log('info', 'Batch orders confirmed successfully via RPC');
+        }
+      } catch (confirmError) {
+        log('error', 'Error confirming batch orders:', confirmError);
+      }
       
       // Count successfully updated orders
-      const successCount = updatedOrders.filter(o => o.updated).length;
-      console.log(`Successfully updated ${successCount}/${updatedOrders.length} orders in batch`);
+      const successCount = updatedOrders.filter(o => o.status === 'confirmed' || o.status === 'pending_payment').length;
+      log('info', `Successfully updated ${successCount}/${updatedOrders.length} orders in batch`);
       
       return {
         statusCode: 200,
@@ -360,6 +457,7 @@ exports.handler = async (event, context) => {
     // Single order processing
     else {
       // First update the order to pending_payment status
+      log('debug', 'Updating single order to pending_payment status');
       const { error: pendingUpdateError } = await supabase
         .from('orders')
         .update({
@@ -371,28 +469,28 @@ exports.handler = async (event, context) => {
         .eq('id', orderId);
 
       if (pendingUpdateError) {
-        console.error('Failed to update order to pending_payment:', pendingUpdateError);
+        log('error', 'Failed to update order to pending_payment:', pendingUpdateError);
         return {
           statusCode: 500,
           body: JSON.stringify({ error: 'Failed to update order to pending_payment', details: pendingUpdateError.message })
         };
       }
 
-      console.log('Order updated to pending_payment status');
+      log('info', 'Order updated to pending_payment status');
 
       // Try to call RPC function first to confirm the order
       try {
-        console.log('Attempting to use confirm_stripe_payment RPC function');
+        log('debug', 'Attempting to use confirm_stripe_payment RPC function');
         const { data: rpcResult, error: rpcError } = await supabase.rpc('confirm_stripe_payment', {
           p_payment_id: paymentIntentId,
           p_order_id: orderId
         });
         
         if (rpcError) {
-          console.error('RPC function error:', rpcError);
+          log('warn', 'RPC function error:', rpcError);
           // Continue to direct update fallback
         } else {
-          console.log('RPC function success:', rpcResult);
+          log('info', 'RPC function success:', rpcResult);
           return {
             statusCode: 200,
             body: JSON.stringify({ 
@@ -405,12 +503,12 @@ exports.handler = async (event, context) => {
           };
         }
       } catch (rpcError) {
-        console.error('Error calling RPC function:', rpcError);
+        log('error', 'Error calling RPC function:', rpcError);
         // Continue to direct update fallback
       }
 
       // Update order status to confirmed
-      console.log('Falling back to direct table update for confirmation');
+      log('debug', 'Falling back to direct table update for confirmation');
       const { error: updateError } = await supabase
         .from('orders')
         .update({
@@ -420,18 +518,18 @@ exports.handler = async (event, context) => {
         .eq('id', orderId);
 
       if (updateError) {
-        console.error('Failed to update order to confirmed:', updateError);
+        log('error', 'Failed to update order to confirmed:', updateError);
         
         // If direct update fails, try SQL function as a last resort
         try {
-          console.log('Attempting direct SQL update as last resort');
+          log('debug', 'Attempting direct SQL update as last resort');
           const { error: sqlError } = await supabase.rpc('admin_force_confirm_order', {
             p_order_id: orderId,
             p_transaction_signature: paymentIntentId
           });
           
           if (sqlError) {
-            console.error('SQL function error:', sqlError);
+            log('error', 'SQL function error:', sqlError);
             return {
               statusCode: 200,
               body: JSON.stringify({ 
@@ -444,7 +542,7 @@ exports.handler = async (event, context) => {
             };
           }
           
-          console.log('SQL function success');
+          log('info', 'SQL function success');
           return {
             statusCode: 200,
             body: JSON.stringify({ 
@@ -456,7 +554,7 @@ exports.handler = async (event, context) => {
             })
           };
         } catch (sqlError) {
-          console.error('Error calling SQL function:', sqlError);
+          log('error', 'Error calling SQL function:', sqlError);
           return {
             statusCode: 200,
             body: JSON.stringify({ 
@@ -471,7 +569,7 @@ exports.handler = async (event, context) => {
       }
 
       // Log successful update
-      console.log('Order confirmed via direct update:', orderId);
+      log('info', 'Order confirmed via direct update:', orderId);
 
       return {
         statusCode: 200,
@@ -485,7 +583,7 @@ exports.handler = async (event, context) => {
       };
     }
   } catch (error) {
-    console.error('Error in update-stripe-order:', error);
+    log('error', 'Error in update-stripe-order:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal server error', details: error.message })
