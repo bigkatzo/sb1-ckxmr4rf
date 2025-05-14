@@ -203,16 +203,19 @@ exports.handler = async (event, context) => {
     // Ensure payment method is included in metadata
     const stripeMetadata = {
       productName,
-      customerName: shippingInfo.contact_info.fullName,
-      shippingAddress: JSON.stringify(shippingInfo.shipping_address),
-      contactInfo: JSON.stringify(shippingInfo.contact_info),
+      customerName: shippingInfo.contact_info.firstName + ' ' + shippingInfo.contact_info.lastName,
+      // Stripe metadata values must be strings, not objects
+      shippingAddress: JSON.stringify(shippingInfo.shipping_address).substring(0, 500),
+      contactInfo: JSON.stringify(shippingInfo.contact_info).substring(0, 500),
       solAmount: solAmount.toString(),
       solPrice: solPrice.toString(),
       walletAddress: walletAddress || 'stripe', // Store wallet address in metadata
-      orderId, // Add order ID to metadata so it can be retrieved client-side
-      batchOrderId, // Add batch order ID to metadata
-      orderNumber // Add order number to metadata
+      orderId: orderId, // Add order ID to metadata so it can be retrieved client-side
+      batchOrderId: batchOrderId, // Add batch order ID to metadata
+      orderNumber: orderNumber // Add order number to metadata
     };
+
+    console.log('Creating Stripe payment intent with metadata:', stripeMetadata);
 
     // Create a payment intent
     const paymentIntent = await stripe.paymentIntents.create({

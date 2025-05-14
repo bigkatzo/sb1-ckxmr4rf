@@ -344,11 +344,21 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       
       // IMPORTANT: Use the stripeOrderId from Stripe's response instead of our local orderData
       // This ensures we're using the actual order ID that was created during payment intent creation
-      const orderId = stripeOrderId;
+      // But if stripeOrderId is missing or the special value "use_local_order_id", fall back to local orderData
+      let orderId: string | undefined;
       
-      // If we don't have a stripeOrderId, this is an error condition
+      if (!stripeOrderId || stripeOrderId === 'use_local_order_id') {
+        // Stripe didn't provide metadata - use our local orderData instead
+        console.log('Using local order ID due to missing metadata in Stripe payment intent');
+        orderId = orderData.orderId || undefined;
+      } else {
+        // Use the order ID from Stripe's metadata
+        orderId = stripeOrderId;
+      }
+      
+      // If we don't have any orderId, this is an error condition
       if (!orderId) {
-        console.error('Missing order ID from Stripe payment response');
+        console.error('Missing order ID from both Stripe payment response and local state');
         toast.error('Payment successful, but order details could not be retrieved');
         
         // Show a generic success but log the error

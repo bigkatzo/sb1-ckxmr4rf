@@ -108,41 +108,44 @@ exports.handler = async (event, context) => {
       
       // Handle RLS policy errors differently
       if (error.code === '42P17' && error.message.includes('infinite recursion detected in policy')) {
-        log('error', 'RLS policy recursion error. Attempting to bypass with administrator query.');
+        log('error', 'RLS policy recursion error. Attempting direct query with service role.');
         
         try {
-          // Try using a more direct query to bypass potential RLS issues
-          const { data: directOrder, error: directError } = await supabase.rpc('admin_get_order_by_id', {
-            p_order_id: orderId
-          });
-          
-          if (directError) {
-            log('error', 'Failed to get order with admin function:', directError);
+          // We're already using the service role key in the Supabase client,
+          // so we can just try to bypass RLS by using a direct query instead of RPC
+          const directQueryResult = await supabase
+            .from('orders')
+            .select('id, order_number, status, batch_order_id, product_id, transaction_signature')
+            .eq('id', orderId)
+            .single();
+            
+          if (directQueryResult.error) {
+            log('error', 'Direct query error:', directQueryResult.error);
             return {
               statusCode: 500,
               headers,
               body: JSON.stringify({ 
                 error: 'Database error', 
-                message: 'Could not retrieve order due to a permission issue.', 
-                details: directError.message 
+                message: 'Could not retrieve order with direct query', 
+                details: directQueryResult.error.message 
               })
             };
           }
           
-          if (directOrder) {
-            log('info', 'Successfully retrieved order using admin function:', { 
-              id: directOrder.id, 
-              status: directOrder.status 
+          if (directQueryResult.data) {
+            log('info', 'Successfully retrieved order with direct query:', { 
+              id: directQueryResult.data.id, 
+              status: directQueryResult.data.status 
             });
             
             return {
               statusCode: 200,
               headers,
-              body: JSON.stringify(directOrder)
+              body: JSON.stringify(directQueryResult.data)
             };
           }
-        } catch (rpcError) {
-          log('error', 'Error calling admin RPC function:', rpcError);
+        } catch (directQueryError) {
+          log('error', 'Error running direct query:', directQueryError);
         }
       }
       

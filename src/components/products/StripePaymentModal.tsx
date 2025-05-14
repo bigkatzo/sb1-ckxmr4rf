@@ -207,12 +207,16 @@ function StripeCheckoutForm({
             const metaBatchOrderId = paymentMeta.batchOrderId;
             
             if (!metaOrderId) {
-              console.warn('No orderId found in payment intent metadata');
+              console.warn('No orderId found in payment intent metadata - this likely indicates the metadata was not properly attached during payment intent creation');
             }
+            
+            // For backward compatibility, ensure we always have an orderId to pass,
+            // even if we need to use the local one (will be corrected in MultiItemCheckoutModal)
+            const orderIdToPass = metaOrderId || 'use_local_order_id';
             
             onSuccess(
               result.paymentIntent.id, 
-              metaOrderId, 
+              orderIdToPass,
               metaBatchOrderId
             );
             break;
