@@ -370,76 +370,7 @@ async function processSuccessfulPayment(order, paymentIntent) {
     const isBatchOrder = !!order.batch_order_id;
     console.log('Is batch order:', isBatchOrder, isBatchOrder ? `Batch ID: ${order.batch_order_id}` : '');
 
-    // Update all orders in the batch if this is a batch order
-    if (isBatchOrder && order.batch_order_id) {
-      console.log('Processing batch order confirmation for batch ID:', order.batch_order_id);
-      
-      // Get all orders in the batch
-      const { data: batchOrders, error: getBatchError } = await supabase
-        .from('orders')
-        .select('id, status')
-        .eq('batch_order_id', order.batch_order_id);
-      
-      if (getBatchError) {
-        console.error('Error fetching orders in batch:', getBatchError);
-      } else if (batchOrders && batchOrders.length > 0) {
-        console.log(`Found ${batchOrders.length} orders in batch ${order.batch_order_id}`);
-        
-        // Update each order in the batch to confirmed status
-        for (const batchOrder of batchOrders) {
-          console.log(`Confirming order ${batchOrder.id} in batch`);
-          
-          // Use direct update for most reliable result
-          const { error: updateError } = await supabase
-            .from('orders')
-            .update({ 
-              status: 'confirmed',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', batchOrder.id);
-          
-          if (updateError) {
-            console.error(`Error confirming order ${batchOrder.id} in batch:`, updateError);
-          } else {
-            console.log(`Successfully confirmed order ${batchOrder.id} in batch`);
-          }
-        }
-      }
-    }
-    
-    // Use the Stripe-specific function to confirm the payment
-    // This will handle both draft->pending_payment and pending_payment->confirmed transitions
-    console.log('Calling confirm_stripe_payment with payment ID:', paymentIntent.id);
-    
-    // Call the function with debugging
-    const rpcCall = await supabase.rpc('confirm_stripe_payment', {
-      p_payment_id: paymentIntent.id
-    });
-    
-    // Log the full response including any SQL error
-    console.log('RPC call raw response:', JSON.stringify(rpcCall));
-    
-    const { data: confirmResult, error: confirmError } = rpcCall;
-
-    if (confirmError) {
-      console.error('Error confirming payment:', confirmError);
-      console.error('Error details:', JSON.stringify(confirmError));
-    } else {
-      console.log('Payment confirmation result:', confirmResult || 'No result returned (success)');
-    }
-
-    // Check current order status directly to see if it was actually updated
-    console.log('Checking current order status after RPC call');
-    const { data: currentStatus } = await supabase
-      .from('orders')
-      .select('id, status, transaction_signature, batch_order_id')
-      .eq('id', order.id)
-      .single();
-    
-    console.log('Current order status:', currentStatus ? currentStatus.status : 'unknown');
-    console.log('Current transaction_signature:', currentStatus ? currentStatus.transaction_signature : 'unknown');
-    
-    // Get the receipt URL and other details
+    // Get the receipt URL and other details first so we can apply it to all orders
     let chargeId = null;
     let receiptUrl = null;
     
@@ -519,6 +450,214 @@ async function processSuccessfulPayment(order, paymentIntent) {
       if (!receiptUrl && paymentIntent.id) {
         receiptUrl = `https://pay.stripe.com/receipts/payment/${paymentIntent.id}`;
         console.log('Using customer-facing receipt URL as fallback:', receiptUrl);
+      }
+    } catch (stripeError) {
+      console.error('Error fetching charge details:', stripeError);
+      // Continue with default receipt as fallback
+      receiptUrl = `https://pay.stripe.com/receipts/payment/${paymentIntent.id}`;
+      console.log('Using default receipt URL as fallback after error:', receiptUrl);
+    }
+
+    // BATCH ORDER HANDLING: Update all orders in the batch with receipt URL and set to confirmed
+    if (isBatchOrder && order.batch_order_id) {
+      console.log('Processing BATCH order confirmation for batch ID:', order.batch_order_id);
+      
+      try {
+        // Get ALL orders in the batch regardless of status
+        const { data: batchOrders, error: getBatchError } = await supabase
+          .from('orders')
+          .select('id, status, order_number')
+          .eq('batch_order_id', order.batch_order_id);
+        
+        if (getBatchError) {
+          console.error('Error fetching orders in batch:', getBatchError);
+        } else if (batchOrders && batchOrders.length > 0) {
+          console.log(`Found ${batchOrders.length} orders in batch ${order.batch_order_id} with receipt URL: ${receiptUrl || 'none'}`);
+          
+          // First update all orders to pending_payment regardless of current status
+          // This ensures they all transition correctly to confirmed status
+          for (const batchOrder of batchOrders) {
+            if (batchOrder.status === 'draft') {
+              console.log(`Updating order ${batchOrder.id} from draft to pending_payment`);
+              
+              // Update to pending_payment first 
+              const { error: pendingError } = await supabase
+                .from('orders')
+                .update({ 
+                  status: 'pending_payment',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', batchOrder.id);
+              
+              if (pendingError) {
+                console.error(`Error setting order ${batchOrder.id} to pending_payment:`, pendingError);
+              } else {
+                console.log(`Successfully set order ${batchOrder.id} to pending_payment`);
+              }
+            }
+          }
+          
+          // Wait briefly for database consistency
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Then, update all orders to confirmed with receipt URL
+          console.log(`Updating all ${batchOrders.length} orders in batch to confirmed with receipt URL`);
+          
+          // Use the custom RPC function first
+          if (receiptUrl) {
+            const { error: batchUpdateError } = await supabase.rpc('update_batch_receipt_url', {
+              p_batch_order_id: order.batch_order_id,
+              p_receipt_url: receiptUrl
+            });
+            
+            if (batchUpdateError) {
+              console.error('Error using RPC to update batch receipt URL:', batchUpdateError);
+              console.error('Falling back to direct update for batch orders');
+            } else {
+              console.log('Successfully updated all batch orders with receipt URL via RPC');
+            }
+          }
+          
+          // Also directly update all orders in the batch to ensure confirmation
+          for (const batchOrder of batchOrders) {
+            console.log(`Confirming order ${batchOrder.id} (${batchOrder.order_number}) in batch`);
+            
+            // Update each order with full details 
+            const { error: updateError } = await supabase
+              .from('orders')
+              .update({ 
+                status: 'confirmed',
+                transaction_signature: receiptUrl || paymentIntent.id,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', batchOrder.id);
+            
+            if (updateError) {
+              console.error(`Error confirming order ${batchOrder.id} in batch:`, updateError);
+            } else {
+              console.log(`Successfully confirmed order ${batchOrder.id} in batch`);
+            }
+          }
+          
+          // Verify all orders are now confirmed
+          const { data: verifyOrders, error: verifyError } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('batch_order_id', order.batch_order_id);
+            
+          if (!verifyError && verifyOrders) {
+            const confirmedCount = verifyOrders.filter(o => o.status === 'confirmed').length;
+            console.log(`Verification: ${confirmedCount}/${verifyOrders.length} orders confirmed in batch`);
+            
+            if (confirmedCount < verifyOrders.length) {
+              console.error('WARNING: Not all orders in batch were confirmed!');
+              console.error('Orders still not confirmed:', verifyOrders.filter(o => o.status !== 'confirmed').map(o => o.id));
+            }
+          }
+        } else {
+          console.log('No orders found in batch:', order.batch_order_id);
+        }
+      } catch (batchError) {
+        console.error('Error processing batch orders:', batchError);
+      }
+    }
+    
+    // Use the Stripe-specific function to confirm the payment
+    console.log('Calling confirm_stripe_payment with payment ID:', paymentIntent.id);
+    
+    // Continue with the rest of the standard payment confirmation 
+    // as a backup - should already be handled above for batch orders
+    
+    // Check current order status directly to see if it was actually updated
+    console.log('Checking current order status after RPC call');
+    const { data: currentStatus } = await supabase
+      .from('orders')
+      .select('id, status, transaction_signature, batch_order_id')
+      .eq('id', order.id)
+      .single();
+    
+    console.log('Current order status:', currentStatus ? currentStatus.status : 'unknown');
+    console.log('Current transaction_signature:', currentStatus ? currentStatus.transaction_signature : 'unknown');
+    
+    try {
+      // If we already have the charge details, skip this section
+      if (!chargeId || !receiptUrl) {
+        // Direct way to get receipt URL from charges
+        const charges = paymentIntent.charges?.data || [];
+        
+        if (charges.length > 0) {
+          const charge = charges[0];
+          chargeId = charge.id;
+          receiptUrl = charge.receipt_url;
+          
+          console.log('Found charge details from payment intent charges (second attempt):', { 
+            chargeId, 
+            receiptUrl,
+            charge_status: charge.status 
+          });
+        } 
+        // Fallback to previous approach if charges not available in the payload
+        else if (paymentIntent.latest_charge) {
+          console.log('Payment intent has latest_charge:', paymentIntent.latest_charge);
+          
+          // Try to get charge details based on the type of ID
+          if (paymentIntent.latest_charge.startsWith('ch_')) {
+            // Standard charge
+            console.log('Fetching standard charge details');
+            const charge = await stripe.charges.retrieve(paymentIntent.latest_charge);
+            if (charge) {
+              chargeId = charge.id;
+              receiptUrl = charge.receipt_url;
+            }
+          } else if (paymentIntent.latest_charge.startsWith('py_')) {
+            // This is a Payment element - handle differently
+            console.log('Latest charge is a Payment element, fetching details');
+            chargeId = paymentIntent.latest_charge;
+            
+            // Fetch the charge to get the receipt URL instead of constructing it
+            try {
+              const chargeList = await stripe.charges.list({
+                payment_intent: paymentIntent.id,
+                limit: 1
+              });
+              
+              if (chargeList.data.length > 0) {
+                receiptUrl = chargeList.data[0].receipt_url;
+                console.log('Retrieved receipt URL from charge list:', receiptUrl);
+              }
+            } catch (chargeErr) {
+              console.error('Error fetching charge for Payment element:', chargeErr);
+            }
+          }
+        } else {
+          // Fallback to listing charges
+          console.log('No charges in payment intent, falling back to listing charges');
+          const charges = await stripe.charges.list({
+            payment_intent: paymentIntent.id,
+            limit: 1
+          });
+          
+          if (charges.data.length > 0) {
+            const charge = charges.data[0];
+            chargeId = charge.id;
+            receiptUrl = charge.receipt_url;
+          }
+        }
+        
+        console.log('Found charge details:', { chargeId, receiptUrl });
+
+        // Even if we couldn't get a receipt URL, we should still update the order status
+        if (!chargeId) {
+          console.warn('No charge details found, using payment intent ID as fallback');
+          chargeId = paymentIntent.id;
+        }
+        
+        // If we still don't have a receipt URL but have a payment intent ID,
+        // use the customer-facing format for Stripe receipts
+        if (!receiptUrl && paymentIntent.id) {
+          receiptUrl = `https://pay.stripe.com/receipts/payment/${paymentIntent.id}`;
+          console.log('Using customer-facing receipt URL as fallback:', receiptUrl);
+        }
       }
       
       // Only try to update if we have a receipt URL
