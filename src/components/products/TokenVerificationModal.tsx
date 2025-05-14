@@ -1024,6 +1024,7 @@ export function TokenVerificationModal({
       });
       
       const orderData = await response.json();
+      console.log('Created order for Stripe payment:', orderData);
       
       if (orderData.error) {
         updateProgressStep(0, 'error', undefined, orderData.error);

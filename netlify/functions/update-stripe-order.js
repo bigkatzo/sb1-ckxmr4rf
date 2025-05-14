@@ -66,8 +66,8 @@ exports.handler = async (event, context) => {
     const isBatchOrder = !!order.batch_order_id;
     console.log('Is batch order:', isBatchOrder);
     
-    // Only proceed if the order is in pending status
-    if (order.status !== 'pending' && order.status !== 'pending_payment') {
+    // Only proceed if the order is in an updateable status - include 'draft' for Stripe payments
+    if (order.status !== 'pending' && order.status !== 'pending_payment' && order.status !== 'draft') {
       return {
         statusCode: 200,
         body: JSON.stringify({ 
