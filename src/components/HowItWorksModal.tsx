@@ -9,16 +9,16 @@ export function HowItWorksModal() {
 
   return (
     <div 
-      className="fixed inset-0 z-[49]" 
+      className="fixed inset-0 z-[60]" 
       aria-modal="true" 
       role="dialog"
       aria-labelledby="modal-title"
     >
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[46]" onClick={closeHowItWorks} />
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[58]" onClick={closeHowItWorks} />
 
-      <div className="fixed inset-0 flex items-center justify-center p-4 z-[48]">
+      <div className="fixed inset-0 flex items-center justify-center p-4 z-[59]">
         <div className="relative bg-gray-900 w-full max-w-md rounded-xl overflow-hidden">
-          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-[49]">
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-[60]">
             <button
               onClick={closeHowItWorks}
               className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
