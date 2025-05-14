@@ -138,7 +138,7 @@ export function OrderProgressBar({
         {/* Progress to minimum */}
         <div className="flex justify-between items-center">
           <span className="text-yellow-500">Progress to minimum:</span>
-          <span className="font-medium text-white">
+          <span className={`font-medium ${hasReachedMinimum ? 'text-green-400' : 'text-yellow-500'}`}>
             {currentOrders} / {minimumOrderQuantity}
             {hasReachedMinimum && ' ✓'}
           </span>
@@ -147,12 +147,12 @@ export function OrderProgressBar({
         {/* Overall progress */}
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Total progress:</span>
-          <span className={`font-medium ${isSoldOut ? 'text-red-400' : 'text-white'} flex items-center gap-1`}>
+          <span className={`font-medium ${isSoldOut ? 'text-red-400' : 'text-gray-300'} flex items-center gap-1`}>
             {currentOrders}
             {!isUnlimited && maxStock !== null && (
               <>
-                <span className="text-white">/</span>
-                <span className="text-white">{maxStock}</span>
+                <span className="text-gray-600">/</span>
+                <span className="text-gray-300">{maxStock}</span>
                 {isSoldOut && ' (Sold Out)'}
               </>
             )}
