@@ -157,8 +157,8 @@ exports.handler = async (event, context) => {
     const amountInCents = Math.round(usdAmount * 100);
 
     // Generate order number and batch ID for consistent naming
-    const orderNumber = await generateOrderNumber();
-    const batchOrderId = uuidv4();
+    let orderNumber = await generateOrderNumber();
+    let batchOrderId = uuidv4();
 
     // Create a draft order with payment method info
     const finalPaymentMetadata = {
