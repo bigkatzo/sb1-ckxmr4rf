@@ -530,22 +530,72 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
       };
     }
     
-    // Get all orders in the batch
-    const { data: batchOrders, error: fetchError } = await supabase
-      .from('orders')
-      .select('id, status, transaction_signature')
-      .eq('batch_order_id', batchOrderId)
-      .order('item_index', { ascending: true });
+    // CRITICAL: Set the batch_order_id directly first
+    // This addresses the issue where some orders don't get a batch_order_id
+    try {
+      log('info', `DIRECT FIX: Setting batch_order_id for all orders with matching payment metadata`);
+      // Find all orders that have this batch ID in their metadata but not in the column
+      const { data: unbatchedOrders, error: metadataError } = await supabase
+        .from('orders')
+        .select('id, payment_metadata')
+        .filter('payment_metadata->batchOrderId', 'eq', batchOrderId)
+        .is('batch_order_id', null);
       
-    if (fetchError) {
-      log('error', 'Error fetching batch orders:', fetchError);
-      return {
-        success: false,
-        error: 'Failed to fetch batch orders'
-      };
+      if (!metadataError && unbatchedOrders && unbatchedOrders.length > 0) {
+        log('info', `Found ${unbatchedOrders.length} orders with batch ID in metadata but not column`);
+        
+        // Update each one directly
+        for (const order of unbatchedOrders) {
+          const { error: fixError } = await supabase
+            .from('orders')
+            .update({ 
+              batch_order_id: batchOrderId,
+              order_number: verification.details?.orderNumber || `SF-${new Date().getMonth()+1}${new Date().getDate()}-${Math.floor(1000 + Math.random() * 9000)}`
+            })
+            .eq('id', order.id);
+            
+          if (fixError) {
+            log('error', `Failed to fix batch_order_id for order ${order.id}:`, fixError);
+          } else {
+            log('info', `Fixed batch_order_id for order ${order.id}`);
+          }
+        }
+      }
+    } catch (fixError) {
+      log('error', 'Error fixing batch_order_id:', fixError);
+      // Continue with other parts of confirmation
     }
     
-    if (!batchOrders || batchOrders.length === 0) {
+    // Get all orders in the batch - try both ways to be sure
+    let batchOrders = [];
+    
+    // First attempt: Using batch_order_id column
+    const { data: columnBatchOrders, error: columnError } = await supabase
+      .from('orders')
+      .select('id, status, transaction_signature, order_number')
+      .eq('batch_order_id', batchOrderId)
+      .order('created_at', { ascending: true });
+    
+    if (!columnError && columnBatchOrders && columnBatchOrders.length > 0) {
+      log('info', `Found ${columnBatchOrders.length} orders using batch_order_id column`);
+      batchOrders = columnBatchOrders;
+    }
+    
+    // Second attempt: Using payment_metadata if first attempt yielded nothing
+    if (batchOrders.length === 0) {
+      const { data: metadataBatchOrders, error: metadataError } = await supabase
+        .from('orders')
+        .select('id, status, transaction_signature, order_number')
+        .filter('payment_metadata->batchOrderId', 'eq', batchOrderId)
+        .order('created_at', { ascending: true });
+        
+      if (!metadataError && metadataBatchOrders && metadataBatchOrders.length > 0) {
+        log('info', `Found ${metadataBatchOrders.length} orders using payment_metadata.batchOrderId`);
+        batchOrders = metadataBatchOrders;
+      }
+    }
+    
+    if (batchOrders.length === 0) {
       log('error', 'No orders found for batch ID:', batchOrderId);
       return {
         success: false,
@@ -555,157 +605,117 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
     
     log('info', `Found ${batchOrders.length} orders in batch ${batchOrderId}`);
     
-    // Group orders by status for better handling
-    const ordersByStatus = {
-      draft: [],
-      pending_payment: [],
-      confirmed: [],
-      other: []
-    };
-    
-    batchOrders.forEach(order => {
-      if (order.status === 'draft') {
-        ordersByStatus.draft.push(order);
-      } else if (order.status === 'pending_payment') {
-        ordersByStatus.pending_payment.push(order);
-      } else if (order.status === 'confirmed') {
-        ordersByStatus.confirmed.push(order);
-      } else {
-        ordersByStatus.other.push(order);
-      }
-    });
-    
-    log('info', 'Order status distribution:', {
-      draft: ordersByStatus.draft.length,
-      pending_payment: ordersByStatus.pending_payment.length,
-      confirmed: ordersByStatus.confirmed.length,
-      other: ordersByStatus.other.length
-    });
-    
-    // First try to use batch RPC functions (more efficient and reliable)
-    try {
-      // If we have draft orders, update them to pending_payment
-      if (ordersByStatus.draft.length > 0) {
-        log('info', 'Updating draft orders to pending_payment');
-        const { error: batchUpdateError } = await supabase.rpc('update_batch_order_transaction', {
-          p_batch_order_id: batchOrderId,
-          p_transaction_signature: signature,
-          p_amount_sol: verification.amount || 0
-        });
-        
-        if (batchUpdateError) {
-          log('error', 'Failed to update draft orders in batch:', batchUpdateError);
-          // Continue with next step, we'll try individual updates later
-        } else {
-          log('info', 'Successfully updated draft orders to pending_payment');
-        }
-      }
+    // BRUTE FORCE FALLBACK - DIRECTLY UPDATE ALL ORDERS
+    // Using completely direct approach to update all orders in the batch
+
+    // Step 1: Set all draft orders to pending_payment
+    const draftOrderIds = batchOrders.filter(order => order.status === 'draft').map(order => order.id);
+    if (draftOrderIds.length > 0) {
+      log('info', `Updating ${draftOrderIds.length} draft orders to pending_payment with signature`);
       
-      // If we have pending_payment orders, confirm them
-      if (ordersByStatus.pending_payment.length > 0 || ordersByStatus.draft.length > 0) {
-        log('info', 'Confirming pending_payment orders');
-        const { error: confirmError } = await supabase.rpc('confirm_batch_order_transaction', {
-          p_batch_order_id: batchOrderId
-        });
-        
-        if (confirmError) {
-          log('error', 'Failed to confirm batch orders:', confirmError);
-          // Continue with fallback to individual updates
-        } else {
-          log('info', 'Successfully confirmed batch orders');
-          return { 
-            success: true,
-            message: 'Batch order confirmed successfully via RPC functions'
-          };
-        }
-      }
-      // If all orders are already confirmed, no action needed
-      else if (ordersByStatus.confirmed.length === batchOrders.length) {
-        log('info', 'All orders in batch are already confirmed. No action needed.');
-        return { 
-          success: true,
-          message: 'All orders in batch already confirmed'
-        };
-      }
-    } catch (rpcError) {
-      log('error', 'RPC error handling batch order:', rpcError);
-      // Continue with fallback approach
-    }
-    
-    // Fallback: Update orders individually
-    log('info', 'Using fallback approach: updating orders individually');
-    
-    let updatedCount = 0;
-    
-    // First update draft orders to pending_payment
-    if (ordersByStatus.draft.length > 0) {
-      const draftIds = ordersByStatus.draft.map(order => order.id);
-      log('info', 'Updating draft orders to pending_payment:', draftIds);
-      
-      const { error: draftUpdateError } = await supabase
+      const { error: draftError } = await supabase
         .from('orders')
-        .update({
+        .update({ 
           status: 'pending_payment',
           transaction_signature: signature,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          batch_order_id: batchOrderId, // Ensure batch ID is set
+          amount_sol: verification.details?.amount ? (verification.details.amount / batchOrders.length) : 0.01
         })
-        .in('id', draftIds);
+        .in('id', draftOrderIds);
         
-      if (draftUpdateError) {
-        log('error', 'Failed to update draft orders:', draftUpdateError);
+      if (draftError) {
+        log('error', 'Failed to update draft orders:', draftError);
       } else {
-        log('info', `Updated ${draftIds.length} draft orders to pending_payment`);
-        updatedCount += draftIds.length;
+        log('info', 'Successfully updated draft orders to pending_payment');
       }
     }
     
-    // Then update pending_payment orders to confirmed
-    const pendingIds = [...ordersByStatus.pending_payment.map(order => order.id), 
-                        ...ordersByStatus.draft.map(order => order.id)];
-    
-    if (pendingIds.length > 0) {
-      log('info', 'Confirming orders:', pendingIds);
+    // Step 2: Set all pending_payment and draft orders to confirmed
+    const allOrderIds = batchOrders.map(order => order.id);
+    if (allOrderIds.length > 0) {
+      log('info', `Confirming all ${allOrderIds.length} orders in batch`);
       
       const { error: confirmError } = await supabase
         .from('orders')
-        .update({
+        .update({ 
           status: 'confirmed',
-          updated_at: new Date().toISOString()
+          transaction_signature: signature,
+          updated_at: new Date().toISOString(),
+          batch_order_id: batchOrderId // Ensure batch ID is set
         })
-        .in('id', pendingIds);
+        .in('id', allOrderIds);
         
       if (confirmError) {
-        log('error', 'Failed to confirm orders:', confirmError);
+        log('error', 'Failed to confirm all orders:', confirmError);
+        
+        // Last resort: Try updating one order at a time
+        log('info', 'Attempting to update orders one by one as last resort');
+        let successCount = 0;
+        
+        for (const order of batchOrders) {
+          const { error: singleError } = await supabase
+            .from('orders')
+            .update({ 
+              status: 'confirmed',
+              transaction_signature: signature,
+              updated_at: new Date().toISOString(),
+              batch_order_id: batchOrderId
+            })
+            .eq('id', order.id);
+            
+          if (!singleError) {
+            successCount++;
+          }
+        }
+        
+        log('info', `Updated ${successCount}/${batchOrders.length} orders one by one`);
+        
+        if (successCount > 0) {
+          log('info', 'Batch order partially confirmed through individual updates');
+          return { 
+            success: true, 
+            message: `Partially confirmed ${successCount}/${batchOrders.length} orders in batch` 
+          };
+        } else {
+          log('error', 'Failed to confirm any orders in batch, even one by one');
+          return { 
+            success: false, 
+            error: 'Failed to confirm any orders in batch' 
+          };
+        }
       } else {
-        log('info', `Confirmed ${pendingIds.length} orders`);
-        updatedCount += pendingIds.length;
+        log('info', 'Successfully confirmed all orders in batch');
+        
+        // Verify final confirmation status
+        const { data: finalOrders, error: finalError } = await supabase
+          .from('orders')
+          .select('id, status')
+          .eq('batch_order_id', batchOrderId);
+          
+        if (!finalError && finalOrders) {
+          const confirmedCount = finalOrders.filter(o => o.status === 'confirmed').length;
+          log('info', `Final verification: ${confirmedCount}/${finalOrders.length} orders confirmed`);
+        }
+        
+        return { 
+          success: true, 
+          message: 'Batch order confirmed successfully' 
+        };
       }
     }
     
-    if (updatedCount > 0) {
-      log('info', `Successfully updated ${updatedCount} orders in batch ${batchOrderId}`);
-      return { 
-        success: true,
-        message: `Updated ${updatedCount} orders in batch`
-      };
-    } else if (ordersByStatus.confirmed.length === batchOrders.length) {
-      log('info', 'All orders were already confirmed. No updates needed.');
-      return { 
-        success: true,
-        message: 'All orders already confirmed'
-      };
-    } else {
-      log('warn', 'No orders were updated in batch');
-      return {
-        success: false,
-        error: 'Failed to update batch orders'
-      };
-    }
+    // This should not happen but added for completeness
+    log('warn', 'No orders were processed in batch');
+    return { 
+      success: false, 
+      error: 'No orders were processed in batch' 
+    };
   } catch (error) {
     log('error', 'Error in confirmBatchOrderPayment:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error in batch confirmation'
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }

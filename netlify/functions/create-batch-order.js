@@ -208,7 +208,7 @@ exports.handler = async (event, context) => {
             p_wallet_address: walletAddress || 'anonymous',
             p_payment_metadata: {
               ...paymentMetadata,
-              batchOrderId,
+              batchOrderId, // This is just in metadata, not the actual column
               isBatchOrder: true,
               quantityIndex: i + 1,
               totalQuantity: quantityToProcess
@@ -223,8 +223,26 @@ exports.handler = async (event, context) => {
           if (orderId) {
             console.log(`Order ${i+1}/${quantityToProcess} created successfully, updating with batch details:`, orderId);
             
-            // Update order with batch details
+            // Directly update batch_order_id column to ensure it's set
             try {
+              // First directly update batch_order_id and order_number to ensure they're set
+              const { error: directUpdateError } = await supabase
+                .from('orders')
+                .update({
+                  batch_order_id: batchOrderId,
+                  order_number: orderNumber,
+                  status: isFreeOrder ? 'confirmed' : 'draft'
+                })
+                .eq('id', orderId);
+                
+              if (directUpdateError) {
+                console.error('Error directly setting batch_order_id:', directUpdateError);
+                // Continue anyway - we'll try the full update below
+              } else {
+                console.log('Successfully set batch_order_id and order_number directly');
+              }
+              
+              // Then do the full update with all fields
               const { error: updateError } = await supabase
                 .from('orders')
                 .update({
@@ -322,6 +340,75 @@ exports.handler = async (event, context) => {
       success: createdOrders.length === items.length,
       isFreeOrder
     });
+
+    // FINAL VERIFICATION: make sure all orders have the batch_order_id set
+    try {
+      console.log('Performing final batch_order_id verification');
+      
+      const orderIds = createdOrders.map(order => order.orderId);
+      
+      if (orderIds.length > 0) {
+        const { data: finalCheck, error: checkError } = await supabase
+          .from('orders')
+          .select('id, batch_order_id, order_number')
+          .in('id', orderIds);
+          
+        if (!checkError && finalCheck) {
+          const missingBatchId = finalCheck.filter(o => !o.batch_order_id);
+          
+          if (missingBatchId.length > 0) {
+            console.warn(`${missingBatchId.length} orders are missing batch_order_id, attempting final fix`);
+            
+            // Final attempt to fix any remaining issues
+            const missingIds = missingBatchId.map(o => o.id);
+            
+            const { error: fixError } = await supabase
+              .from('orders')
+              .update({
+                batch_order_id: batchOrderId,
+                order_number: orderNumber
+              })
+              .in('id', missingIds);
+              
+            if (fixError) {
+              console.error('Final batch ID fix failed:', fixError);
+            } else {
+              console.log(`Fixed batch_order_id for ${missingIds.length} orders in final verification`);
+            }
+          } else {
+            console.log('All orders have batch_order_id set correctly');
+          }
+          
+          // Check for old-style order numbers
+          const oldFormat = finalCheck.filter(o => o.order_number?.startsWith('ORD'));
+          
+          if (oldFormat.length > 0) {
+            console.warn(`${oldFormat.length} orders have old-format order numbers, attempting final fix`);
+            
+            // Fix old format order numbers
+            const oldFormatIds = oldFormat.map(o => o.id);
+            
+            const { error: fixError } = await supabase
+              .from('orders')
+              .update({
+                order_number: orderNumber
+              })
+              .in('id', oldFormatIds);
+              
+            if (fixError) {
+              console.error('Order number format fix failed:', fixError);
+            } else {
+              console.log(`Fixed order number format for ${oldFormatIds.length} orders`);
+            }
+          } else {
+            console.log('All orders have correct SF- format order numbers');
+          }
+        }
+      }
+    } catch (verifyError) {
+      console.error('Final verification error:', verifyError);
+      // Don't let this block returning the response
+    }
 
     // Return success response with created orders
     // Include the first order's ID as orderId in the response for easier handling from frontend
