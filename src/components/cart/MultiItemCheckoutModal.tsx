@@ -68,6 +68,25 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     return doesCountryRequireTaxId(shipping.country);
   }, [shipping.country]);
   
+  // Format shipping info at component level for reuse
+  const formattedShippingInfo = useMemo(() => ({
+    shipping_address: {
+      address: shipping.address,
+      city: shipping.city,
+      country: shipping.country,
+      state: shipping.state || undefined,
+      zip: shipping.zip,
+      taxId: shipping.taxId || undefined
+    },
+    contact_info: {
+      method: shipping.contactMethod,
+      value: shipping.contactValue,
+      firstName: shipping.firstName,
+      lastName: shipping.lastName,
+      phoneNumber: shipping.phoneNumber
+    }
+  }), [shipping]);
+  
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{
@@ -308,12 +327,18 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   };
   
   // Add handler for Stripe payment success
-  const handleStripeSuccess = async (orderId: string, paymentIntentId: string) => {
-    console.log('Stripe payment successful:', { orderId, paymentIntentId });
+  const handleStripeSuccess = async (paymentIntentId: string) => {
+    console.log('Stripe payment successful:', { orderId: orderData.orderId, paymentIntentId });
     
     try {
       // Update order status with Stripe payment info
       setOrderProgress({ step: 'processing_payment' });
+      
+      // Get the order ID from our state
+      const orderId = orderData.orderId;
+      if (!orderId) {
+        throw new Error('Missing order ID for Stripe payment');
+      }
       
       // Update the order with the Stripe payment intent ID
       const updateResponse = await fetch('/.netlify/functions/update-stripe-order', {
@@ -350,6 +375,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                                     orderData.orders?.[0]?.orderNumber || 
                                     'Unknown';
           
+          // Update the order data state with transaction signature
+          setOrderData(prevData => ({
+            ...prevData,
+            transactionSignature: paymentIntentId
+          }));
+          
           if (displayOrderNumber && displayOrderNumber !== 'Unknown') {
             toast.success(`Order #${displayOrderNumber} placed successfully!`);
           } else {
@@ -376,7 +407,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       // Still show success since the payment went through on Stripe
       toast.info('Payment processed. Please contact support if you have issues with your order.');
       
-      // Don't close automatically on error - let user decide
+      // Clear cart but let user decide when to close the modal
+      clearCart();
     }
   };
   
@@ -440,6 +472,13 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       return;
     }
     
+    // Calculate coupon discount consistently
+    const couponDiscount = appliedCoupon 
+      ? (appliedCoupon.discountPercentage 
+        ? (totalPrice * appliedCoupon.discountPercentage / 100) 
+        : appliedCoupon.discountAmount)
+      : 0;
+    
     // Check if the coupon provides a 100% discount (free order)
     const isFreeOrder = appliedCoupon && 
       totalPrice > 0 && 
@@ -452,23 +491,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         // For 100% discount, use the create-batch-order endpoint but mark it as a free order
         const transactionId = `free_order_batch_${Date.now()}_${walletAddress || 'anonymous'}`;
         
-        const formattedShippingInfo = {
-          shipping_address: {
-            address: shipping.address,
-            city: shipping.city,
-            country: shipping.country,
-            state: shipping.state || undefined,
-            zip: shipping.zip,
-            taxId: shipping.taxId || undefined
-          },
-          contact_info: {
-            method: shipping.contactMethod,
-            value: shipping.contactValue,
-            firstName: shipping.firstName,
-            lastName: shipping.lastName,
-            phoneNumber: shipping.phoneNumber
-          }
-        };
+        setOrderProgress({ step: 'creating_order' });
         
         const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
           method: 'POST',
@@ -503,16 +526,28 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         // Get the order number from either format of response
         const orderNumber = batchOrderData.orderNumber || batchOrderData.orders?.[0]?.orderNumber;
         
+        // Store the order information
+        setOrderData({
+          orderNumber,
+          transactionSignature: transactionId
+        });
+        
+        // Update order progress
+        setOrderProgress({ step: 'completed' });
+        
         // Show success message for free order
         toast.success(`Free order #${orderNumber} created successfully!`);
         
-        // Clear cart and close modal
-        clearCart();
-        onClose();
+        // Clear cart and close modal with a small delay to ensure the user sees the success state
+        setTimeout(() => {
+          clearCart();
+          onClose();
+        }, 2000);
         return; // Exit early to skip regular payment flow
       } catch (error) {
         console.error("Free order error:", error);
         toast.error(error instanceof Error ? error.message : "Failed to process free order");
+        setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : "Failed to process free order" });
         setProcessingPayment(false);
         return; // Exit early if there's an error
       }
@@ -542,30 +577,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         }
       }
       
-      // Format shipping info correctly for API
-      const formattedShippingInfo = {
-        shipping_address: {
-          address: shipping.address,
-          city: shipping.city,
-          country: shipping.country,
-          state: shipping.state || undefined,
-          zip: shipping.zip,
-          taxId: shipping.taxId || undefined
-        },
-        contact_info: {
-          method: shipping.contactMethod,
-          value: shipping.contactValue,
-          firstName: shipping.firstName,
-          lastName: shipping.lastName,
-          phoneNumber: shipping.phoneNumber
-        }
-      };
-      
-      // For Stripe, open the Stripe modal instead of directly calling the API
+      // For Stripe, create batch order and open the Stripe modal
       if (paymentMethod === 'stripe') {
         try {
-          // Create batch order first to get the order ID
-          setOrderProgress({ step: 'creating_order' });
           console.log('Creating batch order for Stripe payment');
           
           const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
@@ -584,11 +598,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               paymentMetadata: {
                 paymentMethod: 'stripe',
                 couponCode: appliedCoupon?.code,
-                couponDiscount: appliedCoupon 
-                  ? (appliedCoupon.discountPercentage 
-                    ? (totalPrice * appliedCoupon.discountPercentage / 100) 
-                    : appliedCoupon.discountAmount)
-                  : 0,
+                couponDiscount,
                 originalPrice: totalPrice
               }
             })
@@ -612,7 +622,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             orderNumber
           });
           
-          // Show the Stripe payment modal and pass necessary information
+          // Show the Stripe payment modal
           setOrderProgress({ step: 'idle' }); // Reset progress indicator for Stripe modal
           setProcessingPayment(false);
           setShowStripeModal(true);
@@ -628,12 +638,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       // For Solana payments, use the processPayment function from usePayment
       else if (paymentMethod === 'solana' && items.length > 0) {
         try {
-          // Get collection ID from the first item (this is consistent with TokenVerificationModal)
+          // Get collection ID from the first item (consistent with TokenVerificationModal)
           const collectionId = items[0].product.collectionId;
           
           // First create the batch order
-          setOrderProgress({ step: 'creating_order' });
-          console.log('Creating batch order for multiple items');
+          console.log('Creating batch order for Solana payment');
           
           const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
             method: 'POST',
@@ -651,11 +660,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               paymentMetadata: {
                 paymentMethod: 'solana',
                 couponCode: appliedCoupon?.code,
-                couponDiscount: appliedCoupon 
-                  ? (appliedCoupon.discountPercentage 
-                    ? (totalPrice * appliedCoupon.discountPercentage / 100) 
-                    : appliedCoupon.discountAmount)
-                  : 0,
+                couponDiscount,
                 originalPrice: totalPrice
               }
             })
@@ -670,7 +675,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           
           console.log('Batch order created successfully:', batchOrderData);
           
-          // Store the order information - handle both batch and single order response formats
+          // Store the order information
           const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
           const orderNumber = batchOrderData.orderNumber;
           
@@ -683,13 +688,13 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           setOrderProgress({ step: 'processing_payment' });
           console.log('Processing Solana payment for amount:', finalPrice);
           
-          // Use the usePayment hook's processPayment function
+          // Use the usePayment hook's processPayment function - same as TokenVerificationModal
           const { success: paymentSuccess, signature: txSignature } = await processPayment(finalPrice, collectionId);
           
           if (!paymentSuccess || !txSignature) {
             setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
             
-            // Update order to pending_payment status even if payment fails
+            // Update order to pending_payment status even if payment fails - consistent with TokenVerificationModal
             try {
               const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
                 method: 'POST',
@@ -739,7 +744,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             if (!updateResponse.ok) {
               const errorData = await updateResponse.json();
               console.error('Failed to update order transaction:', errorData.error);
-              // Continue with process despite error
+              // Continue with process despite error - consistent with TokenVerificationModal
             } else {
               console.log('Order transaction updated successfully');
             }
@@ -748,7 +753,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             // Continue with process despite error - the background job will handle it
           }
           
-          // Start transaction confirmation
+          // Start transaction confirmation - using same monitoring as TokenVerificationModal
           setOrderProgress({ step: 'confirming_transaction' });
           console.log('Confirming transaction on-chain');
           
@@ -792,10 +797,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               error: 'Transaction verification is still pending. Your order will be reviewed by the merchant.' 
             });
             
-            // Show warning but still close cart as the order is created
+            // Show warning but still clear cart as the order is created
             toast.warning('Your payment is being processed. Order will be fulfilled when payment is confirmed.');
             
-            // Don't close automatically on failure - let user decide
+            // Clear cart but let user decide when to close modal
+            clearCart();
           }
         } catch (error) {
           console.error("Solana payment error:", error);
@@ -830,23 +836,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             onClose={() => setShowStripeModal(false)}
             onSuccess={handleStripeSuccess}
             solAmount={finalPrice}
-            productName={items[0]?.product.name || 'Cart Items'}
+            productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
             productId={items[0]?.product.id || ''}
-            shippingInfo={{
-              shipping_address: {
-                address: shipping.address,
-                city: shipping.city,
-                country: shipping.country,
-                zip: shipping.zip
-              },
-              contact_info: {
-                method: shipping.contactMethod,
-                value: shipping.contactValue,
-                firstName: shipping.firstName,
-                lastName: shipping.lastName,
-                phoneNumber: shipping.phoneNumber
-              }
-            }}
+            shippingInfo={formattedShippingInfo}
             variants={[]}
             couponCode={appliedCoupon?.code}
             couponDiscount={appliedCoupon?.discountAmount || 

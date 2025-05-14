@@ -114,6 +114,10 @@ exports.handler = async (event, context) => {
     
     // Array to store created order IDs
     const createdOrders = [];
+    
+    // Check if this is a free order
+    const isFreeOrder = paymentMetadata?.isFreeOrder === true;
+    const transactionSignature = isFreeOrder ? (paymentMetadata?.transactionId || `free_order_batch_${Date.now()}`) : null;
 
     // Process each item in the cart
     for (const item of items) {
@@ -128,7 +132,7 @@ exports.handler = async (event, context) => {
       const orderData = {
         product_id: product.id,
         wallet_address: walletAddress || 'anonymous',
-        status: 'pending',
+        status: isFreeOrder ? 'confirmed' : 'pending', // Set free orders to confirmed immediately
         quantity: quantity || 1,
         variant_selections: Object.entries(selectedOptions || {}).map(([variantId, value]) => ({
           name: product.variants?.find(v => v.id === variantId)?.name || variantId,
@@ -144,7 +148,9 @@ exports.handler = async (event, context) => {
           batchOrderId, // Add the batch order ID to link orders together
           isBatchOrder: true
         },
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        // For free orders, add transaction signature directly
+        ...(isFreeOrder && { transaction_signature: transactionSignature })
       };
 
       // Create order in the database
@@ -169,8 +175,17 @@ exports.handler = async (event, context) => {
         totalItems: items.length
       });
     }
+    
+    // If it's a free order, make sure we set the transaction signature and update status
+    if (isFreeOrder && createdOrders.length > 0 && transactionSignature) {
+      console.log('Free order confirmed with transaction ID:', transactionSignature);
+      
+      // We don't need to do anything extra here since we already set the status to confirmed
+      // when creating the orders, but we could add additional logic if needed
+    }
 
     // Return success response with created orders
+    // Include the first order's ID as orderId in the response for easier handling from frontend
     return {
       statusCode: 200,
       headers,
@@ -178,7 +193,10 @@ exports.handler = async (event, context) => {
         success: true,
         batchOrderId,
         orderNumber,  // Include the single order number for the entire batch
-        orders: createdOrders
+        orderId: createdOrders.length > 0 ? createdOrders[0].orderId : null,
+        orders: createdOrders,
+        isFreeOrder,
+        transactionSignature: isFreeOrder ? transactionSignature : undefined
       })
     };
   } catch (error) {

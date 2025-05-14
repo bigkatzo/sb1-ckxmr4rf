@@ -58,7 +58,7 @@ interface ShippingInfo {
 
 interface StripePaymentModalProps {
   onClose: () => void;
-  onSuccess: (orderId: string, paymentIntentId: string) => void;
+  onSuccess: (paymentIntentId: string) => void;
   solAmount: number;
   productName: string;
   productId: string;
@@ -370,7 +370,6 @@ export function StripePaymentModal({
   const [clientSecret, setClientSecret] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [orderId, setOrderId] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
   const isProcessingOrder = false; // Replace the state with a constant since we no longer need to change it
   const { walletAddress } = useWallet();
@@ -471,12 +470,6 @@ export function StripePaymentModal({
           throw new Error('No client secret returned from the server');
         }
 
-        if (data.orderId) {
-          setOrderId(data.orderId);
-        } else {
-          console.warn('No order ID returned from payment intent creation');
-        }
-
         console.log('Setting client secret:', data.clientSecret.substring(0, 10) + '...');
         setClientSecret(data.clientSecret);
       } catch (err) {
@@ -504,14 +497,9 @@ export function StripePaymentModal({
     // Mark as processed
     orderProcessedRef.current = true;
     
-    if (orderId) {
-      console.log('Payment successful, notifying parent with order ID:', orderId);
-      onSuccess(orderId, paymentIntentId);
-    } else {
-      console.error('Payment succeeded but no order ID is available');
-      setError('Payment successful, but order details could not be retrieved. Please contact support.');
-    }
-  }, [orderId, onSuccess]);
+    console.log('Payment successful with payment intent ID:', paymentIntentId);
+    onSuccess(paymentIntentId);
+  }, [onSuccess]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg overflow-y-auto">
@@ -534,7 +522,6 @@ export function StripePaymentModal({
                 onClick={() => {
                   setError(null);
                   setClientSecret(null);
-                  setOrderId(null);
                 }}
                 className="mt-4 text-primary-400 hover:text-primary-300 text-sm font-medium"
               >

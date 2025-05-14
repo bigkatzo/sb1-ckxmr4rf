@@ -676,20 +676,23 @@ export function TokenVerificationModal({
     setPhoneError(validation.error || '');
   };
 
-  const handleStripeSuccess = async (orderId: string, paymentIntentId: string) => {
+  // Track the created order ID for Stripe payments
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+
+  const handleStripeSuccess = async (paymentIntentId: string) => {
     try {
-      console.log('Stripe payment successful:', { orderId, paymentIntentId });
+      console.log('Stripe payment successful:', { orderId: createdOrderId, paymentIntentId });
       
       // Skip confirmation call for free orders - they are already confirmed during creation
       const isFreeOrder = paymentIntentId.startsWith('free_');
       
       // Only call the confirmation endpoint for regular Stripe payments, not free orders
-      if (!isFreeOrder) {
+      if (!isFreeOrder && createdOrderId) {
         try {
           const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.confirmStripeOrder}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId, paymentIntentId })
+            body: JSON.stringify({ orderId: createdOrderId, paymentIntentId })
           });
           
           const result = await response.json();
@@ -702,52 +705,54 @@ export function TokenVerificationModal({
       
       // Try to fetch the latest order data first to get the correct order number
       try {
-        // Check if orderId is a UUID or an order number 
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-        
-        let query;
-        if (isUuid) {
-          query = supabase
-            .from('orders')
-            .select('id, order_number, status')
-            .eq('id', orderId)
-            .single();
-        } else {
-          // If it's an order number (e.g., ORD12345), query by order_number
-          query = supabase
-            .from('orders')
-            .select('id, order_number, status')
-            .eq('order_number', orderId)
-            .single();
-        }
-        
-        const { data: order, error } = await query;
-        
-        if (error) {
-          throw error;
-        }
-        
-        if (order && order.order_number) {
-          console.log('Found order details:', order);
+        if (createdOrderId) {
+          // Check if orderId is a UUID or an order number 
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(createdOrderId);
           
-          // Use the retrieved order number
-          setOrderDetails({
-            orderNumber: order.order_number,
-            transactionSignature: paymentIntentId
-          });
+          let query;
+          if (isUuid) {
+            query = supabase
+              .from('orders')
+              .select('id, order_number, status')
+              .eq('id', createdOrderId)
+              .single();
+          } else {
+            // If it's an order number (e.g., ORD12345), query by order_number
+            query = supabase
+              .from('orders')
+              .select('id, order_number, status')
+              .eq('order_number', createdOrderId)
+              .single();
+          }
           
-          // Always show success view and toast for Stripe payments
-          setShowSuccessView(true);
-          toastService.showOrderSuccess();
-          onSuccess();
-          return;
+          const { data: order, error } = await query;
+          
+          if (error) {
+            throw error;
+          }
+          
+          if (order && order.order_number) {
+            console.log('Found order details:', order);
+            
+            // Use the retrieved order number
+            setOrderDetails({
+              orderNumber: order.order_number,
+              transactionSignature: paymentIntentId
+            });
+            
+            // Always show success view and toast for Stripe payments
+            setShowSuccessView(true);
+            toastService.showOrderSuccess();
+            onSuccess();
+            return;
+          }
         }
       } catch (fetchError) {
         console.warn('Could not fetch order details, using fallback:', fetchError);
       }
       
       // Create a proper order details object as fallback
-      const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+      const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
       setOrderDetails({
         orderNumber: fallbackOrderNumber,
         transactionSignature: paymentIntentId
@@ -761,7 +766,7 @@ export function TokenVerificationModal({
       console.error('Error handling Stripe success:', error);
       
       // Even if there's an error getting order details, still show success
-      const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
+      const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
       setOrderDetails({
         orderNumber: fallbackOrderNumber,
         transactionSignature: paymentIntentId
@@ -958,9 +963,87 @@ export function TokenVerificationModal({
     
     // For non-free orders, proceed with normal payment flow
     if (method === 'stripe') {
-      setShowStripeModal(true);
+      // First create the order and save the order ID
+      handleStripeOrderCreation();
     } else if (method === 'solana') {
       handleShippingSubmit(new Event('submit') as unknown as React.FormEvent);
+    }
+  };
+
+  // Add a function to handle order creation for Stripe payments
+  const handleStripeOrderCreation = async () => {
+    try {
+      setSubmitting(true);
+      updateProgressStep(0, 'processing', 'Creating order for Stripe payment...');
+      
+      // Format variant selections for database  
+      const formattedVariantSelections = Object.entries(selectedOption).map(([variantId, value]) => {
+        // Find the variant name from product.variants
+        const variant = product.variants?.find(v => v.id === variantId);
+        return {
+          name: variant?.name || variantId, // Use variant name, fallback to variant ID
+          value
+        };
+      });
+      
+      const response = await fetch('/.netlify/functions/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          productId: product.id,
+          variants: formattedVariantSelections,
+          shippingInfo: {
+            shipping_address: {
+              address: shippingInfoState.address,
+              city: shippingInfoState.city,
+              country: shippingInfoState.country,
+              state: shippingInfoState.state || undefined,
+              zip: shippingInfoState.zip,
+              taxId: shippingInfoState.taxId || undefined
+            },
+            contact_info: {
+              method: shippingInfoState.contactMethod,
+              value: shippingInfoState.contactValue,
+              firstName: shippingInfoState.firstName,
+              lastName: shippingInfoState.lastName,
+              phoneNumber: shippingInfoState.phoneNumber
+            }
+          },
+          walletAddress,
+          paymentMetadata: {
+            orderSource: 'token_modal',
+            paymentMethod: 'stripe',
+            isBatchOrder: false,
+            isSingleItemOrder: true,
+            couponCode: couponResult?.couponCode,
+            couponDiscount: couponResult?.couponDiscount
+          }
+        })
+      });
+      
+      const orderData = await response.json();
+      
+      if (orderData.error) {
+        updateProgressStep(0, 'error', undefined, orderData.error);
+        toast.error(orderData.error);
+        setSubmitting(false);
+        return;
+      }
+      
+      // Store the order ID for later use when Stripe payment completes
+      setCreatedOrderId(orderData.orderId);
+      updateProgressStep(0, 'completed');
+      
+      // Show the Stripe modal
+      setShowStripeModal(true);
+      setSubmitting(false);
+    } catch (error) {
+      console.error("Error creating order for Stripe:", error);
+      updateProgressStep(0, 'error', undefined, error instanceof Error ? error.message : 'Failed to create order');
+      toast.error("Failed to create order for payment processing");
+      setSubmitting(false);
     }
   };
 
