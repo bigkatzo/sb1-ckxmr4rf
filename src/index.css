@@ -92,6 +92,11 @@ div[class*="fixed inset-0 flex items-center justify-center z-50"] {
   z-index: 90 !important;
 }
 
+/* How it works modal z-index (appears above all other modals) */
+div[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"]:has(h2#modal-title.text-lg.sm\:text-xl.font-bold) {
+  z-index: 100 !important;
+}
+
 @keyframes progress {
   0% {
     transform: translateX(-100%);
