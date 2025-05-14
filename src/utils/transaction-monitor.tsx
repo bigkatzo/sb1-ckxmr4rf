@@ -44,6 +44,13 @@ export async function monitorTransaction(
     return false;
   }
 
+  // Log the orderId to help with debugging
+  console.log('Starting transaction monitoring with params:', { 
+    signature: signature.substring(0, 10) + '...',
+    hasExpectedDetails: !!expectedDetails,
+    orderId: orderId || 'none'
+  });
+
   // Skip monitoring for non-Solana transactions (e.g. Stripe or free orders)
   if (signature.startsWith('pi_') || signature.startsWith('free_')) {
     console.log('Non-Solana transaction, skipping monitoring:', signature);

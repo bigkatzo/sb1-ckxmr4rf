@@ -508,7 +508,8 @@ export function TokenVerificationModal({
             body: JSON.stringify({
               orderId,
               transactionSignature: 'rejected', // Use a special value for rejected transactions
-              amountSol: finalPrice
+              amountSol: finalPrice,
+              walletAddress: walletAddress || 'anonymous'
             })
           });
 
@@ -533,7 +534,8 @@ export function TokenVerificationModal({
           body: JSON.stringify({
             orderId,
             transactionSignature: txSignature,
-            amountSol: finalPrice
+            amountSol: finalPrice,
+            walletAddress: walletAddress || 'anonymous'
           })
         });
 

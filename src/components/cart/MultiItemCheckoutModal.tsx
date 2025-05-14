@@ -813,7 +813,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               body: JSON.stringify({
                 orderId,
                 transactionSignature: txSignature,
-                amountSol: finalPrice
+                amountSol: finalPrice,
+                walletAddress: walletAddress || 'anonymous'
               })
             });
             

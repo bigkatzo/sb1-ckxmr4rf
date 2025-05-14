@@ -132,7 +132,7 @@ exports.handler = async (event, context) => {
       const orderData = {
         product_id: product.id,
         wallet_address: walletAddress || 'anonymous',
-        status: isFreeOrder ? 'confirmed' : 'pending', // Set free orders to confirmed immediately
+        status: isFreeOrder ? 'confirmed' : 'draft', // Use draft status for non-free orders to match updated flow
         quantity: quantity || 1,
         variant_selections: Object.entries(selectedOptions || {}).map(([variantId, value]) => ({
           name: product.variants?.find(v => v.id === variantId)?.name || variantId,
@@ -152,6 +152,15 @@ exports.handler = async (event, context) => {
         // For free orders, add transaction signature directly
         ...(isFreeOrder && { transaction_signature: transactionSignature })
       };
+
+      // Log order data for debugging
+      console.log('Creating order with data:', {
+        product_id: orderData.product_id,
+        status: orderData.status,
+        wallet_address: orderData.wallet_address,
+        batch_order_id: orderData.batch_order_id,
+        is_free_order: isFreeOrder
+      });
 
       // Create order in the database
       const { data: order, error } = await supabase
