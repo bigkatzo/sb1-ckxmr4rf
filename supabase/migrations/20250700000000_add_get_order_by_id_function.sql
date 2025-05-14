@@ -3,33 +3,45 @@
 -- in the checkout success flow without requiring wallet auth
 BEGIN;
 
-CREATE OR REPLACE FUNCTION get_order_by_id(order_id uuid)
-RETURNS jsonb AS $$
-DECLARE
-  order_record orders;
-  result jsonb;
-BEGIN
-  -- Fetch the order record
-  SELECT * INTO order_record FROM orders WHERE id = order_id;
-  
-  -- Check if order was found
-  IF order_record IS NULL THEN
-    RETURN jsonb_build_object('error', 'Order not found');
-  END IF;
-  
-  -- Return minimal order details (just what's needed for success view)
-  result := jsonb_build_object(
-    'order_number', order_record.order_number,
-    'status', order_record.status,
-    'created_at', order_record.created_at
-  );
-  
-  RETURN result;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Drop existing functions first to avoid parameter name conflict
+DROP FUNCTION IF EXISTS get_order_by_id(uuid);
+DROP FUNCTION IF EXISTS get_orders_by_batch_id(uuid);
+DROP FUNCTION IF EXISTS get_orders_by_transaction(text);
 
--- Grant execution permission to authenticated and anonymous users
-GRANT EXECUTE ON FUNCTION get_order_by_id(uuid) TO authenticated, anon;
+-- Create a function to get order by ID (bypassing RLS)
+CREATE OR REPLACE FUNCTION get_order_by_id(p_order_id UUID)
+RETURNS SETOF orders
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY SELECT * FROM orders WHERE id = p_order_id;
+END;
+$$;
+
+-- Create a function to get orders by batch ID (bypassing RLS)
+CREATE OR REPLACE FUNCTION get_orders_by_batch_id(p_batch_order_id UUID)
+RETURNS SETOF orders
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY SELECT * FROM orders WHERE batch_order_id = p_batch_order_id ORDER BY item_index ASC;
+END;
+$$;
+
+-- Create a function to get orders by transaction signature (bypassing RLS)
+CREATE OR REPLACE FUNCTION get_orders_by_transaction(p_transaction_signature TEXT)
+RETURNS SETOF orders
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY SELECT * FROM orders WHERE transaction_signature = p_transaction_signature;
+END;
+$$;
+
+-- Grant necessary permissions
+GRANT EXECUTE ON FUNCTION get_order_by_id(UUID) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION get_orders_by_batch_id(UUID) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION get_orders_by_transaction(TEXT) TO authenticated, anon, service_role;
 
 -- Add a comment explaining the function's purpose
 COMMENT ON FUNCTION get_order_by_id IS 'Securely retrieves order details by order ID for checkout success flow';

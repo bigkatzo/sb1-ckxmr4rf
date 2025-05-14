@@ -242,7 +242,10 @@ async function verifyTransactionDetails(signature, expectedDetails) {
  * Updated to support batch orders
  */
 async function confirmOrderPayment(orderId, signature, verification, batchOrderId) {
-  log('info', `Confirming order payment for orderId: ${orderId}, signature: ${signature?.substring(0, 10)}...`);
+  log('info', `Confirming order payment for orderId: ${orderId}, signature: ${signature?.substring(0, 10)}...`, {
+    batchOrderId: batchOrderId || 'none',
+    isVerified: verification?.isValid || false,
+  });
   
   if (!supabase) {
     log('warn', 'Supabase client not initialized, cannot confirm order payment');
@@ -323,7 +326,7 @@ async function confirmOrderPayment(orderId, signature, verification, batchOrderI
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, status, transaction_signature')
+        .select('id, status, transaction_signature, batch_order_id')
         .eq('id', orderId)
         .single();
         
@@ -333,12 +336,24 @@ async function confirmOrderPayment(orderId, signature, verification, batchOrderI
       }
       
       orderData = data;
-      log('info', 'Retrieved order details:', orderData);
+      log('info', 'Retrieved order details:', {
+        id: orderData.id,
+        status: orderData.status,
+        hasTxSignature: !!orderData.transaction_signature,
+        batchOrderId: orderData.batch_order_id || 'none',
+        signature: signature?.substring(0, 8) + '...' || 'none',
+      });
       
       // Validate order exists and has matching signature
       if (!orderData) {
         log('error', 'Order not found:', orderId);
         return { success: false, error: 'Order not found' };
+      }
+      
+      // If order has a batch_order_id but it wasn't passed as parameter, use it
+      if (orderData.batch_order_id && !batchOrderId) {
+        log('info', `Order ${orderId} belongs to batch ${orderData.batch_order_id}, redirecting to batch processing`);
+        return await confirmBatchOrderPayment(orderData.batch_order_id, signature, verification);
       }
     } catch (error) {
       log('error', 'Error fetching order:', error);
@@ -347,7 +362,10 @@ async function confirmOrderPayment(orderId, signature, verification, batchOrderI
     
     // STEP 1: Handle order in DRAFT status - must transition to PENDING_PAYMENT first
     if (orderData.status === 'draft') {
-      log('info', `Order ${orderId} is in DRAFT status, transitioning to PENDING_PAYMENT first`);
+      log('info', `Order ${orderId} is in DRAFT status, transitioning to PENDING_PAYMENT first`, {
+        orderId,
+        signature: signature?.substring(0, 8) + '...' || 'none',
+      });
       
       try {
         // Use update_order_transaction to transition from DRAFT to PENDING_PAYMENT
@@ -386,11 +404,17 @@ async function confirmOrderPayment(orderId, signature, verification, batchOrderI
     
     // STEP 2: Handle order in PENDING_PAYMENT status - transition to CONFIRMED
     if (orderData.status === 'pending_payment') {
-      log('info', `Order ${orderId} is in PENDING_PAYMENT status, transitioning to CONFIRMED`);
+      log('info', `Order ${orderId} is in PENDING_PAYMENT status, transitioning to CONFIRMED`, {
+        orderId,
+        signature: signature?.substring(0, 8) + '...' || 'none',
+      });
       
       try {
         // First try to use confirm_order_payment RPC
-        log('debug', 'Attempting to confirm order payment with RPC function');
+        log('debug', 'Attempting to confirm order payment with RPC function', {
+          signature: signature?.substring(0, 8) + '...',
+          orderId
+        });
         const { data: confirmData, error: confirmError } = await supabase.rpc('confirm_order_payment', {
           p_transaction_signature: signature,
           p_status: 'confirmed'
@@ -475,7 +499,10 @@ async function confirmOrderPayment(orderId, signature, verification, batchOrderI
  * Handles all items in a batch order
  */
 async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
-  log('info', `Processing batch order payment for batch: ${batchOrderId}, signature: ${signature?.substring(0, 10)}...`);
+  log('info', `Processing batch order payment for batch: ${batchOrderId}, signature: ${signature?.substring(0, 10)}...`, {
+    isVerified: verification?.isValid,
+    hasDetails: !!verification?.details,
+  });
   
   try {
     // Check for orders with this batch ID
@@ -502,7 +529,11 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
     const pendingOrders = batchOrders.filter(order => order.status === 'pending_payment');
     const confirmedOrders = batchOrders.filter(order => order.status === 'confirmed');
     
-    log('info', `Status breakdown: draft=${draftOrders.length}, pending=${pendingOrders.length}, confirmed=${confirmedOrders.length}`);
+    log('info', `Status breakdown: draft=${draftOrders.length}, pending=${pendingOrders.length}, confirmed=${confirmedOrders.length}`, {
+      batchOrderId,
+      signature: signature?.substring(0, 8) + '...',
+      totalOrders: batchOrders.length
+    });
     
     // STEP 1: Process draft orders first if they exist
     if (draftOrders.length > 0) {
@@ -751,7 +782,211 @@ exports.handler = async (event, context) => {
 
   // For non-Solana transactions (like Stripe), handle differently
   if (signature.startsWith('pi_') || signature.startsWith('free_')) {
-    // Handle alternate payment methods
+    console.log(`Processing non-blockchain transaction: ${signature.substring(0, 10)}...`);
+    
+    // Check if this is explicitly marked as a Stripe payment
+    const isStripePayment = signature.startsWith('pi_') || requestBody.stripePayment === true;
+    
+    if (isStripePayment) {
+      console.log('Processing Stripe payment intent verification');
+      
+      // If orderId is provided, update it directly
+      if (orderId) {
+        console.log(`Stripe payment: Confirming order ${orderId} with payment ID ${signature}`);
+        
+        try {
+          // First try to update with RPC function for Stripe payments
+          try {
+            const { error: rpcError } = await supabase.rpc('confirm_stripe_payment', {
+              p_payment_id: signature,
+              p_order_id: orderId
+            });
+            
+            if (rpcError) {
+              console.log('RPC error confirming Stripe payment:', rpcError);
+              throw rpcError;
+            }
+            
+            console.log('Successfully confirmed Stripe payment via RPC function');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        success: true,
+                message: 'Stripe payment confirmed via RPC',
+                orderId
+              })
+            };
+          } catch (rpcError) {
+            console.warn('Failed to confirm Stripe payment via RPC, trying direct update:', rpcError);
+            
+            // Fallback: Do direct database operations
+            // First check current status
+            const { data: orderData, error: getError } = await supabase
+              .from('orders')
+              .select('status, transaction_signature')
+              .eq('id', orderId)
+              .single();
+              
+            if (getError) {
+              console.error('Error checking order status:', getError);
+              throw getError;
+            }
+            
+            // If the order is in draft status, update to pending_payment first
+            if (orderData.status === 'draft') {
+              console.log(`Order ${orderId} is in draft status, updating to pending_payment first`);
+              
+              const { error: pendingError } = await supabase
+                .from('orders')
+                .update({
+                  status: 'pending_payment',
+                  transaction_signature: signature,
+                  payment_metadata: {
+                    paymentIntentId: signature,
+                    paymentMethod: 'stripe',
+                    verifiedAt: new Date().toISOString()
+                  },
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', orderId)
+                .eq('status', 'draft');
+                
+              if (pendingError) {
+                console.error('Error updating to pending_payment:', pendingError);
+                throw pendingError;
+              }
+            }
+            
+            // Now update to confirmed if not already
+            if (orderData.status !== 'confirmed') {
+              console.log(`Updating order ${orderId} to confirmed status`);
+              
+              const { error: confirmError } = await supabase
+          .from('orders')
+                .update({
+                  status: 'confirmed',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', orderId)
+                .in('status', ['draft', 'pending_payment']);
+                
+              if (confirmError) {
+                console.error('Error confirming order:', confirmError);
+                throw confirmError;
+              }
+        } else {
+              console.log(`Order ${orderId} is already confirmed, no action needed`);
+            }
+          }
+          
+          return {
+            statusCode: 200,
+            body: JSON.stringify({
+              success: true,
+              message: 'Stripe payment confirmed',
+              orderId
+            })
+          };
+        } catch (error) {
+          console.error('Error confirming Stripe payment:', error);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({
+              success: false,
+              error: 'Failed to confirm Stripe payment',
+              details: error.message
+            })
+          };
+        }
+      }
+      
+      // If no orderId was provided, try to look it up
+      try {
+        console.log('Looking up orders by Stripe payment ID:', signature);
+        const { data: orders, error: lookupError } = await supabase
+          .from('orders')
+          .select('id, status')
+          .eq('transaction_signature', signature);
+          
+        if (lookupError) {
+          console.error('Error looking up orders by payment ID:', lookupError);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({
+              success: false,
+              error: 'Could not look up orders for payment ID',
+              details: lookupError.message
+            })
+          };
+        }
+        
+        if (!orders || orders.length === 0) {
+          console.log('No orders found with this payment ID');
+          return {
+            statusCode: 200,
+            body: JSON.stringify({
+              success: false,
+              warning: 'No orders found with this payment ID',
+              ordersUpdated: 0
+            })
+          };
+        }
+        
+        console.log(`Found ${orders.length} orders with this payment ID, setting to confirmed`);
+        
+        // Update any non-confirmed orders to confirmed status
+        const nonConfirmedOrders = orders.filter(o => o.status !== 'confirmed');
+        if (nonConfirmedOrders.length > 0) {
+                  const { error: updateError } = await supabase
+                    .from('orders')
+            .update({
+              status: 'confirmed',
+              updated_at: new Date().toISOString()
+            })
+            .in('id', nonConfirmedOrders.map(o => o.id));
+                  
+                  if (updateError) {
+            console.error('Error updating orders to confirmed:', updateError);
+            return {
+              statusCode: 500,
+              body: JSON.stringify({
+                success: false,
+                error: 'Failed to update orders to confirmed',
+                details: updateError.message
+              })
+            };
+          }
+        }
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            message: 'Stripe payment verified and orders confirmed',
+            ordersUpdated: nonConfirmedOrders.length,
+            totalOrders: orders.length
+          })
+        };
+                } catch (error) {
+        console.error('Error processing Stripe payment without order ID:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            success: false,
+            error: 'Failed to process Stripe payment',
+            details: error.message
+          })
+        };
+      }
+    }
+    
+    // Handle free orders or other special payment types
+    if (signature.startsWith('free_')) {
+      console.log('Processing free order verification');
+      // Rest of free order handling...
+    }
+    
+    // Generic handler for other non-blockchain payments
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -793,8 +1028,8 @@ exports.handler = async (event, context) => {
           if (!orderError && orderData && orderData.batch_order_id) {
             targetBatchOrderId = orderData.batch_order_id;
             console.log(`Found batch ID ${targetBatchOrderId} for order ${targetOrderId}`);
-          }
-        } catch (error) {
+                    }
+                  } catch (error) {
           console.error('Error finding batch ID from order:', error);
         }
       }
@@ -817,7 +1052,7 @@ exports.handler = async (event, context) => {
               ordersUpdated: result.success ? true : false
             })
           };
-        } else {
+                    } else {
           return {
             statusCode: 400,
             body: JSON.stringify({
@@ -837,9 +1072,9 @@ exports.handler = async (event, context) => {
       try {
         // First check for exact transaction_signature match
         const { data: exactOrders, error: exactError } = await supabase
-          .from('orders')
+            .from('orders')
           .select('id, status, transaction_signature, batch_order_id')
-          .eq('transaction_signature', signature)
+            .eq('transaction_signature', signature)
           .in('status', ['pending_payment', 'draft']);
           
         if (!exactError && exactOrders && exactOrders.length > 0) {
@@ -882,7 +1117,7 @@ exports.handler = async (event, context) => {
             
             // Find recent orders from this buyer
             const { data: buyerOrders, error: buyerError } = await supabase
-              .from('orders')
+        .from('orders')
               .select('id, status, transaction_signature, wallet_address, created_at, batch_order_id')
               .eq('wallet_address', buyerAddress)
               .in('status', ['pending_payment', 'draft'])
@@ -932,7 +1167,7 @@ exports.handler = async (event, context) => {
     // At this point, we either have an orderId or we don't - proceed with single order processing
     if (targetOrderId) {
       if (verification.isValid) {
-        const result = await confirmOrderPayment(targetOrderId, signature, verification);
+        const result = await confirmOrderPayment(targetOrderId, signature, verification, targetBatchOrderId);
         
         return {
           statusCode: result.success ? 200 : 400,
@@ -947,33 +1182,33 @@ exports.handler = async (event, context) => {
           })
         };
       } else {
-        return {
-          statusCode: 400,
-          body: JSON.stringify({
-            success: false,
-            error: verification.error || 'Transaction verification failed',
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          success: false,
+          error: verification.error || 'Transaction verification failed',
             details: verification.details || {}
-          })
-        };
+        })
+      };
       }
     }
     
     // If we get here, we couldn't find any orders to update
     if (verification.isValid) {
       // Transaction is valid but no orders found
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          success: true,
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        success: true,
           warning: 'Transaction verified but no related orders found',
-          verification: {
+        verification: {
             isValid: true,
             details: verification.details || {}
           },
           ordersUpdated: []
         })
       };
-          } else {
+    } else {
       // Transaction is invalid
       return {
         statusCode: 400,

@@ -273,7 +273,7 @@ exports.handler = async (event, context) => {
     // Carefully prepare metadata without circular references or complex objects
     // Truncate long values to stay under Stripe's metadata limits
     
-    // Simplified shipping address
+    // Simplified shipping address - keep only simple string fields
     const simplifiedAddress = {
       address: shippingInfo.shipping_address.address || '',
       city: shippingInfo.shipping_address.city || '',
@@ -281,7 +281,7 @@ exports.handler = async (event, context) => {
       zip: shippingInfo.shipping_address.zip || ''
     };
     
-    // Simplified contact info
+    // Simplified contact info - keep only simple string fields
     const simplifiedContact = {
       method: shippingInfo.contact_info.method || 'email',
       value: shippingInfo.contact_info.value || '',
@@ -289,21 +289,20 @@ exports.handler = async (event, context) => {
       lastName: shippingInfo.contact_info.lastName || ''
     };
     
-    // Create metadata object with string values only
+    // Create FLAT metadata object with string values only - no nested objects
     const stripeMetadata = {
-      productName: String(productName || '').substring(0, 100),
+      orderIdStr: String(orderId || ''),
+      batchOrderIdStr: String(batchOrderId || ''),
+      orderNumberStr: String(orderNumber || ''),
+      productNameStr: String(productName || '').substring(0, 100),
       customerName: `${simplifiedContact.firstName} ${simplifiedContact.lastName}`.substring(0, 100),
-      addressStr: JSON.stringify(simplifiedAddress).substring(0, 100),
-      contactStr: JSON.stringify(simplifiedContact).substring(0, 100),
-      solAmount: String(solAmount || 0),
-      solPrice: String(solPrice || 0),
-      walletAddress: String(walletAddress || 'stripe').substring(0, 100),
-      orderId: String(orderId || ''),
-      batchOrderId: String(batchOrderId || ''),
-      orderNumber: String(orderNumber || '')
+      walletStr: String(walletAddress || 'stripe').substring(0, 100),
+      amountStr: String(solAmount || 0),
+      priceStr: String(solPrice || 0)
     };
 
     console.log('Creating Stripe payment intent with metadata:', stripeMetadata);
+    console.log('ORDER ID TO BE INCLUDED IN METADATA:', orderId);
 
     // Create a payment intent with the simplified metadata
     try {
@@ -314,12 +313,6 @@ exports.handler = async (event, context) => {
           enabled: true,
         },
         metadata: stripeMetadata,
-      });
-      
-      console.log('Payment intent created successfully:', {
-        id: paymentIntent.id,
-        hasMetadata: !!paymentIntent.metadata,
-        metadataKeys: Object.keys(paymentIntent.metadata || {})
       });
       
       // VERIFICATION STEP: Retrieve the payment intent to ensure metadata was saved
@@ -340,34 +333,83 @@ exports.handler = async (event, context) => {
           const reVerifiedIntent = await stripe.paymentIntents.retrieve(paymentIntent.id);
           console.log('Metadata re-verification result:', {
             success: !!(reVerifiedIntent.metadata && Object.keys(reVerifiedIntent.metadata).length > 0),
-            metadataKeys: Object.keys(reVerifiedIntent.metadata || {})
+            metadataKeys: Object.keys(reVerifiedIntent.metadata || {}),
+            hasOrderId: !!reVerifiedIntent.metadata?.orderIdStr
           });
         } catch (metadataUpdateError) {
           console.error('Failed to update metadata on payment intent:', metadataUpdateError);
         }
       } else {
         console.log('Metadata verification successful:', {
-          orderId: retrievedIntent.metadata.orderId,
+          orderId: retrievedIntent.metadata.orderIdStr,
           metadataCount: Object.keys(retrievedIntent.metadata).length
         });
       }
 
       // Now that the payment intent is created, update the order with the payment intent ID
-      console.log('Updating order with payment intent ID:', paymentIntent.id);
-      const { error: paymentUpdateError } = await supabase
-        .from('orders')
-        .update({
-          transaction_signature: paymentIntent.id,
-          amount_sol: solAmount, // Store the SOL amount for reference
-          status: 'pending_payment' // Update status from draft to pending_payment
-        })
-        .eq('id', orderId);
+      if (isCartCheckout && cartItems && cartItems.length > 0) {
+        // For cart checkout, update all orders in the batch
+        console.log(`Updating all orders in batch ${batchOrderId} with payment intent ID:`, paymentIntent.id);
+        
+        const { error: batchUpdateError } = await supabase
+          .from('orders')
+          .update({
+            transaction_signature: paymentIntent.id,
+            amount_sol: solAmount / cartItems.length, // Divide amount among items
+            status: 'pending_payment' // Update status from draft to pending_payment
+          })
+          .eq('batch_order_id', batchOrderId);
+          
+        if (batchUpdateError) {
+          console.error('Error updating batch orders with payment intent ID:', batchUpdateError);
+          console.warn('Payment intent created but batch orders not updated - will be fixed during payment confirmation');
+        } else {
+          console.log(`Successfully updated all orders in batch ${batchOrderId} with payment intent ID`);
+        }
+      } else {
+        // For single product checkout, update just the one order
+        console.log('Updating order with payment intent ID:', paymentIntent.id);
+        const { error: paymentUpdateError } = await supabase
+          .from('orders')
+          .update({
+            transaction_signature: paymentIntent.id,
+            amount_sol: solAmount, // Store the SOL amount for reference
+            status: 'pending_payment' // Update status from draft to pending_payment
+          })
+          .eq('id', orderId);
 
-      if (paymentUpdateError) {
-        console.error('Error updating order with payment intent ID:', paymentUpdateError);
-        // Don't throw here, we still want to return the client secret
-        // The payment can still be processed and the order will be updated later
-        console.warn('Payment intent created but order not updated - will be fixed during payment confirmation');
+        if (paymentUpdateError) {
+          console.error('Error updating order with payment intent ID:', paymentUpdateError);
+          // Don't throw here, we still want to return the client secret
+          // The payment can still be processed and the order will be updated later
+          console.warn('Payment intent created but order not updated - will be fixed during payment confirmation');
+        }
+      }
+
+      // Before returning, get order IDs for any cart checkout to ensure we can send correct IDs back
+      let orderIds = [];
+      if (isCartCheckout && cartItems && cartItems.length > 0) {
+        try {
+          const { data: batchOrders, error: fetchError } = await supabase
+            .from('orders')
+            .select('id, order_number, status, item_index, total_items_in_batch')
+            .eq('batch_order_id', batchOrderId)
+            .order('item_index', { ascending: true });
+            
+          if (!fetchError && batchOrders && batchOrders.length > 0) {
+            orderIds = batchOrders.map(order => ({
+              orderId: order.id,
+              orderNumber: order.order_number,
+              status: order.status,
+              itemIndex: order.item_index,
+              totalItems: order.total_items_in_batch
+            }));
+            console.log(`Retrieved ${orderIds.length} order IDs for batch ${batchOrderId}`);
+          }
+        } catch (fetchError) {
+          console.warn('Error fetching batch order IDs:', fetchError);
+          // Continue without the IDs, not critical
+        }
       }
 
       // Return the payment intent data and order information
@@ -384,14 +426,14 @@ exports.handler = async (event, context) => {
           batchOrderId: batchOrderId,
           paymentIntentId: paymentIntent.id,
           success: true,
-          // Match batch order format
-          orders: [
+          // Match batch order format - if we have orderIds from a batch, use them, otherwise create a single-item array
+          orders: orderIds.length > 0 ? orderIds : [
             {
               orderId,
               orderNumber: orderNumber,
               status: 'pending_payment',
               itemIndex: 1,
-              totalItems: 1
+              totalItems: isCartCheckout ? cartItems.length : 1
             }
           ]
         }),

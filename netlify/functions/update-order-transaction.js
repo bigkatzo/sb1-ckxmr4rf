@@ -136,97 +136,32 @@ exports.handler = async (event, context) => {
   let targetOrderId = orderId;
   let targetBatchOrderId = batchOrderId;
 
-  if (!targetOrderId) {
-    log('warn', 'Missing orderId in request, attempting recovery');
-    
-    // Only try recovery if we have a transaction signature
-    if (!transactionSignature) {
-      log('error', 'Missing both transaction signature and order ID');
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'Missing transaction signature and order ID' })
-      };
-    }
+  // If we don't have an orderId but have a signature, try to recover
+  if (!targetOrderId && transactionSignature) {
+    log('info', 'No order ID provided, attempting to recover from transaction signature');
     
     try {
-      // Try to find the most recent order with the wallet address
-      if (requestBody.walletAddress) {
-        log('info', 'Attempting to find order for wallet:', requestBody.walletAddress);
-        
-        // Look for recent draft orders from this wallet
-        const { data: recentOrders, error: recentError } = await supabase
-          .from('orders')
-          .select('id, order_number, status, batch_order_id')
-          .eq('wallet_address', requestBody.walletAddress)
-          .in('status', ['draft'])
-          .order('created_at', { ascending: false })
-          .limit(1);
-        
-        if (recentError) {
-          log('error', 'Error searching for recent orders by wallet:', recentError);
-        } else if (recentOrders && recentOrders.length > 0) {
-          targetOrderId = recentOrders[0].id;
-          log('info', 'Recovered orderId from wallet address:', targetOrderId);
-          
-          // Check if this is part of a batch order
-          if (recentOrders[0].batch_order_id) {
-            targetBatchOrderId = recentOrders[0].batch_order_id;
-            log('info', 'Recovered order is part of batch:', targetBatchOrderId);
-          }
-        } else {
-          log('debug', 'No recent orders found for wallet:', requestBody.walletAddress);
-        }
-      }
+      // Check if any orders already have this transaction signature
+      log('debug', 'Checking for existing orders with transaction signature');
+      const { data: existingOrders, error: existingError } = await supabase
+        .from('orders')
+        .select('id, batch_order_id')
+        .eq('transaction_signature', transactionSignature)
+        .limit(1);
       
-      // If we still don't have an order ID, try to find any recent draft orders
-      if (!targetOrderId) {
-        log('info', 'Attempting to find any recent draft orders');
-        const { data: anyOrders, error: anyError } = await supabase
-          .from('orders')
-          .select('id, order_number, status, batch_order_id')
-          .in('status', ['draft'])
-          .order('created_at', { ascending: false })
-          .limit(1);
-        
-        if (anyError) {
-          log('error', 'Error searching for any recent draft orders:', anyError);
-        } else if (anyOrders && anyOrders.length > 0) {
-          targetOrderId = anyOrders[0].id;
-          log('info', 'Recovered orderId from recent orders:', targetOrderId);
-          
-          // Check if this is part of a batch order
-          if (anyOrders[0].batch_order_id) {
-            targetBatchOrderId = anyOrders[0].batch_order_id;
-            log('info', 'Recovered order is part of batch:', targetBatchOrderId);
-          }
+      if (!existingError && existingOrders && existingOrders.length > 0) {
+        targetOrderId = existingOrders[0].id;
+        if (existingOrders[0].batch_order_id) {
+          targetBatchOrderId = existingOrders[0].batch_order_id;
+          log('info', `Found existing order ${targetOrderId} part of batch ${targetBatchOrderId}`);
         } else {
-          log('warn', 'No recent draft orders found');
+          log('info', `Found existing order ${targetOrderId}`);
         }
+      } else {
+        log('debug', 'No existing orders found with this transaction signature');
       }
-      
-      // If we still don't have an order ID, give up
-      if (!targetOrderId && !targetBatchOrderId) {
-        log('error', 'Missing order ID and recovery failed');
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ 
-            error: 'Missing order ID and recovery failed',
-            recoveryAttempted: true
-          })
-        };
-      }
-    } catch (recoveryError) {
-      log('error', 'Error in order recovery:', recoveryError);
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ 
-          error: 'Missing order ID and recovery failed with error',
-          details: recoveryError.message
-        })
-      };
+    } catch (error) {
+      log('error', 'Error recovering order from transaction signature:', error);
     }
   }
 
@@ -429,17 +364,49 @@ exports.handler = async (event, context) => {
 
         if (updateError) {
           log('error', 'Error updating transaction for first order in batch:', updateError);
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ 
-              error: 'Failed to update transaction signature for first order in batch',
-              details: updateError.message
-            })
-          };
+          
+          // Alternative approach: Try direct update if RPC fails
+          log('info', 'Attempting direct update as fallback');
+          try {
+            const { error: directUpdateError } = await supabase
+              .from('orders')
+              .update({
+                transaction_signature: transactionSignature,
+                amount_sol: amountSolFloat,
+                status: 'pending_payment',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', firstOrderId)
+              .eq('status', 'draft');
+              
+            if (directUpdateError) {
+              log('error', 'Direct update also failed:', directUpdateError);
+              return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ 
+                  error: 'Failed to update transaction signature for first order in batch',
+                  details: updateError.message
+                })
+              };
+            } else {
+              log('info', 'Direct update successful for first order');
+              // Continue with remaining orders
+            }
+          } catch (fallbackError) {
+            log('error', 'Fallback update failed:', fallbackError);
+            return {
+              statusCode: 400,
+              headers,
+              body: JSON.stringify({ 
+                error: 'All update attempts failed for first order in batch',
+                details: fallbackError.message
+              })
+            };
+          }
+        } else {
+          log('info', `Successfully updated transaction signature for first order ${firstOrderId}`);
         }
-
-        log('info', `Successfully updated transaction signature for first order ${firstOrderId}`);
 
         // Then update the remaining orders directly, without setting the transaction signature
         // to avoid unique constraint violations. Move them to pending_payment status.

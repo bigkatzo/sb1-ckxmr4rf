@@ -1,9 +1,16 @@
 /**
- * Simple endpoint to get order details by ID
- * Used primarily during checkout to confirm order details
+ * GET ORDER
+ * 
+ * A simple server-side function to get order details with service role permissions
+ * Bypasses RLS to ensure the frontend can always access order data when needed
  */
 
 const { createClient } = require('@supabase/supabase-js');
+
+// Initialize Supabase with service role key
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Enable detailed logging
 const DEBUG = true;
@@ -35,227 +42,184 @@ function log(level, message, data = null) {
   }
 }
 
-// Initialize Supabase with service role key to bypass RLS policies
-let supabase;
-try {
-  supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY
-  );
-  log('info', 'Supabase client initialized');
-} catch (initError) {
-  log('error', 'Failed to initialize Supabase client:', initError);
-}
-
 exports.handler = async (event, context) => {
-  // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS'
+    'Content-Type': 'application/json'
   };
 
-  // Handle preflight request
+  // Handle CORS preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
-      headers
+      headers,
+      body: ''
     };
   }
 
-  // Only allow GET requests
-  if (event.httpMethod !== 'GET') {
-    log('warn', 'Method not allowed:', event.httpMethod);
+  if (event.httpMethod !== 'GET' && event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
       headers,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
-  }
-
-  // Get order ID from query parameters
-  const orderId = event.queryStringParameters?.id;
-  
-  if (!orderId) {
-    log('warn', 'Missing order ID parameter');
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Order ID is required' })
-    };
-  }
-
-  // Check if Supabase is initialized
-  if (!supabase) {
-    log('error', 'Supabase client not initialized');
-    return {
-      statusCode: 503,
-      headers,
-      body: JSON.stringify({ error: 'Database connection unavailable' })
+      body: JSON.stringify({ error: 'Method not allowed. Use GET or POST.' })
     };
   }
 
   try {
-    log('info', 'Fetching order details for:', orderId);
+    let orderId, batchOrderId, transactionSignature;
     
-    // First, try to use the RPC function for bypassing RLS
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_get_order_by_id', {
-      p_order_id: orderId
-    });
-    
-    if (!rpcError && rpcResult) {
-      log('info', 'Order found via RPC:', { 
-        id: rpcResult.id, 
-        status: rpcResult.status,
-        orderNumber: rpcResult.order_number
-      });
-      
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(rpcResult)
-      };
-    }
-    
-    // If RPC fails, log the error and fall back to direct query
-    if (rpcError) {
-      log('warn', 'RPC query error, falling back to direct query:', rpcError);
-    }
-    
-    // Try a direct query next
-    const { data: order, error } = await supabase
-      .from('orders')
-      .select('id, order_number, status, batch_order_id, product_id, transaction_signature')
-      .eq('id', orderId)
-      .single();
-    
-    if (error) {
-      log('error', 'Error fetching order:', error);
-      
-      // Handle RLS policy errors differently
-      if (error.code === '42P17' && error.message.includes('infinite recursion detected in policy')) {
-        log('error', 'RLS policy recursion error. Attempting lookup by transaction signature.');
-        
-        // The ID might actually be a transaction signature - try that as a fallback
-        try {
-          log('debug', 'Querying orders by transaction signature');
-          const { data: transactionOrders, error: transactionError } = await supabase.rpc('admin_get_orders_by_transaction', {
-            p_transaction_signature: orderId
-          });
-          
-          if (!transactionError && transactionOrders && transactionOrders.length > 0) {
-            log('info', 'Found order by transaction signature:', {
-              id: transactionOrders[0].id,
-              status: transactionOrders[0].status
-            });
-            
-            return {
-              statusCode: 200,
-              headers,
-              body: JSON.stringify(transactionOrders[0])
-            };
-          }
-          
-          if (transactionError) {
-            log('warn', 'Error querying by transaction signature:', transactionError);
-          }
-        } catch (transactionLookupError) {
-          log('error', 'Error during transaction lookup:', transactionLookupError);
-        }
-        
-        // If we still haven't found the order, try a direct query with a service role
-        // as a final fallback
-        try {
-          log('debug', 'Attempting direct table query as final fallback');
-          const { data: directOrder, error: directError } = await supabase
-            .from('orders')
-            .select('id, order_number, status, batch_order_id, product_id, transaction_signature')
-            .eq('id', orderId)
-            .single();
-          
-          if (!directError && directOrder) {
-            log('info', 'Found order via direct query fallback:', {
-              id: directOrder.id,
-              status: directOrder.status
-            });
-            
-            return {
-              statusCode: 200,
-              headers,
-              body: JSON.stringify(directOrder)
-            };
-          }
-          
-          if (directError) {
-            log('error', 'Direct query fallback error:', directError);
-            
-            // All attempts failed - return an error with debugging details
-            return {
-              statusCode: 500,
-              headers,
-              body: JSON.stringify({
-                error: 'All lookup methods failed',
-                rpcError: rpcError?.message,
-                directError: directError?.message,
-                code: directError?.code,
-                details: "The order could not be retrieved due to database permission issues."
-              })
-            };
-          }
-        } catch (directQueryError) {
-          log('error', 'Error during direct query fallback:', directQueryError);
-        }
-      }
-      
-      // Return standard error response if all special handling failed
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: error.message, code: error.code, details: error.details })
-      };
-    }
-    
-    if (!order) {
-      log('warn', 'Order not found:', orderId);
-      
-      // Try to search by transaction ID as a fallback
+    // Parse parameters from query string or body
+    if (event.httpMethod === 'GET') {
+      const params = event.queryStringParameters || {};
+      orderId = params.orderId;
+      batchOrderId = params.batchOrderId;
+      transactionSignature = params.signature || params.transactionSignature;
+    } else {
+      // POST method - parse body
       try {
-        log('info', 'Attempting to find order by transaction signature instead');
-        const { data: ordersByTx, error: txError } = await supabase.rpc('admin_get_orders_by_transaction', {
-          p_transaction_signature: orderId
-        });
-        
-        if (txError) {
-          log('error', 'Error searching by transaction signature:', txError);
-        } else if (ordersByTx && ordersByTx.length > 0) {
-          log('info', 'Found order by transaction signature instead:', { 
-            id: ordersByTx[0].id, 
-            status: ordersByTx[0].status 
-          });
-          
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify(ordersByTx[0])
-          };
-        }
-      } catch (fallbackError) {
-        log('error', 'Error during fallback search:', fallbackError);
+        const body = JSON.parse(event.body || '{}');
+        orderId = body.orderId;
+        batchOrderId = body.batchOrderId;
+        transactionSignature = body.signature || body.transactionSignature;
+      } catch (error) {
+        log('error', 'Error parsing request body', error);
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Invalid JSON in request body' })
+        };
       }
-      
+    }
+
+    log('debug', 'Request parameters', { orderId, batchOrderId, transactionSignature });
+
+    // Validate that at least one parameter is provided
+    if (!orderId && !batchOrderId && !transactionSignature) {
       return {
-        statusCode: 404,
+        statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Order not found' })
+        body: JSON.stringify({
+          error: 'Missing required parameter. Provide orderId, batchOrderId, or transactionSignature.'
+        })
       };
     }
 
-    log('info', 'Order found:', { id: order.id, status: order.status, orderNumber: order.order_number });
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(order)
-    };
+    // Fetch order by ID
+    if (orderId) {
+      log('info', `Fetching order by ID: ${orderId}`);
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (error) {
+        log('error', `Error fetching order ${orderId}:`, error);
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: 'Order not found or error fetching order' })
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ success: true, order: data })
+      };
+    }
+
+    // Fetch orders by batch ID
+    if (batchOrderId) {
+      log('info', `Fetching orders in batch: ${batchOrderId}`);
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('batch_order_id', batchOrderId)
+        .order('item_index', { ascending: true });
+
+      if (error) {
+        log('error', `Error fetching batch orders ${batchOrderId}:`, error);
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: 'Batch order not found or error fetching orders' })
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ 
+          success: true, 
+          orders: data,
+          batchOrderId,
+          orderCount: data.length 
+        })
+      };
+    }
+
+    // Fetch order by transaction signature
+    if (transactionSignature) {
+      log('info', `Fetching order by transaction signature: ${transactionSignature}`);
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('transaction_signature', transactionSignature);
+
+      if (error) {
+        log('error', `Error fetching order with signature ${transactionSignature}:`, error);
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: 'Order not found or error fetching order by signature' })
+        };
+      }
+
+      if (!data || data.length === 0) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: 'No orders found with this transaction signature' })
+        };
+      }
+
+      // Check if this is a batch order
+      let isBatchOrder = false;
+      let batchId = null;
+      
+      if (data.length > 1 || (data[0] && data[0].batch_order_id)) {
+        isBatchOrder = true;
+        batchId = data[0].batch_order_id;
+        
+        // If it's a batch order, fetch all orders in the batch
+        if (batchId) {
+          log('info', `Found batch order ${batchId}, fetching all related orders`);
+          const { data: batchData, error: batchError } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('batch_order_id', batchId)
+            .order('item_index', { ascending: true });
+            
+          if (!batchError && batchData) {
+            data = batchData; // Replace with complete batch data
+          }
+        }
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ 
+          success: true, 
+          orders: data,
+          isBatchOrder,
+          batchOrderId: batchId,
+          orderCount: data.length 
+        })
+      };
+    }
   } catch (error) {
     log('error', 'Unexpected error:', error);
     return {

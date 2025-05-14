@@ -201,10 +201,10 @@ function StripeCheckoutForm({
             // Ensure we properly extract order metadata
             console.log('Payment metadata from Stripe:', paymentMeta);
             
-            // Extract orderId and batchOrderId from metadata
+            // Extract orderId and batchOrderId from metadata (using new field names)
             // The server stores these in the metadata when creating the payment intent
-            const metaOrderId = paymentMeta.orderId;
-            const metaBatchOrderId = paymentMeta.batchOrderId;
+            const metaOrderId = paymentMeta.orderIdStr;
+            const metaBatchOrderId = paymentMeta.batchOrderIdStr;
             
             if (!metaOrderId) {
               console.warn('No orderId found in payment intent metadata - this likely indicates the metadata was not properly attached during payment intent creation');
@@ -214,6 +214,35 @@ function StripeCheckoutForm({
             // even if we need to use the local one (will be corrected in MultiItemCheckoutModal)
             const orderIdToPass = metaOrderId || 'use_local_order_id';
             
+            // Use transaction verification utilities to trigger server-side verification
+            // This helps ensure the order status is correctly updated even if metadata is missing
+            try {
+              const txSignature = result.paymentIntent.id;
+              
+              // Log the attempt to verify the Stripe payment
+              console.log('Attempting direct verification of Stripe payment:', {
+                txSignature,
+                orderIdToPass
+              });
+              
+              // We can send a verification request with the payment intent ID
+              // This is a fire-and-forget operation - we don't wait for the response
+              fetch('/.netlify/functions/verify-transaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  signature: txSignature,
+                  orderId: orderIdToPass !== 'use_local_order_id' ? orderIdToPass : undefined,
+                  stripePayment: true
+                })
+              }).catch(e => {
+                console.warn('Failed to send verification request, but continuing:', e);
+              });
+            } catch (e) {
+              console.warn('Error during verification attempt:', e);
+            }
+            
+            // Finally call onSuccess with the payment ID and order ID
             onSuccess(
               result.paymentIntent.id, 
               orderIdToPass,
