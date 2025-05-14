@@ -179,55 +179,51 @@ exports.handler = async (event, context) => {
       console.log('Creating batch order for cart items:', cartItems.length);
       
       try {
-        // Use the batch order creation functionality directly
-        const { data: batchResult, error: batchError } = await supabase.rpc('create_batch_order', {
-          p_items: cartItems.map(item => ({
-            product: item.product,
-            selected_options: item.selectedOptions || {},
-            quantity: item.quantity || 1
-          })),
-          p_shipping_info: shippingInfo,
-          p_wallet_address: walletAddress || 'stripe',
-          p_payment_metadata: finalPaymentMetadata
+        // Instead of calling Supabase RPC, call our own create-batch-order function
+        // to reuse the same reliable implementation for batch orders
+        const batchOrderUrl = process.env.URL + '/.netlify/functions/create-batch-order';
+        console.log('Calling create-batch-order endpoint:', batchOrderUrl);
+        
+        // Use node-fetch for internal API call
+        const fetch = require('node-fetch');
+        const batchResponse = await fetch(batchOrderUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            items: cartItems,
+            shippingInfo,
+            walletAddress: walletAddress || 'stripe',
+            paymentMetadata: finalPaymentMetadata
+          })
         });
         
-        if (batchError) {
-          console.error('Error creating batch order:', batchError);
-          throw batchError;
+        // Parse the response
+        const batchResult = await batchResponse.json();
+        
+        if (!batchResponse.ok) {
+          console.error('Error from create-batch-order endpoint:', batchResult);
+          throw new Error('Failed to create batch order: ' + (batchResult.error || 'Unknown error'));
         }
         
         console.log('Batch order created with result:', batchResult);
         
-        // If we have a straightforward orderId directly, use it
-        if (batchResult && typeof batchResult === 'string') {
-          orderId = batchResult;
-        }
-        // Otherwise try to get the first order ID from the result
-        else if (batchResult && typeof batchResult === 'object') {
-          if (batchResult.orderId) {
-            orderId = batchResult.orderId;
-          } else if (batchResult.orders && batchResult.orders.length > 0) {
-            orderId = batchResult.orders[0].orderId;
-          }
-        }
-        
-        if (!orderId) {
-          throw new Error('Failed to extract order ID from batch order creation');
-        }
-        
-        // Update all orders in the batch with batch ID and order number
-        const { error: batchUpdateError } = await supabase
-          .from('orders')
-          .update({
-            order_number: orderNumber,
-            batch_order_id: batchOrderId,
-            status: 'draft'
-          })
-          .eq('batch_order_id', batchOrderId);
-      
-        if (batchUpdateError) {
-          console.error('Error updating batch orders:', batchUpdateError);
-          // Continue anyway since the orders were created
+        // Extract order IDs from the batch result
+        if (batchResult && batchResult.success) {
+          batchOrderId = batchResult.batchOrderId;
+          orderId = batchResult.orderId;
+          orderNumber = batchResult.orderNumber;
+          
+          // Log success
+          console.log('Batch order created successfully:', {
+            batchOrderId,
+            orderNumber,
+            orderId,
+            totalOrders: batchResult.orders?.length || 0
+          });
+        } else {
+          throw new Error('Failed to create batch order: ' + (batchResult.error || 'Unknown error'));
         }
       } catch (batchError) {
         console.error('Failed to create batch order:', batchError);

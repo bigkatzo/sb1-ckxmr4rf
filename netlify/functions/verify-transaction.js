@@ -499,199 +499,213 @@ async function confirmOrderPayment(orderId, signature, verification, batchOrderI
  * Handles all items in a batch order
  */
 async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
-  log('info', `Processing batch order payment for batch: ${batchOrderId}, signature: ${signature?.substring(0, 10)}...`, {
-    isVerified: verification?.isValid,
-    hasDetails: !!verification?.details,
-  });
+  log('info', `Confirming batch order payment for batchOrderId: ${batchOrderId}, signature: ${signature?.substring(0, 10)}...`);
   
   try {
-    // Check for orders with this batch ID
-    log('debug', 'Fetching all orders in batch');
-    const { data: batchOrders, error: batchError } = await supabase
+    // First update the transaction status
+    try {
+      const { error: updateError } = await supabase.rpc('update_transaction_status', {
+        p_signature: signature,
+        p_status: 'confirmed',
+        p_details: {
+          ...verification.details,
+          confirmedAt: new Date().toISOString()
+        }
+      });
+      
+      if (updateError) {
+        log('error', 'Failed to update transaction status for batch order:', updateError);
+        return {
+          success: false,
+          error: 'Failed to update transaction status for batch order'
+        };
+      } else {
+        log('info', 'Transaction status updated successfully for batch order');
+      }
+    } catch (dbError) {
+      log('error', 'Database error when updating transaction status for batch order:', dbError);
+      return {
+        success: false,
+        error: 'Database error when updating batch transaction status'
+      };
+    }
+    
+    // Get all orders in the batch
+    const { data: batchOrders, error: fetchError } = await supabase
       .from('orders')
       .select('id, status, transaction_signature')
-      .eq('batch_order_id', batchOrderId);
+      .eq('batch_order_id', batchOrderId)
+      .order('item_index', { ascending: true });
       
-    if (batchError) {
-      log('error', 'Error fetching batch orders:', batchError);
-      return { success: false, error: 'Failed to fetch batch orders' };
+    if (fetchError) {
+      log('error', 'Error fetching batch orders:', fetchError);
+      return {
+        success: false,
+        error: 'Failed to fetch batch orders'
+      };
     }
     
     if (!batchOrders || batchOrders.length === 0) {
-      log('error', `No orders found for batch: ${batchOrderId}`);
-      return { success: false, error: 'No orders found for batch ID' };
+      log('error', 'No orders found for batch ID:', batchOrderId);
+      return {
+        success: false,
+        error: 'No orders found in batch'
+      };
     }
     
     log('info', `Found ${batchOrders.length} orders in batch ${batchOrderId}`);
     
-    // Split orders by status for different processing
-    const draftOrders = batchOrders.filter(order => order.status === 'draft');
-    const pendingOrders = batchOrders.filter(order => order.status === 'pending_payment');
-    const confirmedOrders = batchOrders.filter(order => order.status === 'confirmed');
+    // Group orders by status for better handling
+    const ordersByStatus = {
+      draft: [],
+      pending_payment: [],
+      confirmed: [],
+      other: []
+    };
     
-    log('info', `Status breakdown: draft=${draftOrders.length}, pending=${pendingOrders.length}, confirmed=${confirmedOrders.length}`, {
-      batchOrderId,
-      signature: signature?.substring(0, 8) + '...',
-      totalOrders: batchOrders.length
+    batchOrders.forEach(order => {
+      if (order.status === 'draft') {
+        ordersByStatus.draft.push(order);
+      } else if (order.status === 'pending_payment') {
+        ordersByStatus.pending_payment.push(order);
+      } else if (order.status === 'confirmed') {
+        ordersByStatus.confirmed.push(order);
+      } else {
+        ordersByStatus.other.push(order);
+      }
     });
     
-    // STEP 1: Process draft orders first if they exist
-    if (draftOrders.length > 0) {
-      log('info', `Processing ${draftOrders.length} draft orders in batch ${batchOrderId}`);
-      
-      // Update the first draft order with the transaction signature
-      const firstOrderId = draftOrders[0].id;
-      log('debug', `Updating first order ${firstOrderId} with transaction signature`);
-      
-      try {
-        // Use update_order_transaction to transition the first order from DRAFT to PENDING_PAYMENT
-        const { error: updateError } = await supabase.rpc('update_order_transaction', {
-          p_order_id: firstOrderId,
+    log('info', 'Order status distribution:', {
+      draft: ordersByStatus.draft.length,
+      pending_payment: ordersByStatus.pending_payment.length,
+      confirmed: ordersByStatus.confirmed.length,
+      other: ordersByStatus.other.length
+    });
+    
+    // First try to use batch RPC functions (more efficient and reliable)
+    try {
+      // If we have draft orders, update them to pending_payment
+      if (ordersByStatus.draft.length > 0) {
+        log('info', 'Updating draft orders to pending_payment');
+        const { error: batchUpdateError } = await supabase.rpc('update_batch_order_transaction', {
+          p_batch_order_id: batchOrderId,
           p_transaction_signature: signature,
-          p_amount_sol: verification.details?.amount || 0
+          p_amount_sol: verification.amount || 0
         });
         
-        if (updateError) {
-          log('error', 'Failed to transition first order from DRAFT to PENDING_PAYMENT:', updateError);
-          return { success: false, error: 'Failed to update first order to PENDING_PAYMENT status' };
+        if (batchUpdateError) {
+          log('error', 'Failed to update draft orders in batch:', batchUpdateError);
+          // Continue with next step, we'll try individual updates later
+        } else {
+          log('info', 'Successfully updated draft orders to pending_payment');
         }
-        
-        log('info', `Successfully transitioned first order ${firstOrderId} from DRAFT to PENDING_PAYMENT`);
-        
-        // Update remaining draft orders directly
-        if (draftOrders.length > 1) {
-          const otherOrderIds = draftOrders.slice(1).map(order => order.id);
-          log('debug', `Updating ${otherOrderIds.length} other draft orders to pending_payment status`);
-          
-          // Update other draft orders to pending_payment without setting transaction_signature
-          // This prevents unique constraint violations
-          const { error: batchUpdateError } = await supabase
-            .from('orders')
-            .update({
-              status: 'pending_payment',
-              updated_at: new Date().toISOString()
-            })
-            .in('id', otherOrderIds);
-            
-          if (batchUpdateError) {
-            log('error', 'Failed to update other draft orders to PENDING_PAYMENT:', batchUpdateError);
-            // Continue anyway as the first order update succeeded
-          } else {
-            log('info', `Successfully updated ${otherOrderIds.length} other draft orders to PENDING_PAYMENT`);
-          }
-        }
-      } catch (error) {
-        log('error', 'Error updating draft orders:', error);
-        return { success: false, error: 'Failed to update draft orders in batch' };
-      }
-    }
-    
-    // Now fetch the updated list of orders after draft processing
-    log('debug', 'Fetching updated order status after processing draft orders');
-    const { data: updatedBatchOrders, error: updatedBatchError } = await supabase
-      .from('orders')
-      .select('id, status')
-      .eq('batch_order_id', batchOrderId)
-      .in('status', ['pending_payment', 'confirmed']);
-    
-    if (updatedBatchError) {
-      log('error', 'Error fetching updated batch orders:', updatedBatchError);
-      // Continue with what we know from before as a fallback
-    } else if (updatedBatchOrders && updatedBatchOrders.length > 0) {
-      // Update our working lists
-      const newPendingOrders = updatedBatchOrders.filter(order => order.status === 'pending_payment');
-      const newConfirmedOrders = updatedBatchOrders.filter(order => order.status === 'confirmed');
-      
-      log('info', `Updated status: pending=${newPendingOrders.length}, confirmed=${newConfirmedOrders.length}`);
-      
-      // Use the updated lists
-      if (newPendingOrders.length > 0) {
-        pendingOrders.length = 0; // Clear array while keeping reference
-        pendingOrders.push(...newPendingOrders);
       }
       
-      if (newConfirmedOrders.length > 0) {
-        confirmedOrders.length = 0; // Clear array while keeping reference
-        confirmedOrders.push(...newConfirmedOrders);
-      }
-    }
-    
-    // STEP 2: Confirm pending orders
-    if (pendingOrders.length > 0) {
-      log('info', `Confirming ${pendingOrders.length} pending orders in batch ${batchOrderId}`);
-      
-      try {
-        // First try RPC for confirmation
-        log('debug', 'Attempting to confirm orders using confirm_order_payment RPC');
-        const { error: confirmError } = await supabase.rpc('confirm_order_payment', {
-          p_transaction_signature: signature,
-          p_status: 'confirmed'
+      // If we have pending_payment orders, confirm them
+      if (ordersByStatus.pending_payment.length > 0 || ordersByStatus.draft.length > 0) {
+        log('info', 'Confirming pending_payment orders');
+        const { error: confirmError } = await supabase.rpc('confirm_batch_order_transaction', {
+          p_batch_order_id: batchOrderId
         });
         
         if (confirmError) {
-          log('warn', 'Failed to confirm batch orders with RPC:', confirmError);
-          
-          // Fallback: Direct batch update
-          const pendingOrderIds = pendingOrders.map(order => order.id);
-          log('debug', 'Attempting direct batch update of pending orders');
-          
-          const { error: directUpdateError } = await supabase
-            .from('orders')
-            .update({ 
-              status: 'confirmed',
-              updated_at: new Date().toISOString()
-            })
-            .in('id', pendingOrderIds);
-            
-          if (directUpdateError) {
-            log('error', 'Direct batch update failed:', directUpdateError);
-            return { success: false, error: 'Failed to confirm pending orders in batch' };
-          } else {
-            log('info', `Successfully confirmed ${pendingOrderIds.length} pending orders via direct update`);
-          }
+          log('error', 'Failed to confirm batch orders:', confirmError);
+          // Continue with fallback to individual updates
         } else {
-          log('info', 'Successfully confirmed batch orders via RPC');
+          log('info', 'Successfully confirmed batch orders');
+          return { 
+            success: true,
+            message: 'Batch order confirmed successfully via RPC functions'
+          };
         }
-      } catch (error) {
-        log('error', 'Error confirming pending orders:', error);
-        return { success: false, error: 'Error confirming pending orders in batch' };
       }
+      // If all orders are already confirmed, no action needed
+      else if (ordersByStatus.confirmed.length === batchOrders.length) {
+        log('info', 'All orders in batch are already confirmed. No action needed.');
+        return { 
+          success: true,
+          message: 'All orders in batch already confirmed'
+        };
+      }
+    } catch (rpcError) {
+      log('error', 'RPC error handling batch order:', rpcError);
+      // Continue with fallback approach
     }
     
-    // If we had neither draft nor pending orders, but have confirmed orders,
-    // the batch is already fully confirmed
-    if (draftOrders.length === 0 && pendingOrders.length === 0 && confirmedOrders.length > 0) {
-      log('info', `All orders in batch ${batchOrderId} are already confirmed`);
-      return { success: true };
-    }
+    // Fallback: Update orders individually
+    log('info', 'Using fallback approach: updating orders individually');
     
-    // Final check to make sure everything is now confirmed
-    log('debug', 'Performing final status check on batch orders');
-    const { data: finalOrderCheck, error: finalCheckError } = await supabase
-      .from('orders')
-      .select('id, status')
-      .eq('batch_order_id', batchOrderId);
+    let updatedCount = 0;
+    
+    // First update draft orders to pending_payment
+    if (ordersByStatus.draft.length > 0) {
+      const draftIds = ordersByStatus.draft.map(order => order.id);
+      log('info', 'Updating draft orders to pending_payment:', draftIds);
       
-    if (finalCheckError) {
-      log('warn', 'Could not perform final batch order status check:', finalCheckError);
-    } else {
-      const stillPending = finalOrderCheck.filter(order => order.status !== 'confirmed');
-      if (stillPending.length > 0) {
-        log('warn', `${stillPending.length} orders in batch are still not confirmed`);
-        // Don't fail the entire operation, just warn
+      const { error: draftUpdateError } = await supabase
+        .from('orders')
+        .update({
+          status: 'pending_payment',
+          transaction_signature: signature,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', draftIds);
+        
+      if (draftUpdateError) {
+        log('error', 'Failed to update draft orders:', draftUpdateError);
       } else {
-        log('info', `All ${finalOrderCheck.length} orders in batch ${batchOrderId} are now confirmed`);
+        log('info', `Updated ${draftIds.length} draft orders to pending_payment`);
+        updatedCount += draftIds.length;
       }
     }
     
-    // Overall success as long as we've made progress
-    log('info', `Batch order payment confirmation completed for ${batchOrderId}`);
-    return { success: true };
+    // Then update pending_payment orders to confirmed
+    const pendingIds = [...ordersByStatus.pending_payment.map(order => order.id), 
+                        ...ordersByStatus.draft.map(order => order.id)];
+    
+    if (pendingIds.length > 0) {
+      log('info', 'Confirming orders:', pendingIds);
+      
+      const { error: confirmError } = await supabase
+        .from('orders')
+        .update({
+          status: 'confirmed',
+          updated_at: new Date().toISOString()
+        })
+        .in('id', pendingIds);
+        
+      if (confirmError) {
+        log('error', 'Failed to confirm orders:', confirmError);
+      } else {
+        log('info', `Confirmed ${pendingIds.length} orders`);
+        updatedCount += pendingIds.length;
+      }
+    }
+    
+    if (updatedCount > 0) {
+      log('info', `Successfully updated ${updatedCount} orders in batch ${batchOrderId}`);
+      return { 
+        success: true,
+        message: `Updated ${updatedCount} orders in batch`
+      };
+    } else if (ordersByStatus.confirmed.length === batchOrders.length) {
+      log('info', 'All orders were already confirmed. No updates needed.');
+      return { 
+        success: true,
+        message: 'All orders already confirmed'
+      };
+    } else {
+      log('warn', 'No orders were updated in batch');
+      return {
+        success: false,
+        error: 'Failed to update batch orders'
+      };
+    }
   } catch (error) {
     log('error', 'Error in confirmBatchOrderPayment:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error in batch processing'
+      error: error instanceof Error ? error.message : 'Unknown error in batch confirmation'
     };
   }
 }
@@ -814,11 +828,11 @@ exports.handler = async (event, context) => {
         success: true,
                 message: 'Stripe payment confirmed via RPC',
                 orderId
-              })
-            };
+      })
+    };
           } catch (rpcError) {
             console.warn('Failed to confirm Stripe payment via RPC, trying direct update:', rpcError);
-            
+    
             // Fallback: Do direct database operations
             // First check current status
             const { data: orderData, error: getError } = await supabase
@@ -869,7 +883,7 @@ exports.handler = async (event, context) => {
                 })
                 .eq('id', orderId)
                 .in('status', ['draft', 'pending_payment']);
-                
+          
               if (confirmError) {
                 console.error('Error confirming order:', confirmError);
                 throw confirmError;
@@ -904,7 +918,7 @@ exports.handler = async (event, context) => {
       try {
         console.log('Looking up orders by Stripe payment ID:', signature);
         const { data: orders, error: lookupError } = await supabase
-          .from('orders')
+              .from('orders')
           .select('id, status')
           .eq('transaction_signature', signature);
           
@@ -977,9 +991,9 @@ exports.handler = async (event, context) => {
             details: error.message
           })
         };
-      }
-    }
-    
+            }
+          }
+          
     // Handle free orders or other special payment types
     if (signature.startsWith('free_')) {
       console.log('Processing free order verification');
@@ -998,7 +1012,7 @@ exports.handler = async (event, context) => {
 
   try {
     console.log(`Verifying transaction: ${signature.substring(0, 12)}...`);
-    
+              
     // 1. Verify the transaction details on-chain
     const verification = await verifyTransactionDetails(signature, expectedDetails);
     
@@ -1010,11 +1024,11 @@ exports.handler = async (event, context) => {
     // 2. Determine which orders to process
     let targetOrderId = orderId;
     let targetBatchOrderId = batchOrderId;
-    
+                
     // If we have a batch order ID, prioritize that for processing
     if (targetBatchOrderId || isBatchOrder === true) {
       console.log(`Processing as batch order: ${targetBatchOrderId || 'batch ID to be determined'}`);
-      
+                
       // If we don't have a batch ID but isBatchOrder flag is true, try to find batch ID
       if (!targetBatchOrderId && targetOrderId) {
         try {
@@ -1024,14 +1038,14 @@ exports.handler = async (event, context) => {
             .select('batch_order_id')
             .eq('id', targetOrderId)
             .single();
-          
+                    
           if (!orderError && orderData && orderData.batch_order_id) {
             targetBatchOrderId = orderData.batch_order_id;
             console.log(`Found batch ID ${targetBatchOrderId} for order ${targetOrderId}`);
                     }
                   } catch (error) {
           console.error('Error finding batch ID from order:', error);
-        }
+                  }
       }
       
       // If we have a targetBatchOrderId, process as batch
@@ -1062,7 +1076,7 @@ exports.handler = async (event, context) => {
               batchOrderId: targetBatchOrderId
             })
           };
-        }
+                    }
       }
     }
     
@@ -1076,7 +1090,7 @@ exports.handler = async (event, context) => {
           .select('id, status, transaction_signature, batch_order_id')
             .eq('transaction_signature', signature)
           .in('status', ['pending_payment', 'draft']);
-          
+            
         if (!exactError && exactOrders && exactOrders.length > 0) {
           console.log(`Found ${exactOrders.length} orders with exact transaction signature match`);
           
@@ -1114,7 +1128,7 @@ exports.handler = async (event, context) => {
           
           if (verification.details && verification.details.buyer) {
             const buyerAddress = verification.details.buyer;
-            
+      
             // Find recent orders from this buyer
             const { data: buyerOrders, error: buyerError } = await supabase
         .from('orders')
@@ -1124,10 +1138,10 @@ exports.handler = async (event, context) => {
               .is('transaction_signature', null) // Look for orders without transaction_signature
               .order('created_at', { ascending: false })
               .limit(5); // Limit to most recent orders
-            
+        
             if (!buyerError && buyerOrders && buyerOrders.length > 0) {
               console.log(`Found ${buyerOrders.length} recent orders from buyer ${buyerAddress.substring(0, 8)}...`);
-              
+        
               // Check if any orders are part of a batch
               const batchOrder = buyerOrders.find(order => order.batch_order_id);
               if (batchOrder) {
@@ -1158,7 +1172,7 @@ exports.handler = async (event, context) => {
               console.log(`Using most recent order: ${targetOrderId}`);
             }
           }
-        }
+          }
       } catch (error) {
         console.error('Error finding related orders:', error);
       }
@@ -1204,7 +1218,7 @@ exports.handler = async (event, context) => {
         verification: {
             isValid: true,
             details: verification.details || {}
-          },
+        },
           ordersUpdated: []
         })
       };
@@ -1216,8 +1230,8 @@ exports.handler = async (event, context) => {
           success: false,
           error: verification.error || 'Transaction verification failed',
           details: verification.details || {}
-        })
-      };
+      })
+    };
     }
   } catch (err) {
     console.error('Error in verify-transaction function:', err);

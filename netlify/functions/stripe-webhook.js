@@ -329,6 +329,10 @@ async function processSuccessfulPayment(order, paymentIntent) {
     console.log('Processing successful payment for order:', order.id, 'with payment intent:', paymentIntent.id);
     console.log('Current transaction_signature in DB:', order.transaction_signature);
     
+    // Check if this is a batch order
+    const isBatchOrder = !!order.batch_order_id;
+    console.log('Is batch order:', isBatchOrder, isBatchOrder ? `Batch ID: ${order.batch_order_id}` : '');
+    
     // Use the Stripe-specific function to confirm the payment
     // This will handle both draft->pending_payment and pending_payment->confirmed transitions
     console.log('Calling confirm_stripe_payment with payment ID:', paymentIntent.id);
@@ -354,7 +358,7 @@ async function processSuccessfulPayment(order, paymentIntent) {
     console.log('Checking current order status after RPC call');
     const { data: currentStatus } = await supabase
       .from('orders')
-      .select('id, status, transaction_signature')
+      .select('id, status, transaction_signature, batch_order_id')
       .eq('id', order.id)
       .single();
     
@@ -450,20 +454,58 @@ async function processSuccessfulPayment(order, paymentIntent) {
           charge_id: chargeId, 
           receipt_url: receiptUrl
         });
-        
-        const { data: updateResult, error: signatureError } = await supabase.rpc('update_stripe_payment_signature', {
-          p_payment_id: paymentIntent.id,
-          p_charge_id: chargeId,
-          p_receipt_url: receiptUrl
-        });
 
-        if (signatureError) {
-          console.error('Error updating transaction signature:', signatureError);
-          console.error('Error details:', JSON.stringify(signatureError));
-          // Continue processing since payment is confirmed
+        if (isBatchOrder && currentStatus && currentStatus.batch_order_id) {
+          // For batch orders, update all orders in the batch with the receipt URL
+          console.log('Updating all orders in batch with receipt URL');
+          
+          try {
+            // First try the RPC function that handles batch orders
+            const { error: batchUpdateError } = await supabase.rpc('update_batch_receipt_url', {
+              p_batch_order_id: currentStatus.batch_order_id,
+              p_receipt_url: receiptUrl
+            });
+            
+            if (batchUpdateError) {
+              console.error('Error using RPC to update batch receipt URL:', batchUpdateError);
+              console.error('Falling back to direct update for batch orders');
+              
+              // Fallback to direct update for all orders in the batch
+              const { error: directUpdateError } = await supabase
+                .from('orders')
+                .update({
+                  transaction_signature: receiptUrl,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('batch_order_id', currentStatus.batch_order_id);
+              
+              if (directUpdateError) {
+                console.error('Failed to update batch orders with receipt URL:', directUpdateError);
+              } else {
+                console.log('Successfully updated all batch orders with receipt URL via direct update');
+              }
+            } else {
+              console.log('Successfully updated all batch orders with receipt URL via RPC');
+            }
+          } catch (batchUpdateError) {
+            console.error('Error updating batch with receipt URL:', batchUpdateError);
+          }
         } else {
-          console.log('Updated transaction signature to receipt URL:', receiptUrl);
-          console.log('Update result:', updateResult || 'No result returned (success)');
+          // For single orders, use the standard RPC function
+          const { data: updateResult, error: signatureError } = await supabase.rpc('update_stripe_payment_signature', {
+            p_payment_id: paymentIntent.id,
+            p_charge_id: chargeId,
+            p_receipt_url: receiptUrl
+          });
+
+          if (signatureError) {
+            console.error('Error updating transaction signature:', signatureError);
+            console.error('Error details:', JSON.stringify(signatureError));
+            // Continue processing since payment is confirmed
+          } else {
+            console.log('Updated transaction signature to receipt URL:', receiptUrl);
+            console.log('Update result:', updateResult || 'No result returned (success)');
+          }
         }
       }
     } catch (stripeError) {
