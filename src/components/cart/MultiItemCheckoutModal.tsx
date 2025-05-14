@@ -100,12 +100,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'solana' | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   
-  // Add state for order progress tracking
+  // Define order progress steps
   const [orderProgress, setOrderProgress] = useState<{
-    step: 'idle' | 'creating_order' | 'processing_payment' | 'confirming_transaction' | 'completed' | 'error';
+    step: 'initial' | 'creating_order' | 'processing_payment' | 'confirming_transaction' | 'success' | 'error';
     error?: string;
   }>({
-    step: 'idle'
+    step: 'initial'
   });
   
   // Add state for Stripe payment modal
@@ -341,6 +341,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       }
       
       // Update the order with the Stripe payment intent ID
+      setOrderProgress({ step: 'confirming_transaction' });
       const updateResponse = await fetch('/.netlify/functions/update-stripe-order', {
         method: 'POST',
         headers: {
@@ -353,62 +354,31 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       });
       
       if (!updateResponse.ok) {
-        const errorData = await updateResponse.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('Error updating order with Stripe payment:', errorData);
-        setOrderProgress({ 
-          step: 'error', 
-          error: errorData.error || 'Failed to update order with payment information' 
-        });
-        
-        // Still show success since Stripe payment went through
-        toast.info('Payment processed. Order status will update shortly.');
+        const errorData = await updateResponse.json();
+        console.error('Failed to update Stripe order status:', errorData);
+        // Continue anyway since payment was received
       } else {
-        setOrderProgress({ step: 'completed' });
-        
-        // Get the updated order data
-        try {
-          const orderData = await updateResponse.json();
-          console.log('Order updated successfully:', orderData);
-          
-          // Get order number from any of the formats
-          const displayOrderNumber = orderData.orderNumber || 
-                                    orderData.orders?.[0]?.orderNumber || 
-                                    'Unknown';
-          
-          // Update the order data state with transaction signature
-          setOrderData(prevData => ({
-            ...prevData,
-            transactionSignature: paymentIntentId
-          }));
-          
-          if (displayOrderNumber && displayOrderNumber !== 'Unknown') {
-            toast.success(`Order #${displayOrderNumber} placed successfully!`);
-          } else {
-            toast.success('Payment successful! Your order has been placed.');
-          }
-        } catch (parseError) {
-          console.error('Error parsing order response:', parseError);
-          toast.success('Payment successful! Your order has been placed.');
-        }
+        const result = await updateResponse.json();
+        console.log('Stripe order update result:', result);
       }
       
-      // Clear cart and close modal with slight delay to ensure user sees the success state
-      setTimeout(() => {
+      // Show success view even if the update had issues
+      setOrderProgress({ step: 'success' });
+      
+      // Check if we have clear cart function to clear the cart
+      if (clearCart) {
         clearCart();
-        onClose();
-      }, 2000);
-    } catch (error) {
-      console.error('Error processing Stripe payment success:', error);
-      setOrderProgress({ 
-        step: 'error', 
-        error: error instanceof Error ? error.message : 'There was an issue completing your order'
-      });
+      }
       
-      // Still show success since the payment went through on Stripe
-      toast.info('Payment processed. Please contact support if you have issues with your order.');
+    } catch (err) {
+      console.error('Error processing Stripe success:', err);
+      // Still show success since payment was completed successfully
+      setOrderProgress({ step: 'success' });
       
-      // Clear cart but let user decide when to close the modal
-      clearCart();
+      // Clear cart even if there was an error in status update
+      if (clearCart) {
+        clearCart();
+      }
     }
   };
   
@@ -533,7 +503,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         });
         
         // Update order progress
-        setOrderProgress({ step: 'completed' });
+        setOrderProgress({ step: 'success' });
         
         // Show success message for free order
         toast.success(`Free order #${orderNumber} created successfully!`);
@@ -623,7 +593,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           });
           
           // Show the Stripe payment modal
-          setOrderProgress({ step: 'idle' }); // Reset progress indicator for Stripe modal
+          setOrderProgress({ step: 'initial' }); // Reset progress indicator for Stripe modal
           setProcessingPayment(false);
           setShowStripeModal(true);
           return;
@@ -774,7 +744,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                 setOrderProgress({ step: 'error', error: status.error });
               } else if (status.paymentConfirmed === true) {
                 console.log('Transaction confirmed successfully');
-                setOrderProgress({ step: 'completed' });
+                setOrderProgress({ step: 'success' });
                 
                 // Show success message
                 toast.success(`Order #${orderNumber} placed successfully!`);
@@ -1004,7 +974,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               </div>
               
               {/* Add loading/progress overlay when processing payment */}
-              {orderProgress.step !== 'idle' && (
+              {orderProgress.step !== 'initial' && (
                 <div className="absolute inset-0 bg-gray-900/90 backdrop-blur-sm flex items-center justify-center z-10">
                   <div className="max-w-md w-full p-6 bg-gray-800 rounded-lg">
                     <div className="space-y-6">
@@ -1020,7 +990,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                             <Loading type={LoadingType.ACTION} />
                           ) : orderProgress.step === 'error' ? (
                             <AlertTriangle className="h-5 w-5 text-red-500" />
-                          ) : ['completed', 'processing_payment', 'confirming_transaction'].includes(orderProgress.step) ? (
+                          ) : ['success', 'processing_payment', 'confirming_transaction'].includes(orderProgress.step) ? (
                             <Check className="h-5 w-5 text-green-500" />
                           ) : (
                             <div className="h-5 w-5 rounded-full border border-gray-600" />
@@ -1035,7 +1005,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                             <Loading type={LoadingType.ACTION} />
                           ) : orderProgress.step === 'error' ? (
                             <AlertTriangle className="h-5 w-5 text-red-500" />
-                          ) : ['completed', 'confirming_transaction'].includes(orderProgress.step) ? (
+                          ) : ['success', 'confirming_transaction'].includes(orderProgress.step) ? (
                             <Check className="h-5 w-5 text-green-500" />
                           ) : (
                             <div className="h-5 w-5 rounded-full border border-gray-600" />
@@ -1050,7 +1020,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                             <Loading type={LoadingType.ACTION} />
                           ) : orderProgress.step === 'error' ? (
                             <AlertTriangle className="h-5 w-5 text-red-500" />
-                          ) : orderProgress.step === 'completed' ? (
+                          ) : orderProgress.step === 'success' ? (
                             <Check className="h-5 w-5 text-green-500" />
                           ) : (
                             <div className="h-5 w-5 rounded-full border border-gray-600" />

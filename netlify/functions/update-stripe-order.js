@@ -66,8 +66,9 @@ exports.handler = async (event, context) => {
     const isBatchOrder = !!order.batch_order_id;
     console.log('Is batch order:', isBatchOrder);
     
-    // Only proceed if the order is in an updateable status - include 'draft' for Stripe payments
-    if (order.status !== 'pending' && order.status !== 'pending_payment' && order.status !== 'draft') {
+    // Check order status - should be in 'draft' status for new orders
+    // We only want to process orders in draft status, as we'll update them to pending_payment
+    if (order.status !== 'draft') {
       return {
         statusCode: 200,
         body: JSON.stringify({ 
@@ -89,10 +90,11 @@ exports.handler = async (event, context) => {
     if (isBatchOrder) {
       console.log('Processing batch order:', order.batch_order_id);
       
-      // First update the transaction signature for all orders in the batch
+      // First update the transaction signature and set status to pending_payment for all orders in the batch
       const { data: batchOrders, error: batchError } = await supabase
         .from('orders')
         .update({
+          status: 'pending_payment',
           transaction_signature: paymentIntentId,
           payment_metadata: metadata,
           updated_at: new Date().toISOString()
@@ -108,7 +110,7 @@ exports.handler = async (event, context) => {
         };
       }
       
-      // Now update the status for each batch order
+      // Now update the status to confirmed for each batch order
       updatedOrders = await Promise.all(batchOrders.map(async (batchOrder) => {
         try {
           // Try to use confirm_stripe_payment RPC function first
@@ -120,7 +122,7 @@ exports.handler = async (event, context) => {
           if (rpcError) {
             console.error(`RPC function error for order ${batchOrder.id}:`, rpcError);
             
-            // Fall back to direct update
+            // Fall back to direct update to set status to confirmed
             const { error: updateError } = await supabase
               .from('orders')
               .update({
@@ -134,7 +136,7 @@ exports.handler = async (event, context) => {
               return {
                 orderId: batchOrder.id,
                 orderNumber: batchOrder.order_number,
-                status: batchOrder.status,
+                status: 'pending_payment', // We at least moved it to pending_payment
                 updated: false,
                 error: updateError.message
               };
@@ -152,7 +154,7 @@ exports.handler = async (event, context) => {
           return {
             orderId: batchOrder.id,
             orderNumber: batchOrder.order_number,
-            status: batchOrder.status,
+            status: 'pending_payment',
             updated: false,
             error: orderError.message
           };
@@ -175,7 +177,28 @@ exports.handler = async (event, context) => {
     } 
     // Single order processing
     else {
-      // Try to call RPC function first - this may have special permissions
+      // First update the order to pending_payment status
+      const { error: pendingUpdateError } = await supabase
+        .from('orders')
+        .update({
+          status: 'pending_payment',
+          transaction_signature: paymentIntentId,
+          payment_metadata: metadata,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (pendingUpdateError) {
+        console.error('Failed to update order to pending_payment:', pendingUpdateError);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: 'Failed to update order to pending_payment', details: pendingUpdateError.message })
+        };
+      }
+
+      console.log('Order updated to pending_payment status');
+
+      // Try to call RPC function first to confirm the order
       try {
         console.log('Attempting to use confirm_stripe_payment RPC function');
         const { data: rpcResult, error: rpcError } = await supabase.rpc('confirm_stripe_payment', {
@@ -204,20 +227,18 @@ exports.handler = async (event, context) => {
         // Continue to direct update fallback
       }
 
-      // Update order status to confirmed and store payment intent
-      console.log('Falling back to direct table update');
+      // Update order status to confirmed
+      console.log('Falling back to direct table update for confirmation');
       const { error: updateError } = await supabase
         .from('orders')
         .update({
           status: 'confirmed',
-          transaction_signature: paymentIntentId,
-          payment_metadata: metadata,
           updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
 
       if (updateError) {
-        console.error('Failed to update order:', updateError);
+        console.error('Failed to update order to confirmed:', updateError);
         
         // If direct update fails, try SQL function as a last resort
         try {
@@ -230,13 +251,13 @@ exports.handler = async (event, context) => {
           if (sqlError) {
             console.error('SQL function error:', sqlError);
             return {
-              statusCode: 500,
+              statusCode: 200,
               body: JSON.stringify({ 
-                error: 'Failed to update order through all available methods',
-                details: {
-                  updateError,
-                  sqlError
-                }
+                success: true, 
+                message: 'Order updated to pending_payment but could not be confirmed',
+                orderId: orderId,
+                orderNumber: order.order_number,
+                status: 'pending_payment'
               })
             };
           }
@@ -255,8 +276,14 @@ exports.handler = async (event, context) => {
         } catch (sqlError) {
           console.error('Error calling SQL function:', sqlError);
           return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to update order', details: { updateError, sqlError } })
+            statusCode: 200,
+            body: JSON.stringify({ 
+              success: true, 
+              message: 'Order updated to pending_payment but could not be confirmed',
+              orderId: orderId,
+              orderNumber: order.order_number,
+              status: 'pending_payment'
+            })
           };
         }
       }

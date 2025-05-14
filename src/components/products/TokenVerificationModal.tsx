@@ -120,7 +120,7 @@ export function TokenVerificationModal({
       label: 'Payment Processing',
       status: 'pending',
       details: {
-        success: 'Payment confirmed on Solana network',
+        success: 'Payment processed successfully',
         error: 'Unable to process payment'
       }
     },
@@ -128,7 +128,7 @@ export function TokenVerificationModal({
       label: 'Transaction Confirmation',
       status: 'pending',
       details: {
-        success: 'Transaction finalized on-chain',
+        success: 'Transaction finalized and confirmed',
         error: 'Transaction verification failed'
       }
     }
@@ -683,13 +683,18 @@ export function TokenVerificationModal({
     try {
       console.log('Stripe payment successful:', { orderId: createdOrderId, paymentIntentId });
       
+      // Update order progress for UI
+      updateProgressStep(1, 'completed');
+      updateProgressStep(2, 'processing', 'Confirming transaction...');
+      
       // Skip confirmation call for free orders - they are already confirmed during creation
       const isFreeOrder = paymentIntentId.startsWith('free_');
       
       // Only call the confirmation endpoint for regular Stripe payments, not free orders
       if (!isFreeOrder && createdOrderId) {
         try {
-          const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.confirmStripeOrder}`, {
+          updateProgressStep(2, 'processing', 'Updating order status...');
+          const response = await fetch('/.netlify/functions/update-stripe-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ orderId: createdOrderId, paymentIntentId })
@@ -697,10 +702,21 @@ export function TokenVerificationModal({
           
           const result = await response.json();
           console.log('Client-side order confirmation result:', result);
+          
+          if (result.success) {
+            updateProgressStep(2, 'completed');
+          } else {
+            updateProgressStep(2, 'error', undefined, result.error || 'Failed to update order status');
+            // Continue with success view anyway - we've received payment
+          }
         } catch (confirmError) {
           console.error('Error with client-side order confirmation:', confirmError);
+          updateProgressStep(2, 'error', undefined, 'Failed to update order status, but payment was received');
           // Continue with the process even if this fails
         }
+      } else {
+        // For free orders, mark the final step as complete
+        updateProgressStep(2, 'completed');
       }
       
       // Try to fetch the latest order data first to get the correct order number
@@ -764,6 +780,7 @@ export function TokenVerificationModal({
       onSuccess();
     } catch (error) {
       console.error('Error handling Stripe success:', error);
+      updateProgressStep(2, 'error', undefined, 'Error finalizing order, but payment was received');
       
       // Even if there's an error getting order details, still show success
       const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
