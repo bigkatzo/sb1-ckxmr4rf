@@ -105,15 +105,84 @@ exports.handler = async (event, context) => {
     
     if (error) {
       log('error', 'Error fetching order:', error);
+      
+      // Handle RLS policy errors differently
+      if (error.code === '42P17' && error.message.includes('infinite recursion detected in policy')) {
+        log('error', 'RLS policy recursion error. Attempting to bypass with administrator query.');
+        
+        try {
+          // Try using a more direct query to bypass potential RLS issues
+          const { data: directOrder, error: directError } = await supabase.rpc('admin_get_order_by_id', {
+            p_order_id: orderId
+          });
+          
+          if (directError) {
+            log('error', 'Failed to get order with admin function:', directError);
+            return {
+              statusCode: 500,
+              headers,
+              body: JSON.stringify({ 
+                error: 'Database error', 
+                message: 'Could not retrieve order due to a permission issue.', 
+                details: directError.message 
+              })
+            };
+          }
+          
+          if (directOrder) {
+            log('info', 'Successfully retrieved order using admin function:', { 
+              id: directOrder.id, 
+              status: directOrder.status 
+            });
+            
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify(directOrder)
+            };
+          }
+        } catch (rpcError) {
+          log('error', 'Error calling admin RPC function:', rpcError);
+        }
+      }
+      
       return {
         statusCode: 500,
         headers,
-        body: JSON.stringify({ error: error.message })
+        body: JSON.stringify({ error: error.message, code: error.code, details: error.details })
       };
     }
     
     if (!order) {
       log('warn', 'Order not found:', orderId);
+      
+      // Try to search by transaction ID as a fallback
+      try {
+        log('info', 'Attempting to find order by transaction signature instead');
+        const { data: ordersByTx, error: txError } = await supabase
+          .from('orders')
+          .select('id, order_number, status, batch_order_id, product_id, transaction_signature')
+          .eq('transaction_signature', orderId)
+          .limit(1);
+        
+        if (txError) {
+          log('error', 'Error searching by transaction signature:', txError);
+        } else if (ordersByTx && ordersByTx.length > 0) {
+          log('info', 'Found order by transaction signature instead:', { 
+            id: ordersByTx[0].id, 
+            status: ordersByTx[0].status 
+          });
+          
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify(ordersByTx[0])
+          };
+        }
+      } catch (fallbackError) {
+        log('error', 'Error during fallback search:', fallbackError);
+      }
+      
       return {
         statusCode: 404,
         headers,

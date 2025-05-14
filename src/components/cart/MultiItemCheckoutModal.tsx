@@ -332,7 +332,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   // Update the handleStripeSuccess function to receive and use batchOrderId
   const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string, batchOrderId?: string) => {
     console.log('Stripe payment successful:', { 
-      orderId: orderData.orderId, 
+      localOrderId: orderData.orderId, 
       stripeOrderId, 
       paymentIntentId,
       batchOrderId
@@ -359,6 +359,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         return;
       }
       
+      // Compare IDs to detect mismatch issues
+      if (orderData.orderId && orderId !== orderData.orderId) {
+        console.warn('Order ID mismatch detected:', {
+          localOrderId: orderData.orderId,
+          stripeOrderId: orderId
+        });
+      }
+      
       // Store batchOrderId in orderData if provided
       if (batchOrderId) {
         setOrderData(prev => ({
@@ -383,6 +391,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       try {
+        console.log('Updating order status with transaction ID:', {
+          orderId,
+          paymentIntentId
+        });
+        
         const updateResponse = await fetch('/.netlify/functions/update-stripe-order', {
           method: 'POST',
           headers: {

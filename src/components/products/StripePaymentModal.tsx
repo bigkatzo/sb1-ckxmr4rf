@@ -197,10 +197,23 @@ function StripeCheckoutForm({
             setPaymentStatus('succeeded');
             // The PaymentIntent type doesn't declare metadata, so we need to use type assertion
             const paymentMeta = (result.paymentIntent as any).metadata || {};
+            
+            // Ensure we properly extract order metadata
+            console.log('Payment metadata from Stripe:', paymentMeta);
+            
+            // Extract orderId and batchOrderId from metadata
+            // The server stores these in the metadata when creating the payment intent
+            const metaOrderId = paymentMeta.orderId;
+            const metaBatchOrderId = paymentMeta.batchOrderId;
+            
+            if (!metaOrderId) {
+              console.warn('No orderId found in payment intent metadata');
+            }
+            
             onSuccess(
               result.paymentIntent.id, 
-              paymentMeta.orderId, 
-              paymentMeta.batchOrderId
+              metaOrderId, 
+              metaBatchOrderId
             );
             break;
           case 'processing':
