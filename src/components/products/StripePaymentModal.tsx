@@ -475,6 +475,14 @@ export function StripePaymentModal({
           throw new Error('Shipping information is required');
         }
         
+        // ALWAYS get the existing order ID - this is critical to avoid duplicate orders
+        const existingOrderId = window.sessionStorage.getItem('lastCreatedOrderId');
+        
+        if (!existingOrderId) {
+          console.error('No existing order ID found in session storage');
+          throw new Error('No existing order ID found. Please go back and try again.');
+        }
+        
         console.log('Creating payment intent for', {
           solAmount,
           productName,
@@ -482,7 +490,8 @@ export function StripePaymentModal({
           hasShippingInfo: !!finalShippingInfo,
           hasVariants: !!(variants && variants.length > 0),
           walletAddress,
-          isCartCheckout: !!checkoutData
+          isCartCheckout: !!checkoutData,
+          existingOrderId
         });
 
         // We no longer handle free orders in the Stripe modal
@@ -509,6 +518,8 @@ export function StripePaymentModal({
             // Include cart items if this is a cart checkout
             cartItems: checkoutData ? finalItems : undefined,
             isCartCheckout: !!checkoutData,
+            // ALWAYS pass the existing order ID to prevent duplicate orders
+            existingOrderId,
             paymentMetadata: {
               couponCode: finalCouponCode,
               originalPrice: finalOriginalPrice,

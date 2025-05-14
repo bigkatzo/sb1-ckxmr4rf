@@ -656,8 +656,60 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       // For Stripe, create batch order and open the Stripe modal
       if (paymentMethod === 'stripe') {
         try {
-          // IMPORTANT: Skip creating a batch order here - let create-payment-intent handle the order creation
-          console.log('Initializing Stripe payment flow');
+          // Create batch order first for Stripe payments
+          console.log('Creating batch order for Stripe payment first');
+          setOrderProgress({ step: 'creating_order' });
+          
+          // Create a batch order
+          const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              items: items.map(item => ({
+                product: item.product,
+                selectedOptions: item.selectedOptions,
+                quantity: item.quantity
+              })),
+              shippingInfo: formattedShippingInfo,
+              walletAddress: walletAddress || 'anonymous',
+              paymentMetadata: {
+                paymentMethod: 'stripe',
+                couponCode: appliedCoupon?.code,
+                couponDiscount,
+                originalPrice: totalPrice
+              }
+            })
+          });
+          
+          const batchOrderData = await batchOrderResponse.json();
+          
+          if (!batchOrderData.success) {
+            setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
+            throw new Error(batchOrderData.error || 'Failed to create batch order');
+          }
+          
+          console.log('Batch order created for Stripe payment:', batchOrderData);
+          
+          // Store the order information
+          const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
+          const orderNumber = batchOrderData.orderNumber;
+          const batchOrderId = batchOrderData.batchOrderId;
+          
+          setOrderData({
+            orderId,
+            orderNumber,
+            batchOrderId
+          });
+          
+          // Store order ID in session storage for Stripe payment to use
+          if (orderId) {
+            window.sessionStorage.setItem('lastCreatedOrderId', orderId);
+          }
+          if (batchOrderId) {
+            window.sessionStorage.setItem('lastBatchOrderId', batchOrderId);
+          }
           
           // Store shipping and payment information for Stripe checkout
           const stripeCheckoutData = {
@@ -743,6 +795,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             orderNumber,
             batchOrderId
           });
+          
+          // Store order ID in session storage for Stripe payment to use
+          if (orderId) {
+            window.sessionStorage.setItem('lastCreatedOrderId', orderId);
+          }
+          if (batchOrderId) {
+            window.sessionStorage.setItem('lastBatchOrderId', batchOrderId);
+          }
           
           // Process payment step
           setOrderProgress({ step: 'processing_payment' });

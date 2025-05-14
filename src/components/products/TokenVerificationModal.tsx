@@ -1023,6 +1023,12 @@ export function TokenVerificationModal({
       
       // Store the order ID for later use when Stripe payment completes
       setCreatedOrderId(orderData.orderId);
+      
+      // Store the order ID in session storage for use by Stripe payment modal
+      if (orderData.orderId) {
+        window.sessionStorage.setItem('lastCreatedOrderId', orderData.orderId);
+      }
+      
       updateProgressStep(0, 'completed');
       
       // Show the Stripe modal

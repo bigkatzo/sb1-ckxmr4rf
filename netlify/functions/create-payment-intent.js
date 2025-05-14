@@ -109,7 +109,8 @@ exports.handler = async (event, context) => {
       originalPrice,
       cartItems,          // New parameter for cart items
       isCartCheckout,     // Flag to indicate if this is coming from cart
-      paymentMetadata = {}
+      paymentMetadata = {},
+      existingOrderId    // New parameter to pass an existing order ID
     } = JSON.parse(event.body);
 
     // Check if this is a free order (100% discount)
@@ -173,96 +174,51 @@ exports.handler = async (event, context) => {
     
     let orderId;
     
-    // Handle cart checkout vs. single product checkout
-    if (isCartCheckout && cartItems && cartItems.length > 0) {
-      // This is a cart checkout with multiple items - use create-batch-order functionality
-      console.log('Creating batch order for cart items:', cartItems.length);
+    // If an existing order ID was provided, use it instead of creating a new order
+    if (existingOrderId) {
+      console.log('Using existing order ID:', existingOrderId);
+      orderId = existingOrderId;
       
-      try {
-        // Instead of calling Supabase RPC, call our own create-batch-order function
-        // to reuse the same reliable implementation for batch orders
-        const batchOrderUrl = process.env.URL + '/.netlify/functions/create-batch-order';
-        console.log('Calling create-batch-order endpoint:', batchOrderUrl);
-        
-        // Use node-fetch for internal API call
-        const fetch = require('node-fetch');
-        const batchResponse = await fetch(batchOrderUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            items: cartItems,
-            shippingInfo,
-            walletAddress: walletAddress || 'stripe',
-            paymentMetadata: finalPaymentMetadata
-          })
-        });
-        
-        // Parse the response
-        const batchResult = await batchResponse.json();
-        
-        if (!batchResponse.ok) {
-          console.error('Error from create-batch-order endpoint:', batchResult);
-          throw new Error('Failed to create batch order: ' + (batchResult.error || 'Unknown error'));
-        }
-        
-        console.log('Batch order created with result:', batchResult);
-        
-        // Extract order IDs from the batch result
-        if (batchResult && batchResult.success) {
-          batchOrderId = batchResult.batchOrderId;
-          orderId = batchResult.orderId;
-          orderNumber = batchResult.orderNumber;
-          
-          // Log success
-          console.log('Batch order created successfully:', {
-            batchOrderId,
-            orderNumber,
-            orderId,
-            totalOrders: batchResult.orders?.length || 0
-          });
-        } else {
-          throw new Error('Failed to create batch order: ' + (batchResult.error || 'Unknown error'));
-        }
-      } catch (batchError) {
-        console.error('Failed to create batch order:', batchError);
-        throw new Error('Failed to create orders for cart items: ' + batchError.message);
-      }
-    } else {
-      // This is a single product checkout - use the original flow
-      console.log('Creating order record in database before payment intent');
-      const { data: createdOrderId, error: orderError } = await supabase.rpc('create_order', {
-        p_product_id: productId,
-        p_variants: variants || [],
-        p_shipping_info: shippingInfo,
-        p_wallet_address: walletAddress || 'stripe',
-        p_payment_metadata: finalPaymentMetadata
-      });
-
-      if (orderError) {
-        console.error('Error creating order:', orderError);
-        throw orderError;
-      }
-
-      orderId = createdOrderId;
-      console.log('Order created successfully with ID:', orderId);
-
-      // Update order with batch ID and order number
-      const { error: updateError } = await supabase
+      // Look up the batch order ID and order number for the existing order
+      const { data: existingOrder, error: fetchError } = await supabase
         .from('orders')
-        .update({
-          order_number: orderNumber,
-          batch_order_id: batchOrderId,
-          item_index: 1, // For single orders, always index 1
-          total_items_in_batch: 1, // For single orders, always 1 item
-        })
-        .eq('id', orderId);
-
-      if (updateError) {
-        console.error('Error updating order with batch details:', updateError);
-        throw updateError;
+        .select('id, order_number, batch_order_id')
+        .eq('id', existingOrderId)
+        .single();
+        
+      if (fetchError) {
+        console.error('Error fetching existing order:', fetchError);
+        throw new Error('Failed to fetch existing order information');
       }
+      
+      if (existingOrder) {
+        console.log('Found existing order details:', existingOrder);
+        // Use the existing batch ID and order number
+        orderNumber = existingOrder.order_number;
+        batchOrderId = existingOrder.batch_order_id || batchOrderId;
+        
+        // Update order with payment information
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({
+            payment_metadata: finalPaymentMetadata,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingOrderId);
+          
+        if (updateError) {
+          console.error('Error updating existing order with payment information:', updateError);
+          // Continue anyway - not critical
+        }
+      } else {
+        console.warn('Existing order not found in database:', existingOrderId);
+        throw new Error('Order not found. Please try again.');
+      }
+    }
+    // STOP creating new orders here - require an existing order ID
+    else {
+      console.error('No existing order ID provided');
+      throw new Error('Missing required order ID. Please create an order before initiating payment.');
     }
 
     // IMPORTANT: Stripe metadata must be flat key-value pairs with string values only
