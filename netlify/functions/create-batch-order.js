@@ -98,6 +98,14 @@ exports.handler = async (event, context) => {
     const requestBody = JSON.parse(event.body);
     const { items, shippingInfo, walletAddress, paymentMetadata } = requestBody;
 
+    console.log('Batch order request received:', {
+      itemCount: items?.length || 0,
+      hasShippingInfo: !!shippingInfo,
+      walletAddress: walletAddress ? `${walletAddress.substring(0, 6)}...${walletAddress.substring(walletAddress.length - 4)}` : 'anonymous',
+      paymentMethod: paymentMetadata?.paymentMethod || 'unknown',
+      isFreeOrder: paymentMetadata?.isFreeOrder === true
+    });
+
     if (!items || !Array.isArray(items) || items.length === 0) {
       return {
         statusCode: 400,
@@ -185,6 +193,13 @@ exports.handler = async (event, context) => {
         itemIndex: createdOrders.length + 1,
         totalItems: items.length
       });
+
+      // Log each created order with its position in the batch
+      console.log(`Created order ${createdOrders.length}/${items.length} in batch ${batchOrderId}:`, {
+        orderId: order.id,
+        productId: product.id,
+        status: order.status
+      });
     }
     
     // After the orders are created, for free orders confirm that all have transaction signature:
@@ -227,6 +242,16 @@ exports.handler = async (event, context) => {
         console.error('Error checking/updating free orders batch transaction signatures:', err);
       }
     }
+
+    // At the end of the endpoint, add batch summary logging before returning
+    // Right before the return statement for success
+    console.log(`Batch order creation complete:`, {
+      batchOrderId,
+      orderNumber,
+      totalOrders: createdOrders.length,
+      expectedItems: items.length,
+      success: createdOrders.length === items.length
+    });
 
     // Return success response with created orders
     // Include the first order's ID as orderId in the response for easier handling from frontend

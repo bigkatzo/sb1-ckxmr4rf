@@ -91,14 +91,19 @@ exports.handler = async (event, context) => {
 
   // Check if this is a batch order
   if (isBatchOrder === true || batchOrderId) {
-    console.log('Processing batch order:', {
+    console.log('Processing batch order transaction update:', {
       batchOrderId: batchOrderId || 'unknown',
-      isBatchOrder: isBatchOrder
+      isBatchOrder: isBatchOrder,
+      transactionSignature: transactionSignature 
+        ? `${transactionSignature.substring(0, 8)}...${transactionSignature.slice(-8)}` 
+        : 'none',
+      amountSol
     });
     
     const batchId = batchOrderId || (orderId ? await getBatchOrderId(orderId) : null);
     
     if (batchId) {
+      console.log(`Found valid batch ID: ${batchId}`);
       return await updateBatchOrderTransaction(batchId, transactionSignature, amountSol, headers);
     } else {
       console.warn('Batch order specified but no valid batch ID found');
@@ -253,6 +258,12 @@ async function getBatchOrderId(orderId) {
 
 // Helper function to update batch order transaction
 async function updateBatchOrderTransaction(batchOrderId, transactionSignature, amountSol, headers) {
+  // Beginning of the function
+  console.log(`Starting batch transaction update for batch: ${batchOrderId}`, {
+    signaturePrefix: transactionSignature ? transactionSignature.substring(0, 8) : 'none',
+    amountSol
+  });
+
   if (!batchOrderId) {
     return {
       statusCode: 400,
@@ -391,6 +402,10 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
     }
 
     console.log('Batch order transaction updated successfully');
+    console.log(`Successfully updated transaction for batch ${batchOrderId}`, {
+      status: 'pending_payment',
+      updatedCount: updated_count || 'unknown'
+    });
     return {
       statusCode: 200,
       headers,

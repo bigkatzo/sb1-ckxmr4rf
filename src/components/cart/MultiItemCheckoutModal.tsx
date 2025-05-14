@@ -622,7 +622,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             throw new Error(batchOrderData.error || 'Failed to create batch order');
           }
           
-          console.log('Batch order created successfully:', batchOrderData);
+          console.log('Batch order created for Stripe payment:', {
+            batchOrderId: batchOrderData.batchOrderId,
+            orderNumber: batchOrderData.orderNumber,
+            orderCount: batchOrderData.orders?.length,
+            firstOrderId: batchOrderData.orderId
+          });
           
           // Store the order information - extract orderId from response
           // Extract orderId - check all possible locations in the API response
@@ -702,7 +707,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             throw new Error(batchOrderData.error || 'Failed to create batch order');
           }
           
-          console.log('Batch order created successfully:', batchOrderData);
+          console.log('Batch order created for Solana payment:', {
+            batchOrderId: batchOrderData.batchOrderId,
+            orderNumber: batchOrderData.orderNumber,
+            orderCount: batchOrderData.orders?.length,
+            firstOrderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId
+          });
           
           // Store the order information
           const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
