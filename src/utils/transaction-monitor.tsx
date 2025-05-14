@@ -25,6 +25,7 @@ const INITIAL_DELAY = 1000;
 /**
  * Monitors transaction confirmation and sends to server for verification
  * The server is now fully responsible for all verification logic
+ * Updated to handle batch orders consistently
  */
 export async function monitorTransaction(
   signature: string,
@@ -46,16 +47,17 @@ export async function monitorTransaction(
   }
 
   // Log the orderId to help with debugging
-  console.log('Starting transaction monitoring with params:', { 
+  console.log('[TRANSACTION_MONITOR] Starting monitoring with params:', { 
     signature: signature.substring(0, 10) + '...',
     hasExpectedDetails: !!expectedDetails,
     orderId: orderId || 'none',
-    batchOrderId: batchOrderId || 'none'
+    batchOrderId: batchOrderId || 'none',
+    expectedAmount: expectedDetails?.amount
   });
 
   // Skip monitoring for non-Solana transactions (e.g. Stripe or free orders)
   if (signature.startsWith('pi_') || signature.startsWith('free_')) {
-    console.log('Non-Solana transaction, skipping monitoring:', signature);
+    console.log('[TRANSACTION_MONITOR] Non-Solana transaction detected, skipping monitoring:', signature);
     onStatusUpdate({
       processing: false,
       success: true,
@@ -68,7 +70,7 @@ export async function monitorTransaction(
 
   // Prevent duplicate processing
   if (processedSignatures.has(signature)) {
-    console.log('Transaction already processed:', signature);
+    console.log('[TRANSACTION_MONITOR] Transaction already processed:', signature);
     return true;
   }
   processedSignatures.add(signature);
@@ -91,57 +93,139 @@ export async function monitorTransaction(
     while (attempts < MAX_RETRIES) {
       try {
         // Check if transaction is finalized on Solana blockchain
+        console.log(`[TRANSACTION_MONITOR] Checking status (attempt ${attempts + 1}/${MAX_RETRIES})`);
         const statuses = await SOLANA_CONNECTION.getSignatureStatuses([signature], {
           searchTransactionHistory: true
         });
         
         const status = statuses.value?.[0];
-        console.log(`Status check ${attempts + 1}:`, status);
+        console.log(`[TRANSACTION_MONITOR] Status check ${attempts + 1}:`, {
+          confirmationStatus: status?.confirmationStatus,
+          slot: status?.slot,
+          confirmations: status?.confirmations,
+          err: status?.err
+        });
 
         // Only proceed with server verification if transaction is finalized
         if (status?.confirmationStatus === 'finalized') {
+          console.log('[TRANSACTION_MONITOR] Transaction finalized on blockchain, proceeding to server verification');
           try {
             // No auth token needed for server-side operations
-            console.log('Transaction finalized on blockchain, sending to server for verification');
+            console.log('[TRANSACTION_MONITOR] Building verification payload');
 
-            // When constructing the POST request JSON, update it to include batchOrderId:
+            // Prepare the payload with complete information
             const payload: any = {
               signature,
               status: 'confirmed'
             };
 
+            // Include orderId if provided
             if (orderId) {
               payload.orderId = orderId;
             }
 
+            // Include batch information if provided
             if (batchOrderId) {
               payload.batchOrderId = batchOrderId;
               payload.isBatchOrder = true;
             }
 
+            // Include expected details if provided
             if (expectedDetails) {
               payload.expectedDetails = expectedDetails;
             }
 
-            // Send transaction to server for verification - ALL verification happens server-side
-            const response = await fetch('/.netlify/functions/verify-transaction', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(payload)
+            console.log('[TRANSACTION_MONITOR] Sending verification payload to server:', {
+              ...payload,
+              signature: signature.substring(0, 8) + '...',
+              expectedDetails: expectedDetails ? {
+                amount: expectedDetails.amount,
+                buyer: expectedDetails.buyer.substring(0, 6) + '...',
+                recipient: expectedDetails.recipient.substring(0, 6) + '...'
+              } : 'none'
             });
+
+            // Send transaction to server for verification - ALL verification happens server-side
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20-second timeout
             
-            // Handle server response
-            if (!response.ok) {
-              // Server unavailable - background job will process it later
-              if (response.status === 502 || response.status === 401 || response.status === 403) {
-                console.warn(`Server temporarily unavailable (${response.status}). Verification will be completed by background job.`);
+            try {
+              const response = await fetch('/.netlify/functions/verify-transaction', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+              });
+              
+              clearTimeout(timeoutId);
+              
+              // Handle server response
+              if (!response.ok) {
+                // Server unavailable - background job will process it later
+                if (response.status === 502 || response.status === 401 || response.status === 403) {
+                  console.warn(`[TRANSACTION_MONITOR] Server temporarily unavailable (${response.status}). Verification will be completed by background job.`);
+                  
+                  toast.update(toastId, {
+                    render: () => (
+                      <div>
+                        Transaction confirmed! Verification will be processed automatically.
+                      </div>
+                    ),
+                    type: 'success',
+                    isLoading: false,
+                    autoClose: 8000
+                  });
+                  
+                  onStatusUpdate({
+                    processing: false,
+                    success: true,
+                    error: null,
+                    signature,
+                    paymentConfirmed: true
+                  });
+                  
+                  return true;
+                }
+                
+                // Other server errors
+                const responseText = await response.text();
+                console.error('[TRANSACTION_MONITOR] Server error response:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                  body: responseText.substring(0, 200) // Truncate long responses
+                });
+                
+                try {
+                  const errorData = JSON.parse(responseText);
+                  throw new Error(errorData.error || 'Server verification failed');
+                } catch (parseError) {
+                  throw new Error(`Server error (${response.status}): ${responseText.substring(0, 100)}`);
+                }
+              }
+              
+              // Parse the successful response
+              const responseText = await response.text();
+              console.log('[TRANSACTION_MONITOR] Server response raw:', responseText.substring(0, 200));
+              
+              let verificationResult;
+              try {
+                verificationResult = JSON.parse(responseText);
+                console.log('[TRANSACTION_MONITOR] Parsed server response:', verificationResult);
+              } catch (parseError) {
+                console.error('[TRANSACTION_MONITOR] Error parsing server response:', parseError);
+                throw new Error('Invalid server response format');
+              }
+              
+              // Handle temporary approval
+              if (verificationResult.warning && verificationResult.tempApproved) {
+                console.warn('[TRANSACTION_MONITOR] Server returned temporary approval:', verificationResult.warning);
                 
                 toast.update(toastId, {
                   render: () => (
                     <div>
-                      Transaction confirmed! Verification will be processed automatically.
+                      Transaction confirmed! {verificationResult.warning}
                     </div>
                   ),
                   type: 'success',
@@ -160,142 +244,145 @@ export async function monitorTransaction(
                 return true;
               }
               
-              // Other server errors
-              const errorData = await response.json().catch(() => ({ error: 'Failed to verify transaction' }));
-              throw new Error(errorData.error || 'Server verification failed');
-            }
-            
-            // Process successful server response
-            const verificationResult = await response.json();
-            
-            // Handle temporary approval
-            if (verificationResult.warning && verificationResult.tempApproved) {
-              console.warn('Server returned temporary approval:', verificationResult.warning);
+              // Handle verification failure
+              if (!verificationResult.success) {
+                const errorMessage = verificationResult.error || 'Transaction verification failed';
+                console.error('[TRANSACTION_MONITOR] Verification failed:', errorMessage);
+                
+                toast.update(toastId, {
+                  render: errorMessage,
+                  type: 'error',
+                  isLoading: false,
+                  autoClose: 5000
+                });
+
+                onStatusUpdate({
+                  processing: false,
+                  success: false,
+                  error: errorMessage,
+                  signature,
+                  paymentConfirmed: false
+                });
+
+                return false;
+              }
+
+              // Success - transaction verified by server
+              console.log('[TRANSACTION_MONITOR] Server verification successful:', verificationResult);
               
+              // Check for batch order information in the response
+              const batchOrderSuccess = verificationResult.ordersUpdated && 
+                (verificationResult.ordersUpdated.length > 0 || 
+                (typeof verificationResult.ordersUpdated === 'number' && verificationResult.ordersUpdated > 0));
+                
+              if (batchOrderSuccess) {
+                console.log('[TRANSACTION_MONITOR] Batch order successfully processed:', {
+                  batchOrderId: verificationResult.batchOrderId || batchOrderId,
+                  ordersUpdated: verificationResult.ordersUpdated
+                });
+              }
+              
+              // Force immediate callback execution for UI updates
+              try {
+                console.log('[TRANSACTION_MONITOR] Executing success callback with paymentConfirmed=true');
+                // Call onStatusUpdate immediately with paymentConfirmed true
+                // This ensures the UI gets updated as soon as possible
+                onStatusUpdate({
+                  processing: false,
+                  success: true,
+                  error: null,
+                  signature,
+                  paymentConfirmed: true
+                });
+              } catch (callbackError) {
+                console.error('[TRANSACTION_MONITOR] Error in immediate callback execution:', callbackError);
+              }
+
+              // Then show the toast
+              const solscanUrl = `https://solscan.io/tx/${signature}`;
               toast.update(toastId, {
                 render: () => (
                   <div>
-                    Transaction confirmed! {verificationResult.warning}
+                    Transaction confirmed!{' '}
+                    <a 
+                      href={solscanUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-blue-400 hover:text-blue-300 underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View on Solscan
+                    </a>
                   </div>
                 ),
                 type: 'success',
                 isLoading: false,
                 autoClose: 8000
               });
-              
-              onStatusUpdate({
-                processing: false,
-                success: true,
-                error: null,
-                signature,
-                paymentConfirmed: true
-              });
-              
+
+              // Add redundant onStatusUpdate calls to ensure the callback gets triggered
+              // Use setTimeout with staggered delays for redundancy
+              setTimeout(() => {
+                try {
+                  console.log('[TRANSACTION_MONITOR] Sending first delayed success callback');
+                  onStatusUpdate({
+                    processing: false,
+                    success: true,
+                    error: null,
+                    signature,
+                    paymentConfirmed: true
+                  });
+                } catch (e) {
+                  console.error('[TRANSACTION_MONITOR] Error in first delayed callback:', e);
+                }
+              }, 250);
+
+              setTimeout(() => {
+                try {
+                  console.log('[TRANSACTION_MONITOR] Sending second delayed success callback');
+                  onStatusUpdate({
+                    processing: false,
+                    success: true,
+                    error: null,
+                    signature,
+                    paymentConfirmed: true
+                  });
+                } catch (e) {
+                  console.error('[TRANSACTION_MONITOR] Error in second delayed callback:', e);
+                }
+              }, 500);
+
+              setTimeout(() => {
+                try {
+                  console.log('[TRANSACTION_MONITOR] Sending third delayed success callback');
+                  onStatusUpdate({
+                    processing: false,
+                    success: true,
+                    error: null,
+                    signature,
+                    paymentConfirmed: true
+                  });
+                } catch (e) {
+                  console.error('[TRANSACTION_MONITOR] Error in third delayed callback:', e);
+                }
+              }, 1000);
+
+              console.log('[TRANSACTION_MONITOR] Transaction monitoring completed successfully');
               return true;
-            }
-            
-            // Handle verification failure
-            if (!verificationResult.success) {
-              const errorMessage = verificationResult.error || 'Transaction verification failed';
-              
-              toast.update(toastId, {
-                render: errorMessage,
-                type: 'error',
-                isLoading: false,
-                autoClose: 5000
-              });
-
-              onStatusUpdate({
-                processing: false,
-                success: false,
-                error: errorMessage,
-                signature,
-                paymentConfirmed: false
-              });
-
-              return false;
-            }
-
-            // Success - transaction verified by server
-            console.log('Server verification successful:', verificationResult);
-            
-            // Force immediate callback execution for UI updates
-            try {
-              console.log('Immediately executing success callback with paymentConfirmed=true');
-              // Call onStatusUpdate immediately with paymentConfirmed true
-              // This ensures the UI gets updated as soon as possible
-              onStatusUpdate({
-                processing: false,
-                success: true,
-                error: null,
-                signature,
-                paymentConfirmed: true
-              });
-            } catch (callbackError) {
-              console.error('Error in immediate callback execution:', callbackError);
-            }
-
-            // Then show the toast
-            const solscanUrl = `https://solscan.io/tx/${signature}`;
-            toast.update(toastId, {
-              render: () => (
-                <div>
-                  Transaction confirmed!{' '}
-                  <a 
-                    href={solscanUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-blue-400 hover:text-blue-300 underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    View on Solscan
-                  </a>
-                </div>
-              ),
-              type: 'success',
-              isLoading: false,
-              autoClose: 8000
-            });
-
-            // Add redundant onStatusUpdate calls to ensure the callback gets triggered
-            // Use multiple timeouts with different delays for redundancy
-            setTimeout(() => {
-              console.log('Sending delayed confirmation callback (250ms)');
-              try {
-                onStatusUpdate({
-                  processing: false,
-                  success: true,
-                  error: null,
-                  signature,
-                  paymentConfirmed: true
-                });
-              } catch (e) {
-                console.error('Error in delayed callback (250ms):', e);
+            } catch (abortError: unknown) {
+              clearTimeout(timeoutId);
+              if (abortError instanceof Error && abortError.name === 'AbortError') {
+                console.error('[TRANSACTION_MONITOR] Server verification request timed out after 20 seconds');
+                throw new Error('Verification request timed out, but transaction is confirmed on blockchain. The order will be processed automatically.');
               }
-            }, 250);
-
-            setTimeout(() => {
-              console.log('Sending delayed confirmation callback (1000ms)');
-              try {
-                onStatusUpdate({
-                  processing: false,
-                  success: true,
-                  error: null,
-                  signature,
-                  paymentConfirmed: true
-                });
-              } catch (e) {
-                console.error('Error in delayed callback (1000ms):', e);
-              }
-            }, 1000);
-
-            return true;
+              throw abortError;
+            }
           } catch (error) {
-            console.error('Server verification error:', error);
+            console.error('[TRANSACTION_MONITOR] Server verification error:', error);
             
             // Even if server verification fails, the transaction itself is confirmed
             // The background job will process it later
-            console.warn('Transaction confirmed on blockchain but server verification failed. Will be processed automatically later.');
+            console.warn('[TRANSACTION_MONITOR] Transaction confirmed on blockchain but server verification failed. Will be processed automatically later.');
             
             toast.update(toastId, {
               render: () => (
@@ -326,9 +413,10 @@ export async function monitorTransaction(
           INITIAL_DELAY * Math.pow(1.5, attempts) + Math.random() * 1000,
           10000
         );
+        console.log(`[TRANSACTION_MONITOR] Transaction not yet finalized, retrying in ${Math.round(delay/1000)}s`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } catch (error) {
-        console.error(`Error checking transaction status (attempt ${attempts + 1}):`, error);
+        console.error(`[TRANSACTION_MONITOR] Error checking transaction status (attempt ${attempts + 1}):`, error);
         
         if (attempts === MAX_RETRIES - 1) {
           throw error;
@@ -345,6 +433,7 @@ export async function monitorTransaction(
 
     // Max retries reached
     const timeoutError = 'Transaction confirmation timed out';
+    console.error('[TRANSACTION_MONITOR] Maximum retry attempts reached. Transaction confirmation timed out.');
     toast.update(toastId, {
       render: timeoutError,
       type: 'error',
@@ -361,7 +450,7 @@ export async function monitorTransaction(
 
     return false;
   } catch (error) {
-    console.error('Transaction monitoring error:', error);
+    console.error('[TRANSACTION_MONITOR] Transaction monitoring error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to monitor transaction';
     
     toast.update(toastId, {
