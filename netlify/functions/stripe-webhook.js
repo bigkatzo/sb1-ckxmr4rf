@@ -134,7 +134,7 @@ async function findOrderByPaymentIntent(paymentIntentId) {
     // Look up the order directly by the free order signature
     const { data: freeOrder, error: freeOrderError } = await supabase
       .from('orders')
-      .select('id, status')
+      .select('id, status, batch_order_id')
       .eq('transaction_signature', paymentIntentId)
       .single();
     
@@ -151,7 +151,7 @@ async function findOrderByPaymentIntent(paymentIntentId) {
   // First try by transaction_signature
   const { data: order, error } = await supabase
     .from('orders')
-    .select('id, status')
+    .select('id, status, batch_order_id')
     .eq('transaction_signature', paymentIntentId)
     .single();
   
@@ -163,7 +163,7 @@ async function findOrderByPaymentIntent(paymentIntentId) {
   // If not found, try by payment_intent_id in metadata
   const { data: metadataOrder, error: metadataError } = await supabase
     .from('orders')
-    .select('id, status')
+    .select('id, status, batch_order_id')
     .filter('payment_metadata->payment_intent_id', 'eq', paymentIntentId)
     .single();
   
@@ -175,7 +175,7 @@ async function findOrderByPaymentIntent(paymentIntentId) {
   // Look for paymentIntentId directly in metadata (client-side format)
   const { data: clientOrder, error: clientError } = await supabase
     .from('orders')
-    .select('id, status')
+    .select('id, status, batch_order_id')
     .filter('payment_metadata->paymentIntentId', 'eq', paymentIntentId)
     .single();
   
@@ -187,7 +187,7 @@ async function findOrderByPaymentIntent(paymentIntentId) {
   // If still not found, check for payment metadata directly
   const { data: allOrders, error: allOrdersError } = await supabase
     .from('orders')
-    .select('id, status, payment_metadata')
+    .select('id, status, batch_order_id, payment_metadata')
     .eq('payment_metadata->>paymentMethod', 'stripe');
     
   if (!allOrdersError && allOrders) {
@@ -201,6 +201,43 @@ async function findOrderByPaymentIntent(paymentIntentId) {
     if (matchingOrder) {
       console.log('Found order by deep metadata search:', matchingOrder.id);
       return matchingOrder;
+    }
+  }
+  
+  // As a last resort, check all batch orders
+  console.log('Searching for batch order relationships for payment intent:', paymentIntentId);
+  const { data: batches, error: batchError } = await supabase
+    .from('orders')
+    .select('batch_order_id')
+    .not('batch_order_id', 'is', null)
+    .filter('payment_metadata->>paymentMethod', 'eq', 'stripe')
+    .limit(100);
+    
+  if (!batchError && batches && batches.length > 0) {
+    // Get unique batch IDs
+    const batchIds = [...new Set(batches.map(b => b.batch_order_id))];
+    
+    for (const batchId of batchIds) {
+      // Get all orders in each batch
+      const { data: batchOrders, error: batchOrderError } = await supabase
+        .from('orders')
+        .select('id, status, batch_order_id, payment_metadata')
+        .eq('batch_order_id', batchId)
+        .order('created_at', { ascending: true })
+        .limit(20);
+        
+      if (!batchOrderError && batchOrders && batchOrders.length > 0) {
+        // Check the first order in each batch for matching payment intent
+        const firstOrder = batchOrders[0];
+        
+        if (firstOrder && firstOrder.payment_metadata && 
+            (firstOrder.payment_metadata.stripePaymentIntentId === paymentIntentId || 
+             firstOrder.payment_metadata.payment_intent_id === paymentIntentId ||
+             firstOrder.payment_metadata.paymentIntentId === paymentIntentId)) {
+          console.log('Found order through batch relationship:', firstOrder.id, 'batch ID:', batchId);
+          return firstOrder;
+        }
+      }
     }
   }
   
@@ -332,6 +369,43 @@ async function processSuccessfulPayment(order, paymentIntent) {
     // Check if this is a batch order
     const isBatchOrder = !!order.batch_order_id;
     console.log('Is batch order:', isBatchOrder, isBatchOrder ? `Batch ID: ${order.batch_order_id}` : '');
+
+    // Update all orders in the batch if this is a batch order
+    if (isBatchOrder && order.batch_order_id) {
+      console.log('Processing batch order confirmation for batch ID:', order.batch_order_id);
+      
+      // Get all orders in the batch
+      const { data: batchOrders, error: getBatchError } = await supabase
+        .from('orders')
+        .select('id, status')
+        .eq('batch_order_id', order.batch_order_id);
+      
+      if (getBatchError) {
+        console.error('Error fetching orders in batch:', getBatchError);
+      } else if (batchOrders && batchOrders.length > 0) {
+        console.log(`Found ${batchOrders.length} orders in batch ${order.batch_order_id}`);
+        
+        // Update each order in the batch to confirmed status
+        for (const batchOrder of batchOrders) {
+          console.log(`Confirming order ${batchOrder.id} in batch`);
+          
+          // Use direct update for most reliable result
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update({ 
+              status: 'confirmed',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', batchOrder.id);
+          
+          if (updateError) {
+            console.error(`Error confirming order ${batchOrder.id} in batch:`, updateError);
+          } else {
+            console.log(`Successfully confirmed order ${batchOrder.id} in batch`);
+          }
+        }
+      }
+    }
     
     // Use the Stripe-specific function to confirm the payment
     // This will handle both draft->pending_payment and pending_payment->confirmed transitions

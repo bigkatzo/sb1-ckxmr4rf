@@ -177,7 +177,7 @@ exports.handler = async (event, context) => {
 
     // Process each item in the cart
     for (const item of items) {
-      const { product, selectedOptions, quantity } = item;
+      const { product, selectedOptions, quantity = 1 } = item;
       
       if (!product || !product.id) {
         console.error('Invalid product', product);
@@ -193,103 +193,114 @@ exports.handler = async (event, context) => {
         };
       });
 
-      try {
-        // Try using the database function first (like original implementation)
-        const { data: orderId, error: functionError } = await supabase.rpc('create_order', {
-          p_product_id: product.id,
-          p_variants: formattedVariantSelections || [],
-          p_shipping_info: shippingInfo,
-          p_wallet_address: walletAddress || 'anonymous',
-          p_payment_metadata: {
-            ...paymentMetadata,
-            batchOrderId,
-            isBatchOrder: true
-          }
-        });
-
-        if (functionError) {
-          console.error('Error using create_order function:', functionError);
-          throw functionError;
-        }
-
-        if (orderId) {
-          console.log('Order created successfully, updating with batch details:', orderId);
-          
-          // Update order with batch details
-          try {
-            const { error: updateError } = await supabase
-              .from('orders')
-              .update({
-                batch_order_id: batchOrderId,
-                order_number: orderNumber,
-                item_index: createdOrders.length + 1,
-                total_items_in_batch: items.length,
-                // For free orders, add transaction signature directly
-                ...(isFreeOrder && { 
-                  transaction_signature: transactionSignature,
-                  status: 'confirmed'
-                })
-              })
-              .eq('id', orderId);
-
-            if (updateError) {
-              console.error('Error updating order with batch details:', updateError);
-              throw updateError;
+      // Create multiple orders based on quantity
+      const quantityToProcess = Math.max(1, Number(quantity) || 1);
+      console.log(`Processing ${quantityToProcess} orders for product: ${product.name} (${product.id})`);
+      
+      // Process each quantity as a separate order
+      for (let i = 0; i < quantityToProcess; i++) {
+        try {
+          // Try using the database function first (like original implementation)
+          const { data: orderId, error: functionError } = await supabase.rpc('create_order', {
+            p_product_id: product.id,
+            p_variants: formattedVariantSelections || [],
+            p_shipping_info: shippingInfo,
+            p_wallet_address: walletAddress || 'anonymous',
+            p_payment_metadata: {
+              ...paymentMetadata,
+              batchOrderId,
+              isBatchOrder: true,
+              quantityIndex: i + 1,
+              totalQuantity: quantityToProcess
             }
-            
-            console.log('Order batch details updated successfully');
+          });
 
-            // For free orders, update the transaction details
-            if (isFreeOrder && transactionSignature) {
-              const { error: transactionError } = await supabase.rpc('update_order_transaction', {
-                p_order_id: orderId,
-                p_transaction_signature: transactionSignature,
-                p_amount_sol: 0
+          if (functionError) {
+            console.error(`Error using create_order function for quantity ${i+1}/${quantityToProcess}:`, functionError);
+            throw functionError;
+          }
+
+          if (orderId) {
+            console.log(`Order ${i+1}/${quantityToProcess} created successfully, updating with batch details:`, orderId);
+            
+            // Update order with batch details
+            try {
+              const { error: updateError } = await supabase
+                .from('orders')
+                .update({
+                  batch_order_id: batchOrderId,
+                  order_number: orderNumber,
+                  item_index: createdOrders.length + 1,
+                  total_items_in_batch: items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0),
+                  // For free orders, add transaction signature directly
+                  ...(isFreeOrder && { 
+                    transaction_signature: transactionSignature,
+                    status: 'confirmed'
+                  })
+                })
+                .eq('id', orderId);
+
+              if (updateError) {
+                console.error('Error updating order with batch details:', updateError);
+                throw updateError;
+              }
+              
+              console.log('Order batch details updated successfully');
+
+              // For free orders, update the transaction details
+              if (isFreeOrder && transactionSignature) {
+                const { error: transactionError } = await supabase.rpc('update_order_transaction', {
+                  p_order_id: orderId,
+                  p_transaction_signature: transactionSignature,
+                  p_amount_sol: 0
+                });
+
+                if (transactionError) {
+                  console.error('Error updating order transaction for free order:', transactionError);
+                  // Continue anyway - order is already marked as confirmed
+                }
+              }
+
+              // Fetch the created order
+              const { data: createdOrder, error: fetchError } = await supabase
+                .from('orders')
+                .select('id, status, order_number, product_id')
+                .eq('id', orderId)
+                .single();
+
+              if (fetchError) {
+                console.error('Error fetching created order:', fetchError);
+                throw fetchError;
+              }
+
+              createdOrders.push({
+                orderId: createdOrder.id,
+                orderNumber: createdOrder.order_number,
+                productId: product.id,
+                productName: product.name,
+                status: createdOrder.status,
+                itemIndex: createdOrders.length + 1,
+                totalItems: items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0),
+                quantityIndex: i + 1,
+                totalQuantity: quantityToProcess
               });
 
-              if (transactionError) {
-                console.error('Error updating order transaction for free order:', transactionError);
-                // Continue anyway - order is already marked as confirmed
-              }
+              console.log(`Order creation completed successfully: ${createdOrders.length}/${items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0)}`, {
+                orderId: createdOrder.id,
+                status: createdOrder.status
+              });
+            } catch (error) {
+              console.error(`Exception updating order batch details for quantity ${i+1}/${quantityToProcess}:`, error);
+              throw error;
             }
-
-            // Fetch the created order
-            const { data: createdOrder, error: fetchError } = await supabase
-              .from('orders')
-              .select('id, status, order_number, product_id')
-              .eq('id', orderId)
-              .single();
-
-            if (fetchError) {
-              console.error('Error fetching created order:', fetchError);
-              throw fetchError;
-            }
-
-            createdOrders.push({
-              orderId: createdOrder.id,
-              orderNumber: createdOrder.order_number,
-              productId: product.id,
-              productName: product.name,
-              status: createdOrder.status,
-              itemIndex: createdOrders.length + 1,
-              totalItems: items.length
-            });
-
-            console.log(`Order creation completed successfully: ${createdOrders.length}/${items.length}`, {
-              orderId: createdOrder.id,
-              status: createdOrder.status
-            });
-          } catch (error) {
-            console.error('Exception updating order batch details:', error);
-            throw error;
+          } else {
+            throw new Error('Failed to create order: No order ID returned');
           }
-        } else {
-          throw new Error('Failed to create order: No order ID returned');
+        } catch (error) {
+          console.error(`Order creation failed for quantity ${i+1}/${quantityToProcess}:`, error);
+          // Continue with next item to create as many orders as possible
+          continue;
         }
-      } catch (error) {
-        console.error('Order creation failed:', error);
-        // Continue with next item to create as many orders as possible
-        continue;
       }
     }
 
