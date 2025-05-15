@@ -520,11 +520,11 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
       log('error', 'Exception updating transaction status:', error);
     }
 
-    // Get all orders in this batch
+    // Get all orders in this batch, regardless of status
     const { data: orders, error: batchError } = await supabase
       .from('orders')
-      .select('id, status, transaction_signature, payment_metadata')
-      .eq('batch_order_id', batchOrderId);
+      .select('id, status, order_number, transaction_signature, payment_metadata, batch_order_id')
+      .or(`batch_order_id.eq.${batchOrderId},payment_metadata->batchOrderId.eq.${batchOrderId}`);
       
     if (batchError) {
       log('error', 'Error fetching batch orders:', batchError);
@@ -532,28 +532,89 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
     }
     
     if (!orders || orders.length === 0) {
-      // Fallback: Try to find orders using payment_metadata
-      const { data: metadataOrders, error: metadataError } = await supabase
-        .from('orders')
-        .select('id, status, transaction_signature, payment_metadata')
-        .filter('payment_metadata->batchOrderId', 'eq', batchOrderId);
-        
-      if (metadataError) {
-        log('error', 'Error fetching orders by metadata:', metadataError);
-        throw metadataError;
-      }
-      
-      if (!metadataOrders || metadataOrders.length === 0) {
-        log('error', 'No orders found for batch');
-        throw new Error('No orders found for batch');
-      }
-      
-      orders = metadataOrders;
+      log('error', `No orders found for batch: ${batchOrderId}`);
+      throw new Error(`No orders found for batch: ${batchOrderId}`);
     }
     
     log('info', `Found ${orders.length} orders in batch`);
     
-    // Update each order individually with the correct status and pricing
+    // First, ensure they all have consistent batch_order_id values
+    const ordersMissingBatchId = orders.filter(order => !order.batch_order_id);
+    if (ordersMissingBatchId.length > 0) {
+      const orderIdsToUpdate = ordersMissingBatchId.map(order => order.id);
+      log('info', `Updating ${orderIdsToUpdate.length} orders to set batch_order_id: ${batchOrderId}`);
+      
+      const { error: batchIdUpdateError } = await supabase
+        .from('orders')
+        .update({
+          batch_order_id: batchOrderId,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', orderIdsToUpdate);
+      
+      if (batchIdUpdateError) {
+        log('error', `Error updating batch_order_id for orders:`, batchIdUpdateError);
+      }
+    }
+    
+    // First check if all orders have the same order number format (SF-)
+    const sfOrderNumber = orders.find(o => o.order_number?.startsWith('SF-'))?.order_number;
+    if (sfOrderNumber) {
+      // Update any orders with ORD format to use the SF format
+      const ordNumberUpdates = orders
+        .filter(o => o.order_number && !o.order_number.startsWith('SF-'))
+        .map(o => o.id);
+      
+      if (ordNumberUpdates.length > 0) {
+        log('info', `Updating ${ordNumberUpdates.length} orders to consistent SF order number: ${sfOrderNumber}`);
+        
+        const { error: orderNumUpdateError } = await supabase
+          .from('orders')
+          .update({
+            order_number: sfOrderNumber,
+            updated_at: new Date().toISOString()
+          })
+          .in('id', ordNumberUpdates);
+        
+        if (orderNumUpdateError) {
+          log('error', `Error updating order numbers:`, orderNumUpdateError);
+        }
+      }
+    }
+    
+    // Now set all orders to have item_index and total_items_in_batch
+    const totalItems = orders.length;
+    let itemIndexUpdates = [];
+    
+    for (let i = 0; i < orders.length; i++) {
+      if (!orders[i].item_index) {
+        itemIndexUpdates.push({
+          id: orders[i].id,
+          index: i + 1
+        });
+      }
+    }
+    
+    if (itemIndexUpdates.length > 0) {
+      log('info', `Setting item_index for ${itemIndexUpdates.length} orders`);
+      
+      for (const update of itemIndexUpdates) {
+        const { error: indexUpdateError } = await supabase
+          .from('orders')
+          .update({
+            item_index: update.index,
+            total_items_in_batch: totalItems,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', update.id);
+        
+        if (indexUpdateError) {
+          log('error', `Error updating item_index for order ${update.id}:`, indexUpdateError);
+        }
+      }
+    }
+    
+    // Now update each order individually with the correct status and pricing
     let successCount = 0;
     let errorCount = 0;
     
@@ -564,7 +625,23 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
         const couponDiscount = order.payment_metadata?.couponDiscount || 0;
         const orderAmount = Math.max(0, originalPrice - couponDiscount);
         
-        log('debug', `Confirming order ${order.id} with amount: ${orderAmount} SOL`);
+        // For orders with variant pricing, get the specific variant price
+        let variantPrice = null;
+        if (order.payment_metadata?.variantKey && order.payment_metadata?.variantPrices) {
+          variantPrice = order.payment_metadata.variantPrices[order.payment_metadata.variantKey];
+        }
+        
+        // Use the most specific price available
+        const finalAmount = variantPrice || orderAmount || verification.details?.amount / orders.length;
+        
+        log('debug', `Confirming order ${order.id} with amount: ${finalAmount} SOL`);
+        
+        // Skip already confirmed orders
+        if (order.status === 'confirmed' && order.transaction_signature === signature) {
+          log('info', `Order ${order.id} already confirmed with correct signature, skipping`);
+          successCount++;
+          continue;
+        }
         
         // Update the order's status and amount
         const { error: updateError } = await supabase
@@ -572,7 +649,7 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
           .update({
             status: 'confirmed',
             transaction_signature: signature,
-            amount_sol: orderAmount,
+            amount_sol: finalAmount,
             updated_at: new Date().toISOString()
           })
           .eq('id', order.id);
@@ -599,7 +676,10 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
     };
   } catch (error) {
     log('error', 'Error confirming batch order payment:', error);
-    throw error;
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
@@ -686,6 +766,14 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ error: 'Missing transaction signature' })
     };
   }
+
+  // Add debug logging for the entire request
+  console.log('Verification request received:', { 
+    signature: signature?.substring(0, 10) + '...',
+    orderId: orderId || 'none',
+    batchOrderId: batchOrderId || 'none',
+    hasExpectedDetails: !!expectedDetails
+  });
 
   // For non-Solana transactions (like Stripe), handle differently
   if (signature.startsWith('pi_') || signature.startsWith('free_')) {
@@ -904,177 +992,119 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    console.log(`Verifying transaction: ${signature.substring(0, 12)}...`);
-              
-    // 1. Verify the transaction details on-chain
+    console.log('Verifying transaction on blockchain:', signature?.substring(0, 10) + '...');
+    
+    // Verify transaction details first
     const verification = await verifyTransactionDetails(signature, expectedDetails);
     
-    console.log('Verification result:', {
-      isValid: verification.isValid,
-      hasError: !!verification.error
-    });
+    if (!verification.isValid) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ 
+          success: false,
+          verification
+        })
+      };
+    }
     
-    // 2. Determine which orders to process
-    let targetOrderId = orderId;
-    let targetBatchOrderId = batchOrderId;
-                
-    // If we have a batch order ID, prioritize that for processing
-    if (targetBatchOrderId || isBatchOrder === true) {
-      console.log(`Processing as batch order: ${targetBatchOrderId || 'batch ID to be determined'}`);
-                
-      // If we don't have a batch ID but isBatchOrder flag is true, try to find batch ID
-      if (!targetBatchOrderId && targetOrderId) {
+    console.log('Transaction verified successfully on blockchain');
+    
+    // For batch orders, use the batch verification flow
+    if (batchOrderId || isBatchOrder) {
+      console.log('Processing as batch order');
+      let batchId = batchOrderId;
+      
+      // If we don't have a batch ID but have an order ID, look up the batch ID
+      if (!batchId && orderId) {
+        console.log('Looking up batch ID from order:', orderId);
         try {
-          // Look up batch ID from orderId
           const { data: orderData, error: orderError } = await supabase
             .from('orders')
-            .select('batch_order_id')
-            .eq('id', targetOrderId)
+            .select('batch_order_id, payment_metadata')
+            .eq('id', orderId)
             .single();
-                    
-          if (!orderError && orderData && orderData.batch_order_id) {
-            targetBatchOrderId = orderData.batch_order_id;
-            console.log(`Found batch ID ${targetBatchOrderId} for order ${targetOrderId}`);
-                    }
-                  } catch (error) {
-          console.error('Error finding batch ID from order:', error);
-                  }
+            
+          if (!orderError && orderData) {
+            if (orderData.batch_order_id) {
+              batchId = orderData.batch_order_id;
+              console.log('Found batch ID from order:', batchId);
+            } else if (orderData.payment_metadata?.batchOrderId) {
+              batchId = orderData.payment_metadata.batchOrderId;
+              console.log('Found batch ID from payment metadata:', batchId);
+            }
+          }
+        } catch (error) {
+          console.error('Error looking up batch ID:', error);
+        }
       }
       
-      // If we have a targetBatchOrderId, process as batch
-      if (targetBatchOrderId) {
-        if (verification.isValid) {
-          const result = await confirmBatchOrderPayment(targetBatchOrderId, signature, verification);
+      // Look up orders with this signature in case the batch ID is wrong
+      if (!batchId) {
+        console.log('No batch ID found, looking for orders with this signature');
+        try {
+          const { data: sigOrders, error: sigError } = await supabase
+            .from('orders')
+            .select('batch_order_id, payment_metadata')
+            .eq('transaction_signature', signature)
+            .limit(1);
+            
+          if (!sigError && sigOrders && sigOrders.length > 0) {
+            if (sigOrders[0].batch_order_id) {
+              batchId = sigOrders[0].batch_order_id;
+              console.log('Found batch ID from transaction signature:', batchId);
+            } else if (sigOrders[0].payment_metadata?.batchOrderId) {
+              batchId = sigOrders[0].payment_metadata.batchOrderId;
+              console.log('Found batch ID from transaction signature metadata:', batchId);
+            }
+          }
+        } catch (error) {
+          console.error('Error looking up signature:', error);
+        }
+      }
+      
+      if (batchId) {
+        try {
+          const result = await confirmBatchOrderPayment(batchId, signature, verification);
           
           return {
-            statusCode: result.success ? 200 : 400,
+            statusCode: 200,
             body: JSON.stringify({
               success: result.success,
-              error: result.error,
-              verification: {
-                isValid: verification.isValid,
-                details: verification.details || {}
-              },
-              batchOrderId: targetBatchOrderId,
-              ordersUpdated: result.success ? true : false
+              verification,
+              batchOrderId: batchId,
+              ordersUpdated: result.ordersConfirmed || 0,
+              totalOrders: result.totalOrders || 0
             })
           };
-                    } else {
+        } catch (error) {
+          console.error('Error in batch order confirmation:', error);
           return {
-            statusCode: 400,
+            statusCode: 500,
             body: JSON.stringify({
               success: false,
-              error: verification.error || 'Transaction verification failed',
-              details: verification.details || {},
-              batchOrderId: targetBatchOrderId
+              verification,
+              error: error.message,
+              batchOrderId: batchId
             })
           };
-                    }
+        }
+      } else {
+        console.error('Could not determine batch ID for batch order');
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            success: false,
+            verification,
+            error: 'Could not determine batch ID'
+          })
+        };
       }
     }
     
-    // If no batch ID found or provided, attempt to find related orders
-    if (!targetOrderId && verification.isValid) {
-      // If no orderId but transaction is valid, find related orders
-      try {
-        // First check for exact transaction_signature match
-        const { data: exactOrders, error: exactError } = await supabase
-            .from('orders')
-          .select('id, status, transaction_signature, batch_order_id')
-            .eq('transaction_signature', signature)
-          .in('status', ['pending_payment', 'draft']);
-            
-        if (!exactError && exactOrders && exactOrders.length > 0) {
-          console.log(`Found ${exactOrders.length} orders with exact transaction signature match`);
-          
-          // Check if they're part of a batch
-          const batchOrder = exactOrders.find(order => order.batch_order_id);
-          if (batchOrder) {
-            targetBatchOrderId = batchOrder.batch_order_id;
-            console.log(`Orders are part of batch ${targetBatchOrderId}, using batch processing`);
-            
-            if (verification.isValid) {
-              const result = await confirmBatchOrderPayment(targetBatchOrderId, signature, verification);
-              
-              return {
-                statusCode: result.success ? 200 : 400,
-                body: JSON.stringify({
-                  success: result.success,
-                  error: result.error,
-                  verification: {
-                    isValid: verification.isValid,
-                    details: verification.details || {}
-                  },
-                  batchOrderId: targetBatchOrderId,
-                  ordersUpdated: result.success ? true : false
-                })
-              };
-            }
-          }
-          
-          // Otherwise just use the first matching order
-          targetOrderId = exactOrders[0].id;
-          console.log(`Using exact match order: ${targetOrderId}`);
-        } else {
-          // If no exact match, try broader search with wallet address
-          console.log('No exact transaction signature matches found, trying broader search');
-          
-          if (verification.details && verification.details.buyer) {
-            const buyerAddress = verification.details.buyer;
-      
-            // Find recent orders from this buyer
-            const { data: buyerOrders, error: buyerError } = await supabase
-        .from('orders')
-              .select('id, status, transaction_signature, wallet_address, created_at, batch_order_id')
-              .eq('wallet_address', buyerAddress)
-              .in('status', ['pending_payment', 'draft'])
-              .is('transaction_signature', null) // Look for orders without transaction_signature
-              .order('created_at', { ascending: false })
-              .limit(5); // Limit to most recent orders
-        
-            if (!buyerError && buyerOrders && buyerOrders.length > 0) {
-              console.log(`Found ${buyerOrders.length} recent orders from buyer ${buyerAddress.substring(0, 8)}...`);
-        
-              // Check if any orders are part of a batch
-              const batchOrder = buyerOrders.find(order => order.batch_order_id);
-              if (batchOrder) {
-                targetBatchOrderId = batchOrder.batch_order_id;
-                console.log(`Orders are part of batch ${targetBatchOrderId}, using batch processing`);
-                
-                if (verification.isValid) {
-                  const result = await confirmBatchOrderPayment(targetBatchOrderId, signature, verification);
-                  
-                  return {
-                    statusCode: result.success ? 200 : 400,
-                    body: JSON.stringify({
-                      success: result.success,
-                      error: result.error,
-                      verification: {
-                        isValid: verification.isValid,
-                        details: verification.details || {}
-                      },
-                      batchOrderId: targetBatchOrderId,
-                      ordersUpdated: result.success ? true : false
-                    })
-                  };
-                }
-              }
-              
-              // Otherwise just use the most recent order
-              targetOrderId = buyerOrders[0].id;
-              console.log(`Using most recent order: ${targetOrderId}`);
-            }
-          }
-          }
-      } catch (error) {
-        console.error('Error finding related orders:', error);
-      }
-    }
-    
-    // At this point, we either have an orderId or we don't - proceed with single order processing
-    if (targetOrderId) {
+    // For single orders, use the single order confirmation flow
+    if (orderId) {
       if (verification.isValid) {
-        const result = await confirmOrderPayment(targetOrderId, signature, verification, targetBatchOrderId);
+        const result = await confirmOrderPayment(orderId, signature, verification, batchOrderId);
         
         return {
           statusCode: result.success ? 200 : 400,
@@ -1085,7 +1115,7 @@ exports.handler = async (event, context) => {
               isValid: verification.isValid,
               details: verification.details || {}
             },
-            ordersUpdated: [targetOrderId]
+            ordersUpdated: [orderId]
           })
         };
       } else {

@@ -806,7 +806,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           
           console.log('Payment processed successfully with signature:', txSignature);
           
-          // Show toast notification for transaction monitoring
+          // Start transaction confirmation - using same monitoring as TokenVerificationModal
+          setOrderProgress({ step: 'confirming_transaction' });
+          console.log('Confirming transaction on-chain');
+          
+          // Add notification when starting Solana transaction for batch orders
           toast.info(
             items.length > 1 
               ? `Processing batch order transaction...` 
@@ -819,37 +823,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             ...prev,
             transactionSignature: txSignature
           }));
-          
-          // Update order with transaction signature
-          try {
-            const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                orderId,
-                transactionSignature: txSignature,
-                amountSol: finalPrice,
-                walletAddress: walletAddress || 'anonymous'
-              })
-            });
-            
-            if (!updateResponse.ok) {
-              const errorData = await updateResponse.json();
-              console.error('Failed to update order transaction:', errorData.error);
-              // Continue with process despite error - consistent with TokenVerificationModal
-            } else {
-              console.log('Order transaction updated successfully');
-            }
-          } catch (error) {
-            console.error('Error updating order with transaction:', error);
-            // Continue with process despite error - the background job will handle it
-          }
-          
-          // Start transaction confirmation - using same monitoring as TokenVerificationModal
-          setOrderProgress({ step: 'confirming_transaction' });
-          console.log('Confirming transaction on-chain');
           
           // Monitor transaction and confirm on chain
           const success = await monitorTransaction(
@@ -866,74 +839,69 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   transactionSignature: txSignature
                 }));
                 
-                // Refresh all order statuses to get their final status
+                // Refresh all order statuses to verify they're confirmed
                 if (batchOrderId) {
                   try {
-                    console.log("Transaction confirmed - refreshing order statuses for batch", batchOrderId);
-                    const refreshResponse = await fetch(`/.netlify/functions/get-batch-orders?batchOrderId=${batchOrderId}`, {
-                      method: 'GET',
-                      headers: { 'Content-Type': 'application/json' }
+                    console.log('Refreshing batch order status:', batchOrderId);
+                    const refreshResponse = await fetch('/.netlify/functions/get-batch-orders', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({
+                        batchOrderId: batchOrderId
+                      })
                     });
                     
                     if (refreshResponse.ok) {
                       const refreshData = await refreshResponse.json();
-                      console.log(`Refreshed order statuses: ${refreshData.orders?.length} orders retrieved`);
+                      console.log('Batch orders refresh result:', refreshData);
                       
                       if (refreshData.success && refreshData.orders) {
                         // Count confirmed orders
                         const confirmedOrders = refreshData.orders.filter((o: { status: string }) => o.status === 'confirmed').length;
                         console.log(`${confirmedOrders}/${refreshData.orders.length} orders are confirmed`);
                         
-                        if (confirmedOrders !== refreshData.orders.length) {
-                          console.log("Not all orders are confirmed - forcing order confirmation");
+                        if (confirmedOrders === refreshData.orders.length) {
+                          console.log('All orders in batch are confirmed');
+                          // Clear cart
+                          clearCart();
+                          // Auto-close after success with short delay
+                          setTimeout(() => onClose && onClose(), 3000);
+                        } else {
+                          console.log(`Only ${confirmedOrders} of ${refreshData.orders.length} orders confirmed, waiting...`);
                           
-                          // Force order confirmation if not all orders are confirmed
-                          try {
-                            const forceResponse = await fetch('/.netlify/functions/verify-transaction', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                signature: txSignature,
-                                batchOrderId: batchOrderId,
-                                isBatchOrder: true,
-                                status: 'confirmed'
-                              })
-                            });
-                            
-                            if (forceResponse.ok) {
-                              console.log("Force-confirmed all orders in batch");
-                            }
-                          } catch (forceError) {
-                            console.error("Error force-confirming orders:", forceError);
-                            // Continue anyway - background job will fix it
-                          }
+                          // Set a safety timeout to auto-close even if not all orders confirmed
+                          setTimeout(() => {
+                            console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
+                            clearCart();
+                            onClose && onClose();
+                          }, 3000);
                         }
                       }
-                      
-                      // Show success view
-                      clearCart();
-                      setShowSuccessView(true);
                     }
                   } catch (refreshError) {
-                    console.error("Error refreshing order statuses:", refreshError);
-                    // Continue with success flow anyway
+                    console.error('Error refreshing batch order status:', refreshError);
+                    // Still mark as success even if refresh fails
                     clearCart();
-                    setShowSuccessView(true);
+                    // Auto-close after success with short delay
+                    setTimeout(() => onClose && onClose(), 3000);
                   }
                 } else {
-                  // No batch order ID, just show success directly
+                  // No batch ID, just a single order - clear cart and close
                   clearCart();
-                  setShowSuccessView(true);
+                  // Auto-close after success with short delay
+                  setTimeout(() => onClose && onClose(), 3000);
                 }
               }
             },
-            { 
+            {
               amount: finalPrice,
               buyer: walletAddress || '',
-              recipient: collectionId
+              recipient: ''
             },
             orderId,
-            batchOrderId // Explicitly pass batch order ID for proper tracking
+            batchOrderId
           );
           
           // SAFETY: Add a timeout to ensure modal closes properly
