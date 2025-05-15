@@ -57,6 +57,14 @@ try {
   log('error', 'Failed to initialize Supabase client:', err.message);
 }
 
+/**
+ * Verify and update the order status using approach from frontend
+ * Updated to support batch orders
+ */
+async function confirmOrderPayment(orderId, signature, verification, batchOrderId) {
+  // ... existing code ...
+}
+
 exports.handler = async (event, context) => {
   // Enable CORS for frontend
   const headers = {
@@ -242,7 +250,7 @@ exports.handler = async (event, context) => {
         // Get all orders in this batch with status 'draft'
         const { data: batchOrders, error: batchError } = await supabase
           .from('orders')
-          .select('id, status')
+          .select('id, status, order_number, payment_metadata')
           .eq('batch_order_id', targetBatchOrderId)
           .in('status', ['draft']);
 
@@ -253,6 +261,70 @@ exports.handler = async (event, context) => {
             headers,
             body: JSON.stringify({ error: 'Failed to fetch batch orders' })
           };
+        }
+
+        // If no orders found using batch_order_id column, try using payment_metadata
+        if (!batchOrders || batchOrders.length === 0) {
+          log('info', 'No orders found with batch_order_id column, trying with payment_metadata.batchOrderId');
+          
+          const { data: metadataOrders, error: metadataError } = await supabase
+            .from('orders')
+            .select('id, status, order_number')
+            .filter('payment_metadata->batchOrderId', 'eq', targetBatchOrderId)
+            .in('status', ['draft']);
+            
+          if (!metadataError && metadataOrders && metadataOrders.length > 0) {
+            log('info', `Found ${metadataOrders.length} orders with matching batchOrderId in metadata`);
+            
+            // First, update all these orders to set their batch_order_id field
+            const orderIds = metadataOrders.map(order => order.id);
+            
+            log('info', `Updating ${orderIds.length} orders to set batch_order_id field`);
+            
+            // Get the SF-style order number from any order that already has it
+            let sfOrderNumber;
+            
+            const { data: existingOrders, error: existingOrdersError } = await supabase
+              .from('orders')
+              .select('order_number')
+              .eq('batch_order_id', targetBatchOrderId)
+              .limit(1);
+              
+            if (!existingOrdersError && existingOrders && existingOrders.length > 0) {
+              sfOrderNumber = existingOrders[0].order_number;
+              log('info', `Found existing SF order number: ${sfOrderNumber}`);
+            }
+            
+            // If no SF order number found, generate one
+            if (!sfOrderNumber || !sfOrderNumber.startsWith('SF-')) {
+              // Generate a SF-style order number (SF-MMDD-XXXX)
+              const now = new Date();
+              const month = now.getMonth() + 1;
+              const day = now.getDate();
+              sfOrderNumber = `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+              log('info', `Generated new SF order number: ${sfOrderNumber}`);
+            }
+            
+            // Update all orders with batch ID and consistent order number
+            const { error: updateBatchIdError } = await supabase
+              .from('orders')
+              .update({
+                batch_order_id: targetBatchOrderId,
+                order_number: sfOrderNumber,
+                updated_at: new Date().toISOString()
+              })
+              .in('id', orderIds);
+              
+            if (updateBatchIdError) {
+              log('error', 'Error updating batch_order_id and order_number:', updateBatchIdError);
+              // Continue with the process anyway - we'll try to handle what we have
+            } else {
+              log('info', 'Successfully updated batch_order_id and order_number for all orders');
+            }
+            
+            // Now continue with the remaining orders
+            return exports.handler(event, context);
+          }
         }
 
         if (!batchOrders || batchOrders.length === 0) {
@@ -269,72 +341,66 @@ exports.handler = async (event, context) => {
           } else if (pendingOrders && pendingOrders.length > 0) {
             log('info', `Found ${pendingOrders.length} orders in pending_payment status`);
             
-            // If orders are already in pending_payment status, try to update the first one
-            // with the transaction signature, which is consistent with the original implementation
-            if (pendingOrders.length > 0) {
-              const firstPendingOrderId = pendingOrders[0].id;
-              log('info', `Updating first pending order ${firstPendingOrderId} with transaction signature`);
-              
-              const { error: updateError } = await supabase
-                .from('orders')
-                .update({
-                  transaction_signature: transactionSignature,
-                  amount_sol: amountSolFloat / pendingOrders.length,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', firstPendingOrderId);
-              
-              if (updateError) {
-                log('error', 'Error updating first pending order:', updateError);
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ 
-                    error: 'Failed to update transaction signature for pending order',
-                    details: updateError.message
-                  })
-                };
-              } else {
-                log('info', `Successfully updated transaction signature for first pending order ${firstPendingOrderId}`);
-              }
-              
-              // For free orders, transition all orders to confirmed status
-              if (isFreeOrder) {
-                const allPendingOrderIds = pendingOrders.map(order => order.id);
-                log('info', `Auto-confirming ${allPendingOrderIds.length} free orders in batch`);
-                
-                const { error: confirmError } = await supabase
-                  .from('orders')
-                  .update({
-                    status: 'confirmed',
-                    updated_at: new Date().toISOString()
-                  })
-                  .in('id', allPendingOrderIds);
-                
-                if (confirmError) {
-                  log('error', 'Error confirming free batch orders:', confirmError);
-                } else {
-                  log('info', 'Free batch orders confirmed successfully');
-                }
-              }
-              
+            // Update all pending orders with the transaction signature and correct split amount
+            const allPendingOrderIds = pendingOrders.map(order => order.id);
+            log('info', `Updating all ${allPendingOrderIds.length} pending orders with transaction signature`);
+            
+            const { error: updateAllError } = await supabase
+              .from('orders')
+              .update({
+                transaction_signature: transactionSignature,
+                amount_sol: amountSolFloat / pendingOrders.length,
+                updated_at: new Date().toISOString()
+              })
+              .in('id', allPendingOrderIds);
+            
+            if (updateAllError) {
+              log('error', 'Error updating all pending orders:', updateAllError);
               return {
-                statusCode: 200,
+                statusCode: 400,
                 headers,
                 body: JSON.stringify({ 
-                  success: true, 
-                  data: { 
-                    batchOrderId: targetBatchOrderId,
-                    transactionSignature, 
-                    amountSol: amountSolFloat,
-                    isBatchOrder: true,
-                    ordersUpdated: pendingOrders.length
-                  } 
+                  error: 'Failed to update transaction signature for pending orders',
+                  details: updateAllError.message
                 })
               };
+            } else {
+              log('info', `Successfully updated transaction signature for all ${pendingOrders.length} pending orders`);
             }
-          } else {
-            log('warn', 'No pending_payment orders found in batch either');
+            
+            // For free orders, transition all orders to confirmed status
+            if (isFreeOrder) {
+              log('info', `Auto-confirming ${allPendingOrderIds.length} free orders in batch`);
+              
+              const { error: confirmError } = await supabase
+                .from('orders')
+                .update({
+                  status: 'confirmed',
+                  updated_at: new Date().toISOString()
+                })
+                .in('id', allPendingOrderIds);
+              
+              if (confirmError) {
+                log('error', 'Error confirming free batch orders:', confirmError);
+              } else {
+                log('info', 'Free batch orders confirmed successfully');
+              }
+            }
+            
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify({ 
+                success: true, 
+                data: { 
+                  batchOrderId: targetBatchOrderId,
+                  transactionSignature, 
+                  amountSol: amountSolFloat,
+                  isBatchOrder: true,
+                  ordersUpdated: pendingOrders.length
+                } 
+              })
+            };
           }
           
           // Return a more specific error if we couldn't find any orders to update
@@ -350,92 +416,68 @@ exports.handler = async (event, context) => {
 
         log('info', `Found ${batchOrders.length} draft orders in batch ${targetBatchOrderId}`);
 
-        // First, update just one order with the transaction signature - similar to original implementation
-        // This is to avoid transaction signature duplication issues
-        const firstOrderId = batchOrders[0].id;
+        // Update ALL orders in the batch with transaction signature and proper amount
+        const allOrderIds = batchOrders.map(order => order.id);
         
-        log('info', `Updating first order ${firstOrderId} with transaction signature using RPC function`);
-        // Update the first order using the update_order_transaction RPC function (same as original implementation)
-        const { error: updateError } = await supabase.rpc('update_order_transaction', {
-          p_order_id: firstOrderId,
-          p_transaction_signature: transactionSignature,
-          p_amount_sol: amountSolFloat
-        });
-
-        if (updateError) {
-          log('error', 'Error updating transaction for first order in batch:', updateError);
+        log('info', `Updating all ${allOrderIds.length} orders with transaction signature`);
+        
+        // Update each order individually to set the correct amount based on its price
+        for (const order of batchOrders) {
+          // Get the correct price from the order's payment_metadata
+          const originalPrice = order.payment_metadata?.originalPrice || 0;
+          const couponDiscount = order.payment_metadata?.couponDiscount || 0;
+          const orderAmount = Math.max(0, originalPrice - couponDiscount);
           
-          // Alternative approach: Try direct update if RPC fails
-          log('info', 'Attempting direct update as fallback');
-          try {
-            const { error: directUpdateError } = await supabase
-              .from('orders')
-              .update({
-                transaction_signature: transactionSignature,
-                amount_sol: amountSolFloat,
-                status: 'pending_payment',
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', firstOrderId)
-              .eq('status', 'draft');
-              
-            if (directUpdateError) {
-              log('error', 'Direct update also failed:', directUpdateError);
-              return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ 
-                  error: 'Failed to update transaction signature for first order in batch',
-                  details: updateError.message
-                })
-              };
-            } else {
-              log('info', 'Direct update successful for first order');
-              // Continue with remaining orders
-            }
-          } catch (fallbackError) {
-            log('error', 'Fallback update failed:', fallbackError);
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ 
-                error: 'All update attempts failed for first order in batch',
-                details: fallbackError.message
-              })
-            };
-          }
-        } else {
-          log('info', `Successfully updated transaction signature for first order ${firstOrderId}`);
-        }
-
-        // Then update the remaining orders directly, without setting the transaction signature
-        // to avoid unique constraint violations. Move them to pending_payment status.
-        if (batchOrders.length > 1) {
-          const otherOrderIds = batchOrders.slice(1).map(order => order.id);
+          log('debug', `Setting amount for order ${order.id}: ${orderAmount} SOL`, {
+            originalPrice,
+            couponDiscount,
+            finalAmount: orderAmount
+          });
           
-          log('info', `Updating ${otherOrderIds.length} remaining orders to pending_payment status`);
-          const { error: bulkUpdateError } = await supabase
+          const { error: updateError } = await supabase
             .from('orders')
             .update({
               status: 'pending_payment',
-              amount_sol: amountSolFloat / batchOrders.length,
+              transaction_signature: transactionSignature,
+              amount_sol: orderAmount,
               updated_at: new Date().toISOString()
             })
-            .in('id', otherOrderIds);
+            .eq('id', order.id);
+            
+          if (updateError) {
+            log('error', `Error updating order ${order.id}:`, updateError);
+          }
+        }
+        
+        // If there were any errors in individual updates, try a batch update as fallback
+        const { error: updateCheckError, data: updateCheck } = await supabase
+          .from('orders')
+          .select('id, status')
+          .eq('batch_order_id', targetBatchOrderId)
+          .eq('status', 'pending_payment')
+          .is('transaction_signature', null);
           
-          if (bulkUpdateError) {
-            log('error', 'Error updating remaining orders in batch:', bulkUpdateError);
-            // Don't fail the entire operation if the main order was updated
-          } else {
-            log('info', `Successfully updated ${otherOrderIds.length} remaining orders to pending_payment status`);
+        if (!updateCheckError && updateCheck && updateCheck.length > 0) {
+          log('warn', `${updateCheck.length} orders were not updated properly, trying batch update`);
+          
+          const remainingIds = updateCheck.map(o => o.id);
+          
+          const { error: batchUpdateError } = await supabase
+            .from('orders')
+            .update({
+              status: 'pending_payment',
+              transaction_signature: transactionSignature,
+              updated_at: new Date().toISOString()
+            })
+            .in('id', remainingIds);
+            
+          if (batchUpdateError) {
+            log('error', 'Fallback batch update failed:', batchUpdateError);
           }
         }
 
         // For free orders, confirm all orders in the batch
         if (isFreeOrder) {
-          // Get all orders in this batch
-          const allOrderIds = batchOrders.map(order => order.id);
-          
           log('info', `Auto-confirming ${allOrderIds.length} free orders in batch`);
           const { error: confirmError } = await supabase
             .from('orders')

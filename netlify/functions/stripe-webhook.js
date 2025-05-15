@@ -143,6 +143,19 @@ async function findOrderByPaymentIntent(paymentIntentId) {
       return freeOrder;
     }
     
+    // Try to find batch orders with this free signature
+    const { data: freeBatchOrders, error: freeBatchError } = await supabase
+      .from('orders')
+      .select('id, status, batch_order_id')
+      .eq('transaction_signature', paymentIntentId)
+      .limit(10);
+      
+    if (!freeBatchError && freeBatchOrders && freeBatchOrders.length > 0) {
+      // Return the first order in the batch
+      console.log(`Found ${freeBatchOrders.length} orders with free batch signature, using first one:`, freeBatchOrders[0].id);
+      return freeBatchOrders[0];
+    }
+    
     console.error('Free order not found with signature:', paymentIntentId);
     return null;
   }
@@ -159,7 +172,23 @@ async function findOrderByPaymentIntent(paymentIntentId) {
     console.log('Found order by transaction_signature:', order.id);
     return order;
   }
-  
+
+  // Check for batch orders with this payment intent in their metadata 
+  // This additional query is specific for finding batch orders
+  const { data: batchMetadataOrders, error: batchMetadataError } = await supabase
+    .from('orders')
+    .select('id, status, batch_order_id, payment_metadata')
+    .not('batch_order_id', 'is', null) // Only get batch orders
+    .filter('payment_metadata->paymentIntentId', 'eq', paymentIntentId)
+    .order('created_at', {ascending: true})
+    .limit(1);
+    
+  if (!batchMetadataError && batchMetadataOrders && batchMetadataOrders.length > 0) {
+    console.log('Found batch order by paymentIntentId in payment_metadata:', batchMetadataOrders[0].id);
+    console.log('Batch order ID:', batchMetadataOrders[0].batch_order_id);
+    return batchMetadataOrders[0];
+  }
+
   // If not found, try by payment_intent_id in metadata
   const { data: metadataOrder, error: metadataError } = await supabase
     .from('orders')
@@ -466,7 +495,7 @@ async function processSuccessfulPayment(order, paymentIntent) {
         // Get ALL orders in the batch regardless of status
         const { data: batchOrders, error: getBatchError } = await supabase
           .from('orders')
-          .select('id, status, order_number')
+          .select('id, status, order_number, payment_metadata')
           .eq('batch_order_id', order.batch_order_id);
         
         if (getBatchError) {
@@ -480,11 +509,20 @@ async function processSuccessfulPayment(order, paymentIntent) {
             if (batchOrder.status === 'draft') {
               console.log(`Updating order ${batchOrder.id} from draft to pending_payment`);
               
-              // Update to pending_payment first 
+              // Get the correct price from payment_metadata
+              const originalPrice = batchOrder.payment_metadata?.originalPrice || 0;
+              const couponDiscount = batchOrder.payment_metadata?.couponDiscount || 0;
+              const orderAmount = Math.max(0, originalPrice - couponDiscount);
+              
+              console.log(`Order ${batchOrder.id} amount: ${orderAmount} SOL`);
+              
+              // Update to pending_payment first with correct amount and transaction signature
               const { error: pendingError } = await supabase
                 .from('orders')
                 .update({ 
                   status: 'pending_payment',
+                  transaction_signature: paymentIntent.id,
+                  amount_sol: orderAmount,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', batchOrder.id);
@@ -522,12 +560,18 @@ async function processSuccessfulPayment(order, paymentIntent) {
           for (const batchOrder of batchOrders) {
             console.log(`Confirming order ${batchOrder.id} (${batchOrder.order_number}) in batch`);
             
-            // Update each order with full details 
+            // Get the correct price from payment_metadata if it was not set earlier
+            const originalPrice = batchOrder.payment_metadata?.originalPrice || 0;
+            const couponDiscount = batchOrder.payment_metadata?.couponDiscount || 0;
+            const orderAmount = Math.max(0, originalPrice - couponDiscount);
+            
+            // Update each order with full details including correct amount
             const { error: updateError } = await supabase
               .from('orders')
               .update({ 
                 status: 'confirmed',
                 transaction_signature: receiptUrl || paymentIntent.id,
+                amount_sol: orderAmount, // Ensure correct amount is set for each item
                 updated_at: new Date().toISOString()
               })
               .eq('id', batchOrder.id);
@@ -535,7 +579,7 @@ async function processSuccessfulPayment(order, paymentIntent) {
             if (updateError) {
               console.error(`Error confirming order ${batchOrder.id} in batch:`, updateError);
             } else {
-              console.log(`Successfully confirmed order ${batchOrder.id} in batch`);
+              console.log(`Successfully confirmed order ${batchOrder.id} in batch with amount ${orderAmount} SOL`);
             }
           }
           

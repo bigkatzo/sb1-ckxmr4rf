@@ -326,7 +326,10 @@ export async function monitorTransaction(
 
               // Success - transaction verified by server
               console.log('[TRANSACTION_MONITOR] Server verification successful:', verificationResult);
-              
+
+              // Define solscanUrl before we use it
+              const solscanUrl = `https://solscan.io/tx/${signature}`;
+
               // Check for batch order information in the response
               const batchOrderSuccess = verificationResult.ordersUpdated && 
                 (verificationResult.ordersUpdated.length > 0 || 
@@ -337,45 +340,77 @@ export async function monitorTransaction(
                   batchOrderId: verificationResult.batchOrderId || batchOrderId,
                   ordersUpdated: verificationResult.ordersUpdated
                 });
-              }
-              
-              // Force immediate callback execution for UI updates
-              try {
-                console.log('[TRANSACTION_MONITOR] Executing success callback with paymentConfirmed=true');
-                // Call onStatusUpdate immediately with paymentConfirmed true
-                // This ensures the UI gets updated as soon as possible
-                onStatusUpdate({
-                  processing: false,
-                  success: true,
-                  error: null,
-                  signature,
-                  paymentConfirmed: true
+                
+                // Customize message for batch orders
+                const batchMessage = typeof verificationResult.ordersUpdated === 'number' 
+                  ? `${verificationResult.ordersUpdated} items` 
+                  : 'multiple items';
+                
+                toast.update(toastId, {
+                  render: () => (
+                    <div>
+                      <div className="mb-2">Batch order transaction confirmed!</div>
+                      <div className="text-sm mb-1">Order containing {batchMessage} has been processed.</div>
+                      <div className="flex flex-col gap-2">
+                        <a 
+                          href={solscanUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-blue-400 hover:text-blue-300 underline text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          View on Solscan
+                        </a>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = '/orders';
+                          }}
+                          className="text-left text-green-400 hover:text-green-300 underline text-sm"
+                        >
+                          View Your Orders
+                        </button>
+                      </div>
+                    </div>
+                  ),
+                  type: 'success',
+                  isLoading: false,
+                  autoClose: 8000
                 });
-              } catch (callbackError) {
-                console.error('[TRANSACTION_MONITOR] Error in immediate callback execution:', callbackError);
               }
-
-              // Then show the toast
-              const solscanUrl = `https://solscan.io/tx/${signature}`;
-              toast.update(toastId, {
-                render: () => (
-                  <div>
-                    Transaction confirmed!{' '}
-                    <a 
-                      href={solscanUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="text-blue-400 hover:text-blue-300 underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      View on Solscan
-                    </a>
-                  </div>
-                ),
-                type: 'success',
-                isLoading: false,
-                autoClose: 8000
-              });
+              else {
+                // Standard transaction notification for non-batch orders
+                toast.update(toastId, {
+                  render: () => (
+                    <div>
+                      <div className="mb-2">Transaction confirmed!</div>
+                      <div className="flex flex-col gap-2">
+                        <a 
+                          href={solscanUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-blue-400 hover:text-blue-300 underline text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          View on Solscan
+                        </a>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = '/orders';
+                          }}
+                          className="text-left text-green-400 hover:text-green-300 underline text-sm"
+                        >
+                          View Your Orders
+                        </button>
+                      </div>
+                    </div>
+                  ),
+                  type: 'success',
+                  isLoading: false,
+                  autoClose: 8000
+                });
+              }
 
               // Add redundant onStatusUpdate calls to ensure the callback gets triggered
               // Use setTimeout with staggered delays for redundancy

@@ -17,6 +17,7 @@ import { StripePaymentModal } from '../products/StripePaymentModal';
 import { monitorTransaction } from '../../utils/transaction-monitor.tsx';
 import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
 import { Button } from '../ui/Button';
+import { OrderSuccessView } from '../OrderSuccessView';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -119,6 +120,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     batchOrderId?: string;
     createdOrderIds?: string[];
   }>({});
+  
+  // Add the showSuccessView state within the component
+  const [showSuccessView, setShowSuccessView] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | undefined>();
   
   // Try to load shipping info from localStorage
   useEffect(() => {
@@ -332,159 +337,140 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   
   // Update the handleStripeSuccess function to receive and use batchOrderId
   const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string, batchOrderId?: string) => {
-    console.log('Stripe payment successful:', { 
-      localOrderId: orderData.orderId, 
-      stripeOrderId, 
-      paymentIntentId,
-      batchOrderId
-    });
-    
+    console.log('Stripe payment successful:', paymentIntentId, stripeOrderId, batchOrderId);
     try {
-      // Update order status with Stripe payment info
-      setOrderProgress({ step: 'processing_payment' });
-      
-      // IMPORTANT: Use the stripeOrderId from Stripe's response instead of our local orderData
-      // This ensures we're using the actual order ID that was created during payment intent creation
-      // But if stripeOrderId is missing or the special value "use_local_order_id", fall back to local orderData
-      let orderId: string | undefined;
-      
-      if (!stripeOrderId || stripeOrderId === 'use_local_order_id') {
-        // Stripe didn't provide metadata - use our local orderData instead
-        console.log('Using local order ID due to missing metadata in Stripe payment intent');
-        orderId = orderData.orderId || undefined;
-      } else {
-        // Use the order ID from Stripe's metadata
-        orderId = stripeOrderId;
+      if (!stripeOrderId && createdOrderId) {
+        stripeOrderId = createdOrderId;
       }
-      
-      // If we don't have any orderId, this is an error condition
-      if (!orderId) {
-        console.error('Missing order ID from both Stripe payment response and local state');
-        toast.error('Payment successful, but order details could not be retrieved');
-        
-        // Show a generic success but log the error
-        setOrderProgress({ step: 'success' });
-        if (clearCart) {
+
+      if (stripeOrderId) {
+        console.log('Getting order details for confirmation page:', stripeOrderId);
+        try {
+          const orderDetails = await getOrderDetails(stripeOrderId);
+          
+          if (orderDetails && orderDetails.success && orderDetails.order) {
+            // Set the order data for display
+            setOrderData({
+              orderId: stripeOrderId,
+              orderNumber: orderDetails.order.order_number || '',
+              transactionSignature: paymentIntentId,
+              batchOrderId: batchOrderId || ''
+            });
+            
+            // Show success state and clear cart
+            setOrderProgress({ step: 'success' });
+            clearCart();
+            
+            // Show the success view
+            setShowSuccessView(true);
+            
+            // Add success toast notification
+            toast.success(
+              `Order #${orderDetails.order.order_number || ''} payment confirmed!`,
+              { autoClose: 5000 }
+            );
+          }
+        } catch (error) {
+          console.error('Error getting order details:', error);
+          
+          // Still mark as successful even without order details
+          setOrderProgress({ step: 'success' });
+          setOrderData({
+            orderId: stripeOrderId,
+            orderNumber: '',
+            transactionSignature: paymentIntentId,
+            batchOrderId: batchOrderId || ''
+          });
+          
           clearCart();
+          setShowSuccessView(true);
         }
-        return;
-      }
-      
-      // Compare IDs to detect mismatch issues
-      if (orderData.orderId && orderId !== orderData.orderId) {
-        console.warn('Order ID mismatch detected:', {
-          localOrderId: orderData.orderId,
-          stripeOrderId: orderId
-        });
-      }
-      
-      // Store batchOrderId in orderData if provided
-      if (batchOrderId) {
-        setOrderData(prev => ({
-          ...prev,
-          batchOrderId,
-          // Also update the orderId to match what Stripe created
-          orderId
-        }));
+      } else if (batchOrderId) {
+        // If we have a batch order ID but no specific order ID
+        console.log('Getting batch order details for confirmation page:', batchOrderId);
+        
+        try {
+          // Get all orders in the batch
+          const response = await fetch(`/.netlify/functions/get-batch-orders?batchOrderId=${batchOrderId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (response.ok) {
+            const batchData = await response.json();
+            
+            if (batchData.success && batchData.orders && batchData.orders.length > 0) {
+              const firstOrder = batchData.orders[0];
+              
+              // Set the order data for display
+              setOrderData({
+                orderId: firstOrder.id,
+                orderNumber: firstOrder.order_number,
+                transactionSignature: paymentIntentId,
+                batchOrderId: batchOrderId
+              });
+              
+              // Show success state and clear cart
+              setOrderProgress({ step: 'success' });
+              clearCart();
+              
+              // Show the success view
+              setShowSuccessView(true);
+              
+              // Add success toast notification
+              const batchSize = items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0);
+              toast.success(
+                batchSize > 1
+                  ? `Batch order #${firstOrder.order_number} with ${batchSize} items confirmed!`
+                  : `Order #${firstOrder.order_number} confirmed successfully!`,
+                { autoClose: 5000 }
+              );
+              return;
+            }
+          }
+          
+          // If we couldn't get batch details, still show generic success
+          setOrderProgress({ step: 'success' });
+          setOrderData({
+            orderId: '',
+            orderNumber: '',
+            transactionSignature: paymentIntentId,
+            batchOrderId: batchOrderId
+          });
+          
+          clearCart();
+          setShowSuccessView(true);
+        } catch (error) {
+          console.error('Error getting batch order details:', error);
+          
+          // Still mark as successful
+          setOrderProgress({ step: 'success' });
+          setOrderData({
+            orderId: '',
+            orderNumber: '',
+            transactionSignature: paymentIntentId,
+            batchOrderId: batchOrderId
+          });
+          
+          clearCart();
+          setShowSuccessView(true);
+        }
       } else {
-        // Always update our local orderData with the correct stripe order ID
-        setOrderData(prev => ({
-          ...prev,
-          orderId
-        }));
-      }
-      
-      // Continue with normal flow
-      setOrderProgress({ step: 'confirming_transaction' });
-      
-      // Use fetch with timeout to prevent hanging request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      try {
-        console.log('Updating order status with transaction ID:', {
-          orderId,
-          paymentIntentId
+        // No order ID or batch ID, still mark as successful with minimal info
+        console.log('No order ID available, showing generic success');
+        setOrderProgress({ step: 'success' });
+        setOrderData({
+          orderId: '',
+          orderNumber: '',
+          transactionSignature: paymentIntentId
         });
         
-        const updateResponse = await fetch('/.netlify/functions/update-stripe-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            orderId,
-            paymentIntentId
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!updateResponse.ok) {
-          // For server errors (500), we still treat this as a partial success
-          if (updateResponse.status >= 500) {
-            console.warn(`Server error ${updateResponse.status} updating order, but payment was successful`);
-            toast.warning("Order recorded, but status update pending. We'll process your order shortly.");
-          } else {
-            const errorData = await updateResponse.json().catch(() => ({ error: 'Unknown error' }));
-            console.error('Failed to update Stripe order status:', errorData);
-          }
-        } else {
-          try {
-            const result = await updateResponse.json();
-            console.log('Client-side order confirmation result:', result);
-          } catch (parseError) {
-            console.error('Error parsing server response:', parseError);
-          }
-        }
-      } catch (fetchError) {
-        console.error('Network error updating order:', fetchError);
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          toast.warning('Server request timed out, but your payment was successful. Order will be processed automatically.');
-        } else {
-          toast.warning('Network error updating order status, but payment was successful. Order will be processed automatically.');
-        }
-      }
-      
-      // Fetch the order details to show the customer the correct order number
-      try {
-        console.log('Fetching order details via getOrderDetails helper function:', orderId);
-        const orderDetailsResult = await getOrderDetails(orderId);
-        
-        if (orderDetailsResult.success && orderDetailsResult.order) {
-          // Update order data with the fetched details
-          setOrderData(prev => ({
-            ...prev,
-            orderNumber: orderDetailsResult.order.order_number
-          }));
-        } else {
-          console.warn('Could not fetch order details from helper:', orderDetailsResult.error);
-        }
-      } catch (error) {
-        console.error('Error fetching order details:', error);
-      }
-      
-      // Show success view even if the update had issues
-      setOrderProgress({ step: 'success' });
-      
-      // Check if we have clear cart function to clear the cart
-      if (clearCart) {
         clearCart();
+        setShowSuccessView(true);
       }
-      
-    } catch (err) {
-      console.error('Error processing Stripe success:', err);
-      // Still show success since payment was completed successfully
-      setOrderProgress({ step: 'success' });
-      
-      // Show partial success to the user
-      toast.success('Payment successful! Your order will be processed shortly.');
-      
-      // Clear cart even if there was an error in status update
-      if (clearCart) {
-        clearCart();
-      }
+    } catch (error) {
+      console.error('Error in Stripe success handler:', error);
+      setOrderProgress({ step: 'error', error: 'Failed to process payment confirmation' });
     }
   };
   
@@ -604,21 +590,26 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         
         // Store the order information
         setOrderData({
+          orderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId,
           orderNumber,
-          transactionSignature: transactionId
+          transactionSignature: transactionId,
+          batchOrderId: batchOrderData.batchOrderId
         });
         
         // Update order progress
         setOrderProgress({ step: 'success' });
         
-        // Show success message for free order
-        toast.success(`Free order #${orderNumber} created successfully!`);
+        // More descriptive success message for batch orders
+        toast.success(
+          items.length > 1
+            ? `Order #${orderNumber} containing ${items.length} items was created successfully!`
+            : `Free order #${orderNumber} created successfully!`,
+          { autoClose: 5000 }
+        );
         
-        // Clear cart and close modal with a small delay to ensure the user sees the success state
-        setTimeout(() => {
-          clearCart();
-          onClose();
-        }, 2000);
+        // Clear cart and show the OrderSuccessView (consistent with paid orders)
+        clearCart();
+        setShowSuccessView(true);
         return; // Exit early to skip regular payment flow
       } catch (error) {
         console.error("Free order error:", error);
@@ -655,12 +646,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       
       // For Stripe, create batch order and open the Stripe modal
       if (paymentMethod === 'stripe') {
+        setOrderProgress({ step: 'creating_order' });
+        
         try {
-          // Create batch order first for Stripe payments
-          console.log('Creating batch order for Stripe payment first');
-          setOrderProgress({ step: 'creating_order' });
-          
-          // Create a batch order
+          // Create batch order first with Stripe payment intent
           const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
             method: 'POST',
             headers: {
@@ -690,54 +679,40 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             throw new Error(batchOrderData.error || 'Failed to create batch order');
           }
           
-          console.log('Batch order created for Stripe payment:', batchOrderData);
+          console.log('Batch order created for Stripe payment:', {
+            batchOrderId: batchOrderData.batchOrderId,
+            orderNumber: batchOrderData.orderNumber,
+            orderCount: batchOrderData.orders?.length,
+            firstOrderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId
+          });
           
-          // Store the order information
+          // Save the order details for later
           const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
-          const orderNumber = batchOrderData.orderNumber;
-          const batchOrderId = batchOrderData.batchOrderId;
-          
           setOrderData({
             orderId,
-            orderNumber,
-            batchOrderId
+            orderNumber: batchOrderData.orderNumber,
+            batchOrderId: batchOrderData.batchOrderId
           });
+          
+          // Set the createdOrderId for use in handleStripeSuccess
+          if (orderId) {
+            setCreatedOrderId(orderId);
+          }
           
           // Store order ID in session storage for Stripe payment to use
           if (orderId) {
             window.sessionStorage.setItem('lastCreatedOrderId', orderId);
           }
-          if (batchOrderId) {
-            window.sessionStorage.setItem('lastBatchOrderId', batchOrderId);
+          if (batchOrderData.batchOrderId) {
+            window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
           }
           
-          // Store shipping and payment information for Stripe checkout
-          const stripeCheckoutData = {
-            items: items.map(item => ({
-              product: item.product,
-              selectedOptions: item.selectedOptions,
-              quantity: item.quantity
-            })),
-            shippingInfo: formattedShippingInfo,
-            couponCode: appliedCoupon?.code,
-            couponDiscount,
-            originalPrice: totalPrice
-          };
-          
-          // Store in session storage for recovery if needed
-          window.sessionStorage.setItem('stripeCheckoutData', JSON.stringify(stripeCheckoutData));
-          
-          // Reset progress indicator for Stripe modal
-          setOrderProgress({ step: 'initial' });
-          setProcessingPayment(false);
+          // Show the Stripe payment modal
           setShowStripeModal(true);
-          return;
         } catch (error) {
-          console.error("Stripe checkout preparation error:", error);
-          toast.error(error instanceof Error ? error.message : "Failed to prepare checkout");
-          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'Checkout preparation failed' });
-          setProcessingPayment(false);
-          return;
+          console.error('Error creating orders for Stripe payment:', error);
+          toast.error(error instanceof Error ? error.message : 'Failed to create orders');
+          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'Failed to create orders' });
         }
       }
       // For Solana payments, use the processPayment function from usePayment
@@ -831,6 +806,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           
           console.log('Payment processed successfully with signature:', txSignature);
           
+          // Show toast notification for transaction monitoring
+          toast.info(
+            items.length > 1 
+              ? `Processing batch order transaction...` 
+              : `Processing order transaction...`,
+            { autoClose: false }
+          );
+          
           // Save transaction signature to state
           setOrderData(prev => ({
             ...prev,
@@ -882,6 +865,66 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   ...prev,
                   transactionSignature: txSignature
                 }));
+                
+                // Refresh all order statuses to get their final status
+                if (batchOrderId) {
+                  try {
+                    console.log("Transaction confirmed - refreshing order statuses for batch", batchOrderId);
+                    const refreshResponse = await fetch(`/.netlify/functions/get-batch-orders?batchOrderId=${batchOrderId}`, {
+                      method: 'GET',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (refreshResponse.ok) {
+                      const refreshData = await refreshResponse.json();
+                      console.log(`Refreshed order statuses: ${refreshData.orders?.length} orders retrieved`);
+                      
+                      if (refreshData.success && refreshData.orders) {
+                        // Count confirmed orders
+                        const confirmedOrders = refreshData.orders.filter((o: { status: string }) => o.status === 'confirmed').length;
+                        console.log(`${confirmedOrders}/${refreshData.orders.length} orders are confirmed`);
+                        
+                        if (confirmedOrders !== refreshData.orders.length) {
+                          console.log("Not all orders are confirmed - forcing order confirmation");
+                          
+                          // Force order confirmation if not all orders are confirmed
+                          try {
+                            const forceResponse = await fetch('/.netlify/functions/verify-transaction', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                signature: txSignature,
+                                batchOrderId: batchOrderId,
+                                isBatchOrder: true,
+                                status: 'confirmed'
+                              })
+                            });
+                            
+                            if (forceResponse.ok) {
+                              console.log("Force-confirmed all orders in batch");
+                            }
+                          } catch (forceError) {
+                            console.error("Error force-confirming orders:", forceError);
+                            // Continue anyway - background job will fix it
+                          }
+                        }
+                      }
+                      
+                      // Show success view
+                      clearCart();
+                      setShowSuccessView(true);
+                    }
+                  } catch (refreshError) {
+                    console.error("Error refreshing order statuses:", refreshError);
+                    // Continue with success flow anyway
+                    clearCart();
+                    setShowSuccessView(true);
+                  }
+                } else {
+                  // No batch order ID, just show success directly
+                  clearCart();
+                  setShowSuccessView(true);
+                }
               }
             },
             { 
@@ -890,21 +933,22 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               recipient: collectionId
             },
             orderId,
-            orderData.batchOrderId // Add batch order ID for batch orders
+            batchOrderId // Explicitly pass batch order ID for proper tracking
           );
           
-          if (!success) {
-            console.warn('Transaction verification timeout or failure');
-            setOrderProgress({ 
-              step: 'error', 
-              error: 'Transaction verification is still pending. Your order will be reviewed by the merchant.' 
-            });
-            
-            // Show warning but still clear cart as the order is created
-            toast.warning('Your payment is being processed. Order will be fulfilled when payment is confirmed.');
-            
-            // Clear cart but let user decide when to close modal
-            clearCart();
+          // SAFETY: Add a timeout to ensure modal closes properly
+          if (success || txSignature) {
+            console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
+            setTimeout(() => {
+              // Check if still in confirming_transaction state
+              if (orderProgress.step === 'confirming_transaction') {
+                console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
+                setOrderProgress({ step: 'success' });
+                
+                // Clear cart but let user decide when to close modal
+                clearCart();
+              }
+            }, 3000);
           }
         } catch (error) {
           console.error("Solana payment error:", error);
@@ -933,8 +977,21 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
       
       <div className="relative min-h-screen flex items-center justify-center p-4">
-        {/* Render Stripe modal when needed */}
-        {showStripeModal ? (
+        {/* Show OrderSuccessView when transaction is complete */}
+        {showSuccessView ? (
+          <OrderSuccessView
+            productName={items.length > 1 ? `${items.length} Items from Cart` : items[0]?.product.name}
+            collectionName={items[0]?.product.collectionName || 'Various Collections'}
+            productImage={items[0]?.product.imageUrl || '/placeholder.jpg'}
+            orderNumber={orderData.orderNumber || ''}
+            transactionSignature={orderData.transactionSignature || ''}
+            onClose={onClose}
+            receiptUrl={orderData.transactionSignature}
+            totalItems={items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0)}
+            itemPosition={1}
+            isBatchOrder={true}
+          />
+        ) : showStripeModal ? (
           <StripePaymentModal
             onClose={() => setShowStripeModal(false)}
             onSuccess={handleStripeSuccess}

@@ -30,62 +30,19 @@ try {
 // Generate a user-friendly order number (shorter and more memorable)
 const generateOrderNumber = async () => {
   try {
-    // Get the current highest order number
-    const { data, error } = await supabase
-      .from('orders')
-      .select('order_number')
-      .order('order_number', { ascending: false })
-      .limit(1);
-    
-    if (error) {
-      console.error('Error getting latest order number:', error);
-      // Fallback to a simpler format with timestamp
-      const now = new Date();
-      const month = now.getMonth() + 1;
-      const day = now.getDate();
-      // Format: SF-MMDD-XXXX (e.g., SF-0415-1234)
-      return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-    }
-    
-    // If no orders exist, start with a sequential number
-    if (!data || data.length === 0 || !data[0].order_number) {
-      return 'SF-1001';
-    }
-    
-    // Extract current highest order number
-    const currentNumber = data[0].order_number;
-    
-    // Check if it's our standard format starting with SF-
-    if (currentNumber.startsWith('SF-')) {
-      // If it's our short format (SF-XXXX), increment
-      if (/^SF-\d+$/.test(currentNumber)) {
-        const numPart = currentNumber.split('-')[1];
-        const nextNum = parseInt(numPart, 10) + 1;
-        return `SF-${nextNum}`;
-      }
-      
-      // If it's our date format (SF-MMDD-XXXX), create a new one with today's date
-      if (/^SF-\d{4}-\d{4}$/.test(currentNumber)) {
-        const now = new Date();
-        const month = now.getMonth() + 1;
-        const day = now.getDate();
-        // Format: SF-MMDD-XXXX (e.g., SF-0415-1234)
-        return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-      }
-    }
-    
-    // For any other format, or if we can't parse the existing format, 
-    // default to our date-based format to ensure consistency
+    // Always use the SF-MMDD-XXXX format for batch orders
     const now = new Date();
     const month = now.getMonth() + 1;
     const day = now.getDate();
+    // Format: SF-MMDD-XXXX (e.g., SF-0415-1234)
     return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
   } catch (err) {
     console.error('Error generating order number:', err);
     // If anything fails, use a timestamp-based fallback that matches our SF- pattern
     const now = new Date();
-    const timestamp = now.getTime().toString().slice(-6);
-    return `SF-${timestamp}`;
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
   }
 };
 
@@ -200,19 +157,23 @@ exports.handler = async (event, context) => {
       // Process each quantity as a separate order
       for (let i = 0; i < quantityToProcess; i++) {
         try {
+          // Include batchOrderId and orderNumber in metadata for immediate access
+          const enhancedMetadata = {
+            ...paymentMetadata,
+            batchOrderId, // This is just in metadata, not the actual column yet
+            orderNumber, // Include the consistent SF-format order number
+            isBatchOrder: true,
+            quantityIndex: i + 1,
+            totalQuantity: quantityToProcess
+          };
+          
           // Try using the database function first (like original implementation)
           const { data: orderId, error: functionError } = await supabase.rpc('create_order', {
             p_product_id: product.id,
             p_variants: formattedVariantSelections || [],
             p_shipping_info: shippingInfo,
             p_wallet_address: walletAddress || 'anonymous',
-            p_payment_metadata: {
-              ...paymentMetadata,
-              batchOrderId, // This is just in metadata, not the actual column
-              isBatchOrder: true,
-              quantityIndex: i + 1,
-              totalQuantity: quantityToProcess
-            }
+            p_payment_metadata: enhancedMetadata
           });
 
           if (functionError) {
@@ -225,7 +186,8 @@ exports.handler = async (event, context) => {
             
             // Directly update batch_order_id column to ensure it's set
             try {
-              // First directly update batch_order_id and order_number to ensure they're set
+              // IMMEDIATE SET: Always immediately set batch_order_id and order_number
+              // to ensure consistency across all orders
               const { error: directUpdateError } = await supabase
                 .from('orders')
                 .update({
@@ -237,7 +199,25 @@ exports.handler = async (event, context) => {
                 
               if (directUpdateError) {
                 console.error('Error directly setting batch_order_id:', directUpdateError);
-                // Continue anyway - we'll try the full update below
+                // Try more aggressively to set the batch_order_id 
+                try {
+                  // Second attempt with less filtering
+                  const { error: retryError } = await supabase
+                    .from('orders')
+                    .update({
+                      batch_order_id: batchOrderId,
+                      order_number: orderNumber
+                    })
+                    .eq('id', orderId);
+                    
+                  if (retryError) {
+                    console.error('Second attempt to set batch_order_id failed:', retryError);
+                  } else {
+                    console.log('Second attempt to set batch_order_id succeeded');
+                  }
+                } catch (retryErr) {
+                  console.error('Exception in retry attempt:', retryErr);
+                }
               } else {
                 console.log('Successfully set batch_order_id and order_number directly');
               }
