@@ -16,8 +16,7 @@ import {
   Tag,
   Search,
   PackageOpen,
-  Ban,
-  ShoppingCart
+  Ban
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
 import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
@@ -561,32 +560,36 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   // Group orders by batch ID for displaying batched orders together
   const groupOrdersByBatch = useCallback((orders: Order[]) => {
-    // Create a map of batch_order_id to arrays of orders
-    const batchMap = new Map<string, Order[]>();
+    // Create a map of batch_order_id to count of related orders
+    const batchSizeMap = new Map<string, number>();
     
-    // First pass: collect orders into their batch groups
+    // Count orders per batch
     orders.forEach(order => {
       if (order.batch_order_id) {
-        const batchId = order.batch_order_id;
-        if (!batchMap.has(batchId)) {
-          batchMap.set(batchId, []);
-        }
-        batchMap.get(batchId)!.push(order);
-      } else {
-        // If this is a standalone order, use its ID as the key
-        batchMap.set(order.id, [order]);
+        const count = batchSizeMap.get(order.batch_order_id) || 0;
+        batchSizeMap.set(order.batch_order_id, count + 1);
       }
     });
     
-    // Convert map to array of order groups
-    const orderGroups = Array.from(batchMap.values());
-    
-    // Sort groups by date (using the first order's date in each group)
-    return orderGroups.sort((a, b) => {
-      return new Date(b[0].createdAt).getTime() - new Date(a[0].createdAt).getTime();
-    });
+    // Return individual orders with batch info
+    return orders
+      .map(order => {
+        // Add batch info to the order objects
+        const orderWithBatchInfo = {...order} as Order & {
+          _batchSize?: number;
+          _isPartOfBatch?: boolean;
+        };
+        
+        if (order.batch_order_id) {
+          orderWithBatchInfo._batchSize = batchSizeMap.get(order.batch_order_id) || 1;
+          orderWithBatchInfo._isPartOfBatch = true;
+        }
+        
+        return [orderWithBatchInfo]; // Wrap in array to maintain structure
+      })
+      .sort((a, b) => new Date(b[0].createdAt).getTime() - new Date(a[0].createdAt).getTime());
   }, []);
-  
+
   // Group the filtered orders by batch
   const groupedOrders = useMemo(() => {
     return groupOrdersByBatch(filteredOrders);
@@ -1156,30 +1159,37 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         </div>
       ) : (
         groupedOrders.map((group) => {
-          const productInfo = getProductInfo(group[0]);
+          const order = group[0];
+          const productInfo = getProductInfo(order);
+          const isBatchOrder = order._isPartOfBatch && order._batchSize && order._batchSize > 1;
           
           return (
             <div 
-              key={group[0].id}
-              className="bg-gray-900 rounded-lg overflow-hidden"
+              key={order.id}
+              className={`bg-gray-900 rounded-lg overflow-hidden ${isBatchOrder ? 'border-l-4 border-indigo-500/40' : ''}`}
             >
               {/* Order Header - Status Bar */}
-              <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
+              <div className={`bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3 ${isBatchOrder ? 'relative' : ''}`}>
+                {isBatchOrder && (
+                  <div className="absolute right-3 top-3 bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded text-xs">
+                    Batch Order ({order._batchSize})
+                  </div>
+                )}
                 <div className="flex flex-col gap-0.5 sm:gap-2">
                   {/* Mobile Layout */}
                   <div className="flex items-center justify-between sm:hidden">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Order</span>
-                      <span className="font-mono text-sm font-medium text-white truncate">{group[0].order_number}</span>
+                      <span className="font-mono text-sm font-medium text-white truncate">{order.order_number}</span>
                     </div>
                     <div className="shrink-0">
                       <div className="flex items-center gap-2">
-                        {updatingOrderId === group[0].id ? (
+                        {updatingOrderId === order.id ? (
                           <div className="relative inline-flex items-center justify-center py-1.5 px-4">
                             <Loading type={LoadingType.ACTION} />
                           </div>
                         ) : (
-                          renderStatusSelect(group[0])
+                          renderStatusSelect(order)
                         )}
                       </div>
                     </div>
@@ -1187,7 +1197,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                   {/* Mobile Date */}
                   <div className="sm:hidden">
                     <span className="text-[10px] text-gray-400">
-                      {formatDistanceToNow(safeParseDate(group[0].createdAt), { addSuffix: true })}
+                      {formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}
                     </span>
                   </div>
 
@@ -1196,21 +1206,21 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order</span>
-                        <span className="font-mono font-medium text-white truncate">{group[0].order_number}</span>
+                        <span className="font-mono font-medium text-white truncate">{order.order_number}</span>
                       </div>
                       <span className="text-gray-600">•</span>
                       <span className="text-xs text-gray-400">
-                        {formatDistanceToNow(safeParseDate(group[0].createdAt), { addSuffix: true })}
+                        {formatDistanceToNow(safeParseDate(order.createdAt), { addSuffix: true })}
                       </span>
                     </div>
                     <div className="shrink-0">
                       <div className="flex items-center gap-2">
-                        {updatingOrderId === group[0].id ? (
+                        {updatingOrderId === order.id ? (
                           <div className="relative inline-flex items-center justify-center py-1.5 px-4">
                             <Loading type={LoadingType.ACTION} />
                           </div>
                         ) : (
-                          renderStatusSelect(group[0])
+                          renderStatusSelect(order)
                         )}
                       </div>
                     </div>
@@ -1275,23 +1285,15 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                             ))}
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5">
-                            {renderPaymentMetadataTags(group[0])}
+                            {renderPaymentMetadataTags(order)}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Display batch badge if this is a batch order with multiple items */}
-                    {group.length > 1 && (
-                      <div className="mt-2 bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded flex items-center gap-2 w-fit">
-                        <ShoppingCart className="h-4 w-4" />
-                        <span className="text-xs font-medium">Batch Order ({group.length} items)</span>
-                      </div>
-                    )}
-
                     {/* Variant Info Section */}
                     <div className="flex flex-wrap gap-2 mt-4">
-                      {Array.isArray(group[0].variant_selections) && group[0].variant_selections.map((variant, index) => (
+                      {Array.isArray(order.variant_selections) && order.variant_selections.map((variant, index) => (
                         <div
                           key={`${variant.name}-${index}`}
                           className="bg-gray-700/30 px-2 py-1 rounded text-xs text-gray-300"
@@ -1302,23 +1304,23 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     </div>
 
                     {/* Tracking Number Section */}
-                    {renderTrackingSection(group[0])}
+                    {renderTrackingSection(order)}
 
                     {/* Order Details */}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
                       {/* Shipping Info */}
-                      {group[0].shippingAddress && (
+                      {order.shippingAddress && (
                         <div>
                           <h4 className="text-xs font-medium text-gray-400 mb-2">Shipping Address</h4>
-                          {formatShippingAddress(group[0].shippingAddress)}
+                          {formatShippingAddress(order.shippingAddress)}
                         </div>
                       )}
                       
                       {/* Contact Info */}
-                      {group[0].contactInfo && (
+                      {order.contactInfo && (
                         <div>
                           <h4 className="text-xs font-medium text-gray-400 mb-2">Contact</h4>
-                          {formatContactInfo(group[0].contactInfo)}
+                          {formatContactInfo(order.contactInfo)}
                         </div>
                       )}
                     </div>
@@ -1329,25 +1331,25 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-400">Wallet:</span>
                           <a
-                            href={`https://solscan.io/account/${group[0].walletAddress}`}
+                            href={`https://solscan.io/account/${order.walletAddress}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs font-mono text-gray-300 hover:text-gray-100 flex items-center gap-1"
                           >
-                            {group[0].walletAddress.slice(0, 8)}...{group[0].walletAddress.slice(-8)}
+                            {order.walletAddress.slice(0, 8)}...{order.walletAddress.slice(-8)}
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
-                        {group[0].transactionSignature ? (
+                        {order.transactionSignature ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">{getTransactionLabel(group[0].transactionSignature)}:</span>
+                            <span className="text-xs text-gray-400">{getTransactionLabel(order.transactionSignature)}:</span>
                             <a
-                              href={getTransactionUrl(group[0].transactionSignature)}
+                              href={getTransactionUrl(order.transactionSignature)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs font-mono text-gray-300 hover:text-gray-100 flex items-center gap-1"
                             >
-                              {formatTransactionSignature(group[0].transactionSignature)}
+                              {formatTransactionSignature(order.transactionSignature)}
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           </div>
@@ -1356,33 +1358,6 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                         )}
                       </div>
                     </div>
-
-                    {/* Show batch order items if this is a batch with multiple items */}
-                    {group.length > 1 && (
-                      <div className="mt-4 pt-4 border-t border-gray-800">
-                        <h4 className="text-xs font-medium text-gray-400 mb-2">Batch Order Items</h4>
-                        <div className="space-y-2">
-                          {group.map((item, idx) => (
-                            <div key={item.id} className="bg-gray-800/20 rounded-md p-2 flex items-center gap-3">
-                              <div className="bg-gray-700/40 h-6 w-6 rounded-full flex items-center justify-center text-xs text-gray-300">
-                                {item.item_index || idx + 1}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-white truncate">{item.product_name}</p>
-                                {item.variant_selections && Array.isArray(item.variant_selections) && item.variant_selections.length > 0 && (
-                                  <p className="text-xs text-gray-400">
-                                    {item.variant_selections.map(v => `${v.name}: ${v.value}`).join(', ')}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-sm text-gray-300 font-medium whitespace-nowrap">
-                                {item.amountSol.toFixed(2)} SOL
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
