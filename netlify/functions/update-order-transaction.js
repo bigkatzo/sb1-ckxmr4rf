@@ -421,6 +421,75 @@ exports.handler = async (event, context) => {
         
         log('info', `Updating all ${allOrderIds.length} orders with transaction signature`);
         
+        // First ensure all orders have the correct batch_order_id field
+        log('info', `Ensuring all orders have the correct batch_order_id value: ${targetBatchOrderId}`);
+        const ordersMissingBatchId = batchOrders.filter(order => !order.batch_order_id);
+
+        if (ordersMissingBatchId.length > 0) {
+          const orderIdsToUpdate = ordersMissingBatchId.map(order => order.id);
+          log('info', `Setting batch_order_id field for ${orderIdsToUpdate.length} orders`);
+          
+          const { error: batchIdUpdateError } = await supabase
+            .from('orders')
+            .update({
+              batch_order_id: targetBatchOrderId,
+              updated_at: new Date().toISOString()
+            })
+            .in('id', orderIdsToUpdate);
+            
+          if (batchIdUpdateError) {
+            log('error', 'Error updating batch_order_id:', batchIdUpdateError);
+            // Continue with other updates even if this fails
+          } else {
+            log('info', 'Successfully updated batch_order_id for all orders');
+          }
+        }
+
+        // Now ensure all orders have the same order number format
+        const sfOrderNumber = batchOrders.find(o => o.order_number?.startsWith('SF-'))?.order_number;
+        if (sfOrderNumber) {
+          const ordersWithInconsistentNumber = batchOrders.filter(o => o.order_number && o.order_number !== sfOrderNumber);
+          
+          if (ordersWithInconsistentNumber.length > 0) {
+            const orderIdsToUpdate = ordersWithInconsistentNumber.map(order => order.id);
+            log('info', `Updating ${orderIdsToUpdate.length} orders to consistent order number: ${sfOrderNumber}`);
+            
+            const { error: updateNumberError } = await supabase
+              .from('orders')
+              .update({
+                order_number: sfOrderNumber,
+                updated_at: new Date().toISOString()
+              })
+              .in('id', orderIdsToUpdate);
+              
+            if (updateNumberError) {
+              log('error', 'Error updating order numbers:', updateNumberError);
+            } else {
+              log('info', 'Successfully updated order numbers for consistency');
+            }
+          }
+        }
+
+        // Set item_index and total_items_in_batch values
+        if (!batchOrders[0].item_index || !batchOrders[0].total_items_in_batch) {
+          log('info', `Setting item_index and total_items_in_batch for ${batchOrders.length} orders`);
+          
+          for (let i = 0; i < batchOrders.length; i++) {
+            const { error: indexUpdateError } = await supabase
+              .from('orders')
+              .update({
+                item_index: i + 1,
+                total_items_in_batch: batchOrders.length,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', batchOrders[i].id);
+              
+            if (indexUpdateError) {
+              log('error', `Error updating order index for order ${batchOrders[i].id}:`, indexUpdateError);
+            }
+          }
+        }
+
         // Update each order individually to set the correct amount based on its price
         for (const order of batchOrders) {
           // Get the correct price from the order's payment_metadata

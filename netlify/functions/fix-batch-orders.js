@@ -56,339 +56,174 @@ try {
   log('error', 'Failed to initialize Supabase client:', err.message);
 }
 
-exports.handler = async (event, context) => {
-  // Enable CORS for frontend
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
-
-  // Handle preflight request
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 204,
-      headers
-    };
-  }
-
-  // Allow both GET and POST for flexibility
-  if (event.httpMethod !== 'POST' && event.httpMethod !== 'GET') {
-    log('warn', 'Method not allowed:', event.httpMethod);
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
-  }
-
-  // Check if Supabase client is available
-  if (!supabase) {
-    log('error', 'Database connection unavailable');
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Database connection unavailable' })
-    };
-  }
-
+// Helper function to get all orders in a batch
+async function getBatchOrders(batchOrderId) {
   try {
-    // Get parameters from query string or body
-    let batchOrderId, transactionSignature, forceConfirm;
+    log('info', `Getting orders for batch: ${batchOrderId}`);
     
-    if (event.httpMethod === 'GET') {
-      // Get parameters from query string
-      const params = event.queryStringParameters || {};
-      batchOrderId = params.batchOrderId;
-      transactionSignature = params.transactionSignature;
-      forceConfirm = params.forceConfirm === 'true';
-    } else {
-      // Get parameters from POST body
-      const requestBody = JSON.parse(event.body);
-      batchOrderId = requestBody.batchOrderId;
-      transactionSignature = requestBody.transactionSignature;
-      forceConfirm = requestBody.forceConfirm === true;
-    }
-    
-    log('info', 'Fixing batch orders with parameters:', {
-      batchOrderId: batchOrderId || 'not provided',
-      transactionSignature: transactionSignature 
-        ? `${transactionSignature.substring(0, 8)}...` 
-        : 'not provided',
-      forceConfirm
-    });
-    
-    // Track results of operations
-    const results = {
-      batchesFixed: 0,
-      batchIdsFixed: [],
-      ordersFlagged: 0,
-      ordersFixed: 0,
-      orderNumbersFixed: 0,
-      ordersConfirmed: 0,
-      fixedBatchDetails: []
-    };
-    
-    // SECTION 1: Fix specific batch if batchOrderId is provided
-    if (batchOrderId) {
-      log('info', `Fixing specific batch: ${batchOrderId}`);
-      
-      // Fix 1: Find all orders with this batchOrderId in payment_metadata but not in column
-      await fixBatchOrderId(batchOrderId, results);
-      
-      // Fix 2: Find all orders with inconsistent order numbers
-      await fixOrderNumbers(batchOrderId, results);
-      
-      // Fix 3: Update transaction signatures if provided
-      if (transactionSignature) {
-        await fixTransactionSignature(batchOrderId, transactionSignature, results);
-      }
-      
-      // Fix 4: Confirm all orders in the batch if requested
-      if (forceConfirm) {
-        await confirmAllOrders(batchOrderId, results);
-      }
-    } else {
-      // SECTION 2: Find and fix all batches with issues
-      
-      // Fix 1: Find all orders with batchOrderId in metadata but not in column
-      log('info', 'Finding all orders with missing batch_order_id...');
-      const { data: missingBatchIds, error: missingError } = await supabase
-        .from('orders')
-        .select('payment_metadata')
-        .is('batch_order_id', null)
-        .not('payment_metadata', 'is', null)
-        .limit(1000);
-        
-      if (!missingError && missingBatchIds && missingBatchIds.length > 0) {
-        // Get unique batch IDs from metadata
-        const batchIds = new Set();
-        for (const order of missingBatchIds) {
-          if (order.payment_metadata && order.payment_metadata.batchOrderId) {
-            batchIds.add(order.payment_metadata.batchOrderId);
-          }
-        }
-        
-        if (batchIds.size > 0) {
-          log('info', `Found ${batchIds.size} unique batch IDs to fix`);
-          
-          // Fix each batch ID
-          for (const batchId of batchIds) {
-            await fixBatchOrderId(batchId, results);
-            await fixOrderNumbers(batchId, results);
-            
-            // Force confirm all orders in batch if requested
-            if (forceConfirm) {
-              await confirmAllOrders(batchId, results);
-            }
-            
-            results.batchIdsFixed.push(batchId);
-            results.batchesFixed++;
-          }
-        }
-      }
-      
-      // Fix 2: Find all orders with ORD pattern order numbers
-      log('info', 'Finding all orders with ORD-style order numbers...');
-      const { data: ordOrders, error: ordError } = await supabase
-        .from('orders')
-        .select('id, order_number, payment_metadata')
-        .filter('order_number', 'like', 'ORD%')
-        .not('payment_metadata', 'is', null)
-        .limit(1000);
-        
-      if (!ordError && ordOrders && ordOrders.length > 0) {
-        log('info', `Found ${ordOrders.length} orders with ORD-style order numbers`);
-        
-        // Group by batch ID
-        const batchGroups = {};
-        for (const order of ordOrders) {
-          if (order.payment_metadata && order.payment_metadata.batchOrderId) {
-            const batchId = order.payment_metadata.batchOrderId;
-            if (!batchGroups[batchId]) {
-              batchGroups[batchId] = [];
-            }
-            batchGroups[batchId].push(order);
-          }
-        }
-        
-        // Fix order numbers for each batch
-        for (const [batchId, orders] of Object.entries(batchGroups)) {
-          if (!results.batchIdsFixed.includes(batchId)) {
-            await fixBatchOrderId(batchId, results);
-            await fixOrderNumbers(batchId, results);
-            
-            // Force confirm all orders in batch if requested
-            if (forceConfirm) {
-              await confirmAllOrders(batchId, results);
-            }
-            
-            results.batchIdsFixed.push(batchId);
-            results.batchesFixed++;
-          }
-        }
-      }
-    }
-    
-    log('info', 'Fix batch orders operation completed');
-    
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        results
-      })
-    };
-  } catch (error) {
-    log('error', 'Error fixing batch orders:', error);
-    
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Failed to fix batch orders',
-        details: error.message
-      })
-    };
-  }
-};
-
-// Helper function to fix batch_order_id
-async function fixBatchOrderId(batchOrderId, results) {
-  try {
-    log('info', `Fixing batch_order_id for batch: ${batchOrderId}`);
-    
-    // Get all orders that have this batchOrderId in metadata but not in column
+    // First try the batch_order_id column
     const { data: orders, error } = await supabase
       .from('orders')
-      .select('id, payment_metadata')
-      .filter('payment_metadata->batchOrderId', 'eq', batchOrderId)
-      .is('batch_order_id', null);
+      .select('id, status, order_number, transaction_signature, payment_metadata, batch_order_id, item_index, total_items_in_batch')
+      .eq('batch_order_id', batchOrderId);
       
     if (error) {
-      log('error', 'Error finding orders with missing batch_order_id:', error);
-      return;
+      log('error', 'Error fetching orders by batch_order_id:', error);
+      throw error;
     }
     
-    if (orders && orders.length > 0) {
-      log('info', `Found ${orders.length} orders missing batch_order_id`);
+    // Also check orders that might have the batch ID only in metadata
+    const { data: metadataOrders, error: metadataError } = await supabase
+      .from('orders')
+      .select('id, status, order_number, transaction_signature, payment_metadata, batch_order_id, item_index, total_items_in_batch')
+      .filter('payment_metadata->batchOrderId', 'eq', batchOrderId)
+      .is('batch_order_id', null); // Only get ones without batch_order_id set
       
-      // Update all these orders to set batch_order_id
-      const orderIds = orders.map(order => order.id);
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({ batch_order_id: batchOrderId })
-        .in('id', orderIds);
-        
-      if (updateError) {
-        log('error', 'Error updating batch_order_id:', updateError);
-      } else {
-        log('info', `Successfully updated batch_order_id for ${orderIds.length} orders`);
-        results.ordersFlagged += orders.length;
-        results.ordersFixed += orderIds.length;
-      }
-    } else {
-      log('info', 'No orders found with missing batch_order_id');
+    if (metadataError) {
+      log('error', 'Error fetching orders by metadata:', metadataError);
+      // Continue with what we have from the first query
     }
+    
+    // Combine both result sets
+    const allOrders = [...(orders || [])];
+    if (metadataOrders && metadataOrders.length > 0) {
+      allOrders.push(...metadataOrders);
+    }
+    
+    log('info', `Found ${allOrders.length} total orders in batch ${batchOrderId}`);
+    return allOrders;
   } catch (error) {
-    log('error', 'Error in fixBatchOrderId:', error);
+    log('error', 'Error getting batch orders:', error);
+    throw error;
   }
 }
 
-// Helper function to fix inconsistent order numbers
-async function fixOrderNumbers(batchOrderId, results) {
+// Helper function to fix batch order IDs
+async function fixBatchOrderId(batchOrderId, orders) {
   try {
-    log('info', `Fixing order numbers for batch: ${batchOrderId}`);
+    log('info', `Fixing batch_order_id for batch: ${batchOrderId}`);
     
-    // Find a consistent SF-style order number to use
-    let commonOrderNumber;
+    // Filter orders missing batch_order_id
+    const ordersMissingBatchId = orders.filter(order => !order.batch_order_id);
     
-    // First try to find an existing SF-style order number
-    const { data: sfOrders, error: sfError } = await supabase
+    if (ordersMissingBatchId.length === 0) {
+      log('info', 'All orders already have batch_order_id set correctly');
+      return { success: true, fixed: 0 };
+    }
+    
+    // Update orders missing batch_order_id
+    const orderIds = ordersMissingBatchId.map(order => order.id);
+    
+    log('info', `Setting batch_order_id for ${orderIds.length} orders`);
+    
+    const { error } = await supabase
       .from('orders')
-      .select('order_number')
-      .eq('batch_order_id', batchOrderId)
-      .filter('order_number', 'like', 'SF-%')
-      .limit(1);
+      .update({ 
+        batch_order_id: batchOrderId,
+        updated_at: new Date().toISOString()
+      })
+      .in('id', orderIds);
       
-    if (!sfError && sfOrders && sfOrders.length > 0) {
-      commonOrderNumber = sfOrders[0].order_number;
-      log('info', `Using existing SF-style order number: ${commonOrderNumber}`);
-    } else {
-      // If no SF-style order number found, generate a new one
+    if (error) {
+      log('error', 'Error updating batch_order_id:', error);
+      throw error;
+    }
+    
+    log('info', `Successfully fixed batch_order_id for ${orderIds.length} orders`);
+    return { success: true, fixed: orderIds.length };
+  } catch (error) {
+    log('error', 'Error fixing batch order IDs:', error);
+    throw error;
+  }
+}
+
+// Helper function to fix order numbers
+async function fixOrderNumbers(batchOrderId, orders) {
+  try {
+    log('info', `Fixing order_number for batch: ${batchOrderId}`);
+    
+    // Find the first SF- formatted order number
+    let orderNumber = orders.find(o => o.order_number?.startsWith('SF-'))?.order_number;
+    
+    // If no SF- number found, generate a new one
+    if (!orderNumber) {
       const now = new Date();
       const month = now.getMonth() + 1;
       const day = now.getDate();
-      commonOrderNumber = `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-      log('info', `Generated new SF-style order number: ${commonOrderNumber}`);
+      orderNumber = `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+      log('info', `Generated new SF order number: ${orderNumber}`);
     }
     
-    // Find all orders in this batch with non-SF style order numbers
-    const { data: nonSfOrders, error: nonSfError } = await supabase
+    // Filter orders with incorrect order number
+    const ordersWithWrongNumber = orders.filter(o => o.order_number !== orderNumber);
+    
+    if (ordersWithWrongNumber.length === 0) {
+      log('info', 'All orders already have correct order number');
+      return { success: true, fixed: 0, orderNumber };
+    }
+    
+    // Update orders with wrong order number
+    const orderIds = ordersWithWrongNumber.map(order => order.id);
+    
+    log('info', `Setting order_number to ${orderNumber} for ${orderIds.length} orders`);
+    
+    const { error } = await supabase
       .from('orders')
-      .select('id, order_number')
-      .eq('batch_order_id', batchOrderId)
-      .not('order_number', 'like', 'SF-%');
+      .update({ 
+        order_number: orderNumber,
+        updated_at: new Date().toISOString()
+      })
+      .in('id', orderIds);
       
-    if (nonSfError) {
-      log('error', 'Error finding orders with non-SF order numbers:', nonSfError);
-      return;
+    if (error) {
+      log('error', 'Error updating order_number:', error);
+      throw error;
     }
     
-    // Also find orders that have this batch ID in metadata but don't have proper order numbers
-    const { data: metadataOrders, error: metadataError } = await supabase
-      .from('orders')
-      .select('id, order_number')
-      .filter('payment_metadata->batchOrderId', 'eq', batchOrderId)
-      .not('order_number', 'like', 'SF-%');
-      
-    // Combine both result sets, deduplicating by ID
-    const allOrdersToFix = [];
-    const seenIds = new Set();
+    log('info', `Successfully fixed order_number for ${orderIds.length} orders`);
+    return { success: true, fixed: orderIds.length, orderNumber };
+  } catch (error) {
+    log('error', 'Error fixing order numbers:', error);
+    throw error;
+  }
+}
+
+// Helper function to fix item index and total items in batch
+async function fixItemIndexes(batchOrderId, orders) {
+  try {
+    log('info', `Fixing item_index and total_items_in_batch for batch: ${batchOrderId}`);
     
-    if (nonSfOrders) {
-      for (const order of nonSfOrders) {
-        if (!seenIds.has(order.id)) {
-          allOrdersToFix.push(order);
-          seenIds.add(order.id);
-        }
+    const totalItems = orders.length;
+    let fixedCount = 0;
+    
+    // Update each order's item_index and total_items_in_batch
+    for (let i = 0; i < orders.length; i++) {
+      // Skip if the values are already correct
+      if (orders[i].item_index === i + 1 && orders[i].total_items_in_batch === totalItems) {
+        continue;
       }
-    }
-    
-    if (metadataOrders) {
-      for (const order of metadataOrders) {
-        if (!seenIds.has(order.id)) {
-          allOrdersToFix.push(order);
-          seenIds.add(order.id);
-        }
-      }
-    }
-    
-    if (allOrdersToFix.length > 0) {
-      log('info', `Found ${allOrdersToFix.length} orders with non-SF order numbers`);
       
-      // Update all these orders to use the common order number
-      const orderIds = allOrdersToFix.map(order => order.id);
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('orders')
         .update({ 
-          order_number: commonOrderNumber,
-          batch_order_id: batchOrderId // Ensure batch_order_id is set
+          item_index: i + 1,
+          total_items_in_batch: totalItems,
+          updated_at: new Date().toISOString()
         })
-        .in('id', orderIds);
+        .eq('id', orders[i].id);
         
-      if (updateError) {
-        log('error', 'Error updating order numbers:', updateError);
+      if (error) {
+        log('error', `Error updating item_index for order ${orders[i].id}:`, error);
       } else {
-        log('info', `Successfully updated order numbers for ${orderIds.length} orders`);
-        results.orderNumbersFixed += orderIds.length;
+        fixedCount++;
       }
-    } else {
-      log('info', 'No orders found with non-SF order numbers');
     }
+    
+    log('info', `Successfully fixed item_index and total_items_in_batch for ${fixedCount} orders`);
+    return { success: true, fixed: fixedCount };
   } catch (error) {
-    log('error', 'Error in fixOrderNumbers:', error);
+    log('error', 'Error fixing item indexes:', error);
+    throw error;
   }
 }
 
@@ -413,91 +248,325 @@ async function fixTransactionSignature(batchOrderId, transactionSignature, resul
       
       // Update each order individually with its proper amount
       for (const order of orders) {
-        // Extract the original price from payment_metadata
+        // Get the actual price for this order from payment_metadata
         const originalPrice = order.payment_metadata?.originalPrice || 0;
         const couponDiscount = order.payment_metadata?.couponDiscount || 0;
         const orderAmount = Math.max(0, originalPrice - couponDiscount);
         
-        log('debug', `Setting amount for order ${order.id}: ${orderAmount} SOL`, {
-          originalPrice,
-          couponDiscount,
-          finalAmount: orderAmount
-        });
+        // For orders with variant pricing, get the specific variant price
+        let variantPrice = null;
+        if (order.payment_metadata?.variantKey && order.payment_metadata?.variantPrices) {
+          variantPrice = order.payment_metadata.variantPrices[order.payment_metadata.variantKey];
+        }
+        
+        // Use the most specific price available
+        const finalAmount = variantPrice || orderAmount || 0;
+        
+        // Skip if the order already has this transaction signature
+        if (order.transaction_signature === transactionSignature) {
+          continue;
+        }
+        
+        log('debug', `Setting transaction_signature and amount_sol for order ${order.id}`);
         
         const { error: updateError } = await supabase
           .from('orders')
           .update({
             transaction_signature: transactionSignature,
-            amount_sol: orderAmount,
-            status: 'pending_payment', // At least move to pending_payment
+            amount_sol: finalAmount,
             updated_at: new Date().toISOString()
           })
           .eq('id', order.id);
           
         if (updateError) {
-          log('error', `Error updating order ${order.id}:`, updateError);
+          log('error', `Error updating transaction signature for order ${order.id}:`, updateError);
+          results.transactionSignatureFailed++;
         } else {
-          log('info', `Successfully updated transaction signature and amount for order ${order.id}`);
+          results.transactionSignatureFixed++;
         }
       }
-      
-      // Get the batch details to save for the results
-      const batchDetails = {
-        batchOrderId,
-        transactionSignature,
-        orderCount: orders.length,
-        ordersUpdated: orders.length
-      };
-      
-      results.fixedBatchDetails.push(batchDetails);
-    } else {
-      log('info', 'No orders found in batch');
     }
   } catch (error) {
-    log('error', 'Error in fixTransactionSignature:', error);
+    log('error', 'Error fixing transaction signatures:', error);
   }
 }
 
-// Helper function to confirm all orders in a batch
-async function confirmAllOrders(batchOrderId, results) {
-  try {
-    log('info', `Confirming all orders for batch: ${batchOrderId}`);
-    
-    // Get all orders in this batch that are not already confirmed
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select('id, status')
-      .eq('batch_order_id', batchOrderId)
-      .not('status', 'eq', 'confirmed');
-      
-    if (error) {
-      log('error', 'Error finding non-confirmed orders in batch:', error);
-      return;
-    }
-    
-    if (orders && orders.length > 0) {
-      log('info', `Found ${orders.length} non-confirmed orders in batch`);
-      
-      // Update all these orders to confirmed status
-      const orderIds = orders.map(order => order.id);
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          status: 'confirmed',
-          updated_at: new Date().toISOString()
-        })
-        .in('id', orderIds);
-        
-      if (updateError) {
-        log('error', 'Error confirming orders:', updateError);
-      } else {
-        log('info', `Successfully confirmed ${orderIds.length} orders`);
-        results.ordersConfirmed += orderIds.length;
-      }
-    } else {
-      log('info', 'No non-confirmed orders found in batch');
-    }
-  } catch (error) {
-    log('error', 'Error in confirmAllOrders:', error);
+// Main handler function
+exports.handler = async (event, context) => {
+  // Set headers for CORS
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+  };
+  
+  // Handle preflight request
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers,
+      body: ''
+    };
   }
-} 
+  
+  // Check if database connection is available
+  if (!supabase) {
+    log('error', 'Database connection unavailable');
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'Database connection unavailable' })
+    };
+  }
+  
+  try {
+    let requestBody;
+    
+    // Parse request parameters
+    if (event.httpMethod === 'POST') {
+      try {
+        requestBody = JSON.parse(event.body);
+      } catch (error) {
+        log('error', 'Invalid request body:', error);
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Invalid request body' })
+        };
+      }
+    } else if (event.httpMethod === 'GET') {
+      requestBody = event.queryStringParameters || {};
+    } else {
+      return {
+        statusCode: 405,
+        headers,
+        body: JSON.stringify({ error: 'Method not allowed' })
+      };
+    }
+    
+    const { batchOrderId, transactionSignature, fixAll = false } = requestBody;
+    
+    // Results object to track fixes
+    const results = {
+      batchOrderId,
+      batchOrderIdFixed: 0,
+      orderNumberFixed: 0,
+      itemIndexFixed: 0,
+      transactionSignatureFixed: 0,
+      transactionSignatureFailed: 0,
+      orderCount: 0,
+      errors: []
+    };
+    
+    // Fix specific batch if batchOrderId provided
+    if (batchOrderId) {
+      log('info', `Processing fixes for batch: ${batchOrderId}`);
+      
+      try {
+        // Get all orders in the batch
+        const orders = await getBatchOrders(batchOrderId);
+        results.orderCount = orders.length;
+        
+        if (orders.length === 0) {
+          log('warn', `No orders found for batch: ${batchOrderId}`);
+          return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ 
+              success: false, 
+              error: 'No orders found for specified batch ID',
+              batch: batchOrderId
+            })
+          };
+        }
+        
+        // Fix batch_order_id
+        const batchIdResult = await fixBatchOrderId(batchOrderId, orders);
+        results.batchOrderIdFixed = batchIdResult.fixed;
+        
+        // Fix order_number
+        const orderNumberResult = await fixOrderNumbers(batchOrderId, orders);
+        results.orderNumberFixed = orderNumberResult.fixed;
+        
+        // Fix item_index and total_items_in_batch
+        const itemIndexResult = await fixItemIndexes(batchOrderId, orders);
+        results.itemIndexFixed = itemIndexResult.fixed;
+        
+        // Fix transaction signature if provided
+        if (transactionSignature) {
+          await fixTransactionSignature(batchOrderId, transactionSignature, results);
+        }
+        
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            results
+          })
+        };
+      } catch (error) {
+        log('error', `Error processing batch ${batchOrderId}:`, error);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ 
+            success: false, 
+            error: 'Error processing batch',
+            details: error.message,
+            batch: batchOrderId
+          })
+        };
+      }
+    }
+    
+    // Process all batch orders if fixAll is true
+    if (fixAll) {
+      log('info', 'Processing fixes for ALL batch orders');
+      
+      // Find all unique batch order IDs
+      const { data: batchData, error: batchError } = await supabase
+        .from('orders')
+        .select('batch_order_id')
+        .not('batch_order_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(100); // Limit to most recent 100 for safety
+        
+      if (batchError) {
+        log('error', 'Error finding batch orders:', batchError);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ 
+            success: false, 
+            error: 'Error finding batch orders',
+            details: batchError.message
+          })
+        };
+      }
+      
+      // Also find batches from metadata
+      const { data: metadataBatchData, error: metadataError } = await supabase
+        .from('orders')
+        .select('payment_metadata')
+        .filter('payment_metadata->batchOrderId', 'neq', null)
+        .is('batch_order_id', null)
+        .order('created_at', { ascending: false })
+        .limit(100);
+        
+      if (metadataError) {
+        log('error', 'Error finding batches in metadata:', metadataError);
+      }
+      
+      // Build unique list of batch IDs
+      const batchIds = new Set();
+      
+      // Add batch IDs from the batch_order_id column
+      if (batchData) {
+        batchData.forEach(batch => {
+          if (batch.batch_order_id) {
+            batchIds.add(batch.batch_order_id);
+          }
+        });
+      }
+      
+      // Add batch IDs from metadata
+      if (metadataBatchData) {
+        metadataBatchData.forEach(item => {
+          if (item.payment_metadata?.batchOrderId) {
+            batchIds.add(item.payment_metadata.batchOrderId);
+          }
+        });
+      }
+      
+      // Convert to array
+      const uniqueBatchIds = Array.from(batchIds);
+      
+      log('info', `Found ${uniqueBatchIds.length} unique batch IDs`);
+      
+      // Process each batch
+      const batchResults = [];
+      
+      for (const batchId of uniqueBatchIds) {
+        try {
+          log('info', `Processing batch: ${batchId}`);
+          
+          // Get all orders in the batch
+          const orders = await getBatchOrders(batchId);
+          
+          if (orders.length === 0) {
+            log('warn', `No orders found for batch: ${batchId}`);
+            continue;
+          }
+          
+          const batchResult = {
+            batchOrderId: batchId,
+            orderCount: orders.length,
+            batchOrderIdFixed: 0,
+            orderNumberFixed: 0,
+            itemIndexFixed: 0
+          };
+          
+          // Fix batch_order_id
+          const batchIdResult = await fixBatchOrderId(batchId, orders);
+          batchResult.batchOrderIdFixed = batchIdResult.fixed;
+          
+          // Fix order_number
+          const orderNumberResult = await fixOrderNumbers(batchId, orders);
+          batchResult.orderNumberFixed = orderNumberResult.fixed;
+          
+          // Fix item_index and total_items_in_batch
+          const itemIndexResult = await fixItemIndexes(batchId, orders);
+          batchResult.itemIndexFixed = itemIndexResult.fixed;
+          
+          batchResults.push(batchResult);
+          
+          // Add to global results
+          results.batchOrderIdFixed += batchResult.batchOrderIdFixed;
+          results.orderNumberFixed += batchResult.orderNumberFixed;
+          results.itemIndexFixed += batchResult.itemIndexFixed;
+          results.orderCount += batchResult.orderCount;
+        } catch (error) {
+          log('error', `Error processing batch ${batchId}:`, error);
+          results.errors.push({
+            batch: batchId,
+            error: error.message
+          });
+        }
+      }
+      
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          batchCount: uniqueBatchIds.length,
+          results,
+          batches: batchResults
+        })
+      };
+    }
+    
+    // No specific action requested
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ 
+        success: false,
+        error: 'Missing required parameters. Provide batchOrderId or set fixAll=true' 
+      })
+    };
+  } catch (error) {
+    log('error', 'Unexpected error:', error);
+    
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ 
+        success: false, 
+        error: 'Internal server error',
+        details: error.message
+      })
+    };
+  }
+}; 

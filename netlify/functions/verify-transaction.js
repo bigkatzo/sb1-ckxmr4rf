@@ -1132,16 +1132,81 @@ exports.handler = async (event, context) => {
     
     // If we get here, we couldn't find any orders to update
     if (verification.isValid) {
-      // Transaction is valid but no orders found
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        success: true,
+      // Emergency recovery for orphaned batch orders - look for orders with matching transaction in metadata
+      try {
+        log('warn', 'Transaction is valid but no direct order link found. Attempting emergency recovery');
+        
+        // Check for ANY draft orders that might be waiting for this transaction
+        const { data: pendingOrders, error: pendingError } = await supabase
+          .from('orders')
+          .select('id, batch_order_id, payment_metadata, status')
+          .or('payment_metadata->batchOrderId.neq.null,batch_order_id.neq.null')
+          .in('status', ['draft', 'pending_payment'])
+          .order('created_at', { ascending: false })
+          .limit(10); // Get most recent pending orders
+          
+        if (!pendingError && pendingOrders && pendingOrders.length > 0) {
+          log('info', `Found ${pendingOrders.length} recent pending orders that might be related to this transaction`);
+          
+          // Group orders by batch ID for analysis
+          const batchGroups = {};
+          for (const order of pendingOrders) {
+            const batchId = order.batch_order_id || order.payment_metadata?.batchOrderId;
+            if (batchId) {
+              if (!batchGroups[batchId]) {
+                batchGroups[batchId] = [];
+              }
+              batchGroups[batchId].push(order);
+            }
+          }
+          
+          // Process the most likely batch (the one with the most pending orders)
+          const batches = Object.keys(batchGroups).map(id => ({
+            batchId: id,
+            orders: batchGroups[id]
+          }));
+          
+          if (batches.length > 0) {
+            // Sort by most orders in batch
+            batches.sort((a, b) => b.orders.length - a.orders.length);
+            const mostLikelyBatch = batches[0];
+            
+            log('info', `Attempting to recover batch ${mostLikelyBatch.batchId} with ${mostLikelyBatch.orders.length} pending orders`);
+            
+            // Process the batch with this transaction
+            const result = await confirmBatchOrderPayment(mostLikelyBatch.batchId, signature, verification);
+            
+            return {
+              statusCode: 200,
+              body: JSON.stringify({
+                success: result.success,
+                emergency: true,
+                message: 'Emergency batch order recovery applied',
+                verification: {
+                  isValid: true,
+                  details: verification.details || {}
+                },
+                batchOrderId: mostLikelyBatch.batchId,
+                ordersUpdated: result.ordersConfirmed || 0,
+                totalOrders: result.totalOrders || 0
+              })
+            };
+          }
+        }
+      } catch (emergencyError) {
+        log('error', 'Error in emergency recovery:', emergencyError);
+      }
+
+      // Transaction is valid but no orders found and recovery failed
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
           warning: 'Transaction verified but no related orders found',
-        verification: {
+          verification: {
             isValid: true,
             details: verification.details || {}
-        },
+          },
           ordersUpdated: []
         })
       };
@@ -1153,8 +1218,8 @@ exports.handler = async (event, context) => {
           success: false,
           error: verification.error || 'Transaction verification failed',
           details: verification.details || {}
-      })
-    };
+        })
+      };
     }
   } catch (err) {
     console.error('Error in verify-transaction function:', err);
