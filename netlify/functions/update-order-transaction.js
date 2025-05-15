@@ -1,11 +1,9 @@
 /**
  * UPDATE ORDER TRANSACTION
  * 
- * Server-side function for updating order transaction information
- * Uses service role credentials to access database functions
- * Modified to implement the same transaction flow as the original working implementation
+ * Server-side function for updating orders with transaction signature
+ * This handles both individual orders and batch orders consistently
  */
-
 const { createClient } = require('@supabase/supabase-js');
 
 // Enable detailed logging
@@ -57,14 +55,6 @@ try {
   log('error', 'Failed to initialize Supabase client:', err.message);
 }
 
-/**
- * Verify and update the order status using approach from frontend
- * Updated to support batch orders
- */
-async function confirmOrderPayment(orderId, signature, verification, batchOrderId) {
-  // ... existing code ...
-}
-
 exports.handler = async (event, context) => {
   // Enable CORS for frontend
   const headers = {
@@ -81,9 +71,7 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Only allow POST requests
   if (event.httpMethod !== 'POST') {
-    log('warn', 'Method not allowed:', event.httpMethod);
     return {
       statusCode: 405,
       headers,
@@ -91,9 +79,8 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Check if Supabase client is available
+  // Check if supabase client is initialized
   if (!supabase) {
-    log('error', 'Database connection unavailable');
     return {
       statusCode: 500,
       headers,
@@ -101,453 +88,441 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Parse request body
-  let requestBody;
   try {
-    requestBody = JSON.parse(event.body);
-    log('info', 'Received update request:', {
-      ...requestBody,
-      // Only show part of the signature for security
-      transactionSignature: requestBody.transactionSignature 
-        ? `${requestBody.transactionSignature.substring(0, 8)}...${requestBody.transactionSignature.slice(-8)}` 
-        : 'none'
-    });
-  } catch (err) {
-    log('error', 'Invalid request body:', event.body);
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Invalid request body' })
-    };
-  }
-
-  // Extract transaction details from request
-  const { 
-    orderId, 
-    transactionSignature, 
-    amountSol,
-    batchOrderId, // Add support for batch order ID
-    isBatchOrder // Flag to indicate if this is a batch order
-  } = requestBody;
-
-  log('debug', 'Extracted request parameters', {
-    orderId: orderId || 'not provided',
-    transactionSignaturePrefix: transactionSignature 
-      ? `${transactionSignature.substring(0, 8)}...` 
-      : 'not provided',
-    amountSol: amountSol || 'not provided',
-    batchOrderId: batchOrderId || 'not provided',
-    isBatchOrder: isBatchOrder || false
-  });
-
-  // First attempt recovery if orderId is missing
-  let targetOrderId = orderId;
-  let targetBatchOrderId = batchOrderId;
-
-  // If we don't have an orderId but have a signature, try to recover
-  if (!targetOrderId && transactionSignature) {
-    log('info', 'No order ID provided, attempting to recover from transaction signature');
-    
+    // Parse and validate request body
+    let requestBody;
     try {
-      // Check if any orders already have this transaction signature
-      log('debug', 'Checking for existing orders with transaction signature');
-      const { data: existingOrders, error: existingError } = await supabase
-        .from('orders')
-        .select('id, batch_order_id')
-        .eq('transaction_signature', transactionSignature)
-        .limit(1);
-      
-      if (!existingError && existingOrders && existingOrders.length > 0) {
-        targetOrderId = existingOrders[0].id;
-        if (existingOrders[0].batch_order_id) {
-          targetBatchOrderId = existingOrders[0].batch_order_id;
-          log('info', `Found existing order ${targetOrderId} part of batch ${targetBatchOrderId}`);
-        } else {
-          log('info', `Found existing order ${targetOrderId}`);
-        }
-      } else {
-        log('debug', 'No existing orders found with this transaction signature');
-      }
+      requestBody = JSON.parse(event.body);
     } catch (error) {
-      log('error', 'Error recovering order from transaction signature:', error);
+      log('error', 'Failed to parse request body:', error.message);
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Invalid request body format' })
+      };
     }
-  }
 
-  // If targetOrderId is still null but we have targetBatchOrderId, we'll use that
-  if (!targetOrderId && !targetBatchOrderId) {
-    log('error', 'Missing both order ID and batch order ID');
+    // Extract parameters
+    const {
+      orderId: targetOrderId,
+      transactionSignature,
+      amountSol,
+      batchOrderId: targetBatchOrderId,
+      isBatchOrder = false,
+      isFreeOrder = false
+    } = requestBody;
+
+    // Validate essential parameters
+    if (!transactionSignature) {
+      log('error', 'Missing required parameter: transactionSignature');
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Missing required parameter: transactionSignature' })
+      };
+    }
+
+    // Must provide either orderId or batchOrderId
+    if (!targetOrderId && !targetBatchOrderId && !isBatchOrder) {
+      log('error', 'Missing required parameter: orderId or batchOrderId');
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Missing required parameter: orderId or batchOrderId' })
+      };
+    }
+
+    // Format amount correctly
+    const amountSolFloat = parseFloat(amountSol || 0);
+
+    log('info', 'Request params:', {
+      orderId: targetOrderId || 'none',
+      batchOrderId: targetBatchOrderId || 'none',
+      transactionSignature: transactionSignature ? transactionSignature.substring(0, 8) + '...' : 'none',
+      amountSol: amountSolFloat,
+      isBatchOrder,
+      isFreeOrder
+    });
+
+    // For single orders, process directly
+    if (targetOrderId && !targetBatchOrderId && !isBatchOrder) {
+      log('info', `Processing single order transaction update for order: ${targetOrderId}`);
+
+      try {
+        // First ensure we know the status of the order
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .select('id, status, batch_order_id')
+          .eq('id', targetOrderId)
+          .single();
+
+        if (orderError) {
+          log('error', 'Error fetching order data:', orderError);
+          return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ error: 'Order not found' })
+          };
+        }
+
+        // If the order is part of a batch, redirect to batch processing
+        if (orderData.batch_order_id) {
+          log('info', `Order ${targetOrderId} is part of batch ${orderData.batch_order_id}, redirecting to batch processing`);
+          return await updateBatchOrderTransaction(
+            orderData.batch_order_id,
+            transactionSignature,
+            amountSolFloat,
+            isFreeOrder,
+            headers
+          );
+        }
+
+        // Update the order transaction using the stored procedure
+        log('info', `Updating transaction for single order ${targetOrderId}`);
+
+        const { error: updateError } = await supabase.rpc('update_order_transaction', {
+          p_order_id: targetOrderId,
+          p_transaction_signature: transactionSignature,
+          p_amount_sol: amountSolFloat
+        });
+
+        if (updateError) {
+          log('error', 'Error updating order transaction:', updateError);
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: updateError.message })
+          };
+        }
+
+        // For free orders, confirm immediately
+        if (isFreeOrder) {
+          log('info', `Auto-confirming free order: ${targetOrderId}`);
+
+          const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
+            p_order_id: targetOrderId
+          });
+
+          if (confirmError) {
+            log('error', 'Error confirming free order:', confirmError);
+            // Continue anyway - the order is at least in pending_payment state
+          } else {
+            log('info', 'Free order confirmed successfully');
+          }
+        }
+
+        // Update the transaction log
+        try {
+          const { error: logError } = await supabase.rpc('update_transaction_status', {
+            p_signature: transactionSignature,
+            p_status: 'pending',
+            p_details: {
+              orderId: targetOrderId,
+              amountSol: amountSolFloat,
+              timestamp: new Date().toISOString()
+            }
+          });
+
+          if (logError) {
+            log('warn', 'Failed to update transaction log:', logError);
+            // Continue anyway - this is just for logging
+          }
+        } catch (error) {
+          log('warn', 'Exception updating transaction log:', error);
+          // Continue anyway - this is just for logging
+        }
+
+        log('info', 'Order transaction updated successfully');
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            data: {
+              orderId: targetOrderId,
+              transactionSignature,
+              amountSol: amountSolFloat
+            }
+          })
+        };
+      } catch (error) {
+        log('error', 'Exception in single order update:', error);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ error: error.message })
+        };
+      }
+    }
+
+    // If we have a batch order ID, use it for updating all related orders
+    if (targetBatchOrderId || (targetOrderId && isBatchOrder === true)) {
+      // If we don't have batch ID but isBatchOrder is true, find batch ID from order ID
+      let batchOrderId = targetBatchOrderId;
+      
+      if (!batchOrderId && targetOrderId) {
+        log('info', 'isBatchOrder is true but no batchOrderId, looking up from orderId');
+        try {
+          const { data, error } = await supabase
+            .from('orders')
+            .select('batch_order_id, payment_metadata')
+            .eq('id', targetOrderId)
+            .single();
+
+          if (error) {
+            log('error', 'Error getting batch ID from order:', error);
+          } else if (data) {
+            if (data.batch_order_id) {
+              batchOrderId = data.batch_order_id;
+              log('info', `Found batch ID ${batchOrderId} from order.batch_order_id column`);
+            } else if (data.payment_metadata?.batchOrderId) {
+              batchOrderId = data.payment_metadata.batchOrderId;
+              log('info', `Found batch ID ${batchOrderId} from order.payment_metadata.batchOrderId`);
+            } else {
+              log('warn', `No batch ID found for order ${targetOrderId}`);
+            }
+          }
+        } catch (error) {
+          log('error', 'Exception getting batch ID from order:', error);
+        }
+      }
+
+      if (batchOrderId) {
+        return await updateBatchOrderTransaction(
+          batchOrderId,
+          transactionSignature,
+          amountSolFloat,
+          isFreeOrder,
+          headers
+        );
+      }
+    }
+
+    // If we got here, we couldn't find a valid batch ID
     return {
       statusCode: 400,
       headers,
-      body: JSON.stringify({ error: 'Missing both order ID and batch order ID' })
+      body: JSON.stringify({ error: 'Could not determine batch order ID for update' })
     };
-  }
-
-  // Validate required parameters
-  if (!transactionSignature) {
-    log('error', 'Missing transaction signature');
+  } catch (error) {
+    log('error', 'Unexpected error:', error);
     return {
-      statusCode: 400,
+      statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Missing transaction signature' })
+      body: JSON.stringify({ error: 'Internal server error' })
     };
   }
+};
 
-  if (amountSol === undefined || amountSol === null) {
-    log('error', 'Missing amount in SOL');
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Missing amount in SOL' })
-    };
-  }
-
-  const amountSolFloat = parseFloat(amountSol || 0);
-  // Check if this is a free order (transaction signature starts with 'free_')
-  const isFreeOrder = transactionSignature && transactionSignature.startsWith('free_');
-  
-  log('info', 'Processing parameters:', {
-    targetOrderId: targetOrderId || 'not found',
-    targetBatchOrderId: targetBatchOrderId || 'not found',
-    transactionSignaturePrefix: transactionSignature.substring(0, 8) + '...',
+/**
+ * Helper function to update a batch of orders with transaction signature
+ */
+async function updateBatchOrderTransaction(batchOrderId, transactionSignature, amountSolFloat, isFreeOrder, headers) {
+  log('info', `Processing batch order transaction update for batch: ${batchOrderId}`, {
+    transactionSignature: transactionSignature ? `${transactionSignature.substring(0, 8)}...` : 'none',
     amountSol: amountSolFloat,
     isFreeOrder
   });
 
-  // If we have a batch order ID, use it for updating all related orders
-  if (targetBatchOrderId || (targetOrderId && isBatchOrder === true)) {
-    if (!targetBatchOrderId && targetOrderId) {
-      // If we don't have batch ID but isBatchOrder is true, try to find batch ID from order ID
-      log('info', 'isBatchOrder is true but no batchOrderId, looking up from orderId');
-      try {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('batch_order_id')
-          .eq('id', targetOrderId)
-          .single();
-
-        if (error) {
-          log('error', 'Error getting batch ID from order:', error);
-        } else if (data && data.batch_order_id) {
-          targetBatchOrderId = data.batch_order_id;
-          log('info', `Found batch ID ${targetBatchOrderId} for order ${targetOrderId}`);
-        } else {
-          log('warn', `No batch ID found for order ${targetOrderId}`);
-        }
-      } catch (error) {
-        log('error', 'Exception getting batch ID from order:', error);
+  try {
+    // First, check if any orders in this batch have the transaction signature already
+    // This could happen if the function is called multiple times
+    const { data: existingTx, error: existingError } = await supabase
+      .from('orders')
+      .select('id, status')
+      .eq('batch_order_id', batchOrderId)
+      .eq('transaction_signature', transactionSignature);
+      
+    if (!existingError && existingTx && existingTx.length > 0) {
+      log('info', `${existingTx.length} orders in batch already have this transaction signature`);
+      
+      if (existingTx.length > 0) {
+        // If some orders already have this transaction, return success
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ 
+            success: true, 
+            data: { 
+              batchOrderId,
+              transactionSignature, 
+              amountSol: amountSolFloat,
+              isBatchOrder: true,
+              ordersUpdated: existingTx.length,
+              message: 'Orders already have this transaction signature'
+            } 
+          })
+        };
       }
     }
+  
+    // STEP 1: Find ALL orders related to this batch with ANY status
+    // This includes orders that might have batch_order_id in metadata but not column
+    let allBatchOrders = [];
+    
+    // First try finding orders with batch_order_id column set
+    const { data: batchOrders, error: batchError } = await supabase
+      .from('orders')
+      .select('id, status, order_number, payment_metadata, batch_order_id, variant_selections')
+      .eq('batch_order_id', batchOrderId);
 
-    if (targetBatchOrderId) {
-      log('info', `Processing batch order transaction update for batch: ${targetBatchOrderId}`, {
-        transactionSignature: transactionSignature ? `${transactionSignature.substring(0, 8)}...` : 'none',
-        amountSol: amountSolFloat,
-        isFreeOrder
+    if (batchError) {
+      log('error', 'Error fetching batch orders by column:', batchError);
+      // Continue to try metadata search
+    } else if (batchOrders && batchOrders.length > 0) {
+      allBatchOrders = [...batchOrders];
+      log('info', `Found ${batchOrders.length} orders with batch_order_id column set`);
+    }
+    
+    // Also find orders that have batch ID only in metadata
+    const { data: metadataOrders, error: metadataError } = await supabase
+      .from('orders')
+      .select('id, status, order_number, payment_metadata, batch_order_id, variant_selections')
+      .is('batch_order_id', null)
+      .filter('payment_metadata->batchOrderId', 'eq', batchOrderId);
+      
+    if (metadataError) {
+      log('error', 'Error fetching batch orders by metadata:', metadataError);
+    } else if (metadataOrders && metadataOrders.length > 0) {
+      // Add orders found only in metadata (no duplicates)
+      const existingIds = new Set(allBatchOrders.map(o => o.id));
+      const newOrders = metadataOrders.filter(o => !existingIds.has(o.id));
+      
+      if (newOrders.length > 0) {
+        allBatchOrders.push(...newOrders);
+        log('info', `Found ${newOrders.length} additional orders with batch_order_id in metadata`);
+      }
+    }
+    
+    if (allBatchOrders.length === 0) {
+      log('error', `No orders found for batch: ${batchOrderId}`);
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ 
+          error: 'No orders found for batch',
+          batchOrderId 
+        })
+      };
+    }
+    
+    log('info', `Found total of ${allBatchOrders.length} orders in batch ${batchOrderId}`);
+    
+    // STEP 2: Make sure ALL orders have batch_order_id set in the column
+    const ordersMissingBatchId = allBatchOrders.filter(order => !order.batch_order_id);
+    if (ordersMissingBatchId.length > 0) {
+      const orderIdsToUpdate = ordersMissingBatchId.map(order => order.id);
+      log('info', `Setting batch_order_id column for ${orderIdsToUpdate.length} orders`);
+      
+      const { error: batchIdUpdateError } = await supabase
+        .from('orders')
+        .update({
+          batch_order_id: batchOrderId,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', orderIdsToUpdate);
+      
+      if (batchIdUpdateError) {
+        log('error', `Error updating batch_order_id for orders:`, batchIdUpdateError);
+      } else {
+        log('info', `Successfully updated batch_order_id for ${orderIdsToUpdate.length} orders`);
+      }
+    }
+    
+    // STEP 3: Identify orders with draft/pending status to update with transaction signature
+    const pendingOrders = allBatchOrders.filter(o => o.status === 'draft' || o.status === 'pending_payment');
+    log('info', `Found ${pendingOrders.length} orders in draft/pending status to update with transaction`);
+    
+    if (pendingOrders.length > 0) {
+      // Create a map of order IDs to their variant pricing
+      const orderPricing = {};
+      
+      // Calculate the correct price for each order based on variants
+      pendingOrders.forEach(order => {
+        try {
+          // Start with base logic - if no variant info, use equal split
+          let orderAmount = amountSolFloat / pendingOrders.length;
+          
+          // Get variant info if available
+          const metadata = order.payment_metadata || {};
+          const variantKey = metadata.variantKey;
+          const variantPrices = metadata.variantPrices;
+          
+          // If we have variant pricing, use the specific variant price
+          if (variantKey && variantPrices && variantPrices[variantKey]) {
+            orderAmount = parseFloat(variantPrices[variantKey]);
+            log('debug', `Using variant price for order ${order.id}: ${orderAmount} SOL`, { 
+              variantKey, 
+              price: variantPrices[variantKey] 
+            });
+          } else if (metadata.originalPrice) {
+            // Otherwise use originalPrice from metadata if available
+            const originalPrice = parseFloat(metadata.originalPrice);
+            const couponDiscount = parseFloat(metadata.couponDiscount || 0);
+            orderAmount = Math.max(0, originalPrice - couponDiscount);
+            log('debug', `Using metadata price for order ${order.id}: ${orderAmount} SOL`, { 
+              originalPrice, 
+              couponDiscount 
+            });
+          }
+          
+          // Store the calculated amount
+          orderPricing[order.id] = orderAmount;
+        } catch (error) {
+          log('error', `Error calculating price for order ${order.id}:`, error);
+          // Default to equal split if calculation fails
+          orderPricing[order.id] = amountSolFloat / pendingOrders.length;
+        }
       });
-
-      try {
-        // Get all orders in this batch with status 'draft'
-        const { data: batchOrders, error: batchError } = await supabase
-          .from('orders')
-          .select('id, status, order_number, payment_metadata')
-          .eq('batch_order_id', targetBatchOrderId)
-          .in('status', ['draft']);
-
-        if (batchError) {
-          log('error', 'Error fetching batch orders:', batchError);
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ error: 'Failed to fetch batch orders' })
-          };
-        }
-
-        // If no orders found using batch_order_id column, try using payment_metadata
-        if (!batchOrders || batchOrders.length === 0) {
-          log('info', 'No orders found with batch_order_id column, trying with payment_metadata.batchOrderId');
+      
+      // Update each order individually with the correct price
+      const updateResults = [];
+      for (const order of pendingOrders) {
+        try {
+          const orderAmount = orderPricing[order.id] || 0;
           
-          const { data: metadataOrders, error: metadataError } = await supabase
-            .from('orders')
-            .select('id, status, order_number')
-            .filter('payment_metadata->batchOrderId', 'eq', targetBatchOrderId)
-            .in('status', ['draft']);
-            
-          if (!metadataError && metadataOrders && metadataOrders.length > 0) {
-            log('info', `Found ${metadataOrders.length} orders with matching batchOrderId in metadata`);
-            
-            // First, update all these orders to set their batch_order_id field
-            const orderIds = metadataOrders.map(order => order.id);
-            
-            log('info', `Updating ${orderIds.length} orders to set batch_order_id field`);
-            
-            // Get the SF-style order number from any order that already has it
-            let sfOrderNumber;
-            
-            const { data: existingOrders, error: existingOrdersError } = await supabase
-              .from('orders')
-              .select('order_number')
-              .eq('batch_order_id', targetBatchOrderId)
-              .limit(1);
-              
-            if (!existingOrdersError && existingOrders && existingOrders.length > 0) {
-              sfOrderNumber = existingOrders[0].order_number;
-              log('info', `Found existing SF order number: ${sfOrderNumber}`);
-            }
-            
-            // If no SF order number found, generate one
-            if (!sfOrderNumber || !sfOrderNumber.startsWith('SF-')) {
-              // Generate a SF-style order number (SF-MMDD-XXXX)
-              const now = new Date();
-              const month = now.getMonth() + 1;
-              const day = now.getDate();
-              sfOrderNumber = `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-              log('info', `Generated new SF order number: ${sfOrderNumber}`);
-            }
-            
-            // Update all orders with batch ID and consistent order number
-            const { error: updateBatchIdError } = await supabase
-              .from('orders')
-              .update({
-                batch_order_id: targetBatchOrderId,
-                order_number: sfOrderNumber,
-                updated_at: new Date().toISOString()
-              })
-              .in('id', orderIds);
-              
-            if (updateBatchIdError) {
-              log('error', 'Error updating batch_order_id and order_number:', updateBatchIdError);
-              // Continue with the process anyway - we'll try to handle what we have
-            } else {
-              log('info', 'Successfully updated batch_order_id and order_number for all orders');
-            }
-            
-            // Now continue with the remaining orders
-            return exports.handler(event, context);
-          }
-        }
-
-        if (!batchOrders || batchOrders.length === 0) {
-          log('warn', 'No draft orders found in batch');
-          // Try looking for pending_payment orders in case they were already updated
-          const { data: pendingOrders, error: pendingError } = await supabase
-            .from('orders')
-            .select('id, status')
-            .eq('batch_order_id', targetBatchOrderId)
-            .in('status', ['pending_payment']);
-
-          if (pendingError) {
-            log('error', 'Error fetching pending orders:', pendingError);
-          } else if (pendingOrders && pendingOrders.length > 0) {
-            log('info', `Found ${pendingOrders.length} orders in pending_payment status`);
-            
-            // Update all pending orders with the transaction signature and correct split amount
-            const allPendingOrderIds = pendingOrders.map(order => order.id);
-            log('info', `Updating all ${allPendingOrderIds.length} pending orders with transaction signature`);
-            
-            const { error: updateAllError } = await supabase
-              .from('orders')
-              .update({
-                transaction_signature: transactionSignature,
-                amount_sol: amountSolFloat / pendingOrders.length,
-                updated_at: new Date().toISOString()
-              })
-              .in('id', allPendingOrderIds);
-            
-            if (updateAllError) {
-              log('error', 'Error updating all pending orders:', updateAllError);
-              return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ 
-                  error: 'Failed to update transaction signature for pending orders',
-                  details: updateAllError.message
-                })
-              };
-            } else {
-              log('info', `Successfully updated transaction signature for all ${pendingOrders.length} pending orders`);
-            }
-            
-            // For free orders, transition all orders to confirmed status
-            if (isFreeOrder) {
-              log('info', `Auto-confirming ${allPendingOrderIds.length} free orders in batch`);
-              
-              const { error: confirmError } = await supabase
-                .from('orders')
-                .update({
-                  status: 'confirmed',
-                  updated_at: new Date().toISOString()
-                })
-                .in('id', allPendingOrderIds);
-              
-              if (confirmError) {
-                log('error', 'Error confirming free batch orders:', confirmError);
-              } else {
-                log('info', 'Free batch orders confirmed successfully');
-              }
-            }
-            
-            return {
-              statusCode: 200,
-              headers,
-              body: JSON.stringify({ 
-                success: true, 
-                data: { 
-                  batchOrderId: targetBatchOrderId,
-                  transactionSignature, 
-                  amountSol: amountSolFloat,
-                  isBatchOrder: true,
-                  ordersUpdated: pendingOrders.length
-                } 
-              })
-            };
-          }
-          
-          // Return a more specific error if we couldn't find any orders to update
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ 
-              error: 'No draft or pending orders found in batch',
-              batchOrderId: targetBatchOrderId
-            })
-          };
-        }
-
-        log('info', `Found ${batchOrders.length} draft orders in batch ${targetBatchOrderId}`);
-
-        // Update ALL orders in the batch with transaction signature and proper amount
-        const allOrderIds = batchOrders.map(order => order.id);
-        
-        log('info', `Updating all ${allOrderIds.length} orders with transaction signature`);
-        
-        // First ensure all orders have the correct batch_order_id field
-        log('info', `Ensuring all orders have the correct batch_order_id value: ${targetBatchOrderId}`);
-        const ordersMissingBatchId = batchOrders.filter(order => !order.batch_order_id);
-
-        if (ordersMissingBatchId.length > 0) {
-          const orderIdsToUpdate = ordersMissingBatchId.map(order => order.id);
-          log('info', `Setting batch_order_id field for ${orderIdsToUpdate.length} orders`);
-          
-          const { error: batchIdUpdateError } = await supabase
-            .from('orders')
-            .update({
-              batch_order_id: targetBatchOrderId,
-              updated_at: new Date().toISOString()
-            })
-            .in('id', orderIdsToUpdate);
-            
-          if (batchIdUpdateError) {
-            log('error', 'Error updating batch_order_id:', batchIdUpdateError);
-            // Continue with other updates even if this fails
-          } else {
-            log('info', 'Successfully updated batch_order_id for all orders');
-          }
-        }
-
-        // Now ensure all orders have the same order number format
-        const sfOrderNumber = batchOrders.find(o => o.order_number?.startsWith('SF-'))?.order_number;
-        if (sfOrderNumber) {
-          const ordersWithInconsistentNumber = batchOrders.filter(o => o.order_number && o.order_number !== sfOrderNumber);
-          
-          if (ordersWithInconsistentNumber.length > 0) {
-            const orderIdsToUpdate = ordersWithInconsistentNumber.map(order => order.id);
-            log('info', `Updating ${orderIdsToUpdate.length} orders to consistent order number: ${sfOrderNumber}`);
-            
-            const { error: updateNumberError } = await supabase
-              .from('orders')
-              .update({
-                order_number: sfOrderNumber,
-                updated_at: new Date().toISOString()
-              })
-              .in('id', orderIdsToUpdate);
-              
-            if (updateNumberError) {
-              log('error', 'Error updating order numbers:', updateNumberError);
-            } else {
-              log('info', 'Successfully updated order numbers for consistency');
-            }
-          }
-        }
-
-        // Set item_index and total_items_in_batch values
-        if (!batchOrders[0].item_index || !batchOrders[0].total_items_in_batch) {
-          log('info', `Setting item_index and total_items_in_batch for ${batchOrders.length} orders`);
-          
-          for (let i = 0; i < batchOrders.length; i++) {
-            const { error: indexUpdateError } = await supabase
-              .from('orders')
-              .update({
-                item_index: i + 1,
-                total_items_in_batch: batchOrders.length,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', batchOrders[i].id);
-              
-            if (indexUpdateError) {
-              log('error', `Error updating order index for order ${batchOrders[i].id}:`, indexUpdateError);
-            }
-          }
-        }
-
-        // Update each order individually to set the correct amount based on its price
-        for (const order of batchOrders) {
-          // Get the correct price from the order's payment_metadata
-          const originalPrice = order.payment_metadata?.originalPrice || 0;
-          const couponDiscount = order.payment_metadata?.couponDiscount || 0;
-          const orderAmount = Math.max(0, originalPrice - couponDiscount);
-          
-          log('debug', `Setting amount for order ${order.id}: ${orderAmount} SOL`, {
-            originalPrice,
-            couponDiscount,
-            finalAmount: orderAmount
-          });
+          log('info', `Updating order ${order.id} with transaction signature and amount ${orderAmount}`);
           
           const { error: updateError } = await supabase
             .from('orders')
             .update({
-              status: 'pending_payment',
               transaction_signature: transactionSignature,
               amount_sol: orderAmount,
+              status: 'pending_payment', // Always set status to pending_payment
               updated_at: new Date().toISOString()
             })
             .eq('id', order.id);
             
           if (updateError) {
             log('error', `Error updating order ${order.id}:`, updateError);
+            updateResults.push({
+              orderId: order.id,
+              success: false,
+              error: updateError.message
+            });
+          } else {
+            updateResults.push({
+              orderId: order.id,
+              success: true,
+              amount: orderAmount
+            });
           }
+        } catch (error) {
+          log('error', `Exception updating order ${order.id}:`, error);
+          updateResults.push({
+            orderId: order.id,
+            success: false,
+            error: error.message
+          });
         }
-        
-        // If there were any errors in individual updates, try a batch update as fallback
-        const { error: updateCheckError, data: updateCheck } = await supabase
-          .from('orders')
-          .select('id, status')
-          .eq('batch_order_id', targetBatchOrderId)
-          .eq('status', 'pending_payment')
-          .is('transaction_signature', null);
-          
-        if (!updateCheckError && updateCheck && updateCheck.length > 0) {
-          log('warn', `${updateCheck.length} orders were not updated properly, trying batch update`);
-          
-          const remainingIds = updateCheck.map(o => o.id);
-          
-          const { error: batchUpdateError } = await supabase
-            .from('orders')
-            .update({
-              status: 'pending_payment',
-              transaction_signature: transactionSignature,
-              updated_at: new Date().toISOString()
-            })
-            .in('id', remainingIds);
-            
-          if (batchUpdateError) {
-            log('error', 'Fallback batch update failed:', batchUpdateError);
-          }
-        }
-
-        // For free orders, confirm all orders in the batch
-        if (isFreeOrder) {
+      }
+      
+      // STEP 4: For free orders, confirm all orders in the batch immediately
+      if (isFreeOrder) {
+        try {
+          const allOrderIds = pendingOrders.map(order => order.id);
           log('info', `Auto-confirming ${allOrderIds.length} free orders in batch`);
+          
           const { error: confirmError } = await supabase
             .from('orders')
             .update({
@@ -561,120 +536,89 @@ exports.handler = async (event, context) => {
           } else {
             log('info', 'Free batch orders confirmed successfully');
           }
+        } catch (error) {
+          log('error', 'Error auto-confirming free batch orders:', error);
         }
-
-        log('info', `Batch order transaction update completed successfully for batch ${targetBatchOrderId}`);
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ 
-            success: true, 
-            data: { 
-              batchOrderId: targetBatchOrderId,
-              transactionSignature, 
-              amountSol: amountSolFloat,
-              isBatchOrder: true,
-              ordersUpdated: batchOrders.length
-            } 
-          })
-        };
-      } catch (error) {
-        log('error', 'Error in batch order transaction update:', error);
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({ 
-            error: 'Internal server error during batch order update',
-            details: error.message
-          })
-        };
-      }
-    }
-  }
-
-  // If we don't have a batch order ID or couldn't find one, fall back to updating a single order
-  if (targetOrderId) {
-    log('info', `Updating single order transaction for order: ${targetOrderId}`, {
-      transactionSignature: transactionSignature ? `${transactionSignature.substring(0, 8)}...` : 'none',
-      amountSol: amountSolFloat,
-      isFreeOrder
-    });
-
-    try {
-      // Use the update_order_transaction RPC function directly - same as original implementation
-      log('debug', 'Calling update_order_transaction RPC function');
-      const { error: updateError } = await supabase.rpc('update_order_transaction', {
-        p_order_id: targetOrderId,
-        p_transaction_signature: transactionSignature,
-        p_amount_sol: amountSolFloat
-      });
-
-      if (updateError) {
-        log('error', 'Error updating order transaction:', updateError);
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ error: updateError.message })
-        };
       }
       
-      log('info', `Successfully updated transaction for order ${targetOrderId}`);
-      
-      // For free orders, automatically confirm the transaction
-      if (isFreeOrder) {
-        log('info', 'Auto-confirming free order:', targetOrderId);
-        
-        // Confirm the order using the RPC function - same as original implementation
-        const { error: confirmError } = await supabase.rpc('confirm_order_transaction', {
-          p_order_id: targetOrderId
+      // STEP 5: Update the transaction log
+      try {
+        const { error: logError } = await supabase.rpc('update_transaction_status', {
+          p_signature: transactionSignature,
+          p_status: 'pending',
+          p_details: {
+            batchOrderId,
+            orderCount: allBatchOrders.length,
+            updatedOrders: pendingOrders.length,
+            amountSol: amountSolFloat,
+            isFreeOrder,
+            timestamp: new Date().toISOString()
+          }
         });
-        
-        if (confirmError) {
-          log('error', 'Error confirming free order:', confirmError);
-          // Don't fail the entire request, just log the error
-        } else {
-          log('info', 'Free order confirmed successfully');
-        }
-      }
 
-      log('info', 'Order transaction updated successfully');
+        if (logError) {
+          log('warn', 'Failed to update transaction log:', logError);
+          // Continue anyway - this is just for logging
+        } else {
+          log('info', 'Transaction log updated successfully');
+        }
+      } catch (error) {
+        log('warn', 'Exception updating transaction log:', error);
+        // Continue anyway - this is just for logging
+      }
+      
+      // Return success response with details about updated orders
+      log('info', `Batch order transaction update completed successfully for batch ${batchOrderId}`);
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({ 
           success: true, 
           data: { 
-            orderId: targetOrderId, 
+            batchOrderId,
             transactionSignature, 
-            amountSol: amountSolFloat 
+            amountSol: amountSolFloat,
+            isBatchOrder: true,
+            totalOrders: allBatchOrders.length,
+            ordersUpdated: updateResults.filter(r => r.success).length,
+            updateDetails: updateResults
           } 
         })
       };
-    } catch (error) {
-      log('error', 'Error in update-order-transaction function:', error);
+    } else {
+      // No draft/pending orders found in this batch
+      log('warn', `No draft/pending orders found in batch ${batchOrderId} to update with transaction`);
+      
+      // Get details about orders in other statuses
+      const statusCounts = {};
+      allBatchOrders.forEach(order => {
+        statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
+      });
+      
       return {
-        statusCode: 500,
+        statusCode: 400,
         headers,
         body: JSON.stringify({ 
-          error: 'Internal server error during single order update',
-          details: error.message
+          success: false,
+          error: 'No draft or pending orders found in batch to update',
+          details: {
+            batchOrderId,
+            totalOrders: allBatchOrders.length,
+            statusCounts
+          }
         })
       };
     }
+  } catch (error) {
+    log('error', `Error in batch order transaction update:`, error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ 
+        success: false,
+        error: error.message,
+        batchOrderId
+      })
+    };
   }
-
-  // If we reach here, something went wrong
-  log('error', 'Failed to update transaction - no valid order ID or batch order ID found', {
-    attemptedOrderId: targetOrderId,
-    attemptedBatchOrderId: targetBatchOrderId
-  });
-  return {
-    statusCode: 400,
-    headers,
-    body: JSON.stringify({ 
-      error: 'Failed to update transaction - no valid order ID or batch order ID found',
-      attemptedOrderId: targetOrderId,
-      attemptedBatchOrderId: targetBatchOrderId
-    })
-  };
-}; 
+} 

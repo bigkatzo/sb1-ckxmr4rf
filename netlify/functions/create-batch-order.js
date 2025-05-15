@@ -104,55 +104,78 @@ exports.handler = async (event, context) => {
     const isFreeOrder = paymentMetadata?.isFreeOrder === true;
     let transactionSignature = null;
     
-    // Handle free orders similar to the original implementation
     if (isFreeOrder) {
-      // Determine the payment source (stripe or token) - matching similar logic from original implementation
-      const paymentMethod = (paymentMetadata.paymentMethod || '').toLowerCase();
-      
-      // Choose payment source based on the payment method - consistent with original implementation
-      let paymentSource = 'unknown';
-      if (paymentMethod.includes('stripe') || paymentMethod === 'coupon' || paymentMethod === 'free_stripe') {
-        paymentSource = 'stripe';
-      } else if (paymentMethod.includes('token') || paymentMethod === 'free_token') {
-        paymentSource = 'token';
-      } else if (paymentMethod.includes('solana')) {
-        paymentSource = 'solana';
-      } else if (paymentMethod === 'free_order') {
-        paymentSource = 'order';
-      }
-      
-      // Create appropriate prefix based on payment source
-      const prefix = `free_${paymentSource}_batch_`;
-      
-      // Use existing transactionId if provided, or generate a new one
-      if (paymentMetadata.transactionId && paymentMetadata.transactionId.startsWith('free_')) {
-        transactionSignature = paymentMetadata.transactionId;
-      } else {
-        transactionSignature = `${prefix}${batchOrderId}_${Date.now()}`;
-      }
+      // Generate a consistent transaction ID for free orders
+      transactionSignature = `free_order_${Date.now()}_${walletAddress || 'anonymous'}`;
+      console.log(`Free order batch detected, using transaction signature: ${transactionSignature}`);
     }
 
+    // Calculate the total quantity across all items upfront
+    const totalQuantity = items.reduce((total, item) => {
+      return total + Math.max(1, Number(item.quantity) || 1);
+    }, 0);
+    
+    console.log(`Processing ${items.length} unique items with a total of ${totalQuantity} items in batch`);
+
+    // Track all order IDs created for this batch
+    const allOrderIds = [];
+    
     // Process each item in the cart
     for (const item of items) {
-      const { product, selectedOptions, quantity = 1 } = item;
+      const product = item.product;
+      const selectedOptions = item.selectedOptions || {};
+      const quantity = Math.max(1, Number(item.quantity) || 1);
       
-      if (!product || !product.id) {
-        console.error('Invalid product', product);
-        continue;
+      console.log(`Processing item: ${product.name}, Quantity: ${quantity}, Selected options:`, 
+        Object.keys(selectedOptions).length > 0 ? selectedOptions : 'None');
+      
+      // Format variant selections for the database
+      const formattedVariantSelections = [];
+      if (selectedOptions && Object.keys(selectedOptions).length > 0) {
+        for (const variantId in selectedOptions) {
+          const variantValue = selectedOptions[variantId];
+          
+          // Only include if we have both id and value
+          if (variantId && variantValue) {
+            // Try to get the variant name if the product has a variants array
+            let variantName = 'Unknown';
+            
+            if (product.variants && Array.isArray(product.variants)) {
+              const variant = product.variants.find(v => v.id === variantId);
+              if (variant) {
+                variantName = variant.name;
+              }
+            }
+            
+            formattedVariantSelections.push({
+              name: variantName,
+              value: variantValue
+            });
+          }
+        }
       }
-
-      // Format variant selections - matching original implementation
-      const formattedVariantSelections = Object.entries(selectedOptions || {}).map(([variantId, value]) => {
-        const variant = product.variants?.find(v => v.id === variantId);
-        return {
-          name: variant?.name || variantId,
-          value: value
-        };
-      });
-
-      // Create multiple orders based on quantity
-      const quantityToProcess = Math.max(1, Number(quantity) || 1);
-      console.log(`Processing ${quantityToProcess} orders for product: ${product.name} (${product.id})`);
+      
+      // Get the variant price based on selected options
+      let variantKey = '';
+      let variantPrice = null;
+      
+      if (product.variants && Array.isArray(product.variants) && product.variants.length > 0 
+          && selectedOptions && Object.keys(selectedOptions).length > 0) {
+        // Build the variant key based on the format used in the product
+        const firstVariantId = Object.keys(selectedOptions)[0];
+        const firstVariantValue = selectedOptions[firstVariantId];
+        
+        if (firstVariantId && firstVariantValue && product.variantPrices) {
+          variantKey = `${firstVariantId}:${firstVariantValue}`;
+          variantPrice = product.variantPrices[variantKey] || null;
+          
+          console.log(`Using variant pricing - Key: ${variantKey}, Price: ${variantPrice || 'Not found'}`);
+        }
+      }
+      
+      // Determine how many separate orders to create for this item
+      // Each quantity becomes a separate order in the same batch
+      const quantityToProcess = quantity;
       
       // Process each quantity as a separate order
       for (let i = 0; i < quantityToProcess; i++) {
@@ -160,11 +183,14 @@ exports.handler = async (event, context) => {
           // Include batchOrderId and orderNumber in metadata for immediate access
           const enhancedMetadata = {
             ...paymentMetadata,
-            batchOrderId, // This is just in metadata, not the actual column yet
+            batchOrderId, // Include in metadata
             orderNumber, // Include the consistent SF-format order number
             isBatchOrder: true,
             quantityIndex: i + 1,
-            totalQuantity: quantityToProcess
+            totalQuantity: quantityToProcess,
+            // Include variant pricing information
+            variantKey: variantKey || undefined,
+            variantPrices: product.variantPrices || undefined
           };
           
           // Try using the database function first (like original implementation)
@@ -184,113 +210,43 @@ exports.handler = async (event, context) => {
           if (orderId) {
             console.log(`Order ${i+1}/${quantityToProcess} created successfully, updating with batch details:`, orderId);
             
-            // Directly update batch_order_id column to ensure it's set
+            // Track all created order IDs
+            allOrderIds.push(orderId);
+            
+            // Immediately update with batch_order_id and SF- format order number
+            // This is CRITICAL to ensure batch_order_id is properly set in the database
             try {
-              // IMMEDIATE SET: Always immediately set batch_order_id and order_number
-              // to ensure consistency across all orders
-              const { error: directUpdateError } = await supabase
+              // Use immediate batch_order_id update for consistency
+              const { error: batchIdError } = await supabase
                 .from('orders')
                 .update({
                   batch_order_id: batchOrderId,
                   order_number: orderNumber,
-                  status: isFreeOrder ? 'confirmed' : 'draft'
+                  status: isFreeOrder ? 'confirmed' : 'draft',
+                  updated_at: new Date().toISOString()
                 })
                 .eq('id', orderId);
                 
-              if (directUpdateError) {
-                console.error('Error directly setting batch_order_id:', directUpdateError);
-                // Try more aggressively to set the batch_order_id 
-                try {
-                  // Second attempt with less filtering
-                  const { error: retryError } = await supabase
-                    .from('orders')
-                    .update({
-                      batch_order_id: batchOrderId,
-                      order_number: orderNumber
-                    })
-                    .eq('id', orderId);
-                    
-                  if (retryError) {
-                    console.error('Second attempt to set batch_order_id failed:', retryError);
-                  } else {
-                    console.log('Second attempt to set batch_order_id succeeded');
-                  }
-                } catch (retryErr) {
-                  console.error('Exception in retry attempt:', retryErr);
-                }
+              if (batchIdError) {
+                console.error('Error setting batch_order_id:', batchIdError);
+                // Continue with next update - we'll try again below
               } else {
-                console.log('Successfully set batch_order_id and order_number directly');
+                console.log(`Successfully set batch_order_id for order ${orderId}`);
               }
-              
-              // Then do the full update with all fields
-              const { error: updateError } = await supabase
-                .from('orders')
-                .update({
-                  batch_order_id: batchOrderId,
-                  order_number: orderNumber,
-                  item_index: createdOrders.length + 1,
-                  total_items_in_batch: items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0),
-                  // For free orders, add transaction signature directly
-                  ...(isFreeOrder && { 
-                    transaction_signature: transactionSignature,
-                    status: 'confirmed'
-                  })
-                })
-                .eq('id', orderId);
-
-              if (updateError) {
-                console.error('Error updating order with batch details:', updateError);
-                throw updateError;
-              }
-              
-              console.log('Order batch details updated successfully');
-
-              // For free orders, update the transaction details
-              if (isFreeOrder && transactionSignature) {
-                const { error: transactionError } = await supabase.rpc('update_order_transaction', {
-                  p_order_id: orderId,
-                  p_transaction_signature: transactionSignature,
-                  p_amount_sol: 0
-                });
-
-                if (transactionError) {
-                  console.error('Error updating order transaction for free order:', transactionError);
-                  // Continue anyway - order is already marked as confirmed
-                }
-              }
-
-              // Fetch the created order
-              const { data: createdOrder, error: fetchError } = await supabase
-                .from('orders')
-                .select('id, status, order_number, product_id')
-                .eq('id', orderId)
-                .single();
-
-              if (fetchError) {
-                console.error('Error fetching created order:', fetchError);
-                throw fetchError;
-              }
-
-              createdOrders.push({
-                orderId: createdOrder.id,
-                orderNumber: createdOrder.order_number,
-                productId: product.id,
-                productName: product.name,
-                status: createdOrder.status,
-                itemIndex: createdOrders.length + 1,
-                totalItems: items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0),
-                quantityIndex: i + 1,
-                totalQuantity: quantityToProcess
-              });
-
-              console.log(`Order creation completed successfully: ${createdOrders.length}/${items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0)}`, {
-                orderId: createdOrder.id,
-                status: createdOrder.status
-              });
             } catch (error) {
-              console.error(`Exception updating order batch details for quantity ${i+1}/${quantityToProcess}:`, error);
-              throw error;
+              console.error('Exception updating batch_order_id:', error);
+              // Continue with next update
             }
+
+            createdOrders.push({
+              orderId,
+              orderNumber,
+              productId: product.id,
+              productName: product.name,
+              status: isFreeOrder ? 'confirmed' : 'draft',
+              quantityIndex: i + 1,
+              totalQuantity: quantityToProcess
+            });
           } else {
             throw new Error('Failed to create order: No order ID returned');
           }
@@ -310,6 +266,39 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({ error: 'Failed to create any orders in the batch' })
       };
     }
+    
+    // FINAL PASS: Update ALL orders with proper index and total count for the entire batch
+    // This ensures consistent batch metadata across all orders
+    if (allOrderIds.length > 0) {
+      console.log(`Performing final batch update on ${allOrderIds.length} orders with complete batch information`);
+      
+      // Update each order with its position in the batch
+      for (let i = 0; i < allOrderIds.length; i++) {
+        try {
+          const { error: indexError } = await supabase
+            .from('orders')
+            .update({
+              batch_order_id: batchOrderId,
+              order_number: orderNumber,
+              item_index: i + 1,
+              total_items_in_batch: allOrderIds.length,
+              // For free orders, add transaction signature
+              ...(isFreeOrder && { 
+                transaction_signature: transactionSignature,
+                status: 'confirmed'
+              }),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', allOrderIds[i]);
+            
+          if (indexError) {
+            console.error(`Error updating item_index for order ${allOrderIds[i]}:`, indexError);
+          }
+        } catch (error) {
+          console.error(`Exception updating item_index for order ${allOrderIds[i]}:`, error);
+        }
+      }
+    }
 
     // At the end of the endpoint, add batch summary logging before returning
     console.log(`Batch order creation complete:`, {
@@ -321,99 +310,28 @@ exports.handler = async (event, context) => {
       isFreeOrder
     });
 
-    // FINAL VERIFICATION: make sure all orders have the batch_order_id set
-    try {
-      console.log('Performing final batch_order_id verification');
-      
-      const orderIds = createdOrders.map(order => order.orderId);
-      
-      if (orderIds.length > 0) {
-        const { data: finalCheck, error: checkError } = await supabase
-          .from('orders')
-          .select('id, batch_order_id, order_number')
-          .in('id', orderIds);
-          
-        if (!checkError && finalCheck) {
-          const missingBatchId = finalCheck.filter(o => !o.batch_order_id);
-          
-          if (missingBatchId.length > 0) {
-            console.warn(`${missingBatchId.length} orders are missing batch_order_id, attempting final fix`);
-            
-            // Final attempt to fix any remaining issues
-            const missingIds = missingBatchId.map(o => o.id);
-            
-            const { error: fixError } = await supabase
-              .from('orders')
-              .update({
-                batch_order_id: batchOrderId,
-                order_number: orderNumber
-              })
-              .in('id', missingIds);
-              
-            if (fixError) {
-              console.error('Final batch ID fix failed:', fixError);
-            } else {
-              console.log(`Fixed batch_order_id for ${missingIds.length} orders in final verification`);
-            }
-          } else {
-            console.log('All orders have batch_order_id set correctly');
-          }
-          
-          // Check for old-style order numbers
-          const oldFormat = finalCheck.filter(o => o.order_number?.startsWith('ORD'));
-          
-          if (oldFormat.length > 0) {
-            console.warn(`${oldFormat.length} orders have old-format order numbers, attempting final fix`);
-            
-            // Fix old format order numbers
-            const oldFormatIds = oldFormat.map(o => o.id);
-            
-            const { error: fixError } = await supabase
-              .from('orders')
-              .update({
-                order_number: orderNumber
-              })
-              .in('id', oldFormatIds);
-              
-            if (fixError) {
-              console.error('Order number format fix failed:', fixError);
-            } else {
-              console.log(`Fixed order number format for ${oldFormatIds.length} orders`);
-            }
-          } else {
-            console.log('All orders have correct SF- format order numbers');
-          }
-        }
-      }
-    } catch (verifyError) {
-      console.error('Final verification error:', verifyError);
-      // Don't let this block returning the response
-    }
-
-    // Return success response with created orders
-    // Include the first order's ID as orderId in the response for easier handling from frontend
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
         batchOrderId,
-        orderNumber,  // Include the single order number for the entire batch
-        orderId: createdOrders.length > 0 ? createdOrders[0].orderId : null,
-        orders: createdOrders,
+        orderNumber,
+        orderId: createdOrders[0]?.orderId, // Return the first order ID for backward compatibility
         isFreeOrder,
-        transactionSignature: isFreeOrder ? transactionSignature : undefined
+        transactionSignature: isFreeOrder ? transactionSignature : undefined,
+        orders: createdOrders
       })
     };
   } catch (error) {
-    console.error('Error processing batch order:', error);
+    console.error('Error in batch order creation:', error);
     
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
-        error: 'Failed to process batch order',
-        details: error.message
+        success: false,
+        error: error.message || 'An unexpected error occurred'
       })
     };
   }

@@ -520,26 +520,69 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
       log('error', 'Exception updating transaction status:', error);
     }
 
-    // Get all orders in this batch, regardless of status
+    // STEP 1: Find ALL orders associated with this batch ID
+    // Try multiple query approaches to ensure we get all relevant orders
+    let allOrders = [];
+    
+    // First get orders where batch_order_id column is set
     const { data: orders, error: batchError } = await supabase
       .from('orders')
-      .select('id, status, order_number, transaction_signature, payment_metadata, batch_order_id')
-      .or(`batch_order_id.eq.${batchOrderId},payment_metadata->batchOrderId.eq.${batchOrderId}`);
+      .select('id, status, order_number, transaction_signature, payment_metadata, batch_order_id, item_index, total_items_in_batch')
+      .eq('batch_order_id', batchOrderId);
       
     if (batchError) {
-      log('error', 'Error fetching batch orders:', batchError);
-      throw batchError;
+      log('error', 'Error fetching batch orders by column:', batchError);
+      // Continue to try other approaches
+    } else if (orders && orders.length > 0) {
+      log('info', `Found ${orders.length} orders with batch_order_id column set`);
+      allOrders = [...orders];
     }
     
-    if (!orders || orders.length === 0) {
+    // Also check orders that might have the batch ID only in metadata
+    const { data: metadataOrders, error: metadataError } = await supabase
+      .from('orders')
+      .select('id, status, order_number, transaction_signature, payment_metadata, batch_order_id, item_index, total_items_in_batch')
+      .filter('payment_metadata->batchOrderId', 'eq', batchOrderId)
+      .is('batch_order_id', null); // Only get ones without batch_order_id set
+      
+    if (metadataError) {
+      log('error', 'Error fetching orders by metadata:', metadataError);
+      // Continue with what we have from the first query
+    } else if (metadataOrders && metadataOrders.length > 0) {
+      log('info', `Found ${metadataOrders.length} additional orders with batch ID in metadata`);
+      
+      // Add only orders not already in our list
+      const existingIds = new Set(allOrders.map(o => o.id));
+      const newOrders = metadataOrders.filter(o => !existingIds.has(o.id));
+      
+      if (newOrders.length > 0) {
+        allOrders.push(...newOrders);
+        log('info', `Added ${newOrders.length} unique orders from metadata search`);
+      }
+    }
+    
+    // If we still have no orders, try one more approach - match by transaction signature
+    if (allOrders.length === 0) {
+      const { data: signatureOrders, error: signatureError } = await supabase
+        .from('orders')
+        .select('id, status, order_number, transaction_signature, payment_metadata, batch_order_id, item_index, total_items_in_batch')
+        .eq('transaction_signature', signature);
+        
+      if (!signatureError && signatureOrders && signatureOrders.length > 0) {
+        log('info', `Found ${signatureOrders.length} orders with matching transaction signature`);
+        allOrders = signatureOrders;
+      }
+    }
+    
+    if (allOrders.length === 0) {
       log('error', `No orders found for batch: ${batchOrderId}`);
       throw new Error(`No orders found for batch: ${batchOrderId}`);
     }
     
-    log('info', `Found ${orders.length} orders in batch`);
+    log('info', `Found ${allOrders.length} total orders in batch`);
     
-    // First, ensure they all have consistent batch_order_id values
-    const ordersMissingBatchId = orders.filter(order => !order.batch_order_id);
+    // STEP 2: Ensure all orders have consistent batch_order_id value
+    const ordersMissingBatchId = allOrders.filter(order => !order.batch_order_id);
     if (ordersMissingBatchId.length > 0) {
       const orderIdsToUpdate = ordersMissingBatchId.map(order => order.id);
       log('info', `Updating ${orderIdsToUpdate.length} orders to set batch_order_id: ${batchOrderId}`);
@@ -554,14 +597,16 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
       
       if (batchIdUpdateError) {
         log('error', `Error updating batch_order_id for orders:`, batchIdUpdateError);
+      } else {
+        log('info', `Successfully set batch_order_id for ${orderIdsToUpdate.length} orders`);
       }
     }
     
-    // First check if all orders have the same order number format (SF-)
-    const sfOrderNumber = orders.find(o => o.order_number?.startsWith('SF-'))?.order_number;
+    // STEP 3: Ensure consistent order numbers with SF- format
+    const sfOrderNumber = allOrders.find(o => o.order_number?.startsWith('SF-'))?.order_number;
     if (sfOrderNumber) {
       // Update any orders with ORD format to use the SF format
-      const ordNumberUpdates = orders
+      const ordNumberUpdates = allOrders
         .filter(o => o.order_number && !o.order_number.startsWith('SF-'))
         .map(o => o.id);
       
@@ -578,28 +623,53 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
         
         if (orderNumUpdateError) {
           log('error', `Error updating order numbers:`, orderNumUpdateError);
+        } else {
+          log('info', `Successfully updated ${ordNumberUpdates.length} orders to consistent order number`);
         }
+      }
+    } else if (allOrders.length > 0) {
+      // If no SF order number found, generate a new one and apply to all
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const day = now.getDate();
+      const newOrderNumber = `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+      
+      log('info', `No SF order number found in batch, generating and applying: ${newOrderNumber}`);
+      
+      const { error: orderNumUpdateError } = await supabase
+        .from('orders')
+        .update({
+          order_number: newOrderNumber,
+          updated_at: new Date().toISOString()
+        })
+        .eq('batch_order_id', batchOrderId);
+      
+      if (orderNumUpdateError) {
+        log('error', `Error updating all order numbers:`, orderNumUpdateError);
+      } else {
+        log('info', `Successfully set new order number for all orders in batch`);
       }
     }
     
-    // Now set all orders to have item_index and total_items_in_batch
-    const totalItems = orders.length;
+    // STEP 4: Fix item_index and total_items_in_batch values
+    const totalItems = allOrders.length;
     let itemIndexUpdates = [];
     
-    for (let i = 0; i < orders.length; i++) {
-      if (!orders[i].item_index) {
+    for (let i = 0; i < allOrders.length; i++) {
+      const order = allOrders[i];
+      if (!order.item_index || order.item_index !== i + 1 || !order.total_items_in_batch || order.total_items_in_batch !== totalItems) {
         itemIndexUpdates.push({
-          id: orders[i].id,
+          id: order.id,
           index: i + 1
         });
       }
     }
     
     if (itemIndexUpdates.length > 0) {
-      log('info', `Setting item_index for ${itemIndexUpdates.length} orders`);
+      log('info', `Updating item_index and total_items_in_batch for ${itemIndexUpdates.length} orders`);
       
       for (const update of itemIndexUpdates) {
-        const { error: indexUpdateError } = await supabase
+        const { error: indexError } = await supabase
           .from('orders')
           .update({
             item_index: update.index,
@@ -607,72 +677,133 @@ async function confirmBatchOrderPayment(batchOrderId, signature, verification) {
             updated_at: new Date().toISOString()
           })
           .eq('id', update.id);
-        
-        if (indexUpdateError) {
-          log('error', `Error updating item_index for order ${update.id}:`, indexUpdateError);
+          
+        if (indexError) {
+          log('error', `Error updating item_index for order ${update.id}:`, indexError);
         }
       }
     }
     
-    // Now update each order individually with the correct status and pricing
+    // STEP 5: Update all orders missing transaction signature
+    const ordersWithoutSignature = allOrders.filter(order => 
+      order.transaction_signature !== signature &&
+      (order.status === 'draft' || order.status === 'pending_payment')
+    );
+    
     let successCount = 0;
     let errorCount = 0;
     
-    for (const order of orders) {
-      try {
-        // Get the actual price for this order from payment_metadata
-        const originalPrice = order.payment_metadata?.originalPrice || 0;
-        const couponDiscount = order.payment_metadata?.couponDiscount || 0;
-        const orderAmount = Math.max(0, originalPrice - couponDiscount);
-        
-        // For orders with variant pricing, get the specific variant price
-        let variantPrice = null;
-        if (order.payment_metadata?.variantKey && order.payment_metadata?.variantPrices) {
-          variantPrice = order.payment_metadata.variantPrices[order.payment_metadata.variantKey];
-        }
-        
-        // Use the most specific price available
-        const finalAmount = variantPrice || orderAmount || verification.details?.amount / orders.length;
-        
-        log('debug', `Confirming order ${order.id} with amount: ${finalAmount} SOL`);
-        
-        // Skip already confirmed orders
-        if (order.status === 'confirmed' && order.transaction_signature === signature) {
-          log('info', `Order ${order.id} already confirmed with correct signature, skipping`);
-          successCount++;
-          continue;
-        }
-        
-        // Update the order's status and amount
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({
-            status: 'confirmed',
-            transaction_signature: signature,
-            amount_sol: finalAmount,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', order.id);
+    if (ordersWithoutSignature.length > 0) {
+      log('info', `Updating ${ordersWithoutSignature.length} orders with transaction signature`);
+      
+      for (const order of ordersWithoutSignature) {
+        try {
+          // Get the proper amount for this order based on metadata
+          let orderAmount = verification.details?.amount || 0;
           
-        if (updateError) {
-          log('error', `Error confirming order ${order.id}:`, updateError);
+          // If there's a variant price in metadata, use that
+          if (order.payment_metadata?.variantKey && order.payment_metadata?.variantPrices) {
+            const variantKey = order.payment_metadata.variantKey;
+            const variantPrice = order.payment_metadata.variantPrices[variantKey];
+            
+            if (variantPrice) {
+              orderAmount = parseFloat(variantPrice);
+              log('debug', `Using variant price for order ${order.id}: ${orderAmount}`, {
+                variantKey,
+                price: variantPrice
+              });
+            }
+          } else if (order.payment_metadata?.originalPrice) {
+            // Otherwise use originalPrice from metadata
+            const originalPrice = parseFloat(order.payment_metadata.originalPrice || 0);
+            const couponDiscount = parseFloat(order.payment_metadata.couponDiscount || 0);
+            orderAmount = Math.max(0, originalPrice - couponDiscount);
+            
+            log('debug', `Using metadata price for order ${order.id}: ${orderAmount}`, {
+              originalPrice,
+              couponDiscount
+            });
+          } else {
+            // If no specific pricing, divide evenly
+            orderAmount = verification.details?.amount / totalItems || 0;
+            log('debug', `Using even split price for order ${order.id}: ${orderAmount}`);
+          }
+          
+          // First update the transaction signature and amount
+          const { error: sigError } = await supabase
+            .from('orders')
+            .update({
+              transaction_signature: signature,
+              amount_sol: orderAmount,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', order.id);
+            
+          if (sigError) {
+            log('error', `Error updating transaction signature for order ${order.id}:`, sigError);
+            errorCount++;
+          } else {
+            log('info', `Updated transaction signature for order ${order.id}`);
+            
+            // Then update the status to pending_payment (if not already)
+            if (order.status !== 'pending_payment') {
+              const { error: statusError } = await supabase
+                .from('orders')
+                .update({
+                  status: 'pending_payment',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', order.id);
+                
+              if (statusError) {
+                log('error', `Error updating status for order ${order.id}:`, statusError);
+              } else {
+                log('debug', `Updated status to pending_payment for order ${order.id}`);
+              }
+            }
+            
+            successCount++;
+          }
+        } catch (error) {
+          log('error', `Exception updating order ${order.id}:`, error);
           errorCount++;
-        } else {
-          successCount++;
         }
-      } catch (orderError) {
-        log('error', `Exception confirming order ${order.id}:`, orderError);
-        errorCount++;
       }
     }
     
-    log('info', `Batch order confirmation completed: ${successCount} succeeded, ${errorCount} failed`);
+    // STEP 6: Confirm all orders with this transaction signature
+    const ordersToConfirm = allOrders.filter(order => 
+      order.transaction_signature === signature && 
+      order.status === 'pending_payment'
+    );
+    
+    if (ordersToConfirm.length > 0) {
+      log('info', `Confirming ${ordersToConfirm.length} orders with status pending_payment`);
+      
+      const ordersToConfirmIds = ordersToConfirm.map(order => order.id);
+      
+      const { error: confirmError } = await supabase
+        .from('orders')
+        .update({
+          status: 'confirmed',
+          updated_at: new Date().toISOString()
+        })
+        .in('id', ordersToConfirmIds);
+        
+      if (confirmError) {
+        log('error', 'Error confirming orders:', confirmError);
+        errorCount += ordersToConfirm.length;
+      } else {
+        log('info', `Successfully confirmed ${ordersToConfirm.length} orders`);
+        successCount += ordersToConfirm.length;
+      }
+    }
     
     return {
       success: successCount > 0,
       ordersConfirmed: successCount,
       ordersFailed: errorCount,
-      totalOrders: orders.length
+      totalOrders: allOrders.length
     };
   } catch (error) {
     log('error', 'Error confirming batch order payment:', error);
