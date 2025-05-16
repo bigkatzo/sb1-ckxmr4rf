@@ -26,24 +26,38 @@ export function Modal({ isOpen, onClose, title, children, className = '' }: Moda
   // Check if we're in the merchant dashboard by looking at the URL
   const isMerchantDashboard = window.location.pathname.includes('/merchant/');
   
-  // Use much higher z-index values for merchant dashboard
-  const containerZIndex = isMerchantDashboard ? 'z-[999]' : 'z-50';
-  const backdropZIndex = isMerchantDashboard ? 'z-[998]' : 'z-40';
-
   return (
     <div 
-      className={`fixed inset-0 ${containerZIndex}`}
+      className="fixed inset-0"
       aria-modal="true" 
       role="dialog"
       aria-labelledby="modal-title"
-      style={{ zIndex: isMerchantDashboard ? 999 : 50 }}
+      style={{ 
+        position: 'fixed',
+        inset: 0,
+        zIndex: isMerchantDashboard ? 9999 : 50
+      }}
     >
+      {/* Backdrop - should have lower z-index than modal content */}
       <div 
-        className={`fixed inset-0 bg-black/80 backdrop-blur-sm ${backdropZIndex}`} 
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm" 
         onClick={onClose}
-        style={{ zIndex: isMerchantDashboard ? 998 : 40 }}
+        style={{ 
+          position: 'fixed',
+          inset: 0,
+          zIndex: isMerchantDashboard ? 9000 : 40
+        }}
       />
-      <div className="fixed inset-0 overflow-y-auto">
+      
+      {/* Modal content - should have higher z-index than backdrop */}
+      <div 
+        className="fixed inset-0 overflow-y-auto"
+        style={{ 
+          position: 'fixed',
+          inset: 0,
+          zIndex: isMerchantDashboard ? 9001 : 45
+        }}
+      >
         <div className="min-h-full flex items-center justify-center p-4">
           <div className={`relative w-full sm:w-auto bg-gray-900 sm:rounded-xl shadow-xl overflow-hidden ${className}`}>
             <div className="sticky top-0 bg-gray-900 z-10 flex justify-between items-center p-4 sm:p-6 border-b border-gray-800">
