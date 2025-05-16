@@ -31,7 +31,6 @@ class StorageUploadHelper {
       // Step 1: Convert the file to a proper binary blob/array buffer
       this.updateProgress(uploadId, 0.1, 'Preparing file');
       const arrayBuffer = await this.fileToArrayBuffer(file);
-      const fileBlob = new Blob([arrayBuffer], { type: file.type });
       
       // Step 2: Generate a safe unique filename if no custom path provided
       this.updateProgress(uploadId, 0.2, 'Generating filename');
@@ -42,7 +41,25 @@ class StorageUploadHelper {
       
       // Step 3: Properly set the content type from the actual file
       this.updateProgress(uploadId, 0.3, 'Preparing upload');
-      const contentType = file.type || this.getMimeTypeFromExtension(file.name);
+      let contentType = file.type || this.getMimeTypeFromExtension(file.name);
+      
+      // If contentType is application/json, force it to match the file extension
+      if (contentType === 'application/json') {
+        contentType = this.getMimeTypeFromExtension(file.name);
+        console.log(`Overriding application/json MIME type with ${contentType} based on file extension`);
+      }
+      
+      // Create a new blob with the correct content type
+      const fileBlob = new Blob([arrayBuffer], { type: contentType });
+      
+      // Log details for debugging
+      console.log(`Uploading file details:
+        - Name: ${file.name}
+        - Destination: ${bucketName}/${filePath}
+        - Original MIME: ${file.type}
+        - Using MIME: ${contentType}
+        - Size: ${fileBlob.size} bytes
+      `);
       
       // Step 4: Use binary upload method directly rather than SDK
       this.updateProgress(uploadId, 0.4, 'Starting upload');
@@ -432,10 +449,24 @@ class StorageUploadHelper {
       'webp': 'image/webp',
       'svg': 'image/svg+xml',
       'pdf': 'application/pdf',
-      'json': 'application/json'
+      'json': 'application/json',
+      // Add other common types
+      'txt': 'text/plain',
+      'html': 'text/html',
+      'css': 'text/css',
+      'js': 'application/javascript',
+      'xml': 'application/xml',
+      'zip': 'application/zip',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     };
     
-    return mimeTypes[ext] || 'application/octet-stream';
+    const result = mimeTypes[ext] || 'application/octet-stream';
+    return result;
   }
   
   /**
@@ -472,16 +503,30 @@ class StorageUploadHelper {
     // Generate a unique filename
     const path = customPath || await this.generateUniqueFilename(file.name, options.collection || 'default');
     
-    console.log(`Fallback upload to ${bucket}: ${path} (type: ${file.type})`);
+    // Override contentType if it's application/json
+    let contentType = file.type || this.getMimeTypeFromExtension(file.name);
+    if (contentType === 'application/json') {
+      contentType = this.getMimeTypeFromExtension(file.name);
+      console.log(`Fallback: Overriding application/json MIME type with ${contentType} based on extension`);
+    }
+    
+    console.log(`Fallback upload to ${bucket}: ${path} (type: ${contentType})`);
+    
+    // Create a new blob with the corrected content type if needed
+    let fileToUpload = file;
+    if (file.type !== contentType) {
+      const arrayBuffer = await this.fileToArrayBuffer(file);
+      fileToUpload = new Blob([arrayBuffer], { type: contentType });
+    }
     
     // Upload using the SDK with upsert option
     const { data, error } = await this.supabase
       .storage
       .from(bucket)
-      .upload(path, file, {
+      .upload(path, fileToUpload, {
         cacheControl: '3600',
         upsert: true,
-        contentType: file.type || this.getMimeTypeFromExtension(file.name)
+        contentType: contentType
       });
     
     if (error) {
