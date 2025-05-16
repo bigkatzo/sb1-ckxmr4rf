@@ -165,13 +165,58 @@ function validateFile(file: File, maxSizeMB: number = 5): void {
   }
 }
 
+// Helper function to fix duplicated bucket names in storage URLs
+function fixDuplicatedBucketPath(url: string): string {
+  if (!url) return url;
+  
+  const buckets = ['collection-images', 'product-images', 'site-assets', 'profile-images'];
+  
+  // First check for classic duplication pattern (/public/bucket/bucket/)
+  for (const bucket of buckets) {
+    // Pattern 1: /public/{bucket}/{bucket}/
+    const duplicatedPattern1 = new RegExp(`/public/${bucket}/${bucket}/`);
+    if (duplicatedPattern1.test(url)) {
+      return url.replace(`/public/${bucket}/${bucket}/`, `/public/${bucket}/`);
+    }
+    
+    // Pattern 2: /object/public/{bucket}/{bucket}/
+    const duplicatedPattern2 = new RegExp(`/object/public/${bucket}/${bucket}/`);
+    if (duplicatedPattern2.test(url)) {
+      return url.replace(`/object/public/${bucket}/${bucket}/`, `/object/public/${bucket}/`);
+    }
+    
+    // Pattern 3: /render/image/public/{bucket}/{bucket}/
+    const duplicatedPattern3 = new RegExp(`/render/image/public/${bucket}/${bucket}/`);
+    if (duplicatedPattern3.test(url)) {
+      return url.replace(`/render/image/public/${bucket}/${bucket}/`, `/render/image/public/${bucket}/`);
+    }
+    
+    // Pattern 4: /{bucket}/{bucket}/
+    const duplicatedPattern4 = new RegExp(`/${bucket}/${bucket}/`);
+    if (duplicatedPattern4.test(url)) {
+      return url.replace(`/${bucket}/${bucket}/`, `/${bucket}/`);
+    }
+  }
+  
+  return url;
+}
+
 // Verify URL is accessible
 async function verifyUrlAccessibility(url: string): Promise<void> {
   try {
+    // Fix duplicated bucket paths in URL if present
+    let urlToVerify = fixDuplicatedBucketPath(url);
+    
+    // Check if URL was modified and log
+    if (urlToVerify !== url) {
+      console.log('Fixed duplicated bucket path in verification URL:');
+      console.log('  Original:', url);
+      console.log('  Fixed:', urlToVerify);
+    }
+    
     // For render URLs, convert to object URL for verification since render sometimes returns 400
-    let urlToVerify = url;
-    if (url.includes('/storage/v1/render/image/public/')) {
-      urlToVerify = url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+    if (urlToVerify.includes('/storage/v1/render/image/public/')) {
+      urlToVerify = urlToVerify.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
       console.log('Converting render URL to object URL for verification:', urlToVerify);
     }
     
@@ -191,6 +236,13 @@ async function verifyUrlAccessibility(url: string): Promise<void> {
         url: urlToVerify
       });
       
+      // Extract bucket and path for diagnostic info
+      const bucketPathMatch = urlToVerify.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
+      if (bucketPathMatch) {
+        const [, bucket, path] = bucketPathMatch;
+        console.log('URL components:', { bucket, path });
+      }
+      
       // If object URL check failed, try direct bucket URL as last resort
       if (urlToVerify !== url && urlToVerify.includes('/storage/v1/object/public/')) {
         // Extract bucket and path
@@ -202,8 +254,33 @@ async function verifyUrlAccessibility(url: string): Promise<void> {
             .getPublicUrl(path);
           
           console.log('Trying direct bucket URL:', publicUrl);
+          
+          // Verify the direct URL
+          try {
+            const directController = new AbortController();
+            const directTimeoutId = setTimeout(() => directController.abort(), 5000);
+            
+            const directResponse = await fetch(publicUrl, { 
+              method: 'HEAD',
+              signal: directController.signal
+            });
+            clearTimeout(directTimeoutId);
+            
+            if (directResponse.ok) {
+              console.log('Direct URL is accessible:', publicUrl);
+            } else {
+              console.warn('Direct URL is also not accessible:', {
+                status: directResponse.status,
+                url: publicUrl
+              });
+            }
+          } catch (directError) {
+            console.warn('Error verifying direct URL:', directError);
+          }
         }
       }
+    } else {
+      console.log('URL verification successful:', urlToVerify);
     }
   } catch (error) {
     console.warn('Warning: Could not verify image URL accessibility (timeout or network error):', error);
@@ -750,7 +827,18 @@ export async function uploadImage(
       .getPublicUrl(uploadData.path);
     
     // Fix any double slashes in the URL (except after protocol)
-    const fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
+    let fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
+    
+    // Check for duplicated bucket paths and fix if found
+    const originalUrl = fixedUrl;
+    fixedUrl = fixDuplicatedBucketPath(fixedUrl);
+
+    // Log URL changes if they occurred
+    if (originalUrl !== fixedUrl) {
+      console.log('Detected and fixed duplicated bucket path:');
+      console.log('  Original:', originalUrl);
+      console.log('  Fixed:', fixedUrl);
+    }
     
     // ALWAYS use object URLs directly for production environment
     // This avoids the 400 Bad Request errors with the render API
@@ -809,8 +897,12 @@ export function generateSafeFilename(originalName: string, collection = 'default
   // Generate a fixed-length random string (12 chars for more uniqueness)
   const randomString = crypto.randomBytes(6).toString('hex');
   
+  // Prevent collection name duplication
+  // If the originalName already contains the collection, don't add it again
+  const safeCollection = originalName.includes(collection) ? '' : collection;
+  
   // Construct final filename using collection-based format without separators
-  return `${collection}${randomString}${timestamp}${ext}`;
+  return `${safeCollection}${randomString}${timestamp}${ext}`;
 }
 
 export async function uploadFile(
