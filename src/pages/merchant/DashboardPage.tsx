@@ -47,10 +47,10 @@ export function DashboardPage() {
 
   // Add merchant-dashboard class to body for CSS targeting
   useEffect(() => {
-    document.body.classList.add('merchant-dashboard');
+    document.body.setAttribute('data-merchant-dashboard', 'true');
     
     return () => {
-      document.body.classList.remove('merchant-dashboard');
+      document.body.removeAttribute('data-merchant-dashboard');
     };
   }, []);
 

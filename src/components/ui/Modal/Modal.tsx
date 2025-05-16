@@ -23,14 +23,26 @@ export function Modal({ isOpen, onClose, title, children, className = '' }: Moda
 
   if (!isOpen) return null;
 
+  // Check if we're in the merchant dashboard by looking at the URL
+  const isMerchantDashboard = window.location.pathname.includes('/merchant/');
+  
+  // Use much higher z-index values for merchant dashboard
+  const containerZIndex = isMerchantDashboard ? 'z-[999]' : 'z-50';
+  const backdropZIndex = isMerchantDashboard ? 'z-[998]' : 'z-40';
+
   return (
     <div 
-      className="fixed inset-0 z-50" 
+      className={`fixed inset-0 ${containerZIndex}`}
       aria-modal="true" 
       role="dialog"
       aria-labelledby="modal-title"
+      style={{ zIndex: isMerchantDashboard ? 999 : 50 }}
     >
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40" onClick={onClose} />
+      <div 
+        className={`fixed inset-0 bg-black/80 backdrop-blur-sm ${backdropZIndex}`} 
+        onClick={onClose}
+        style={{ zIndex: isMerchantDashboard ? 998 : 40 }}
+      />
       <div className="fixed inset-0 overflow-y-auto">
         <div className="min-h-full flex items-center justify-center p-4">
           <div className={`relative w-full sm:w-auto bg-gray-900 sm:rounded-xl shadow-xl overflow-hidden ${className}`}>
