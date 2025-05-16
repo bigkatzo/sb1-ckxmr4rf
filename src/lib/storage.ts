@@ -6,6 +6,9 @@ import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import imageCompression from 'browser-image-compression';
 
+// For debugging storage issues
+const DEBUG_STORAGE = false;
+
 export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets' | 'profile-images';
 
 export interface UploadResult {
@@ -13,11 +16,12 @@ export interface UploadResult {
   url: string;
 }
 
-interface UploadOptions {
+export interface UploadOptions {
   maxSizeMB?: number;
   cacheControl?: string;
   upsert?: boolean;
   webpHandling?: 'preserve' | 'optimize';
+  onProgress?: (progress: number) => void;
 }
 
 // Normalize storage URLs to ensure consistent format
@@ -316,10 +320,27 @@ export async function uploadImage(
     maxSizeMB = 5,
     cacheControl = '604800',
     upsert = false,
-    webpHandling
+    webpHandling,
+    onProgress
   } = options;
 
   try {
+    // Report initial progress
+    if (onProgress) onProgress(0);
+    
+    // Debug info
+    if (DEBUG_STORAGE) {
+      console.log('Starting upload with options:', {
+        file: {
+          name: file.name,
+          type: file.type,
+          size: file.size
+        },
+        bucket,
+        options
+      });
+    }
+    
     // Detect WebP files both by MIME type and filename extension
     const isWebP = file.type === 'image/webp' || file.name.toLowerCase().endsWith('.webp');
     
@@ -375,24 +396,194 @@ export async function uploadImage(
 
     console.log(`Uploading ${isWebP ? 'WebP' : 'image'} file to ${bucket}: ${cleanPath}`);
     
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(cleanPath, fileToUpload, {
-        cacheControl,
-        contentType: fileToUpload.type,
-        upsert,
-        metadata
-      });
-
-    if (uploadError) {
-      if (uploadError.message.includes('bucket') || (uploadError as any).statusCode === 400) {
-        console.error(`Storage bucket '${bucket}' error:`, uploadError);
-        toast.error(`Storage bucket '${bucket}' is not properly configured. Please contact support.`);
+    // Handle content type mismatch for JSON issue
+    let contentType = fileToUpload.type;
+    // Force the correct content type if it's detected as application/json erroneously
+    if (contentType === 'application/json' && 
+        (cleanPath.match(/\.(jpe?g|png|gif|webp|bmp|svg)$/i))) {
+      // Extract from filename extension as fallback
+      const ext = cleanPath.split('.').pop()?.toLowerCase();
+      if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
+      else if (ext === 'png') contentType = 'image/png';
+      else if (ext === 'gif') contentType = 'image/gif';
+      else if (ext === 'webp') contentType = 'image/webp';
+      else if (ext === 'svg') contentType = 'image/svg+xml';
+      else if (ext === 'bmp') contentType = 'image/bmp';
+      console.warn(`Fixed incorrect content type from ${fileToUpload.type} to ${contentType}`);
+    }
+    
+    // Try three different upload methods with proper error handling
+    let uploadData = null;
+    let uploadError = null;
+    
+    // Method 1: Standard upload (most reliable)
+    try {
+      const result = await supabase.storage
+        .from(bucket)
+        .upload(cleanPath, fileToUpload, {
+          cacheControl,
+          contentType,
+          upsert,
+          metadata
+        });
+        
+      uploadData = result.data;
+      uploadError = result.error;
+      
+      if (!uploadError && uploadData) {
+        console.log("Upload succeeded with standard method");
       } else {
-        console.error('Storage upload error:', uploadError);
-        toast.error(`Upload failed: ${uploadError.message}`);
+        console.warn("Standard upload failed, trying alternative methods", uploadError);
       }
-      throw uploadError;
+    } catch (err) {
+      console.warn("Standard upload threw exception:", err);
+      uploadError = err;
+    }
+    
+    // Method 2: If the first method failed, try FormData approach
+    if (uploadError && !uploadData) {
+      try {
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+        
+        // Progress tracking with XMLHttpRequest
+        if (onProgress) {
+          return new Promise<string>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', (event) => {
+              if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
+                onProgress(percentComplete);
+              }
+            });
+            
+            xhr.addEventListener('load', async () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                  const data = JSON.parse(xhr.responseText);
+                  const { data: { publicUrl } } = supabase.storage
+                    .from(bucket)
+                    .getPublicUrl(data.Key || cleanPath);
+                  
+                  const finalUrl = isWebP 
+                    ? publicUrl  // Direct object URL for WebP
+                    : normalizeStorageUrl(publicUrl);
+                    
+                  onProgress(100);
+                  resolve(finalUrl);
+                } catch (err) {
+                  reject(err);
+                }
+              } else {
+                reject(new Error(`XHR upload failed with status ${xhr.status}`));
+              }
+            });
+            
+            xhr.addEventListener('error', () => {
+              reject(new Error('XHR upload failed'));
+            });
+            
+            xhr.addEventListener('abort', () => {
+              reject(new Error('XHR upload aborted'));
+            });
+            
+            // Get URL and token safely
+            supabase.auth.getSession().then(session => {
+              const token = session.data.session?.access_token || '';
+              const supabaseUrl = (supabase as any).supabaseUrl || 
+                                  import.meta.env.VITE_SUPABASE_URL;
+              
+              xhr.open('POST', `${supabaseUrl}/storage/v1/object/${bucket}/${cleanPath}`);
+              xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+              xhr.setRequestHeader('x-upsert', upsert ? 'true' : 'false');
+              xhr.send(formData);
+            }).catch(reject);
+          });
+        }
+        
+        // Direct API endpoint approach (bypass SDK issues)
+        // Get URL and token safely
+        const supabaseUrl = (supabase as any).supabaseUrl || 
+                           process.env.VITE_SUPABASE_URL || 
+                           import.meta.env.VITE_SUPABASE_URL;
+        const token = supabase.auth.getSession()
+          .then(session => session.data.session?.access_token || '')
+          .catch(() => '');
+                           
+        const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${cleanPath}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${await token}`,
+            'x-upsert': upsert ? 'true' : 'false'
+          },
+          body: formData
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          uploadData = { path: data.Key || cleanPath };
+          uploadError = null;
+          console.log("Upload succeeded with FormData method");
+        } else {
+          const errorData = await response.json();
+          console.warn("FormData upload failed:", errorData);
+        }
+      } catch (err) {
+        console.warn("FormData upload threw exception:", err);
+      }
+    }
+    
+    // Method 3: Direct binary upload (last resort)
+    if (uploadError && !uploadData) {
+      try {
+        const buffer = await fileToUpload.arrayBuffer();
+        // Use raw upload with ArrayBuffer instead of uploadBinary
+        const result = await supabase.storage
+          .from(bucket)
+          .upload(cleanPath, buffer, {
+            contentType,
+            cacheControl,
+            upsert
+          });
+          
+        uploadData = result.data;
+        uploadError = result.error;
+        
+        if (!uploadError && uploadData) {
+          console.log("Upload succeeded with binary method");
+        } else {
+          console.warn("Binary upload also failed:", uploadError);
+        }
+      } catch (err) {
+        console.warn("Binary upload threw exception:", err);
+        uploadError = err;
+      }
+    }
+
+    // Final error handling if all methods failed
+    if (uploadError || !uploadData) {
+      // Extract more detailed error information
+      const statusCode = 
+        (uploadError as any)?.statusCode || 
+        (uploadError as any)?.status || 
+        (uploadError as any)?.code || 
+        'unknown';
+        
+      const errorMessage = 
+        (uploadError as any)?.message || 
+        (uploadError as any)?.error_description || 
+        (uploadError as any)?.error || 
+        'Unknown error';
+      
+      if (errorMessage.includes('bucket') || statusCode === 400) {
+        console.error(`Storage bucket '${bucket}' error (${statusCode}):`, uploadError);
+        toast.error(`Storage bucket '${bucket}' issue: ${errorMessage}`);
+      } else {
+        console.error(`Storage upload error (${statusCode}):`, uploadError);
+        toast.error(`Upload failed: ${errorMessage}`);
+      }
+      throw new Error(`Upload failed with status ${statusCode}: ${errorMessage}`);
     }
     
     if (!uploadData?.path) {
@@ -410,22 +601,26 @@ export async function uploadImage(
     const fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
     
     // If it's a WebP file, use object URL directly for compatibility
-    if (isWebP) {
-      console.log(`Using direct object URL for WebP: ${fixedUrl}`);
-      return fixedUrl; // Return direct object URL for WebP
+    const finalUrl = isWebP 
+      ? fixedUrl  // Direct object URL for WebP
+      : normalizeStorageUrl(fixedUrl); // Normalized URL for other formats
+      
+    console.log(`Successfully uploaded to ${finalUrl}`);
+    
+    try {
+      await verifyUrlAccessibility(finalUrl);
+    } catch (error) {
+      console.warn("URL verification failed but upload succeeded:", error);
+      // We'll still return the URL since the file was uploaded
     }
     
-    // For other formats, use our normal URL normalization
-    const baseUrl = new URL(fixedUrl).origin;
-    const bucketPath = bucket.replace(/^\/+|\/+$/g, '');
-    const filePath = uploadData.path.replace(/^\/+|\/+$/g, '');
-    const renderUrl = `${baseUrl}/storage/v1/render/image/public/${bucketPath}/${filePath}`;
-    const finalUrl = normalizeStorageUrl(renderUrl);
-    
-    await verifyUrlAccessibility(finalUrl);
+    // Update progress to complete
+    if (onProgress) onProgress(100);
     
     return finalUrl;
   } catch (error) {
+    // On error ensure progress is reset
+    if (onProgress) onProgress(0);
     console.error('Upload error:', error);
     throw error;
   }
@@ -611,4 +806,94 @@ export function handleImageRemoval(
   
   // Fallback
   return null;
+}
+
+// Utility to verify file exists in bucket
+export async function verifyFileInBucket(
+  path: string, 
+  bucket: StorageBucket
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .download(path);
+      
+    if (error) {
+      console.warn(`File verification failed for ${path} in ${bucket}:`, error);
+      return false;
+    }
+    
+    return data != null;
+  } catch (error) {
+    console.error(`Error verifying file ${path} in ${bucket}:`, error);
+    return false;
+  }
+}
+
+// Get diagnostic info about storage
+export async function getStorageDiagnostics(
+  bucket: StorageBucket = 'collection-images'
+): Promise<Record<string, any>> {
+  try {
+    const { data: files, error: filesError } = await supabase.storage
+      .from(bucket)
+      .list('', { limit: 10 });
+      
+    const { data: bucketInfo, error: bucketError } = await supabase
+      .from('storage.buckets')
+      .select('*')
+      .eq('id', bucket)
+      .single();
+      
+    // Try to verify storage access permissions
+    let accessTest = 'unknown';
+    try {
+      // Create a small test file in memory
+      const testBlob = new Blob(['test'], { type: 'text/plain' });
+      const testFile = new File([testBlob], 'permission-test.txt', { type: 'text/plain' });
+      
+      // Try to upload it
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(`_test_${Date.now()}.txt`, testFile, { upsert: true });
+        
+      if (uploadError) {
+        accessTest = `upload-failed: ${uploadError.message}`;
+      } else if (uploadData) {
+        // Try to delete it after upload
+        const { error: deleteError } = await supabase.storage
+          .from(bucket)
+          .remove([uploadData.path]);
+          
+        accessTest = deleteError 
+          ? `upload-success,delete-failed: ${deleteError.message}` 
+          : 'success';
+      }
+    } catch (e) {
+      accessTest = `test-error: ${(e as Error).message || String(e)}`;
+    }
+    
+    return {
+      bucket,
+      bucketInfo: bucketInfo || null,
+      bucketInfoError: bucketError?.message,
+      files: files || [],
+      filesError: filesError?.message,
+      timestamp: new Date().toISOString(),
+      accessTest,
+      serviceStatus: {
+        sdk: supabase !== null,
+        auth: Boolean(await supabase.auth.getSession().then(s => s.data.session))
+      }
+    };
+  } catch (error) {
+    return {
+      bucket,
+      error: (error as Error).message || String(error),
+      timestamp: new Date().toISOString(),
+      serviceStatus: {
+        sdk: supabase !== null
+      }
+    };
+  }
 } 
