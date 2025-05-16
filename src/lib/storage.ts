@@ -177,7 +177,7 @@ export function sanitizeFileName(fileName: string): string {
 }
 
 // Generate a unique filename with timestamp and random string
-export function generateUniqueFileName(originalName: string): string {
+export function generateUniqueFileName(originalName: string, collection = 'default'): string {
   // Extract extension safely
   const extension = (originalName.match(/\.[^/.]+$/)?.[0] || '').toLowerCase();
   
@@ -190,10 +190,8 @@ export function generateUniqueFileName(originalName: string): string {
   // Generate a fixed-length random string (12 chars for more uniqueness)
   const randomString = Math.random().toString(36).substring(2, 14);
   
-  // Construct final filename without the original filename
-  const finalName = `${timestamp}-${randomString}${extension}`;
-  
-  return finalName;
+  // Construct final filename using collection-based format without separators
+  return `${collection}${randomString}${timestamp}${extension}`;
 }
 
 // Verify file meets requirements
@@ -460,7 +458,7 @@ export function sanitizeFilename(filename: string): string {
   return cleaned;
 }
 
-export function generateSafeFilename(originalName: string): string {
+export function generateSafeFilename(originalName: string, collection = 'default'): string {
   const ext = path.extname(originalName);
   
   // Generate timestamp in a consistent format (YYYYMMDDHHMMSS)
@@ -469,16 +467,17 @@ export function generateSafeFilename(originalName: string): string {
   // Generate a fixed-length random string (12 chars for more uniqueness)
   const randomString = crypto.randomBytes(6).toString('hex');
   
-  // Construct final filename without the original filename
-  return `${timestamp}-${randomString}${ext}`;
+  // Construct final filename using collection-based format without separators
+  return `${collection}${randomString}${timestamp}${ext}`;
 }
 
 export async function uploadFile(
   supabase: SupabaseClient,
   file: File,
-  bucket: string
+  bucket: string,
+  collection = 'default'
 ): Promise<UploadResult> {
-  const safeFileName = generateSafeFilename(file.name);
+  const safeFileName = generateSafeFilename(file.name, collection);
   const cleanPath = safeFileName;
 
   const { error } = await supabase.storage

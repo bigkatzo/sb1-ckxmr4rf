@@ -5,19 +5,27 @@ import path from 'path';
 describe('Filename Generation Functions', () => {
   // Test generateUniqueFileName
   describe('generateUniqueFileName', () => {
-    it('should generate a unique filename without original name', () => {
+    it('should generate a unique filename with collection format', () => {
       const result = generateUniqueFileName('test.jpg');
       
-      // Validate format: timestamp-random.jpg
-      expect(result).toMatch(/^\d{14}-[a-z0-9]{12}\.jpg$/);
+      // Validate format: collection+random+date.jpg
+      expect(result).toMatch(/^default[a-z0-9]{12}\d{14}\.jpg$/);
+      expect(result).not.toContain('test');
+    });
+    
+    it('should accept custom collection prefix', () => {
+      const result = generateUniqueFileName('test.jpg', 'products');
+      
+      // Validate format: products+random+date.jpg
+      expect(result).toMatch(/^products[a-z0-9]{12}\d{14}\.jpg$/);
       expect(result).not.toContain('test');
     });
     
     it('should handle filenames with special characters', () => {
       const result = generateUniqueFileName('test (1) with spaces.jpg');
       
-      // Should only have timestamp-random.jpg pattern
-      expect(result).toMatch(/^\d{14}-[a-z0-9]{12}\.jpg$/);
+      // Should only have collection+random+date.jpg pattern
+      expect(result).toMatch(/^default[a-z0-9]{12}\d{14}\.jpg$/);
       expect(result).not.toContain('test');
       expect(result).not.toContain('spaces');
     });
@@ -35,19 +43,27 @@ describe('Filename Generation Functions', () => {
   
   // Test generateSafeFilename
   describe('generateSafeFilename', () => {
-    it('should generate a unique filename without original name', () => {
+    it('should generate a unique filename with collection format', () => {
       const result = generateSafeFilename('test.jpg');
       
-      // Validate format: timestamp-random.jpg
-      expect(result).toMatch(/^\d{14}-[a-z0-9]{12}\.jpg$/);
+      // Validate format: collection+random+date.jpg
+      expect(result).toMatch(/^default[a-z0-9]{12}\d{14}\.jpg$/);
+      expect(result).not.toContain('test');
+    });
+    
+    it('should accept custom collection prefix', () => {
+      const result = generateSafeFilename('test.jpg', 'products');
+      
+      // Validate format: products+random+date.jpg
+      expect(result).toMatch(/^products[a-z0-9]{12}\d{14}\.jpg$/);
       expect(result).not.toContain('test');
     });
     
     it('should handle filenames with special characters', () => {
       const result = generateSafeFilename('test (1) with spaces.jpg');
       
-      // Should only have timestamp-random.jpg pattern
-      expect(result).toMatch(/^\d{14}-[a-z0-9]{12}\.jpg$/);
+      // Should only have collection+random+date.jpg pattern
+      expect(result).toMatch(/^default[a-z0-9]{12}\d{14}\.jpg$/);
       expect(result).not.toContain('test');
       expect(result).not.toContain('spaces');
     });
