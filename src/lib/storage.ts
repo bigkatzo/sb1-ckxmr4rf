@@ -399,22 +399,74 @@ export async function uploadImage(
     
     // Method 1: Standard upload (most reliable)
     try {
-      const result = await supabase.storage
-        .from(bucket)
-        .upload(cleanPath, fileToUpload, {
-          cacheControl,
-          contentType,
-          upsert,
-          metadata
-        });
-        
-      uploadData = result.data;
-      uploadError = result.error;
+      // Create a custom FormData with properly named fields
+      const formData = new FormData();
+      formData.append('file', fileToUpload, fileToUpload.name);
+      formData.append('cacheControl', cacheControl);
+      formData.append('contentType', contentType);
       
-      if (!uploadError && uploadData) {
-        console.log("Upload succeeded with standard method");
+      // Add metadata as JSON string
+      const metadataStr = JSON.stringify({
+        contentType: contentType,
+        cacheControl: cacheControl,
+        lastAccessed: new Date().toISOString(),
+        uploadedAt: new Date().toISOString(),
+        associatedEntity: bucket === 'collection-images' 
+          ? 'collection' 
+          : bucket === 'product-images' 
+            ? 'product' 
+            : 'site',
+        optimized: isWebP && webpHandling === 'preserve' ? 'false' : 'true',
+        format: isWebP ? 'webp' : (contentType.split('/')[1] || 'unknown')
+      });
+      formData.append('metadata', metadataStr);
+      
+      // Direct approach to ensure proper field naming
+      const supabaseUrl = (supabase as any).supabaseUrl || 
+                          import.meta.env.VITE_SUPABASE_URL;
+      const token = await supabase.auth.getSession()
+        .then(session => session.data.session?.access_token || '');
+      
+      // Log the token length for debugging (don't log the full token)
+      console.log(`Auth token present: ${Boolean(token)} (length: ${token?.length || 0})`);
+
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${cleanPath}`;
+      console.log(`Uploading to: ${uploadUrl}`);
+      
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-upsert': upsert ? 'true' : 'false'
+        },
+        body: formData
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        uploadData = { path: data.Key || cleanPath };
+        uploadError = null;
+        console.log("Upload succeeded with custom FormData method");
       } else {
-        console.warn("Standard upload failed, trying alternative methods", uploadError);
+        // If the direct approach fails, fall back to the SDK
+        console.warn(`Direct upload failed with status ${response.status}, falling back to SDK`);
+        const result = await supabase.storage
+          .from(bucket)
+          .upload(cleanPath, fileToUpload, {
+            cacheControl,
+            contentType,
+            upsert,
+            metadata
+          });
+          
+        uploadData = result.data;
+        uploadError = result.error;
+        
+        if (!uploadError && uploadData) {
+          console.log("Upload succeeded with SDK fallback");
+        } else {
+          console.warn("Standard upload failed, trying alternative methods", uploadError);
+        }
       }
     } catch (err) {
       console.warn("Standard upload threw exception:", err);
@@ -424,22 +476,54 @@ export async function uploadImage(
     // Method 2: If the first method failed, try FormData approach
     if (uploadError && !uploadData) {
       try {
-        const formData = new FormData();
-        // Properly name the file field as 'file'
-        formData.append('file', fileToUpload);
+        // Create a new FormData with proper field names
+        const fallbackFormData = new FormData();
+        fallbackFormData.append('file', fileToUpload, fileToUpload.name);
+        fallbackFormData.append('cacheControl', cacheControl);
+        fallbackFormData.append('contentType', contentType);
         
-        // Add required metadata fields separately
-        formData.append('cacheControl', cacheControl);
-        formData.append('contentType', contentType);
-        
-        // Metadata as JSON string
-        const metadataString = JSON.stringify(metadata);
-        formData.append('metadata', metadataString);
+        // Create metadata JSON
+        const fallbackMetadataStr = JSON.stringify({
+          contentType: contentType,
+          cacheControl: cacheControl,
+          lastAccessed: new Date().toISOString(),
+          uploadedAt: new Date().toISOString(),
+          associatedEntity: bucket === 'collection-images' 
+            ? 'collection' 
+            : bucket === 'product-images' 
+              ? 'product' 
+              : 'site',
+          optimized: isWebP && webpHandling === 'preserve' ? 'false' : 'true',
+          format: isWebP ? 'webp' : (contentType.split('/')[1] || 'unknown')
+        });
+        fallbackFormData.append('metadata', fallbackMetadataStr);
         
         // Progress tracking with XMLHttpRequest
         if (onProgress) {
           return new Promise<string>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
+            
+            // Create a fresh FormData to ensure proper field names
+            const progressFormData = new FormData();
+            progressFormData.append('file', fileToUpload, fileToUpload.name);
+            progressFormData.append('cacheControl', cacheControl);
+            progressFormData.append('contentType', contentType);
+            
+            // Create metadata for this request
+            const progressMetadataStr = JSON.stringify({
+              contentType: contentType,
+              cacheControl: cacheControl,
+              lastAccessed: new Date().toISOString(),
+              uploadedAt: new Date().toISOString(),
+              associatedEntity: bucket === 'collection-images' 
+                ? 'collection' 
+                : bucket === 'product-images' 
+                  ? 'product' 
+                  : 'site',
+              optimized: isWebP && webpHandling === 'preserve' ? 'false' : 'true',
+              format: isWebP ? 'webp' : (contentType.split('/')[1] || 'unknown')
+            });
+            progressFormData.append('metadata', progressMetadataStr);
             
             xhr.upload.addEventListener('progress', (event) => {
               if (event.lengthComputable) {
@@ -489,7 +573,7 @@ export async function uploadImage(
               xhr.open('POST', `${supabaseUrl}/storage/v1/object/${bucket}/${cleanPath}`);
               xhr.setRequestHeader('Authorization', `Bearer ${token}`);
               xhr.setRequestHeader('x-upsert', upsert ? 'true' : 'false');
-              xhr.send(formData);
+              xhr.send(progressFormData);
             }).catch(reject);
           });
         }
@@ -507,11 +591,9 @@ export async function uploadImage(
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${await token}`,
-            'x-upsert': upsert ? 'true' : 'false',
-            // Explicitly set a multipart form boundary
-            'Content-Type': 'multipart/form-data'
+            'x-upsert': upsert ? 'true' : 'false'
           },
-          body: formData
+          body: fallbackFormData
         });
         
         if (response.ok) {
@@ -587,7 +669,7 @@ export async function uploadImage(
         
         // Create a simple FormData
         const formData = new FormData();
-        formData.append('file', fileToUpload);
+        formData.append('file', fileToUpload, fileToUpload.name);
         formData.append('bucket', bucket);
         formData.append('path', cleanPath);
         formData.append('contentType', contentType);
