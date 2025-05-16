@@ -249,29 +249,28 @@ async function verifyUrlAccessibility(url: string): Promise<void> {
         const parts = urlToVerify.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
         if (parts && parts.length >= 3) {
           const [, bucket, path] = parts;
-          const { data: { publicUrl } } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(path);
+          // Use our custom function to get a properly constructed URL
+          const directUrl = getCorrectPublicUrl(supabase, bucket, path);
           
-          console.log('Trying direct bucket URL:', publicUrl);
+          console.log('Trying direct bucket URL:', directUrl);
           
           // Verify the direct URL
           try {
             const directController = new AbortController();
             const directTimeoutId = setTimeout(() => directController.abort(), 5000);
             
-            const directResponse = await fetch(publicUrl, { 
+            const directResponse = await fetch(directUrl, { 
               method: 'HEAD',
               signal: directController.signal
             });
             clearTimeout(directTimeoutId);
             
             if (directResponse.ok) {
-              console.log('Direct URL is accessible:', publicUrl);
+              console.log('Direct URL is accessible:', directUrl);
             } else {
               console.warn('Direct URL is also not accessible:', {
                 status: directResponse.status,
-                url: publicUrl
+                url: directUrl
               });
             }
           } catch (directError) {
@@ -821,15 +820,13 @@ export async function uploadImage(
       throw error;
     }
 
-    // Get the public URL with proper handling for WebP
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(uploadData.path);
+    // Get the public URL with proper handling (avoid bucket duplication)
+    const publicUrl = getCorrectPublicUrl(supabase, bucket, uploadData.path);
     
     // Fix any double slashes in the URL (except after protocol)
     let fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
     
-    // Check for duplicated bucket paths and fix if found
+    // Check for duplicated bucket paths and fix as a safety net
     const originalUrl = fixedUrl;
     fixedUrl = fixDuplicatedBucketPath(fixedUrl);
 
@@ -922,12 +919,12 @@ export async function uploadFile(
     });
 
   if (error) throw error;
-
-  const { data: urlData } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(cleanPath);
-
-  const renderUrl = urlData.publicUrl.replace('/object/public', '/render/image/public');
+  
+  // Use our custom function to get the correct URL without duplication
+  const publicUrl = getCorrectPublicUrl(supabase, bucket, cleanPath);
+  
+  // Convert to render URL if needed (though we prefer object URLs)
+  const renderUrl = publicUrl.replace('/object/public', '/render/image/public');
   const finalUrl = normalizeUrl(renderUrl);
 
   return {
@@ -1141,4 +1138,25 @@ export async function getStorageDiagnostics(
       }
     };
   }
+}
+
+// After the normalizeUrl function, add this new function:
+export function getCorrectPublicUrl(supabase: SupabaseClient, bucket: string, path: string): string {
+  // Get the base URL from the Supabase client
+  const supabaseUrl = (supabase as any).supabaseUrl || 
+                      import.meta.env.VITE_SUPABASE_URL;
+  
+  // Ensure path doesn't start with a bucket name already
+  let cleanPath = path;
+  if (cleanPath.startsWith(`${bucket}/`)) {
+    cleanPath = cleanPath.replace(`${bucket}/`, '');
+  }
+  
+  // Just use the filename without any path
+  const fileName = cleanPath.split('/').pop() || cleanPath;
+  
+  // Construct URL properly without duplication
+  const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${fileName}`;
+  
+  return publicUrl;
 } 
