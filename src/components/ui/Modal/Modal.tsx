@@ -25,12 +25,12 @@ export function Modal({ isOpen, onClose, title, children, className = '' }: Moda
 
   return (
     <div 
-      className="fixed inset-0 z-[100]" 
+      className="fixed inset-0 z-50" 
       aria-modal="true" 
       role="dialog"
       aria-labelledby="modal-title"
     >
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[90]" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40" onClick={onClose} />
       <div className="fixed inset-0 overflow-y-auto">
         <div className="min-h-full flex items-center justify-center p-4">
           <div className={`relative w-full sm:w-auto bg-gray-900 sm:rounded-xl shadow-xl overflow-hidden ${className}`}>

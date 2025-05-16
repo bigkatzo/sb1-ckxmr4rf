@@ -45,22 +45,29 @@ html, body {
   z-index: 99999 !important;
 }
 
-/* Product modal backdrop z-index (lowest in flow) */
-[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] > .fixed.inset-0.bg-black\/80 {
+/* Storefront modals - prefix with body:not(.merchant-dashboard) to ensure these don't affect merchant dashboard */
+body:not(.merchant-dashboard) [aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] > .fixed.inset-0.bg-black\/80 {
   z-index: 40 !important;
 }
 
-/* Product modal content z-index (first in flow) */
-[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] {
+body:not(.merchant-dashboard) [aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] {
   z-index: 45 !important;
 }
 
-/* Product modal buttons, controls and interactive elements */
-[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] .z-\[46\] {
+body:not(.merchant-dashboard) [aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] .z-\[46\] {
   z-index: 46 !important;
 }
 
-/* Navigation bar z-index (stays above product modal) */
+/* Merchant dashboard modals - higher z-index to ensure they appear above navigation */
+.merchant-dashboard [aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] > .fixed.inset-0.bg-black\/80 {
+  z-index: 90 !important;
+}
+
+.merchant-dashboard [aria-modal="true"][role="dialog"][aria-labelledby="modal-title"] {
+  z-index: 100 !important;
+}
+
+/* Navigation bar z-index (stays above product modal in storefront, below modals in merchant) */
 nav.fixed.w-full {
   z-index: 50 !important;
 }

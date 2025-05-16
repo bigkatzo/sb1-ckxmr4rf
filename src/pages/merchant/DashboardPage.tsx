@@ -45,6 +45,15 @@ export function DashboardPage() {
   const [checking, setChecking] = React.useState(true);
   const navigate = useNavigate();
 
+  // Add merchant-dashboard class to body for CSS targeting
+  useEffect(() => {
+    document.body.classList.add('merchant-dashboard');
+    
+    return () => {
+      document.body.classList.remove('merchant-dashboard');
+    };
+  }, []);
+
   const handleLogout = async () => {
     try {
       // Get current user before signing out

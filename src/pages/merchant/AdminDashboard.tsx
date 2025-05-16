@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserManagement } from '../../components/admin/UserManagement';
 import { WalletManagement } from '../../components/admin/WalletManagement';
 import { SiteSettings } from '../../components/admin/SiteSettings';
@@ -20,13 +20,22 @@ const tabs = [
 
 function AdminDashboard() {
   const { session } = useAuth();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('users');
-  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('users');
+  const navigate = useNavigate();
+  
+  // Add merchant-dashboard class to body for CSS targeting
+  useEffect(() => {
+    document.body.classList.add('merchant-dashboard');
+    
+    return () => {
+      document.body.classList.remove('merchant-dashboard');
+    };
+  }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     async function checkAdmin() {
       try {
         console.log('Checking admin status...');
