@@ -108,45 +108,21 @@ export function extractFilenameFromStorageUrl(url: string): string {
   }
 }
 
-// Sanitize filename to remove problematic characters
-export function sanitizeFileName(fileName: string): string {
-  // Remove any path traversal characters and get the base name
-  const name = fileName.replace(/^.*[/\\]/, '');
-  
-  // Remove dimensions and other common problematic patterns
-  const cleaned = name
-    .replace(/[-_]?\d+x\d+[-_]?/g, '') // Remove dimensions like 1500x500
-    .replace(/[-_]?\d{13,}[-_]?/g, '') // Remove long numbers (timestamps)
-    .replace(/[-_]?copy[-_]?\d*$/i, '') // Remove "copy" and "copy 1", etc.
-    .replace(/[-_]?new[-_]?\d*$/i, ''); // Remove "new" and "new 1", etc.
-  
-  // Convert to lowercase and normalize characters
-  const sanitized = cleaned
-    .toLowerCase()
-    .replace(/[^a-z0-9.]+/g, '-') // Replace non-alphanumeric with single hyphen
-    .replace(/-+/g, '-')          // Replace multiple hyphens with single hyphen
-    .replace(/^-+|-+$/g, '')      // Remove leading/trailing hyphens
-    .replace(/^\.+|\.+$/g, '');   // Remove leading/trailing dots
-  
-  return sanitized;
-}
-
 // Generate a unique filename with timestamp and random string
-export function generateUniqueFileName(originalName: string, collection = 'default'): string {
-  // Extract extension safely
-  const extension = (originalName.match(/\.[^/.]+$/)?.[0] || '').toLowerCase();
+export function generateSafeFilename(originalName: string, collection = 'default'): string {
+  const ext = path.extname(originalName);
   
   // Generate timestamp in a consistent format (YYYYMMDDHHMMSS)
-  const timestamp = new Date().toISOString()
-    .replace(/[-:]/g, '')
-    .replace(/[T.]/g, '')
-    .slice(0, 14);
+  const timestamp = format(new Date(), "yyyyMMddHHmmss");
   
   // Generate a fixed-length random string (12 chars for more uniqueness)
-  const randomString = Math.random().toString(36).substring(2, 14);
+  const randomString = crypto.randomBytes(6).toString('hex');
+  
+  // Always use the collection prefix directly - no need to check for duplication
+  // since we're generating a completely new filename anyway
   
   // Construct final filename using collection-based format without separators
-  return `${collection}${randomString}${timestamp}${extension}`;
+  return `${collection}${randomString}${timestamp}${ext}`;
 }
 
 // Verify file meets requirements
@@ -820,7 +796,7 @@ export async function uploadImage(
       throw error;
     }
 
-    // Get the public URL with proper handling (avoid bucket duplication)
+    // Get the public URL with proper handling to avoid duplication
     const publicUrl = getCorrectPublicUrl(supabase, bucket, uploadData.path);
     
     // Fix any double slashes in the URL (except after protocol)
@@ -846,7 +822,16 @@ export async function uploadImage(
     console.log(`Successfully uploaded to ${finalUrl}`);
     
     try {
+      // First verify with our standard method
       await verifyUrlAccessibility(finalUrl);
+      
+      // Then try to get the working URL considering database modifications
+      const workingUrl = await getWorkingStorageUrl(finalUrl);
+      if (workingUrl && workingUrl !== finalUrl) {
+        console.log(`Found database-modified working URL: ${workingUrl}`);
+        // Return this URL instead since it actually exists
+        return workingUrl;
+      }
     } catch (error) {
       console.warn("URL verification failed but upload succeeded:", error);
       // We'll still return the URL since the file was uploaded
@@ -870,36 +855,6 @@ export function normalizeUrl(url: string): string {
   const final = `${parsed.origin}${normalized}`;
 
   return final;
-}
-
-export function sanitizeFilename(filename: string): string {
-  // Remove path components
-  const withoutPath = filename.split(/[\\/]/).pop() || filename;
-  
-  // Clean up problematic patterns
-  const cleaned = withoutPath
-    .replace(/[^\w\s.-]/g, '') // Remove special chars except dots, dashes, underscores
-    .replace(/\s+/g, '-')      // Replace spaces with dashes
-    .toLowerCase();            // Convert to lowercase
-
-  return cleaned;
-}
-
-export function generateSafeFilename(originalName: string, collection = 'default'): string {
-  const ext = path.extname(originalName);
-  
-  // Generate timestamp in a consistent format (YYYYMMDDHHMMSS)
-  const timestamp = format(new Date(), "yyyyMMddHHmmss");
-  
-  // Generate a fixed-length random string (12 chars for more uniqueness)
-  const randomString = crypto.randomBytes(6).toString('hex');
-  
-  // Prevent collection name duplication
-  // If the originalName already contains the collection, don't add it again
-  const safeCollection = originalName.includes(collection) ? '' : collection;
-  
-  // Construct final filename using collection-based format without separators
-  return `${safeCollection}${randomString}${timestamp}${ext}`;
 }
 
 export async function uploadFile(
@@ -1159,4 +1114,49 @@ export function getCorrectPublicUrl(supabase: SupabaseClient, bucket: string, pa
   const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${fileName}`;
   
   return publicUrl;
+}
+
+/**
+ * Function to check if a file exists in Supabase storage and get its working public URL
+ * This is useful when database triggers might modify the URL with timestamps
+ */
+export async function getWorkingStorageUrl(url: string): Promise<string | null> {
+  try {
+    // Check if the URL works
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    
+    const response = await fetch(url, { 
+      method: 'HEAD',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      return url; // URL works fine
+    }
+    
+    // If URL doesn't work, apply fix for any duplicated bucket paths
+    const fixedUrl = fixDuplicatedBucketPath(url);
+    if (fixedUrl !== url) {
+      // Try the fixed URL
+      const fixedController = new AbortController();
+      const fixedTimeoutId = setTimeout(() => fixedController.abort(), 3000);
+      
+      const fixedResponse = await fetch(fixedUrl, { 
+        method: 'HEAD',
+        signal: fixedController.signal
+      });
+      clearTimeout(fixedTimeoutId);
+      
+      if (fixedResponse.ok) {
+        return fixedUrl;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('Error checking storage URL:', error);
+    return null;
+  }
 } 

@@ -3,6 +3,7 @@ import { X, User, Camera, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
 import { ProfileImage } from '../ui/ProfileImage';
+import { generateSafeFilename } from '../../lib/storage';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -98,16 +99,19 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         throw new Error("Not authenticated");
       }
       
-      // Create a custom filename with user ID as prefix to comply with RLS policies
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      // Use our standard filename generation function with 'profile' collection
+      // This ensures consistency with the rest of the app
+      const fileName = generateSafeFilename(file.name, 'profile');
       
-      console.log('Uploading profile image to path:', fileName);
+      // Add user ID as folder prefix for RLS policies
+      const filePath = `${user.id}/${fileName}`;
+      
+      console.log('Uploading profile image to path:', filePath);
       
       // Upload the file directly using storage API
       const { data, error } = await supabase.storage
         .from('profile-images')
-        .upload(fileName, file, {
+        .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true
         });

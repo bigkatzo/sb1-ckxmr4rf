@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('crypto');
 require('dotenv').config();
 
 // Initialize Supabase client
@@ -43,20 +44,29 @@ function getMimeType(filePath) {
   return mimeTypes[ext] || 'application/octet-stream';
 }
 
-// Generate timestamp based filename
-function generateUniqueFileName(originalName) {
-  const extension = path.extname(originalName).toLowerCase();
+/**
+ * Generate a safe filename with consistent format across frontend and backend
+ * @param {string} originalName - Original filename
+ * @param {string} collection - Collection identifier (e.g., 'product', 'collection')
+ * @returns {string} - Safe filename with timestamp and random hex
+ */
+function generateSafeFilename(originalName, collection = 'default') {
+  const ext = path.extname(originalName);
   
-  // Generate timestamp in consistent format
+  // Generate timestamp in a consistent format (YYYYMMDDHHMMSS)
   const timestamp = new Date().toISOString()
     .replace(/[-:]/g, '')
     .replace(/[T.]/g, '')
     .slice(0, 14);
   
-  // Generate random string
-  const randomString = Math.random().toString(36).substring(2, 14);
+  // Generate a fixed-length random string (12 chars)
+  const randomString = crypto.randomBytes(6).toString('hex');
   
-  return `${timestamp}-${randomString}${extension}`;
+  // Always use the collection prefix directly - no need to check for duplication
+  // since we're generating a completely new filename anyway
+  
+  // Construct final filename using collection-based format without separators
+  return `${collection}${randomString}${timestamp}${ext}`;
 }
 
 // Main upload function
@@ -74,10 +84,16 @@ async function uploadImage(filePath, bucket) {
     const contentType = getMimeType(filePath);
     const isWebP = contentType === 'image/webp';
     
-    // Generate safe filename
-    const safeFileName = generateUniqueFileName(fileName);
+    // Determine collection from bucket for consistent naming
+    const collection = bucket.replace(/-images$/, '')
+                            .replace(/-assets$/, '')
+                            .replace(/-/g, '');
+    
+    // Generate safe filename using our standard function
+    const safeFileName = generateSafeFilename(fileName, collection);
     console.log(`Original filename: ${fileName}`);
     console.log(`File type: ${contentType}`);
+    console.log(`Collection prefix: ${collection}`);
     console.log(`Generated safe filename: ${safeFileName}`);
     
     // Upload file

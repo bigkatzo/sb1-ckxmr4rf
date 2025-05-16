@@ -465,7 +465,8 @@ class StorageUploadHelper {
     // Try to use our server function if available
     try {
       const { data, error } = await this.supabase.rpc('get_unique_filename', {
-        original_name: originalFilename
+        original_name: originalFilename,
+        collection: collection // Pass the collection parameter
       });
       
       if (!error && data) {
@@ -475,13 +476,37 @@ class StorageUploadHelper {
       console.warn('Could not use server-side filename generation, using client-side', e);
     }
     
-    // Client-side implementation with new format: {collection}{random}{date}.{type}
-    const date = new Date().toISOString().replace(/[-:.TZ]/g, '');
-    const random = Math.random().toString(36).substring(2, 10);
+    // Client-side implementation using crypto for better randomness
+    // This matches the implementation in src/lib/storage.ts generateSafeFilename
+    
+    // Get file extension
     const extension = this.getExtension(originalFilename);
     
-    // Format: collectionrandomdate.extension (without underscores)
-    return `${collection}${random}${date}.${extension}`;
+    // Get timestamp in consistent format (YYYYMMDDHHMMSS)
+    const timestamp = new Date().toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/[T.]/g, '')
+      .slice(0, 14);
+    
+    // Generate 12 character random string using crypto if available
+    let randomString;
+    if (window.crypto && window.crypto.getRandomValues) {
+      const arr = new Uint8Array(6);
+      window.crypto.getRandomValues(arr);
+      randomString = Array.from(arr)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    } else {
+      // Fallback to Math.random if crypto is not available
+      randomString = Math.random().toString(36).substring(2, 10) + 
+                    Math.random().toString(36).substring(2, 6);
+    }
+    
+    // Always use the collection prefix directly - no need to check for duplication
+    // since we're generating a completely new filename anyway
+    
+    // Format: collection + random + timestamp + extension
+    return `${collection}${randomString}${timestamp}.${extension}`;
   }
   
   /**
