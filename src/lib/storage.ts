@@ -425,7 +425,16 @@ export async function uploadImage(
     if (uploadError && !uploadData) {
       try {
         const formData = new FormData();
+        // Properly name the file field as 'file'
         formData.append('file', fileToUpload);
+        
+        // Add required metadata fields separately
+        formData.append('cacheControl', cacheControl);
+        formData.append('contentType', contentType);
+        
+        // Metadata as JSON string
+        const metadataString = JSON.stringify(metadata);
+        formData.append('metadata', metadataString);
         
         // Progress tracking with XMLHttpRequest
         if (onProgress) {
@@ -498,7 +507,9 @@ export async function uploadImage(
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${await token}`,
-            'x-upsert': upsert ? 'true' : 'false'
+            'x-upsert': upsert ? 'true' : 'false',
+            // Explicitly set a multipart form boundary
+            'Content-Type': 'multipart/form-data'
           },
           body: formData
         });
@@ -520,12 +531,16 @@ export async function uploadImage(
     // Method 3: Direct binary upload (last resort)
     if (uploadError && !uploadData) {
       try {
+        console.log("Attempting binary upload as last resort");
+        
+        // Get the file as a binary blob
         const buffer = await fileToUpload.arrayBuffer();
-        // Use raw upload with ArrayBuffer instead of uploadBinary
+        
+        // Use raw upload with ArrayBuffer
         const result = await supabase.storage
           .from(bucket)
           .upload(cleanPath, buffer, {
-            contentType,
+            contentType, // Use the corrected content type
             cacheControl,
             upsert
           });
@@ -537,10 +552,64 @@ export async function uploadImage(
           console.log("Upload succeeded with binary method");
         } else {
           console.warn("Binary upload also failed:", uploadError);
+          
+          // Last ditch effort - try with Blob instead of ArrayBuffer
+          if (uploadError) {
+            const blobData = new Blob([fileToUpload], { type: contentType });
+            const blobResult = await supabase.storage
+              .from(bucket)
+              .upload(cleanPath, blobData, {
+                contentType,
+                cacheControl,
+                upsert
+              });
+              
+            uploadData = blobResult.data;
+            uploadError = blobResult.error;
+            
+            if (!uploadError && uploadData) {
+              console.log("Upload succeeded with Blob method");
+            } else {
+              console.warn("Blob upload also failed:", uploadError);
+            }
+          }
         }
       } catch (err) {
         console.warn("Binary upload threw exception:", err);
         uploadError = err;
+      }
+    }
+
+    // Method 4: Server-side upload fallback (absolute last resort)
+    if (uploadError && !uploadData) {
+      try {
+        console.log("Attempting server-side upload as final fallback");
+        
+        // Create a simple FormData
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+        formData.append('bucket', bucket);
+        formData.append('path', cleanPath);
+        formData.append('contentType', contentType);
+        
+        // Use a Netlify function or similar server endpoint
+        const serverUploadUrl = `${window.location.origin}/.netlify/functions/upload-file-fallback`;
+        const response = await fetch(serverUploadUrl, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.url) {
+            console.log("Upload succeeded with server-side method");
+            return data.url; // Direct return since we already have the URL
+          }
+        } else {
+          console.warn("Server-side upload failed as well");
+        }
+      } catch (err) {
+        console.warn("Server-side upload threw exception:", err);
       }
     }
 
