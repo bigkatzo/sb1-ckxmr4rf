@@ -370,29 +370,89 @@ class StorageUploadHelper {
     
     const url = `${baseUrl}/storage/v1/object/${bucket}/${path}`;
     
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'apikey': apiKey,
-        'Content-Type': contentType,
-        'x-upsert': 'true'
-      },
-      body: fileBlob
-    });
-    
-    if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        errorData = { status: response.status, statusText: response.statusText };
+    // Try using direct fetch with headers
+    try {
+      console.log(`Direct upload to ${url} with type ${contentType} and size ${fileBlob.size}`);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'apikey': apiKey,
+          'Content-Type': contentType,
+          'x-upsert': 'true'
+        },
+        body: fileBlob
+      });
+      
+      if (!response.ok) {
+        // Try to get detailed error
+        let errorData = {};
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // If we can't parse JSON, create an object with the basic info
+          errorData = { 
+            status: response.status, 
+            statusText: response.statusText,
+            url: response.url,
+            headers: Object.fromEntries([...response.headers])
+          };
+        }
+        
+        // Log the full error details for debugging
+        console.error('Storage upload error details:', JSON.stringify(errorData, null, 2));
+        console.error('Request details:', {
+          url,
+          method: 'POST',
+          contentType,
+          size: fileBlob.size,
+          apiKeyLength: apiKey ? apiKey.length : 0
+        });
+        
+        // Throw meaningful error
+        throw new Error(
+          errorData.message || 
+          errorData.error || 
+          `HTTP Error: ${response.status} - ${response.statusText}`
+        );
       }
-      console.error('Storage upload error:', errorData);
-      throw new Error(errorData.error || errorData.message || `HTTP Error: ${response.status}`);
+      
+      // Parse successful response
+      return await response.json();
+    } catch (error) {
+      console.error('Upload failed:', error);
+      
+      // Try one more time with a different approach - FormData
+      console.log('Attempting alternative upload method with FormData...');
+      
+      try {
+        const formData = new FormData();
+        
+        // Create a file object from the blob with proper naming
+        const file = new File([fileBlob], path.split('/').pop(), { type: contentType });
+        formData.append('file', file);
+        
+        const response = await fetch(`${baseUrl}/storage/v1/object/${bucket}/${path}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'apikey': apiKey,
+            'x-upsert': 'true'
+          },
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error(`FormData upload failed: ${response.status} ${response.statusText}`);
+        }
+        
+        return await response.json();
+      } catch (formDataError) {
+        console.error('FormData upload also failed:', formDataError);
+        throw error; // Throw the original error
+      }
     }
-    
-    return await response.json();
   }
   
   /**
@@ -519,28 +579,63 @@ class StorageUploadHelper {
       fileToUpload = new Blob([arrayBuffer], { type: contentType });
     }
     
-    // Upload using the SDK with upsert option
-    const { data, error } = await this.supabase
-      .storage
-      .from(bucket)
-      .upload(path, fileToUpload, {
-        cacheControl: '3600',
-        upsert: true,
-        contentType: contentType
-      });
-    
-    if (error) {
-      console.error('Fallback upload error:', error);
-      throw error;
+    // Try upload with extra options and logging
+    try {
+      console.log('Using Supabase SDK for upload');
+      const { data, error } = await this.supabase
+        .storage
+        .from(bucket)
+        .upload(path, fileToUpload, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: contentType
+        });
+      
+      if (error) {
+        console.error('Fallback upload error details:', error);
+        throw error;
+      }
+      
+      return {
+        success: true,
+        path: path,
+        url: this.getPublicUrl(bucket, path),
+        renderUrl: this.getRenderUrl(bucket, path),
+        ...data
+      };
+    } catch (error) {
+      console.error('First fallback method failed:', error);
+      
+      // Ultimate fallback - try with default options and different content type
+      try {
+        console.log('Trying ultimate fallback with image/png');
+        
+        // Force image/png for the content type as a last resort
+        const { data, error } = await this.supabase
+          .storage
+          .from(bucket)
+          .upload(path, fileToUpload, {
+            contentType: 'image/png',
+            upsert: true
+          });
+        
+        if (error) {
+          console.error('Ultimate fallback failed:', error);
+          throw error;
+        }
+        
+        return {
+          success: true,
+          path: path,
+          url: this.getPublicUrl(bucket, path),
+          renderUrl: this.getRenderUrl(bucket, path),
+          ...data
+        };
+      } catch (ultimateError) {
+        // Rethrow with more context
+        throw new Error(`All upload methods failed: ${error.message || 'Unknown error'}`);
+      }
     }
-    
-    return {
-      success: true,
-      path: path,
-      url: this.getPublicUrl(bucket, path),
-      renderUrl: this.getRenderUrl(bucket, path),
-      ...data
-    };
   }
 }
 
