@@ -81,7 +81,11 @@ class StorageUploadHelper {
    */
   async directBinaryUpload(fileBlob, bucket, path, contentType) {
     const baseUrl = this.supabase.storageUrl || this.supabase.supabaseUrl;
-    const apiKey = this.supabase.supabaseKey;
+    const apiKey = this.supabase.supabaseKey || this.supabase.apiKey || this.supabase._options?.global?.headers?.apikey;
+    
+    if (!apiKey) {
+      throw new Error('Missing API key for storage upload. Please check your Supabase client initialization.');
+    }
     
     const url = `${baseUrl}/storage/v1/object/${bucket}/${path}`;
     
@@ -89,6 +93,7 @@ class StorageUploadHelper {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
+        'apikey': apiKey,
         'Content-Type': contentType,
         'x-upsert': 'true'
       },
@@ -96,8 +101,14 @@ class StorageUploadHelper {
     });
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || `HTTP Error: ${response.status}`);
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { status: response.status, statusText: response.statusText };
+      }
+      console.error('Storage upload error:', errorData);
+      throw new Error(errorData.error || errorData.message || `HTTP Error: ${response.status}`);
     }
     
     return await response.json();
@@ -170,6 +181,8 @@ class StorageUploadHelper {
    * @returns {string}
    */
   getPublicUrl(bucket, path) {
+    // Include the API key as a query parameter for authentication
+    const apiKey = this.supabase.supabaseKey || this.supabase.apiKey || this.supabase._options?.global?.headers?.apikey;
     return `${this.supabase.supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
   }
   
@@ -195,6 +208,8 @@ class StorageUploadHelper {
     // Generate a unique filename
     const path = customPath || await this.generateUniqueFilename(file.name, options.collection || 'default');
     
+    console.log(`Fallback upload to ${bucket}: ${path} (type: ${file.type})`);
+    
     // Upload using the SDK with upsert option
     const { data, error } = await this.supabase
       .storage
@@ -205,7 +220,10 @@ class StorageUploadHelper {
         contentType: file.type || this.getMimeTypeFromExtension(file.name)
       });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Fallback upload error:', error);
+      throw error;
+    }
     
     return {
       success: true,
