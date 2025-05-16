@@ -238,29 +238,24 @@ async function optimizeImageBeforeUpload(
     maxWidthOrHeight?: number;
     useWebWorker?: boolean;
     preserveExif?: boolean;
+    collection?: string;
   } = {}
 ): Promise<File> {
   // Check for WebP files both by MIME type and filename extension
   const isWebP = file.type === 'image/webp' || file.name.toLowerCase().endsWith('.webp');
+  const collection = options.collection || 'default';
   
   // Skip optimization for WebP, GIFs, and SVGs
   if (isWebP || file.type === 'image/gif' || file.type === 'image/svg+xml') {
     console.info(`Skipping optimization for ${file.type} file to preserve quality`);
     
-    // Still ensure we use our standard filename convention
-    const extension = file.name.split('.').pop()?.toLowerCase() || 
-      (isWebP ? 'webp' : file.type === 'image/gif' ? 'gif' : 'svg');
-    
-    const timestamp = new Date().toISOString()
-      .replace(/[-:]/g, '')
-      .replace(/[T.]/g, '')
-      .slice(0, 14);
-    const randomString = Math.random().toString(36).substring(2, 14);
+    // Use our new collection-based format
+    const newName = generateSafeFilename(file.name, collection);
     
     // Create a new File with consistent naming but keep the original content
     return new File(
       [file], 
-      `${timestamp}-${randomString}.${extension}`,
+      newName,
       { type: file.type }
     );
   }
@@ -280,27 +275,28 @@ async function optimizeImageBeforeUpload(
     // If the compressed file is larger than the original (rare case), return original
     if (compressedFile.size > file.size) {
       console.info('Compressed image is larger than original, using original');
-      return file;
+      
+      // Still use our new naming format
+      const newName = generateSafeFilename(file.name, collection);
+      return new File([file], newName, { type: file.type });
     }
     
-    // Create a new File with our naming convention
-    const extension = compressedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const timestamp = new Date().toISOString()
-      .replace(/[-:]/g, '')
-      .replace(/[T.]/g, '')
-      .slice(0, 14);
-    const randomString = Math.random().toString(36).substring(2, 14);
+    // Create a new File with our collection-based naming convention
+    const newName = generateSafeFilename(file.name, collection);
     
     const optimizedFile = new File(
       [compressedFile], 
-      `${timestamp}-${randomString}.${extension}`,
+      newName,
       { type: compressedFile.type }
     );
     
     return optimizedFile;
   } catch (error) {
     console.warn('Image optimization failed, using original file:', error);
-    return file;
+    
+    // Still use our new naming convention
+    const newName = generateSafeFilename(file.name, collection);
+    return new File([file], newName, { type: file.type });
   }
 }
 
@@ -330,37 +326,35 @@ export async function uploadImage(
     // Validate the file first
     validateFile(file, maxSizeMB);
     
+    // Determine collection from bucket
+    const collection = bucket.replace(/-images$/, '')
+                           .replace(/-assets$/, '')
+                           .replace(/-/g, '');
+    
     // WebP files need special handling
     let fileToUpload: File;
     
     if (isWebP && webpHandling === 'preserve') {
       // For WebP, bypass optimization completely and use original file
-      // Just rename the file to our timestamp-random format for consistency
-      const extension = '.webp';
-      const timestamp = new Date().toISOString()
-        .replace(/[-:]/g, '')
-        .replace(/[T.]/g, '')
-        .slice(0, 14);
-      const randomString = Math.random().toString(36).substring(2, 14);
-      
+      // Use our collection-based naming format
       fileToUpload = new File(
         [file], 
-        `${timestamp}-${randomString}${extension}`,
+        generateSafeFilename(file.name, collection),
         { type: 'image/webp' }
       );
       
       console.log(`Using WebP preserve mode for ${file.name}. New filename: ${fileToUpload.name}`);
     } else {
-      // For non-WebP files, use the normal optimization process
+      // For non-WebP files, use the normal optimization process with collection
       fileToUpload = await optimizeImageBeforeUpload(file, {
         maxSizeMB: Math.min(maxSizeMB, 2), // Keep at most 2MB even if allowed larger
         maxWidthOrHeight: 1920,
-        useWebWorker: true
+        useWebWorker: true,
+        collection 
       });
     }
     
     // Use the filename that's already been safely generated during the previous steps
-    // Instead of generating it again with generateUniqueFileName
     const cleanPath = fileToUpload.name.replace(/^\/+|\/+$/g, '');
 
     // Add metadata to track image association and upload time
