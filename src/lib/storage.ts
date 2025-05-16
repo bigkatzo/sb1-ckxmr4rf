@@ -58,65 +58,16 @@ export function normalizeStorageUrl(url: string): string {
     // Step 5: Get the path and determine format from extension
     const path = parsedUrl.pathname;
     
-    // Step 6: Extract file extension to make format-specific decisions
-    const fileExtension = path.split('.').pop()?.toLowerCase() || '';
-    const isWebP = fileExtension === 'webp' || path.toLowerCase().includes('.webp');
-    const isGif = fileExtension === 'gif' || path.toLowerCase().includes('.gif');
-    const isSvg = fileExtension === 'svg' || path.toLowerCase().includes('.svg');
-    const isJpgOrPng = /\.(jpe?g|png)$/i.test(path);
-    
-    // Step 7: Handle based on URL type and file format
-    
-    // WebP, GIF, and SVG files should ALWAYS use object URLs (not render URLs)
-    // because they can have compatibility issues with the render endpoint
-    if (isWebP || isGif || isSvg) {
-      // If already has object URL format, return the fixed URL
-      if (path.includes('/storage/v1/object/public/')) {
-        // Ensure the URL is properly formatted with no double slashes
-        return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
-      }
-      
-      // If has render URL format, convert to object URL format
-      if (path.includes('/storage/v1/render/image/public/')) {
-        const objectPath = path.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
-        return `${parsedUrl.protocol}//${parsedUrl.host}${objectPath}`;
-      }
+    // Step 6: ALWAYS PREFER OBJECT URLS - The render endpoint causes 400 errors
+    // If this is already a render URL, convert to object URL
+    if (path.includes('/storage/v1/render/image/public/')) {
+      const objectPath = path.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+      return `${parsedUrl.protocol}//${parsedUrl.host}${objectPath}${parsedUrl.search}`;
     }
     
-    // Already a render URL - don't modify it unless it's WebP, GIF or SVG
-    if (path.includes('/storage/v1/render/image/')) {
-      if (isWebP || isGif || isSvg) {
-        // Convert to object URL for better compatibility
-        const objectPath = path.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
-        return `${parsedUrl.protocol}//${parsedUrl.host}${objectPath}`;
-      }
-      return `${parsedUrl.protocol}//${parsedUrl.host}${path}${parsedUrl.search}`; // Leave other render URLs as-is
-    }
-    
-    // Object URL - conditionally convert to render URL for supported formats
+    // Already an object URL, just return it fixed
     if (path.includes('/storage/v1/object/public/')) {
-      // WebP, GIF, and SVG should stay as object URLs
-      if (isWebP || isGif || isSvg) {
-        return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
-      }
-      
-      // JPG/PNG formats work well with render endpoint
-      if (isJpgOrPng) {
-        // Convert to render URL with optimized parameters
-        const renderPath = path.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-        
-        // Add optimal parameters for rendering
-        const params = new URLSearchParams(parsedUrl.search);
-        if (!params.has('width')) params.append('width', '800');
-        if (!params.has('quality')) params.append('quality', '80');
-        params.append('format', 'original'); // Preserve original format
-        
-        // Build final URL
-        return `${parsedUrl.protocol}//${parsedUrl.host}${renderPath}?${params.toString()}`;
-      }
-      
-      // For other formats, keep as object URL
-      return `${parsedUrl.protocol}//${parsedUrl.host}${path}`;
+      return `${parsedUrl.protocol}//${parsedUrl.host}${path}${parsedUrl.search}`;
     }
     
     // Not a storage URL we recognize, return the fixed URL
@@ -217,15 +168,45 @@ function validateFile(file: File, maxSizeMB: number = 5): void {
 // Verify URL is accessible
 async function verifyUrlAccessibility(url: string): Promise<void> {
   try {
-    const response = await fetch(url, { method: 'HEAD' });
+    // For render URLs, convert to object URL for verification since render sometimes returns 400
+    let urlToVerify = url;
+    if (url.includes('/storage/v1/render/image/public/')) {
+      urlToVerify = url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+      console.log('Converting render URL to object URL for verification:', urlToVerify);
+    }
+    
+    // Use a longer timeout for slow networks
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(urlToVerify, { 
+      method: 'HEAD',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
     if (!response.ok) {
       console.warn('Warning: Generated image URL may not be publicly accessible:', {
         status: response.status,
-        url
+        url: urlToVerify
       });
+      
+      // If object URL check failed, try direct bucket URL as last resort
+      if (urlToVerify !== url && urlToVerify.includes('/storage/v1/object/public/')) {
+        // Extract bucket and path
+        const parts = urlToVerify.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
+        if (parts && parts.length >= 3) {
+          const [, bucket, path] = parts;
+          const { data: { publicUrl } } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(path);
+          
+          console.log('Trying direct bucket URL:', publicUrl);
+        }
+      }
     }
   } catch (error) {
-    console.warn('Warning: Could not verify image URL accessibility:', error);
+    console.warn('Warning: Could not verify image URL accessibility (timeout or network error):', error);
   }
 }
 
@@ -466,9 +447,11 @@ export async function uploadImage(
                     .from(bucket)
                     .getPublicUrl(data.Key || cleanPath);
                   
-                  const finalUrl = isWebP 
-                    ? publicUrl  // Direct object URL for WebP
-                    : normalizeStorageUrl(publicUrl);
+                  // Ensure we always use an object URL
+                  const fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
+                  const finalUrl = fixedUrl.includes('/storage/v1/render/image/') 
+                    ? fixedUrl.replace('/storage/v1/render/image/', '/storage/v1/object/') 
+                    : fixedUrl;
                     
                   onProgress(100);
                   resolve(finalUrl);
@@ -600,10 +583,11 @@ export async function uploadImage(
     // Fix any double slashes in the URL (except after protocol)
     const fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
     
-    // If it's a WebP file, use object URL directly for compatibility
-    const finalUrl = isWebP 
-      ? fixedUrl  // Direct object URL for WebP
-      : normalizeStorageUrl(fixedUrl); // Normalized URL for other formats
+    // ALWAYS use object URLs directly for production environment
+    // This avoids the 400 Bad Request errors with the render API
+    const finalUrl = fixedUrl.includes('/storage/v1/render/image/') 
+      ? fixedUrl.replace('/storage/v1/render/image/', '/storage/v1/object/') 
+      : fixedUrl;
       
     console.log(`Successfully uploaded to ${finalUrl}`);
     
