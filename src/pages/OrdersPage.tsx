@@ -376,8 +376,8 @@ export function OrdersPage() {
                   {/* Mobile Layout */}
                   <div className="flex items-center justify-between sm:hidden">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Batch</span>
-                      <span className="font-mono text-sm font-medium text-white truncate">{group[0].batch_order_id || group[0].id}</span>
+                      <span className="text-[10px] uppercase tracking-wider text-gray-400 shrink-0">Order #</span>
+                      <span className="font-mono text-sm font-medium text-white truncate">{group[0].order_number || group[0].id}</span>
                     </div>
                     <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusColor(group[0].status)}`}>
                       {getStatusIcon(group[0].status)}
@@ -393,8 +393,8 @@ export function OrdersPage() {
                   <div className="hidden sm:flex sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Batch</span>
-                        <span className="font-mono font-medium text-white truncate">{group[0].batch_order_id || group[0].id}</span>
+                        <span className="text-xs uppercase tracking-wider text-gray-400 shrink-0">Order #</span>
+                        <span className="font-mono font-medium text-white truncate">{group[0].order_number || group[0].id}</span>
                       </div>
                       <span className="text-gray-600">•</span>
                       <span className="text-xs text-gray-400">{formatDistanceToNow(safeParseDate(group[0].createdAt), { addSuffix: true })}</span>
