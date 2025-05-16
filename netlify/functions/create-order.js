@@ -81,11 +81,9 @@ const generateOrderNumber = async () => {
     const day = now.getDate();
     return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
   } catch (err) {
-    console.error('Error generating order number:', err);
-    // If anything fails, use a timestamp-based fallback that matches our SF- pattern
-    const now = new Date();
-    const timestamp = now.getTime().toString().slice(-6);
-    return `SF-${timestamp}`;
+    console.error('Error generating order number:', err.message);
+    // Generate a unique fallback order number
+    return `SF-${Date.now().toString().slice(-6)}`;
   }
 };
 
@@ -142,14 +140,45 @@ exports.handler = async (event, context) => {
   // Format variants to be consistent with cart checkout
   // This ensures variant_selections is always an array of {name, value} objects
   let formattedVariants = [];
+  
   if (Array.isArray(variants)) {
+    // If it's already an array of objects with name/value properties, use it directly
     formattedVariants = variants;
   } else if (typeof variants === 'object' && variants !== null) {
-    // Convert object format to array format for consistency
-    formattedVariants = Object.entries(variants).map(([name, value]) => ({
-      name,
-      value
-    }));
+    // First try to get the product to look up variant names
+    try {
+      // Fetch product to get variant information
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('variants')
+        .eq('id', productId)
+        .single();
+      
+      if (!productError && product && product.variants) {
+        // Convert object format to array format with proper variant names
+        formattedVariants = Object.entries(variants).map(([variantId, value]) => {
+          // Try to find the variant name in the product's variants
+          const variant = product.variants.find(v => v.id === variantId);
+          return {
+            name: variant?.name || variantId, // Use actual variant name if found, fall back to ID
+            value
+          };
+        });
+      } else {
+        // Fall back to the original approach if we can't fetch product info
+        formattedVariants = Object.entries(variants).map(([name, value]) => ({
+          name,
+          value
+        }));
+      }
+    } catch (err) {
+      console.error('Error looking up variant names:', err);
+      // Fall back to the original approach if there's an error
+      formattedVariants = Object.entries(variants).map(([name, value]) => ({
+        name,
+        value
+      }));
+    }
   }
   
   console.log('Formatted variants:', formattedVariants);

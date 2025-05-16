@@ -857,6 +857,16 @@ export function TokenVerificationModal({
       let responseData;
       
       try {
+        // Format variant selections for database (same as in regular order flow)
+        const formattedVariantSelections = Object.entries(selectedOption).map(([variantId, value]) => {
+          // Find the variant name from product.variants
+          const variant = product.variants?.find(v => v.id === variantId);
+          return {
+            name: variant?.name || variantId, // Use variant name, fallback to variant ID
+            value
+          };
+        });
+
         // Call the create-order endpoint with the free order flag
         response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
           method: 'POST',
@@ -866,7 +876,7 @@ export function TokenVerificationModal({
           },
           body: JSON.stringify({
             productId: product.id,
-            variants: selectedOption || {},
+            variants: formattedVariantSelections,
             shippingInfo: {
               shipping_address: {
                 address: shippingInfoState.address,
