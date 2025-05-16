@@ -427,10 +427,13 @@ export async function uploadImage(
       const token = await supabase.auth.getSession()
         .then(session => session.data.session?.access_token || '');
       
+      // Extract just the filename without any path and avoid bucket name duplication
+      const fileName = fileToUpload.name.split('/').pop() || fileToUpload.name;
+      
       // Log the token length for debugging (don't log the full token)
       console.log(`Auth token present: ${Boolean(token)} (length: ${token?.length || 0})`);
 
-      const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${cleanPath}`;
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${fileName}`;
       console.log(`Uploading to: ${uploadUrl}`);
       
       const response = await fetch(uploadUrl, {
@@ -444,7 +447,7 @@ export async function uploadImage(
       
       if (response.ok) {
         const data = await response.json();
-        uploadData = { path: data.Key || cleanPath };
+        uploadData = { path: data.Key || fileName };
         uploadError = null;
         console.log("Upload succeeded with custom FormData method");
       } else {
@@ -452,7 +455,7 @@ export async function uploadImage(
         console.warn(`Direct upload failed with status ${response.status}, falling back to SDK`);
         const result = await supabase.storage
           .from(bucket)
-          .upload(cleanPath, fileToUpload, {
+          .upload(fileName, fileToUpload, {
             cacheControl,
             contentType,
             upsert,
@@ -476,6 +479,9 @@ export async function uploadImage(
     // Method 2: If the first method failed, try FormData approach
     if (uploadError && !uploadData) {
       try {
+        // Extract just the filename without any path
+        const fallbackFileName = fileToUpload.name.split('/').pop() || fileToUpload.name;
+        
         // Create a new FormData with proper field names
         const fallbackFormData = new FormData();
         fallbackFormData.append('file', fileToUpload, fileToUpload.name);
@@ -500,6 +506,9 @@ export async function uploadImage(
         
         // Progress tracking with XMLHttpRequest
         if (onProgress) {
+          // Share the fileName for consistent path handling
+          const xhrFileName = fallbackFileName;
+          
           return new Promise<string>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             
@@ -536,9 +545,12 @@ export async function uploadImage(
               if (xhr.status >= 200 && xhr.status < 300) {
                 try {
                   const data = JSON.parse(xhr.responseText);
+                  // Extract just the filename to avoid path duplication
+                  const responseFileName = data.Key || xhrFileName;
+                  
                   const { data: { publicUrl } } = supabase.storage
                     .from(bucket)
-                    .getPublicUrl(data.Key || cleanPath);
+                    .getPublicUrl(responseFileName);
                   
                   // Ensure we always use an object URL
                   const fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
@@ -570,7 +582,7 @@ export async function uploadImage(
               const supabaseUrl = (supabase as any).supabaseUrl || 
                                   import.meta.env.VITE_SUPABASE_URL;
               
-              xhr.open('POST', `${supabaseUrl}/storage/v1/object/${bucket}/${cleanPath}`);
+              xhr.open('POST', `${supabaseUrl}/storage/v1/object/${bucket}/${xhrFileName}`);
               xhr.setRequestHeader('Authorization', `Bearer ${token}`);
               xhr.setRequestHeader('x-upsert', upsert ? 'true' : 'false');
               xhr.send(progressFormData);
@@ -587,7 +599,7 @@ export async function uploadImage(
           .then(session => session.data.session?.access_token || '')
           .catch(() => '');
                            
-        const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${cleanPath}`, {
+        const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${fallbackFileName}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${await token}`,
@@ -598,7 +610,7 @@ export async function uploadImage(
         
         if (response.ok) {
           const data = await response.json();
-          uploadData = { path: data.Key || cleanPath };
+          uploadData = { path: data.Key || fallbackFileName };
           uploadError = null;
           console.log("Upload succeeded with FormData method");
         } else {
@@ -615,13 +627,16 @@ export async function uploadImage(
       try {
         console.log("Attempting binary upload as last resort");
         
+        // Extract just the filename without any path
+        const binaryFileName = fileToUpload.name.split('/').pop() || fileToUpload.name;
+        
         // Get the file as a binary blob
         const buffer = await fileToUpload.arrayBuffer();
         
         // Use raw upload with ArrayBuffer
         const result = await supabase.storage
           .from(bucket)
-          .upload(cleanPath, buffer, {
+          .upload(binaryFileName, buffer, {
             contentType, // Use the corrected content type
             cacheControl,
             upsert
@@ -640,7 +655,7 @@ export async function uploadImage(
             const blobData = new Blob([fileToUpload], { type: contentType });
             const blobResult = await supabase.storage
               .from(bucket)
-              .upload(cleanPath, blobData, {
+              .upload(binaryFileName, blobData, {
                 contentType,
                 cacheControl,
                 upsert
@@ -667,11 +682,14 @@ export async function uploadImage(
       try {
         console.log("Attempting server-side upload as final fallback");
         
+        // Extract just the filename without any path
+        const serverFileName = fileToUpload.name.split('/').pop() || fileToUpload.name;
+        
         // Create a simple FormData
         const formData = new FormData();
         formData.append('file', fileToUpload, fileToUpload.name);
         formData.append('bucket', bucket);
-        formData.append('path', cleanPath);
+        formData.append('path', serverFileName);
         formData.append('contentType', contentType);
         
         // Use a Netlify function or similar server endpoint

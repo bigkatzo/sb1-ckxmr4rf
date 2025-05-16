@@ -116,6 +116,14 @@ exports.handler = async function(event, context) {
                               .replace(/-/g, '');
       
       path = generateUniqueFilename(file.name, collection);
+    } else {
+      // Ensure the path doesn't have the bucket name in it
+      if (path.startsWith(bucket + '/')) {
+        path = path.replace(bucket + '/', '');
+      }
+      
+      // Just use the filename part without any folders
+      path = path.split('/').pop() || path;
     }
     
     // Use content type from form or file
