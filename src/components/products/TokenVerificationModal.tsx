@@ -511,7 +511,7 @@ export function TokenVerificationModal({
             amountSol: finalPrice,
             walletAddress: walletAddress || 'anonymous'
           });
-          console.log("reject body", rejectBody);
+
           const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
             method: 'POST',
             headers: {
@@ -533,12 +533,14 @@ export function TokenVerificationModal({
 
       // Update order with transaction signature
       try {
+        console.log("Batch order id right before...");
         const success = await updateOrderTransactionSignature({
           orderId,
           transactionSignature: txSignature,
           amountSol: finalPrice,
           walletAddress: walletAddress || 'anonymous',
-          batchOrderId
+          batchOrderId,
+          isBatchOrder
         });
 
         if (!success) {
