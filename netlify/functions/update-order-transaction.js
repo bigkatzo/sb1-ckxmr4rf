@@ -104,10 +104,10 @@ exports.handler = async (event, context) => {
 
     // Extract parameters
     const {
-      orderId: targetOrderId,
+      orderId: targetOrderId, // expecting multiple or 1
       transactionSignature,
       amountSol,
-      batchOrderId: targetBatchOrderId,
+      batchOrderId: targetBatchOrderId, // this should cover every single orderId
       isBatchOrder = false,
       isFreeOrder = false
     } = requestBody;
@@ -256,10 +256,12 @@ exports.handler = async (event, context) => {
     }
 
     // If we have a batch order ID, use it for updating all related orders
-    if (targetBatchOrderId || (targetOrderId && isBatchOrder === true)) {
+    // if (targetBatchOrderId || (targetOrderId && isBatchOrder === true)) {
+      if (targetBatchOrderId) {
       // If we don't have batch ID but isBatchOrder is true, find batch ID from order ID
       let batchOrderId = targetBatchOrderId;
       
+      // @note: should never run..
       if (!batchOrderId && targetOrderId) {
         log('info', 'isBatchOrder is true but no batchOrderId, looking up from orderId');
         try {
@@ -375,11 +377,12 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
     }
     
     // Also find orders that have batch ID only in metadata
+    // should be null as batch_order_id is always set
     const { data: metadataOrders, error: metadataError } = await supabase
       .from('orders')
       .select('id, status, order_number, payment_metadata, batch_order_id, variant_selections')
       .is('batch_order_id', null)
-      .filter('payment_metadata->batchOrderId', 'eq', batchOrderId);
+      .filter('payment_metadata->>batchOrderId', 'eq', batchOrderId);
       
     if (metadataError) {
       log('error', 'Error fetching batch orders by metadata:', metadataError);

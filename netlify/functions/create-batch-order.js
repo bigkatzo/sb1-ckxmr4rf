@@ -28,7 +28,7 @@ try {
 }
 
 // Generate a user-friendly order number (shorter and more memorable)
-const generateOrderNumber = async () => {
+const generateOrderNumber = () => {
   try {
     // Always use the SF-MMDD-XXXX format for batch orders
     const now = new Date();
@@ -94,8 +94,12 @@ exports.handler = async (event, context) => {
     // Generate a batch order ID
     const batchOrderId = uuidv4();
     
+    // @mistake-generate 3 different order numbers, 1 batch number// so it's tracked differently..
     // Generate a single order number for the entire batch
-    const orderNumber = await generateOrderNumber();
+    const orderNumber = generateOrderNumber();
+    const orderNumbers = items.map(async () => {
+      return generateOrderNumber();
+    });
     
     // Array to store created order IDs
     const createdOrders = [];
@@ -121,6 +125,7 @@ exports.handler = async (event, context) => {
     const allOrderIds = [];
     
     // Process each item in the cart
+    let i = 0;
     for (const item of items) {
       const product = item.product;
       const selectedOptions = item.selectedOptions || {};
@@ -175,20 +180,19 @@ exports.handler = async (event, context) => {
       
       // Determine how many separate orders to create for this item
       // Each quantity becomes a separate order in the same batch
-      const quantityToProcess = quantity;
+      // const quantityToProcess = quantity;
       
-      // Process each quantity as a separate order
-      for (let i = 0; i < quantityToProcess; i++) {
+      // Process each quantity as a separate order: nope(process as one)...
+      // for (let i = 0; i < quantityToProcess; i++) {
         try {
           // Include batchOrderId and orderNumber in metadata for immediate access
           const enhancedMetadata = {
             ...paymentMetadata,
             batchOrderId, // Include in metadata
-            orderNumber, // Include the consistent SF-format order number
+            orderNumber: orderNumbers[i],
             isBatchOrder: true,
-            quantityIndex: i + 1,
-            totalQuantity: quantityToProcess,
-            // Include variant pricing information
+            quantityIndex: 1,
+            totalQuantity: quantity,
             variantKey: variantKey || undefined,
             variantPrices: product.variantPrices || undefined
           };
@@ -203,12 +207,12 @@ exports.handler = async (event, context) => {
           });
 
           if (functionError) {
-            console.error(`Error using create_order function for quantity ${i+1}/${quantityToProcess}:`, functionError);
+            console.error(`Error using create_order function for quantity ${i+1}/${quantity}:`, functionError);
             throw functionError;
           }
 
           if (orderId) {
-            console.log(`Order ${i+1}/${quantityToProcess} created successfully, updating with batch details:`, orderId);
+            console.log(`Order ${i+1}/${quantity} created successfully, updating with batch details:`, orderId);
             
             // Track all created order IDs
             allOrderIds.push(orderId);
@@ -221,7 +225,7 @@ exports.handler = async (event, context) => {
                 .from('orders')
                 .update({
                   batch_order_id: batchOrderId,
-                  order_number: orderNumber,
+                  order_number: orderNumber[i],
                   status: isFreeOrder ? 'confirmed' : 'draft',
                   updated_at: new Date().toISOString()
                 })
@@ -240,23 +244,25 @@ exports.handler = async (event, context) => {
 
             createdOrders.push({
               orderId,
-              orderNumber,
+              orderNumber: orderNumber[i],
               productId: product.id,
               productName: product.name,
               status: isFreeOrder ? 'confirmed' : 'draft',
-              quantityIndex: i + 1,
-              totalQuantity: quantityToProcess
+              quantityIndex: 1,
+              totalQuantity: quantity
             });
           } else {
             throw new Error('Failed to create order: No order ID returned');
           }
         } catch (error) {
-          console.error(`Order creation failed for quantity ${i+1}/${quantityToProcess}:`, error);
+          console.error(`Order creation failed for quantity ${i+1}/${quantity}:`, error);
           // Continue with next item to create as many orders as possible
+          i++;
           continue;
         }
+        i++;
       }
-    }
+    // }
 
     // If no orders were created, return an error
     if (createdOrders.length === 0) {
@@ -279,7 +285,7 @@ exports.handler = async (event, context) => {
             .from('orders')
             .update({
               batch_order_id: batchOrderId,
-              order_number: orderNumber,
+              order_number: orderNumber[i],
               item_index: i + 1,
               total_items_in_batch: allOrderIds.length,
               // For free orders, add transaction signature
@@ -303,7 +309,7 @@ exports.handler = async (event, context) => {
     // At the end of the endpoint, add batch summary logging before returning
     console.log(`Batch order creation complete:`, {
       batchOrderId,
-      orderNumber,
+      orderNumbers: JSON.stringify(orderNumbers),
       totalOrders: createdOrders.length,
       expectedItems: items.length,
       success: createdOrders.length === items.length,
@@ -316,7 +322,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         batchOrderId,
-        orderNumber,
+        orderNumbers: orderNumbers,
         orderId: createdOrders[0]?.orderId, // Return the first order ID for backward compatibility
         isFreeOrder,
         transactionSignature: isFreeOrder ? transactionSignature : undefined,
