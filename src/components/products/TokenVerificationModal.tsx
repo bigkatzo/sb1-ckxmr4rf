@@ -387,6 +387,7 @@ export function TokenVerificationModal({
       let orderId: string | undefined;
       let orderNumber: string;
       let batchOrderId;
+      let isBatchOrder = false;
       
       // If user has a batch checkout from cart, use batch order endpoint
       if (paymentMetadata?.isBatchOrder) {
@@ -433,14 +434,12 @@ export function TokenVerificationModal({
           throw new Error(batchData.error || 'Failed to create batch order');
         }
             
-        // orderId = batchData.orders?.[0]?.orderId; // Get the first order ID ??..
-            
-        // Get order number from the response
-        orderNumber = batchData.orderNumbers?.[0];  // this should be orders
-        
-        // console.log(orderNumbers);
 
+        orderNumber = batchData.orderNumbers?.[0]; 
         batchOrderId = batchData.batchOrderId;
+        isBatchOrder = true;
+
+        console.log("Successfully created batch order data with batch id above: ", batchOrderId);
       } else {
         // For regular single orders, use the regular order endpoint
         orderResponse = await fetch('/.netlify/functions/create-order', {
@@ -505,18 +504,20 @@ export function TokenVerificationModal({
         
         // Update order to pending_payment status even if payment fails
         try {
+          const rejectBody = JSON.stringify({
+            orderId,
+            batchOrderId,
+            transactionSignature: 'rejected', // Use a special value for rejected transactions
+            amountSol: finalPrice,
+            walletAddress: walletAddress || 'anonymous'
+          });
+          console.log("reject body", rejectBody);
           const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-              orderId,
-              batchOrderId,
-              transactionSignature: 'rejected', // Use a special value for rejected transactions
-              amountSol: finalPrice,
-              walletAddress: walletAddress || 'anonymous'
-            })
+            body: rejectBody,
           });
 
           if (!updateResponse.ok) {

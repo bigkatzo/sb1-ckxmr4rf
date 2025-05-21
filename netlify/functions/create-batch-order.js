@@ -96,8 +96,7 @@ exports.handler = async (event, context) => {
     
     // @mistake-generate 3 different order numbers, 1 batch number// so it's tracked differently..
     // Generate a single order number for the entire batch
-    const orderNumber = generateOrderNumber();
-    const orderNumbers = items.map(async () => {
+    const orderNumbers = items.map(() => {
       return generateOrderNumber();
     });
     
@@ -225,7 +224,7 @@ exports.handler = async (event, context) => {
                 .from('orders')
                 .update({
                   batch_order_id: batchOrderId,
-                  order_number: orderNumber[i],
+                  order_number: orderNumbers[i],
                   status: isFreeOrder ? 'confirmed' : 'draft',
                   updated_at: new Date().toISOString()
                 })
