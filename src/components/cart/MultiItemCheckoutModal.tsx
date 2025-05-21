@@ -900,7 +900,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             {
               amount: finalPrice,
               buyer: walletAddress || '',
-              recipient: ''
+              recipient: collectionId
             },
           );
           

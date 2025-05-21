@@ -560,7 +560,6 @@ export function TokenVerificationModal({
         };
         
         // Monitor transaction status and confirm on chain
-        console.log("Calling await tx");
         const transactionSuccess = await verifyFinalTransaction(
           txSignature,
           (status) => {
