@@ -262,7 +262,6 @@ export async function updateOrderTransactionSignature(
     transactionSignature: string;
     amountSol: number;
     walletAddress?: string;
-    isBatchOrder: boolean;
   },
   maxRetries = 3
 ): Promise<boolean> {

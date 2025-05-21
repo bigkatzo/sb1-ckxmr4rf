@@ -14,7 +14,7 @@ import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
 import { usePayment } from '../../hooks/usePayment';
 import { StripePaymentModal } from '../products/StripePaymentModal';
-import { monitorTransaction } from '../../utils/transaction-monitor.tsx';
+import { verifyFinalTransaction } from '../../utils/transaction-monitor.tsx';
 import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
 import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
@@ -755,14 +755,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           
           console.log('Batch order created for Solana payment:', {
             batchOrderId: batchOrderData.batchOrderId,
-            orderNumber: batchOrderData.orderNumber,
+            orderNumber: batchOrderData.orderNumbers?.[0],
             orderCount: batchOrderData.orders?.length,
             firstOrderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId
           });
           
           // Store the order information
           const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
-          const orderNumber = batchOrderData.orderNumber;
+          const orderNumber = batchOrderData.orderNumber?.[0];
           const batchOrderId = batchOrderData.batchOrderId;
           
           setOrderData({
@@ -825,7 +825,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           }));
           
           // Monitor transaction and confirm on chain
-          const success = await monitorTransaction(
+          const success = await verifyFinalTransaction(
             txSignature,
             async (status) => {
               // Handle transaction status updates
@@ -895,13 +895,13 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                 }
               }
             },
+            orderId,
+            batchOrderId,
             {
               amount: finalPrice,
               buyer: walletAddress || '',
               recipient: ''
             },
-            orderId,
-            batchOrderId
           );
           
           // SAFETY: Add a timeout to ensure modal closes properly

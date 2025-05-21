@@ -158,14 +158,6 @@ export async function monitorTransaction(
           // Define solscanUrl before we use it
           const solscanUrl = `https://solscan.io/tx/${signature}`;
 
-          // Check for batch order information in the response
-            
-            // Customize message for batch orders
-            // const batchMessage = typeof verificationResult.ordersUpdated === 'number' 
-            //   ? `${verificationResult.ordersUpdated} items` 
-            //   : 'multiple items';
-            
-            // Standard transaction notification for non-batch orders
             toast.update(toastId, {
               render: () => (
                 <div>
@@ -340,7 +332,7 @@ export async function verifyFinalTransaction(
       // Include batch information if provided
       if (batchOrderId) {
         payload.batchOrderId = batchOrderId;
-        payload.isBatchOrder = true;
+        payload.isBatchOrder = !!batchOrderId;
       }
 
       // Include expected details if provided

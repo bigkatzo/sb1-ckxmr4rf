@@ -540,7 +540,6 @@ export function TokenVerificationModal({
           amountSol: finalPrice,
           walletAddress: walletAddress || 'anonymous',
           batchOrderId,
-          isBatchOrder
         });
 
         if (!success) {
@@ -561,6 +560,7 @@ export function TokenVerificationModal({
         };
         
         // Monitor transaction status and confirm on chain
+        console.log("Calling await tx");
         const transactionSuccess = await verifyFinalTransaction(
           txSignature,
           (status) => {
