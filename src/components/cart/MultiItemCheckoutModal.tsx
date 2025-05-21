@@ -806,6 +806,18 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           
           console.log('Payment processed successfully with signature:', txSignature);
           
+          const statusSuccess = await updateOrderTransactionSignature({
+            orderId,
+            transactionSignature: txSignature,
+            amountSol: finalPrice,
+            walletAddress: walletAddress || 'anonymous',
+            batchOrderId,
+          });
+  
+          if (!statusSuccess) {
+            throw new Error('Failed to update order transaction');
+          }
+
           // Start transaction confirmation - using same monitoring as TokenVerificationModal
           setOrderProgress({ step: 'confirming_transaction' });
           console.log('Confirming transaction on-chain');
