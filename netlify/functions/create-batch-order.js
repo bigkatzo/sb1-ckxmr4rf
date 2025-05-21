@@ -243,7 +243,7 @@ exports.handler = async (event, context) => {
 
             createdOrders.push({
               orderId,
-              orderNumber: orderNumber[i],
+              orderNumber: orderNumbers[i],
               productId: product.id,
               productName: product.name,
               status: isFreeOrder ? 'confirmed' : 'draft',
@@ -284,7 +284,7 @@ exports.handler = async (event, context) => {
             .from('orders')
             .update({
               batch_order_id: batchOrderId,
-              order_number: orderNumber[i],
+              order_number: orderNumbers[i],
               item_index: i + 1,
               total_items_in_batch: allOrderIds.length,
               // For free orders, add transaction signature
