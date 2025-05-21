@@ -154,6 +154,99 @@ export async function monitorTransaction(
           err: status?.err
         }); 
 
+        if (status?.confirmationStatus === 'finalized') {
+          // Define solscanUrl before we use it
+          const solscanUrl = `https://solscan.io/tx/${signature}`;
+
+          // Check for batch order information in the response
+            
+            // Customize message for batch orders
+            // const batchMessage = typeof verificationResult.ordersUpdated === 'number' 
+            //   ? `${verificationResult.ordersUpdated} items` 
+            //   : 'multiple items';
+            
+            // Standard transaction notification for non-batch orders
+            toast.update(toastId, {
+              render: () => (
+                <div>
+                  <div className="mb-2">Transaction confirmed!</div>
+                  <div className="flex flex-col gap-2">
+                    <a 
+                      href={solscanUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-blue-400 hover:text-blue-300 underline text-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View on Solscan
+                    </a>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.location.href = '/orders';
+                      }}
+                      className="text-left text-green-400 hover:text-green-300 underline text-sm"
+                    >
+                      View Your Orders
+                    </button>
+                  </div>
+                </div>
+              ),
+              type: 'success',
+              isLoading: false,
+              autoClose: 8000
+            });
+
+          // Add redundant onStatusUpdate calls to ensure the callback gets triggered
+          // Use setTimeout with staggered delays for redundancy
+          setTimeout(() => {
+            try {
+              console.log('[TRANSACTION_MONITOR] Sending first delayed success callback');
+              onStatusUpdate({
+                processing: false,
+                success: true,
+                error: null,
+                signature,
+                paymentConfirmed: true
+              });
+            } catch (e) {
+              console.error('[TRANSACTION_MONITOR] Error in first delayed callback:', e);
+            }
+          }, 250);
+
+          setTimeout(() => {
+            try {
+              console.log('[TRANSACTION_MONITOR] Sending second delayed success callback');
+              onStatusUpdate({
+                processing: false,
+                success: true,
+                error: null,
+                signature,
+                paymentConfirmed: true
+              });
+            } catch (e) {
+              console.error('[TRANSACTION_MONITOR] Error in second delayed callback:', e);
+            }
+          }, 500);
+
+          setTimeout(() => {
+            try {
+              console.log('[TRANSACTION_MONITOR] Sending third delayed success callback');
+              onStatusUpdate({
+                processing: false,
+                success: true,
+                error: null,
+                signature,
+                paymentConfirmed: true
+              });
+            } catch (e) {
+              console.error('[TRANSACTION_MONITOR] Error in third delayed callback:', e);
+            }
+          }, 1000);
+
+          console.log('[TRANSACTION_MONITOR] Transaction monitoring completed successfully');
+          return true;
+        }
         // Transaction not finalized yet, continue checking
         attempts++;
         const delay = Math.min(
