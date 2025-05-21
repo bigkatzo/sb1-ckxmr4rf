@@ -337,19 +337,17 @@ export async function verifyFinalTransaction(
         payload.isBatchOrder = !!batchOrderId;
       }
 
+      let merchantPubkey;
       // Include expected details if provided
       if (expectedDetails) {
         const merchantWalletAddress = await getCollectionWallet(expectedDetails.recipient);
-    
+        console.log("TRANSACTION SENT TO MERCHANT WALLET:", merchantWalletAddress);
         if (merchantWalletAddress) {
-          const merchantPubkey = new PublicKey(merchantWalletAddress);
-          payload.expectedDetails = {
-            ...expectedDetails,
-            recipient: merchantPubkey
-          }
-        } else {
-          payload.expectedDetails = expectedDetails;
-        }
+          merchantPubkey = new PublicKey(merchantWalletAddress);
+          console.log("TRANSACTION SENT TO MERCHANT WALLET:", merchantPubkey);
+          expectedDetails.recipient = merchantPubkey.toString();
+        } 
+        payload.expectedDetails = expectedDetails;
       }
 
       console.log('[TRANSACTION_MONITOR] Sending verification payload to server:', {
