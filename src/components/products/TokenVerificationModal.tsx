@@ -556,6 +556,7 @@ export function TokenVerificationModal({
         const expectedDetails = {
           amount: finalPrice,
           buyer: walletAddress || '',
+          collectionId: product.collectionId,
           recipient: product.collectionId // Collection address as recipient
         };
         

@@ -489,11 +489,11 @@ export async function verifyFinalTransaction(
         const solscanUrl = `https://solscan.io/tx/${signature}`;
 
         // Check for batch order information in the response
-        const batchOrderSuccess = verificationResult.ordersUpdated && 
-          (verificationResult.ordersUpdated.length > 0 || 
-          (typeof verificationResult.ordersUpdated === 'number' && verificationResult.ordersUpdated > 0));
+        // const batchOrderSuccess = verificationResult.ordersUpdated && 
+        //   (verificationResult.ordersUpdated.length > 0 || 
+        //   (typeof verificationResult.ordersUpdated === 'number' && verificationResult.ordersUpdated > 0));
           
-        if (batchOrderSuccess) {
+        if (batchOrderId) {
           console.log('[TRANSACTION_MONITOR] Batch order successfully processed:', {
             batchOrderId: verificationResult.batchOrderId || batchOrderId,
             ordersUpdated: verificationResult.ordersUpdated
@@ -533,7 +533,7 @@ export async function verifyFinalTransaction(
             ),
             type: 'success',
             isLoading: false,
-            autoClose: 8000
+            autoClose: 5000
           });
         }
         else {
@@ -566,57 +566,12 @@ export async function verifyFinalTransaction(
             ),
             type: 'success',
             isLoading: false,
-            autoClose: 8000
+            autoClose: 5000
           });
         }
 
         // Add redundant onStatusUpdate calls to ensure the callback gets triggered
         // Use setTimeout with staggered delays for redundancy
-        setTimeout(() => {
-          try {
-            console.log('[TRANSACTION_MONITOR] Sending first delayed success callback');
-            onStatusUpdate({
-              processing: false,
-              success: true,
-              error: null,
-              signature,
-              paymentConfirmed: true
-            });
-          } catch (e) {
-            console.error('[TRANSACTION_MONITOR] Error in first delayed callback:', e);
-          }
-        }, 250);
-
-        setTimeout(() => {
-          try {
-            console.log('[TRANSACTION_MONITOR] Sending second delayed success callback');
-            onStatusUpdate({
-              processing: false,
-              success: true,
-              error: null,
-              signature,
-              paymentConfirmed: true
-            });
-          } catch (e) {
-            console.error('[TRANSACTION_MONITOR] Error in second delayed callback:', e);
-          }
-        }, 500);
-
-        setTimeout(() => {
-          try {
-            console.log('[TRANSACTION_MONITOR] Sending third delayed success callback');
-            onStatusUpdate({
-              processing: false,
-              success: true,
-              error: null,
-              signature,
-              paymentConfirmed: true
-            });
-          } catch (e) {
-            console.error('[TRANSACTION_MONITOR] Error in third delayed callback:', e);
-          }
-        }, 1000);
-
         console.log('[TRANSACTION_MONITOR] Transaction monitoring completed successfully');
         return true;
       } catch (abortError: unknown) {

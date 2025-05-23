@@ -836,7 +836,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             transactionSignature: txSignature
           }));
           
-          // Monitor transaction and confirm on chain
+          // confirm on chain
           const success = await verifyFinalTransaction(
             txSignature,
             async (status) => {
