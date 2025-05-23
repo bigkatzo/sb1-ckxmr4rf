@@ -1276,25 +1276,18 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-col gap-2">
+                        
+                      </div>
+                    </div>
+
+                    {/* Price Section */}
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <div className="flex flex-col gap-2">
                           <p className="text-gray-400 text-xs">Amount: {order.amountSol} SOL</p>
                           <div className="flex flex-wrap items-center gap-1.5">
                             {renderPaymentMetadataTags(order)}
                           </div>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Variant Info Section */}
-                    <div className="flex flex-wrap gap-2 mt-4">
-                      {Array.isArray(order.variant_selections) && order.variant_selections.map((variant, index) => (
-                        <div
-                          key={`${variant.name}-${index}`}
-                          className="bg-gray-700/30 px-2 py-1 rounded text-xs text-gray-300"
-                        >
-                          {variant.name}: {variant.value}
-                        </div>
-                      ))}
                     </div>
 
                     {/* Tracking Number Section */}
