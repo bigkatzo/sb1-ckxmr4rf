@@ -1277,13 +1277,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                           )}
                         </div>
                         <div className="flex flex-col gap-2">
-                          <div className="text-sm text-gray-300 font-medium whitespace-nowrap">
-                            {productInfo.variantPrices && Array.isArray(productInfo.variantPrices) && productInfo.variantPrices.map((item: any) => (
-                              <div key={item.name}>
-                                {item.name}: {item.value}
-                              </div>
-                            ))}
-                          </div>
+                          <p className="text-gray-400 text-xs">Amount: {order.amountSol} SOL</p>
                           <div className="flex flex-wrap items-center gap-1.5">
                             {renderPaymentMetadataTags(order)}
                           </div>
