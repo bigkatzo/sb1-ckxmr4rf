@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
+import { applyTheme } from '../styles/themeUtils';
 
 type ThemeColors = {
   primaryColor: string;
@@ -14,6 +15,7 @@ interface ThemeContextType {
   currentTheme: ThemeColors;
   isCollectionTheme: boolean;
   collectionSlug?: string;
+  setClassicMode: (useClassic: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -53,27 +55,48 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   
   // Use the useCollection hook to get collection data when on a collection page
   const { collection } = isCollectionPage && slug ? useCollection(slug) : { collection: null };
+
+  // Allow setting classic mode from outside
+  const setClassicMode = (useClassic: boolean) => {
+    if (collection) {
+      // If we have a collection, update its theme
+      setCurrentTheme(prev => ({ ...prev, useClassic }));
+      
+      // Apply theme changes
+      applyTheme(
+        currentTheme.primaryColor,
+        currentTheme.secondaryColor,
+        currentTheme.backgroundColor,
+        currentTheme.textColor,
+        useClassic
+      );
+    }
+  };
   
   useEffect(() => {
     if (collection && collection.theme_use_custom && collection.theme_primary_color) {
+      const useClassic = collection.theme_use_classic === undefined ? true : collection.theme_use_classic;
+      
       // Apply collection theme
-      setCurrentTheme({
+      const newTheme = {
         primaryColor: collection.theme_primary_color,
         secondaryColor: collection.theme_secondary_color || defaultTheme.secondaryColor,
         backgroundColor: collection.theme_background_color || defaultTheme.backgroundColor,
         textColor: collection.theme_text_color || defaultTheme.textColor,
-        useClassic: true // Default to classic mode for collections
-      });
+        useClassic: useClassic
+      };
+      
+      setCurrentTheme(newTheme);
       setIsCollectionTheme(true);
       setCollectionSlug(collection.slug);
       
-      // Apply CSS variables
-      applyThemeToDOM(
-        collection.theme_primary_color,
-        collection.theme_secondary_color || defaultTheme.secondaryColor,
-        collection.theme_background_color || defaultTheme.backgroundColor,
-        collection.theme_text_color || defaultTheme.textColor,
-        true // Use classic mode for collections for now
+      // Apply CSS variables using our utility
+      applyTheme(
+        newTheme.primaryColor,
+        newTheme.secondaryColor,
+        newTheme.backgroundColor,
+        newTheme.textColor,
+        newTheme.useClassic
       );
     } else {
       // Reset to default theme when not on a collection page or no theme defined
@@ -82,55 +105,18 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       setCollectionSlug(undefined);
       
       // Reset CSS variables to default
-      resetThemeToDefault();
+      applyTheme(
+        defaultTheme.primaryColor,
+        defaultTheme.secondaryColor,
+        defaultTheme.backgroundColor,
+        defaultTheme.textColor,
+        true // Always use classic mode for site default
+      );
     }
   }, [collection, defaultTheme]);
   
-  // Helper to apply theme to DOM
-  const applyThemeToDOM = (
-    primary: string, 
-    secondary: string, 
-    background: string, 
-    text: string,
-    useClassic: boolean
-  ) => {
-    document.documentElement.style.setProperty('--color-primary', primary);
-    document.documentElement.style.setProperty('--color-secondary', secondary);
-    document.documentElement.style.setProperty('--color-background', background);
-    document.documentElement.style.setProperty('--color-text', text);
-    document.documentElement.style.setProperty('--theme-use-classic', useClassic ? 'true' : 'false');
-    
-    // Derive RGB values too
-    const hexToRgb = (hex: string) => {
-      const withoutHash = hex.replace('#', '');
-      const r = parseInt(withoutHash.substring(0, 2), 16);
-      const g = parseInt(withoutHash.substring(2, 4), 16);
-      const b = parseInt(withoutHash.substring(4, 6), 16);
-      return `${r}, ${g}, ${b}`;
-    };
-    
-    document.documentElement.style.setProperty('--color-primary-rgb', hexToRgb(primary));
-    document.documentElement.style.setProperty('--color-secondary-rgb', hexToRgb(secondary));
-    document.documentElement.style.setProperty('--color-background-rgb', hexToRgb(background));
-    document.documentElement.style.setProperty('--color-text-rgb', hexToRgb(text));
-  };
-  
-  // Helper to reset theme to the default from the CSS file
-  const resetThemeToDefault = () => {
-    // Remove inline styles to revert to the stylesheet values
-    document.documentElement.style.removeProperty('--color-primary');
-    document.documentElement.style.removeProperty('--color-secondary');
-    document.documentElement.style.removeProperty('--color-background');
-    document.documentElement.style.removeProperty('--color-text');
-    document.documentElement.style.removeProperty('--theme-use-classic');
-    document.documentElement.style.removeProperty('--color-primary-rgb');
-    document.documentElement.style.removeProperty('--color-secondary-rgb');
-    document.documentElement.style.removeProperty('--color-background-rgb');
-    document.documentElement.style.removeProperty('--color-text-rgb');
-  };
-  
   return (
-    <ThemeContext.Provider value={{ currentTheme, isCollectionTheme, collectionSlug }}>
+    <ThemeContext.Provider value={{ currentTheme, isCollectionTheme, collectionSlug, setClassicMode }}>
       {children}
     </ThemeContext.Provider>
   );

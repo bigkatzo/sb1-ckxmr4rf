@@ -1,5 +1,7 @@
 import React from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { isColorDark, adjustColorBrightness } from '../../../styles/themeUtils';
+import { ThemePreview } from './ThemePreview';
 
 interface ThemeSettingsProps {
   formData: {
@@ -8,49 +10,30 @@ interface ThemeSettingsProps {
     theme_background_color?: string;
     theme_text_color?: string;
     theme_use_custom?: boolean;
+    theme_use_classic?: boolean;
   };
   onChange: (field: string, value: any) => void;
 }
 
 export function ThemeSettings({ formData, onChange }: ThemeSettingsProps) {
   const [expanded, setExpanded] = React.useState(false);
+  const [livePreviewActive, setLivePreviewActive] = React.useState(false);
   
-  // Helper function to determine if a color is dark
-  const isColorDark = (color?: string): boolean => {
-    if (!color) return true;
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-    return brightness < 128;
-  };
-  
-  // Adjust color brightness for preview
-  const adjustColorBrightness = (color: string, amount: number): string => {
-    // Remove # if present
-    color = color.replace('#', '');
-    
-    // Parse the hex values
-    let r = parseInt(color.substring(0, 2), 16);
-    let g = parseInt(color.substring(2, 4), 16);
-    let b = parseInt(color.substring(4, 6), 16);
-    
-    // Adjust the brightness
-    r = Math.max(0, Math.min(255, r + amount));
-    g = Math.max(0, Math.min(255, g + amount));
-    b = Math.max(0, Math.min(255, b + amount));
-    
-    // Convert back to hex
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-  };
-
   // Default colors
   const defaultColors = {
     primary: '#0f47e4',
     secondary: '#0ea5e9',
     background: '#000000',
     text: '#ffffff'
+  };
+  
+  // Theme data for preview
+  const themePreviewData = {
+    theme_primary_color: formData.theme_primary_color || defaultColors.primary,
+    theme_secondary_color: formData.theme_secondary_color || defaultColors.secondary,
+    theme_background_color: formData.theme_background_color || defaultColors.background,
+    theme_text_color: formData.theme_text_color || defaultColors.text,
+    theme_use_classic: formData.theme_use_classic
   };
 
   return (
@@ -85,6 +68,52 @@ export function ThemeSettings({ formData, onChange }: ThemeSettingsProps) {
           
           {formData.theme_use_custom && (
             <>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="theme_use_classic"
+                    checked={formData.theme_use_classic !== false}
+                    onChange={(e) => onChange('theme_use_classic', e.target.checked)}
+                    className="h-4 w-4 text-primary bg-gray-900 rounded border-gray-700"
+                  />
+                  <label htmlFor="theme_use_classic" className="ml-2 text-sm text-gray-300">
+                    Use classic theme (original site styles with your colors)
+                  </label>
+                  <div className="ml-1 group relative">
+                    <span className="cursor-help text-gray-500 text-sm">ⓘ</span>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-2 bg-gray-800 text-xs text-gray-300 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
+                      When enabled, we'll use your colors with our original styling. When disabled, we'll generate a complete custom theme based on your colors.
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => setLivePreviewActive(!livePreviewActive)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    livePreviewActive 
+                      ? 'bg-primary/20 text-primary hover:bg-primary/30' 
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {livePreviewActive ? (
+                    <>
+                      <EyeOff size={14} />
+                      Disable Live Preview
+                    </>
+                  ) : (
+                    <>
+                      <Eye size={14} />
+                      Enable Live Preview
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Invisible component that applies the theme in real-time when active */}
+              <ThemePreview theme={themePreviewData} isActive={livePreviewActive} />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -177,7 +206,7 @@ export function ThemeSettings({ formData, onChange }: ThemeSettingsProps) {
                     <div className="rounded-lg p-3" style={{
                       backgroundColor: adjustColorBrightness(
                         formData.theme_background_color || defaultColors.background, 
-                        isColorDark(formData.theme_background_color) ? 15 : -15
+                        isColorDark(formData.theme_background_color || defaultColors.background) ? 15 : -15
                       )
                     }}>
                       <h3 style={{
@@ -188,7 +217,7 @@ export function ThemeSettings({ formData, onChange }: ThemeSettingsProps) {
                       <p style={{
                         color: adjustColorBrightness(
                           formData.theme_text_color || defaultColors.text, 
-                          isColorDark(formData.theme_background_color) ? -30 : 30
+                          isColorDark(formData.theme_background_color || defaultColors.background) ? -30 : 30
                         )
                       }} className="mb-2">
                         This is how your collection page will look.
@@ -199,7 +228,7 @@ export function ThemeSettings({ formData, onChange }: ThemeSettingsProps) {
                           style={{
                             backgroundColor: adjustColorBrightness(
                               formData.theme_background_color || defaultColors.background,
-                              isColorDark(formData.theme_background_color) ? 30 : -30
+                              isColorDark(formData.theme_background_color || defaultColors.background) ? 30 : -30
                             ),
                             color: formData.theme_text_color || defaultColors.text
                           }}
@@ -233,7 +262,17 @@ export function ThemeSettings({ formData, onChange }: ThemeSettingsProps) {
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
                   Note: Using custom theme will style the collection page with these colors.
+                  {formData.theme_use_classic === false && (
+                    <span className="block mt-1 text-yellow-400">
+                      Dynamic mode is active: This will generate a complete theme based on your colors.
+                    </span>
+                  )}
                 </p>
+                {livePreviewActive && (
+                  <p className="text-xs text-primary mt-1 animate-pulse">
+                    Live preview is active: All changes are immediately visible throughout the entire site.
+                  </p>
+                )}
               </div>
             </>
           )}

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
-import { Upload, Palette, Share2, PenSquare, Save, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Upload, Palette, Share2, PenSquare, Save, RefreshCw, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { applyTheme } from '../../styles/themeUtils';
 
 // Type definitions
 type SiteSettings = {
@@ -63,8 +64,87 @@ export function SiteSettings() {
   const [saving, setSaving] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [activeTab, setActiveTab] = useState('branding');
+  const [livePreviewActive, setLivePreviewActive] = useState(false);
+  const [originalTheme, setOriginalTheme] = useState({
+    primaryColor: '',
+    secondaryColor: '',
+    backgroundColor: '',
+    textColor: '',
+    useClassic: true
+  });
+  const hasCleanedUp = useRef(false);
   const { session } = useAuth();
   
+  // Live preview effect with improved cleanup
+  useEffect(() => {
+    if (livePreviewActive && !originalTheme.primaryColor) {
+      // Save the original theme on first activation
+      const rootStyles = getComputedStyle(document.documentElement);
+      const savedTheme = {
+        primaryColor: rootStyles.getPropertyValue('--color-primary').trim(),
+        secondaryColor: rootStyles.getPropertyValue('--color-secondary').trim(),
+        backgroundColor: rootStyles.getPropertyValue('--color-background').trim(),
+        textColor: rootStyles.getPropertyValue('--color-text').trim(),
+        useClassic: document.documentElement.classList.contains('classic-theme')
+      };
+      setOriginalTheme(savedTheme);
+      
+      // Apply preview theme
+      applyTheme(
+        settings.theme_primary_color,
+        settings.theme_secondary_color,
+        settings.theme_background_color,
+        settings.theme_text_color,
+        settings.theme_use_classic
+      );
+      
+      hasCleanedUp.current = false;
+    } else if (!livePreviewActive && originalTheme.primaryColor && !hasCleanedUp.current) {
+      // Restore original theme when preview is disabled
+      applyTheme(
+        originalTheme.primaryColor,
+        originalTheme.secondaryColor,
+        originalTheme.backgroundColor,
+        originalTheme.textColor,
+        originalTheme.useClassic
+      );
+    }
+    
+    // Clean up when component unmounts
+    return () => {
+      if (livePreviewActive && originalTheme.primaryColor && !hasCleanedUp.current) {
+        applyTheme(
+          originalTheme.primaryColor,
+          originalTheme.secondaryColor,
+          originalTheme.backgroundColor,
+          originalTheme.textColor,
+          originalTheme.useClassic
+        );
+        hasCleanedUp.current = true;
+      }
+    };
+  }, [livePreviewActive]);
+  
+  // Apply theme changes when settings change and preview is active
+  useEffect(() => {
+    if (livePreviewActive && originalTheme.primaryColor) {
+      applyTheme(
+        settings.theme_primary_color,
+        settings.theme_secondary_color,
+        settings.theme_background_color,
+        settings.theme_text_color,
+        settings.theme_use_classic
+      );
+    }
+  }, [
+    livePreviewActive,
+    settings.theme_primary_color,
+    settings.theme_secondary_color,
+    settings.theme_background_color,
+    settings.theme_text_color,
+    settings.theme_use_classic
+  ]);
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -262,31 +342,6 @@ export function SiteSettings() {
     }
   }
 
-  // Helper function to adjust color brightness for previews
-  function adjustColorBrightness(color: string, amount: number): string {
-    // Remove # if present
-    color = color.replace('#', '');
-    
-    // Parse the hex values
-    let r = parseInt(color.substring(0, 2), 16);
-    let g = parseInt(color.substring(2, 4), 16);
-    let b = parseInt(color.substring(4, 6), 16);
-    
-    // Adjust the brightness
-    r = Math.max(0, Math.min(255, r + amount));
-    g = Math.max(0, Math.min(255, g + amount));
-    b = Math.max(0, Math.min(255, b + amount));
-    
-    // Convert back to hex
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-  }
-
-  // Helper function to determine if a color is dark
-  function isColorDark(color: string): boolean {
-    const brightness = (parseInt(color.substring(0, 2), 16) + parseInt(color.substring(2, 4), 16) + parseInt(color.substring(4, 6), 16)) / 3;
-    return brightness < 127.5;
-  }
-
   const tabs = [
     { id: 'branding', label: 'Branding', icon: <Palette className="w-4 h-4" /> },
     { id: 'seo', label: 'SEO & Social', icon: <Share2 className="w-4 h-4" /> },
@@ -410,32 +465,49 @@ export function SiteSettings() {
             </div>
 
             <div>
-              <h3 className="text-lg font-medium mb-4">Theme Colors</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">Theme Settings</h3>
+                
+                <button
+                  type="button"
+                  onClick={() => setLivePreviewActive(!livePreviewActive)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    livePreviewActive 
+                      ? 'bg-primary/20 text-primary hover:bg-primary/30' 
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {livePreviewActive ? (
+                    <>
+                      <EyeOff size={14} />
+                      Disable Live Preview
+                    </>
+                  ) : (
+                    <>
+                      <Eye size={14} />
+                      Enable Live Preview
+                    </>
+                  )}
+                </button>
+              </div>
               
-              <div className="mb-4 p-3 border border-gray-700 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.theme_use_classic}
-                      onChange={(e) => setSettings({...settings, theme_use_classic: e.target.checked})}
-                      className="sr-only peer"
-                    />
-                    <div className="relative w-11 h-6 bg-gray-700 rounded-full peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary/25">
-                      <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-all ${settings.theme_use_classic ? 'translate-x-5' : ''}`}></div>
-                    </div>
-                    <span className="ml-3 text-sm font-medium text-gray-300">Use classic theme</span>
-                  </label>
-                  
-                  <div className="text-xs text-gray-400">
-                    {settings.theme_use_classic ? 'Using fixed gray shades' : 'Using dynamic color shades'}
+              <div className="flex items-center mb-6">
+                <input
+                  type="checkbox"
+                  id="theme_use_classic"
+                  checked={settings.theme_use_classic !== false}
+                  onChange={(e) => setSettings({...settings, theme_use_classic: e.target.checked})}
+                  className="h-4 w-4 text-primary bg-gray-900 rounded border-gray-700"
+                />
+                <label htmlFor="theme_use_classic" className="ml-2 text-sm text-gray-300">
+                  Use classic theme (original site styling)
+                </label>
+                <div className="ml-1 group relative">
+                  <span className="cursor-help text-gray-500 text-sm">ⓘ</span>
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-2 bg-gray-800 text-xs text-gray-300 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
+                    When enabled, we'll use the original styling of the site. When disabled, we'll generate a complete custom theme based on your colors.
                   </div>
                 </div>
-                
-                <p className="mt-2 text-xs text-gray-400">
-                  The classic theme uses fixed gray shades regardless of background color selection. 
-                  Disable this option to use dynamically generated shades based on your background color.
-                </p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -520,125 +592,47 @@ export function SiteSettings() {
                 </div>
               </div>
               
-              {/* Color Preview */}
-              <div className="mt-6 border border-gray-700 rounded-lg overflow-hidden">
-                <h4 className="text-sm font-medium text-gray-300 p-3 bg-gray-800 border-b border-gray-700">
-                  Color Preview
-                </h4>
-                <div className="p-4 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="block text-xs text-gray-400 mb-1">Primary</span>
-                      <div className="flex flex-col gap-1">
-                        <div style={{backgroundColor: settings.theme_primary_color}} className="h-8 rounded"></div>
-                        <div className="grid grid-cols-3 gap-1">
-                          <div style={{backgroundColor: settings.theme_primary_color}} className="h-4 rounded opacity-75"></div>
-                          <div style={{backgroundColor: settings.theme_primary_color}} className="h-4 rounded opacity-50"></div>
-                          <div style={{backgroundColor: settings.theme_primary_color}} className="h-4 rounded opacity-25"></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="block text-xs text-gray-400 mb-1">Secondary</span>
-                      <div className="flex flex-col gap-1">
-                        <div style={{backgroundColor: settings.theme_secondary_color}} className="h-8 rounded"></div>
-                        <div className="grid grid-cols-3 gap-1">
-                          <div style={{backgroundColor: settings.theme_secondary_color}} className="h-4 rounded opacity-75"></div>
-                          <div style={{backgroundColor: settings.theme_secondary_color}} className="h-4 rounded opacity-50"></div>
-                          <div style={{backgroundColor: settings.theme_secondary_color}} className="h-4 rounded opacity-25"></div>
-                        </div>
-                      </div>
-                    </div>
+              <div className="mt-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                <div className="flex items-center text-blue-400 mb-2 gap-2">
+                  <div className="rounded-full bg-blue-400/20 p-1.5">
+                    <Palette className="h-4 w-4" />
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="block text-xs text-gray-400 mb-1">Background</span>
-                      <div className="flex flex-col gap-1">
-                        <div style={{backgroundColor: settings.theme_background_color}} className="h-8 rounded border border-gray-700"></div>
-                        <div className="grid grid-cols-3 gap-1">
-                          {settings.theme_use_classic ? (
-                            <>
-                              <div style={{backgroundColor: '#111827'}} className="h-4 rounded flex items-center justify-center">
-                                <span className="text-[8px] text-white">900</span>
-                              </div>
-                              <div style={{backgroundColor: '#1f2937'}} className="h-4 rounded flex items-center justify-center">
-                                <span className="text-[8px] text-white">800</span>
-                              </div>
-                              <div style={{backgroundColor: '#374151'}} className="h-4 rounded flex items-center justify-center">
-                                <span className="text-[8px] text-white">700</span>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 15 : -15)}} className="h-4 rounded"></div>
-                              <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 30 : -30)}} className="h-4 rounded"></div>
-                              <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 45 : -45)}} className="h-4 rounded"></div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-1 text-[9px] text-gray-400 text-center">
-                        {settings.theme_use_classic ? 'Classic fixed shades' : 'Dynamic background shades'}
-                      </div>
+                  <p className="text-sm font-medium">
+                    Theme Preview
+                  </p>
+                </div>
+                
+                <div className="p-3 bg-background-900 rounded-lg border border-gray-700 mt-2">
+                  <div className="flex justify-between">
+                    <div className="space-y-1">
+                      <div className="w-24 h-4 bg-text-muted rounded-full opacity-70"></div>
+                      <div className="w-32 h-3 bg-text-disabled rounded-full opacity-50"></div>
                     </div>
-                    <div>
-                      <span className="block text-xs text-gray-400 mb-1">Text</span>
-                      <div className="flex flex-col gap-1">
-                        <div style={{backgroundColor: 'black'}} className="h-8 rounded flex items-center justify-center">
-                          <span style={{color: settings.theme_text_color}} className="font-medium">Main Text</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1">
-                          <div style={{backgroundColor: 'black'}} className="h-4 rounded flex items-center justify-center">
-                            <span style={{color: adjustColorBrightness(settings.theme_text_color, settings.theme_background_color === '#000000' ? -30 : 30)}} className="text-xs">Secondary</span>
-                          </div>
-                          <div style={{backgroundColor: 'black'}} className="h-4 rounded flex items-center justify-center">
-                            <span style={{color: adjustColorBrightness(settings.theme_text_color, settings.theme_background_color === '#000000' ? -60 : 60)}} className="text-xs">Muted</span>
-                          </div>
-                          <div style={{backgroundColor: 'black'}} className="h-4 rounded flex items-center justify-center">
-                            <span style={{color: settings.theme_secondary_color}} className="text-xs">Accent</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="p-3 rounded" style={{backgroundColor: settings.theme_background_color}}>
-                    <div className="rounded-lg p-3" style={{
-                      backgroundColor: settings.theme_use_classic 
-                        ? '#111827' // Classic gray-900
-                        : adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 15 : -15)
-                    }}>
-                      <h3 style={{color: settings.theme_text_color}} className="text-lg font-semibold mb-2">Sample Card</h3>
-                      <p style={{
-                        color: adjustColorBrightness(settings.theme_text_color, 
-                          isColorDark(settings.theme_background_color) ? -30 : 30)
-                      }} className="mb-2">
-                        This is how your content will look with the selected colors.
-                      </p>
-                      <p style={{
-                        color: adjustColorBrightness(settings.theme_text_color, 
-                          isColorDark(settings.theme_background_color) ? -60 : 60)
-                      }} className="text-sm mb-3">
-                        Additional information and helper text will appear like this.
-                      </p>
-                      <div className="flex gap-2 justify-end">
-                        <button className="px-3 py-1 rounded text-sm" style={{
-                          backgroundColor: settings.theme_use_classic 
-                            ? '#1f2937' // Classic gray-800
-                            : adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 30 : -30),
-                          color: settings.theme_text_color
-                        }}>
-                          Cancel
-                        </button>
-                        <button className="px-3 py-1 rounded text-sm" style={{backgroundColor: settings.theme_primary_color, color: '#fff'}}>
-                          Confirm
-                        </button>
-                      </div>
+                    <div className="flex gap-2">
+                      <button className="px-3 py-1 bg-primary text-white rounded-md text-sm">Primary</button>
+                      <button className="px-3 py-1 bg-secondary text-white rounded-md text-sm">Secondary</button>
                     </div>
                   </div>
                 </div>
+                
+                <p className="text-xs text-gray-400 mt-2">
+                  Note: Changes to theme settings require a site rebuild to take full effect.
+                  {settings.theme_use_classic === false && (
+                    <span className="block mt-1 text-yellow-400">
+                      Dynamic theme mode is active: This will generate a complete theme based on your colors.
+                    </span>
+                  )}
+                </p>
               </div>
+
+              {livePreviewActive && (
+                <div className="mt-2 py-2 px-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <p className="text-xs text-primary flex items-center gap-1.5">
+                    <Eye size={14} className="animate-pulse" />
+                    Live preview is active: Changes are immediately visible throughout the entire site.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

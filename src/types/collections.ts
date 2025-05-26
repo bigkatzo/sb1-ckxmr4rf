@@ -36,6 +36,7 @@ export interface Collection {
   theme_background_color?: string;
   theme_text_color?: string;
   theme_use_custom?: boolean;
+  theme_use_classic?: boolean;
 }
 
 export interface CollectionAccess {
@@ -60,4 +61,5 @@ export interface CollectionFormData {
   theme_background_color?: string;
   theme_text_color?: string;
   theme_use_custom?: boolean;
+  theme_use_classic?: boolean;
 } 

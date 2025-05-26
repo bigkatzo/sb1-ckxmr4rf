@@ -24,6 +24,7 @@ export interface CollectionData {
   theme_background_color?: string;
   theme_text_color?: string;
   theme_use_custom?: boolean;
+  theme_use_classic?: boolean;
 }
 
 export interface CollectionUpdateData extends Omit<CollectionData, 'id' | 'user_id'> {
