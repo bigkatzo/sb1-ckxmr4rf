@@ -4,6 +4,7 @@ import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
+import { Card } from '../ui/Card';
 import type { Product } from '../../types/variants';
 
 interface ProductCardProps {
@@ -16,7 +17,6 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialViewport, loadingPriority }: ProductCardProps) {
   const [imageLoading, setImageLoading] = useState(true);
-  const [isHovered, setIsHovered] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const { modifiedPrice } = useModifiedPrice({ product });
@@ -56,14 +56,6 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
       onClick(product);
     }
   };
-  
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-  };
-  
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-  };
 
   // Create a product object with explicitly set saleEnded properties to ensure
   // they're properly passed to the BuyButton
@@ -75,13 +67,13 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
   };
 
   return (
-    <div 
+    <Card
       ref={cardRef}
+      elevation={3}
+      interactive
       onClick={handleClick}
-      className={`product-card group relative bg-background-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-secondary/50 hover:-translate-y-0.5 transition-all duration-300
+      className={`product-card group relative cursor-pointer
         ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       data-product-id={product.id}
       style={{ 
         transitionDelay: isInInitialViewport ? '0ms' : `${Math.min((loadingPriority || 0) * 50, 300)}ms`
@@ -139,7 +131,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
         {/* Sale Ended Badge - Add to the top corner */}
         {isSaleEnded && (
           <div className="absolute top-2 left-2 z-10">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-error/10 text-error-light whitespace-nowrap">
               <Ban className="h-3 w-3" />
               Ended
             </span>
@@ -162,6 +154,6 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
           />
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

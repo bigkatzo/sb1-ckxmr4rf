@@ -1,5 +1,6 @@
 import { Image as ImageIcon, Ban, ArrowRight, Calendar } from 'lucide-react';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { Card } from '../ui/Card';
 import { format } from 'date-fns';
 
 // Simplified Collection interface that matches what we actually use in this component
@@ -28,11 +29,11 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
   const aspectRatio = isLarge ? 'aspect-[16/10]' : 'aspect-[4/3]';
 
   return (
-    <div className={`
-      group relative block overflow-hidden rounded-lg sm:rounded-xl 
-      transition-all hover:ring-2 hover:ring-primary/50 hover:-translate-y-0.5 
-      bg-gray-900 w-full
-    `}>
+    <Card 
+      elevation={4} 
+      interactive
+      className="group w-full sm:rounded-xl"
+    >
       <div className={`relative ${aspectRatio} w-full overflow-hidden`}>
         {collection.imageUrl ? (
           <OptimizedImage
@@ -64,12 +65,12 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
                   </span>
                 )}
                 {isNew && (
-                  <span className="inline-flex items-center rounded-full bg-green-500/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
+                  <span className="inline-flex items-center rounded-full bg-success/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
                     New Drop
                   </span>
                 )}
                 {collection.saleEnded && (
-                  <span className="inline-flex items-center rounded-full bg-red-500/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
+                  <span className="inline-flex items-center rounded-full bg-error/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
                     <Ban className="mr-1 h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     Sale Ended
                   </span>
@@ -101,7 +102,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
           ${isLarge ? 'mt-3 sm:mt-4' : 'mt-2 sm:mt-3'}
         `}>
           {isUpcoming ? (
-            <div className="flex items-center text-text-accent/90 group-hover:text-text-accent transition-colors">
+            <div className="flex items-center text-primary/90 group-hover:text-primary transition-colors">
               <Calendar className={`
                 mr-1.5
                 ${isLarge ? 'h-3.5 w-3.5 sm:h-4 sm:w-4' : 'h-3 w-3 sm:h-3.5 sm:w-3.5'}
@@ -111,7 +112,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
               </span>
             </div>
           ) : (
-            <div className="flex items-center text-text-accent/90 group-hover:text-text-accent transition-colors">
+            <div className="flex items-center text-primary/90 group-hover:text-primary transition-colors">
               <span className={isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}>
                 Browse Collection
               </span>
@@ -123,6 +124,6 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

@@ -10,6 +10,7 @@ export const themeColors = {
     focus: 'var(--color-primary-focus)',
     light: 'var(--color-primary-light)',
     dark: 'var(--color-primary-dark)',
+    contrast: 'var(--color-primary-contrast)',
   },
   
   // Secondary color with variations
@@ -20,6 +21,7 @@ export const themeColors = {
     focus: 'var(--color-secondary-focus)',
     light: 'var(--color-secondary-light)',
     dark: 'var(--color-secondary-dark)',
+    contrast: 'var(--color-secondary-contrast)',
   },
   
   // Background color with variations
@@ -45,19 +47,82 @@ export const themeColors = {
     secondary: 'var(--color-text-secondary)',
     muted: 'var(--color-text-muted)',
     disabled: 'var(--color-text-disabled)',
+    link: 'var(--color-text-link)',
+    'link-hover': 'var(--color-text-link-hover)',
+  },
+  
+  // Card system
+  card: {
+    DEFAULT: 'var(--color-card-background)',
+    hover: 'var(--color-card-background-hover)',
+    active: 'var(--color-card-background-active)',
+    border: 'var(--color-card-border)',
+    shadow: 'var(--color-card-shadow)',
+    'shadow-hover': 'var(--color-card-shadow-hover)',
+  },
+  
+  // Input system
+  input: {
+    DEFAULT: 'var(--color-input-background)',
+    hover: 'var(--color-input-background-hover)',
+    focus: 'var(--color-input-background-focus)',
+    border: 'var(--color-input-border)',
+    'border-focus': 'var(--color-input-border-focus)',
+    shadow: 'var(--color-input-shadow)',
+    'shadow-focus': 'var(--color-input-shadow-focus)',
+  },
+  
+  // Button system
+  button: {
+    shadow: 'var(--color-button-shadow)',
+    'shadow-hover': 'var(--color-button-shadow-hover)',
+    highlight: 'var(--color-button-highlight)',
+  },
+  
+  // Border system
+  border: {
+    DEFAULT: 'var(--color-border-color)',
+    light: 'var(--color-border-light)',
+    focus: 'var(--color-border-focus)',
   },
   
   // UI element colors
-  border: 'var(--color-border-color)',
-  input: {
-    DEFAULT: 'var(--color-input-background)',
-  },
-  card: {
-    DEFAULT: 'var(--color-card-background)',
-  },
   overlay: {
     hover: 'var(--color-hover-overlay)',
     active: 'var(--color-active-overlay)',
+  },
+  
+  focus: {
+    ring: 'var(--color-focus-ring)',
+  },
+  
+  modal: {
+    backdrop: 'var(--color-modal-backdrop)',
+  },
+  
+  // Feedback colors
+  success: {
+    DEFAULT: 'var(--color-success)',
+    light: 'var(--color-success-light)',
+    dark: 'var(--color-success-dark)',
+  },
+  
+  warning: {
+    DEFAULT: 'var(--color-warning)',
+    light: 'var(--color-warning-light)',
+    dark: 'var(--color-warning-dark)',
+  },
+  
+  error: {
+    DEFAULT: 'var(--color-error)',
+    light: 'var(--color-error-light)',
+    dark: 'var(--color-error-dark)',
+  },
+  
+  info: {
+    DEFAULT: 'var(--color-info)',
+    light: 'var(--color-info-light)',
+    dark: 'var(--color-info-dark)',
   },
   
   // Backward compatibility
@@ -78,10 +143,25 @@ export const themeColors = {
   },
 };
 
+// Add elevation box-shadow utilities
+export const themeShadows = {
+  'elevation-1': 'var(--color-elevation-1)',
+  'elevation-2': 'var(--color-elevation-2)',
+  'elevation-3': 'var(--color-elevation-3)',
+  'elevation-4': 'var(--color-elevation-4)',
+  'elevation-5': 'var(--color-elevation-5)',
+  'inset-1': 'var(--color-inset-1)',
+  'inset-2': 'var(--color-inset-2)',
+  'highlight-top': 'var(--color-highlight-top)',
+  'highlight-bottom': 'var(--color-highlight-bottom)',
+  'focus-ring': 'var(--color-focus-ring)',
+};
+
 export default {
   theme: {
     extend: {
-      colors: themeColors
+      colors: themeColors,
+      boxShadow: themeShadows,
     }
   }
 }; 
