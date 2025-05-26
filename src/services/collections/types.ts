@@ -17,6 +17,13 @@ export interface CollectionData {
   free_notes?: string;
   tags?: string[];
   user_id: string;
+  
+  // Theme settings
+  theme_primary_color?: string;
+  theme_secondary_color?: string;
+  theme_background_color?: string;
+  theme_text_color?: string;
+  theme_use_custom?: boolean;
 }
 
 export interface CollectionUpdateData extends Omit<CollectionData, 'id' | 'user_id'> {

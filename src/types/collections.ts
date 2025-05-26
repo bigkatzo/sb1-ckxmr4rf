@@ -29,6 +29,13 @@ export interface Collection {
   isOwner: boolean;
   owner_username: string | null;
   collection_access?: CollectionAccess[];
+  
+  // Theme settings
+  theme_primary_color?: string;
+  theme_secondary_color?: string;
+  theme_background_color?: string;
+  theme_text_color?: string;
+  theme_use_custom?: boolean;
 }
 
 export interface CollectionAccess {
@@ -46,4 +53,11 @@ export interface CollectionFormData {
   image?: File;
   launchDate: Date;
   visible: boolean;
+  
+  // Theme settings
+  theme_primary_color?: string;
+  theme_secondary_color?: string;
+  theme_background_color?: string;
+  theme_text_color?: string;
+  theme_use_custom?: boolean;
 } 
