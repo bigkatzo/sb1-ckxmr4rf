@@ -44,7 +44,7 @@ export function Toggle({
           disabled={loading || disabled}
           className={`
             ${sizeClasses[size].switch}
-            ${checked ? 'bg-primary' : 'bg-gray-700'}
+            ${checked ? 'bg-primary' : 'bg-background-700'}
             ${(loading || disabled) ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}
             relative inline-flex shrink-0 cursor-pointer rounded-full border-2 border-transparent
             transition-colors duration-200 ease-in-out focus:outline-none
@@ -64,7 +64,7 @@ export function Toggle({
           </span>
         </Switch>
         {label && (
-          <Switch.Label className={`${sizeClasses[size].text} text-gray-400 cursor-pointer`}>
+          <Switch.Label className={`${sizeClasses[size].text} text-text-muted cursor-pointer`}>
             {label}
           </Switch.Label>
         )}

@@ -59,12 +59,12 @@ export function Modal({ isOpen, onClose, title, children, className = '' }: Moda
         }}
       >
         <div className="min-h-full flex items-center justify-center p-4">
-          <div className={`relative w-full sm:w-auto bg-gray-900 sm:rounded-xl shadow-xl overflow-hidden ${className}`}>
-            <div className="sticky top-0 bg-gray-900 z-10 flex justify-between items-center p-4 sm:p-6 border-b border-gray-800">
+          <div className={`relative w-full sm:w-auto bg-background-900 sm:rounded-xl shadow-xl overflow-hidden ${className}`}>
+            <div className="sticky top-0 bg-background-900 z-10 flex justify-between items-center p-4 sm:p-6 border-b border-background-800">
               <h2 id="modal-title" className="text-xl font-semibold">{title}</h2>
               <button 
                 onClick={onClose} 
-                className="text-gray-400 hover:text-white p-2 rounded-lg transition-colors"
+                className="text-muted hover:text-white p-2 rounded-lg transition-colors"
                 aria-label="Close modal"
               >
                 <X className="h-5 w-5" />

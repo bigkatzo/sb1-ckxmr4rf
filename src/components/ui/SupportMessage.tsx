@@ -9,14 +9,14 @@ export function SupportMessage() {
           href="https://t.me/storedotfun"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-secondary hover:text-secondary-light"
+          className="inline-flex items-center gap-1.5 text-xs text-text-accent hover:text-text-accent-muted"
         >
           <Send className="h-3.5 w-3.5" />
           <span>Telegram</span>
         </a>
         <a
           href="mailto:support@store.fun"
-          className="inline-flex items-center gap-1.5 text-xs text-secondary hover:text-secondary-light"
+          className="inline-flex items-center gap-1.5 text-xs text-text-accent hover:text-text-accent-muted"
         >
           <Mail className="h-3.5 w-3.5" />
           <span>Email</span>

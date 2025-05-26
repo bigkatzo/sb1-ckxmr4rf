@@ -58,7 +58,7 @@ export const Loading: React.FC<LoadingProps> = ({ type, className = '', text }) 
       return (
         <div className={`inline-flex items-center justify-center gap-2 ${className}`}>
           <Loader2 className="h-3 w-3 animate-spin text-primary" />
-          {text && <span className="text-sm text-gray-400">{text}</span>}
+          {text && <span className="text-sm text-text-muted">{text}</span>}
         </div>
       );
       
@@ -67,17 +67,17 @@ export const Loading: React.FC<LoadingProps> = ({ type, className = '', text }) 
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="flex flex-col items-center gap-4">
             <LogoSpinner size="md" />
-            {text && <p className="text-gray-400">{text}</p>}
+            {text && <p className="text-text-muted">{text}</p>}
           </div>
         </div>
       );
 
     case LoadingType.OVERLAY:
       return (
-        <div className="absolute inset-0 bg-gray-950/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="flex flex-col items-center gap-3">
             <LogoSpinner size="md" />
-            {text && <p className="text-sm text-gray-200">{text}</p>}
+            {text && <p className="text-sm text-text-secondary">{text}</p>}
           </div>
         </div>
       );

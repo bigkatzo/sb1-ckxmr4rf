@@ -497,9 +497,9 @@ export function SiteSettings() {
                       <div className="flex flex-col gap-1">
                         <div style={{backgroundColor: settings.theme_primary_color}} className="h-8 rounded"></div>
                         <div className="grid grid-cols-3 gap-1">
-                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_primary_color, 15)}} className="h-6 rounded"></div>
-                          <div style={{backgroundColor: settings.theme_primary_color}} className="h-6 rounded"></div>
-                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_primary_color, -15)}} className="h-6 rounded"></div>
+                          <div style={{backgroundColor: settings.theme_primary_color}} className="h-4 rounded opacity-75"></div>
+                          <div style={{backgroundColor: settings.theme_primary_color}} className="h-4 rounded opacity-50"></div>
+                          <div style={{backgroundColor: settings.theme_primary_color}} className="h-4 rounded opacity-25"></div>
                         </div>
                       </div>
                     </div>
@@ -508,40 +508,63 @@ export function SiteSettings() {
                       <div className="flex flex-col gap-1">
                         <div style={{backgroundColor: settings.theme_secondary_color}} className="h-8 rounded"></div>
                         <div className="grid grid-cols-3 gap-1">
-                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_secondary_color, 15)}} className="h-6 rounded"></div>
-                          <div style={{backgroundColor: settings.theme_secondary_color}} className="h-6 rounded"></div>
-                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_secondary_color, -15)}} className="h-6 rounded"></div>
+                          <div style={{backgroundColor: settings.theme_secondary_color}} className="h-4 rounded opacity-75"></div>
+                          <div style={{backgroundColor: settings.theme_secondary_color}} className="h-4 rounded opacity-50"></div>
+                          <div style={{backgroundColor: settings.theme_secondary_color}} className="h-4 rounded opacity-25"></div>
                         </div>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="border-t border-gray-700 pt-4">
-                    <span className="block text-xs text-gray-400 mb-2">UI Elements</span>
-                    <div className="flex flex-wrap gap-2">
-                      <button 
-                        style={{backgroundColor: settings.theme_primary_color}} 
-                        className="px-4 py-2 text-white rounded-lg text-sm"
-                      >
-                        Primary Button
-                      </button>
-                      <button 
-                        style={{backgroundColor: settings.theme_secondary_color}} 
-                        className="px-4 py-2 text-white rounded-lg text-sm"
-                      >
-                        Secondary Button
-                      </button>
-                      <div 
-                        style={{backgroundColor: `${settings.theme_primary_color}20`}} 
-                        className="px-3 py-1 rounded-full text-sm flex items-center justify-center"
-                      >
-                        <span style={{color: settings.theme_primary_color}}>Primary Tag</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-xs text-gray-400 mb-1">Background</span>
+                      <div className="flex flex-col gap-1">
+                        <div style={{backgroundColor: settings.theme_background_color}} className="h-8 rounded border border-gray-700"></div>
+                        <div className="grid grid-cols-3 gap-1">
+                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 15)}} className="h-4 rounded"></div>
+                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 30)}} className="h-4 rounded"></div>
+                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 45)}} className="h-4 rounded"></div>
+                        </div>
                       </div>
-                      <div 
-                        style={{backgroundColor: `${settings.theme_secondary_color}20`}} 
-                        className="px-3 py-1 rounded-full text-sm flex items-center justify-center"
-                      >
-                        <span style={{color: settings.theme_secondary_color}}>Secondary Tag</span>
+                    </div>
+                    <div>
+                      <span className="block text-xs text-gray-400 mb-1">Text</span>
+                      <div className="flex flex-col gap-1">
+                        <div style={{backgroundColor: 'black'}} className="h-8 rounded flex items-center justify-center">
+                          <span style={{color: settings.theme_text_color}} className="font-medium">Main Text</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1">
+                          <div style={{backgroundColor: 'black'}} className="h-4 rounded flex items-center justify-center">
+                            <span style={{color: adjustColorBrightness(settings.theme_text_color, settings.theme_background_color === '#000000' ? -30 : 30)}} className="text-xs">Secondary</span>
+                          </div>
+                          <div style={{backgroundColor: 'black'}} className="h-4 rounded flex items-center justify-center">
+                            <span style={{color: adjustColorBrightness(settings.theme_text_color, settings.theme_background_color === '#000000' ? -60 : 60)}} className="text-xs">Muted</span>
+                          </div>
+                          <div style={{backgroundColor: 'black'}} className="h-4 rounded flex items-center justify-center">
+                            <span style={{color: settings.theme_secondary_color}} className="text-xs">Accent</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 rounded" style={{backgroundColor: settings.theme_background_color}}>
+                    <div className="rounded-lg p-3" style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 15)}}>
+                      <h3 style={{color: settings.theme_text_color}} className="text-lg font-semibold mb-2">Sample Card</h3>
+                      <p style={{color: adjustColorBrightness(settings.theme_text_color, settings.theme_background_color === '#000000' ? -30 : 30)}} className="mb-2">
+                        This is how your content will look with the selected colors.
+                      </p>
+                      <p style={{color: adjustColorBrightness(settings.theme_text_color, settings.theme_background_color === '#000000' ? -60 : 60)}} className="text-sm mb-3">
+                        Additional information and helper text will appear like this.
+                      </p>
+                      <div className="flex gap-2 justify-end">
+                        <button className="px-3 py-1 rounded text-sm" style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 30), color: settings.theme_text_color}}>
+                          Cancel
+                        </button>
+                        <button className="px-3 py-1 rounded text-sm" style={{backgroundColor: settings.theme_primary_color, color: '#fff'}}>
+                          Confirm
+                        </button>
                       </div>
                     </div>
                   </div>

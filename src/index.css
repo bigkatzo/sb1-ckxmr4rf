@@ -5,7 +5,7 @@
 
 /* Add dark background to html and body elements and prevent overscroll bounce effect */
 html, body {
-  background-color: #030712; /* This is the same as bg-gray-950 */
+  background-color: var(--color-background); /* Use CSS variable instead of hardcoded color */
   overscroll-behavior: none; /* Prevents the bounce/overscroll effect */
 }
 

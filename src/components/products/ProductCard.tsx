@@ -78,7 +78,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
     <div 
       ref={cardRef}
       onClick={handleClick}
-      className={`product-card group relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-secondary/50 hover:-translate-y-0.5 transition-all duration-300
+      className={`product-card group relative bg-background-900 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-secondary/50 hover:-translate-y-0.5 transition-all duration-300
         ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -92,7 +92,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
           <>
             <div 
               className={`
-                absolute inset-0 bg-gradient-to-tr from-gray-800 to-gray-700
+                absolute inset-0 bg-gradient-to-tr from-background-800 to-background-700
                 ${imageLoading ? 'animate-pulse' : 'animate-none'}
               `}
             />
@@ -120,8 +120,8 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
             />
           </>
         ) : (
-          <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-            <ImageIcon className="h-8 w-8 text-gray-600" />
+          <div className="w-full h-full bg-background-800 flex items-center justify-center">
+            <ImageIcon className="h-8 w-8 text-muted" />
           </div>
         )}
         {product.category && (

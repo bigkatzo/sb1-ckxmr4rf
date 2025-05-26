@@ -112,7 +112,7 @@ export function AnimatedLayout() {
   };
 
   return (
-    <div className={`min-h-screen bg-gray-950 text-white flex flex-col relative overflow-x-hidden ${isNavigating ? 'pointer-events-none' : ''}`}>
+    <div className={`min-h-screen bg-background text-white flex flex-col relative overflow-x-hidden ${isNavigating ? 'pointer-events-none' : ''}`}>
       <AppMessagesRenderer />
       
       <ScrollBehavior />

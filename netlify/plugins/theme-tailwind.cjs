@@ -171,29 +171,132 @@ async function generateThemeCSS(settings) {
   
   --color-background: ${backgroundColor};
   --color-background-rgb: ${hexToRgb(backgroundColor)};
+  --color-background-900: ${adjustColor(backgroundColor, 15)};
+  --color-background-900-rgb: ${hexToRgb(adjustColor(backgroundColor, 15))};
+  --color-background-800: ${adjustColor(backgroundColor, 30)};
+  --color-background-800-rgb: ${hexToRgb(adjustColor(backgroundColor, 30))};
+  --color-background-700: ${adjustColor(backgroundColor, 45)};
+  --color-background-700-rgb: ${hexToRgb(adjustColor(backgroundColor, 45))};
+  --color-background-600: ${adjustColor(backgroundColor, 60)};
+  --color-background-600-rgb: ${hexToRgb(adjustColor(backgroundColor, 60))};
+  
   --color-text: ${textColor};
   --color-text-rgb: ${hexToRgb(textColor)};
+  
+  /* Text color variants - based on whether we have a dark or light background */
+  --color-text-secondary: ${adjustColor(textColor, backgroundColor === '#000000' ? -30 : 30)};
+  --color-text-secondary-rgb: ${hexToRgb(adjustColor(textColor, backgroundColor === '#000000' ? -30 : 30))};
+  --color-text-muted: ${adjustColor(textColor, backgroundColor === '#000000' ? -60 : 60)};
+  --color-text-muted-rgb: ${hexToRgb(adjustColor(textColor, backgroundColor === '#000000' ? -60 : 60))};
+  --color-text-disabled: ${adjustColor(textColor, backgroundColor === '#000000' ? -80 : 80)};
+  --color-text-disabled-rgb: ${hexToRgb(adjustColor(textColor, backgroundColor === '#000000' ? -80 : 80))};
+  --color-text-accent: ${secondaryColor}; 
+  --color-text-accent-rgb: ${hexToRgb(secondaryColor)};
+  --color-text-accent-muted: ${adjustColor(secondaryColor, backgroundColor === '#000000' ? -30 : 30)};
+  --color-text-accent-muted-rgb: ${hexToRgb(adjustColor(secondaryColor, backgroundColor === '#000000' ? -30 : 30))};
 }
 
 /* Helper classes */
-.bg-primary { background-color: var(--color-primary); }
-.bg-primary-hover { background-color: var(--color-primary-hover); }
-.bg-primary-light { background-color: var(--color-primary-light); }
-.bg-primary-dark { background-color: var(--color-primary-dark); }
+html body .bg-primary { background-color: var(--color-primary) !important; }
+html body .bg-primary-hover { background-color: var(--color-primary-hover) !important; }
+html body .bg-primary-light { background-color: var(--color-primary-light) !important; }
+html body .bg-primary-dark { background-color: var(--color-primary-dark) !important; }
 
-.bg-secondary { background-color: var(--color-secondary); }
-.bg-secondary-hover { background-color: var(--color-secondary-hover); }
-.bg-secondary-light { background-color: var(--color-secondary-light); }
-.bg-secondary-dark { background-color: var(--color-secondary-dark); }
+html body .bg-secondary { background-color: var(--color-secondary) !important; }
+html body .bg-secondary-hover { background-color: var(--color-secondary-hover) !important; }
+html body .bg-secondary-light { background-color: var(--color-secondary-light) !important; }
+html body .bg-secondary-dark { background-color: var(--color-secondary-dark) !important; }
 
-.text-primary { color: var(--color-primary); }
-.text-secondary { color: var(--color-secondary); }
+html body .bg-background { background-color: var(--color-background) !important; }
+html body .bg-background-900 { background-color: var(--color-background-900) !important; }
+html body .bg-background-800 { background-color: var(--color-background-800) !important; }
+html body .bg-background-700 { background-color: var(--color-background-700) !important; }
+html body .bg-background-600 { background-color: var(--color-background-600) !important; }
+
+/* Text color classes */
+html body .text-primary { color: var(--color-primary) !important; }
+html body .text-secondary { color: var(--color-secondary) !important; }
+html body .text-default { color: var(--color-text) !important; }
+html body .text-secondary-text { color: var(--color-text-secondary) !important; }
+html body .text-muted { color: var(--color-text-muted) !important; }
+html body .text-disabled { color: var(--color-text-disabled) !important; }
+html body .text-accent { color: var(--color-text-accent) !important; }
+html body .text-accent-muted { color: var(--color-text-accent-muted) !important; }
 
 /* RGB color usage helpers for opacity */
-.bg-primary-opacity { background-color: rgba(var(--color-primary-rgb), var(--tw-bg-opacity, 1)); }
-.bg-secondary-opacity { background-color: rgba(var(--color-secondary-rgb), var(--tw-bg-opacity, 1)); }
-.text-primary-opacity { color: rgba(var(--color-primary-rgb), var(--tw-text-opacity, 1)); }
-.text-secondary-opacity { color: rgba(var(--color-secondary-rgb), var(--tw-text-opacity, 1)); }
+html body .bg-primary-opacity { background-color: rgba(var(--color-primary-rgb), var(--tw-bg-opacity, 1)) !important; }
+html body .bg-secondary-opacity { background-color: rgba(var(--color-secondary-rgb), var(--tw-bg-opacity, 1)) !important; }
+html body .bg-background-opacity { background-color: rgba(var(--color-background-rgb), var(--tw-bg-opacity, 1)) !important; }
+html body .bg-background-900\/10 { background-color: rgba(var(--color-background-900-rgb), 0.1) !important; }
+html body .bg-background-900\/20 { background-color: rgba(var(--color-background-900-rgb), 0.2) !important; }
+html body .bg-background-900\/50 { background-color: rgba(var(--color-background-900-rgb), 0.5) !important; }
+html body .bg-background-900\/80 { background-color: rgba(var(--color-background-900-rgb), 0.8) !important; }
+html body .bg-background-800\/10 { background-color: rgba(var(--color-background-800-rgb), 0.1) !important; }
+html body .bg-background-800\/20 { background-color: rgba(var(--color-background-800-rgb), 0.2) !important; }
+html body .bg-background-800\/50 { background-color: rgba(var(--color-background-800-rgb), 0.5) !important; }
+html body .bg-background-800\/80 { background-color: rgba(var(--color-background-800-rgb), 0.8) !important; }
+
+/* Text with opacity */
+html body .text-primary-opacity { color: rgba(var(--color-primary-rgb), var(--tw-text-opacity, 1)) !important; }
+html body .text-secondary-opacity { color: rgba(var(--color-secondary-rgb), var(--tw-text-opacity, 1)) !important; }
+html body .text-default-opacity { color: rgba(var(--color-text-rgb), var(--tw-text-opacity, 1)) !important; }
+html body .text-secondary-text-opacity { color: rgba(var(--color-text-secondary-rgb), var(--tw-text-opacity, 1)) !important; }
+html body .text-muted-opacity { color: rgba(var(--color-text-muted-rgb), var(--tw-text-opacity, 1)) !important; }
+html body .text-disabled-opacity { color: rgba(var(--color-text-disabled-rgb), var(--tw-text-opacity, 1)) !important; }
+html body .text-accent-opacity { color: rgba(var(--color-text-accent-rgb), var(--tw-text-opacity, 1)) !important; }
+html body .text-accent-muted-opacity { color: rgba(var(--color-text-accent-muted-rgb), var(--tw-text-opacity, 1)) !important; }
+
+/* 
+ * BACKWARD COMPATIBILITY: 
+ * Map gray colors to our theme background variables for components still using hard-coded colors
+ * Using high specificity selectors to ensure our overrides take effect
+ */
+
+/* Background colors */
+html body .bg-gray-950 { background-color: var(--color-background) !important; }
+html body .bg-gray-900 { background-color: var(--color-background-900) !important; }
+html body .bg-gray-800 { background-color: var(--color-background-800) !important; }
+html body .bg-gray-700 { background-color: var(--color-background-700) !important; }
+
+/* Background with opacity */
+html body .bg-gray-900\/10 { background-color: rgba(var(--color-background-900-rgb), 0.1) !important; }
+html body .bg-gray-900\/20 { background-color: rgba(var(--color-background-900-rgb), 0.2) !important; }
+html body .bg-gray-900\/50 { background-color: rgba(var(--color-background-900-rgb), 0.5) !important; }
+html body .bg-gray-900\/80 { background-color: rgba(var(--color-background-900-rgb), 0.8) !important; }
+html body .bg-gray-900\/90 { background-color: rgba(var(--color-background-900-rgb), 0.9) !important; }
+
+html body .bg-gray-800\/10 { background-color: rgba(var(--color-background-800-rgb), 0.1) !important; }
+html body .bg-gray-800\/20 { background-color: rgba(var(--color-background-800-rgb), 0.2) !important; }
+html body .bg-gray-800\/50 { background-color: rgba(var(--color-background-800-rgb), 0.5) !important; }
+html body .bg-gray-800\/80 { background-color: rgba(var(--color-background-800-rgb), 0.8) !important; }
+
+/* Text colors - map all gray text to appropriate text variables */
+html body .text-white { color: var(--color-text) !important; }
+html body .text-gray-50 { color: var(--color-text) !important; }
+html body .text-gray-100 { color: var(--color-text) !important; }
+html body .text-gray-200 { color: var(--color-text-secondary) !important; }
+html body .text-gray-300 { color: var(--color-text-secondary) !important; }
+html body .text-gray-400 { color: var(--color-text-muted) !important; }
+html body .text-gray-500 { color: var(--color-text-muted) !important; }
+html body .text-gray-600 { color: var(--color-text-disabled) !important; }
+
+/* Hover states for text */
+html body .hover\:text-white:hover { color: var(--color-text) !important; }
+html body .hover\:text-gray-200:hover { color: var(--color-text-secondary) !important; }
+html body .hover\:text-gray-300:hover { color: var(--color-text-secondary) !important; }
+html body .hover\:text-gray-400:hover { color: var(--color-text-muted) !important; }
+
+/* Border colors */
+html body .border-gray-800 { border-color: var(--color-background-800) !important; }
+html body .border-gray-700 { border-color: var(--color-background-700) !important; }
+html body .hover\:border-gray-700:hover { border-color: var(--color-background-700) !important; }
+html body .hover\:border-gray-600:hover { border-color: var(--color-background-600) !important; }
+
+/* Focus and active states */
+html body .focus\:text-white:focus { color: var(--color-text) !important; }
+html body .active\:text-white:active { color: var(--color-text) !important; }
+html body .focus\:text-gray-200:focus { color: var(--color-text-secondary) !important; }
+html body .active\:text-gray-200:active { color: var(--color-text-secondary) !important; }
 `;
 
   // Write the CSS file

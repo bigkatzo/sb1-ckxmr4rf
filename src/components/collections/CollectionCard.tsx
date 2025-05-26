@@ -82,7 +82,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
       
       <div className="p-3">
         <h3 className={`
-          font-semibold text-white line-clamp-1 
+          font-semibold text-text line-clamp-1 
           group-hover:text-secondary transition-colors
           ${isLarge ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'}
         `}>
@@ -90,7 +90,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
         </h3>
         
         <p className={`
-          text-gray-400 line-clamp-2 mt-1
+          text-text-muted line-clamp-2 mt-1
           ${isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}
         `}>
           {collection.description}
@@ -101,7 +101,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
           ${isLarge ? 'mt-3 sm:mt-4' : 'mt-2 sm:mt-3'}
         `}>
           {isUpcoming ? (
-            <div className="flex items-center text-secondary/90 group-hover:text-secondary transition-colors">
+            <div className="flex items-center text-text-accent/90 group-hover:text-text-accent transition-colors">
               <Calendar className={`
                 mr-1.5
                 ${isLarge ? 'h-3.5 w-3.5 sm:h-4 sm:w-4' : 'h-3 w-3 sm:h-3.5 sm:w-3.5'}
@@ -111,7 +111,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
               </span>
             </div>
           ) : (
-            <div className="flex items-center text-secondary/90 group-hover:text-secondary transition-colors">
+            <div className="flex items-center text-text-accent/90 group-hover:text-text-accent transition-colors">
               <span className={isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}>
                 Browse Collection
               </span>
