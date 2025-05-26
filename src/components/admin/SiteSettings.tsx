@@ -15,6 +15,7 @@ type SiteSettings = {
   theme_secondary_color: string;
   theme_background_color: string;
   theme_text_color: string;
+  theme_use_classic: boolean;
   favicon_url: string;
   favicon_96_url: string;
   icon_192_url: string;
@@ -40,6 +41,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   theme_secondary_color: '#0ea5e9', // sky blue
   theme_background_color: '#000000',
   theme_text_color: '#ffffff',
+  theme_use_classic: true,
   favicon_url: '',
   favicon_96_url: '',
   icon_192_url: '',
@@ -279,6 +281,12 @@ export function SiteSettings() {
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
 
+  // Helper function to determine if a color is dark
+  function isColorDark(color: string): boolean {
+    const brightness = (parseInt(color.substring(0, 2), 16) + parseInt(color.substring(2, 4), 16) + parseInt(color.substring(4, 6), 16)) / 3;
+    return brightness < 127.5;
+  }
+
   const tabs = [
     { id: 'branding', label: 'Branding', icon: <Palette className="w-4 h-4" /> },
     { id: 'seo', label: 'SEO & Social', icon: <Share2 className="w-4 h-4" /> },
@@ -403,6 +411,33 @@ export function SiteSettings() {
 
             <div>
               <h3 className="text-lg font-medium mb-4">Theme Colors</h3>
+              
+              <div className="mb-4 p-3 border border-gray-700 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.theme_use_classic}
+                      onChange={(e) => setSettings({...settings, theme_use_classic: e.target.checked})}
+                      className="sr-only peer"
+                    />
+                    <div className="relative w-11 h-6 bg-gray-700 rounded-full peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary/25">
+                      <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-all ${settings.theme_use_classic ? 'translate-x-5' : ''}`}></div>
+                    </div>
+                    <span className="ml-3 text-sm font-medium text-gray-300">Use classic theme</span>
+                  </label>
+                  
+                  <div className="text-xs text-gray-400">
+                    {settings.theme_use_classic ? 'Using fixed gray shades' : 'Using dynamic color shades'}
+                  </div>
+                </div>
+                
+                <p className="mt-2 text-xs text-gray-400">
+                  The classic theme uses fixed gray shades regardless of background color selection. 
+                  Disable this option to use dynamically generated shades based on your background color.
+                </p>
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -522,10 +557,29 @@ export function SiteSettings() {
                       <div className="flex flex-col gap-1">
                         <div style={{backgroundColor: settings.theme_background_color}} className="h-8 rounded border border-gray-700"></div>
                         <div className="grid grid-cols-3 gap-1">
-                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 15)}} className="h-4 rounded"></div>
-                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 30)}} className="h-4 rounded"></div>
-                          <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 45)}} className="h-4 rounded"></div>
+                          {settings.theme_use_classic ? (
+                            <>
+                              <div style={{backgroundColor: '#111827'}} className="h-4 rounded flex items-center justify-center">
+                                <span className="text-[8px] text-white">900</span>
+                              </div>
+                              <div style={{backgroundColor: '#1f2937'}} className="h-4 rounded flex items-center justify-center">
+                                <span className="text-[8px] text-white">800</span>
+                              </div>
+                              <div style={{backgroundColor: '#374151'}} className="h-4 rounded flex items-center justify-center">
+                                <span className="text-[8px] text-white">700</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 15 : -15)}} className="h-4 rounded"></div>
+                              <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 30 : -30)}} className="h-4 rounded"></div>
+                              <div style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 45 : -45)}} className="h-4 rounded"></div>
+                            </>
+                          )}
                         </div>
+                      </div>
+                      <div className="mt-1 text-[9px] text-gray-400 text-center">
+                        {settings.theme_use_classic ? 'Classic fixed shades' : 'Dynamic background shades'}
                       </div>
                     </div>
                     <div>
@@ -550,16 +604,31 @@ export function SiteSettings() {
                   </div>
                   
                   <div className="p-3 rounded" style={{backgroundColor: settings.theme_background_color}}>
-                    <div className="rounded-lg p-3" style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 15)}}>
+                    <div className="rounded-lg p-3" style={{
+                      backgroundColor: settings.theme_use_classic 
+                        ? '#111827' // Classic gray-900
+                        : adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 15 : -15)
+                    }}>
                       <h3 style={{color: settings.theme_text_color}} className="text-lg font-semibold mb-2">Sample Card</h3>
-                      <p style={{color: adjustColorBrightness(settings.theme_text_color, settings.theme_background_color === '#000000' ? -30 : 30)}} className="mb-2">
+                      <p style={{
+                        color: adjustColorBrightness(settings.theme_text_color, 
+                          isColorDark(settings.theme_background_color) ? -30 : 30)
+                      }} className="mb-2">
                         This is how your content will look with the selected colors.
                       </p>
-                      <p style={{color: adjustColorBrightness(settings.theme_text_color, settings.theme_background_color === '#000000' ? -60 : 60)}} className="text-sm mb-3">
+                      <p style={{
+                        color: adjustColorBrightness(settings.theme_text_color, 
+                          isColorDark(settings.theme_background_color) ? -60 : 60)
+                      }} className="text-sm mb-3">
                         Additional information and helper text will appear like this.
                       </p>
                       <div className="flex gap-2 justify-end">
-                        <button className="px-3 py-1 rounded text-sm" style={{backgroundColor: adjustColorBrightness(settings.theme_background_color, 30), color: settings.theme_text_color}}>
+                        <button className="px-3 py-1 rounded text-sm" style={{
+                          backgroundColor: settings.theme_use_classic 
+                            ? '#1f2937' // Classic gray-800
+                            : adjustColorBrightness(settings.theme_background_color, isColorDark(settings.theme_background_color) ? 30 : -30),
+                          color: settings.theme_text_color
+                        }}>
                           Cancel
                         </button>
                         <button className="px-3 py-1 rounded text-sm" style={{backgroundColor: settings.theme_primary_color, color: '#fff'}}>

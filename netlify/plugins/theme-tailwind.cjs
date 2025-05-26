@@ -141,6 +141,17 @@ async function generateThemeCSS(settings) {
   const secondaryColor = settings.theme_secondary_color || '#0ea5e9';
   const backgroundColor = settings.theme_background_color || '#000000';
   const textColor = settings.theme_text_color || '#ffffff';
+  const useClassicTheme = settings.theme_use_classic !== undefined ? settings.theme_use_classic : true;
+  
+  // Determine if the background is dark or light (for contrast)
+  const isBackgroundDark = isColorDark(backgroundColor);
+  
+  // Fixed values for classic theme
+  const CLASSIC_BG = '#000000';
+  const CLASSIC_BG_900 = '#111827';
+  const CLASSIC_BG_800 = '#1f2937';
+  const CLASSIC_BG_700 = '#374151';
+  const CLASSIC_BG_600 = '#4b5563';
   
   // Convert hex to RGB for CSS variables
   const hexToRgb = (hex) => {
@@ -154,6 +165,50 @@ async function generateThemeCSS(settings) {
     
     return `${r}, ${g}, ${b}`;
   };
+  
+  // Helper function to determine if a color is dark
+  function isColorDark(hex) {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse the hex values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // Calculate relative luminance using sRGB color space
+    // See: https://www.w3.org/TR/WCAG20/#relativeluminancedef
+    const luminance = 0.2126 * r/255 + 0.7152 * g/255 + 0.0722 * b/255;
+    
+    // Dark colors have luminance < 0.5
+    return luminance < 0.5;
+  }
+  
+  // More controlled adjustment function for background shades
+  function generateBackgroundShade(baseColor, step) {
+    // For dark backgrounds, we lighten
+    // For light backgrounds, we darken
+    const isDark = isColorDark(baseColor);
+    
+    if (isDark) {
+      // Lighter adjustments for dark backgrounds
+      return adjustColor(baseColor, step * 15);
+    } else {
+      // Darker adjustments for light backgrounds
+      return adjustColor(baseColor, -step * 15);
+    }
+  }
+  
+  // Generate the background shades based on theme mode
+  const bg900 = useClassicTheme ? CLASSIC_BG_900 : generateBackgroundShade(backgroundColor, 1);
+  const bg800 = useClassicTheme ? CLASSIC_BG_800 : generateBackgroundShade(backgroundColor, 2);
+  const bg700 = useClassicTheme ? CLASSIC_BG_700 : generateBackgroundShade(backgroundColor, 3);
+  const bg600 = useClassicTheme ? CLASSIC_BG_600 : generateBackgroundShade(backgroundColor, 4);
+  
+  // Determine text color adjustments based on background darkness
+  const textSecondaryAdjust = isBackgroundDark ? -30 : 30;
+  const textMutedAdjust = isBackgroundDark ? -60 : 60;
+  const textDisabledAdjust = isBackgroundDark ? -80 : 80;
   
   // Create CSS variables
   const css = `:root {
@@ -171,29 +226,32 @@ async function generateThemeCSS(settings) {
   
   --color-background: ${backgroundColor};
   --color-background-rgb: ${hexToRgb(backgroundColor)};
-  --color-background-900: ${adjustColor(backgroundColor, 15)};
-  --color-background-900-rgb: ${hexToRgb(adjustColor(backgroundColor, 15))};
-  --color-background-800: ${adjustColor(backgroundColor, 30)};
-  --color-background-800-rgb: ${hexToRgb(adjustColor(backgroundColor, 30))};
-  --color-background-700: ${adjustColor(backgroundColor, 45)};
-  --color-background-700-rgb: ${hexToRgb(adjustColor(backgroundColor, 45))};
-  --color-background-600: ${adjustColor(backgroundColor, 60)};
-  --color-background-600-rgb: ${hexToRgb(adjustColor(backgroundColor, 60))};
+  --color-background-900: ${bg900};
+  --color-background-900-rgb: ${hexToRgb(bg900)};
+  --color-background-800: ${bg800};
+  --color-background-800-rgb: ${hexToRgb(bg800)};
+  --color-background-700: ${bg700};
+  --color-background-700-rgb: ${hexToRgb(bg700)};
+  --color-background-600: ${bg600};
+  --color-background-600-rgb: ${hexToRgb(bg600)};
   
   --color-text: ${textColor};
   --color-text-rgb: ${hexToRgb(textColor)};
   
   /* Text color variants - based on whether we have a dark or light background */
-  --color-text-secondary: ${adjustColor(textColor, backgroundColor === '#000000' ? -30 : 30)};
-  --color-text-secondary-rgb: ${hexToRgb(adjustColor(textColor, backgroundColor === '#000000' ? -30 : 30))};
-  --color-text-muted: ${adjustColor(textColor, backgroundColor === '#000000' ? -60 : 60)};
-  --color-text-muted-rgb: ${hexToRgb(adjustColor(textColor, backgroundColor === '#000000' ? -60 : 60))};
-  --color-text-disabled: ${adjustColor(textColor, backgroundColor === '#000000' ? -80 : 80)};
-  --color-text-disabled-rgb: ${hexToRgb(adjustColor(textColor, backgroundColor === '#000000' ? -80 : 80))};
+  --color-text-secondary: ${adjustColor(textColor, textSecondaryAdjust)};
+  --color-text-secondary-rgb: ${hexToRgb(adjustColor(textColor, textSecondaryAdjust))};
+  --color-text-muted: ${adjustColor(textColor, textMutedAdjust)};
+  --color-text-muted-rgb: ${hexToRgb(adjustColor(textColor, textMutedAdjust))};
+  --color-text-disabled: ${adjustColor(textColor, textDisabledAdjust)};
+  --color-text-disabled-rgb: ${hexToRgb(adjustColor(textColor, textDisabledAdjust))};
   --color-text-accent: ${secondaryColor}; 
   --color-text-accent-rgb: ${hexToRgb(secondaryColor)};
-  --color-text-accent-muted: ${adjustColor(secondaryColor, backgroundColor === '#000000' ? -30 : 30)};
-  --color-text-accent-muted-rgb: ${hexToRgb(adjustColor(secondaryColor, backgroundColor === '#000000' ? -30 : 30))};
+  --color-text-accent-muted: ${adjustColor(secondaryColor, isBackgroundDark ? -30 : 30)};
+  --color-text-accent-muted-rgb: ${hexToRgb(adjustColor(secondaryColor, isBackgroundDark ? -30 : 30))};
+  
+  /* Store whether we're using the classic theme */
+  --theme-use-classic: ${useClassicTheme ? 'true' : 'false'};
 }
 
 /* Helper classes */
