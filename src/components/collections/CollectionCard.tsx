@@ -32,7 +32,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
     <Card 
       elevation={4} 
       interactive
-      className="group w-full sm:rounded-xl"
+      className="group w-full sm:rounded-xl collection-card"
     >
       <div className={`relative ${aspectRatio} w-full overflow-hidden`}>
         {collection.imageUrl ? (

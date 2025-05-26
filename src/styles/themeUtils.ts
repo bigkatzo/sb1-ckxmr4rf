@@ -291,7 +291,52 @@ export function applyTheme(
     document.documentElement.removeAttribute('style');
     document.documentElement.classList.add('classic-theme');
     document.documentElement.classList.remove('dynamic-theme');
+    
+    // Add classic hover and focus styles to maintain original behavior
+    const style = document.createElement('style');
+    style.id = 'classic-theme-hover-focus-styles';
+    style.textContent = `
+      .classic-theme .hover-effect:hover,
+      .classic-theme .card:hover,
+      .classic-theme .product-card:hover,
+      .classic-theme .collection-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        background-color: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+      }
+      
+      .classic-theme .hover-effect:hover {
+        border-color: var(--color-secondary, #8b5cf6);
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+      }
+      
+      .classic-theme a:focus-visible,
+      .classic-theme button:focus-visible,
+      .classic-theme input:focus-visible,
+      .classic-theme select:focus-visible,
+      .classic-theme textarea:focus-visible,
+      .classic-theme [tabindex]:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.5);
+      }
+    `;
+    
+    // Remove old style if it exists
+    const oldStyle = document.getElementById('classic-theme-hover-focus-styles');
+    if (oldStyle) {
+      oldStyle.remove();
+    }
+    
+    document.head.appendChild(style);
     return;
+  }
+  
+  // If using dynamic theme, remove classic styles
+  const classicStyle = document.getElementById('classic-theme-hover-focus-styles');
+  if (classicStyle) {
+    classicStyle.remove();
   }
   
   // Set base colors

@@ -7,7 +7,7 @@ import {
   CardDescription,
   CardFooter
 } from './ui/Card';
-import { isColorDark, adjustColorBrightness } from '../styles/themeUtils';
+import { isColorDark, adjustColorBrightness, applyTheme } from '../styles/themeUtils';
 
 export function ThemePreview() {
   // Create a state to hold the color samples
@@ -17,6 +17,8 @@ export function ThemePreview() {
     background: '#000000',
     text: '#ffffff',
   });
+  
+  const [useClassic, setUseClassic] = useState(false);
   
   // Get the current theme colors
   useEffect(() => {
@@ -34,6 +36,9 @@ export function ThemePreview() {
       background: background || '#111827',
       text: text || '#ffffff',
     });
+    
+    // Check if classic theme is active
+    setUseClassic(root.classList.contains('classic-theme'));
   }, []);
   
   const isDark = isColorDark(colors.background);
@@ -47,9 +52,28 @@ export function ThemePreview() {
     { name: 'Text', value: colors.text, bg: colors.text, text: isColorDark(colors.text) ? '#ffffff' : '#000000' },
   ];
   
+  const toggleClassicTheme = () => {
+    const newClassicValue = !useClassic;
+    setUseClassic(newClassicValue);
+    applyTheme(colors.primary, colors.secondary, colors.background, colors.text, newClassicValue);
+  };
+  
   return (
     <div className="animate-fadeIn">
-      <h2 className="text-lg font-medium mb-4">Theme Preview</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-medium">Theme Preview</h2>
+        <div className="flex items-center space-x-2">
+          <label className="text-sm">
+            <input 
+              type="checkbox" 
+              checked={useClassic} 
+              onChange={toggleClassicTheme} 
+              className="mr-2"
+            />
+            Use Classic Theme
+          </label>
+        </div>
+      </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         {/* Color swatches */}
