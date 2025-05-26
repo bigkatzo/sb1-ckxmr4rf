@@ -362,6 +362,43 @@ export function applyTheme(
   Object.entries(shadows).forEach(([key, value]) => {
     document.documentElement.style.setProperty(`--color-${key}`, value);
   });
+  
+  // Add dynamic theme-specific CSS for hover and focus effects
+  const dynamicStyle = document.createElement('style');
+  dynamicStyle.id = 'dynamic-theme-hover-focus-styles';
+  
+  // Create secondary color with alpha for the ring effect
+  const secondaryRgb = hexToRgb(secondaryColor);
+  
+  dynamicStyle.textContent = `
+    .dynamic-theme .hover-effect:hover,
+    .dynamic-theme .card:hover {
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+      border-color: rgba(${secondaryRgb}, 0.3);
+    }
+    
+    .dynamic-theme .hover-effect:hover {
+      box-shadow: 0 0 0 2px rgba(${secondaryRgb}, 0.5);
+    }
+    
+    .dynamic-theme a:focus-visible,
+    .dynamic-theme button:focus-visible,
+    .dynamic-theme input:focus-visible,
+    .dynamic-theme select:focus-visible,
+    .dynamic-theme textarea:focus-visible,
+    .dynamic-theme [tabindex]:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(${secondaryRgb}, 0.5);
+    }
+  `;
+  
+  // Remove old style if it exists
+  const oldDynamicStyle = document.getElementById('dynamic-theme-hover-focus-styles');
+  if (oldDynamicStyle) {
+    oldDynamicStyle.remove();
+  }
+  
+  document.head.appendChild(dynamicStyle);
 
   document.documentElement.classList.add('dynamic-theme');
   document.documentElement.classList.remove('classic-theme');

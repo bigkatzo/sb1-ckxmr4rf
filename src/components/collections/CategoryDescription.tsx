@@ -22,7 +22,7 @@ export function CategoryDescription({ category, categoryIndex }: CategoryDescrip
             size="sm" 
           />
           <div className="flex items-center gap-2 min-w-0">
-            <h3 className="font-medium text-sm sm:text-base text-white truncate">{category.name}</h3>
+            <h3 className="font-medium text-sm sm:text-base text-text truncate">{category.name}</h3>
             <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${typeInfo.style}`}>
               {typeInfo.icon}
               <span className="font-medium">{typeInfo.label}</span>
@@ -32,7 +32,7 @@ export function CategoryDescription({ category, categoryIndex }: CategoryDescrip
       </div>
       
       <div className="space-y-3">
-        <p className="text-gray-400 break-words text-xs sm:text-sm">
+        <p className="text-text-muted break-words text-xs sm:text-sm">
           {category.description}
         </p>
         <CategoryEligibility groups={category.eligibilityRules?.groups || []} />

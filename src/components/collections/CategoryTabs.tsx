@@ -60,8 +60,8 @@ export function CategoryTabs({ categories, selectedId, onChange, categoryIndices
               className={`
                 flex items-center gap-2 border-b-2 px-2.5 py-3 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors snap-start
                 ${selectedId === category.id
-                  ? 'border-primary text-white'
-                  : 'border-transparent text-gray-400 hover:border-gray-700 hover:text-gray-300'
+                  ? 'border-primary text-text'
+                  : 'border-transparent text-text-muted hover:border-border-light hover:text-text-secondary'
                 }
               `}
             >
@@ -80,7 +80,7 @@ export function CategoryTabs({ categories, selectedId, onChange, categoryIndices
       </div>
 
       {selectedId && (
-        <div className="bg-gray-900 rounded-lg p-3 sm:p-4">
+        <div className="bg-card rounded-lg p-3 sm:p-4">
           <CategoryDescription 
             category={categories.find(c => c.id === selectedId)!}
             categoryIndex={categoryIndices[selectedId]}
