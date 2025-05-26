@@ -72,7 +72,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
       elevation={3}
       interactive
       onClick={handleClick}
-      className={`product-card group relative cursor-pointer
+      className={`product-card group relative
         ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
       data-product-id={product.id}
       style={{ 

@@ -115,7 +115,7 @@ export function ThemePreview() {
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card interactive className="p-4 text-center">
               <div className="font-medium">Interactive Card</div>
-              <div className="text-xs text-text-muted mt-1">Hover to see effect</div>
+              <div className="text-xs text-text-muted mt-1">Hover to see glowing effect</div>
             </Card>
             
             <Card bordered className="p-4 text-center">

@@ -35,7 +35,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          'bg-card rounded-lg overflow-hidden',
+          'bg-card rounded-lg overflow-hidden transition-all duration-300',
           {
             'shadow-elevation-1': elevation === 1 && !bordered,
             'shadow-elevation-2': elevation === 2 && !bordered,
@@ -43,8 +43,8 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
             'shadow-elevation-4': elevation === 4 && !bordered,
             'shadow-elevation-5': elevation === 5 && !bordered,
             'border border-card-border': bordered,
-            'hover:shadow-card-shadow-hover hover:-translate-y-0.5 transition-all duration-300': interactive,
-            'hover:bg-card-hover': interactive,
+            'hover:shadow-card-shadow-hover hover:-translate-y-0.5 hover:bg-card-hover hover:ring-2 hover:ring-secondary/50': interactive,
+            'cursor-pointer': interactive,
           },
           className
         )}

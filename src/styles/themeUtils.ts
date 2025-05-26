@@ -236,6 +236,9 @@ export function generateColorVariations(
     'card-border': adjustColorBrightness(backgroundColor, isDarkBackground ? 30 : -30),
     'card-shadow': shadows['elevation-2'],
     'card-shadow-hover': shadows['elevation-3'],
+    'card-hover': isDarkBackground 
+      ? adjustColorBrightness(backgroundColor, cardBaseAmount + 15)
+      : adjustColorBrightness(backgroundColor, cardBaseAmount - 15),
     
     // Inputs
     'input-background': adjustColorBrightness(backgroundColor, buttonBaseAmount),
