@@ -23,12 +23,26 @@ export function OrderProgressBar({
   const { currentOrders, loading } = useOrderStats(productId, { isMainView });
   const isUnlimited = maxStock === null;
   const [showTooltip, setShowTooltip] = React.useState(false);
+  const [showMinTooltip, setShowMinTooltip] = React.useState(false);
 
   // Check if there are active modifiers
   const hasActiveModifiers = priceModifierBeforeMin !== null || priceModifierAfterMin !== null;
+  
+  // Check if there is no minimum order (min = 1)
+  const hasNoMinimum = minimumOrderQuantity === 1;
 
   // Memoize calculations
   const { minOrderPercentage, stockPercentage, isSoldOut, hasReachedMinimum } = React.useMemo(() => {
+    // If there's no minimum, always consider minimum requirement met
+    if (hasNoMinimum) {
+      return {
+        minOrderPercentage: 100,
+        stockPercentage: isUnlimited ? 100 : Math.min((currentOrders / (maxStock || 1)) * 100, 100),
+        isSoldOut: !isUnlimited && maxStock !== null && currentOrders >= maxStock,
+        hasReachedMinimum: true
+      };
+    }
+    
     const minOrderPct = Math.min((currentOrders / minimumOrderQuantity) * 100, 100);
     // For unlimited stock, show percentage based on minimum order quantity
     const stockPct = isUnlimited 
@@ -41,7 +55,7 @@ export function OrderProgressBar({
       isSoldOut: !isUnlimited && maxStock !== null && currentOrders >= maxStock,
       hasReachedMinimum: currentOrders >= minimumOrderQuantity
     };
-  }, [currentOrders, minimumOrderQuantity, maxStock, isUnlimited]);
+  }, [currentOrders, minimumOrderQuantity, maxStock, isUnlimited, hasNoMinimum]);
   
   if (loading) {
     return <OrderProgressBarSkeleton />;
@@ -101,7 +115,7 @@ export function OrderProgressBar({
       <div className="relative h-3 bg-gray-800 rounded-full overflow-hidden">
         {/* Yellow progress bar for minimum order progress */}
         <div 
-          className="absolute inset-y-0 left-0 bg-yellow-500/50 transition-all duration-500"
+          className={`absolute inset-y-0 left-0 transition-all duration-500 ${hasNoMinimum ? 'bg-green-500/50' : 'bg-yellow-500/50'}`}
           style={{ width: `${minOrderPercentage}%` }}
         />
         
@@ -119,8 +133,8 @@ export function OrderProgressBar({
           style={{ width: `${stockPercentage}%` }}
         />
         
-        {/* Minimum order threshold marker */}
-        {!isUnlimited && maxStock !== null && (
+        {/* Minimum order threshold marker - only show if there's a minimum > 1 */}
+        {!hasNoMinimum && !isUnlimited && maxStock !== null && (
           <div 
             className="absolute inset-y-0 w-0.5 bg-yellow-500"
             style={{ left: `${(minimumOrderQuantity / maxStock) * 100}%` }}
@@ -135,13 +149,40 @@ export function OrderProgressBar({
       </div>
 
       <div className="flex flex-col gap-2 text-xs">
-        {/* Progress to minimum */}
+        {/* Progress to minimum - show different text for "no minimum" */}
         <div className="flex justify-between items-center">
-          <span className="text-yellow-500">Progress to minimum:</span>
-          <span className={`font-medium ${hasReachedMinimum ? 'text-green-400' : 'text-yellow-500'}`}>
-            {currentOrders} / {minimumOrderQuantity}
-            {hasReachedMinimum && ' ✓'}
-          </span>
+          {hasNoMinimum ? (
+            <>
+              <div className="flex items-center gap-1 relative">
+                <span className="text-green-500">No minimum order quantity</span>
+                <button 
+                  className="text-gray-500 hover:text-gray-300 transition-colors"
+                  onMouseEnter={() => setShowMinTooltip(true)}
+                  onMouseLeave={() => setShowMinTooltip(false)}
+                  onClick={() => setShowMinTooltip(!showMinTooltip)}
+                >
+                  <HelpCircle size={12} />
+                </button>
+                
+                {showMinTooltip && (
+                  <div className="absolute z-10 top-full left-0 mt-1 w-64 p-3 bg-gray-900 border border-gray-800 rounded-md shadow-lg text-xs">
+                    <p className="text-gray-300">This product requires no minimum quantity for production. Your order will be processed immediately.</p>
+                  </div>
+                )}
+              </div>
+              <span className="font-medium text-green-400">
+                Ready to ship ✓
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-yellow-500">Progress to minimum:</span>
+              <span className={`font-medium ${hasReachedMinimum ? 'text-green-400' : 'text-yellow-500'}`}>
+                {currentOrders} / {minimumOrderQuantity}
+                {hasReachedMinimum && ' ✓'}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Overall progress */}
