@@ -26,6 +26,7 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
 
   // Check if free notes is non-empty string with better handling for edge cases
   const hasFreeNotes = typeof freeNotes === 'string' && freeNotes.trim() !== '';
+  const displayFreeNotes = hasFreeNotes ? freeNotes : '';
 
   return (
     <div className="border-t border-gray-800 pt-4">
@@ -55,7 +56,7 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
         {hasFreeNotes && (
           <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
             <Info className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-gray-300 whitespace-pre-wrap">{freeNotes}</p>
+            <p className="text-sm text-gray-300 whitespace-pre-wrap">{displayFreeNotes}</p>
           </div>
         )}
 

@@ -758,7 +758,10 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     </div>
                   )}
 
-                  <ProductNotes notes={product.notes} freeNotes={product.freeNotes} />
+                  <ProductNotes 
+                    notes={product.notes} 
+                    freeNotes={typeof product.freeNotes === 'string' ? product.freeNotes : ''}
+                  />
                 </div>
               </div>
 

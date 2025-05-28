@@ -137,7 +137,9 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
             }
           }
           
-          freeNotesValue = product.free_notes || freeNotesValue;
+          // Ensure free_notes is properly processed (checking for both null and undefined)
+          freeNotesValue = (product.free_notes !== null && product.free_notes !== undefined) ? 
+            String(product.free_notes) : freeNotesValue;
         } catch (err) {
           console.error('Error processing product notes:', err);
         }

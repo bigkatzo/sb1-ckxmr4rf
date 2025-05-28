@@ -19,6 +19,7 @@ export interface ProductData {
     quality?: string;
     returns?: string;
   };
+  free_notes?: string;
 }
 
 export interface ProductUpdateData extends Omit<ProductData, 'id' | 'collection_id'> {

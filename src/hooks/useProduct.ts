@@ -80,7 +80,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         const hasValidNotes = data.notes && typeof data.notes === 'object' && Object.keys(data.notes).length > 0;
         
         // CRITICAL FIX: Make sure free_notes is properly processed from database column name
-        const freeNotesValue = data.free_notes !== null ? String(data.free_notes) : '';
+        const freeNotesValue = data.free_notes !== null && data.free_notes !== undefined ? String(data.free_notes) : '';
 
         const transformedProduct: Product = {
           id: data.id,
