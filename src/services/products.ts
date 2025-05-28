@@ -1,7 +1,7 @@
 import { supabase, retry } from '../lib/supabase';
 import { uploadProductImages } from './products/upload';
-import { handleError } from '../lib/error-handling';
 import { cacheManager } from '../lib/cache';
+import { uploadImage } from '../lib/storage';
 
 // Helper to invalidate product-related caches
 const invalidateProductCaches = (collectionId: string, categoryId?: string) => {
@@ -46,7 +46,7 @@ export async function createProduct(collectionId: string, data: FormData) {
   try {
     // Validate critical form fields first
     // Get category ID
-    const categoryId = data.get('categoryId');
+    const categoryId = data.get('categoryId') as string;
     if (!categoryId) {
       throw new Error('Category is required');
     }
