@@ -179,10 +179,6 @@ export const router = createBrowserRouter([
             element: <ProductDesignPageWithFallback />
           },
           {
-            path: 'design/:collectionSlug/:productSlug',
-            element: <ProductDesignPageWithFallback />
-          },
-          {
             path: 'merchant/signin',
             element: <Suspense fallback={<PageLoader />}><SignInPage /></Suspense>
           },
