@@ -90,6 +90,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           price: data.price,
           imageUrl: data.images?.[0] ? normalizeStorageUrl(data.images[0]) : '',
           images: (data.images || []).map((img: string) => normalizeStorageUrl(img)),
+          designFiles: (data.design_files || []).map((file: string) => normalizeStorageUrl(file)),
           categoryId: data.category_id,
           collectionId: data.collection_id,
           collectionName: data.collection_name,

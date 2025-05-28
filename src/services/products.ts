@@ -22,6 +22,26 @@ const invalidateProductCaches = (collectionId: string, categoryId?: string) => {
   }
 };
 
+export async function uploadDesignFile(file: File): Promise<string> {
+  // Special handling for SVG files
+  const isSVG = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
+  
+  if (isSVG) {
+    console.log(`SVG file detected: ${file.name} (${file.size} bytes). Using direct upload path.`);
+  }
+  
+  // Use a different bucket for design files
+  return uploadImage(file, 'product-design-files', {
+    // Pass special flag for SVG to ensure it's handled correctly
+    webpHandling: isSVG ? 'preserve' : 'preserve', // Preserve original file format for design files
+    maxSizeMB: 10 // Allow larger file size for design files (10MB)
+  });
+}
+
+export async function uploadDesignFiles(files: File[]): Promise<string[]> {
+  return Promise.all(files.map(file => uploadDesignFile(file)));
+}
+
 export async function createProduct(collectionId: string, data: FormData) {
   try {
     // Validate critical form fields first
@@ -70,8 +90,9 @@ export async function createProduct(collectionId: string, data: FormData) {
     const freeNotesValue = data.get('freeNotes');
     const freeNotes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
 
-    // Initialize images array
+    // Initialize images and design files arrays
     let images: string[] = [];
+    let designFiles: string[] = [];
     
     // First, check if there are existing images from a duplicated product
     const currentImagesStr = data.get('currentImages') as string;
@@ -85,6 +106,21 @@ export async function createProduct(collectionId: string, data: FormData) {
         }
       } catch (error) {
         console.error('Error parsing currentImages:', error);
+      }
+    }
+
+    // Check if there are existing design files from a duplicated product
+    const currentDesignFilesStr = data.get('currentDesignFiles') as string;
+    if (currentDesignFilesStr) {
+      try {
+        const currentDesignFiles = JSON.parse(currentDesignFilesStr);
+        if (Array.isArray(currentDesignFiles) && currentDesignFiles.length > 0) {
+          // These are existing design file URLs from storage that should be reused
+          designFiles = [...currentDesignFiles];
+          console.log('Reusing existing design files for new product:', designFiles);
+        }
+      } catch (error) {
+        console.error('Error parsing currentDesignFiles:', error);
       }
     }
 
@@ -132,6 +168,47 @@ export async function createProduct(collectionId: string, data: FormData) {
     
     console.log('Completed image processing, total images:', images.length);
 
+    // Process design files similar to images
+    console.log('Starting design files processing for product creation');
+    
+    // Process design files
+    for (let i = 0; i < 10; i++) { // Check up to 10 possible design files
+      try {
+        const designFileKey = `designFile${i}`;
+        const designFile = data.get(designFileKey);
+        
+        if (!designFile) {
+          console.log(`No design file found for ${designFileKey}, stopping design file processing`);
+          break; // No more design files to process
+        }
+        
+        console.log(`Processing ${designFileKey}:`, 
+          typeof designFile, 
+          designFile instanceof File ? 'Valid File object' : 'Not a File object',
+          'constructor:', designFile.constructor?.name || 'unknown'
+        );
+        
+        // Try to process the design file regardless of instanceof check
+        if (designFile instanceof File || (designFile as any).name) {
+          try {
+            console.log(`Uploading ${designFileKey} with name:`, (designFile as any).name);
+            const designFileUrls = await uploadDesignFiles([designFile as File]);
+            console.log(`${designFileKey} uploaded successfully:`, designFileUrls);
+            designFiles.push(...designFileUrls);
+          } catch (uploadError) {
+            console.error(`Error uploading ${designFileKey}:`, uploadError);
+            throw new Error(`Failed to upload design file: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+          }
+        } else {
+          console.warn(`${designFileKey} exists but is not a valid File object:`, designFile);
+        }
+      } catch (error) {
+        console.error(`Error processing designFile${i}:`, error);
+      }
+    }
+    
+    console.log('Completed design files processing, total design files:', designFiles.length);
+
     const { error } = await supabase
       .from('products')
       .insert({
@@ -142,6 +219,7 @@ export async function createProduct(collectionId: string, data: FormData) {
         category_id: categoryId,
         collection_id: collectionId,
         images,
+        design_files: designFiles,
         variants,
         variant_prices: variantPrices,
         minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
@@ -170,7 +248,7 @@ export async function updateProduct(id: string, data: FormData) {
     // First, get the current product to ensure proper updates
     const { data: currentProduct, error: fetchError } = await supabase
       .from('products')
-      .select('images, variants, variant_prices, notes, free_notes, collection_id, category_id')
+      .select('images, design_files, variants, variant_prices, notes, free_notes, collection_id, category_id')
       .eq('id', id)
       .single();
     
@@ -295,6 +373,47 @@ export async function updateProduct(id: string, data: FormData) {
       
       updateData.images = finalImages;
     }
+
+    // 4. Process design file changes
+    if (data.get('currentDesignFiles') !== null || data.get('designFile0') !== null) {
+      // Upload any new design files first
+      const newDesignFileUrls: string[] = [];
+      let newDesignFileCount = 0;
+      
+      // Count how many design files are in the form data
+      while (data.get(`designFile${newDesignFileCount}`)) {
+        newDesignFileCount++;
+      }
+      
+      for (let i = 0; i < newDesignFileCount; i++) {
+        const designFile = data.get(`designFile${i}`) as File;
+        if (designFile instanceof File) {
+          const designFileUrls = await uploadDesignFiles([designFile]);
+          newDesignFileUrls.push(...designFileUrls);
+        }
+      }
+      
+      // Process existing and removed design files
+      let finalDesignFiles: string[];
+      const hasCurrentDesignFiles = !!data.get('currentDesignFiles');
+      
+      if (hasCurrentDesignFiles) {
+        const currentDesignFilesStr = data.get('currentDesignFiles') as string;
+        const removedDesignFilesStr = data.get('removedDesignFiles') as string;
+        
+        const currentDesignFiles = JSON.parse(currentDesignFilesStr || '[]') as string[];
+        const removedDesignFiles = JSON.parse(removedDesignFilesStr || '[]') as string[];
+        
+        // Filter out removed design files and add new ones
+        const remainingDesignFiles = currentDesignFiles.filter((file: string) => !removedDesignFiles.includes(file));
+        finalDesignFiles = [...remainingDesignFiles, ...newDesignFileUrls];
+      } else {
+        // If currentDesignFiles not provided but we have new design files, replace completely
+        finalDesignFiles = newDesignFileUrls.length > 0 ? newDesignFileUrls : (currentProduct.design_files || []);
+      }
+      
+      updateData.design_files = finalDesignFiles;
+    }
     
     // Perform the update with all necessary fields
     const { error: updateError } = await supabase
@@ -306,20 +425,11 @@ export async function updateProduct(id: string, data: FormData) {
       console.error('Error updating product:', updateError);
       throw updateError;
     }
-    
-    // Get collectionId from the current product or query
-    const collectionId = currentProduct.collection_id;
-    
-    // Handle category changes for cache invalidation
-    const oldCategoryId = currentProduct.category_id;
-    const newCategoryId = categoryId;
-    
-    // Invalidate caches for both old and new categories if they've changed
-    invalidateProductCaches(collectionId, oldCategoryId);
-    if (oldCategoryId !== newCategoryId) {
-      invalidateProductCaches(collectionId, newCategoryId);
-    }
-    
+
+    // Invalidate caches after successful update
+    invalidateProductCaches(currentProduct.collection_id, currentProduct.category_id);
+    invalidateProductCaches(currentProduct.collection_id, categoryId);
+
     return { success: true };
   } catch (error) {
     console.error('Error updating product:', error);

@@ -24,6 +24,7 @@ export interface Product {
   price: number; // Base price
   imageUrl: string;
   images?: string[];
+  designFiles?: string[]; // Design files for product
   categoryId: string;
   category?: Category;
   collectionId: string;

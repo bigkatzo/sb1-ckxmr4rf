@@ -9,7 +9,7 @@ import imageCompression from 'browser-image-compression';
 // For debugging storage issues
 const DEBUG_STORAGE = false;
 
-export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets' | 'profile-images';
+export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets' | 'profile-images' | 'product-design-files';
 
 export interface UploadResult {
   path: string;
@@ -145,7 +145,7 @@ function validateFile(file: File, maxSizeMB: number = 5): void {
 function fixDuplicatedBucketPath(url: string): string {
   if (!url) return url;
   
-  const buckets = ['collection-images', 'product-images', 'site-assets', 'profile-images'];
+  const buckets = ['collection-images', 'product-images', 'site-assets', 'profile-images', 'product-design-files'];
   
   // First check for classic duplication pattern (/public/bucket/bucket/)
   for (const bucket of buckets) {

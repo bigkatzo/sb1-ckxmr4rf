@@ -50,7 +50,10 @@ export const productSchema = z.object({
   variantPrices: variantPricingSchema,
   imageFiles: fileArraySchema,
   existingImages: stringArraySchema,
-  removedImages: stringArraySchema
+  removedImages: stringArraySchema,
+  designFiles: fileArraySchema,
+  existingDesignFiles: stringArraySchema,
+  removedDesignFiles: stringArraySchema
 });
 
 // Basic product form values from schema
@@ -63,4 +66,7 @@ export interface ExtendedProductFormValues extends ProductFormValues {
   imageFiles: File[];
   existingImages: string[];
   removedImages: string[];
+  designFiles: File[];
+  existingDesignFiles: string[];
+  removedDesignFiles: string[];
 } 

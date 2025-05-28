@@ -6,7 +6,6 @@ import { HomePage } from '../pages/HomePage';
 import { ProtectedRoute } from '../components/merchant/ProtectedRoute';
 import { AnimatedLayout } from '../components/layout/AnimatedLayout';
 import { ProductPageTransition } from '../components/ui/ProductPageTransition';
-import { OptimizedImage } from '../components/ui/OptimizedImage';
 
 // Improved preload function for frequently accessed routes
 // Uses requestIdleCallback for better performance
@@ -48,6 +47,7 @@ if (typeof window !== 'undefined') {
 // Lazy load routes that aren't needed immediately
 const CollectionPage = lazy(() => import('../pages/CollectionPage').then(module => ({ default: module.CollectionPage })));
 const ProductPage = lazy(() => import('../pages/ProductPage').then(module => ({ default: module.ProductPage })));
+const ProductDesignPage = lazy(() => import('../pages/ProductDesignPage').then(module => ({ default: module.ProductDesignPage })));
 const SignInPage = lazy(() => import('../pages/merchant/SignInPage').then(module => ({ default: module.SignInPage })));
 const RegisterPage = lazy(() => import('../pages/merchant/RegisterPage').then(module => ({ default: module.RegisterPage })));
 const DashboardPage = lazy(() => import('../pages/merchant/DashboardPage').then(module => ({ default: module.DashboardPage })));
@@ -85,6 +85,13 @@ const ProductPageWithTransition = () => (
       <ProductPage />
     </Suspense>
   </ProductPageTransition>
+);
+
+// Product design page component
+const ProductDesignPageWithFallback = () => (
+  <Suspense fallback={<PageLoader />}>
+    <ProductDesignPage />
+  </Suspense>
 );
 
 // Wrap suspense components with minimal or no fallback for smoother transitions
@@ -166,6 +173,14 @@ export const router = createBrowserRouter([
           {
             path: ':collectionSlug/:productSlug',
             element: <ProductPageWithTransition />
+          },
+          {
+            path: ':collectionSlug/:productSlug/design',
+            element: <ProductDesignPageWithFallback />
+          },
+          {
+            path: 'design/:collectionSlug/:productSlug',
+            element: <ProductDesignPageWithFallback />
           },
           {
             path: 'merchant/signin',

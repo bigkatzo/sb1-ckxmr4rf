@@ -58,6 +58,7 @@ export interface Product {
   price: number;
   imageUrl: string;
   images?: string[];
+  designFiles?: string[];
   categoryId: string;
   category?: Category;
   collectionId: string;

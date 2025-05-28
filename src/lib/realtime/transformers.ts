@@ -47,6 +47,7 @@ export function transformProduct(dbProduct: any): Product {
     price: dbProduct.price,
     imageUrl: dbProduct.images?.[0] ? normalizeStorageUrl(dbProduct.images[0]) : '',
     images: (dbProduct.images || []).map((img: string) => normalizeStorageUrl(img)),
+    designFiles: (dbProduct.design_files || []).map((file: string) => normalizeStorageUrl(file)),
     categoryId: dbProduct.category_id,
     category,
     collectionId: dbProduct.collection_id,
