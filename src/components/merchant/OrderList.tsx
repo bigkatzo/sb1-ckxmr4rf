@@ -18,7 +18,7 @@ import {
   PackageOpen,
   Ban
 } from 'lucide-react';
-import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual } from 'date-fns';
+import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual, subYears } from 'date-fns';
 import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { OrderAnalytics } from './OrderAnalytics';
@@ -1146,7 +1146,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           <OrderAnalytics
             orders={filteredOrders}
             timeRange={{
-              start: startDate ? new Date(startDate) : subDays(new Date(), 30),
+              start: startDate ? new Date(startDate) : subYears(new Date(), 1),
               end: endDate ? new Date(endDate) : new Date()
             }}
           />
