@@ -285,19 +285,21 @@ export async function updateOrderTransactionSignature(
     try {
       console.log(`Attempting to update order transaction (attempt ${attempt + 1}/${maxRetries})`);
       
+      const body = JSON.stringify({
+        orderId,
+        batchOrderId,
+        transactionSignature,
+        amountSol,
+        walletAddress,
+        isBatchOrder
+      });
+
       const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          orderId,
-          batchOrderId,
-          transactionSignature,
-          amountSol,
-          walletAddress,
-          isBatchOrder
-        })
+        body,
       });
       
       if (!updateResponse.ok) {
