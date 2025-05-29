@@ -265,7 +265,7 @@ exports.handler = async (event, context) => {
       let { data: existingOrders, error: searchError } = await supabase
         .from('orders')
         .select('id, status, created_at, order_number')
-        .eq('payment_metadata->transactionId', transactionId);
+        .eq('payment_metadata->>transactionId', transactionId);
       
       // If no exact match found, try a more general search
       if ((!existingOrders || existingOrders.length === 0) && !searchError) {
@@ -317,7 +317,7 @@ exports.handler = async (event, context) => {
     
     // Generate an order number and batch order ID (even for single orders)
     const orderNumber = await generateOrderNumber();
-    const batchOrderId = uuidv4();
+    const batchOrderId = paymentMetadata.isBatchOrder ? batchOrderuuidv4() : null;
     
     // Add additional metadata for consistent batch order handling
     const finalPaymentMetadata = {
@@ -350,7 +350,7 @@ exports.handler = async (event, context) => {
       .from('orders')
       .update({
         order_number: orderNumber,
-        batch_order_id: batchOrderId,
+        batchOrderId,
         item_index: 1, // For single orders, always index 1
         total_items_in_batch: 1 // For single orders, always 1 item
       })

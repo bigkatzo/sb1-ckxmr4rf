@@ -11,7 +11,7 @@ import type { CategoryRule } from '../../types';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { verifyNFTHolding } from '../../utils/nft-verification';
-import { monitorTransaction } from '../../utils/transaction-monitor';
+import { verifyFinalTransaction } from '../../utils/transaction-monitor';
 import { OrderSuccessView } from '../OrderSuccessView';
 import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../../lib/validation';
 import { StripePaymentModal } from './StripePaymentModal';
@@ -384,8 +384,10 @@ export function TokenVerificationModal({
       updateProgressStep(0, 'processing', 'Creating your order...');
       
       let orderResponse;
-      let orderId;
-      let orderNumber;
+      let orderId: string | undefined;
+      let orderNumber: string;
+      let batchOrderId;
+      let isBatchOrder = false;
       
       // If user has a batch checkout from cart, use batch order endpoint
       if (paymentMetadata?.isBatchOrder) {
@@ -432,10 +434,12 @@ export function TokenVerificationModal({
           throw new Error(batchData.error || 'Failed to create batch order');
         }
             
-        orderId = batchData.orders?.[0]?.orderId; // Get the first order ID
-            
-        // Get order number from the response
-        orderNumber = batchData.orderNumber;
+
+        orderNumber = batchData.orderNumbers?.[0]; 
+        batchOrderId = batchData.batchOrderId;
+        isBatchOrder = true;
+
+        console.log("Successfully created batch order data with batch id above: ", batchOrderId);
       } else {
         // For regular single orders, use the regular order endpoint
         orderResponse = await fetch('/.netlify/functions/create-order', {
@@ -500,17 +504,20 @@ export function TokenVerificationModal({
         
         // Update order to pending_payment status even if payment fails
         try {
+          const rejectBody = JSON.stringify({
+            orderId,
+            batchOrderId,
+            transactionSignature: 'rejected', // Use a special value for rejected transactions
+            amountSol: finalPrice,
+            walletAddress: walletAddress || 'anonymous'
+          });
+
           const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-              orderId,
-              transactionSignature: 'rejected', // Use a special value for rejected transactions
-              amountSol: finalPrice,
-              walletAddress: walletAddress || 'anonymous'
-            })
+            body: rejectBody,
           });
 
           if (!updateResponse.ok) {
@@ -526,12 +533,13 @@ export function TokenVerificationModal({
 
       // Update order with transaction signature
       try {
+        console.log("Batch order id right before...");
         const success = await updateOrderTransactionSignature({
           orderId,
           transactionSignature: txSignature,
           amountSol: finalPrice,
           walletAddress: walletAddress || 'anonymous',
-          batchOrderId: paymentMetadata?.batchOrderId
+          batchOrderId,
         });
 
         if (!success) {
@@ -548,11 +556,12 @@ export function TokenVerificationModal({
         const expectedDetails = {
           amount: finalPrice,
           buyer: walletAddress || '',
+          collectionId: product.collectionId,
           recipient: product.collectionId // Collection address as recipient
         };
         
         // Monitor transaction status and confirm on chain
-        const transactionSuccess = await monitorTransaction(
+        const transactionSuccess = await verifyFinalTransaction(
           txSignature,
           (status) => {
             console.log('Transaction status update:', status);
@@ -580,9 +589,9 @@ export function TokenVerificationModal({
               }, 50);
             }
           },
-          expectedDetails,
           orderId,
-          paymentMetadata?.batchOrderId
+          paymentMetadata?.batchOrderId,
+          expectedDetails,
         );
 
         // SAFETY: Add a timeout for direct success if callbacks aren't working

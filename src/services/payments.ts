@@ -12,7 +12,7 @@ import { prepareTransaction, validateTransaction } from '../utils/transaction';
 const MAINNET_COMMITMENT: Commitment = 'finalized';
 const MAINNET_FEE_BUFFER = 15000; // Increased fee buffer for mainnet
 
-async function getCollectionWallet(collectionId: string): Promise<string> {
+export async function getCollectionWallet(collectionId: string): Promise<string> {
   try {
     // Get the wallet address directly from merchant_wallets through collection_wallets
     const { data, error } = await supabase
