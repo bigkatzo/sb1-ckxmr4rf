@@ -133,7 +133,8 @@ export function DashboardPage() {
         // User has access if they own collections or have been granted access
         const hasAccess = Boolean(
           (ownedCollections && ownedCollections.length > 0) || 
-          (accessibleCollections && accessibleCollections.length > 0)
+          (accessibleCollections && accessibleCollections.length > 0) ||
+          userIsAdmin // Admins always have access
         );
 
         setHasCollectionAccess(hasAccess);
