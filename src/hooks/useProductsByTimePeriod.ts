@@ -119,12 +119,9 @@ export function useProductsByTimePeriod({
           setLoading(true);
         }
         
-        // Get the date range filter based on time period
-        const dateFilter = getDateRangeFilter(timePeriod);
-        
         // Construct the RPC call based on sort type
         let rpcName = sortBy === 'sales' 
-          ? 'get_products_by_sales'
+          ? 'get_trending_products'
           : 'get_products_by_launch_date';
         
         // Use proper query structure for Supabase RPC calls
@@ -132,17 +129,30 @@ export function useProductsByTimePeriod({
           .rpc(rpcName, { 
             p_limit: limit,
             p_offset: offset,
-            p_date_from: dateFilter.from,
-            p_date_to: dateFilter.to
+            ...(sortBy === 'sales' ? { p_time_period: timePeriod } : {})
           });
 
-        // Separate count query if needed
-        const { count } = await supabase
-          .from('public_products_with_categories')
-          .select('id', { count: 'exact', head: true })
-          .filter('id', 'in', (data || []).map((p: any) => p.id));
-
         if (error) throw error;
+
+        // Get product IDs for count query
+        const productIds = (data || []).map((p: any) => p.id);
+        
+        // Skip count query if no products returned
+        let count = 0;
+        if (productIds.length > 0) {
+          // Get total count
+          try {
+            const countResult = await supabase
+              .from('public_products_with_categories')
+              .select('id', { count: 'exact', head: true });
+            
+            count = countResult.count || 0;
+          } catch (countErr) {
+            console.warn('Error getting product count:', countErr);
+            // Continue without count
+            count = productIds.length;
+          }
+        }
 
         const transformedProducts = (data || []).map((product: any) => {
           // Fix for empty object in JSONB column
@@ -159,6 +169,7 @@ export function useProductsByTimePeriod({
             price: product.price,
             imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
             images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
+            designFiles: (product.design_files || []).map((file: string) => normalizeStorageUrl(file)),
             categoryId: product.category_id,
             category: product.category_id ? {
               id: product.category_id,
@@ -176,6 +187,7 @@ export function useProductsByTimePeriod({
             collectionSlug: product.collection_slug,
             collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
             collectionSaleEnded: product.collection_sale_ended,
+            categorySaleEnded: product.category_sale_ended,
             slug: product.slug || '',
             stock: product.quantity,
             minimumOrderQuantity: product.minimum_order_quantity || 50,
@@ -184,7 +196,18 @@ export function useProductsByTimePeriod({
             priceModifierBeforeMin: product.price_modifier_before_min ?? null,
             priceModifierAfterMin: product.price_modifier_after_min ?? null,
             salesCount: product.sales_count || 0,
-            notes: hasValidNotes ? product.notes : undefined,
+            saleEnded: product.sale_ended || false,
+            publicOrderCount: product.order_count,
+            rank: product.rank,
+            pinOrder: product.pin_order,
+            blankCode: product.blank_code,
+            technique: product.technique,
+            noteForSupplier: product.note_for_supplier,
+            notes: {
+              shipping: product.shipping_notes || '',
+              quality: product.quality_notes || '',
+              returns: product.returns_notes || ''
+            },
             freeNotes: freeNotesValue
           } as Product;
         });
@@ -249,43 +272,33 @@ export function useProductsByTimePeriod({
     loading, 
     error, 
     hasMore, 
-    loadMore,
-    totalCount
+    totalCount,
+    loadMore
   };
 }
 
-// Helper function to get date range filter based on time period
 function getDateRangeFilter(timePeriod: TimePeriod): { from: string | null, to: string | null } {
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const to = now.toISOString();
   
   switch (timePeriod) {
     case 'today':
-      return {
-        from: today.toISOString(),
-        to: now.toISOString()
-      };
-    case 'last_7_days': {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      return {
-        from: sevenDaysAgo.toISOString(),
-        to: now.toISOString()
-      };
-    }
-    case 'last_30_days': {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      return {
-        from: thirtyDaysAgo.toISOString(),
-        to: now.toISOString()
-      };
-    }
+      const startOfDay = new Date(now);
+      startOfDay.setHours(0, 0, 0, 0);
+      return { from: startOfDay.toISOString(), to };
+      
+    case 'last_7_days':
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      return { from: sevenDaysAgo.toISOString(), to };
+      
+    case 'last_30_days':
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      return { from: thirtyDaysAgo.toISOString(), to };
+      
     case 'all_time':
     default:
-      return {
-        from: null,
-        to: null
-      };
+      return { from: null, to: null };
   }
 } 
