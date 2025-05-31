@@ -143,9 +143,7 @@ function RankedProductItem({
       if (rank === 3) return 'bg-amber-600 text-amber-950';
       if (rank <= 10) return 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20';
     } else {
-      if (rank === 1) return 'bg-purple-500 text-white';
-      if (rank === 2) return 'bg-indigo-500 text-white';
-      if (rank === 3) return 'bg-cyan-500 text-white';
+      // Use the same green style for all ranks 1-10 in new products tab
       if (rank <= 10) return 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20';
     }
     return 'bg-gray-800 text-gray-400';
