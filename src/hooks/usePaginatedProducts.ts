@@ -24,7 +24,37 @@ export function usePaginatedProducts(
   } = options;
 
   // Create a cache key combining collection/category info
-  const actualCacheKey = `products_${cacheKey}_${categoryId}_${sortOption}_v2`;
+  const actualCacheKey = `products_${cacheKey}_${categoryId}_${sortOption}_v3`;
+
+  // Clear all product caches for this collection
+  const clearProductCaches = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      // Find all keys related to this collection
+      const keysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith(`products_${cacheKey}`)) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      // Remove all related cache entries
+      keysToRemove.forEach(key => {
+        sessionStorage.removeItem(key);
+        console.log(`Cleared cache: ${key}`);
+      });
+    } catch (e) {
+      console.warn('Error clearing product caches:', e);
+    }
+  }, [cacheKey]);
+
+  // When sort option changes, clear caches
+  useEffect(() => {
+    clearProductCaches();
+    console.log(`Sort changed to ${sortOption}, cleared all related caches`);
+  }, [sortOption, clearProductCaches]);
 
   // Add logging for debug purposes
   useEffect(() => {
@@ -32,17 +62,26 @@ export function usePaginatedProducts(
     console.log(`Cache key updated: ${actualCacheKey}`);
     // Log some stats about the products to help debug
     if (allProducts.length > 0) {
-      const pinnedCount = allProducts.filter(p => p.pinOrder !== undefined && p.pinOrder !== null).length;
-      console.log(`Total products: ${allProducts.length}, Pinned: ${pinnedCount}`);
+      const pinnedProducts = allProducts.filter(p => p.pinOrder !== undefined && p.pinOrder !== null && p.pinOrder > 0);
+      console.log(`Total products: ${allProducts.length}, Pinned: ${pinnedProducts.length}`);
+      
+      if (pinnedProducts.length > 0) {
+        console.log('All pinned products:', pinnedProducts.map(p => ({
+          id: p.id.substring(0, 6),
+          name: p.name,
+          pinOrder: p.pinOrder
+        })));
+      }
       
       // Log first few products with their sort-relevant properties
-      const sampleProducts = allProducts.slice(0, Math.min(3, allProducts.length));
+      const sampleProducts = allProducts.slice(0, Math.min(5, allProducts.length));
       console.log('Sample product data:', sampleProducts.map(p => ({
-        id: p.id,
+        id: p.id.substring(0, 6),
         name: p.name,
         pinOrder: p.pinOrder,
         salesCount: p.salesCount,
-        price: p.price
+        price: p.price,
+        type: typeof p.pinOrder
       })));
     }
   }, [sortOption, actualCacheKey, allProducts.length]);
@@ -57,19 +96,41 @@ export function usePaginatedProducts(
     // For 'recommended' sort, handle pinned products separately
     if (sortOption === 'recommended') {
       // Separate pinned and unpinned products
-      const pinnedProducts = filtered.filter(product => product.pinOrder !== undefined && product.pinOrder !== null);
-      const unpinnedProducts = filtered.filter(product => product.pinOrder === undefined || product.pinOrder === null);
+      // Only consider valid pin orders (1, 2, 3, etc.)
+      const pinnedProducts = filtered.filter(product => {
+        const hasPinOrder = product.pinOrder !== undefined && product.pinOrder !== null;
+        const isValidPinOrder = hasPinOrder && Number(product.pinOrder) > 0;
+        return isValidPinOrder;
+      });
+      
+      const unpinnedProducts = filtered.filter(product => {
+        const hasPinOrder = product.pinOrder !== undefined && product.pinOrder !== null;
+        const isValidPinOrder = hasPinOrder && Number(product.pinOrder) > 0;
+        return !isValidPinOrder;
+      });
+      
+      console.log(`Sorting ${pinnedProducts.length} pinned products and ${unpinnedProducts.length} unpinned products`);
       
       // Sort pinned products by their pin order
-      const sortedPinnedProducts = pinnedProducts.sort((a, b) => {
-        // Ensure we have valid pinOrder values (should be 1-3)
-        const aOrder = a.pinOrder !== undefined && a.pinOrder !== null ? a.pinOrder : 999;
-        const bOrder = b.pinOrder !== undefined && b.pinOrder !== null ? b.pinOrder : 999;
+      const sortedPinnedProducts = [...pinnedProducts].sort((a, b) => {
+        // Ensure we have valid pinOrder values
+        const aOrder = Number(a.pinOrder);
+        const bOrder = Number(b.pinOrder);
+        console.log(`Comparing pinOrder: ${aOrder} vs ${bOrder}`);
         return aOrder - bOrder;
       });
       
+      // Log the sorted pinned products
+      if (sortedPinnedProducts.length > 0) {
+        console.log('Sorted pinned products:', sortedPinnedProducts.map(p => ({
+          id: p.id.substring(0, 6),
+          name: p.name,
+          pinOrder: p.pinOrder
+        })));
+      }
+      
       // Sort unpinned products by sales count first, then by creation date (newer first)
-      const sortedUnpinnedProducts = unpinnedProducts.sort((a, b) => {
+      const sortedUnpinnedProducts = [...unpinnedProducts].sort((a, b) => {
         // First compare by sales count (default to 0 if undefined)
         const salesCompare = (b.salesCount || 0) - (a.salesCount || 0);
         
@@ -82,24 +143,46 @@ export function usePaginatedProducts(
       });
       
       // Combine the pinned products (at the top) with the sorted unpinned products
-      return [...sortedPinnedProducts, ...sortedUnpinnedProducts];
+      const result = [...sortedPinnedProducts, ...sortedUnpinnedProducts];
+      console.log('Final sorted list first 3 items:', result.slice(0, 3).map(p => ({
+        id: p.id.substring(0, 6),
+        name: p.name,
+        pinOrder: p.pinOrder
+      })));
+      
+      return result;
     } else {
       // For all other sort options, ignore pinned status
-      return [...filtered].sort((a, b) => {
+      const sortedProducts = [...filtered].sort((a, b) => {
         switch (sortOption) {
           case 'popular':
             // Sort by salesCount (higher first), default to 0 if undefined
-            return (b.salesCount || 0) - (a.salesCount || 0);
+            const aSales = a.salesCount || 0;
+            const bSales = b.salesCount || 0;
+            return bSales - aSales;
           case 'newest':
             // Sort by creation date (newer first), using ID as proxy for creation time
             return b.id.localeCompare(a.id);
           case 'price':
             // Sort by price (lower first)
-            return (a.price || 0) - (b.price || 0);
+            const aPrice = a.price || 0;
+            const bPrice = b.price || 0;
+            return aPrice - bPrice;
           default:
             return 0;
         }
       });
+
+      // Log the sorted results for debugging
+      console.log(`Sorted by ${sortOption}, first 3 items:`, sortedProducts.slice(0, 3).map(p => ({
+        id: p.id.substring(0, 6),
+        name: p.name,
+        [sortOption === 'popular' ? 'salesCount' : sortOption === 'price' ? 'price' : 'id']: 
+          sortOption === 'popular' ? p.salesCount : 
+          sortOption === 'price' ? p.price : p.id
+      })));
+      
+      return sortedProducts;
     }
   }, [allProducts, categoryId, sortOption]);
   
@@ -347,8 +430,14 @@ export function usePaginatedProducts(
 
   // Function to explicitly reset products (for use when navigation occurs)
   const resetProducts = useCallback(() => {
+    console.log(`Explicitly resetting products with sort: ${sortOption}`);
+    
+    // Clear all caches first
+    clearProductCaches();
+    
+    // Then load products with reset flag
     loadProducts(true);
-  }, [loadProducts]);
+  }, [loadProducts, sortOption, clearProductCaches]);
 
   return {
     products: visibleProducts,
