@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type TabsContextValue = {
   value: string;
@@ -26,6 +26,10 @@ export function Tabs({
   
   const currentValue = value !== undefined ? value : tabValue;
   const handleValueChange = onValueChange || setTabValue;
+
+  useEffect(() => {
+    console.log('Tabs component value:', currentValue);
+  }, [currentValue]);
 
   return (
     <TabsContext.Provider value={{ value: currentValue, onChange: handleValueChange }}>
@@ -109,11 +113,19 @@ export function TabsContent({ value, className = '', children }: TabsContentProp
   
   const isActive = context.value === value;
   
+  useEffect(() => {
+    console.log(`TabsContent [${value}] isActive:`, isActive, 'context.value:', context.value);
+  }, [value, isActive, context.value]);
+  
+  if (!isActive) {
+    return null; // Don't render inactive tabs at all
+  }
+  
   return (
     <div
       role="tabpanel"
-      data-state={isActive ? 'active' : 'inactive'}
-      className={`${className} ${isActive ? 'block' : 'hidden'}`}
+      data-state="active"
+      className={className}
     >
       {children}
     </div>

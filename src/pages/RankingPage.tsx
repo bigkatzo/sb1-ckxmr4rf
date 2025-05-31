@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { RankedProductList } from '../components/products/RankedProductList';
@@ -8,6 +8,11 @@ import SEO from '../components/SEO';
 export function RankingPage() {
   const [activeTab, setActiveTab] = useState<SortType>('sales');
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all_time');
+  
+  // For debugging
+  useEffect(() => {
+    console.log('RankingPage activeTab changed:', activeTab);
+  }, [activeTab]);
 
   // Best Sellers data
   const { 
@@ -34,6 +39,22 @@ export function RankingPage() {
     timePeriod: 'all_time',
     initialLimit: 50
   });
+  
+  // Debug the data we're getting
+  useEffect(() => {
+    if (newProducts.length > 0) {
+      console.log('New Products data loaded:', {
+        count: newProducts.length,
+        firstProduct: newProducts[0]
+      });
+    }
+  }, [newProducts]);
+
+  // Handler for tab changes
+  const handleTabChange = (value: string) => {
+    console.log('Tab changed to:', value);
+    setActiveTab(value as SortType);
+  };
 
   return (
     <div className="container max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -49,7 +70,8 @@ export function RankingPage() {
 
       <Tabs 
         defaultValue="sales" 
-        onValueChange={(value: string) => setActiveTab(value as SortType)}
+        value={activeTab}
+        onValueChange={handleTabChange}
         className="w-full"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
