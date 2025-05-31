@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Tabs } from '../../components/ui/Tabs';
+import { LegacyTabs as Tabs } from '../../components/ui/Tabs';
 import { Settings, LogOut, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';

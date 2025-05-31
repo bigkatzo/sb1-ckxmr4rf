@@ -5,7 +5,7 @@ import { SiteSettings } from '../../components/admin/SiteSettings';
 import { useAuth } from '../../contexts/AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Tabs } from '../../components/ui/Tabs';
+import { LegacyTabs as Tabs } from '../../components/ui/Tabs';
 import { toast } from 'react-toastify';
 import { ArrowLeft } from 'lucide-react';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
