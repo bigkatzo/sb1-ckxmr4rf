@@ -20,25 +20,8 @@ export function SectionHeader({
   secondaryOnClick
 }: SectionHeaderProps) {
   const commonStyles = "text-lg sm:text-2xl font-bold text-text";
-  const linkStyles = to || onClick ? "hover:text-primary transition-colors inline-flex items-center gap-1" : "";
-  const secondaryStyles = "text-lg sm:text-2xl font-medium text-gray-500/70 hover:text-primary transition-colors inline-flex items-center gap-1 ml-3";
-  
-  const arrowIcon = (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      className="h-4 w-4 mt-1"
-      fill="none" 
-      viewBox="0 0 24 24" 
-      stroke="currentColor"
-    >
-      <path 
-        strokeLinecap="round" 
-        strokeLinejoin="round" 
-        strokeWidth={2} 
-        d="M9 5l7 7-7 7" 
-      />
-    </svg>
-  );
+  const linkStyles = to || onClick ? "hover:opacity-90 transition-opacity" : "";
+  const secondaryStyles = "text-lg sm:text-2xl font-medium text-gray-500/50 hover:opacity-90 transition-opacity ml-3";
 
   // Secondary link component
   const SecondaryLink = () => {
@@ -48,18 +31,16 @@ export function SectionHeader({
       return (
         <Link to={secondaryTo} className={secondaryStyles}>
           {secondaryTitle}
-          {arrowIcon}
         </Link>
       );
     } else if (secondaryOnClick) {
       return (
         <button onClick={secondaryOnClick} className={secondaryStyles}>
           {secondaryTitle}
-          {arrowIcon}
         </button>
       );
     } else {
-      return <span className={secondaryStyles.replace('hover:text-primary', '')}>{secondaryTitle}</span>;
+      return <span className={secondaryStyles.replace('hover:opacity-90', '')}>{secondaryTitle}</span>;
     }
   };
 
@@ -69,12 +50,10 @@ export function SectionHeader({
         {to ? (
           <Link to={to} className={`${commonStyles} ${linkStyles}`}>
             {title}
-            {arrowIcon}
           </Link>
         ) : onClick ? (
           <button onClick={onClick} className={`${commonStyles} ${linkStyles}`}>
             {title}
-            {arrowIcon}
           </button>
         ) : (
           <h2 className={commonStyles}>{title}</h2>
