@@ -94,7 +94,7 @@ export function useCollection(slug: string) {
         if (!collectionData) throw new Error('Collection not found');
 
         // Then fetch categories and products in parallel from public views
-        const [categoriesResponse, productsResponse] = await Promise.all([
+        const [categoriesResponse, productsResponse, orderCountsResponse] = await Promise.all([
           supabase
             .from('public_categories')
             .select('*')
@@ -102,11 +102,27 @@ export function useCollection(slug: string) {
           supabase
             .from('public_products_with_categories')
             .select('*')
+            .eq('collection_id', collectionData.id),
+          // Fetch order counts from public_order_counts
+          supabase
+            .from('public_order_counts')
+            .select('product_id, total_orders')
             .eq('collection_id', collectionData.id)
         ]);
 
         if (categoriesResponse.error) throw categoriesResponse.error;
         if (productsResponse.error) throw productsResponse.error;
+        
+        // Create a map of product IDs to order counts
+        const orderCountsMap = new Map();
+        if (!orderCountsResponse.error && orderCountsResponse.data) {
+          console.log('Public order counts data:', orderCountsResponse.data);
+          orderCountsResponse.data.forEach(item => {
+            orderCountsMap.set(item.product_id, item.total_orders);
+          });
+        } else {
+          console.warn('Failed to fetch public order counts:', orderCountsResponse?.error);
+        }
 
         // Transform collection data (static)
         const collectionStatic = {
@@ -137,6 +153,9 @@ export function useCollection(slug: string) {
 
         // Transform and cache products
         const products = await Promise.all((productsResponse.data || []).map(async product => {
+          // Get public order count for this product
+          const publicOrderCount = orderCountsMap.get(product.id) || 0;
+          
           // Static product data
           const productStatic = {
             id: product.id,
@@ -161,6 +180,8 @@ export function useCollection(slug: string) {
             collectionSlug: product.collection_slug,
             slug: product.slug || '',
             variants: product.variants || [],
+            // Add created_at timestamp if available
+            createdAt: product.created_at || null,
           };
 
           // Cache static product data
@@ -197,6 +218,15 @@ export function useCollection(slug: string) {
             collectionSaleEnded: collectionData.sale_ended ?? false,
             categorySaleEnded: product.category_sale_ended ?? false,
             saleEnded: product.sale_ended ?? false,
+            // Add public order count for accurate sorting
+            publicOrderCount: publicOrderCount,
+            // Add salesCount for backward compatibility
+            salesCount: product.sales_count || 0,
+            // Add other product fields
+            pinOrder: product.pin_order || null,
+            blankCode: product.blank_code || '',
+            technique: product.technique || '',
+            noteForSupplier: product.note_for_supplier || '',
           };
         }));
 
@@ -269,6 +299,16 @@ export function useCollection(slug: string) {
             setLoading(false);
           }
         }
+
+        // After all products are transformed
+        console.log('Transformed products with order counts:', products.map(p => ({
+          id: p.id.substring(0, 6),
+          name: p.name,
+          publicOrderCount: p.publicOrderCount,
+          salesCount: p.salesCount,
+          pinOrder: p.pinOrder,
+          createdAt: p.createdAt
+        })));
       } catch (err) {
         console.error('Error fetching collection:', err);
         if (isMounted && updateLoadingState) {
