@@ -93,6 +93,8 @@ export function usePaginatedProducts(
       ? allProducts.filter(product => product.categoryId === categoryId)
       : allProducts;
     
+    console.log('Sorting products with sort option:', sortOption);
+    
     // For 'recommended' sort, handle pinned products separately
     if (sortOption === 'recommended') {
       // Separate pinned and unpinned products
@@ -131,15 +133,26 @@ export function usePaginatedProducts(
       
       // Sort unpinned products by sales count first, then by creation date (newer first)
       const sortedUnpinnedProducts = [...unpinnedProducts].sort((a, b) => {
-        // First compare by sales count (default to 0 if undefined)
-        const salesCompare = (b.salesCount || 0) - (a.salesCount || 0);
+        // First compare by public order count (higher first)
+        // For the recommended sort, we're using the 'publicOrderCount' property 
+        // that comes from the public_order_counts view
+        const aOrderCount = a.publicOrderCount || 0;
+        const bOrderCount = b.publicOrderCount || 0;
+        const orderCountCompare = bOrderCount - aOrderCount;
         
-        // If sales count is the same, sort by creation date (using ID as proxy for creation time)
-        if (salesCompare === 0) {
-          return b.id.localeCompare(a.id);
+        // If publicOrderCount doesn't exist, fall back to salesCount
+        if (orderCountCompare === 0) {
+          const salesCompare = (b.salesCount || 0) - (a.salesCount || 0);
+          
+          // If sales count is the same, sort by creation date (using ID as proxy for creation time)
+          if (salesCompare === 0) {
+            return b.id.localeCompare(a.id);
+          }
+          
+          return salesCompare;
         }
         
-        return salesCompare;
+        return orderCountCompare;
       });
       
       // Combine the pinned products (at the top) with the sorted unpinned products
@@ -147,7 +160,9 @@ export function usePaginatedProducts(
       console.log('Final sorted list first 3 items:', result.slice(0, 3).map(p => ({
         id: p.id.substring(0, 6),
         name: p.name,
-        pinOrder: p.pinOrder
+        pinOrder: p.pinOrder,
+        publicOrderCount: p.publicOrderCount,
+        salesCount: p.salesCount
       })));
       
       return result;
@@ -156,12 +171,29 @@ export function usePaginatedProducts(
       const sortedProducts = [...filtered].sort((a, b) => {
         switch (sortOption) {
           case 'popular':
-            // Sort by salesCount (higher first), default to 0 if undefined
-            const aSales = a.salesCount || 0;
-            const bSales = b.salesCount || 0;
-            return bSales - aSales;
+            // Sort by public order count (higher first), which is the count of confirmed, shipped, delivered orders
+            // This ensures consistency with the Best Sellers section on the homepage
+            const aOrderCount = a.publicOrderCount || 0;
+            const bOrderCount = b.publicOrderCount || 0;
+            
+            // Debug public order counts
+            console.log(`Popular sort comparing: ${a.name} (${aOrderCount}) vs ${b.name} (${bOrderCount})`);
+            
+            // If order counts are equal, fall back to salesCount
+            if (aOrderCount === bOrderCount) {
+              const aSales = a.salesCount || 0;
+              const bSales = b.salesCount || 0;
+              return bSales - aSales;
+            }
+            
+            return bOrderCount - aOrderCount;
           case 'newest':
-            // Sort by creation date (newer first), using ID as proxy for creation time
+            // Sort by creation date (newer first)
+            // If we have created_at timestamps, use those
+            if (a.createdAt && b.createdAt) {
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            }
+            // Fall back to using ID as proxy for creation time
             return b.id.localeCompare(a.id);
           case 'price':
             // Sort by price (lower first)
@@ -177,9 +209,10 @@ export function usePaginatedProducts(
       console.log(`Sorted by ${sortOption}, first 3 items:`, sortedProducts.slice(0, 3).map(p => ({
         id: p.id.substring(0, 6),
         name: p.name,
-        [sortOption === 'popular' ? 'salesCount' : sortOption === 'price' ? 'price' : 'id']: 
-          sortOption === 'popular' ? p.salesCount : 
-          sortOption === 'price' ? p.price : p.id
+        [sortOption === 'popular' ? 'publicOrderCount' : sortOption === 'price' ? 'price' : 'id']: 
+          sortOption === 'popular' ? p.publicOrderCount : 
+          sortOption === 'price' ? p.price : p.id,
+        salesCount: p.salesCount
       })));
       
       return sortedProducts;
