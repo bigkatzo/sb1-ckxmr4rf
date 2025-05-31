@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
-import { ImageIcon, TrendingUp, Crown, Clock } from 'lucide-react';
+import { ImageIcon, TrendingUp, Crown, Clock, Sparkles, Star, Zap } from 'lucide-react';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
@@ -135,18 +135,31 @@ function RankedProductItem({
     }
   };
 
-  // Determine rank badge color based on position
+  // Determine rank badge color based on position and type
   const getRankBadgeStyles = () => {
-    if (rank === 1) return 'bg-yellow-500 text-yellow-900';
-    if (rank === 2) return 'bg-gray-300 text-gray-800';
-    if (rank === 3) return 'bg-amber-600 text-amber-950';
-    if (rank <= 10) return 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20';
+    if (type === 'sales') {
+      if (rank === 1) return 'bg-yellow-500 text-yellow-900';
+      if (rank === 2) return 'bg-gray-300 text-gray-800';
+      if (rank === 3) return 'bg-amber-600 text-amber-950';
+      if (rank <= 10) return 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20';
+    } else {
+      if (rank === 1) return 'bg-purple-500 text-white';
+      if (rank === 2) return 'bg-indigo-500 text-white';
+      if (rank === 3) return 'bg-cyan-500 text-white';
+      if (rank <= 10) return 'bg-green-500/10 text-green-400 ring-1 ring-green-500/20';
+    }
     return 'bg-gray-800 text-gray-400';
   };
 
   const getRankIcon = () => {
-    if (rank === 1) return <Crown className="h-3 w-3" />;
-    if (rank <= 3) return <TrendingUp className="h-3 w-3" />;
+    if (type === 'sales') {
+      if (rank === 1) return <Crown className="h-3 w-3" />;
+      if (rank <= 3) return <TrendingUp className="h-3 w-3" />;
+    } else {
+      if (rank === 1) return <Sparkles className="h-3 w-3" />;
+      if (rank === 2) return <Star className="h-3 w-3" />;
+      if (rank === 3) return <Zap className="h-3 w-3" />;
+    }
     return null;
   };
 
