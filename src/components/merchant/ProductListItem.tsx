@@ -1,4 +1,4 @@
-import { Image as ImageIcon, EyeOff, Ban, Copy, Trash, Eye, Tag, ExternalLink } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Copy, Trash, Eye, Tag, ExternalLink, Pin } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useOrderStats } from '../../hooks/useOrderStats';
@@ -14,6 +14,7 @@ interface ProductListItemProps {
   onDuplicate?: () => void;
   onToggleVisibility?: (visible: boolean) => void;
   onToggleSaleEnded?: (saleEnded: boolean) => void;
+  onPin?: (pinOrder: number | null) => void;
   onClick?: () => void;
   categoryIndex?: number;
   canEdit?: boolean;
@@ -26,6 +27,7 @@ export function ProductListItem({
   onDuplicate,
   onToggleVisibility,
   onToggleSaleEnded,
+  onPin,
   onClick,
   categoryIndex = 0,
   canEdit = false
@@ -84,6 +86,40 @@ export function ProductListItem({
     });
   }
   
+  // Add pin/unpin options
+  if (canEdit && onPin) {
+    // If product is already pinned, show option to unpin first
+    if (product.pinOrder) {
+      dropdownItems.push({
+        label: 'Unpin Product',
+        icon: <Pin className="h-4 w-4" />,
+        onClick: () => onPin(null)
+      });
+    } 
+
+    // Add pin position options
+    dropdownItems.push({
+      label: 'Pin to Position 1',
+      icon: <Pin className="h-4 w-4" />,
+      onClick: () => onPin(1),
+      disabled: product.pinOrder === 1
+    });
+
+    dropdownItems.push({
+      label: 'Pin to Position 2',
+      icon: <Pin className="h-4 w-4" />,
+      onClick: () => onPin(2),
+      disabled: product.pinOrder === 2
+    });
+
+    dropdownItems.push({
+      label: 'Pin to Position 3',
+      icon: <Pin className="h-4 w-4" />,
+      onClick: () => onPin(3),
+      disabled: product.pinOrder === 3
+    });
+  }
+  
   if (canEdit && onDelete) {
     dropdownItems.push({
       label: 'Delete',
@@ -129,6 +165,12 @@ export function ProductListItem({
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 whitespace-nowrap">
                     <Ban className="h-3 w-3" />
                     Sale Ended
+                  </span>
+                )}
+                {product.pinOrder && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-secondary/10 text-secondary-light whitespace-nowrap">
+                    <Pin className="h-3 w-3" />
+                    Pinned {product.pinOrder}
                   </span>
                 )}
               </div>

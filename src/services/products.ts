@@ -90,6 +90,11 @@ export async function createProduct(collectionId: string, data: FormData) {
     const freeNotesValue = data.get('freeNotes');
     const freeNotes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
 
+    // Handle advanced options
+    const blankCode = data.get('blankCode') as string;
+    const technique = data.get('technique') as string;
+    const noteForSupplier = data.get('noteForSupplier') as string;
+
     // Initialize images and design files arrays
     let images: string[] = [];
     let designFiles: string[] = [];
@@ -227,6 +232,10 @@ export async function createProduct(collectionId: string, data: FormData) {
         price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
         visible: data.get('visible') === 'true',
         sale_ended: data.get('saleEnded') === 'true',
+        pin_order: data.get('pinOrder') ? parseInt(data.get('pinOrder') as string, 10) : null,
+        blank_code: blankCode || null,
+        technique: technique || null,
+        note_for_supplier: noteForSupplier || null,
         notes,
         free_notes: freeNotes
       });
@@ -284,7 +293,17 @@ export async function updateProduct(id: string, data: FormData) {
       sale_ended: data.get('saleEnded') === 'true',
       price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
       price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
+      pin_order: data.get('pinOrder') ? parseInt(data.get('pinOrder') as string, 10) : null,
     };
+    
+    // Handle advanced options
+    const blankCode = data.get('blankCode') as string;
+    const technique = data.get('technique') as string;
+    const noteForSupplier = data.get('noteForSupplier') as string;
+    
+    updateData.blank_code = blankCode || null;
+    updateData.technique = technique || null;
+    updateData.note_for_supplier = noteForSupplier || null;
     
     // Handle notes according to database constraint
     const shippingNote = data.get('notes.shipping');
@@ -701,111 +720,126 @@ export async function toggleProductVisibility(id: string, visible: boolean) {
 }
 
 export async function getProductForDuplication(id: string) {
-  return retry(async () => {
-    try {
-      // Verify user authentication and ownership
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      if (!user) throw new Error('User not authenticated');
+  try {
+    // Get the product data
+    const { data: product, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', id)
+      .limit(1)
+      .maybeSingle();
 
-      // Fetch the product to duplicate with all related data
-      const { data: product, error: fetchError } = await supabase
+    if (error || !product) {
+      console.error('Error fetching product for duplication:', error);
+      throw new Error('Product not found');
+    }
+
+    // Return a copy of the product with a new name
+    return {
+      success: true,
+      productData: {
+        ...product,
+        name: `${product.name} (Copy)`,
+        id: undefined, // Remove the ID to force creation of a new product
+      }
+    };
+  } catch (error) {
+    console.error('Error preparing product for duplication:', error);
+    throw error;
+  }
+}
+
+export async function updateProductPinOrder(id: string, pinOrder: number | null) {
+  return retry(async () => {
+    // Verify user authentication and ownership
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('User not authenticated');
+
+    // First check if user is admin
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = userProfile?.role === 'admin';
+
+    // If not admin, verify ownership or edit access through the collection
+    let productData;
+    if (!isAdmin) {
+      const { data, error: productError } = await supabase
         .from('products')
         .select(`
-          *,
-          category:category_id (
-            id,
-            name
-          ),
+          id,
+          collection_id,
+          category_id,
           collections (
             user_id
           )
         `)
         .eq('id', id)
-        .single();
-      
-      if (fetchError) {
-        throw new Error(`Failed to fetch product to duplicate: ${fetchError.message}`);
+        .limit(1)
+        .maybeSingle();
+
+      if (productError || !data) {
+        throw new Error('Product not found or access denied');
       }
       
-      if (!product) {
-        throw new Error('Product not found');
-      }
+      productData = data;
 
-      // Verify access rights (admin or collection owner/editor)
-      const { data: userProfile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
+      const isOwner = productData.collections &&
+        Array.isArray(productData.collections) &&
+        productData.collections.length > 0 &&
+        productData.collections[0].user_id === user.id;
 
-      const isAdmin = userProfile?.role === 'admin';
-
-      // If not admin, verify ownership or edit access through the collection
-      if (!isAdmin) {
-        const isOwner = product.collections &&
-          Array.isArray(product.collections) &&
-          product.collections.length > 0 &&
-          product.collections[0].user_id === user.id;
-
-        // If not owner, check for edit access through collection_access
-        if (!isOwner) {
-          const { data: accessPermission } = await supabase
-            .from('collection_access')
-            .select('access_type')
-            .eq('collection_id', product.collection_id)
-            .eq('user_id', user.id)
-            .single();
-          
-          const hasEditAccess = accessPermission?.access_type === 'edit';
-          
-          if (!hasEditAccess) {
-            throw new Error('Access denied');
-          }
+      // If not owner, check for edit access through collection_access
+      if (!isOwner) {
+        const { data: accessPermission } = await supabase
+          .from('collection_access')
+          .select('access_type')
+          .eq('collection_id', productData.collection_id)
+          .eq('user_id', user.id)
+          .single();
+        
+        const hasEditAccess = accessPermission?.access_type === 'edit';
+        
+        if (!hasEditAccess) {
+          throw new Error('Access denied');
         }
       }
-      
-      // Transform the database product into a client-side Product object
-      // that can be used by the form
-      const productForForm = {
-        id: null, // Set to null to indicate a new product
-        name: `Copy of ${product.name}`,
-        description: product.description || '',
-        price: product.price,
-        imageUrl: product.images && product.images.length > 0 ? product.images[0] : '',
-        images: product.images || [],
-        categoryId: product.category_id,
-        category: product.category,
-        collectionId: product.collection_id,
-        slug: '', // Clear the slug
-        stock: product.quantity,
-        minimumOrderQuantity: product.minimum_order_quantity || 50,
-        variants: product.variants || [],
-        variantPrices: product.variant_prices || {},
-        sku: '', // Clear the SKU for the duplicate
-        visible: product.visible ?? true,
-        saleEnded: product.sale_ended ?? false,
-        priceModifierBeforeMin: product.price_modifier_before_min,
-        priceModifierAfterMin: product.price_modifier_after_min,
-        notes: product.notes ? {
-          shipping: product.notes.shipping || '',
-          quality: product.notes.quality || '',
-          returns: product.notes.returns || ''
-        } : {
-          shipping: '',
-          quality: '',
-          returns: ''
-        },
-        freeNotes: product.free_notes || ''
-      };
-      
-      return { 
-        success: true, 
-        productData: productForForm
-      };
-    } catch (error) {
-      console.error('Error preparing product for duplication:', error);
-      throw error;
+    } else {
+      // If admin, still need to fetch product data for cache invalidation
+      const { data, error: productError } = await supabase
+        .from('products')
+        .select('collection_id, category_id')
+        .eq('id', id)
+        .limit(1)
+        .maybeSingle();
+        
+      if (!productError && data) {
+        productData = data;
+      }
     }
+
+    // Validate pin order
+    if (pinOrder !== null && ![1, 2, 3].includes(pinOrder)) {
+      throw new Error('Pin order must be 1, 2, 3, or null (not pinned)');
+    }
+
+    // Update product pin order
+    const { error } = await supabase
+      .from('products')
+      .update({ pin_order: pinOrder })
+      .eq('id', id);
+
+    if (error) throw error;
+    
+    // Invalidate caches after successful update
+    if (productData) {
+      invalidateProductCaches(productData.collection_id, productData.category_id);
+    }
+    
+    return { success: true };
   });
 }

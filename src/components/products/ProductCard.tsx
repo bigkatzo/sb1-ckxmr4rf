@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ImageIcon, Ban } from 'lucide-react';
+import { ImageIcon, Ban, Pin } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -117,7 +117,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
           </div>
         )}
         {product.category && (
-          <div className="absolute bottom-2 right-2 z-10">
+          <div className="absolute bottom-2 left-2 z-10">
             <CategoryDiamond 
               type={product.category.type}
               index={categoryIndex}
@@ -134,6 +134,16 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-error/10 text-error-light whitespace-nowrap">
               <Ban className="h-3 w-3" />
               Ended
+            </span>
+          </div>
+        )}
+        
+        {/* Pin Badge - Add to the top right corner */}
+        {product.pinOrder && (
+          <div className="absolute top-2 right-2 z-10">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-secondary/20 text-secondary-light whitespace-nowrap">
+              <Pin className="h-3 w-3" />
+              Position {product.pinOrder}
             </span>
           </div>
         )}

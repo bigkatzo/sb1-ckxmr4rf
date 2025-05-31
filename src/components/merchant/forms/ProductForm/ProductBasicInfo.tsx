@@ -1,6 +1,8 @@
 import { useFormContext } from 'react-hook-form';
 import type { ProductFormValues } from './schema';
 import { PricingCurveEditor } from './PricingCurveEditor';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ProductBasicInfoProps {
   categories: {
@@ -32,6 +34,7 @@ function InlineCategory({ categories }: { categories: ProductBasicInfoProps['cat
 
 export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
   const { register, watch, formState: { errors } } = useFormContext<ProductFormValues>();
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   
   // Check if SKU already exists (indicating it's an existing product)
   const sku = watch('sku');
@@ -95,6 +98,65 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         />
         {errors.sku && (
           <p className="text-red-400 text-xs mt-1">{errors.sku.message}</p>
+        )}
+      </div>
+
+      {/* Advanced Product Options Section */}
+      <div className="border border-gray-800 rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+          className="w-full px-4 py-3 bg-gray-800 text-left flex justify-between items-center text-sm font-medium text-white"
+        >
+          Advanced product options
+          {showAdvancedOptions ? (
+            <ChevronUp className="h-4 w-4 text-gray-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-gray-400" />
+          )}
+        </button>
+        
+        {showAdvancedOptions && (
+          <div className="p-4 space-y-3 bg-gray-900">
+            <div>
+              <label htmlFor="blankCode" className="block text-sm font-medium text-white">
+                Blank Code
+              </label>
+              <input
+                type="text"
+                id="blankCode"
+                {...register('blankCode')}
+                className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Enter blank code"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="technique" className="block text-sm font-medium text-white">
+                Technique
+              </label>
+              <input
+                type="text"
+                id="technique"
+                {...register('technique')}
+                className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Enter manufacturing technique"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="noteForSupplier" className="block text-sm font-medium text-white">
+                Note for Supplier
+              </label>
+              <textarea
+                id="noteForSupplier"
+                rows={2}
+                {...register('noteForSupplier')}
+                className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Special instructions for the supplier"
+              ></textarea>
+            </div>
+          </div>
         )}
       </div>
 

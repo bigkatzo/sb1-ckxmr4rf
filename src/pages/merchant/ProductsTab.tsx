@@ -10,7 +10,8 @@ import {
   deleteProduct, 
   getProductForDuplication,
   toggleSaleEnded,
-  toggleProductVisibility
+  toggleProductVisibility,
+  updateProductPinOrder
 } from '../../services/products';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RefreshButton } from '../../components/ui/RefreshButton';
@@ -178,6 +179,27 @@ export function ProductsTab() {
     }
   };
 
+  const handlePinProduct = async (productId: string, pinOrder: number | null) => {
+    try {
+      setActionLoading(productId);
+      const { success } = await updateProductPinOrder(productId, pinOrder);
+      if (success) {
+        if (pinOrder === null) {
+          toast.success('Product unpinned successfully');
+        } else {
+          toast.success(`Product pinned at position ${pinOrder} successfully`);
+        }
+        refreshProducts();
+      }
+    } catch (error) {
+      console.error('Error updating pin status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error updating product';
+      toast.error(errorMessage);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // Helper functions for updating search query
   const updateSearchQuery = (query: string) => {
     setFilters(prev => ({ ...prev, searchQuery: query }));
@@ -323,6 +345,7 @@ export function ProductsTab() {
                 onDuplicate={canEdit && !isActionDisabled ? () => handleDuplicate(product.id) : undefined}
                 onToggleVisibility={canEdit && !isActionDisabled ? (visible) => handleToggleVisibility(product.id, visible) : undefined}
                 onToggleSaleEnded={canEdit && !isActionDisabled ? (saleEnded) => handleToggleSaleEnded(product.id, saleEnded) : undefined}
+                onPin={canEdit && !isActionDisabled ? (pinOrder) => handlePinProduct(product.id, pinOrder) : undefined}
               />
             );
           })}

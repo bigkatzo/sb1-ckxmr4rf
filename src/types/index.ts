@@ -75,6 +75,10 @@ export interface Product {
   salesCount?: number;
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
+  pinOrder?: number | null;
+  blankCode?: string;
+  technique?: string;
+  noteForSupplier?: string;
   visible?: boolean;
   saleEnded?: boolean;
   notes?: {

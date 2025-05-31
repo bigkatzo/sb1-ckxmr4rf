@@ -42,6 +42,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     minimumOrderQuantity: initialData?.minimumOrderQuantity || 50,
     visible: initialData?.visible ?? true,
     saleEnded: initialData?.saleEnded ?? false,
+    pinOrder: (initialData?.pinOrder as 1 | 2 | 3 | null) ?? null,
     priceModifierBeforeMin: initialData?.priceModifierBeforeMin ?? null,
     priceModifierAfterMin: initialData?.priceModifierAfterMin ?? null,
     // CRITICAL FIX: Ensure notes is properly initialized with valid structure
@@ -299,6 +300,32 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
                 </div>
                 <p className="text-xs text-gray-400 ml-11">
                   When enabled, this product will be marked as sold out even if stock is available
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-1">
+                Pin Product
+              </label>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <select
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 text-white py-2 px-3 focus:ring-primary focus:border-primary"
+                    value={methods.watch("pinOrder") ?? "null"}
+                    onChange={(e) => {
+                      const value = e.target.value === "null" ? null : Number(e.target.value) as 1 | 2 | 3;
+                      methods.setValue("pinOrder", value, { shouldDirty: true });
+                    }}
+                  >
+                    <option value="null">Not pinned</option>
+                    <option value="1">Pin at position 1</option>
+                    <option value="2">Pin at position 2</option>
+                    <option value="3">Pin at position 3</option>
+                  </select>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Pinned products will always appear at the top of the collection page. You can pin up to 3 products.
                 </p>
               </div>
             </div>

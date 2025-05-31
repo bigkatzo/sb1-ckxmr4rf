@@ -42,6 +42,10 @@ export interface Product {
   visible: boolean;
   saleEnded?: boolean;
   salesCount?: number; // Number of sales for popularity sorting
+  pinOrder?: number | null; // Position for pinned products (1, 2, 3) or null if not pinned
+  blankCode?: string; // Code for the blank product used in manufacturing
+  technique?: string; // Manufacturing technique used for the product
+  noteForSupplier?: string; // Special notes for the supplier about this product
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
   notes?: {

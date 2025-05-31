@@ -36,6 +36,13 @@ export const productSchema = z.object({
   minimumOrderQuantity: z.number().min(1, 'Minimum order quantity must be at least 1'),
   visible: z.boolean().default(true),
   saleEnded: z.boolean().default(false),
+  pinOrder: z.number().nullable().refine(
+    val => val === null || val === 1 || val === 2 || val === 3,
+    { message: 'Pin order must be 1, 2, 3, or not pinned (null)' }
+  ).default(null),
+  blankCode: z.string().optional().default(''),
+  technique: z.string().optional().default(''),
+  noteForSupplier: z.string().optional().default(''),
   priceModifierBeforeMin: z.number()
     .min(-1, 'Discount cannot exceed 100%')
     .max(0, 'Pre-MOQ modifier must be 0 or negative (discount)')

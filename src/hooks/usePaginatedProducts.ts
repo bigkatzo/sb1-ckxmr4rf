@@ -33,8 +33,20 @@ export function usePaginatedProducts(
       ? allProducts.filter(product => product.categoryId === categoryId)
       : allProducts;
     
-    // Then sort according to the selected option
-    return [...filtered].sort((a, b) => {
+    // Separate pinned and unpinned products
+    const pinnedProducts = filtered.filter(product => product.pinOrder !== undefined && product.pinOrder !== null);
+    const unpinnedProducts = filtered.filter(product => product.pinOrder === undefined || product.pinOrder === null);
+    
+    // Sort pinned products by their pin order
+    const sortedPinnedProducts = pinnedProducts.sort((a, b) => {
+      // Ensure we have valid pinOrder values (should be 1-3)
+      const aOrder = a.pinOrder !== undefined && a.pinOrder !== null ? a.pinOrder : 999;
+      const bOrder = b.pinOrder !== undefined && b.pinOrder !== null ? b.pinOrder : 999;
+      return aOrder - bOrder;
+    });
+    
+    // Sort unpinned products according to the selected option
+    const sortedUnpinnedProducts = [...unpinnedProducts].sort((a, b) => {
       switch (sortOption) {
         case 'popular':
           // Sort by salesCount (higher first)
@@ -49,6 +61,9 @@ export function usePaginatedProducts(
           return 0;
       }
     });
+    
+    // Combine the pinned products (at the top) with the sorted unpinned products
+    return [...sortedPinnedProducts, ...sortedUnpinnedProducts];
   }, [allProducts, categoryId, sortOption]);
   
   // Keep a reference to filtered products

@@ -178,6 +178,10 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           variantPrices: product.variant_prices || {},
           priceModifierBeforeMin: product.price_modifier_before_min ?? null,
           priceModifierAfterMin: product.price_modifier_after_min ?? null,
+          pinOrder: product.pin_order ?? null,
+          blankCode: product.blank_code || '',
+          technique: product.technique || '',
+          noteForSupplier: product.note_for_supplier || '',
           visible: product.visible ?? true,
           saleEnded: product.sale_ended ?? false,
           notes: notesObject,  // Always pass the properly structured object

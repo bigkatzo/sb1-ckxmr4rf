@@ -111,6 +111,7 @@ export async function preloadCriticalData() {
           price: product.price,
           imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
           images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
+          designFiles: (product.design_files || []).map((file: string) => normalizeStorageUrl(file)),
           categoryId: product.category_id,
           category: product.category_id ? {
             id: product.category_id,
@@ -136,6 +137,10 @@ export async function preloadCriticalData() {
           variantPrices: product.variant_prices || {},
           priceModifierBeforeMin: product.price_modifier_before_min ?? null,
           priceModifierAfterMin: product.price_modifier_after_min ?? null,
+          pinOrder: product.pin_order ?? null,
+          blankCode: product.blank_code || '',
+          technique: product.technique || '',
+          noteForSupplier: product.note_for_supplier || '',
           saleEnded: product.sale_ended ?? false,
           salesCount: product.sales_count || 0,
           notes: hasValidNotes ? product.notes : undefined,
@@ -166,6 +171,7 @@ export async function preloadCriticalData() {
           description: product.description,
           imageUrl: product.imageUrl,
           images: product.images,
+          designFiles: product.designFiles,
           categoryId: product.categoryId,
           category: product.category,
           collectionId: product.collectionId,
@@ -173,6 +179,9 @@ export async function preloadCriticalData() {
           collectionSlug: product.collectionSlug,
           slug: product.slug,
           variants: product.variants,
+          blankCode: product.blankCode,
+          technique: product.technique,
+          noteForSupplier: product.noteForSupplier,
         };
         
         cacheManager.set(
@@ -192,6 +201,7 @@ export async function preloadCriticalData() {
           variantPrices: product.variantPrices,
           priceModifierBeforeMin: product.priceModifierBeforeMin,
           priceModifierAfterMin: product.priceModifierAfterMin,
+          pinOrder: product.pinOrder,
         };
         
         cacheManager.set(

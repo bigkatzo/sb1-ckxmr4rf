@@ -30,6 +30,7 @@ export function transformProduct(product: any, collectionData: any): Product | n
     price: Number(product.price) || 0,
     imageUrl: product.images?.[0] || '',
     images: Array.isArray(product.images) ? product.images : [],
+    designFiles: Array.isArray(product.design_files) ? product.design_files : [],
     categoryId: product.category_id || '',
     category: product.categories ? transformCategory(product.categories) : undefined,
     collectionId: collectionData.id,
@@ -41,7 +42,15 @@ export function transformProduct(product: any, collectionData: any): Product | n
     variants: product.variants || [],
     variantPrices: product.variant_prices || {},
     priceModifierBeforeMin: product.price_modifier_before_min ?? null,
-    priceModifierAfterMin: product.price_modifier_after_min ?? null
+    priceModifierAfterMin: product.price_modifier_after_min ?? null,
+    pinOrder: product.pin_order ?? null,
+    blankCode: product.blank_code || '',
+    technique: product.technique || '',
+    noteForSupplier: product.note_for_supplier || '',
+    visible: product.visible ?? true,
+    saleEnded: product.sale_ended ?? false,
+    notes: product.notes || {},
+    freeNotes: product.free_notes || '',
   };
 }
 
