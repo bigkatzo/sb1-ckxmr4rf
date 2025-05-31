@@ -113,11 +113,20 @@ function RankedProductItem({
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
-  // Get stock status text
+  // Get stock status text - fix calculation to show (total stock - sales)/total stock
   const getStockStatus = () => {
+    // Use either salesCount or publicOrderCount, depending on what's available
+    const salesCount = product.salesCount || product.publicOrderCount || 0;
+    
     if (product.stock === null) return 'Infinite';
     if (product.stock === 0) return 'Sold out';
-    return `${product.stock}/${product.stock + (product.salesCount || 0)}`;
+    
+    // Get the original total stock
+    const totalStock = product.stock + salesCount;
+    // Calculate remaining stock
+    const remainingStock = Math.max(0, product.stock);
+    
+    return `${remainingStock}/${totalStock}`;
   };
 
   // Handle click to navigate to product page
@@ -170,6 +179,9 @@ function RankedProductItem({
       day: 'numeric' 
     });
   };
+
+  // Sales count to display - use either salesCount or publicOrderCount
+  const displaySalesCount = product.salesCount || product.publicOrderCount || 0;
 
   return (
     <div 
@@ -248,7 +260,7 @@ function RankedProductItem({
         {type === 'sales' ? (
           <div className="flex items-center gap-1 text-green-400">
             <TrendingUp className="h-3 w-3" />
-            <span>{product.salesCount || 0} sales</span>
+            <span>{displaySalesCount} sales</span>
           </div>
         ) : (
           <div className="flex items-center gap-1 text-blue-400">

@@ -73,6 +73,7 @@ export interface Product {
   variants?: ProductVariant[];
   variantPrices?: VariantPricing;
   salesCount?: number;
+  publicOrderCount?: number;
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
   pinOrder?: number | null;
@@ -87,6 +88,7 @@ export interface Product {
     returns?: string;
   };
   freeNotes?: string;
+  rank?: number;
 }
 
 export interface SearchResult {
