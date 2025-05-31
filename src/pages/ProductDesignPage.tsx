@@ -218,6 +218,42 @@ export function ProductDesignPage() {
               </div>
             </div>
           )}
+          
+          {/* Production Information Section */}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold border-b border-gray-800 pb-2">Production Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Blank Code */}
+              <div className="bg-gray-900 rounded-lg p-6">
+                <h3 className="text-lg font-medium mb-2">Blank Code</h3>
+                {product?.blankCode ? (
+                  <p className="text-white">{product.blankCode}</p>
+                ) : (
+                  <p className="text-gray-400 italic">No blank code specified</p>
+                )}
+              </div>
+              
+              {/* Technique */}
+              <div className="bg-gray-900 rounded-lg p-6">
+                <h3 className="text-lg font-medium mb-2">Technique</h3>
+                {product?.technique ? (
+                  <p className="text-white">{product.technique}</p>
+                ) : (
+                  <p className="text-gray-400 italic">No technique specified</p>
+                )}
+              </div>
+              
+              {/* Note for Supplier */}
+              <div className="bg-gray-900 rounded-lg p-6 md:col-span-2">
+                <h3 className="text-lg font-medium mb-2">Note for Supplier</h3>
+                {product?.noteForSupplier ? (
+                  <p className="text-white whitespace-pre-wrap">{product.noteForSupplier}</p>
+                ) : (
+                  <p className="text-gray-400 italic">No notes for supplier</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
