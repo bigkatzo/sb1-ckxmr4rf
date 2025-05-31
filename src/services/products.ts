@@ -822,8 +822,41 @@ export async function updateProductPinOrder(id: string, pinOrder: number | null)
       }
     }
 
-    // Validate pin order
-    if (pinOrder !== null && ![1, 2, 3].includes(pinOrder)) {
+    // Special case: pinOrder = 0 means "pin to next available position"
+    if (pinOrder === 0) {
+      // Get collection ID for the product
+      if (!productData?.collection_id) {
+        throw new Error('Product collection not found');
+      }
+      
+      // Find existing pinned products in this collection
+      const { data: pinnedProducts } = await supabase
+        .from('products')
+        .select('id, pin_order')
+        .eq('collection_id', productData.collection_id)
+        .not('pin_order', 'is', null)
+        .order('pin_order', { ascending: true });
+      
+      // Find the next available position (1, 2, or 3)
+      const usedPositions = pinnedProducts?.map(p => p.pin_order) || [];
+      
+      // Find the first available position from 1, 2, 3
+      let nextPosition = null;
+      for (let pos = 1; pos <= 3; pos++) {
+        if (!usedPositions.includes(pos)) {
+          nextPosition = pos;
+          break;
+        }
+      }
+      
+      // If all positions are taken, either unpin one or show error
+      if (nextPosition === null) {
+        throw new Error('All pin positions (1-3) are already in use. Please unpin a product first.');
+      }
+      
+      // Assign the next available position
+      pinOrder = nextPosition;
+    } else if (pinOrder !== null && ![1, 2, 3].includes(pinOrder)) {
       throw new Error('Pin order must be 1, 2, 3, or null (not pinned)');
     }
 

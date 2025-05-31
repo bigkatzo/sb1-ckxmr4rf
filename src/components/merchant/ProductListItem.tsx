@@ -88,36 +88,21 @@ export function ProductListItem({
   
   // Add pin/unpin options
   if (canEdit && onPin) {
-    // If product is already pinned, show option to unpin first
+    // If product is already pinned, show option to unpin
     if (product.pinOrder) {
       dropdownItems.push({
         label: 'Unpin Product',
         icon: <Pin className="h-4 w-4" />,
         onClick: () => onPin(null)
       });
-    } 
-
-    // Add pin position options
-    dropdownItems.push({
-      label: 'Pin to Position 1',
-      icon: <Pin className="h-4 w-4" />,
-      onClick: () => onPin(1),
-      disabled: product.pinOrder === 1
-    });
-
-    dropdownItems.push({
-      label: 'Pin to Position 2',
-      icon: <Pin className="h-4 w-4" />,
-      onClick: () => onPin(2),
-      disabled: product.pinOrder === 2
-    });
-
-    dropdownItems.push({
-      label: 'Pin to Position 3',
-      icon: <Pin className="h-4 w-4" />,
-      onClick: () => onPin(3),
-      disabled: product.pinOrder === 3
-    });
+    } else {
+      // Add a single pin option - the backend will handle assigning the next available position
+      dropdownItems.push({
+        label: 'Pin Product',
+        icon: <Pin className="h-4 w-4" />,
+        onClick: () => onPin(0) // 0 is a special value that tells the backend to assign the next available position
+      });
+    }
   }
   
   if (canEdit && onDelete) {
@@ -168,9 +153,9 @@ export function ProductListItem({
                   </span>
                 )}
                 {product.pinOrder && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-secondary/10 text-secondary-light whitespace-nowrap">
-                    <Pin className="h-3 w-3" />
-                    Pinned {product.pinOrder}
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-secondary/10 text-secondary-light text-xs font-medium">
+                    <Pin className="h-3 w-3 absolute" />
+                    <span className="relative text-[10px] font-bold mt-[1px]">{product.pinOrder}</span>
                   </span>
                 )}
               </div>

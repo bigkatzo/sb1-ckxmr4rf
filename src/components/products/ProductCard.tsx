@@ -141,9 +141,9 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
         {/* Pin Badge - Add to the top right corner */}
         {product.pinOrder && (
           <div className="absolute top-2 right-2 z-10">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-secondary/20 text-secondary-light whitespace-nowrap">
-              <Pin className="h-3 w-3" />
-              Position {product.pinOrder}
+            <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-secondary/20 text-secondary-light shadow-md">
+              <Pin className="h-3 w-3 absolute" />
+              <span className="relative text-[10px] font-bold mt-[1px]">{product.pinOrder}</span>
             </span>
           </div>
         )}

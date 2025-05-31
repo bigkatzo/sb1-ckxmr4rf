@@ -187,7 +187,7 @@ export function ProductsTab() {
         if (pinOrder === null) {
           toast.success('Product unpinned successfully');
         } else {
-          toast.success(`Product pinned at position ${pinOrder} successfully`);
+          toast.success('Product pinned successfully');
         }
         refreshProducts();
       }
