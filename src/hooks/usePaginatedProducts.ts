@@ -24,7 +24,28 @@ export function usePaginatedProducts(
   } = options;
 
   // Create a cache key combining collection/category info
-  const actualCacheKey = `products_${cacheKey}_${categoryId}_${sortOption}`;
+  const actualCacheKey = `products_${cacheKey}_${categoryId}_${sortOption}_v2`;
+
+  // Add logging for debug purposes
+  useEffect(() => {
+    console.log(`Sort option changed to: ${sortOption}`);
+    console.log(`Cache key updated: ${actualCacheKey}`);
+    // Log some stats about the products to help debug
+    if (allProducts.length > 0) {
+      const pinnedCount = allProducts.filter(p => p.pinOrder !== undefined && p.pinOrder !== null).length;
+      console.log(`Total products: ${allProducts.length}, Pinned: ${pinnedCount}`);
+      
+      // Log first few products with their sort-relevant properties
+      const sampleProducts = allProducts.slice(0, Math.min(3, allProducts.length));
+      console.log('Sample product data:', sampleProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        pinOrder: p.pinOrder,
+        salesCount: p.salesCount,
+        price: p.price
+      })));
+    }
+  }, [sortOption, actualCacheKey, allProducts.length]);
 
   // Memoize the filtered products for better performance
   const filteredProducts = useMemo(() => {
@@ -48,8 +69,8 @@ export function usePaginatedProducts(
       });
       
       // Sort unpinned products by sales count first, then by creation date (newer first)
-      const sortedUnpinnedProducts = [...unpinnedProducts].sort((a, b) => {
-        // First compare by sales count
+      const sortedUnpinnedProducts = unpinnedProducts.sort((a, b) => {
+        // First compare by sales count (default to 0 if undefined)
         const salesCompare = (b.salesCount || 0) - (a.salesCount || 0);
         
         // If sales count is the same, sort by creation date (using ID as proxy for creation time)
@@ -67,14 +88,14 @@ export function usePaginatedProducts(
       return [...filtered].sort((a, b) => {
         switch (sortOption) {
           case 'popular':
-            // Sort by salesCount (higher first)
+            // Sort by salesCount (higher first), default to 0 if undefined
             return (b.salesCount || 0) - (a.salesCount || 0);
           case 'newest':
             // Sort by creation date (newer first), using ID as proxy for creation time
             return b.id.localeCompare(a.id);
           case 'price':
             // Sort by price (lower first)
-            return a.price - b.price;
+            return (a.price || 0) - (b.price || 0);
           default:
             return 0;
         }
@@ -82,13 +103,24 @@ export function usePaginatedProducts(
     }
   }, [allProducts, categoryId, sortOption]);
   
-  // Keep a reference to filtered products
+  // Keep a reference to filtered products and update immediately when dependencies change
   const filteredAllProducts = useRef<Product[]>([]);
   
   // Update filtered products when dependencies change
   useEffect(() => {
     filteredAllProducts.current = filteredProducts;
-  }, [filteredProducts]);
+    
+    // When sort option changes, force a reset of visible products
+    if (initializedRef.current) {
+      const currentProducts = filteredProducts;
+      if (currentProducts.length > 0) {
+        const initialBatch = currentProducts.slice(0, Math.min(initialLimit, currentProducts.length));
+        setVisibleProducts(initialBatch);
+        offset.current = initialBatch.length;
+        setHasMore(currentProducts.length > initialBatch.length);
+      }
+    }
+  }, [filteredProducts, initialLimit]);
 
   // Try to restore from sessionStorage on initial mount
   const getInitialState = () => {
@@ -161,12 +193,37 @@ export function usePaginatedProducts(
       if (reset) {
         setLoading(true);
         offset.current = 0;
+        
+        // When resetting, clear any old cache from sessionStorage
+        // This ensures we don't have stale data interfering with the new sort
+        try {
+          // Use the current cache key to clear the specific entry
+          sessionStorage.removeItem(actualCacheKey);
+          console.log(`Reset: Cleared cache for ${actualCacheKey}`);
+        } catch (e) {
+          console.warn('Error clearing cached products:', e);
+        }
       } else if (!isPreloading) {
         setLoadingMore(true);
       }
       
       // Get current products based on offset
       const currentProducts = filteredAllProducts.current;
+      
+      // Log the current sort state for debugging
+      if (reset) {
+        console.log(`Resetting products with sort: ${sortOption}, total: ${currentProducts.length}`);
+        if (currentProducts.length > 0) {
+          // Log the first few products for debugging
+          console.log('First products after sort:', currentProducts.slice(0, 3).map(p => ({
+            id: p.id.substring(0, 6),
+            name: p.name,
+            pinOrder: p.pinOrder,
+            salesCount: p.salesCount
+          })));
+        }
+      }
+      
       const limit = reset ? initialLimit : loadMoreCount;
       const currentOffset = reset ? 0 : offset.current;
       

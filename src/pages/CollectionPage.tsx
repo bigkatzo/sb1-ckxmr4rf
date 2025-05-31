@@ -692,10 +692,8 @@ export function CollectionPage() {
                       onChange={(e) => {
                         const newSortOption = e.target.value as 'recommended' | 'popular' | 'newest' | 'price';
                         setSortOption(newSortOption);
-                        // Only reset if products are already loaded
-                        if (!isInitialLoad) {
-                          resetProducts();
-                        }
+                        // Always reset products when sort option changes to immediately apply the new sort
+                        resetProducts();
                       }}
                       className="bg-gray-800 text-white text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:ring-primary focus:border-primary"
                     >
