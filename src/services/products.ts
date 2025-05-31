@@ -774,6 +774,7 @@ export async function updateProductPinOrder(id: string, pinOrder: number | null)
           id,
           collection_id,
           category_id,
+          pin_order,
           collections (
             user_id
           )
@@ -812,7 +813,7 @@ export async function updateProductPinOrder(id: string, pinOrder: number | null)
       // If admin, still need to fetch product data for cache invalidation
       const { data, error: productError } = await supabase
         .from('products')
-        .select('collection_id, category_id')
+        .select('collection_id, category_id, pin_order')
         .eq('id', id)
         .limit(1)
         .maybeSingle();
@@ -822,25 +823,62 @@ export async function updateProductPinOrder(id: string, pinOrder: number | null)
       }
     }
 
-    // Special case: pinOrder = 0 means "pin to next available position"
-    if (pinOrder === 0) {
-      // Get collection ID for the product
-      if (!productData?.collection_id) {
-        throw new Error('Product collection not found');
+    // Get collection ID for the product
+    if (!productData?.collection_id) {
+      throw new Error('Product collection not found');
+    }
+
+    // Get the current pinned products in this collection
+    const { data: pinnedProducts } = await supabase
+      .from('products')
+      .select('id, pin_order')
+      .eq('collection_id', productData.collection_id)
+      .not('pin_order', 'is', null)
+      .order('pin_order', { ascending: true });
+    
+    const usedPositions = pinnedProducts?.map(p => p.pin_order) || [];
+
+    // If we're unpinning a product, we need to reorganize other pins
+    if (pinOrder === null && productData.pin_order !== null) {
+      const removedPosition = productData.pin_order;
+      
+      // Create an array of updates to make
+      const updates = [];
+      
+      // Go through each pinned product and shift positions if needed
+      for (const product of pinnedProducts || []) {
+        if (product.id !== id && product.pin_order > removedPosition) {
+          // Shift this product down one position
+          updates.push({
+            id: product.id,
+            pin_order: product.pin_order - 1
+          });
+        }
       }
       
-      // Find existing pinned products in this collection
-      const { data: pinnedProducts } = await supabase
+      // Update the product being unpinned
+      const { error } = await supabase
         .from('products')
-        .select('id, pin_order')
-        .eq('collection_id', productData.collection_id)
-        .not('pin_order', 'is', null)
-        .order('pin_order', { ascending: true });
+        .update({ pin_order: null })
+        .eq('id', id);
+        
+      if (error) throw error;
       
-      // Find the next available position (1, 2, or 3)
-      const usedPositions = pinnedProducts?.map(p => p.pin_order) || [];
-      
-      // Find the first available position from 1, 2, 3
+      // Update the positions of other pinned products if needed
+      if (updates.length > 0) {
+        for (const update of updates) {
+          const { error } = await supabase
+            .from('products')
+            .update({ pin_order: update.pin_order })
+            .eq('id', update.id);
+            
+          if (error) throw error;
+        }
+      }
+    } 
+    // Special case: pinOrder = 0 means "pin to next available position"
+    else if (pinOrder === 0) {
+      // Find the next available position from 1, 2, 3
       let nextPosition = null;
       for (let pos = 1; pos <= 3; pos++) {
         if (!usedPositions.includes(pos)) {
@@ -856,17 +894,29 @@ export async function updateProductPinOrder(id: string, pinOrder: number | null)
       
       // Assign the next available position
       pinOrder = nextPosition;
-    } else if (pinOrder !== null && ![1, 2, 3].includes(pinOrder)) {
-      throw new Error('Pin order must be 1, 2, 3, or null (not pinned)');
+      
+      // Update product pin order
+      const { error } = await supabase
+        .from('products')
+        .update({ pin_order: pinOrder })
+        .eq('id', id);
+
+      if (error) throw error;
+    } 
+    // Regular case: explicit pin position (1, 2, or 3)
+    else if (pinOrder !== null) {
+      if (![1, 2, 3].includes(pinOrder)) {
+        throw new Error('Pin order must be 1, 2, 3, or null (not pinned)');
+      }
+      
+      // Update product pin order
+      const { error } = await supabase
+        .from('products')
+        .update({ pin_order: pinOrder })
+        .eq('id', id);
+
+      if (error) throw error;
     }
-
-    // Update product pin order
-    const { error } = await supabase
-      .from('products')
-      .update({ pin_order: pinOrder })
-      .eq('id', id);
-
-    if (error) throw error;
     
     // Invalidate caches after successful update
     if (productData) {

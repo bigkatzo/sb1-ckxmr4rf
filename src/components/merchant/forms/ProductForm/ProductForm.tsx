@@ -42,6 +42,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     minimumOrderQuantity: initialData?.minimumOrderQuantity || 50,
     visible: initialData?.visible ?? true,
     saleEnded: initialData?.saleEnded ?? false,
+    pinOrder: initialData?.pinOrder ?? null,
     blankCode: initialData?.blankCode || '',
     technique: initialData?.technique || '',
     noteForSupplier: initialData?.noteForSupplier || '',
