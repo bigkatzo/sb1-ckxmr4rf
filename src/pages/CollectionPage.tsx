@@ -49,8 +49,8 @@ export function CollectionPage() {
   const hasAddedPrefetchLinks = useRef(false);
   const lastCategoryIdRef = useRef<string>('');
   
-  // Add sort state with default sort option "popular"
-  const [sortOption, setSortOption] = useState<'popular' | 'newest' | 'price'>('popular');
+  // Add sort state with default sort option "recommended"
+  const [sortOption, setSortOption] = useState<'recommended' | 'popular' | 'newest' | 'price'>('recommended');
   
   const { collection, loading, error } = useCollection(slug || '');
   
@@ -690,7 +690,7 @@ export function CollectionPage() {
                       id="sort-by"
                       value={sortOption}
                       onChange={(e) => {
-                        const newSortOption = e.target.value as 'popular' | 'newest' | 'price';
+                        const newSortOption = e.target.value as 'recommended' | 'popular' | 'newest' | 'price';
                         setSortOption(newSortOption);
                         // Only reset if products are already loaded
                         if (!isInitialLoad) {
@@ -699,6 +699,7 @@ export function CollectionPage() {
                       }}
                       className="bg-gray-800 text-white text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:ring-primary focus:border-primary"
                     >
+                      <option value="recommended">Recommended</option>
                       <option value="popular">Best sellers</option>
                       <option value="newest">Newest</option>
                       <option value="price">Price: Low to High</option>

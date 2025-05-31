@@ -14,7 +14,7 @@ export function usePaginatedProducts(
   allProducts: Product[] = [],
   categoryId: string = '',
   options: PaginatedProductsOptions = {},
-  sortOption: 'popular' | 'newest' | 'price' = 'popular'
+  sortOption: 'recommended' | 'popular' | 'newest' | 'price' = 'recommended'
 ) {
   const {
     initialLimit = 12, // Default to 12 products initially
@@ -33,37 +33,53 @@ export function usePaginatedProducts(
       ? allProducts.filter(product => product.categoryId === categoryId)
       : allProducts;
     
-    // Separate pinned and unpinned products
-    const pinnedProducts = filtered.filter(product => product.pinOrder !== undefined && product.pinOrder !== null);
-    const unpinnedProducts = filtered.filter(product => product.pinOrder === undefined || product.pinOrder === null);
-    
-    // Sort pinned products by their pin order
-    const sortedPinnedProducts = pinnedProducts.sort((a, b) => {
-      // Ensure we have valid pinOrder values (should be 1-3)
-      const aOrder = a.pinOrder !== undefined && a.pinOrder !== null ? a.pinOrder : 999;
-      const bOrder = b.pinOrder !== undefined && b.pinOrder !== null ? b.pinOrder : 999;
-      return aOrder - bOrder;
-    });
-    
-    // Sort unpinned products according to the selected option
-    const sortedUnpinnedProducts = [...unpinnedProducts].sort((a, b) => {
-      switch (sortOption) {
-        case 'popular':
-          // Sort by salesCount (higher first)
-          return (b.salesCount || 0) - (a.salesCount || 0);
-        case 'newest':
-          // Sort by ID (assuming higher IDs are newer products)
+    // For 'recommended' sort, handle pinned products separately
+    if (sortOption === 'recommended') {
+      // Separate pinned and unpinned products
+      const pinnedProducts = filtered.filter(product => product.pinOrder !== undefined && product.pinOrder !== null);
+      const unpinnedProducts = filtered.filter(product => product.pinOrder === undefined || product.pinOrder === null);
+      
+      // Sort pinned products by their pin order
+      const sortedPinnedProducts = pinnedProducts.sort((a, b) => {
+        // Ensure we have valid pinOrder values (should be 1-3)
+        const aOrder = a.pinOrder !== undefined && a.pinOrder !== null ? a.pinOrder : 999;
+        const bOrder = b.pinOrder !== undefined && b.pinOrder !== null ? b.pinOrder : 999;
+        return aOrder - bOrder;
+      });
+      
+      // Sort unpinned products by sales count first, then by creation date (newer first)
+      const sortedUnpinnedProducts = [...unpinnedProducts].sort((a, b) => {
+        // First compare by sales count
+        const salesCompare = (b.salesCount || 0) - (a.salesCount || 0);
+        
+        // If sales count is the same, sort by creation date (using ID as proxy for creation time)
+        if (salesCompare === 0) {
           return b.id.localeCompare(a.id);
-        case 'price':
-          // Sort by price (lower first)
-          return a.price - b.price;
-        default:
-          return 0;
-      }
-    });
-    
-    // Combine the pinned products (at the top) with the sorted unpinned products
-    return [...sortedPinnedProducts, ...sortedUnpinnedProducts];
+        }
+        
+        return salesCompare;
+      });
+      
+      // Combine the pinned products (at the top) with the sorted unpinned products
+      return [...sortedPinnedProducts, ...sortedUnpinnedProducts];
+    } else {
+      // For all other sort options, ignore pinned status
+      return [...filtered].sort((a, b) => {
+        switch (sortOption) {
+          case 'popular':
+            // Sort by salesCount (higher first)
+            return (b.salesCount || 0) - (a.salesCount || 0);
+          case 'newest':
+            // Sort by creation date (newer first), using ID as proxy for creation time
+            return b.id.localeCompare(a.id);
+          case 'price':
+            // Sort by price (lower first)
+            return a.price - b.price;
+          default:
+            return 0;
+        }
+      });
+    }
   }, [allProducts, categoryId, sortOption]);
   
   // Keep a reference to filtered products
