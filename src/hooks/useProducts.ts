@@ -152,6 +152,7 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
           price: product.price,
           imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
           images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
+          designFiles: (product.design_files || []).map((file: string) => normalizeStorageUrl(file)),
           categoryId: product.category_id,
           category: product.category_id && product.category_name ? {
             id: product.category_id,
