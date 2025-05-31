@@ -408,6 +408,10 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         "Collection": "collection_name",
         "Category": "category_name",
         "Tax ID": "shipping_info.taxId",
+        "Design": "design_url",
+        "Blank Code": "blank_code",
+        "Technique": "technique",
+        "Notes For Supplier": "note_for_supplier",
         "Contact": "contact_value",
         "Contact Method": "contact_info.method",
         "Wallet Address": "wallet_address",
@@ -494,6 +498,15 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 return escapeCSV(order.collection_name || '');
               case 'category_name':
                 return escapeCSV(order.category_name || '');
+              case 'design_url':
+                const productUrl = order.product_image_url || '';
+                return escapeCSV(productUrl ? `${productUrl.replace(/\.(webp|jpg|jpeg|png|gif)$/, '')}/design` : '');
+              case 'Blank Code':
+                return escapeCSV(order.blank_code || '');
+              case 'Technique':
+                return escapeCSV(order.technique || '');
+              case 'Notes For Supplier':
+                return escapeCSV(order.note_for_supplier || '');
               case 'variant_selections':
                 // Use the same approach as getProductInfo since it's working in the UI
                 const variantData = 

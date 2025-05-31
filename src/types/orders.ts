@@ -64,6 +64,9 @@ export interface ProductSnapshot {
   images: string[];
   variants: any[];
   variant_prices: Record<string, any>;
+  blank_code?: string;
+  technique?: string;
+  note_for_supplier?: string;
   // other product fields...
 }
 
@@ -108,6 +111,10 @@ export interface Order {
   product_image_url?: string;
   order_variants?: OrderVariant[];
   product_variant_prices?: Record<string, any>;
+  // Product manufacturing fields
+  blank_code?: string;
+  technique?: string;
+  note_for_supplier?: string;
   // Batch order information
   batch_order_id?: string;
   item_index?: number;
