@@ -65,6 +65,12 @@ export function TabsTrigger({ value, className = '', children, disabled = false 
   
   const isSelected = context.value === value;
   
+  // Explicitly log when the tab is clicked to help debug
+  const handleClick = () => {
+    console.log('TabsTrigger clicked:', { value, currentValue: context.value });
+    context.onChange(value);
+  };
+  
   return (
     <button
       type="button"
@@ -72,7 +78,7 @@ export function TabsTrigger({ value, className = '', children, disabled = false 
       aria-selected={isSelected}
       disabled={disabled}
       data-state={isSelected ? 'active' : 'inactive'}
-      onClick={() => context.onChange(value)}
+      onClick={handleClick}
       className={`
         inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all
         disabled:pointer-events-none disabled:opacity-50
@@ -101,15 +107,13 @@ export function TabsContent({ value, className = '', children }: TabsContentProp
     throw new Error('TabsContent must be used within a Tabs component');
   }
   
-  if (context.value !== value) {
-    return null;
-  }
+  const isActive = context.value === value;
   
   return (
     <div
       role="tabpanel"
-      data-state={context.value === value ? 'active' : 'inactive'}
-      className={className}
+      data-state={isActive ? 'active' : 'inactive'}
+      className={`${className} ${isActive ? 'block' : 'hidden'}`}
     >
       {children}
     </div>

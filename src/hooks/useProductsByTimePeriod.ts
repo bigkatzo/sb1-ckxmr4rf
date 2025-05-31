@@ -124,6 +124,8 @@ export function useProductsByTimePeriod({
           ? 'get_trending_products'
           : 'get_products_by_launch_date';
         
+        console.log('Fetching products with:', { rpcName, sortBy, timePeriod, limit, offset });
+        
         // Use proper query structure for Supabase RPC calls
         const { data, error } = await supabase
           .rpc(rpcName, { 
@@ -133,6 +135,11 @@ export function useProductsByTimePeriod({
           });
 
         if (error) throw error;
+        
+        // Debug the first product to see what data we're getting
+        if (data && data.length > 0) {
+          console.log('First product data:', data[0]);
+        }
 
         // Get product IDs for count query
         const productIds = (data || []).map((p: any) => p.id);
@@ -155,11 +162,11 @@ export function useProductsByTimePeriod({
         }
 
         const transformedProducts = (data || []).map((product: any) => {
-          // Fix for empty object in JSONB column
-          const hasValidNotes = product.notes && typeof product.notes === 'object' && Object.keys(product.notes).length > 0;
-          
           // Ensure free_notes is properly processed
           const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
+          
+          // Use order_count from the function result for proper sales display
+          const salesCount = sortBy === 'sales' ? (product.order_count || 0) : (product.sales_count || 0);
 
           return {
             id: product.id,
@@ -195,7 +202,7 @@ export function useProductsByTimePeriod({
             variantPrices: product.variant_prices || {},
             priceModifierBeforeMin: product.price_modifier_before_min ?? null,
             priceModifierAfterMin: product.price_modifier_after_min ?? null,
-            salesCount: product.sales_count || 0,
+            salesCount: salesCount,
             saleEnded: product.sale_ended || false,
             publicOrderCount: product.order_count,
             rank: product.rank,
@@ -275,30 +282,4 @@ export function useProductsByTimePeriod({
     totalCount,
     loadMore
   };
-}
-
-function getDateRangeFilter(timePeriod: TimePeriod): { from: string | null, to: string | null } {
-  const now = new Date();
-  const to = now.toISOString();
-  
-  switch (timePeriod) {
-    case 'today':
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
-      return { from: startOfDay.toISOString(), to };
-      
-    case 'last_7_days':
-      const sevenDaysAgo = new Date(now);
-      sevenDaysAgo.setDate(now.getDate() - 7);
-      return { from: sevenDaysAgo.toISOString(), to };
-      
-    case 'last_30_days':
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      return { from: thirtyDaysAgo.toISOString(), to };
-      
-    case 'all_time':
-    default:
-      return { from: null, to: null };
-  }
 } 
