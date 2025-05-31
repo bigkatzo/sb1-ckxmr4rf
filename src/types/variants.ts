@@ -41,6 +41,7 @@ export interface Product {
   sku: string;
   visible: boolean;
   saleEnded?: boolean;
+  salesCount?: number; // Number of sales for popularity sorting
   priceModifierBeforeMin?: number | null;
   priceModifierAfterMin?: number | null;
   notes?: {

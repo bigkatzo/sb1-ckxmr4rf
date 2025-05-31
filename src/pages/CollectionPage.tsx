@@ -47,6 +47,10 @@ export function CollectionPage() {
   const loaderRef = useRef<HTMLDivElement>(null);
   const mainContentRef = useRef<HTMLDivElement>(null);
   const hasAddedPrefetchLinks = useRef(false);
+  const lastCategoryIdRef = useRef<string>('');
+  
+  // Add sort state with default sort option "popular"
+  const [sortOption, setSortOption] = useState<'popular' | 'newest' | 'price'>('popular');
   
   const { collection, loading, error } = useCollection(slug || '');
   
@@ -97,7 +101,7 @@ export function CollectionPage() {
     loadMoreCount: 12,
     preloadThreshold: 0.3, // Start preloading when 30% away from bottom
     cacheKey: slug || '', // Use slug as cache key for persistence
-  });
+  }, sortOption);
   
   // Keep track of whether the user has returned from a product page
   const hasReturnedFromProduct = useRef(false);
@@ -473,7 +477,7 @@ export function CollectionPage() {
             entry.target.classList.remove('content-visibility-auto');
             // Once visible, no need to keep observing
             observer.unobserve(entry.target);
-    }
+          }
         });
       },
       { rootMargin: '300px' } // Start loading before item enters viewport
@@ -536,6 +540,20 @@ export function CollectionPage() {
       document.removeEventListener('mousemove', handleProductHover);
     };
   }, [paginatedProducts, hasReturnedFromProduct.current]);
+  
+  // Reset state when products or category changes
+  useEffect(() => {
+    const categoryChanged = lastCategoryIdRef.current !== selectedCategory;
+    
+    // Update the last category ID
+    lastCategoryIdRef.current = selectedCategory;
+    
+    // If category changed, we need to reset
+    if (categoryChanged) {
+      // Reset pagination
+      resetProducts();
+    } 
+  }, [selectedCategory, resetProducts]);
   
   if (!slug) {
     return <Navigate to="/" replace />;
@@ -655,54 +673,81 @@ export function CollectionPage() {
           {/* Content Section */}
           <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg">
             {categories.length > 0 && (
-              <CategoryTabs
-                categories={categories}
-                selectedId={selectedCategory}
-                onChange={handleCategoryChange}
-                categoryIndices={categoryIndices}
-              />
-            )}
-
-            <div className="p-4 sm:p-6">
-              <div 
-                ref={mainContentRef}
-                className="transition-opacity duration-200 ease-in-out"
-              >
-                <ProductGrid 
-                  products={paginatedProducts}
-                  categoryId={selectedCategory}
+              <>
+                <CategoryTabs
+                  categories={categories}
+                  selectedId={selectedCategory}
+                  onChange={handleCategoryChange}
                   categoryIndices={categoryIndices}
-                  loading={loading && !isInitialLoad && !location.state?.returnedFromProduct}
-                  onProductClick={productClickHandler}
                 />
-                
-                {/* Loading indicator for infinite scroll */}
-                {(loadingMore || hasMore) && (
+
+                <div className="px-4 pt-4 flex justify-end">
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="sort-by" className="text-sm text-gray-400">
+                      Sort by:
+                    </label>
+                    <select
+                      id="sort-by"
+                      value={sortOption}
+                      onChange={(e) => {
+                        const newSortOption = e.target.value as 'popular' | 'newest' | 'price';
+                        setSortOption(newSortOption);
+                        // Only reset if products are already loaded
+                        if (!isInitialLoad) {
+                          resetProducts();
+                        }
+                      }}
+                      className="bg-gray-800 text-white text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:ring-primary focus:border-primary"
+                    >
+                      <option value="popular">Best sellers</option>
+                      <option value="newest">Newest</option>
+                      <option value="price">Price: Low to High</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-6">
                   <div 
-                    ref={loaderRef}
-                    className={`flex justify-center py-2 w-full overflow-hidden transition-opacity duration-300 ${
-                      // Make loader less visible for returning users to avoid distraction
-                      hasReturnedFromProduct.current ? 'opacity-0' : loadingMore ? 'opacity-100' : 'opacity-0'
-                    }`}
-                    style={{ 
-                      contain: 'layout size', 
-                      height: loadingMore ? 'auto' : '4px',
-                      overscrollBehavior: 'none',
-                      transition: 'opacity 150ms ease-in-out'
-                    }}
+                    ref={mainContentRef}
+                    className="transition-opacity duration-200 ease-in-out"
                   >
-                    {loadingMore && (
-                      <div className="flex flex-col items-center justify-center py-2">
-                        <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] text-gray-500/50 motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
-                          <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
-                        </div>
-                        <span className="text-xs text-gray-500 mt-1">Loading more...</span>
+                    <ProductGrid 
+                      products={paginatedProducts}
+                      categoryId={selectedCategory}
+                      categoryIndices={categoryIndices}
+                      loading={loading && !isInitialLoad && !location.state?.returnedFromProduct}
+                      onProductClick={productClickHandler}
+                    />
+                    
+                    {/* Loading indicator for infinite scroll */}
+                    {(loadingMore || hasMore) && (
+                      <div 
+                        ref={loaderRef}
+                        className={`flex justify-center py-2 w-full overflow-hidden transition-opacity duration-300 ${
+                          // Make loader less visible for returning users to avoid distraction
+                          hasReturnedFromProduct.current ? 'opacity-0' : loadingMore ? 'opacity-100' : 'opacity-0'
+                        }`}
+                        style={{ 
+                          contain: 'layout size', 
+                          height: loadingMore ? 'auto' : '4px',
+                          overscrollBehavior: 'none',
+                          transition: 'opacity 150ms ease-in-out'
+                        }}
+                      >
+                        {loadingMore && (
+                          <div className="flex flex-col items-center justify-center py-2">
+                            <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] text-gray-500/50 motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                              <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                            </div>
+                            <span className="text-xs text-gray-500 mt-1">Loading more...</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </>
       ) : (

@@ -13,7 +13,8 @@ interface PaginatedProductsOptions {
 export function usePaginatedProducts(
   allProducts: Product[] = [],
   categoryId: string = '',
-  options: PaginatedProductsOptions = {}
+  options: PaginatedProductsOptions = {},
+  sortOption: 'popular' | 'newest' | 'price' = 'popular'
 ) {
   const {
     initialLimit = 12, // Default to 12 products initially
@@ -23,15 +24,32 @@ export function usePaginatedProducts(
   } = options;
 
   // Create a cache key combining collection/category info
-  const actualCacheKey = `products_${cacheKey}_${categoryId}`;
+  const actualCacheKey = `products_${cacheKey}_${categoryId}_${sortOption}`;
 
   // Memoize the filtered products for better performance
-  const filteredProducts = useMemo(() => 
-    categoryId 
+  const filteredProducts = useMemo(() => {
+    // First filter by category if specified
+    const filtered = categoryId 
       ? allProducts.filter(product => product.categoryId === categoryId)
-      : allProducts,
-    [allProducts, categoryId]
-  );
+      : allProducts;
+    
+    // Then sort according to the selected option
+    return [...filtered].sort((a, b) => {
+      switch (sortOption) {
+        case 'popular':
+          // Sort by salesCount (higher first)
+          return (b.salesCount || 0) - (a.salesCount || 0);
+        case 'newest':
+          // Sort by ID (assuming higher IDs are newer products)
+          return b.id.localeCompare(a.id);
+        case 'price':
+          // Sort by price (lower first)
+          return a.price - b.price;
+        default:
+          return 0;
+      }
+    });
+  }, [allProducts, categoryId, sortOption]);
   
   // Keep a reference to filtered products
   const filteredAllProducts = useRef<Product[]>([]);
