@@ -153,9 +153,9 @@ export function ProductListItem({
                   </span>
                 )}
                 {product.pinOrder && (
-                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-secondary/10 text-secondary-light text-xs font-medium">
-                    <Pin className="h-3 w-3 absolute" />
-                    <span className="relative text-[10px] font-bold mt-[1px]">{product.pinOrder}</span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-secondary/10 text-secondary-light">
+                    <Pin className="h-3 w-3" />
+                    <span className="font-bold">#{product.pinOrder}</span>
                   </span>
                 )}
               </div>
