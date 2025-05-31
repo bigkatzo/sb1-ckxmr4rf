@@ -20,8 +20,8 @@ export function SectionHeader({
   secondaryOnClick
 }: SectionHeaderProps) {
   const commonStyles = "text-lg sm:text-2xl font-bold text-text";
-  const linkStyles = to || onClick ? "hover:opacity-90 transition-opacity" : "";
-  const secondaryStyles = "text-lg sm:text-2xl font-medium text-gray-500/50 hover:opacity-90 transition-opacity ml-3";
+  const linkStyles = to || onClick ? "hover:opacity-95 transition-opacity" : "";
+  const secondaryStyles = "text-lg sm:text-2xl font-normal text-gray-500/25 hover:opacity-90 transition-opacity ml-3";
 
   // Secondary link component
   const SecondaryLink = () => {
