@@ -58,6 +58,7 @@ const OrdersPage = lazy(() => import('../pages/OrdersPage').then(module => ({ de
 const ReturnsAndFAQPage = lazy(() => import('../pages/ReturnsAndFAQPage').then(module => ({ default: module.ReturnsAndFAQPage })));
 const TrackingPage = lazy(() => import('../pages/TrackingPage'));
 const WalletDebugPage = lazy(() => import('../pages/WalletDebugPage').then(module => ({ default: module.WalletDebugPage })));
+const RankingPage = lazy(() => import('../pages/RankingPage').then(module => ({ default: module.RankingPage })));
 
 // Loading component for merchant/admin pages
 const PageLoader = () => (
@@ -113,6 +114,12 @@ const SmoothWalletDebugPage = () => (
   </Suspense>
 );
 
+const SmoothRankingPage = () => (
+  <Suspense fallback={null}>
+    <RankingPage />
+  </Suspense>
+);
+
 // Improved preload adjacent routes based on current route
 // Now uses visibility state to avoid preloading when tab is not visible
 const prefetchAdjacentRoutes = (currentRoute: string) => {
@@ -157,6 +164,10 @@ export const router = createBrowserRouter([
           {
             path: 'orders',
             element: <SmoothOrdersPage />
+          },
+          {
+            path: 'trending',
+            element: <SmoothRankingPage />
           },
           {
             path: 'wallet-debug',
