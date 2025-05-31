@@ -96,6 +96,8 @@ export interface Order {
   product_name: string;
   product_sku: string;
   collection_name: string;
+  collection_slug?: string;
+  product_slug?: string;
   amountSol: number;
   category_name: string;
   shippingAddress: ShippingAddress;

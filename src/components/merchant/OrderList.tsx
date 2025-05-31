@@ -499,8 +499,10 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               case 'category_name':
                 return escapeCSV(order.category_name || '');
               case 'design_url':
-                const productUrl = order.product_image_url || '';
-                return escapeCSV(productUrl ? `${productUrl.replace(/\.(webp|jpg|jpeg|png|gif)$/, '')}/design` : '');
+                if (order.collection_slug && order.product_slug) {
+                  return escapeCSV(`https://store.fun/${order.collection_slug}/${order.product_slug}/design`);
+                }
+                return '';
               case 'Blank Code':
                 return escapeCSV(order.blank_code || '');
               case 'Technique':
