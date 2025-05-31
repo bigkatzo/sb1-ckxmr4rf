@@ -194,6 +194,9 @@ export function HomePage() {
           <section>
             <SectionHeader
               title="Best Sellers"
+              to="/trending"
+              secondaryTitle="New Products"
+              secondaryTo="/trending?tab=launch_date"
             />
             <BestSellers />
           </section>

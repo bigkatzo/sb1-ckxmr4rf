@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { RankedProductList } from '../components/products/RankedProductList';
@@ -6,12 +7,29 @@ import { useProductsByTimePeriod, TimePeriod, SortType } from '../hooks/useProdu
 import SEO from '../components/SEO';
 
 export function RankingPage() {
-  const [activeTab, setActiveTab] = useState<SortType>('sales');
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const tabParam = queryParams.get('tab');
+  
+  // Set initial tab based on URL parameter if present
+  const [activeTab, setActiveTab] = useState<SortType>(
+    tabParam === 'launch_date' ? 'launch_date' : 'sales'
+  );
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all_time');
   
   // For debugging
   useEffect(() => {
     console.log('RankingPage activeTab changed:', activeTab);
+  }, [activeTab]);
+
+  // Update URL when tab changes
+  useEffect(() => {
+    const newUrl = activeTab === 'sales' 
+      ? '/trending' 
+      : `/trending?tab=${activeTab}`;
+    
+    // Update URL without full page reload
+    window.history.replaceState(null, '', newUrl);
   }, [activeTab]);
 
   // Best Sellers data
@@ -59,8 +77,11 @@ export function RankingPage() {
   return (
     <div className="container max-w-5xl mx-auto px-4 py-6 space-y-6">
       <SEO 
-        title="Product Rankings | store.fun"
-        description="Discover the best-selling products and newest arrivals on store.fun"
+        title={activeTab === 'sales' ? "Best Sellers | store.fun" : "New Products | store.fun"}
+        description={activeTab === 'sales' 
+          ? "Discover the best-selling products on store.fun" 
+          : "Explore the newest product releases on store.fun"
+        }
       />
 
       <SectionHeader 
@@ -69,7 +90,7 @@ export function RankingPage() {
       />
 
       <Tabs 
-        defaultValue="sales" 
+        defaultValue={activeTab}
         value={activeTab}
         onValueChange={handleTabChange}
         className="w-full"
