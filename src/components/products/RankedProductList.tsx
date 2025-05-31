@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
-import { ImageIcon, TrendingUp, Crown, Clock, Sparkles, Star, Zap } from 'lucide-react';
+import { ImageIcon, TrendingUp, Crown, Clock } from 'lucide-react';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
@@ -152,14 +152,12 @@ function RankedProductItem({
   };
 
   const getRankIcon = () => {
+    // Only show icons for sales tab
     if (type === 'sales') {
       if (rank === 1) return <Crown className="h-3 w-3" />;
       if (rank <= 3) return <TrendingUp className="h-3 w-3" />;
-    } else {
-      if (rank === 1) return <Sparkles className="h-3 w-3" />;
-      if (rank === 2) return <Star className="h-3 w-3" />;
-      if (rank === 3) return <Zap className="h-3 w-3" />;
     }
+    // Always return just the number for launch_date tab
     return null;
   };
 
