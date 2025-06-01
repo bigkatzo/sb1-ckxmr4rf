@@ -115,8 +115,8 @@ function RankedProductItem({
 
   // Get stock status text - show "available/total" format
   const getStockStatus = () => {
-    // Use either salesCount or publicOrderCount, depending on what's available
-    const salesCount = product.salesCount || product.publicOrderCount || 0;
+    // Use either publicOrderCount or salesCount, preferring publicOrderCount
+    const orderCount = product.publicOrderCount || product.salesCount || 0;
     
     if (product.stock === null) return 'Infinite';
     if (product.stock === 0) return 'Sold out';
@@ -125,7 +125,7 @@ function RankedProductItem({
     const totalStock = product.stock;
     
     // Available stock = Total stock - Sales count
-    const availableStock = Math.max(0, totalStock - salesCount);
+    const availableStock = Math.max(0, totalStock - orderCount);
     
     // Display format: "available/total" (e.g., "492/500")
     return `${availableStock}/${totalStock}`;
@@ -182,8 +182,8 @@ function RankedProductItem({
     });
   };
 
-  // Sales count to display - use either salesCount or publicOrderCount
-  const displaySalesCount = product.salesCount || product.publicOrderCount || 0;
+  // Sales count to display - use either publicOrderCount or salesCount
+  const displaySalesCount = product.publicOrderCount || product.salesCount || 0;
 
   return (
     <div 

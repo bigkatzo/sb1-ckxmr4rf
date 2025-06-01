@@ -165,8 +165,8 @@ export function useProductsByTimePeriod({
           // Ensure free_notes is properly processed
           const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
           
-          // Use order_count from the function result for proper sales display
-          const salesCount = sortBy === 'sales' ? (product.order_count || 0) : (product.sales_count || 0);
+          // Both tabs now get order_count from public_trending_products
+          const orderCount = product.order_count || 0;
 
           return {
             id: product.id,
@@ -202,9 +202,9 @@ export function useProductsByTimePeriod({
             variantPrices: product.variant_prices || {},
             priceModifierBeforeMin: product.price_modifier_before_min ?? null,
             priceModifierAfterMin: product.price_modifier_after_min ?? null,
-            salesCount: salesCount,
+            salesCount: orderCount,
             saleEnded: product.sale_ended || false,
-            publicOrderCount: product.order_count,
+            publicOrderCount: orderCount,
             rank: product.rank,
             pinOrder: product.pin_order,
             blankCode: product.blank_code,
