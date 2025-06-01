@@ -144,10 +144,7 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [
-        '@pixi/core',
-        '@pixi/filter-adjustment',
-        '@pixi/filter-bulge-pinch',
-        '@pixi/filter-displacement'
+        '@pixi/core'
       ],
       output: {
         assetFileNames: 'assets/[name]-[hash][extname]',
@@ -198,11 +195,7 @@ export default defineConfig({
           
           // Studio components (mockup generator)
           'vendor-pixi': [
-            'pixi.js', 
-            '@pixi/core',
-            '@pixi/filter-adjustment',
-            '@pixi/filter-bulge-pinch',
-            '@pixi/filter-displacement'
+            'pixi.js'
           ]
         }
       }
