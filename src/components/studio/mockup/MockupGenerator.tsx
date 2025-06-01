@@ -153,15 +153,24 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
     
     switch (manipulationMode) {
       case 'move':
-        // Calculate new position as percentage of container
-        const newX = designPosition.x + (deltaX / containerWidth) * 100;
-        const newY = designPosition.y + (deltaY / containerHeight) * 100;
+        // Calculate new position as percentage of container using dampened movement
+        // Use a dampening factor to make movements less extreme
+        const dampeningFactor = 0.5; // Reduce sensitivity
+        const scaledDeltaX = (deltaX / containerWidth) * 100 * dampeningFactor;
+        const scaledDeltaY = (deltaY / containerHeight) * 100 * dampeningFactor;
         
-        // Clamp values to keep design within boundaries
-        const clampedX = Math.max(0, Math.min(100, newX));
-        const clampedY = Math.max(0, Math.min(100, newY));
+        const newX = designPosition.x + scaledDeltaX;
+        const newY = designPosition.y + scaledDeltaY;
+        
+        // Clamp values to keep design within boundaries with some margin
+        // This ensures the design doesn't go completely off screen
+        const margin = designSize / 3; // Allow 1/3 of the design to go off-screen at most
+        const clampedX = Math.max(margin, Math.min(100 - margin, newX));
+        const clampedY = Math.max(margin, Math.min(100 - margin, newY));
         
         setDesignPosition({ x: clampedX, y: clampedY });
+        // Update drag start for smoother continuous movement
+        setDragStart({ x: e.clientX, y: e.clientY });
         break;
       
       case 'rotate':
@@ -172,11 +181,17 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
         // Calculate angles
         const startAngle = Math.atan2(dragStart.y - centerY, dragStart.x - centerX);
         const currentAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-        const angleDiff = (currentAngle - startAngle) * (180 / Math.PI);
+        let angleDiff = (currentAngle - startAngle) * (180 / Math.PI);
+        
+        // Apply rotation smoothing
+        const rotationDampen = 0.5; // Reduce rotation sensitivity
+        angleDiff *= rotationDampen;
         
         // Apply rotation with limits
         const newRotation = (startRotation + angleDiff) % 360;
         setDesignRotation(newRotation);
+        
+        // Don't update drag start for rotation to maintain reference point
         break;
       
       case 'resize':
@@ -196,12 +211,15 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
           Math.pow(e.clientY - containerRect.top - centerYPx, 2)
         );
         
-        // Scale factor
-        const scaleFactor = currentDistance / startDistance;
+        // Scale factor with dampening
+        const sizeDampen = 0.7; // Reduce size sensitivity
+        const scaleFactor = 1 + ((currentDistance / startDistance) - 1) * sizeDampen;
         
         // Apply new size with limits
         const newSize = startSize * scaleFactor;
-        setDesignSize(Math.max(5, Math.min(80, newSize)));
+        setDesignSize(Math.max(10, Math.min(70, newSize))); // More restrictive limits
+        
+        // Don't update drag start for resize to maintain reference size
         break;
     }
     
@@ -396,7 +414,7 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
                       transform: `translate(-50%, -50%) rotate(${designRotation}deg)`,
                       width: `${designSize}%`,
                       height: `${designSize}%`,
-                      border: '1px dashed rgba(255, 255, 255, 0.3)',
+                      border: '1px dashed rgba(255, 255, 255, 0.5)',
                       borderRadius: '4px',
                     }}
                   >
@@ -406,36 +424,51 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
                       style={{ pointerEvents: 'auto' }}
                       onMouseDown={(e) => handleMouseDown(e, 'move')}
                     >
-                      <Move className="h-6 w-6 text-white/40 pointer-events-none" />
+                      <Move className="h-6 w-6 text-white/60 pointer-events-none" />
                     </div>
                     
                     {/* Resize handle (bottom-right corner) */}
                     <div
-                      className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center"
+                      className="absolute bottom-0 right-0 w-8 h-8 cursor-nwse-resize flex items-center justify-center"
                       style={{ 
                         pointerEvents: 'auto',
                         transform: 'translate(50%, 50%)',
-                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
                         borderRadius: '50%',
+                        border: '2px solid white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                        zIndex: 10,
                       }}
                       onMouseDown={(e) => handleMouseDown(e, 'resize')}
                     >
                       <CornerRightDown className="h-4 w-4 text-white pointer-events-none" />
                     </div>
                     
-                    {/* Rotate handle (top) */}
+                    {/* Rotation handle (top) */}
                     <div
-                      className="absolute top-0 left-1/2 w-6 h-6 cursor-grab flex items-center justify-center"
+                      className="absolute top-0 left-1/2 w-8 h-8 cursor-grab flex items-center justify-center"
                       style={{ 
                         pointerEvents: 'auto',
-                        transform: 'translate(-50%, -150%)',
-                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        transform: 'translate(-50%, -170%)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
                         borderRadius: '50%',
+                        border: '2px solid white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                        zIndex: 10,
                       }}
                       onMouseDown={(e) => handleMouseDown(e, 'rotate')}
                     >
                       <RotateCw className="h-4 w-4 text-white pointer-events-none" />
                     </div>
+                    
+                    {/* Add a visual line to connect rotation handle to the design */}
+                    <div
+                      className="absolute top-0 left-1/2 w-px bg-white/50 pointer-events-none"
+                      style={{
+                        height: 'calc(170% - 4px)',
+                        transform: 'translateX(-50%)',
+                      }}
+                    ></div>
                   </div>
                 </div>
               ) : (
