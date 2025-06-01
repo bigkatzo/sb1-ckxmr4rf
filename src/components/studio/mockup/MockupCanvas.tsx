@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import * as PIXI from 'pixi.js';
 import { PrintMethod } from './templates/templateData';
 
 interface MockupCanvasProps {
@@ -13,26 +12,6 @@ interface MockupCanvasProps {
   className?: string;
 }
 
-/**
- * Simple function to apply opacity based on print method
- */
-function applyPrintMethodOpacity(sprite: PIXI.Sprite, method: PrintMethod) {
-  switch (method) {
-    case 'screen-print':
-      sprite.alpha = 0.95;
-      break;
-    case 'dtg':
-      sprite.alpha = 0.9;
-      break;
-    case 'embroidery':
-      sprite.alpha = 0.97;
-      break;
-    case 'vinyl':
-      sprite.alpha = 1.0;
-      break;
-  }
-}
-
 export function MockupCanvas({
   designImage,
   templateImage,
@@ -44,138 +23,128 @@ export function MockupCanvas({
   className = ''
 }: MockupCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const pixiApp = useRef<PIXI.Application | null>(null);
-  const [isAppReady, setIsAppReady] = useState(false);
+  const [isAppMounted, setIsAppMounted] = useState(false);
   
-  // Initialize PixiJS application
+  // Use a simpler approach without relying on PixiJS Application
   useEffect(() => {
     if (!canvasRef.current) return;
     
-    // Clean up previous instance if it exists
-    if (pixiApp.current) {
-      try {
-        pixiApp.current.destroy();
-      } catch (error) {
-        console.error("Error destroying PixiJS application:", error);
-      }
-      pixiApp.current = null;
-      setIsAppReady(false);
+    // Clean up any existing canvas elements
+    while (canvasRef.current.firstChild) {
+      canvasRef.current.removeChild(canvasRef.current.firstChild);
     }
     
-    try {
-      // Create new PIXI application using init() for v8 compatibility
-      const app = new PIXI.Application();
-      
-      // Initialize the application with the appropriate options
-      app.init({
-        width: 1200,
-        height: 1200,
-        backgroundColor: 0x000000,
-        antialias: true,
-        resolution: window.devicePixelRatio || 1,
-        autoDensity: true,
-        preserveDrawingBuffer: true, // Needed for image export
-      });
-      
-      // Append the canvas to the DOM - use app.canvas in v8
-      if (app.canvas) {
-        canvasRef.current.appendChild(app.canvas);
-        
-        // Store reference and update state
-        pixiApp.current = app;
-        setIsAppReady(true);
-      } else {
-        console.error("PixiJS application canvas is not available");
-      }
-    } catch (error) {
-      console.error("Error initializing PixiJS application:", error);
-    }
+    // Create a plain canvas element
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1200;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvasRef.current.appendChild(canvas);
+    
+    setIsAppMounted(true);
     
     return () => {
-      if (pixiApp.current) {
-        try {
-          pixiApp.current.destroy();
-        } catch (error) {
-          console.error("Error destroying PixiJS application:", error);
+      if (canvasRef.current) {
+        while (canvasRef.current.firstChild) {
+          canvasRef.current.removeChild(canvasRef.current.firstChild);
         }
-        pixiApp.current = null;
       }
+      setIsAppMounted(false);
     };
   }, []);
   
-  // Update the canvas when props change
+  // Handle rendering the mockup when props change
   useEffect(() => {
-    // Make sure app is ready and we have required images
-    if (!isAppReady || !pixiApp.current || !designImage || !templateImage) return;
+    if (!isAppMounted || !canvasRef.current || !designImage || !templateImage) return;
     
-    const app = pixiApp.current;
+    const canvas = canvasRef.current.querySelector('canvas');
+    if (!canvas) return;
     
-    // Clear previous content
-    while (app.stage.children.length > 0) {
-      app.stage.removeChildAt(0);
-    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     
-    // Create a container for all our content
-    const container = new PIXI.Container();
+    // Clear the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Load template image and design image sequentially
-    const loadTemplateTexture = async () => {
+    // Load and draw the template image
+    const loadImages = async () => {
       try {
-        // Load the template image
-        const templateTexture = await PIXI.Assets.load(templateImage);
+        // Load template image
+        const templateImg = new Image();
+        templateImg.crossOrigin = 'anonymous';
         
-        // Create template sprite (background)
-        const templateSprite = new PIXI.Sprite(templateTexture);
-        templateSprite.width = app.screen.width;
-        templateSprite.height = app.screen.height;
-        container.addChild(templateSprite);
+        // Create a promise to wait for image load
+        await new Promise<void>((resolve, reject) => {
+          templateImg.onload = () => resolve();
+          templateImg.onerror = (e) => {
+            console.error('Error loading template image:', e);
+            reject(e);
+          };
+          templateImg.src = templateImage;
+        });
         
-        // Add container to stage
-        app.stage.addChild(container);
+        // Draw template as background
+        ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
         
-        // Now load and add the design image
-        const designTexture = await PIXI.Assets.load(designImage);
+        // Load design image
+        const designImg = new Image();
+        designImg.crossOrigin = 'anonymous';
         
-        // Create design sprite
-        const designSprite = new PIXI.Sprite(designTexture);
-        designSprite.anchor.set(0.5);
-        designSprite.x = app.screen.width * (position.x / 100);
-        designSprite.y = app.screen.height * (position.y / 100);
-        designSprite.width = app.screen.width * (size / 100);
-        designSprite.height = app.screen.height * (size / 100);
+        // Create a promise to wait for image load
+        await new Promise<void>((resolve, reject) => {
+          designImg.onload = () => resolve();
+          designImg.onerror = (e) => {
+            console.error('Error loading design image:', e);
+            reject(e);
+          };
+          designImg.src = designImage;
+        });
         
-        // Apply basic effects (just opacity for now)
-        applyPrintMethodOpacity(designSprite, printMethod);
+        // Set global alpha based on print method
+        switch (printMethod) {
+          case 'screen-print':
+            ctx.globalAlpha = 0.95;
+            break;
+          case 'dtg':
+            ctx.globalAlpha = 0.9;
+            break;
+          case 'embroidery':
+            ctx.globalAlpha = 0.97;
+            break;
+          case 'vinyl':
+            ctx.globalAlpha = 1.0;
+            break;
+        }
         
-        // Add design to container
-        container.addChild(designSprite);
+        // Calculate design position and size
+        const designWidth = canvas.width * (size / 100);
+        const designHeight = canvas.height * (size / 100);
+        const designX = (canvas.width * (position.x / 100)) - (designWidth / 2);
+        const designY = (canvas.height * (position.y / 100)) - (designHeight / 2);
+        
+        // Draw the design
+        ctx.drawImage(designImg, designX, designY, designWidth, designHeight);
+        
+        // Reset global alpha
+        ctx.globalAlpha = 1.0;
         
         // Generate output for download if callback provided
         if (onRender) {
-          // Wait for a frame to ensure rendering is complete
-          requestAnimationFrame(() => {
-            try {
-              if (app && app.canvas) {
-                const canvas = app.canvas as HTMLCanvasElement;
-                const dataUrl = canvas.toDataURL('image/png');
-                onRender(dataUrl);
-              } else {
-                console.error('PixiJS canvas is not available');
-              }
-            } catch (error: unknown) {
-              console.error('Error generating image:', error);
-            }
-          });
+          try {
+            const dataUrl = canvas.toDataURL('image/png');
+            onRender(dataUrl);
+          } catch (error) {
+            console.error('Error generating image:', error);
+          }
         }
-      } catch (error: unknown) {
-        console.error('Error loading textures:', error);
+      } catch (error) {
+        console.error('Error rendering mockup:', error);
       }
     };
     
-    // Start the loading process
-    loadTemplateTexture();
-    
-  }, [designImage, templateImage, displacementMap, printMethod, position, size, onRender, isAppReady]);
+    loadImages();
+  }, [designImage, templateImage, displacementMap, printMethod, position, size, onRender, isAppMounted]);
   
   return (
     <div 
