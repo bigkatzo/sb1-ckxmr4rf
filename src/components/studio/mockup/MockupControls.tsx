@@ -1,8 +1,17 @@
 import { PrintMethod } from './templates/templateData';
+import { RotateCw, Droplet, Waves, Layers } from 'lucide-react';
 
 interface MockupControlsProps {
   designSize: number;
   onDesignSizeChange: (size: number) => void;
+  rotation: number;
+  onRotationChange: (rotation: number) => void;
+  opacity: number;
+  onOpacityChange: (opacity: number) => void;
+  wrinkleIntensity: number;
+  onWrinkleIntensityChange: (intensity: number) => void;
+  printPressure: number;
+  onPrintPressureChange: (pressure: number) => void;
   printMethod: PrintMethod;
   onPrintMethodChange: (method: PrintMethod) => void;
   onDownload: () => void;
@@ -12,6 +21,14 @@ interface MockupControlsProps {
 export function MockupControls({
   designSize,
   onDesignSizeChange,
+  rotation,
+  onRotationChange,
+  opacity,
+  onOpacityChange,
+  wrinkleIntensity,
+  onWrinkleIntensityChange,
+  printPressure,
+  onPrintPressureChange,
   printMethod,
   onPrintMethodChange,
   onDownload,
@@ -33,6 +50,105 @@ export function MockupControls({
         <div className="flex justify-between text-xs text-gray-400">
           <span>Small</span>
           <span>Large</span>
+        </div>
+      </div>
+      
+      {/* Rotation Control */}
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          <RotateCw className="h-3.5 w-3.5 inline mr-1" />
+          Rotation <span className="text-xs text-gray-400 ml-1">{rotation}°</span>
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            type="range"
+            min="-180"
+            max="180"
+            value={rotation}
+            onChange={(e) => onRotationChange(Number(e.target.value))}
+            className="flex-1"
+          />
+          <button
+            onClick={() => onRotationChange(0)}
+            className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded"
+          >
+            Reset
+          </button>
+        </div>
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>-180°</span>
+          <span>180°</span>
+        </div>
+      </div>
+      
+      {/* Layer Opacity Control */}
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          <Layers className="h-3.5 w-3.5 inline mr-1" />
+          Opacity <span className="text-xs text-gray-400 ml-1">{Math.round(opacity * 100)}%</span>
+        </label>
+        <input
+          type="range"
+          min="0.2"
+          max="1"
+          step="0.01"
+          value={opacity}
+          onChange={(e) => onOpacityChange(Number(e.target.value))}
+          className="w-full"
+        />
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>20%</span>
+          <span>100%</span>
+        </div>
+      </div>
+      
+      {/* Wrinkle Intensity Control */}
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          <Waves className="h-3.5 w-3.5 inline mr-1" />
+          Fabric Wrinkles <span className="text-xs text-gray-400 ml-1">{Math.round(wrinkleIntensity * 100)}%</span>
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={wrinkleIntensity}
+            onChange={(e) => onWrinkleIntensityChange(Number(e.target.value))}
+            className="flex-1"
+          />
+          <button
+            onClick={() => onWrinkleIntensityChange(0.5)}
+            className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded"
+          >
+            Reset
+          </button>
+        </div>
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>None</span>
+          <span>Max</span>
+        </div>
+      </div>
+      
+      {/* Print Pressure Control */}
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          <Droplet className="h-3.5 w-3.5 inline mr-1" />
+          Print Pressure <span className="text-xs text-gray-400 ml-1">{Math.round(printPressure * 100)}%</span>
+        </label>
+        <input
+          type="range"
+          min="0.3"
+          max="1.5"
+          step="0.05"
+          value={printPressure}
+          onChange={(e) => onPrintPressureChange(Number(e.target.value))}
+          className="w-full"
+        />
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>Light</span>
+          <span>Heavy</span>
         </div>
       </div>
       

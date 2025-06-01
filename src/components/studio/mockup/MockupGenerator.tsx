@@ -25,6 +25,10 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
   // State for design positioning
   const [designPosition, setDesignPosition] = useState({ x: 50, y: 40 });
   const [designSize, setDesignSize] = useState(30); // percentage of container
+  const [designRotation, setDesignRotation] = useState(0); // rotation in degrees
+  const [designOpacity, setDesignOpacity] = useState(1); // opacity from 0 to 1
+  const [wrinkleIntensity, setWrinkleIntensity] = useState(0.5); // wrinkle effect intensity
+  const [printPressure, setPrintPressure] = useState(1); // print pressure effect
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   
@@ -173,6 +177,30 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
     setRenderedMockup(null); // Reset rendered mockup when size changes
   };
 
+  // Handle rotation change
+  const handleRotationChange = (rotation: number) => {
+    setDesignRotation(rotation);
+    setRenderedMockup(null); // Reset rendered mockup when rotation changes
+  };
+
+  // Handle opacity change
+  const handleOpacityChange = (opacity: number) => {
+    setDesignOpacity(opacity);
+    setRenderedMockup(null); // Reset rendered mockup when opacity changes
+  };
+
+  // Handle wrinkle intensity change
+  const handleWrinkleIntensityChange = (intensity: number) => {
+    setWrinkleIntensity(intensity);
+    setRenderedMockup(null); // Reset rendered mockup when wrinkle intensity changes
+  };
+
+  // Handle print pressure change
+  const handlePrintPressureChange = (pressure: number) => {
+    setPrintPressure(pressure);
+    setRenderedMockup(null); // Reset rendered mockup when print pressure changes
+  };
+
   // Handle mockup rendering
   const handleRender = (dataUrl: string) => {
     setRenderedMockup(dataUrl);
@@ -278,6 +306,14 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
                 <MockupControls 
                   designSize={designSize}
                   onDesignSizeChange={handleSizeChange}
+                  rotation={designRotation}
+                  onRotationChange={handleRotationChange}
+                  opacity={designOpacity}
+                  onOpacityChange={handleOpacityChange}
+                  wrinkleIntensity={wrinkleIntensity}
+                  onWrinkleIntensityChange={handleWrinkleIntensityChange}
+                  printPressure={printPressure}
+                  onPrintPressureChange={handlePrintPressureChange}
                   printMethod={printMethod}
                   onPrintMethodChange={handlePrintMethodChange}
                   onDownload={downloadMockup}
@@ -305,6 +341,10 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
                     printMethod={printMethod}
                     position={designPosition}
                     size={designSize}
+                    rotation={designRotation}
+                    opacity={designOpacity}
+                    wrinkleIntensity={wrinkleIntensity}
+                    printPressure={printPressure}
                     onRender={handleRender}
                   />
                   
@@ -314,7 +354,7 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
                     style={{
                       top: `${designPosition.y}%`,
                       left: `${designPosition.x}%`,
-                      transform: 'translate(-50%, -50%)',
+                      transform: `translate(-50%, -50%) rotate(${designRotation}deg)`,
                       width: `${designSize}%`,
                       height: `${designSize}%`,
                       border: '1px dashed rgba(255, 255, 255, 0.3)',
