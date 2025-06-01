@@ -60,6 +60,10 @@ const TrackingPage = lazy(() => import('../pages/TrackingPage'));
 const WalletDebugPage = lazy(() => import('../pages/WalletDebugPage').then(module => ({ default: module.WalletDebugPage })));
 const RankingPage = lazy(() => import('../pages/RankingPage').then(module => ({ default: module.RankingPage })));
 
+// Studio pages (lazy loaded only when accessed)
+const StudioPage = lazy(() => import('../pages/studio').then(module => ({ default: module.StudioPage })));
+const StudioMockupGeneratorPage = lazy(() => import('../pages/studio/MockupGeneratorPage').then(module => ({ default: module.MockupGeneratorPage })));
+
 // Loading component for merchant/admin pages
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -176,6 +180,14 @@ export const router = createBrowserRouter([
           {
             path: 'tracking/:trackingNumber',
             element: <Suspense fallback={null}><TrackingPage /></Suspense>
+          },
+          {
+            path: 'studio',
+            element: <Suspense fallback={<PageLoader />}><StudioPage /></Suspense>
+          },
+          {
+            path: 'studio/mockup-generator',
+            element: <Suspense fallback={<PageLoader />}><StudioMockupGeneratorPage /></Suspense>
           },
           {
             path: ':slug',
