@@ -113,7 +113,7 @@ function RankedProductItem({
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
-  // Get stock status text - fix calculation to show (total stock - sales)/total stock
+  // Get stock status text - correctly show (original - sales)/original
   const getStockStatus = () => {
     // Use either salesCount or publicOrderCount, depending on what's available
     const salesCount = product.salesCount || product.publicOrderCount || 0;
@@ -121,12 +121,14 @@ function RankedProductItem({
     if (product.stock === null) return 'Infinite';
     if (product.stock === 0) return 'Sold out';
     
-    // Get the original total stock (current stock + sales)
-    const totalStock = product.stock + salesCount;
-    // Current stock is already the remaining stock
-    const remainingStock = product.stock;
+    // Assuming product.stock is the CURRENT remaining stock after sales have been deducted
+    // For our example: If we started with 500 hats and sold 8, product.stock would be 492
     
-    return `${remainingStock}/${totalStock}`;
+    // We want to display "492/500"
+    const remainingStock = product.stock;  // Already represents remaining stock (492 in our example)
+    const originalStock = remainingStock + salesCount;  // Calculate original stock (500 in our example)
+    
+    return `${remainingStock}/${originalStock}`;
   };
 
   // Handle click to navigate to product page
