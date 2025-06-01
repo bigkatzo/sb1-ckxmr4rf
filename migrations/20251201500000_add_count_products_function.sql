@@ -24,15 +24,14 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT COUNT(*)
-  FROM public_trending_products
-  WHERE (
-    CASE 
-      WHEN p_time_period = 'today' THEN date_trunc('day', now()) = date_trunc('day', date)
-      WHEN p_time_period = 'last_7_days' THEN date > (now() - interval '7 days')
-      WHEN p_time_period = 'last_30_days' THEN date > (now() - interval '30 days')
-      ELSE true -- all_time doesn't filter by date
-    END
-  );
+  FROM public_trending_products tp
+  WHERE tp.is_active = true
+  AND CASE 
+    WHEN p_time_period = 'today' THEN tp.today_orders > 0
+    WHEN p_time_period = 'last_7_days' THEN tp.last_7_days_orders > 0
+    WHEN p_time_period = 'last_30_days' THEN tp.last_30_days_orders > 0
+    ELSE true -- all_time doesn't filter by orders
+  END;
 $$;
 
 -- Grant necessary permissions
