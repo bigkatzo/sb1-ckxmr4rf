@@ -80,12 +80,10 @@ export function MockupCanvas({
       designSprite.width = app.screen.width * (size / 100);
       designSprite.height = app.screen.height * (size / 100);
       
-      // Create displacement sprite
+      // Create displacement sprite (simplified)
       const displacementSprite = new PIXI.Sprite(displacementTexture);
-      displacementSprite.texture.baseTexture.wrapMode = PIXI.WRAP_MODES.REPEAT;
-      displacementSprite.scale.set(1);
       
-      // Apply effects based on print method
+      // Apply simplified effects based on print method
       applyEffects(designSprite, printMethod, displacementSprite);
       
       // Add design to container
