@@ -22,6 +22,7 @@ export interface UploadOptions {
   upsert?: boolean;
   webpHandling?: 'preserve' | 'optimize';
   onProgress?: (progress: number) => void;
+  customPath?: string; // Custom path to use instead of auto-generating one
 }
 
 // Normalize storage URLs to ensure consistent format
@@ -354,7 +355,8 @@ export async function uploadImage(
     cacheControl = '604800',
     upsert = false,
     webpHandling,
-    onProgress
+    onProgress,
+    customPath
   } = options;
 
   try {
@@ -393,7 +395,7 @@ export async function uploadImage(
       // Use our collection-based naming format
       fileToUpload = new File(
         [file], 
-        generateSafeFilename(file.name, collection),
+        customPath || generateSafeFilename(file.name, collection),
         { type: 'image/webp' }
       );
       
@@ -406,6 +408,16 @@ export async function uploadImage(
         useWebWorker: true,
         collection 
       });
+      
+      // Apply custom path if provided (after optimization)
+      if (customPath) {
+        fileToUpload = new File(
+          [fileToUpload], 
+          customPath,
+          { type: fileToUpload.type }
+        );
+        console.log(`Using custom path: ${customPath}`);
+      }
     }
     
     // Use the filename that's already been safely generated during the previous steps
@@ -432,7 +444,7 @@ export async function uploadImage(
     // Handle content type mismatch for JSON issue
     let contentType = fileToUpload.type;
     // Force the correct content type if it's detected as application/json erroneously
-    if (contentType === 'application/json' && 
+    if ((contentType === 'application/json' || contentType === 'text/plain' || contentType === '') && 
         (cleanPath.match(/\.(jpe?g|png|gif|webp|bmp|svg)$/i))) {
       // Extract from filename extension as fallback
       const ext = cleanPath.split('.').pop()?.toLowerCase();
@@ -443,6 +455,9 @@ export async function uploadImage(
       else if (ext === 'svg') contentType = 'image/svg+xml';
       else if (ext === 'bmp') contentType = 'image/bmp';
       console.warn(`Fixed incorrect content type from ${fileToUpload.type} to ${contentType}`);
+      
+      // Create a new File with the correct content type to ensure it's used throughout
+      fileToUpload = new File([fileToUpload], fileToUpload.name, { type: contentType });
     }
     
     // Try three different upload methods with proper error handling

@@ -3,7 +3,7 @@ import { X, User, Camera, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
 import { ProfileImage } from '../ui/ProfileImage';
-import { generateSafeFilename } from '../../lib/storage';
+import { generateSafeFilename, uploadImage } from '../../lib/storage';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -99,43 +99,23 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         throw new Error("Not authenticated");
       }
       
-      // Use our standard filename generation function with 'profile' collection
-      // This ensures consistency with the rest of the app
-      const fileName = generateSafeFilename(file.name, 'profile');
+      // Use the shared uploadImage function with proper options
+      console.log('Uploading profile image:', file.name, file.type, file.size);
       
-      // Add user ID as folder prefix for RLS policies
-      const filePath = `${user.id}/${fileName}`;
+      // Create path with user ID prefix for proper RLS policies
+      const userPrefix = `${user.id}/`;
+      const customPath = userPrefix + generateSafeFilename(file.name, 'profile');
       
-      console.log('Uploading profile image to path:', filePath);
+      // Use the shared uploadImage function instead of direct storage API call
+      const imageUrl = await uploadImage(file, 'profile-images', {
+        cacheControl: '3600',
+        upsert: true,
+        customPath: customPath
+      });
       
-      // Upload the file directly using storage API
-      const { data, error } = await supabase.storage
-        .from('profile-images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
-        
-      if (error) throw error;
+      console.log('Image uploaded successfully, URL:', imageUrl);
       
-      console.log('Upload successful:', data);
-      
-      // Get the public URL
-      const { data: urlData } = supabase.storage
-        .from('profile-images')
-        .getPublicUrl(data.path);
-        
-      console.log('Image public URL:', urlData.publicUrl);
-      
-      // Make sure we're using the object URL format
-      let imageUrl = urlData.publicUrl;
-      if (imageUrl.includes('/storage/v1/render/image/public/')) {
-        imageUrl = imageUrl.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/').split('?')[0];
-        console.log('Converted to object URL format:', imageUrl);
-      }
-      
-      // Update profile data state with the Supabase public URL
-      // but don't change the image preview which is already showing the local file
+      // Update profile data state with the URL returned by uploadImage
       setProfileData(prev => ({
         ...prev,
         profileImage: imageUrl
