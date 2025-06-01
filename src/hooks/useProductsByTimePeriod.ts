@@ -41,6 +41,7 @@ export function useProductsByTimePeriod({
   const [offset, setOffset] = useState(initialOffset);
   const [limit] = useState(initialLimit);
   const isFetchingRef = useRef(false);
+  const totalFetchedRef = useRef(0); // Keep track of total fetched products
 
   useEffect(() => {
     // Reset state when sort type or time period changes
@@ -48,6 +49,7 @@ export function useProductsByTimePeriod({
     setLoading(true);
     setHasMore(true);
     setOffset(initialOffset);
+    totalFetchedRef.current = 0; // Reset total fetched
   }, [sortBy, timePeriod, initialOffset]);
 
   useEffect(() => {
@@ -64,12 +66,20 @@ export function useProductsByTimePeriod({
       // Use cached data if available
       if (cachedData) {
         if (isMounted) {
-          setProducts(prevProducts => 
-            offset > 0 ? [...prevProducts, ...cachedData.products] : cachedData.products
-          );
+          const newProducts = offset > 0 ? [...products, ...cachedData.products] : cachedData.products;
+          setProducts(newProducts);
           setCategoryIndices(cachedData.categoryIndices);
           setTotalCount(cachedData.totalCount);
-          setHasMore(cachedData.products.length === limit);
+          
+          // Update totalFetchedRef to track total fetched products
+          totalFetchedRef.current = newProducts.length;
+          
+          // Calculate hasMore based on actual count and fetched products
+          setHasMore(
+            cachedData.products.length === limit && 
+            totalFetchedRef.current < cachedData.totalCount
+          );
+          
           setLoading(false);
         }
         
@@ -130,41 +140,29 @@ export function useProductsByTimePeriod({
         console.log('Fetching products with:', { rpcName, sortBy, timePeriod, limit, offset });
         
         // Use proper query structure for Supabase RPC calls
-        const { data, error } = await supabase
+        const { data, error, count } = await supabase
           .rpc(rpcName, { 
             p_limit: limit,
             p_offset: offset,
             ...(sortBy === 'sales' ? { p_time_period: timePeriod } : {})
-          });
+          }, { count: 'exact' });
 
         if (error) throw error;
         
-        // Debug the first product to see what data we're getting
-        if (data && data.length > 0) {
-          console.log('First product data:', data[0]);
-        }
-
-        // Get product IDs for count query
-        const productIds = (data || []).map((p: any) => p.id);
-        
-        // Skip count query if no products returned
-        let count = 0;
-        if (productIds.length > 0) {
-          // Get total count
-          try {
-            const countResult = await supabase
-              .from('public_products_with_categories')
-              .select('id', { count: 'exact', head: true });
-            
-            count = countResult.count || 0;
-          } catch (countErr) {
-            console.warn('Error getting product count:', countErr);
-            // Continue without count
-            count = productIds.length;
+        // Early return if no data
+        if (!data || data.length === 0) {
+          if (isMounted) {
+            setHasMore(false);
+            if (offset === 0) {
+              setProducts([]);
+              setCategoryIndices({});
+              setTotalCount(0);
+            }
           }
+          return;
         }
 
-        const transformedProducts = (data || []).map((product: any) => {
+        const transformedProducts = data.map((product: any) => {
           // Ensure free_notes is properly processed
           const freeNotesValue = product.free_notes !== null ? String(product.free_notes || '') : '';
           
@@ -224,13 +222,38 @@ export function useProductsByTimePeriod({
 
         const indices = createCategoryIndicesFromProducts(transformedProducts);
         
+        // Get a count of products if we didn't get it from the query
+        let finalCount = count ?? 0;
+        
+        // If no count from the query, try to get it from the specific query based on sortBy
+        if (!finalCount) {
+          try {
+            const countQuery = sortBy === 'sales'
+              ? supabase.rpc('count_trending_products', { p_time_period: timePeriod })
+              : supabase.rpc('count_products_by_launch_date');
+              
+            const { data: countData, error: countError } = await countQuery;
+            
+            if (!countError && countData) {
+              finalCount = countData;
+            } else {
+              // Fallback count calculation
+              finalCount = offset + transformedProducts.length + (transformedProducts.length < limit ? 0 : 1);
+            }
+          } catch (countErr) {
+            console.warn('Error getting product count:', countErr);
+            // Fallback: assume there are more if we got a full page
+            finalCount = offset + transformedProducts.length + (transformedProducts.length < limit ? 0 : 1);
+          }
+        }
+        
         // Cache the results with short durations for time-sensitive data
         cacheManager.set(
           cacheKey, 
           {
             products: transformedProducts,
             categoryIndices: indices,
-            totalCount: count || 0
+            totalCount: finalCount
           }, 
           getCacheDuration(sortBy).TTL,
           {
@@ -239,10 +262,23 @@ export function useProductsByTimePeriod({
         );
 
         if (isMounted) {
-          setProducts(prev => offset > 0 ? [...prev, ...transformedProducts] : transformedProducts);
+          const newProducts = offset > 0 ? [...products, ...transformedProducts] : transformedProducts;
+          setProducts(newProducts);
           setCategoryIndices(indices);
-          setTotalCount(count || 0);
-          setHasMore(transformedProducts.length === limit);
+          setTotalCount(finalCount);
+          
+          // Update total fetched count
+          totalFetchedRef.current = newProducts.length;
+          
+          // Determine if we have more products to fetch
+          // We have more products if:
+          // 1. We received a full page of results (transformedProducts.length === limit)
+          // 2. AND the total we've fetched is less than the total count
+          setHasMore(
+            transformedProducts.length === limit && 
+            totalFetchedRef.current < finalCount
+          );
+          
           setError(null);
           if (updateLoadingState) {
             setLoading(false);
@@ -252,8 +288,10 @@ export function useProductsByTimePeriod({
         console.error('Error fetching products:', err);
         if (isMounted && updateLoadingState) {
           setError(handleError(err));
-          setProducts([]);
-          setCategoryIndices({});
+          if (offset === 0) {
+            setProducts([]);
+            setCategoryIndices({});
+          }
           setTotalCount(0);
           setHasMore(false);
           setLoading(false);
@@ -267,7 +305,7 @@ export function useProductsByTimePeriod({
     return () => {
       isMounted = false;
     };
-  }, [limit, sortBy, timePeriod, offset]);
+  }, [limit, sortBy, timePeriod, offset, products]);
 
   // Function to load more products
   const loadMore = () => {
