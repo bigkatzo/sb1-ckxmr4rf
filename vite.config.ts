@@ -143,7 +143,12 @@ export default defineConfig({
       polyfill: true
     },
     rollupOptions: {
-      external: [],
+      external: [
+        '@pixi/core',
+        '@pixi/filter-adjustment',
+        '@pixi/filter-bulge-pinch',
+        '@pixi/filter-displacement'
+      ],
       output: {
         assetFileNames: 'assets/[name]-[hash][extname]',
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -191,10 +196,8 @@ export default defineConfig({
           // Payment processing
           'vendor-payment': ['@stripe/react-stripe-js', '@stripe/stripe-js'],
           
-          // PixiJS - bundle all PixiJS dependencies together
-          'vendor-pixi': [
-            'pixi.js'
-          ]
+          // PixiJS - bundle only the main pixi.js package
+          'vendor-pixi': ['pixi.js']
         }
       }
     }
@@ -232,12 +235,8 @@ export default defineConfig({
       '@dnd-kit/sortable',
       '@dnd-kit/utilities',
       
-      // PixiJS dependencies (studio components)
+      // PixiJS (only include the main package)
       'pixi.js',
-      '@pixi/core',
-      '@pixi/filter-adjustment',
-      '@pixi/filter-bulge-pinch',
-      '@pixi/filter-displacement',
       'file-saver'
     ],
     esbuildOptions: {

@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as PIXI from 'pixi.js';
-import { applyEffects } from './effects/printingEffects';
 import { PrintMethod } from './templates/templateData';
 
 interface MockupCanvasProps {
@@ -14,6 +13,26 @@ interface MockupCanvasProps {
   className?: string;
 }
 
+/**
+ * Simple function to apply opacity based on print method
+ */
+function applyPrintMethodOpacity(sprite: PIXI.Sprite, method: PrintMethod) {
+  switch (method) {
+    case 'screen-print':
+      sprite.alpha = 0.95;
+      break;
+    case 'dtg':
+      sprite.alpha = 0.9;
+      break;
+    case 'embroidery':
+      sprite.alpha = 0.97;
+      break;
+    case 'vinyl':
+      sprite.alpha = 1.0;
+      break;
+  }
+}
+
 export function MockupCanvas({
   designImage,
   templateImage,
@@ -25,12 +44,27 @@ export function MockupCanvas({
   className = ''
 }: MockupCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const appRef = useRef<PIXI.Application | null>(null);
+  const pixiApp = useRef<PIXI.Application | null>(null);
+  const [isAppReady, setIsAppReady] = useState(false);
   
   // Initialize PixiJS application
   useEffect(() => {
-    if (!appRef.current && canvasRef.current) {
-      appRef.current = new PIXI.Application({
+    if (!canvasRef.current) return;
+    
+    // Clean up previous instance if it exists
+    if (pixiApp.current) {
+      try {
+        pixiApp.current.destroy(true);
+      } catch (error) {
+        console.error("Error destroying PixiJS application:", error);
+      }
+      pixiApp.current = null;
+      setIsAppReady(false);
+    }
+    
+    try {
+      // Create new PIXI application
+      const app = new PIXI.Application({
         width: 1200,
         height: 1200,
         backgroundColor: 0x000000,
@@ -39,76 +73,100 @@ export function MockupCanvas({
         autoDensity: true,
         preserveDrawingBuffer: true, // Needed for image export
       });
-      canvasRef.current.appendChild(appRef.current.view as HTMLCanvasElement);
+      
+      // Append the canvas to the DOM
+      canvasRef.current.appendChild(app.view as unknown as HTMLCanvasElement);
+      
+      // Store reference and update state
+      pixiApp.current = app;
+      setIsAppReady(true);
+    } catch (error) {
+      console.error("Error initializing PixiJS application:", error);
     }
     
     return () => {
-      if (appRef.current) {
-        appRef.current.destroy(true);
-        appRef.current = null;
+      if (pixiApp.current) {
+        try {
+          pixiApp.current.destroy(true);
+        } catch (error) {
+          console.error("Error destroying PixiJS application:", error);
+        }
+        pixiApp.current = null;
       }
     };
   }, []);
   
-  // Handle rendering updates
+  // Update the canvas when props change
   useEffect(() => {
-    if (!appRef.current || !designImage || !templateImage) return;
+    // Make sure app is ready and we have required images
+    if (!isAppReady || !pixiApp.current || !designImage || !templateImage) return;
     
-    const app = appRef.current;
-    app.stage.removeChildren();
+    const app = pixiApp.current;
     
-    // Create container for proper layering
+    // Clear previous content
+    while (app.stage.children.length > 0) {
+      app.stage.removeChildAt(0);
+    }
+    
+    // Create a container for all our content
     const container = new PIXI.Container();
     
-    // Load all required textures
-    Promise.all([
-      PIXI.Texture.from(templateImage),
-      PIXI.Texture.from(designImage),
-      PIXI.Texture.from(displacementMap)
-    ]).then(([templateTexture, designTexture, displacementTexture]) => {
-      // Create template sprite (background)
-      const templateSprite = new PIXI.Sprite(templateTexture);
-      templateSprite.width = app.screen.width;
-      templateSprite.height = app.screen.height;
-      container.addChild(templateSprite);
-      
-      // Create design sprite
-      const designSprite = new PIXI.Sprite(designTexture);
-      designSprite.anchor.set(0.5);
-      designSprite.x = app.screen.width * (position.x / 100);
-      designSprite.y = app.screen.height * (position.y / 100);
-      designSprite.width = app.screen.width * (size / 100);
-      designSprite.height = app.screen.height * (size / 100);
-      
-      // Create displacement sprite (simplified)
-      const displacementSprite = new PIXI.Sprite(displacementTexture);
-      
-      // Apply simplified effects based on print method
-      applyEffects(designSprite, printMethod, displacementSprite);
-      
-      // Add design to container
-      container.addChild(designSprite);
-      
-      // Add everything to stage
-      app.stage.addChild(container);
-      
-      // Generate output for download
-      if (onRender) {
-        // Wait for a frame to ensure rendering is complete
-        requestAnimationFrame(() => {
-          try {
-            // Use the view directly since it's a canvas element
-            const canvas = app.view as HTMLCanvasElement;
-            onRender(canvas.toDataURL('image/png'));
-          } catch (error) {
-            console.error('Error generating image:', error);
-          }
-        });
+    // Load template image and design image sequentially
+    const loadTemplateTexture = async () => {
+      try {
+        // Load the template image
+        const templateTexture = await PIXI.Assets.load(templateImage);
+        
+        // Create template sprite (background)
+        const templateSprite = new PIXI.Sprite(templateTexture);
+        templateSprite.width = app.screen.width;
+        templateSprite.height = app.screen.height;
+        container.addChild(templateSprite);
+        
+        // Add container to stage
+        app.stage.addChild(container);
+        
+        // Now load and add the design image
+        const designTexture = await PIXI.Assets.load(designImage);
+        
+        // Create design sprite
+        const designSprite = new PIXI.Sprite(designTexture);
+        designSprite.anchor.set(0.5);
+        designSprite.x = app.screen.width * (position.x / 100);
+        designSprite.y = app.screen.height * (position.y / 100);
+        designSprite.width = app.screen.width * (size / 100);
+        designSprite.height = app.screen.height * (size / 100);
+        
+        // Apply basic effects (just opacity for now)
+        applyPrintMethodOpacity(designSprite, printMethod);
+        
+        // Add design to container
+        container.addChild(designSprite);
+        
+        // Generate output for download if callback provided
+        if (onRender) {
+          // Wait for a frame to ensure rendering is complete
+          requestAnimationFrame(() => {
+            try {
+              if (app && app.view) {
+                const canvas = app.view as unknown as HTMLCanvasElement;
+                const dataUrl = canvas.toDataURL('image/png');
+                onRender(dataUrl);
+              }
+            } catch (error: unknown) {
+              console.error('Error generating image:', error);
+            }
+          });
+        }
+      } catch (error: unknown) {
+        console.error('Error loading textures:', error);
       }
-    }).catch(error => {
-      console.error('Error loading textures:', error);
-    });
-  }, [designImage, templateImage, displacementMap, printMethod, position, size, onRender]);
+    };
+    
+    // Start the loading process
+    loadTemplateTexture();
+    
+  }, [designImage, templateImage, displacementMap, printMethod, position, size, onRender, isAppReady]);
   
   return (
     <div 
