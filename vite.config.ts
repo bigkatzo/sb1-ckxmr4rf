@@ -143,9 +143,7 @@ export default defineConfig({
       polyfill: true
     },
     rollupOptions: {
-      external: [
-        '@pixi/core'
-      ],
+      external: [],
       output: {
         assetFileNames: 'assets/[name]-[hash][extname]',
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -193,7 +191,7 @@ export default defineConfig({
           // Payment processing
           'vendor-payment': ['@stripe/react-stripe-js', '@stripe/stripe-js'],
           
-          // Studio components (mockup generator)
+          // PixiJS - bundle all PixiJS dependencies together
           'vendor-pixi': [
             'pixi.js'
           ]

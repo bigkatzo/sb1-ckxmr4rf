@@ -1,7 +1,7 @@
 import * as PIXI from 'pixi.js';
-import { DisplacementFilter } from '@pixi/filter-displacement';
-import { BulgePinchFilter } from '@pixi/filter-bulge-pinch';
-import { AdjustmentFilter } from '@pixi/filter-adjustment';
+import { DisplacementFilter } from '../../../studio/pixi-shims/filter-displacement';
+import { BulgePinchFilter } from '../../../studio/pixi-shims/filter-bulge-pinch';
+import { AdjustmentFilter } from '../../../studio/pixi-shims/filter-adjustment';
 import { PrintMethod } from '../templates/templateData';
 
 /**

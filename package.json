@@ -15,7 +15,8 @@
     "check-env": "node scripts/check-env.js",
     "optimize": "node scripts/optimize-bundles.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "node scripts/fix-pixi-dependencies.js"
   },
   "dependencies": {
     "@babel/helpers": "^7.27.0",
