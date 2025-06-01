@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Trash2, Move } from 'lucide-react';
+import { Upload, Trash2, Move, RotateCw, CornerRightDown } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { saveAs } from 'file-saver';
 import { MockupCanvas } from './MockupCanvas';
@@ -11,6 +11,9 @@ import { PRODUCT_TEMPLATES, PrintMethod, DEFAULT_DISPLACEMENT_MAP } from './temp
 interface MockupGeneratorProps {
   className?: string;
 }
+
+// Define manipulation modes
+type ManipulationMode = 'move' | 'rotate' | 'resize';
 
 export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
   // State for design image
@@ -31,6 +34,9 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
   const [printPressure, setPrintPressure] = useState(1); // print pressure effect
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [manipulationMode, setManipulationMode] = useState<ManipulationMode>('move');
+  const [startRotation, setStartRotation] = useState(0);
+  const [startSize, setStartSize] = useState(0);
   
   // State for print method
   const [printMethod, setPrintMethod] = useState<PrintMethod>('screen-print');
@@ -120,13 +126,19 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
     setRenderedMockup(null); // Reset rendered mockup when method changes
   };
 
-  // Handle design dragging
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Handle design manipulations (move, resize, rotate)
+  const handleMouseDown = (e: React.MouseEvent, mode: ManipulationMode) => {
     if (!containerRef.current) return;
     
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
+    setManipulationMode(mode);
+    
+    // Store initial values for relative adjustments
+    setStartRotation(designRotation);
+    setStartSize(designSize);
   };
 
   const handleMouseMove = (e: MouseEvent) => {
@@ -139,16 +151,59 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
     const containerWidth = containerRect.width;
     const containerHeight = containerRect.height;
     
-    // Calculate new position as percentage of container
-    const newX = designPosition.x + (deltaX / containerWidth) * 100;
-    const newY = designPosition.y + (deltaY / containerHeight) * 100;
-    
-    // Clamp values to keep design within boundaries
-    const clampedX = Math.max(0, Math.min(100, newX));
-    const clampedY = Math.max(0, Math.min(100, newY));
-    
-    setDesignPosition({ x: clampedX, y: clampedY });
-    setDragStart({ x: e.clientX, y: e.clientY });
+    switch (manipulationMode) {
+      case 'move':
+        // Calculate new position as percentage of container
+        const newX = designPosition.x + (deltaX / containerWidth) * 100;
+        const newY = designPosition.y + (deltaY / containerHeight) * 100;
+        
+        // Clamp values to keep design within boundaries
+        const clampedX = Math.max(0, Math.min(100, newX));
+        const clampedY = Math.max(0, Math.min(100, newY));
+        
+        setDesignPosition({ x: clampedX, y: clampedY });
+        break;
+      
+      case 'rotate':
+        // Calculate rotation based on center of design and mouse position
+        const centerX = containerRect.left + containerRect.width * (designPosition.x / 100);
+        const centerY = containerRect.top + containerRect.height * (designPosition.y / 100);
+        
+        // Calculate angles
+        const startAngle = Math.atan2(dragStart.y - centerY, dragStart.x - centerX);
+        const currentAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+        const angleDiff = (currentAngle - startAngle) * (180 / Math.PI);
+        
+        // Apply rotation with limits
+        const newRotation = (startRotation + angleDiff) % 360;
+        setDesignRotation(newRotation);
+        break;
+      
+      case 'resize':
+        // Calculate distance from center
+        const centerXPx = containerRect.width * (designPosition.x / 100);
+        const centerYPx = containerRect.height * (designPosition.y / 100);
+        
+        // Initial distance
+        const startDistance = Math.sqrt(
+          Math.pow(dragStart.x - containerRect.left - centerXPx, 2) +
+          Math.pow(dragStart.y - containerRect.top - centerYPx, 2)
+        );
+        
+        // Current distance
+        const currentDistance = Math.sqrt(
+          Math.pow(e.clientX - containerRect.left - centerXPx, 2) +
+          Math.pow(e.clientY - containerRect.top - centerYPx, 2)
+        );
+        
+        // Scale factor
+        const scaleFactor = currentDistance / startDistance;
+        
+        // Apply new size with limits
+        const newSize = startSize * scaleFactor;
+        setDesignSize(Math.max(5, Math.min(80, newSize)));
+        break;
+    }
     
     // Reset rendered mockup when position changes
     setRenderedMockup(null);
@@ -169,19 +224,7 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragStart, designPosition]);
-
-  // Handle size change
-  const handleSizeChange = (size: number) => {
-    setDesignSize(size);
-    setRenderedMockup(null); // Reset rendered mockup when size changes
-  };
-
-  // Handle rotation change
-  const handleRotationChange = (rotation: number) => {
-    setDesignRotation(rotation);
-    setRenderedMockup(null); // Reset rendered mockup when rotation changes
-  };
+  }, [isDragging, dragStart, designPosition, manipulationMode, startRotation, startSize]);
 
   // Handle opacity change
   const handleOpacityChange = (opacity: number) => {
@@ -304,10 +347,6 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
                 
                 {/* Controls */}
                 <MockupControls 
-                  designSize={designSize}
-                  onDesignSizeChange={handleSizeChange}
-                  rotation={designRotation}
-                  onRotationChange={handleRotationChange}
                   opacity={designOpacity}
                   onOpacityChange={handleOpacityChange}
                   wrinkleIntensity={wrinkleIntensity}
@@ -348,7 +387,7 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
                     onRender={handleRender}
                   />
                   
-                  {/* Draggable design overlay to show position */}
+                  {/* Draggable design overlay to show position with handles */}
                   <div
                     className="absolute pointer-events-none"
                     style={{
@@ -360,14 +399,42 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
                       border: '1px dashed rgba(255, 255, 255, 0.3)',
                       borderRadius: '4px',
                     }}
-                    onMouseDown={handleMouseDown}
                   >
+                    {/* Move handle (center) */}
                     <div 
                       className="absolute inset-0 cursor-move flex items-center justify-center"
                       style={{ pointerEvents: 'auto' }}
-                      onMouseDown={handleMouseDown}
+                      onMouseDown={(e) => handleMouseDown(e, 'move')}
                     >
                       <Move className="h-6 w-6 text-white/40 pointer-events-none" />
+                    </div>
+                    
+                    {/* Resize handle (bottom-right corner) */}
+                    <div
+                      className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center"
+                      style={{ 
+                        pointerEvents: 'auto',
+                        transform: 'translate(50%, 50%)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        borderRadius: '50%',
+                      }}
+                      onMouseDown={(e) => handleMouseDown(e, 'resize')}
+                    >
+                      <CornerRightDown className="h-4 w-4 text-white pointer-events-none" />
+                    </div>
+                    
+                    {/* Rotate handle (top) */}
+                    <div
+                      className="absolute top-0 left-1/2 w-6 h-6 cursor-grab flex items-center justify-center"
+                      style={{ 
+                        pointerEvents: 'auto',
+                        transform: 'translate(-50%, -150%)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        borderRadius: '50%',
+                      }}
+                      onMouseDown={(e) => handleMouseDown(e, 'rotate')}
+                    >
+                      <RotateCw className="h-4 w-4 text-white pointer-events-none" />
                     </div>
                   </div>
                 </div>
@@ -386,8 +453,7 @@ export function MockupGenerator({ className = '' }: MockupGeneratorProps) {
             
             {designImage && templatePath && (
               <p className="mt-2 text-sm text-gray-400 text-center">
-                <Move className="h-3 w-3 inline mr-1" /> 
-                Click and drag to position the design on the product
+                Drag to move, use corner handle to resize, top handle to rotate
               </p>
             )}
           </div>

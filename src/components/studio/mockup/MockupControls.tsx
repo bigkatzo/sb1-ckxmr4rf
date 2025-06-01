@@ -1,11 +1,7 @@
 import { PrintMethod } from './templates/templateData';
-import { RotateCw, Droplet, Waves, Layers } from 'lucide-react';
+import { Droplet, Waves, Layers } from 'lucide-react';
 
 interface MockupControlsProps {
-  designSize: number;
-  onDesignSizeChange: (size: number) => void;
-  rotation: number;
-  onRotationChange: (rotation: number) => void;
   opacity: number;
   onOpacityChange: (opacity: number) => void;
   wrinkleIntensity: number;
@@ -19,10 +15,6 @@ interface MockupControlsProps {
 }
 
 export function MockupControls({
-  designSize,
-  onDesignSizeChange,
-  rotation,
-  onRotationChange,
   opacity,
   onOpacityChange,
   wrinkleIntensity,
@@ -36,50 +28,7 @@ export function MockupControls({
 }: MockupControlsProps) {
   return (
     <div className="space-y-4">
-      {/* Design Size Control */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Design Size</label>
-        <input
-          type="range"
-          min="5"
-          max="80"
-          value={designSize}
-          onChange={(e) => onDesignSizeChange(Number(e.target.value))}
-          className="w-full"
-        />
-        <div className="flex justify-between text-xs text-gray-400">
-          <span>Small</span>
-          <span>Large</span>
-        </div>
-      </div>
-      
-      {/* Rotation Control */}
-      <div>
-        <label className="block text-sm font-medium mb-1">
-          <RotateCw className="h-3.5 w-3.5 inline mr-1" />
-          Rotation <span className="text-xs text-gray-400 ml-1">{rotation}°</span>
-        </label>
-        <div className="flex items-center gap-2">
-          <input
-            type="range"
-            min="-180"
-            max="180"
-            value={rotation}
-            onChange={(e) => onRotationChange(Number(e.target.value))}
-            className="flex-1"
-          />
-          <button
-            onClick={() => onRotationChange(0)}
-            className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded"
-          >
-            Reset
-          </button>
-        </div>
-        <div className="flex justify-between text-xs text-gray-400">
-          <span>-180°</span>
-          <span>180°</span>
-        </div>
-      </div>
+      {/* Design Size and Rotation are now directly controlled in the preview window */}
       
       {/* Layer Opacity Control */}
       <div>

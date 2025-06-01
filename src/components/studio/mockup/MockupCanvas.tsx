@@ -346,6 +346,8 @@ export function MockupCanvas({
     // Load and draw the template image
     const loadImages = async () => {
       try {
+        console.log('Loading images with params:', { designImage, templateImage, position, size, rotation, opacity });
+        
         // Load template image
         const templateImg = new Image();
         templateImg.crossOrigin = 'anonymous';
@@ -385,29 +387,16 @@ export function MockupCanvas({
         
         // Create a promise to wait for image load
         await new Promise<void>((resolve, reject) => {
-          designImg.onload = () => resolve();
+          designImg.onload = () => {
+            console.log('Design image loaded successfully:', designImg.width, 'x', designImg.height);
+            resolve();
+          };
           designImg.onerror = (e) => {
             console.error('Error loading design image:', e);
             reject(e);
           };
           designImg.src = designImage;
         });
-        
-        // Load displacement map if available
-        let displacementImg: HTMLImageElement | null = null;
-        if (displacementMap && wrinkleIntensity > 0) {
-          displacementImg = new Image();
-          displacementImg.crossOrigin = 'anonymous';
-          
-          await new Promise<void>((resolve, reject) => {
-            displacementImg!.onload = () => resolve();
-            displacementImg!.onerror = (e) => {
-              console.error('Error loading displacement map:', e);
-              reject(e);
-            };
-            displacementImg!.src = displacementMap;
-          });
-        }
         
         // Calculate design position and size
         const designAspect = designImg.width / designImg.height;
@@ -438,29 +427,49 @@ export function MockupCanvas({
           'vinyl': 1.0
         }[printMethod] * opacity; // Combine with user-controlled opacity
         
-        ctx.globalAlpha = methodOpacity;
+        // Ensure opacity is never completely transparent
+        ctx.globalAlpha = Math.max(0.7, methodOpacity);
+        console.log('Drawing design with opacity:', ctx.globalAlpha);
         
-        // If we have a displacement map and wrinkle intensity is set, apply displacement
-        if (displacementImg && wrinkleIntensity > 0) {
-          await applyDisplacementMap(
-            ctx,
-            designImg,
-            displacementImg,
-            -designWidth / 2,
-            -designHeight / 2,
-            designWidth,
-            designHeight,
-            wrinkleIntensity * 0.1 // Scale the intensity to a reasonable range
-          );
-        } else {
-          // Draw the design centered at the origin
-          ctx.drawImage(
-            designImg, 
-            -designWidth / 2, 
-            -designHeight / 2, 
-            designWidth, 
-            designHeight
-          );
+        // Draw the design centered at the origin
+        ctx.drawImage(
+          designImg, 
+          -designWidth / 2, 
+          -designHeight / 2, 
+          designWidth, 
+          designHeight
+        );
+        console.log('Design drawn at position:', position.x, position.y);
+        
+        // Load displacement map if available
+        let displacementImg: HTMLImageElement | null = null;
+        if (displacementMap && wrinkleIntensity > 0) {
+          displacementImg = new Image();
+          displacementImg.crossOrigin = 'anonymous';
+          
+          try {
+            await new Promise<void>((resolve, reject) => {
+              displacementImg!.onload = () => resolve();
+              displacementImg!.onerror = (e) => {
+                console.error('Error loading displacement map:', e);
+                reject(e);
+              };
+              displacementImg!.src = displacementMap;
+            });
+            
+            await applyDisplacementMap(
+              ctx,
+              designImg,
+              displacementImg,
+              -designWidth / 2,
+              -designHeight / 2,
+              designWidth,
+              designHeight,
+              wrinkleIntensity * 0.1 // Scale the intensity to a reasonable range
+            );
+          } catch (error) {
+            console.error('Error applying displacement:', error);
+          }
         }
         
         // Apply specific effects based on print method

@@ -34,7 +34,7 @@ export const DEFAULT_PRINT_AREA: PrintArea = {
 };
 
 // Default displacement map for user templates
-export const DEFAULT_DISPLACEMENT_MAP = 'https://placehold.co/1200x1200/333333/555555';
+export const DEFAULT_DISPLACEMENT_MAP = 'https://via.placeholder.com/512x512/808080/808080';
 
 export const PRODUCT_TEMPLATES: TemplateConfig[] = [
   // Custom template placeholder - will be populated at runtime
@@ -52,7 +52,7 @@ export const PRODUCT_TEMPLATES: TemplateConfig[] = [
   {
     id: 'tshirt-white',
     name: 'T-Shirt (White)',
-    path: 'https://placehold.co/1200x1200/ffffff/ffffff?text=T-Shirt+White',
+    path: 'https://via.placeholder.com/1200x1200/ffffff/ffffff?text=T-Shirt+White',
     displacementMap: DEFAULT_DISPLACEMENT_MAP,
     printAreas: {
       front: {
@@ -77,7 +77,7 @@ export const PRODUCT_TEMPLATES: TemplateConfig[] = [
   {
     id: 'tshirt-black',
     name: 'T-Shirt (Black)',
-    path: 'https://placehold.co/1200x1200/222222/222222?text=T-Shirt+Black',
+    path: 'https://via.placeholder.com/1200x1200/222222/222222?text=T-Shirt+Black',
     displacementMap: DEFAULT_DISPLACEMENT_MAP,
     printAreas: {
       front: {
@@ -102,7 +102,7 @@ export const PRODUCT_TEMPLATES: TemplateConfig[] = [
   {
     id: 'hoodie-white',
     name: 'Hoodie (White)',
-    path: 'https://placehold.co/1200x1200/f5f5f5/f5f5f5?text=Hoodie+White',
+    path: 'https://via.placeholder.com/1200x1200/f5f5f5/f5f5f5?text=Hoodie+White',
     displacementMap: DEFAULT_DISPLACEMENT_MAP,
     printAreas: {
       front: {
@@ -127,7 +127,7 @@ export const PRODUCT_TEMPLATES: TemplateConfig[] = [
   {
     id: 'hoodie-black',
     name: 'Hoodie (Black)',
-    path: 'https://placehold.co/1200x1200/333333/333333?text=Hoodie+Black',
+    path: 'https://via.placeholder.com/1200x1200/333333/333333?text=Hoodie+Black',
     displacementMap: DEFAULT_DISPLACEMENT_MAP,
     printAreas: {
       front: {
