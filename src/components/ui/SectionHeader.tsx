@@ -21,7 +21,7 @@ export function SectionHeader({
 }: SectionHeaderProps) {
   const commonStyles = "text-lg sm:text-2xl font-bold text-text";
   const linkStyles = to || onClick ? "hover:opacity-95 transition-opacity" : "";
-  const secondaryStyles = "text-lg sm:text-2xl font-normal text-gray-400 hover:text-gray-300 transition-opacity ml-3";
+  const secondaryStyles = "text-lg sm:text-2xl font-normal text-gray-400 hover:text-white transition-colors ml-3";
 
   // Secondary link component
   const SecondaryLink = () => {
@@ -40,7 +40,7 @@ export function SectionHeader({
         </button>
       );
     } else {
-      return <span className={secondaryStyles.replace('hover:text-gray-300', '')}>{secondaryTitle}</span>;
+      return <span className={secondaryStyles.replace('hover:text-white', '')}>{secondaryTitle}</span>;
     }
   };
 
