@@ -54,7 +54,7 @@ export function MockupCanvas({
     // Clean up previous instance if it exists
     if (pixiApp.current) {
       try {
-        pixiApp.current.destroy(true);
+        pixiApp.current.destroy();
       } catch (error) {
         console.error("Error destroying PixiJS application:", error);
       }
@@ -63,8 +63,11 @@ export function MockupCanvas({
     }
     
     try {
-      // Create new PIXI application
-      const app = new PIXI.Application({
+      // Create new PIXI application using init() for v8 compatibility
+      const app = new PIXI.Application();
+      
+      // Initialize the application with the appropriate options
+      app.init({
         width: 1200,
         height: 1200,
         backgroundColor: 0x000000,
@@ -74,12 +77,16 @@ export function MockupCanvas({
         preserveDrawingBuffer: true, // Needed for image export
       });
       
-      // Append the canvas to the DOM
-      canvasRef.current.appendChild(app.view as unknown as HTMLCanvasElement);
-      
-      // Store reference and update state
-      pixiApp.current = app;
-      setIsAppReady(true);
+      // Append the canvas to the DOM - use app.canvas in v8
+      if (app.canvas) {
+        canvasRef.current.appendChild(app.canvas);
+        
+        // Store reference and update state
+        pixiApp.current = app;
+        setIsAppReady(true);
+      } else {
+        console.error("PixiJS application canvas is not available");
+      }
     } catch (error) {
       console.error("Error initializing PixiJS application:", error);
     }
@@ -87,7 +94,7 @@ export function MockupCanvas({
     return () => {
       if (pixiApp.current) {
         try {
-          pixiApp.current.destroy(true);
+          pixiApp.current.destroy();
         } catch (error) {
           console.error("Error destroying PixiJS application:", error);
         }
@@ -148,10 +155,12 @@ export function MockupCanvas({
           // Wait for a frame to ensure rendering is complete
           requestAnimationFrame(() => {
             try {
-              if (app && app.view) {
-                const canvas = app.view as unknown as HTMLCanvasElement;
+              if (app && app.canvas) {
+                const canvas = app.canvas as HTMLCanvasElement;
                 const dataUrl = canvas.toDataURL('image/png');
                 onRender(dataUrl);
+              } else {
+                console.error('PixiJS canvas is not available');
               }
             } catch (error: unknown) {
               console.error('Error generating image:', error);
