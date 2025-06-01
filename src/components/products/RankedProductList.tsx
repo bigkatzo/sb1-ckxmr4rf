@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
 import { ImageIcon, TrendingUp, Crown, Clock } from 'lucide-react';
@@ -32,13 +32,35 @@ export function RankedProductList({
     threshold: 0,
     rootMargin: '200px', // Load more when we're 200px from the bottom
   });
+  
+  // Track if we've already loaded more to prevent duplicate requests
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadAttempts = useRef(0);
+  const MAX_LOAD_ATTEMPTS = 200; // Reasonable upper limit
 
   // Load more items when the bottom of the list is in view
   useEffect(() => {
-    if (inView && hasMore && !loading) {
-      loadMore();
+    // Don't load more if:
+    // 1. We're not in view
+    // 2. There's no more data
+    // 3. We're already loading
+    // 4. We've exceeded our load attempt limit
+    if (inView && hasMore && !loading && !isLoadingMore && loadAttempts.current < MAX_LOAD_ATTEMPTS) {
+      setIsLoadingMore(true);
+      loadAttempts.current += 1;
+      
+      // Add a small delay to prevent rapid consecutive calls
+      setTimeout(() => {
+        loadMore();
+        setIsLoadingMore(false);
+      }, 300);
     }
-  }, [inView, hasMore, loading, loadMore]);
+  }, [inView, hasMore, loading, loadMore, isLoadingMore]);
+
+  // Reset load attempts when changing tabs
+  useEffect(() => {
+    loadAttempts.current = 0;
+  }, [type]);
 
   if (products.length === 0 && !loading) {
     return (
@@ -70,10 +92,10 @@ export function RankedProductList({
       )}
       
       {/* Load more trigger */}
-      {hasMore && !loading && <div ref={loadMoreRef} className="h-4"></div>}
+      {hasMore && !loading && loadAttempts.current < MAX_LOAD_ATTEMPTS && <div ref={loadMoreRef} className="h-4"></div>}
       
       {/* End of list */}
-      {!hasMore && products.length > 0 && (
+      {(!hasMore || loadAttempts.current >= MAX_LOAD_ATTEMPTS) && products.length > 0 && (
         <div className="py-4 text-center text-gray-400 text-sm">
           You've reached the end
         </div>

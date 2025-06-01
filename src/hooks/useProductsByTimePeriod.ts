@@ -7,6 +7,22 @@ import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Product } from '../types/index';
 
 export type TimePeriod = 'today' | 'last_7_days' | 'last_30_days' | 'all_time';
+
+// Get the appropriate cache duration based on sort type
+function getCacheDuration(sortBy: SortType) {
+  if (sortBy === 'sales') {
+    return {
+      TTL: CACHE_DURATIONS.REALTIME.TTL, // Short TTL for sales data
+      STALE: CACHE_DURATIONS.REALTIME.STALE // Very short stale time
+    };
+  } else {
+    return {
+      TTL: CACHE_DURATIONS.NEW_PRODUCTS.TTL, // Medium TTL for launch date
+      STALE: CACHE_DURATIONS.PRODUCT_LISTING.STALE // Short stale time
+    };
+  }
+}
+
 export type SortType = 'sales' | 'launch_date';
 
 interface UseProductsByTimePeriodProps {
@@ -15,16 +31,6 @@ interface UseProductsByTimePeriodProps {
   timePeriod: TimePeriod;
   initialOffset?: number;
 }
-
-// Use optimized cache durations for product listings
-const getCacheDuration = (sortBy: SortType) => {
-  // Use the NEW_PRODUCTS cache setting for launch_date sorting
-  if (sortBy === 'launch_date') {
-    return CACHE_DURATIONS.NEW_PRODUCTS;
-  }
-  // Use PRODUCT_LISTING for regular product listings
-  return CACHE_DURATIONS.PRODUCT_LISTING;
-};
 
 export function useProductsByTimePeriod({
   initialLimit = 50,
@@ -42,6 +48,8 @@ export function useProductsByTimePeriod({
   const [limit] = useState(initialLimit);
   const isFetchingRef = useRef(false);
   const totalFetchedRef = useRef(0); // Keep track of total fetched products
+  const emptyResultsCounter = useRef(0); // Track consecutive empty results
+  const maxEmptyResults = 2; // Stop after 2 consecutive empty results
 
   useEffect(() => {
     // Reset state when sort type or time period changes
@@ -50,6 +58,7 @@ export function useProductsByTimePeriod({
     setHasMore(true);
     setOffset(initialOffset);
     totalFetchedRef.current = 0; // Reset total fetched
+    emptyResultsCounter.current = 0; // Reset empty results counter
   }, [sortBy, timePeriod, initialOffset]);
 
   useEffect(() => {
@@ -75,10 +84,13 @@ export function useProductsByTimePeriod({
           totalFetchedRef.current = newProducts.length;
           
           // Calculate hasMore based on actual count and fetched products
-          setHasMore(
-            cachedData.products.length === limit && 
-            totalFetchedRef.current < cachedData.totalCount
-          );
+          // Stop pagination if we received fewer items than requested
+          if (cachedData.products.length < limit) {
+            setHasMore(false);
+            emptyResultsCounter.current = maxEmptyResults; // Force stop
+          } else {
+            setHasMore(totalFetchedRef.current < cachedData.totalCount);
+          }
           
           setLoading(false);
         }
@@ -152,7 +164,14 @@ export function useProductsByTimePeriod({
         // Early return if no data
         if (!data || data.length === 0) {
           if (isMounted) {
-            setHasMore(false);
+            // Increment empty results counter
+            emptyResultsCounter.current += 1;
+            
+            // If we've seen multiple empty results, stop pagination
+            if (emptyResultsCounter.current >= maxEmptyResults) {
+              setHasMore(false);
+            }
+            
             if (offset === 0) {
               setProducts([]);
               setCategoryIndices({});
@@ -161,6 +180,9 @@ export function useProductsByTimePeriod({
           }
           return;
         }
+        
+        // Reset empty results counter since we got data
+        emptyResultsCounter.current = 0;
 
         const transformedProducts = data.map((product: any) => {
           // Ensure free_notes is properly processed
@@ -237,13 +259,13 @@ export function useProductsByTimePeriod({
             if (!countError && countData) {
               finalCount = countData;
             } else {
-              // Fallback count calculation
-              finalCount = offset + transformedProducts.length + (transformedProducts.length < limit ? 0 : 1);
+              // Fallback count calculation - be conservative to avoid over-fetching
+              finalCount = offset + transformedProducts.length + (transformedProducts.length === limit ? 50 : 0);
             }
           } catch (countErr) {
             console.warn('Error getting product count:', countErr);
-            // Fallback: assume there are more if we got a full page
-            finalCount = offset + transformedProducts.length + (transformedProducts.length < limit ? 0 : 1);
+            // Fallback: more conservative estimate
+            finalCount = offset + transformedProducts.length + (transformedProducts.length === limit ? 50 : 0);
           }
         }
         
@@ -270,14 +292,21 @@ export function useProductsByTimePeriod({
           // Update total fetched count
           totalFetchedRef.current = newProducts.length;
           
-          // Determine if we have more products to fetch
-          // We have more products if:
-          // 1. We received a full page of results (transformedProducts.length === limit)
-          // 2. AND the total we've fetched is less than the total count
-          setHasMore(
-            transformedProducts.length === limit && 
-            totalFetchedRef.current < finalCount
-          );
+          // Stop pagination if we received fewer items than requested
+          if (transformedProducts.length < limit) {
+            setHasMore(false);
+          } else {
+            // Determine if we have more products to fetch:
+            // 1. Received a full page (limit) of results
+            // 2. AND total fetched is less than total count 
+            // 3. AND we haven't yet fetched more than a reasonable amount (failsafe)
+            const maxReasonableProducts = 5000; // Set a reasonable limit to prevent excessive loading
+            setHasMore(
+              transformedProducts.length === limit && 
+              totalFetchedRef.current < finalCount &&
+              totalFetchedRef.current < maxReasonableProducts
+            );
+          }
           
           setError(null);
           if (updateLoadingState) {
@@ -309,7 +338,7 @@ export function useProductsByTimePeriod({
 
   // Function to load more products
   const loadMore = () => {
-    if (!loading && hasMore) {
+    if (!loading && hasMore && emptyResultsCounter.current < maxEmptyResults) {
       setOffset(currentOffset => currentOffset + limit);
     }
   };
