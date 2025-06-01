@@ -143,6 +143,12 @@ export default defineConfig({
       polyfill: true
     },
     rollupOptions: {
+      external: [
+        '@pixi/core',
+        '@pixi/filter-adjustment',
+        '@pixi/filter-bulge-pinch',
+        '@pixi/filter-displacement'
+      ],
       output: {
         assetFileNames: 'assets/[name]-[hash][extname]',
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -189,6 +195,15 @@ export default defineConfig({
           
           // Payment processing
           'vendor-payment': ['@stripe/react-stripe-js', '@stripe/stripe-js'],
+          
+          // Studio components (mockup generator)
+          'vendor-pixi': [
+            'pixi.js', 
+            '@pixi/core',
+            '@pixi/filter-adjustment',
+            '@pixi/filter-bulge-pinch',
+            '@pixi/filter-displacement'
+          ]
         }
       }
     }
@@ -224,7 +239,15 @@ export default defineConfig({
       // DnD
       '@dnd-kit/core',
       '@dnd-kit/sortable',
-      '@dnd-kit/utilities'
+      '@dnd-kit/utilities',
+      
+      // PixiJS dependencies (studio components)
+      'pixi.js',
+      '@pixi/core',
+      '@pixi/filter-adjustment',
+      '@pixi/filter-bulge-pinch',
+      '@pixi/filter-displacement',
+      'file-saver'
     ],
     esbuildOptions: {
       target: 'esnext',
