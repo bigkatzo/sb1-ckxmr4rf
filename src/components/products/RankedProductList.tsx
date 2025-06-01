@@ -121,10 +121,10 @@ function RankedProductItem({
     if (product.stock === null) return 'Infinite';
     if (product.stock === 0) return 'Sold out';
     
-    // Get the original total stock
+    // Get the original total stock (current stock + sales)
     const totalStock = product.stock + salesCount;
-    // Calculate remaining stock
-    const remainingStock = Math.max(0, product.stock);
+    // Current stock is already the remaining stock
+    const remainingStock = product.stock;
     
     return `${remainingStock}/${totalStock}`;
   };
