@@ -51,6 +51,18 @@ export const CACHE_DURATIONS = {
     STALE: 60 * 1000,      // 1 minute stale time
     PRIORITY: 2
   },
+  // Product listing data (shorter TTL for listings to show new products faster)
+  PRODUCT_LISTING: {
+    TTL: 60 * 1000,        // 1 minute
+    STALE: 3 * 60 * 1000,  // 3 minutes stale time
+    PRIORITY: 2
+  },
+  // New product listings (shortest TTL to ensure freshness)
+  NEW_PRODUCTS: {
+    TTL: 30 * 1000,        // 30 seconds
+    STALE: 60 * 1000,      // 1 minute stale time
+    PRIORITY: 1            // High priority like realtime data
+  },
   // Product data (descriptions, images, metadata)
   PRODUCT: {
     TTL: 5 * 60 * 1000,    // 5 minutes

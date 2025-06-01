@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
-import { cacheManager } from '../lib/cache';
+import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Product } from '../types/index';
 
 export type TimePeriod = 'today' | 'last_7_days' | 'last_30_days' | 'all_time';
@@ -16,11 +16,14 @@ interface UseProductsByTimePeriodProps {
   initialOffset?: number;
 }
 
-// Add SHORT cache duration if it doesn't exist
-const SHORT_CACHE = {
-  TTL: 5 * 60 * 1000, // 5 minutes
-  STALE: 1 * 60 * 1000, // 1 minute
-  PRIORITY: 5
+// Use optimized cache durations for product listings
+const getCacheDuration = (sortBy: SortType) => {
+  // Use the NEW_PRODUCTS cache setting for launch_date sorting
+  if (sortBy === 'launch_date') {
+    return CACHE_DURATIONS.NEW_PRODUCTS;
+  }
+  // Use PRODUCT_LISTING for regular product listings
+  return CACHE_DURATIONS.PRODUCT_LISTING;
 };
 
 export function useProductsByTimePeriod({
@@ -229,9 +232,9 @@ export function useProductsByTimePeriod({
             categoryIndices: indices,
             totalCount: count || 0
           }, 
-          SHORT_CACHE.TTL,
+          getCacheDuration(sortBy).TTL,
           {
-            staleTime: SHORT_CACHE.STALE
+            staleTime: getCacheDuration(sortBy).STALE
           }
         );
 
