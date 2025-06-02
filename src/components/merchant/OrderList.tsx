@@ -574,17 +574,17 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 }
                 return '';
               case 'design_files':
-                if (order.design_files || (order.product_snapshot && order.product_snapshot.design_files)) {
-                  const files = order.design_files || order.product_snapshot?.design_files || [];
+                if (order.product_snapshot && order.product_snapshot.design_files) {
+                  const files = order.product_snapshot.design_files;
                   return escapeCSV(Array.isArray(files) ? files.join(', ') : files);
                 }
                 return '';
               case 'blank_code':
-                return escapeCSV(order.blank_code || (order.product_snapshot && order.product_snapshot.blank_code) || '');
+                return escapeCSV((order.product_snapshot && order.product_snapshot.blank_code) || '');
               case 'technique':
-                return escapeCSV(order.technique || (order.product_snapshot && order.product_snapshot.technique) || '');
+                return escapeCSV((order.product_snapshot && order.product_snapshot.technique) || '');
               case 'note_for_supplier':
-                return escapeCSV(order.note_for_supplier || (order.product_snapshot && order.product_snapshot.note_for_supplier) || '');
+                return escapeCSV((order.product_snapshot && order.product_snapshot.note_for_supplier) || '');
               case 'variant_selections':
                 // Use the same approach as getProductInfo since it's working in the UI
                 const variantData = 
