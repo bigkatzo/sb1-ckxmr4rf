@@ -89,6 +89,35 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   const [isLoadingCarriers, setIsLoadingCarriers] = useState(false);
   const [carrierSearchTerm, setCarrierSearchTerm] = useState('');
   const [showAllCarriers, setShowAllCarriers] = useState(false);
+  
+  // Base URL for product and design links
+  const BASE_URL = 'https://store.fun';
+  
+  // Helper function to get product and collection slugs from various sources
+  const getSlugs = (order: Order) => {
+    let productSlug = '';
+    let collectionSlug = '';
+    
+    // Try direct properties first
+    if (order.product_slug) {
+      productSlug = order.product_slug;
+    }
+    if (order.collection_slug) {
+      collectionSlug = order.collection_slug;
+    }
+    
+    // Try product_snapshot
+    if (!productSlug && order.product_snapshot?.slug) {
+      productSlug = order.product_snapshot.slug;
+    }
+    
+    // Try collection_snapshot
+    if (!collectionSlug && order.collection_snapshot?.slug) {
+      collectionSlug = order.collection_snapshot.slug;
+    }
+    
+    return { productSlug, collectionSlug };
+  };
 
   // Function to check if user has permission to edit order status
   const canEditOrderStatus = (order: Order): boolean => {
@@ -408,7 +437,9 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         "Collection": "collection_name",
         "Category": "category_name",
         "Tax ID": "shipping_info.taxId",
-        "Design": "design_url",
+        "Product URL": "generated_product_url",
+        "Design URL": "generated_design_url",
+        "Design Files": "design_files",
         "Blank Code": "blank_code",
         "Technique": "technique",
         "Notes For Supplier": "note_for_supplier",
@@ -498,17 +529,62 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 return escapeCSV(order.collection_name || '');
               case 'category_name':
                 return escapeCSV(order.category_name || '');
-              case 'design_url':
-                if (order.collection_slug && order.product_slug) {
-                  return escapeCSV(`https://store.fun/${order.collection_slug}/${order.product_slug}/design`);
+              case 'generated_product_url':
+                // First try to use the pre-built URL if available
+                if (order.product_url) {
+                  return escapeCSV(order.product_url);
+                } else if (order.product_snapshot?.product_url) {
+                  return escapeCSV(order.product_snapshot.product_url);
+                }
+                
+                // Fall back to constructing the URL
+                const { productSlug: pSlug, collectionSlug: cSlug } = getSlugs(order);
+                
+                if (cSlug && pSlug) {
+                  // Preferred: Collection/product slug URL
+                  return escapeCSV(`${BASE_URL}/${cSlug}/${pSlug}`);
+                } else if (order.product_id) {
+                  // Fallback: Product ID URL
+                  return escapeCSV(`${BASE_URL}/products/${order.product_id}`);
+                } else if (order.product_snapshot?.id) {
+                  // Last resort: Product snapshot ID
+                  return escapeCSV(`${BASE_URL}/products/${order.product_snapshot.id}`);
                 }
                 return '';
-              case 'Blank Code':
-                return escapeCSV(order.blank_code || '');
-              case 'Technique':
-                return escapeCSV(order.technique || '');
-              case 'Notes For Supplier':
-                return escapeCSV(order.note_for_supplier || '');
+              case 'generated_design_url':
+                // First try to use the pre-built URL if available
+                if (order.design_url) {
+                  return escapeCSV(order.design_url);
+                } else if (order.product_snapshot?.design_url) {
+                  return escapeCSV(order.product_snapshot.design_url);
+                }
+                
+                // Fall back to constructing the URL
+                const { productSlug, collectionSlug } = getSlugs(order);
+                
+                if (collectionSlug && productSlug) {
+                  // Preferred: Collection/product slug URL with design
+                  return escapeCSV(`${BASE_URL}/${collectionSlug}/${productSlug}/design`);
+                } else if (order.product_id) {
+                  // Fallback: Product ID URL with design
+                  return escapeCSV(`${BASE_URL}/products/${order.product_id}/design`);
+                } else if (order.product_snapshot?.id) {
+                  // Last resort: Product snapshot ID with design
+                  return escapeCSV(`${BASE_URL}/products/${order.product_snapshot.id}/design`);
+                }
+                return '';
+              case 'design_files':
+                if (order.design_files || (order.product_snapshot && order.product_snapshot.design_files)) {
+                  const files = order.design_files || order.product_snapshot?.design_files || [];
+                  return escapeCSV(Array.isArray(files) ? files.join(', ') : files);
+                }
+                return '';
+              case 'blank_code':
+                return escapeCSV(order.blank_code || (order.product_snapshot && order.product_snapshot.blank_code) || '');
+              case 'technique':
+                return escapeCSV(order.technique || (order.product_snapshot && order.product_snapshot.technique) || '');
+              case 'note_for_supplier':
+                return escapeCSV(order.note_for_supplier || (order.product_snapshot && order.product_snapshot.note_for_supplier) || '');
               case 'variant_selections':
                 // Use the same approach as getProductInfo since it's working in the UI
                 const variantData = 

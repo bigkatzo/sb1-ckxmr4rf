@@ -67,12 +67,17 @@ export interface ProductSnapshot {
   blank_code?: string;
   technique?: string;
   note_for_supplier?: string;
+  design_files?: string[];
+  slug?: string;
+  product_url?: string;
+  design_url?: string;
   // other product fields...
 }
 
 export interface CollectionSnapshot {
   id: string;
   name: string;
+  slug?: string;
   // other collection fields...
 }
 
@@ -98,6 +103,8 @@ export interface Order {
   collection_name: string;
   collection_slug?: string;
   product_slug?: string;
+  product_url?: string;
+  design_url?: string;
   amountSol: number;
   category_name: string;
   shippingAddress: ShippingAddress;
@@ -117,6 +124,7 @@ export interface Order {
   blank_code?: string;
   technique?: string;
   note_for_supplier?: string;
+  design_files?: string[];
   // Batch order information
   batch_order_id?: string;
   item_index?: number;
