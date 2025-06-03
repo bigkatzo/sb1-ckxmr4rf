@@ -55,44 +55,65 @@ const handler = async (event) => {
     return errors.notFound('Order not found');
   }
 
+  // Check if this tracking number already exists in our system
+  const { data: existingTracking, error: existingTrackingError } = await supabase
+    .from('order_tracking')
+    .select('*')
+    .eq('tracking_number', trackingNumber)
+    .limit(1)
+    .single();
+
+  if (existingTrackingError && !existingTrackingError.message.includes('No rows found')) {
+    console.error('Error checking existing tracking:', existingTrackingError);
+    return errors.serverError('Error checking existing tracking');
+  }
+
   // Get carrier code for 17TRACK
   const carrierCode = carrier ? getCarrierCode(carrier) : undefined;
+
+  let trackingResponse;
   
-  // Register tracking with 17TRACK
-  const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      '17token': seventeenTrackApiKey
-    },
-    body: JSON.stringify([{
-      number: trackingNumber,
-      carrier: carrierCode,
-      auto_detection: true,
-      order_no: order.order_number,
-      order_time: order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : undefined,
-      remark: `Order ${order.order_number}`
-    }])
-  });
+  // Only register with 17TRACK if this tracking number hasn't been registered before
+  if (!existingTracking) {
+    // Register tracking with 17TRACK
+    const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        '17token': seventeenTrackApiKey
+      },
+      body: JSON.stringify([{
+        number: trackingNumber,
+        carrier: carrierCode,
+        auto_detection: true,
+        order_no: order.order_number,
+        order_time: order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : undefined,
+        remark: `Order ${order.order_number}`
+      }])
+    });
 
-  const trackingResponse = await response.json();
+    trackingResponse = await response.json();
 
-  if (trackingResponse.code !== 0) {
-    console.error('17TRACK registration failed:', trackingResponse);
-    return errors.badRequest('Failed to register tracking with 17TRACK', 'TRACKING_REGISTRATION_FAILED');
+    if (trackingResponse.code !== 0) {
+      console.error('17TRACK registration failed:', trackingResponse);
+      return errors.badRequest('Failed to register tracking with 17TRACK', 'TRACKING_REGISTRATION_FAILED');
+    }
   }
 
   // Create tracking record in our database
+  // If tracking exists, use the same carrier and status
+  const trackingData = {
+    order_id: orderId,
+    tracking_number: trackingNumber,
+    carrier: existingTracking ? existingTracking.carrier : carrier,
+    status: existingTracking ? existingTracking.status : 'pending',
+    status_details: existingTracking ? existingTracking.status_details : 'Tracking registered',
+    last_update: new Date().toISOString()
+  };
+
   const { data: trackingRecord, error: trackingError } = await supabase
     .from('order_tracking')
-    .insert({
-      order_id: orderId,
-      tracking_number: trackingNumber,
-      carrier,
-      status: 'pending',
-      status_details: 'Tracking registered',
-      last_update: new Date().toISOString()
-    })
+    .insert(trackingData)
     .select()
     .single();
 
@@ -106,7 +127,7 @@ const handler = async (event) => {
     body: JSON.stringify({
       message: 'Tracking registered successfully',
       tracking: trackingRecord,
-      tracking_service_response: trackingResponse
+      tracking_service_response: trackingResponse || { message: 'Used existing tracking registration' }
     })
   };
 };

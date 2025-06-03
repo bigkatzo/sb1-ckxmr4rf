@@ -4,50 +4,28 @@ import { createClient } from '@supabase/supabase-js';
 // Database connectivity
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const seventeenTrackApiKey = process.env.SEVENTEEN_TRACK_API_KEY;
 
 // Minimal webhook handler with database updates
 export const handler: Handler = async (event) => {
+  let dbUpdateSuccess = false;
+  let dbUpdateMessage = 'No update attempted';
+
   try {
-    // Log request info
-    console.log('Webhook received:', {
-      method: event.httpMethod,
-      path: event.path
-    });
+    // Parse and validate the webhook payload
+    const payload = JSON.parse(event.body || '{}');
 
-    // Parse the webhook body
-    let payload: any = null;
-    try {
-      if (event.body) {
-        payload = JSON.parse(event.body);
-        console.log('Webhook event type:', payload?.event);
-      }
-    } catch (error) {
-      console.log('Error parsing webhook body:', error);
-      // Continue to acknowledge even if parsing fails
+    if (!payload.event || !payload.data) {
       return {
-        statusCode: 200,
+        statusCode: 400,
         body: JSON.stringify({
-          message: 'Webhook acknowledged, but failed to parse payload',
+          message: 'Invalid webhook payload',
           timestamp: new Date().toISOString()
         })
       };
     }
 
-    // Early exit if no payload or missing data
-    if (!payload || !payload.event) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: 'Webhook acknowledged, but no valid payload found',
-          timestamp: new Date().toISOString()
-        })
-      };
-    }
-
-    // Try to update database if we have the necessary environment variables
-    let dbUpdateSuccess = false;
-    let dbUpdateMessage = 'Database update not attempted';
-    
+    // Only process if we have database credentials and it's a tracking event
     if (supabaseUrl && supabaseServiceKey && 
        (payload.event === 'TRACKING_UPDATED' || payload.event === 'TRACKING_STOPPED')) {
       
@@ -56,31 +34,30 @@ export const handler: Handler = async (event) => {
         const trackingNumber = payload.data?.number;
         
         if (trackingNumber) {
-          // First, get the tracking record ID
-          const { data: tracking, error: trackingError } = await supabase
+          // Get all tracking records with this number
+          const { data: trackingRecords, error: trackingError } = await supabase
             .from('order_tracking')
             .select('id')
-            .eq('tracking_number', trackingNumber)
-            .single();
+            .eq('tracking_number', trackingNumber);
           
           if (trackingError) {
-            console.log('Error finding tracking record:', trackingError);
-          } else if (tracking) {
-            
+            console.log('Error finding tracking records:', trackingError);
+            return {
+              statusCode: 500,
+              body: JSON.stringify({
+                message: 'Database error occurred',
+                error: trackingError.message
+              })
+            };
+          }
+
+          if (trackingRecords && trackingRecords.length > 0) {
             if (payload.event === 'TRACKING_UPDATED' && payload.data?.track_info) {
               // Extract tracking status data
               const trackInfo = payload.data.track_info;
               const status = trackInfo.latest_status?.status || 'unknown';
               const statusDetails = trackInfo.latest_status?.sub_status || '';
               const estimatedDelivery = trackInfo.time_metrics?.estimated_delivery_date?.from || null;
-              
-              // Log estimated delivery date information
-              console.log('Estimated delivery date info:', {
-                hasTimeMetrics: !!trackInfo.time_metrics,
-                hasEstimatedDeliveryDate: !!trackInfo.time_metrics?.estimated_delivery_date,
-                estimatedDeliveryValue: estimatedDelivery,
-                rawTimeMetrics: trackInfo.time_metrics
-              });
               
               // Get carrier details from the webhook payload
               const carrierDetails = {
@@ -89,7 +66,7 @@ export const handler: Handler = async (event) => {
                 service_type: trackInfo.service_type?.name
               };
               
-              // Update tracking status with all available information
+              // Update all tracking records that share this tracking number
               const { error: updateError } = await supabase
                 .from('order_tracking')
                 .update({
@@ -101,20 +78,30 @@ export const handler: Handler = async (event) => {
                   carrier_details: carrierDetails,
                   last_update: new Date().toISOString()
                 })
-                .eq('id', tracking.id);
+                .eq('tracking_number', trackingNumber);
               
               if (updateError) {
                 console.log('Error updating tracking status:', updateError);
-              } else {
-                dbUpdateSuccess = true;
-                dbUpdateMessage = 'Tracking status updated';
-                
-                // Try to store tracking events if available
-                if (trackInfo.tracking?.providers?.[0]?.events?.length > 0) {
-                  try {
-                    const provider = trackInfo.tracking.providers[0];
+                return {
+                  statusCode: 500,
+                  body: JSON.stringify({
+                    message: 'Failed to update tracking records',
+                    error: updateError.message
+                  })
+                };
+              }
+
+              dbUpdateSuccess = true;
+              dbUpdateMessage = 'Tracking status updated for all associated orders';
+              
+              // Store tracking events if available
+              if (trackInfo.tracking?.providers?.[0]?.events?.length > 0) {
+                try {
+                  const provider = trackInfo.tracking.providers[0];
+                  // Create events for each tracking record
+                  for (const trackingRecord of trackingRecords) {
                     const events = provider.events.map((event: any) => ({
-                      tracking_id: tracking.id,
+                      tracking_id: trackingRecord.id,
                       status: event.stage || event.sub_status || status,
                       details: event.description || '',
                       location: event.location || '',
@@ -126,15 +113,15 @@ export const handler: Handler = async (event) => {
                       .upsert(events, { 
                         onConflict: 'tracking_id,timestamp'
                       });
-                      
-                    dbUpdateMessage += ' with events';
-                  } catch (eventError) {
-                    console.log('Error storing tracking events (continuing):', eventError);
                   }
+                      
+                  dbUpdateMessage += ' with events';
+                } catch (eventError) {
+                  console.log('Error storing tracking events (continuing):', eventError);
                 }
               }
             } else if (payload.event === 'TRACKING_STOPPED') {
-              // Update tracking status for stopped tracking
+              // Update all tracking records for stopped tracking
               const { error: updateError } = await supabase
                 .from('order_tracking')
                 .update({
@@ -142,24 +129,37 @@ export const handler: Handler = async (event) => {
                   status_details: 'Tracking stopped',
                   last_update: new Date().toISOString()
                 })
-                .eq('id', tracking.id);
+                .eq('tracking_number', trackingNumber);
                 
               if (updateError) {
                 console.log('Error updating tracking status for stopped tracking:', updateError);
-              } else {
-                dbUpdateSuccess = true;
-                dbUpdateMessage = 'Tracking marked as stopped';
+                return {
+                  statusCode: 500,
+                  body: JSON.stringify({
+                    message: 'Failed to update tracking records',
+                    error: updateError.message
+                  })
+                };
               }
+
+              dbUpdateSuccess = true;
+              dbUpdateMessage = 'Tracking marked as stopped for all associated orders';
             }
           } else {
-            dbUpdateMessage = 'Tracking number not found in database';
+            dbUpdateMessage = 'No tracking records found for this number';
           }
         } else {
           dbUpdateMessage = 'No tracking number in payload';
         }
       } catch (dbError) {
         console.log('Database operation error:', dbError);
-        dbUpdateMessage = 'Database error occurred';
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            message: 'Database error occurred',
+            error: dbError.message
+          })
+        };
       }
     }
 
@@ -178,7 +178,6 @@ export const handler: Handler = async (event) => {
       })
     };
   } catch (error) {
-    // Even if everything fails, still acknowledge
     console.log('Unexpected error in webhook handler:', error);
     return {
       statusCode: 200,

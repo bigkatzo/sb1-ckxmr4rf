@@ -8,11 +8,11 @@ ALTER TABLE order_tracking DROP CONSTRAINT IF EXISTS order_tracking_order_id_tra
 ALTER TABLE order_tracking DROP CONSTRAINT IF EXISTS order_tracking_order_id_key;
 ALTER TABLE order_tracking ADD CONSTRAINT order_tracking_order_id_key UNIQUE (order_id);
 
--- Add an index on tracking_number for faster lookups
+-- Add a more efficient index on tracking_number that includes commonly queried fields
 DROP INDEX IF EXISTS idx_order_tracking_tracking_number;
-CREATE INDEX idx_order_tracking_tracking_number ON order_tracking(tracking_number);
+CREATE INDEX idx_order_tracking_tracking_number_lookup ON order_tracking(tracking_number) INCLUDE (carrier, status, status_details, last_update);
 
 -- Add helpful comment
-COMMENT ON TABLE order_tracking IS 'Stores tracking information for orders. Multiple orders can share the same tracking number, but each order can only have one tracking entry.';
+COMMENT ON TABLE order_tracking IS 'Stores tracking information for orders. Multiple orders can share the same tracking number, but each order can only have one tracking entry. The tracking_number index includes commonly queried fields for efficient lookups.';
 
 COMMIT; 
