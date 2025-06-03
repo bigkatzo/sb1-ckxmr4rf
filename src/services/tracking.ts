@@ -353,7 +353,7 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
 
 export async function getTrackingInfo(trackingNumber: string): Promise<OrderTracking | null> {
   try {
-    // First check our database
+    // First check our database - get the most recently updated tracking record
     const { data, error } = await supabase
       .from('order_tracking')
       .select(`
@@ -361,19 +361,27 @@ export async function getTrackingInfo(trackingNumber: string): Promise<OrderTrac
         tracking_events (*)
       `)
       .eq('tracking_number', trackingNumber)
-      .single();
+      .order('last_update', { ascending: false })
+      .limit(1);
 
     if (error) {
       console.error('Database error:', error);
       throw new Error('Failed to fetch tracking from database');
     }
+
+    // If no tracking found, return null
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    const trackingRecord = data[0];
   
     // If we have data and it was updated recently (within the last hour), just return it
     const oneHourAgo = new Date();
     oneHourAgo.setHours(oneHourAgo.getHours() - 1);
   
-    if (data && data.last_update && new Date(data.last_update) > oneHourAgo) {
-      return data;
+    if (trackingRecord && trackingRecord.last_update && new Date(trackingRecord.last_update) > oneHourAgo) {
+      return trackingRecord;
     }
   
     // Otherwise, try to get fresh data from 17TRACK via our proxy
@@ -423,7 +431,7 @@ export async function getTrackingInfo(trackingNumber: string): Promise<OrderTrac
             service_type: trackInfo.service_type?.name
           };
         
-          // Update the tracking record with enhanced information
+          // Update all tracking records that share this tracking number
           await updateTrackingStatus(
             trackingNumber,
             status,
@@ -435,10 +443,10 @@ export async function getTrackingInfo(trackingNumber: string): Promise<OrderTrac
           );
         
           // Add tracking events if available
-          if (trackInfo.tracking?.providers?.[0]?.events && data && data.id) {
+          if (trackInfo.tracking?.providers?.[0]?.events && trackingRecord.id) {
             const events = trackInfo.tracking.providers[0].events;
             for (const event of events) {
-              await addTrackingEvent(data.id, {
+              await addTrackingEvent(trackingRecord.id, {
                 status: event.stage || event.sub_status || status,
                 details: event.description,
                 location: event.location,
@@ -455,14 +463,15 @@ export async function getTrackingInfo(trackingNumber: string): Promise<OrderTrac
               tracking_events (*)
             `)
             .eq('tracking_number', trackingNumber)
-            .single();
+            .order('last_update', { ascending: false })
+            .limit(1);
           
           if (updateError) {
             console.error('Error fetching updated tracking:', updateError);
             throw new Error('Failed to fetch updated tracking');
           }
           
-          return updatedData;
+          return updatedData[0];
         }
       }
       
@@ -471,9 +480,9 @@ export async function getTrackingInfo(trackingNumber: string): Promise<OrderTrac
     } catch (apiError) {
       console.error('Error fetching tracking from API:', apiError);
       // If we have stale data, return it as fallback
-      if (data) {
+      if (trackingRecord) {
         console.log('Falling back to database data');
-        return data;
+        return trackingRecord;
       }
       throw new Error('Failed to fetch tracking information. Please try again later.');
     }
