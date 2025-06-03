@@ -49,7 +49,7 @@ export async function getTrackingInfo(trackingNumber: string) {
     if (!order) throw new Error('Order not found');
 
     // Then, fetch tracking info from 17TRACK
-    const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/gettrackinfo`, {
+    const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/getRealTimeTrackInfo`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,7 +57,8 @@ export async function getTrackingInfo(trackingNumber: string) {
       },
       body: JSON.stringify([{
         number: trackingNumber,
-        auto_detection: true
+        auto_detection: true,
+        cacheLevel: 1 // Use real-time fetch for most up-to-date info
       }])
     });
 

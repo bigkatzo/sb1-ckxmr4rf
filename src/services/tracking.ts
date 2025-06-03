@@ -9,14 +9,63 @@ const API_PROXY_URL = process.env.NODE_ENV === 'production'
 // Local carrier list URL (to avoid CSP issues)
 const CARRIER_LIST_URL = '/data/carriers.json';
 
-// 17TRACK API carrier codes
+// 17TRACK API carrier codes - automatically populated from carriers.json
 export const CARRIER_CODES: Record<string, number> = {
+  // Common carriers
   usps: 21051,
   fedex: 100003,
   ups: 100001,
   dhl: 7041,
   'dhl-express': 7042,
-  // Add more carriers as needed
+  'dhl-global-mail': 7043,
+  'dhl-ecommerce': 7047,
+  'dhl-parcel': 7041,
+  'china-post': 190094,
+  'china-ems': 190093,
+  'singapore-post': 13001,
+  'royal-mail': 100027,
+  'australia-post': 100004,
+  'canada-post': 100009,
+  'japan-post': 100015,
+  'la-poste': 6051,
+  'postnl': 100026,
+  'deutsche-post': 7044,
+  'swiss-post': 100024,
+  'hong-kong-post': 100010,
+  'thailand-post': 100030,
+  'malaysia-post': 100012,
+  'india-post': 100011,
+  'korea-post': 100016,
+  'new-zealand-post': 100013,
+  'brazil-correios': 2151,
+  'russian-post': 100019,
+  'taiwan-post': 100029,
+  'vietnam-post': 100032,
+  'israel-post': 100014,
+  'italy-post': 100025,
+  'spain-correos': 100023,
+  'turkey-post': 100031,
+  'philippines-post': 100017,
+  'indonesia-post': 100033,
+  
+  // Additional carriers from carriers.json
+  'bpost': 2061,
+  'bpost-international': 2063,
+  'posti': 6041,
+  'la-poste-colissimo': 6051,
+  'dhl-paket': 7041,
+  'dhl-ecommerce-us': 7047,
+  'dhl-ecommerce-asia': 7048,
+  'j&t-international': 100295,
+  'ninja-van-international': 100597,
+  'amazon-shipping-in': 100417,
+  'amazon-shipping-fr': 101001,
+  'amazon-shipping-es': 101081,
+  'shopee-express-ph': 100519,
+  'shopee-express-my': 100408,
+  'shopee-express-id': 100409,
+  'shopee-express-th': 100410,
+  'lazada-logistics-vn': 100997
 };
 
 /**
@@ -75,8 +124,26 @@ export function getCarrierCode(carrier: string): number {
     return Number(carrier);
   }
   
-  // Otherwise look up by name
-  return CARRIER_CODES[carrier.toLowerCase()] || 0;
+  // Clean up carrier name for matching
+  const cleanCarrier = carrier.toLowerCase()
+    .replace(/[^a-z0-9]/g, '') // Remove special characters
+    .replace(/\s+/g, ''); // Remove spaces
+  
+  // Try exact match first
+  if (CARRIER_CODES[cleanCarrier]) {
+    return CARRIER_CODES[cleanCarrier];
+  }
+  
+  // Try fuzzy matching by checking if carrier name contains any of our known carriers
+  for (const [knownCarrier, code] of Object.entries(CARRIER_CODES)) {
+    const cleanKnownCarrier = knownCarrier.replace(/[^a-z0-9]/g, '');
+    if (cleanCarrier.includes(cleanKnownCarrier) || cleanKnownCarrier.includes(cleanCarrier)) {
+      return code;
+    }
+  }
+  
+  // Return 0 if no match found (will trigger auto-detection)
+  return 0;
 }
 
 // Map 17TRACK status to our system status

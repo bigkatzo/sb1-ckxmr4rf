@@ -58,7 +58,7 @@ export const handler: Handler = async (event) => {
     }
 
     // Fetch tracking info from 17TRACK
-    const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/gettrackinfo`, {
+    const response = await fetch(`${SEVENTEEN_TRACK_API_URL}/getRealTimeTrackInfo`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,7 +66,8 @@ export const handler: Handler = async (event) => {
       },
       body: JSON.stringify([{
         number: trackingNumber,
-        auto_detection: true
+        auto_detection: true,
+        cacheLevel: 1 // Use real-time fetch for most up-to-date info
       }])
     });
 

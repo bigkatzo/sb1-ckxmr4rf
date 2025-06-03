@@ -74,13 +74,31 @@ export const handler: Handler = async (event) => {
               const statusDetails = trackInfo.latest_status?.sub_status || '';
               const estimatedDelivery = trackInfo.time_metrics?.estimated_delivery_date?.from || null;
               
-              // Update tracking status
+              // Log estimated delivery date information
+              console.log('Estimated delivery date info:', {
+                hasTimeMetrics: !!trackInfo.time_metrics,
+                hasEstimatedDeliveryDate: !!trackInfo.time_metrics?.estimated_delivery_date,
+                estimatedDeliveryValue: estimatedDelivery,
+                rawTimeMetrics: trackInfo.time_metrics
+              });
+              
+              // Get carrier details from the webhook payload
+              const carrierDetails = {
+                name: trackInfo.carrier_info?.name,
+                carrier_code: trackInfo.carrier_info?.code,
+                service_type: trackInfo.service_type?.name
+              };
+              
+              // Update tracking status with all available information
               const { error: updateError } = await supabase
                 .from('order_tracking')
                 .update({
                   status,
                   status_details: statusDetails,
                   estimated_delivery_date: estimatedDelivery,
+                  latest_event_time: trackInfo.latest_event?.time_utc,
+                  latest_event_info: trackInfo.latest_event?.description,
+                  carrier_details: carrierDetails,
                   last_update: new Date().toISOString()
                 })
                 .eq('id', tracking.id);

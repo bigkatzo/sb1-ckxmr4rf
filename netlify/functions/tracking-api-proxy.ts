@@ -64,6 +64,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         apiEndpoint = `${SEVENTEEN_TRACK_API_URL}/register`;
         apiPayload = [{
           number: requestBody.payload.number,
+          carrier: requestBody.payload.carrier,
           auto_detection: requestBody.payload.auto_detection !== false,
           order_id: requestBody.payload.order_id
         }];
@@ -78,10 +79,12 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         break;
       
       case 'status':
-        apiEndpoint = `${SEVENTEEN_TRACK_API_URL}/gettrackinfo`;
+        apiEndpoint = `${SEVENTEEN_TRACK_API_URL}/getRealTimeTrackInfo`;
         apiPayload = [{
           number: requestBody.payload.number,
-          carrier: requestBody.payload.carrier // Optional
+          carrier: requestBody.payload.carrier, // Optional
+          auto_detection: true,
+          cacheLevel: 1 // Use real-time fetch for most up-to-date info
         }];
         break;
       
