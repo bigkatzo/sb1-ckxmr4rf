@@ -167,10 +167,10 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
   try {
     console.log(`Adding tracking: order=${orderId}, tracking=${trackingNumber}, carrier=${carrier ? carrier : 'auto-detect'}`);
     
-    // First check if this tracking number already exists - this can prevent duplicate attempts
+    // First check if this tracking number already exists
     const { data: existingTracking, error: checkError } = await supabase
       .from('order_tracking')
-      .select('id, tracking_number')
+      .select('*')
       .eq('tracking_number', trackingNumber)
       .maybeSingle();
     
@@ -179,10 +179,34 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
       // Continue anyway to attempt the insert
     }
     
-    // If tracking already exists, just return it
+    // If tracking already exists, associate it with the new order without re-registering
     if (existingTracking) {
-      console.log('Tracking number already exists, skipping insert:', trackingNumber);
-      return existingTracking as OrderTracking;
+      console.log('Tracking number already exists, associating with new order:', trackingNumber);
+      
+      // Create a new tracking entry for this order using existing tracking info
+      const { data: newTracking, error: insertError } = await supabase
+        .from('order_tracking')
+        .insert({
+          order_id: orderId,
+          tracking_number: trackingNumber,
+          carrier: existingTracking.carrier,
+          status: existingTracking.status,
+          status_details: existingTracking.status_details,
+          estimated_delivery_date: existingTracking.estimated_delivery_date,
+          latest_event_info: existingTracking.latest_event_info,
+          latest_event_time: existingTracking.latest_event_time,
+          carrier_details: existingTracking.carrier_details,
+          last_update: existingTracking.last_update
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating new tracking entry:', insertError);
+        throw insertError;
+      }
+
+      return newTracking;
     }
     
     // Before inserting, check if the user has permission to add tracking to this order
@@ -260,7 +284,7 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
     
     console.log(`Using carrier: ${carrierName}, ID: ${carrierId}`);
     
-    // Attempt to insert with a more conservative approach
+    // Insert new tracking entry
     const { data, error } = await supabase
       .from('order_tracking')
       .insert({
@@ -277,9 +301,9 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
       throw error;
     }
     
-    // Try to register with 17TRACK via our proxy
+    // For new tracking numbers, register with 17TRACK
     try {
-      console.log('Registering tracking number with 17TRACK:', trackingNumber);
+      console.log('Registering new tracking number with 17TRACK:', trackingNumber);
       
       // Use auto-detection if no carrier ID is provided
       const useAutoDetection = carrierId === 0;
@@ -323,14 +347,6 @@ export async function addTracking(orderId: string, trackingNumber: string, carri
     return data;
   } catch (error) {
     console.error('Error in addTracking:', error);
-    
-    // Check if it's a timeout error and provide a clearer message
-    if (error && typeof error === 'object' && 'code' in error && error.code === '57014') {
-      const timeoutError = new Error('Database timeout - tracking may still be added in the background');
-      console.warn('Database timeout when adding tracking, operation may still complete:', timeoutError);
-      throw timeoutError;
-    }
-    
     throw error;
   }
 }
