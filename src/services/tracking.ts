@@ -334,7 +334,11 @@ export async function getTrackingInfo(trackingNumber: string): Promise<OrderTrac
           const estimatedDeliveryDate = trackInfo.time_metrics?.estimated_delivery_date?.from;
         
           // Get carrier details
-          const carrierDetails = trackInfo.carrier_info;
+          const carrierDetails = {
+            name: trackInfo.carrier_info?.name,
+            carrier_code: trackInfo.carrier_info?.code,
+            service_type: trackInfo.service_type?.name
+          };
         
           // Update the tracking record with enhanced information
           await updateTrackingStatus(
