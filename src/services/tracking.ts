@@ -326,13 +326,19 @@ export async function getTrackingInfo(trackingNumber: string): Promise<OrderTrac
         if (trackData && trackData.track) {
           const track = trackData.track;
           const status = mapTrackingStatus(track.e);
+          
+          // Get the latest event details
+          const latestEvent = track.z2 && track.z2.length > 0 ? track.z2[0] : null;
+          const statusDetails = latestEvent ? latestEvent.c : track.z0?.c;
+          const lastEventTime = latestEvent ? latestEvent.a : track.z0?.a;
         
-          // Update the tracking record
+          // Update the tracking record with enhanced information
           await updateTrackingStatus(
             trackingNumber,
             status,
-            track.z0?.c,
-            track.z1?.a
+            statusDetails,
+            track.z1?.a, // estimated delivery date
+            lastEventTime // last event time
           );
         
           // Add tracking events if available
@@ -387,7 +393,8 @@ export async function updateTrackingStatus(
   trackingNumber: string,
   status: string,
   statusDetails?: string,
-  estimatedDeliveryDate?: string
+  estimatedDeliveryDate?: string,
+  lastEventTime?: string
 ): Promise<void> {
   const { error } = await supabase
     .from('order_tracking')
@@ -395,7 +402,7 @@ export async function updateTrackingStatus(
       status,
       status_details: statusDetails,
       estimated_delivery_date: estimatedDeliveryDate,
-      last_update: new Date().toISOString()
+      last_update: lastEventTime || new Date().toISOString()
     })
     .eq('tracking_number', trackingNumber);
 

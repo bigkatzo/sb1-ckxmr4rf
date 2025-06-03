@@ -241,6 +241,20 @@ export default function TrackingPage() {
               <label className="text-xs sm:text-sm text-gray-400 block mb-1">Carrier</label>
               <p className="font-bold text-base sm:text-lg text-white uppercase">{tracking.carrier}</p>
             </div>
+            {tracking.status_details && (
+              <div className={`p-4 sm:p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
+                <label className="text-xs sm:text-sm text-gray-400 block mb-1">Latest Event</label>
+                <p className="font-bold text-base sm:text-lg text-white">{tracking.status_details}</p>
+              </div>
+            )}
+            {tracking.last_update && (
+              <div className={`p-4 sm:p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
+                <label className="text-xs sm:text-sm text-gray-400 block mb-1">Last Updated</label>
+                <p className="font-bold text-base sm:text-lg text-white">
+                  {format(new Date(tracking.last_update), 'PPp')}
+                </p>
+              </div>
+            )}
             {tracking.estimated_delivery_date && (
               <div className={`p-4 sm:p-6 rounded-xl ${bgColor} ring-1 ring-white/5 sm:col-span-2`}>
                 <label className="text-xs sm:text-sm text-gray-400 block mb-1">Estimated Delivery</label>
