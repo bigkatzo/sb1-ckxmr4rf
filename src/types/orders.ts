@@ -29,8 +29,11 @@ export interface OrderTracking {
   carrier: string;
   status?: string;
   status_details?: string;
+  latest_event_info?: string;
+  latest_event_time?: string;
   estimated_delivery_date?: string;
   last_update?: string;
+  carrier_details?: Record<string, any>;
   created_at: string;
   updated_at: string;
   tracking_events?: TrackingEvent[];

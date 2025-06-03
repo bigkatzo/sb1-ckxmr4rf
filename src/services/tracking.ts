@@ -323,32 +323,39 @@ export async function getTrackingInfo(trackingNumber: string): Promise<OrderTrac
         const trackData = result.data.accepted[0];
       
         // Update our database with the latest tracking info
-        if (trackData && trackData.track) {
-          const track = trackData.track;
-          const status = mapTrackingStatus(track.e);
+        if (trackData && trackData.track_info) {
+          const trackInfo = trackData.track_info;
+          const status = trackInfo.latest_status?.status || 'NotFound';
           
           // Get the latest event details
-          const latestEvent = track.z2 && track.z2.length > 0 ? track.z2[0] : null;
-          const statusDetails = latestEvent ? latestEvent.c : track.z0?.c;
-          const lastEventTime = latestEvent ? latestEvent.a : track.z0?.a;
+          const latestEvent = trackInfo.latest_event;
+          const latestEventInfo = latestEvent?.description || '';
+          const latestEventTime = latestEvent?.time_utc;
+          const estimatedDeliveryDate = trackInfo.time_metrics?.estimated_delivery_date?.from;
+        
+          // Get carrier details
+          const carrierDetails = trackInfo.carrier_info;
         
           // Update the tracking record with enhanced information
           await updateTrackingStatus(
             trackingNumber,
             status,
-            statusDetails,
-            track.z1?.a, // estimated delivery date
-            lastEventTime // last event time
+            trackInfo.latest_status?.sub_status,
+            estimatedDeliveryDate,
+            latestEventTime,
+            latestEventInfo,
+            carrierDetails
           );
         
           // Add tracking events if available
-          if (track.z2 && Array.isArray(track.z2) && data && data.id) {
-            for (const event of track.z2) {
+          if (trackInfo.tracking?.providers?.[0]?.events && data && data.id) {
+            const events = trackInfo.tracking.providers[0].events;
+            for (const event of events) {
               await addTrackingEvent(data.id, {
-                status: event.z,
-                details: event.c,
-                location: event.l,
-                timestamp: event.a
+                status: event.stage || event.sub_status || status,
+                details: event.description,
+                location: event.location,
+                timestamp: event.time_utc
               });
             }
           }
@@ -394,7 +401,9 @@ export async function updateTrackingStatus(
   status: string,
   statusDetails?: string,
   estimatedDeliveryDate?: string,
-  lastEventTime?: string
+  latestEventTime?: string,
+  latestEventInfo?: string,
+  carrierDetails?: Record<string, any>
 ): Promise<void> {
   const { error } = await supabase
     .from('order_tracking')
@@ -402,7 +411,10 @@ export async function updateTrackingStatus(
       status,
       status_details: statusDetails,
       estimated_delivery_date: estimatedDeliveryDate,
-      last_update: lastEventTime || new Date().toISOString()
+      latest_event_time: latestEventTime,
+      latest_event_info: latestEventInfo,
+      last_update: new Date().toISOString(),
+      carrier_details: carrierDetails
     })
     .eq('tracking_number', trackingNumber);
 

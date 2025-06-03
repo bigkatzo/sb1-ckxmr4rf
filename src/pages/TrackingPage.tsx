@@ -239,11 +239,40 @@ export default function TrackingPage() {
             </div>
             <div className={`p-4 sm:p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
               <label className="text-xs sm:text-sm text-gray-400 block mb-1">Carrier</label>
-              <p className="font-bold text-base sm:text-lg text-white uppercase">{tracking.carrier}</p>
+              {tracking.carrier_details ? (
+                <>
+                  <p className="font-bold text-base sm:text-lg text-white">
+                    {tracking.carrier_details.name || tracking.carrier}
+                  </p>
+                  {tracking.carrier_details.service_type && (
+                    <p className="text-sm text-gray-400 mt-1">
+                      {tracking.carrier_details.service_type}
+                    </p>
+                  )}
+                  {tracking.carrier_details.carrier_code && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Code: {tracking.carrier_details.carrier_code}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="font-bold text-base sm:text-lg text-white uppercase">{tracking.carrier}</p>
+              )}
             </div>
+            {tracking.latest_event_info && (
+              <div className={`p-4 sm:p-6 rounded-xl ${bgColor} ring-1 ring-white/5 sm:col-span-2`}>
+                <label className="text-xs sm:text-sm text-gray-400 block mb-1">Latest Event</label>
+                <p className="font-bold text-base sm:text-lg text-white">{tracking.latest_event_info}</p>
+                {tracking.latest_event_time && (
+                  <p className="text-sm text-gray-400 mt-1">
+                    {format(new Date(tracking.latest_event_time), 'PPp')}
+                  </p>
+                )}
+              </div>
+            )}
             {tracking.status_details && (
               <div className={`p-4 sm:p-6 rounded-xl ${bgColor} ring-1 ring-white/5`}>
-                <label className="text-xs sm:text-sm text-gray-400 block mb-1">Latest Event</label>
+                <label className="text-xs sm:text-sm text-gray-400 block mb-1">Status Details</label>
                 <p className="font-bold text-base sm:text-lg text-white">{tracking.status_details}</p>
               </div>
             )}
