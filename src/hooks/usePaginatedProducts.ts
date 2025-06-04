@@ -245,7 +245,11 @@ export function usePaginatedProducts(
         const cached = sessionStorage.getItem(actualCacheKey);
         if (cached) {
           const { products: cachedProducts } = JSON.parse(cached);
-          return cachedProducts;
+          // Find products in allProducts array by ID
+          const restoredProducts = cachedProducts
+            .map((id: string) => allProducts.find(p => p.id === id))
+            .filter(Boolean);
+          return restoredProducts;
         }
       } catch (e) {
         console.warn('Error restoring from cache:', e);
@@ -253,31 +257,6 @@ export function usePaginatedProducts(
     }
     return [];
   });
-
-  // Apply sorting to visible products whenever sort option changes
-  useEffect(() => {
-    if (visibleProducts.length > 0) {
-      const sortedProducts = [...visibleProducts].sort((a, b) => {
-        if (sortOption === 'recommended') {
-          // Handle pinned products first
-          const aPin = a.pinOrder || 0;
-          const bPin = b.pinOrder || 0;
-          if (aPin !== bPin) return bPin - aPin;
-          
-          // Then sort by order count
-          return (b.publicOrderCount || 0) - (a.publicOrderCount || 0);
-        } else if (sortOption === 'popular') {
-          return (b.publicOrderCount || 0) - (a.publicOrderCount || 0);
-        } else if (sortOption === 'newest') {
-          return b.id.localeCompare(a.id);
-        } else {
-          // price
-          return (a.price || 0) - (b.price || 0);
-        }
-      });
-      setVisibleProducts(sortedProducts);
-    }
-  }, [sortOption]);
 
   const [loading, setLoading] = useState(visibleProducts.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -288,6 +267,7 @@ export function usePaginatedProducts(
   const initializedRef = useRef(visibleProducts.length > 0); // Track if initial load has happened
   const lastCategoryId = useRef<string | null>(null); // Track last category ID to detect changes
   const preloadingRef = useRef(false); // Track if we're preloading the next batch
+  const prevSortRef = useRef<string | null>(null); // Track previous sort option
   
   // Save current visible products to session storage for persistence
   useEffect(() => {
@@ -297,7 +277,7 @@ export function usePaginatedProducts(
       // Only store IDs to keep cache size small
       const productIds = visibleProducts.map(p => p.id);
       sessionStorage.setItem(actualCacheKey, JSON.stringify({
-        products: productIds, 
+        products: productIds,
         timestamp: Date.now()
       }));
     } catch (e) {
@@ -321,9 +301,7 @@ export function usePaginatedProducts(
         offset.current = 0;
         
         // When resetting, clear any old cache from sessionStorage
-        // This ensures we don't have stale data interfering with the new sort
         try {
-          // Use the current cache key to clear the specific entry
           sessionStorage.removeItem(actualCacheKey);
           console.log(`Reset: Cleared cache for ${actualCacheKey}`);
         } catch (e) {
@@ -334,21 +312,10 @@ export function usePaginatedProducts(
       }
       
       // Get current products based on offset
-      const currentProducts = filteredAllProducts.current;
+      const currentProducts = filteredProducts; // Use filteredProducts directly
       
-      // Log the current sort state for debugging
-      if (reset) {
-        console.log(`Resetting products with sort: ${sortOption}, total: ${currentProducts.length}`);
-        if (currentProducts.length > 0) {
-          // Log the first few products for debugging
-          console.log('First products after sort:', currentProducts.slice(0, 3).map(p => ({
-            id: p.id.substring(0, 6),
-            name: p.name,
-            pinOrder: p.pinOrder,
-            salesCount: p.salesCount
-          })));
-        }
-      }
+      // Log the current state for debugging
+      console.log(`Loading products - Total available: ${currentProducts.length}, Current offset: ${offset.current}, Is reset: ${reset}`);
       
       const limit = reset ? initialLimit : loadMoreCount;
       const currentOffset = reset ? 0 : offset.current;
@@ -365,6 +332,7 @@ export function usePaginatedProducts(
       // Update state
       if (isMounted.current) {
         setHasMore(moreAvailable);
+        console.log(`Updated state - Visible products: ${paginatedProducts.length}, Has more: ${moreAvailable}, Next offset: ${currentOffset + paginatedProducts.length}`);
         
         // Only update visible products if not preloading
         if (!isPreloading) {
@@ -374,9 +342,8 @@ export function usePaginatedProducts(
         }
         
         // Update offset for next load
-        offset.current = reset 
-          ? Math.min(initialLimit, paginatedProducts.length)
-          : offset.current + paginatedProducts.length;
+        offset.current = currentOffset + paginatedProducts.length;
+        console.log(`Updating hasMore state - Offset: ${offset.current}, Total: ${currentProducts.length}, Has more: ${moreAvailable}`);
         
         initializedRef.current = true;
       }
@@ -394,7 +361,7 @@ export function usePaginatedProducts(
         isLoadingRef.current = false;
       }
     }
-  }, [initialLimit, loadMoreCount]);
+  }, [initialLimit, loadMoreCount, filteredProducts, actualCacheKey]);
 
   // Preload next batch when scrolling
   useEffect(() => {
@@ -426,14 +393,15 @@ export function usePaginatedProducts(
 
   // Reset state when products or category changes
   useEffect(() => {
-    const currentProducts = filteredAllProducts.current;
+    const currentProducts = filteredProducts;
     const categoryChanged = lastCategoryId.current !== categoryId;
     
     // Update the last category ID
     lastCategoryId.current = categoryId;
     
-    // If category changed, we need to reset
-    if (categoryChanged && initializedRef.current) {
+    // If category changed or sort option changed, we need to reset
+    if ((categoryChanged || sortOption !== prevSortRef.current) && initializedRef.current) {
+      prevSortRef.current = sortOption;
       // Reset pagination
       setVisibleProducts([]);
       offset.current = 0;
@@ -444,7 +412,6 @@ export function usePaginatedProducts(
     // For other changes, be more careful with state updates
     if (visibleProducts.length > currentProducts.length) {
       // Products array changed and no longer matches our visible products
-      // This can happen when filtering or when data structure changes
       setVisibleProducts(currentProducts.slice(0, Math.min(initialLimit, currentProducts.length)));
       offset.current = Math.min(initialLimit, currentProducts.length);
       setHasMore(currentProducts.length > initialLimit);
@@ -455,7 +422,7 @@ export function usePaginatedProducts(
       // Update hasMore state based on current products
       setHasMore(offset.current < currentProducts.length);
     }
-  }, [allProducts, categoryId, initialLimit, loadProducts, visibleProducts.length]);
+  }, [allProducts, categoryId, initialLimit, loadProducts, visibleProducts.length, sortOption, filteredProducts]);
 
   // Cleanup on unmount
   useEffect(() => {
