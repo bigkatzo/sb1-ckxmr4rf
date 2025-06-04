@@ -188,34 +188,6 @@ export function usePaginatedProducts(
     }
   }, [sortedProducts, initialLimit, loadMoreCount, actualCacheKey]);
 
-  // Initialize products when sorted products change
-  useEffect(() => {
-    if (!initializedRef.current && sortedProducts.length > 0) {
-      console.log('Initial load of products');
-      loadProducts(true);
-      initializedRef.current = true;
-    }
-  }, [sortedProducts, loadProducts]);
-
-  // Reset when category changes
-  useEffect(() => {
-    const categoryChanged = lastCategoryId.current !== categoryId;
-    
-    if (categoryChanged && initializedRef.current) {
-      console.log(`Category changed from ${lastCategoryId.current} to ${categoryId}`);
-      lastCategoryId.current = categoryId;
-      loadProducts(true);
-    }
-  }, [categoryId, loadProducts]);
-
-  // Reset when sort option changes
-  useEffect(() => {
-    if (initializedRef.current) {
-      console.log(`Sort option changed to ${sortOption}`);
-      loadProducts(true);
-    }
-  }, [sortOption, loadProducts]);
-
   // Function to load more products
   const loadMore = useCallback(() => {
     if (!loading && !loadingMore && hasMore && !isLoadingRef.current) {
@@ -223,6 +195,36 @@ export function usePaginatedProducts(
       loadProducts(false);
     }
   }, [loading, loadingMore, hasMore, loadProducts]);
+
+  // Track previous values to detect changes
+  const prevSortOptionRef = useRef(sortOption);
+  const prevCategoryIdRef = useRef(categoryId);
+  const prevProductsLengthRef = useRef(sortedProducts.length);
+
+  // Handle initialization and changes
+  useEffect(() => {
+    const sortChanged = prevSortOptionRef.current !== sortOption;
+    const categoryChanged = prevCategoryIdRef.current !== categoryId;
+    const productsChanged = prevProductsLengthRef.current !== sortedProducts.length;
+    const needsInitialization = !initializedRef.current && sortedProducts.length > 0;
+
+    // Update refs
+    prevSortOptionRef.current = sortOption;
+    prevCategoryIdRef.current = categoryId;
+    prevProductsLengthRef.current = sortedProducts.length;
+
+    if (needsInitialization) {
+      console.log('Initial load of products');
+      initializedRef.current = true;
+      loadProducts(true);
+    } else if ((sortChanged || categoryChanged) && initializedRef.current) {
+      console.log(`Change detected - Sort: ${sortChanged}, Category: ${categoryChanged}`);
+      loadProducts(true);
+    } else if (productsChanged && initializedRef.current && visibleProducts.length === 0) {
+      console.log('Products changed and no visible products');
+      loadProducts(true);
+    }
+  }, [sortOption, categoryId, sortedProducts.length, loadProducts]);
 
   // Restore scroll listener for infinite scroll
   useEffect(() => {
@@ -266,20 +268,6 @@ export function usePaginatedProducts(
     };
   }, [hasMore, loadingMore, loading, loadMore, preloadThreshold]);
 
-  // Add a check for stuck state
-  useEffect(() => {
-    if (hasMore && !loading && !loadingMore && visibleProducts.length === 0 && sortedProducts.length > 0) {
-      console.log('Detected stuck state - reloading products');
-      loadProducts(true);
-    }
-  }, [hasMore, loading, loadingMore, visibleProducts.length, sortedProducts.length, loadProducts]);
-
-  // Function to explicitly reset products
-  const resetProducts = useCallback(() => {
-    console.log('Explicitly resetting products');
-    loadProducts(true);
-  }, [loadProducts]);
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -293,6 +281,6 @@ export function usePaginatedProducts(
     loadingMore,
     hasMore,
     loadMore,
-    resetProducts
+    resetProducts: useCallback(() => loadProducts(true), [loadProducts])
   };
 } 
