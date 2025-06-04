@@ -188,6 +188,34 @@ export function usePaginatedProducts(
     }
   }, [sortedProducts, initialLimit, loadMoreCount, actualCacheKey]);
 
+  // Initialize products when sorted products change
+  useEffect(() => {
+    if (!initializedRef.current && sortedProducts.length > 0) {
+      console.log('Initial load of products');
+      loadProducts(true);
+      initializedRef.current = true;
+    }
+  }, [sortedProducts, loadProducts]);
+
+  // Reset when category changes
+  useEffect(() => {
+    const categoryChanged = lastCategoryId.current !== categoryId;
+    
+    if (categoryChanged && initializedRef.current) {
+      console.log(`Category changed from ${lastCategoryId.current} to ${categoryId}`);
+      lastCategoryId.current = categoryId;
+      loadProducts(true);
+    }
+  }, [categoryId, loadProducts]);
+
+  // Reset when sort option changes
+  useEffect(() => {
+    if (initializedRef.current) {
+      console.log(`Sort option changed to ${sortOption}`);
+      loadProducts(true);
+    }
+  }, [sortOption, loadProducts]);
+
   // Function to load more products
   const loadMore = useCallback(() => {
     if (!loading && !loadingMore && hasMore && !isLoadingRef.current) {
@@ -245,20 +273,6 @@ export function usePaginatedProducts(
       loadProducts(true);
     }
   }, [hasMore, loading, loadingMore, visibleProducts.length, sortedProducts.length, loadProducts]);
-
-  // Reset when category changes
-  useEffect(() => {
-    const categoryChanged = lastCategoryId.current !== categoryId;
-    
-    if (categoryChanged && initializedRef.current) {
-      console.log(`Category changed from ${lastCategoryId.current} to ${categoryId}`);
-      lastCategoryId.current = categoryId;
-      loadProducts(true);
-    } else if (!initializedRef.current && sortedProducts.length > 0) {
-      console.log('Initial load of products');
-      loadProducts(true);
-    }
-  }, [categoryId, loadProducts, sortedProducts.length]);
 
   // Function to explicitly reset products
   const resetProducts = useCallback(() => {
