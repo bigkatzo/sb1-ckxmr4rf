@@ -23,8 +23,8 @@ export function usePaginatedProducts(
     cacheKey = '', // Optional cache key for persistence between sessions
   } = options;
 
-  // Create a cache key combining collection/category info
-  const actualCacheKey = `products_${cacheKey}_${categoryId}_${sortOption}_v3`;
+  // Create a cache key combining collection/category info but NOT sort option
+  const actualCacheKey = `products_${cacheKey}_${categoryId}_v3`;
 
   // Clear all product caches for this collection
   const clearProductCaches = useCallback(() => {
@@ -52,9 +52,8 @@ export function usePaginatedProducts(
 
   // When sort option changes, clear caches
   useEffect(() => {
-    clearProductCaches();
-    console.log(`Sort changed to ${sortOption}, cleared all related caches`);
-  }, [sortOption, clearProductCaches]);
+    console.log(`Sort changed to ${sortOption}`);
+  }, [sortOption]);
 
   // Add logging for debug purposes
   useEffect(() => {
@@ -238,37 +237,48 @@ export function usePaginatedProducts(
     }
   }, [filteredProducts, initialLimit]);
 
-  // Try to restore from sessionStorage on initial mount
-  const getInitialState = () => {
-    if (typeof window === 'undefined') return [];
-    
-    try {
-      const cached = sessionStorage.getItem(actualCacheKey);
-      if (cached) {
-        const { ids, timestamp } = JSON.parse(cached);
-        
-        // Only use cache if it's recent (last 30 minutes)
-        const isCacheRecent = Date.now() - timestamp < 30 * 60 * 1000;
-        
-        if (isCacheRecent && Array.isArray(ids) && ids.length > 0) {
-          // Rebuild product array from cached IDs
-          const cachedProducts = ids
-            .map(id => allProducts.find(p => p.id === id))
-            .filter(Boolean) as Product[];
-            
-          if (cachedProducts.length > 0) {
-            return cachedProducts;
-          }
+  // State for visible products and pagination
+  const [visibleProducts, setVisibleProducts] = useState<Product[]>(() => {
+    // Try to restore from cache first
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(actualCacheKey);
+        if (cached) {
+          const { products: cachedProducts } = JSON.parse(cached);
+          return cachedProducts;
         }
+      } catch (e) {
+        console.warn('Error restoring from cache:', e);
       }
-    } catch (e) {
-      console.warn('Error restoring cached products:', e);
     }
-    
     return [];
-  };
+  });
 
-  const [visibleProducts, setVisibleProducts] = useState<Product[]>(getInitialState);
+  // Apply sorting to visible products whenever sort option changes
+  useEffect(() => {
+    if (visibleProducts.length > 0) {
+      const sortedProducts = [...visibleProducts].sort((a, b) => {
+        if (sortOption === 'recommended') {
+          // Handle pinned products first
+          const aPin = a.pinOrder || 0;
+          const bPin = b.pinOrder || 0;
+          if (aPin !== bPin) return bPin - aPin;
+          
+          // Then sort by order count
+          return (b.publicOrderCount || 0) - (a.publicOrderCount || 0);
+        } else if (sortOption === 'popular') {
+          return (b.publicOrderCount || 0) - (a.publicOrderCount || 0);
+        } else if (sortOption === 'newest') {
+          return b.id.localeCompare(a.id);
+        } else {
+          // price
+          return (a.price || 0) - (b.price || 0);
+        }
+      });
+      setVisibleProducts(sortedProducts);
+    }
+  }, [sortOption]);
+
   const [loading, setLoading] = useState(visibleProducts.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -287,7 +297,7 @@ export function usePaginatedProducts(
       // Only store IDs to keep cache size small
       const productIds = visibleProducts.map(p => p.id);
       sessionStorage.setItem(actualCacheKey, JSON.stringify({
-        ids: productIds, 
+        products: productIds, 
         timestamp: Date.now()
       }));
     } catch (e) {

@@ -692,8 +692,10 @@ export function CollectionPage() {
                       onChange={(e) => {
                         const newSortOption = e.target.value as 'recommended' | 'popular' | 'newest' | 'price';
                         setSortOption(newSortOption);
-                        // Always reset products when sort option changes to immediately apply the new sort
-                        resetProducts();
+                        // Only reset products if we're not already at the top of the list
+                        if (window.scrollY > 0) {
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
                       }}
                       className="bg-gray-800 text-white text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:ring-primary focus:border-primary"
                     >
