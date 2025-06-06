@@ -283,8 +283,12 @@ async function optimizeImageBeforeUpload(
   const isWebP = file.type === 'image/webp' || file.name.toLowerCase().endsWith('.webp');
   const collection = options.collection || 'default';
   
-  // Skip optimization for WebP, GIFs, and SVGs
-  if (isWebP || file.type === 'image/gif' || file.type === 'image/svg+xml') {
+  // Skip optimization for WebP, GIFs, SVGs, and design files
+  if (isWebP || 
+      file.type === 'image/gif' || 
+      file.type === 'image/svg+xml' ||
+      collection === 'productdesign' // Skip for design files
+  ) {
     console.info(`Skipping optimization for ${file.type} file to preserve quality`);
     
     // Use our new collection-based format
@@ -378,6 +382,7 @@ export async function uploadImage(
     
     // Detect WebP files both by MIME type and filename extension
     const isWebP = file.type === 'image/webp' || file.name.toLowerCase().endsWith('.webp');
+    const isDesignFile = bucket === 'product-design-files';
     
     // Validate the file first
     validateFile(file, maxSizeMB);
@@ -387,19 +392,19 @@ export async function uploadImage(
                            .replace(/-assets$/, '')
                            .replace(/-/g, '');
     
-    // WebP files need special handling
+    // WebP and design files need special handling
     let fileToUpload: File;
     
-    if (isWebP && webpHandling === 'preserve') {
-      // For WebP, bypass optimization completely and use original file
+    if ((isWebP && webpHandling === 'preserve') || isDesignFile) {
+      // For WebP and design files, bypass optimization completely and use original file
       // Use our collection-based naming format
       fileToUpload = new File(
         [file], 
         customPath || generateSafeFilename(file.name, collection),
-        { type: 'image/webp' }
+        { type: file.type }
       );
       
-      console.log(`Using WebP preserve mode for ${file.name}. New filename: ${fileToUpload.name}`);
+      console.log(`Using preserve mode for ${file.name}. New filename: ${fileToUpload.name}`);
     } else {
       // For non-WebP files, use the normal optimization process with collection
       fileToUpload = await optimizeImageBeforeUpload(file, {

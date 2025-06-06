@@ -28,8 +28,7 @@ export async function uploadDesignFile(file: File): Promise<string> {
   
   // Use a different bucket for design files
   return uploadImage(file, 'product-design-files', {
-    // Pass special flag for SVG to ensure it's handled correctly
-    webpHandling: 'preserve', // Preserve original file format for design files
+    webpHandling: 'preserve', // Always preserve original file format for design files
     maxSizeMB: 10 // Allow larger file size for design files (10MB)
   });
 }
