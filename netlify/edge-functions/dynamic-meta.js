@@ -379,33 +379,31 @@ export default async (request, context) => {
   let match;
   
   // Check if this is a collection page
-  if ((match = path.match(collectionPattern1)) || (match = path.match(collectionPattern2))) {
-    const collectionSlug = match[1];
+  const pathParts = path.split('/').filter(Boolean);
+  const isSystemRoute = ['search', 'merchant', 'admin', 'orders', 'tracking', 'api'].includes(pathParts[0]);
+  const collectionSlug = !isSystemRoute && pathParts.length > 0 ? pathParts[0] : undefined;
+
+  if (collectionSlug) {
+    const collection = await getCollection(collectionSlug);
     
-    // Exclude known non-collection routes
-    const nonCollectionRoutes = ['search', 'merchant', 'admin', 'orders', 'tracking', 'api'];
-    if (!nonCollectionRoutes.includes(collectionSlug)) {
-      const collection = await getCollection(collectionSlug);
-      
-      if (collection) {
-        const title = settings.collection_title_template
-          ? processTemplate(settings.collection_title_template, { collection }, siteName)
-          : `${collection.name} | ${siteName}`;
-          
-        const description = settings.collection_description_template
-          ? processTemplate(settings.collection_description_template, { collection }, siteName)
-          : collection.description || `Explore ${collection.name} collection at ${siteName}`;
+    if (collection) {
+      const title = settings.collection_title_template
+        ? processTemplate(settings.collection_title_template, { collection }, siteName)
+        : `${collection.name} | ${siteName}`;
         
-        pageData = {
-          title,
-          description,
-          image: collection.image || collection.image_url || collection.imageUrl || defaultOgImage,
-          url: request.url,
-          type: 'website',
-          siteName,
-          appleTouchIcon
-        };
-      }
+      const description = settings.collection_description_template
+        ? processTemplate(settings.collection_description_template, { collection }, siteName)
+        : collection.description || `Explore ${collection.name} collection at ${siteName}`;
+      
+      pageData = {
+        title,
+        description,
+        image: collection.image || collection.image_url || collection.imageUrl || defaultOgImage,
+        url: request.url,
+        type: 'website',
+        siteName,
+        appleTouchIcon
+      };
     }
   }
   // Check if this is a product page

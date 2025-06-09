@@ -37,6 +37,7 @@ export interface Collection {
   theme_text_color?: string;
   theme_use_custom?: boolean;
   theme_use_classic?: boolean;
+  theme_logo_url?: string;
 }
 
 export interface CollectionAccess {

@@ -9,6 +9,7 @@ type ThemeColors = {
   backgroundColor: string;
   textColor: string;
   useClassic: boolean;
+  logoUrl?: string;
 };
 
 interface ThemeContextType {
@@ -18,15 +19,20 @@ interface ThemeContextType {
   setClassicMode: (useClassic: boolean) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const ThemeContext = createContext<ThemeContextType>({
+  currentTheme: {
+    primaryColor: '#0f47e4',
+    secondaryColor: '#0ea5e9',
+    backgroundColor: '#000000',
+    textColor: '#ffffff',
+    useClassic: true
+  },
+  isCollectionTheme: false,
+  collectionSlug: undefined,
+  setClassicMode: () => {}
+});
 
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
-};
+export const useTheme = () => useContext(ThemeContext);
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -48,18 +54,20 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [isCollectionTheme, setIsCollectionTheme] = useState(false);
   const [collectionSlug, setCollectionSlug] = useState<string | undefined>(undefined);
   
-  // Check if we're on a collection page
-  const pathParts = location.pathname.split('/');
-  const isCollectionPage = pathParts[1] === 'c' && pathParts[2];
-  const slug = isCollectionPage ? pathParts[2] : undefined;
+  // Extract collection slug from URL
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const isSystemRoute = ['search', 'merchant', 'admin', 'orders', 'tracking', 'api'].includes(pathParts[0]);
   
-  // Use the useCollection hook to get collection data when on a collection page
-  const { collection } = isCollectionPage && slug ? useCollection(slug) : { collection: null };
+  // If it's not a system route and we have a path part, it's either a collection or product
+  const slug = !isSystemRoute && pathParts.length > 0 ? pathParts[0] : undefined;
+  
+  // Use the useCollection hook to get collection data when on a collection or product page
+  const { collection } = slug ? useCollection(slug) : { collection: null };
 
   // Allow setting classic mode from outside
   const setClassicMode = (useClassic: boolean) => {
-    if (collection) {
-      // If we have a collection, update its theme
+    if (collection && collection.theme_use_custom) {
+      // If we have a collection with custom theme, update its theme
       setCurrentTheme(prev => ({ ...prev, useClassic }));
       
       // Apply theme changes
@@ -68,22 +76,24 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         currentTheme.secondaryColor,
         currentTheme.backgroundColor,
         currentTheme.textColor,
-        useClassic
+        useClassic,
+        currentTheme.logoUrl
       );
     }
   };
   
   useEffect(() => {
-    if (collection && collection.theme_use_custom && collection.theme_primary_color) {
+    if (collection && collection.theme_use_custom) {
       const useClassic = collection.theme_use_classic === undefined ? true : collection.theme_use_classic;
       
       // Apply collection theme
       const newTheme = {
-        primaryColor: collection.theme_primary_color,
+        primaryColor: collection.theme_primary_color || defaultTheme.primaryColor,
         secondaryColor: collection.theme_secondary_color || defaultTheme.secondaryColor,
         backgroundColor: collection.theme_background_color || defaultTheme.backgroundColor,
         textColor: collection.theme_text_color || defaultTheme.textColor,
-        useClassic: useClassic
+        useClassic: useClassic,
+        logoUrl: collection.theme_logo_url
       };
       
       setCurrentTheme(newTheme);
@@ -96,7 +106,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         newTheme.secondaryColor,
         newTheme.backgroundColor,
         newTheme.textColor,
-        newTheme.useClassic
+        newTheme.useClassic,
+        newTheme.logoUrl
       );
     } else {
       // Reset to default theme when not on a collection page or no theme defined
@@ -110,10 +121,11 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         defaultTheme.secondaryColor,
         defaultTheme.backgroundColor,
         defaultTheme.textColor,
-        true // Always use classic mode for site default
+        true, // Always use classic mode for site default
+        undefined // No custom logo for default theme
       );
     }
-  }, [collection, defaultTheme]);
+  }, [collection, defaultTheme, location.pathname]);
   
   return (
     <ThemeContext.Provider value={{ currentTheme, isCollectionTheme, collectionSlug, setClassicMode }}>

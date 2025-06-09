@@ -284,7 +284,8 @@ export function applyTheme(
   secondaryColor: string,
   backgroundColor: string,
   textColor: string,
-  useClassic: boolean
+  useClassic: boolean,
+  logoUrl?: string
 ): void {
   // First remove any inline styles to reset to defaults
   if (useClassic) {
@@ -330,13 +331,15 @@ export function applyTheme(
     }
     
     document.head.appendChild(style);
-    return;
-  }
-  
-  // If using dynamic theme, remove classic styles
-  const classicStyle = document.getElementById('classic-theme-hover-focus-styles');
-  if (classicStyle) {
-    classicStyle.remove();
+  } else {
+    // If using dynamic theme, remove classic styles
+    const classicStyle = document.getElementById('classic-theme-hover-focus-styles');
+    if (classicStyle) {
+      classicStyle.remove();
+    }
+    
+    document.documentElement.classList.remove('classic-theme');
+    document.documentElement.classList.add('dynamic-theme');
   }
   
   // Set base colors
@@ -350,6 +353,9 @@ export function applyTheme(
   document.documentElement.style.setProperty('--color-secondary-rgb', hexToRgb(secondaryColor));
   document.documentElement.style.setProperty('--color-background-rgb', hexToRgb(backgroundColor));
   document.documentElement.style.setProperty('--color-text-rgb', hexToRgb(textColor));
+  
+  // Set logo URL if provided
+  document.documentElement.style.setProperty('--collection-logo-url', logoUrl ? `url(${logoUrl})` : 'none');
   
   // Generate and set all color variations
   const colorVariations = generateColorVariations(primaryColor, secondaryColor, backgroundColor, textColor);
@@ -370,15 +376,22 @@ export function applyTheme(
   // Create secondary color with alpha for the ring effect
   const secondaryRgb = hexToRgb(secondaryColor);
   
+  // Add dynamic hover and focus styles
   dynamicStyle.textContent = `
     .dynamic-theme .hover-effect:hover,
-    .dynamic-theme .card:hover {
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
-      border-color: rgba(${secondaryRgb}, 0.3);
+    .dynamic-theme .card:hover,
+    .dynamic-theme .product-card:hover,
+    .dynamic-theme .collection-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--color-elevation-2);
+      background-color: var(--color-card-background-hover);
+      border-color: var(--color-border-light);
+      transition: all 0.3s ease;
     }
     
     .dynamic-theme .hover-effect:hover {
-      box-shadow: 0 0 0 2px rgba(${secondaryRgb}, 0.5);
+      border-color: var(--color-secondary);
+      box-shadow: 0 0 0 2px rgba(${secondaryRgb}, 0.3);
     }
     
     .dynamic-theme a:focus-visible,
@@ -399,7 +412,4 @@ export function applyTheme(
   }
   
   document.head.appendChild(dynamicStyle);
-
-  document.documentElement.classList.add('dynamic-theme');
-  document.documentElement.classList.remove('classic-theme');
 } 
