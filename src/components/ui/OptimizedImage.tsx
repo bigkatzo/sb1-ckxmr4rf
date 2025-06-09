@@ -57,19 +57,32 @@ export function OptimizedImage({
     // First use our validateImageUrl to normalize Supabase URLs
     let normalizedUrl = validateImageUrl(src);
     
-    // If it's a Supabase storage URL with render parameters, use object URL instead
-    if (normalizedUrl.includes('supabase') && 
-        normalizedUrl.includes('/storage/v1/render/image/public/') &&
-        normalizedUrl.includes('?')) {
-      // Remove query parameters and convert to object URL format
-      normalizedUrl = normalizedUrl
-        .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
-        .split('?')[0];
-      console.log('Converted to object URL format:', normalizedUrl);
+    // If it's a Supabase storage URL, ensure proper endpoint usage
+    if (normalizedUrl.includes('supabase') && normalizedUrl.includes('/storage/v1/')) {
+      const isWebp = normalizedUrl.includes('.webp');
+      const hasDashPattern = normalizedUrl.includes('-d');
+      const isLogo = normalizedUrl.includes('logo.svg');
+      
+      // Use object endpoint for WebP, dash-pattern files, and SVG logos
+      if (isWebp || hasDashPattern || isLogo) {
+        normalizedUrl = normalizedUrl
+          .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
+          .split('?')[0];
+      } 
+      // Use render endpoint for other images
+      else if (normalizedUrl.includes('/storage/v1/object/public/')) {
+        normalizedUrl = normalizedUrl
+          .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+          
+        // Add optimization parameters if not already present
+        if (!normalizedUrl.includes('?')) {
+          normalizedUrl += `?width=${width || 800}&quality=${quality || 75}&format=webp&cache=604800`;
+        }
+      }
     }
     
     return normalizedUrl;
-  }, [src]);
+  }, [src, width, quality]);
 
   // Only consider real high-priority images for eager loading
   // This helps avoid too many concurrent image loads

@@ -105,6 +105,17 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
     if (!collection?.id) {
       // For new collections, we need to create it first
       try {
+        // Validate required fields
+        if (!name) {
+          throw new Error('Collection name is required');
+        }
+        if (!launchDate) {
+          throw new Error('Launch date is required');
+        }
+        if (!slug) {
+          throw new Error('Collection ID is required');
+        }
+
         const formData = new FormData();
         formData.append('name', name);
         formData.append('description', description);
@@ -124,7 +135,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
         toast.success('Collection created. You can now upload a logo.');
       } catch (error) {
         console.error('Error creating collection:', error);
-        toast.error('Failed to create collection. Please try again.');
+        toast.error(error instanceof Error ? error.message : 'Failed to create collection. Please try again.');
         throw error;
       }
     } else {
