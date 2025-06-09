@@ -226,7 +226,14 @@ export async function updateCollection(id: string, data: FormData) {
       pumpfun_url: data.get('pumpfun_url') as string || null,
       website_url: data.get('website_url') as string || null,
       free_notes: data.get('free_notes') as string || null,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      // Add theme fields
+      theme_primary_color: data.get('theme_primary_color') as string || null,
+      theme_secondary_color: data.get('theme_secondary_color') as string || null,
+      theme_background_color: data.get('theme_background_color') as string || null,
+      theme_text_color: data.get('theme_text_color') as string || null,
+      theme_use_classic: data.get('theme_use_classic') === 'true',
+      theme_logo_url: data.get('theme_logo_url') as string || null
     };
 
     const { data: collection, error } = await supabase

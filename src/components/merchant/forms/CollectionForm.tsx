@@ -105,38 +105,54 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
     try {
       const formData = new FormData();
       
-      // Always validate required fields
-      if (!name) {
-        throw new Error('Collection name is required');
+      // Add theme data
+      formData.append('theme_use_custom', 'true'); // Always true when saving theme
+      formData.append('theme_use_classic', themeData.theme_use_classic.toString());
+      
+      // Add theme colors if they exist
+      if (themeData.theme_primary_color) {
+        formData.append('theme_primary_color', themeData.theme_primary_color);
       }
-      if (!launchDate) {
-        throw new Error('Launch date is required');
+      if (themeData.theme_secondary_color) {
+        formData.append('theme_secondary_color', themeData.theme_secondary_color);
       }
-      if (!slug) {
-        throw new Error('Collection ID is required');
+      if (themeData.theme_background_color) {
+        formData.append('theme_background_color', themeData.theme_background_color);
+      }
+      if (themeData.theme_text_color) {
+        formData.append('theme_text_color', themeData.theme_text_color);
+      }
+      if (themeData.theme_logo_url) {
+        formData.append('theme_logo_url', themeData.theme_logo_url);
       }
 
-      // Add required fields
-      formData.append('name', name);
-      formData.append('description', description);
-      formData.append('launchDate', launchDate);
-      formData.append('slug', slug);
-      formData.append('visible', visible.toString());
-      formData.append('sale_ended', saleEnded.toString());
-      formData.append('tags', JSON.stringify(tags));
-      
-      // Add theme data
-      Object.entries(themeData).forEach(([key, value]) => {
-        if (value !== undefined) {
-          formData.append(key, value.toString());
+      // If this is a new collection, we need the basic info
+      if (!collection?.id) {
+        if (!name) {
+          throw new Error('Collection name is required');
         }
-      });
+        if (!launchDate) {
+          throw new Error('Launch date is required');
+        }
+        if (!slug) {
+          throw new Error('Collection ID is required');
+        }
+
+        // Add required fields for new collection
+        formData.append('name', name);
+        formData.append('description', description);
+        formData.append('launchDate', launchDate);
+        formData.append('slug', slug);
+        formData.append('visible', visible.toString());
+        formData.append('sale_ended', saleEnded.toString());
+        formData.append('tags', JSON.stringify(tags));
+      }
 
       await onSubmit(formData);
       toast.success(collection?.id ? 'Theme settings saved successfully' : 'Collection created successfully');
     } catch (error) {
       console.error('Error saving theme:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save theme settings. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to save theme settings');
       throw error;
     }
   };
