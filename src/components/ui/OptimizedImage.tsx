@@ -61,22 +61,24 @@ export function OptimizedImage({
     if (normalizedUrl.includes('supabase') && normalizedUrl.includes('/storage/v1/')) {
       const isWebp = normalizedUrl.includes('.webp');
       const hasDashPattern = normalizedUrl.includes('-d');
-      const isLogo = normalizedUrl.includes('logo.svg');
+      const isLogo = normalizedUrl.includes('logo');
+      const isPng = normalizedUrl.endsWith('.png');
+      const isJpg = normalizedUrl.endsWith('.jpg') || normalizedUrl.endsWith('.jpeg');
       
-      // Use object endpoint for WebP, dash-pattern files, and SVG logos
-      if (isWebp || hasDashPattern || isLogo) {
+      // Use object endpoint for WebP, dash-pattern files, logos, and non-jpg/png files
+      if (isWebp || hasDashPattern || isLogo || (!isPng && !isJpg)) {
         normalizedUrl = normalizedUrl
           .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
           .split('?')[0];
       } 
-      // Use render endpoint for other images
-      else if (normalizedUrl.includes('/storage/v1/object/public/')) {
+      // Use render endpoint for jpg/png images
+      else if (normalizedUrl.includes('/storage/v1/object/public/') && (isPng || isJpg)) {
         normalizedUrl = normalizedUrl
           .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
           
         // Add optimization parameters if not already present
         if (!normalizedUrl.includes('?')) {
-          normalizedUrl += `?width=${width || 800}&quality=${quality || 75}&format=webp&cache=604800`;
+          normalizedUrl += `?width=${width || 800}&quality=${quality || 75}&format=original&cache=604800`;
         }
       }
     }

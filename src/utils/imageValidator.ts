@@ -15,15 +15,23 @@ export function normalizeStorageUrl(url: string): string {
   if (!url) return '';
   
   try {
-    // For WebP or dash-pattern files, always use object URL (these have issues with render endpoint)
+    // For WebP, dash-pattern files, logos, and non-jpg/png files, always use object URL
     const isWebp = url.includes('.webp');
     const hasDashPattern = url.includes('-d');
+    const isLogo = url.includes('logo');
+    const isPng = url.endsWith('.png');
+    const isJpg = url.endsWith('.jpg') || url.endsWith('.jpeg');
     
-    if ((isWebp || hasDashPattern) && url.includes('/storage/v1/render/image/public/')) {
+    if ((isWebp || hasDashPattern || isLogo || (!isPng && !isJpg)) && url.includes('/storage/v1/render/image/public/')) {
       // Convert to object URL
       return url
         .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
         .split('?')[0]; // Remove query params
+    }
+    
+    // For jpg/png images using object endpoint, convert to render endpoint
+    if ((isPng || isJpg) && url.includes('/storage/v1/object/public/')) {
+      return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
     }
     
     // Leave other URLs as is
@@ -98,19 +106,27 @@ export function initializeImageHandling() {
 
 /**
  * Function for components to use when displaying images
- * Simple version that converts render URLs to object URLs for problematic formats
+ * Converts URLs to the appropriate endpoint based on file type
  */
 export function validateImageUrl(url: string): string {
   if (!url) return '';
   
-  // For WebP or dash-pattern files, always use object URL
+  // For WebP, dash-pattern files, logos, and non-jpg/png files, always use object URL
   const isWebp = url.includes('.webp');
   const hasDashPattern = url.includes('-d');
+  const isLogo = url.includes('logo');
+  const isPng = url.endsWith('.png');
+  const isJpg = url.endsWith('.jpg') || url.endsWith('.jpeg');
   
-  if ((isWebp || hasDashPattern) && url.includes('/storage/v1/render/image/public/')) {
+  if ((isWebp || hasDashPattern || isLogo || (!isPng && !isJpg)) && url.includes('/storage/v1/render/image/public/')) {
     return url
       .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
       .split('?')[0];
+  }
+  
+  // For jpg/png images using object endpoint, convert to render endpoint
+  if ((isPng || isJpg) && url.includes('/storage/v1/object/public/')) {
+    return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
   }
   
   return url;

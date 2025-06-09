@@ -102,61 +102,42 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   };
 
   const saveTheme = async () => {
-    if (!collection?.id) {
-      // For new collections, we need to create it first
-      try {
-        // Validate required fields
-        if (!name) {
-          throw new Error('Collection name is required');
-        }
-        if (!launchDate) {
-          throw new Error('Launch date is required');
-        }
-        if (!slug) {
-          throw new Error('Collection ID is required');
-        }
-
-        const formData = new FormData();
-        formData.append('name', name);
-        formData.append('description', description);
-        formData.append('launchDate', launchDate);
-        formData.append('slug', slug);
-        formData.append('visible', visible.toString());
-        formData.append('sale_ended', saleEnded.toString());
-        
-        // Add theme data
-        Object.entries(themeData).forEach(([key, value]) => {
-          if (value !== undefined) {
-            formData.append(key, value.toString());
-          }
-        });
-
-        await onSubmit(formData);
-        toast.success('Collection created. You can now upload a logo.');
-      } catch (error) {
-        console.error('Error creating collection:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to create collection. Please try again.');
-        throw error;
+    try {
+      const formData = new FormData();
+      
+      // Always validate required fields
+      if (!name) {
+        throw new Error('Collection name is required');
       }
-    } else {
-      // For existing collections, just update the theme
-      try {
-        const formData = new FormData();
-        
-        // Add only theme data
-        Object.entries(themeData).forEach(([key, value]) => {
-          if (value !== undefined) {
-            formData.append(key, value.toString());
-          }
-        });
-
-        await onSubmit(formData);
-        toast.success('Theme settings saved successfully');
-      } catch (error) {
-        console.error('Error saving theme:', error);
-        toast.error('Failed to save theme settings. Please try again.');
-        throw error;
+      if (!launchDate) {
+        throw new Error('Launch date is required');
       }
+      if (!slug) {
+        throw new Error('Collection ID is required');
+      }
+
+      // Add required fields
+      formData.append('name', name);
+      formData.append('description', description);
+      formData.append('launchDate', launchDate);
+      formData.append('slug', slug);
+      formData.append('visible', visible.toString());
+      formData.append('sale_ended', saleEnded.toString());
+      formData.append('tags', JSON.stringify(tags));
+      
+      // Add theme data
+      Object.entries(themeData).forEach(([key, value]) => {
+        if (value !== undefined) {
+          formData.append(key, value.toString());
+        }
+      });
+
+      await onSubmit(formData);
+      toast.success(collection?.id ? 'Theme settings saved successfully' : 'Collection created successfully');
+    } catch (error) {
+      console.error('Error saving theme:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save theme settings. Please try again.');
+      throw error;
     }
   };
 
