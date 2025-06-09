@@ -178,91 +178,6 @@ function fixDuplicatedBucketPath(url: string): string {
   return url;
 }
 
-// Verify URL is accessible
-async function verifyUrlAccessibility(url: string): Promise<void> {
-  try {
-    // Fix duplicated bucket paths in URL if present
-    let urlToVerify = fixDuplicatedBucketPath(url);
-    
-    // Check if URL was modified and log
-    if (urlToVerify !== url) {
-      console.log('Fixed duplicated bucket path in verification URL:');
-      console.log('  Original:', url);
-      console.log('  Fixed:', urlToVerify);
-    }
-    
-    // For render URLs, convert to object URL for verification since render sometimes returns 400
-    if (urlToVerify.includes('/storage/v1/render/image/public/')) {
-      urlToVerify = urlToVerify.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
-      console.log('Converting render URL to object URL for verification:', urlToVerify);
-    }
-    
-    // Use a longer timeout for slow networks
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(urlToVerify, { 
-      method: 'HEAD',
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      console.warn('Warning: Generated image URL may not be publicly accessible:', {
-        status: response.status,
-        url: urlToVerify
-      });
-      
-      // Extract bucket and path for diagnostic info
-      const bucketPathMatch = urlToVerify.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
-      if (bucketPathMatch) {
-        const [, bucket, path] = bucketPathMatch;
-        console.log('URL components:', { bucket, path });
-      }
-      
-      // If object URL check failed, try direct bucket URL as last resort
-      if (urlToVerify !== url && urlToVerify.includes('/storage/v1/object/public/')) {
-        // Extract bucket and path
-        const parts = urlToVerify.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
-        if (parts && parts.length >= 3) {
-          const [, bucket, path] = parts;
-          // Use our custom function to get a properly constructed URL
-          const directUrl = getCorrectPublicUrl(supabase, bucket, path);
-          
-          console.log('Trying direct bucket URL:', directUrl);
-          
-          // Verify the direct URL
-          try {
-            const directController = new AbortController();
-            const directTimeoutId = setTimeout(() => directController.abort(), 5000);
-            
-            const directResponse = await fetch(directUrl, { 
-              method: 'HEAD',
-              signal: directController.signal
-            });
-            clearTimeout(directTimeoutId);
-            
-            if (directResponse.ok) {
-              console.log('Direct URL is accessible:', directUrl);
-            } else {
-              console.warn('Direct URL is also not accessible:', {
-                status: directResponse.status,
-                url: directUrl
-              });
-            }
-          } catch (directError) {
-            console.warn('Error verifying direct URL:', directError);
-          }
-        }
-      }
-    } else {
-      console.log('URL verification successful:', urlToVerify);
-    }
-  } catch (error) {
-    console.warn('Warning: Could not verify image URL accessibility (timeout or network error):', error);
-  }
-}
-
 /**
  * Optimize an image before upload to reduce size
  * @param file The original file
@@ -428,24 +343,6 @@ export async function uploadImage(
     // Use the filename that's already been safely generated during the previous steps
     const cleanPath = fileToUpload.name.replace(/^\/+|\/+$/g, '');
 
-    // Add metadata to track image association and upload time
-    const metadata = {
-      contentType: fileToUpload.type,
-      cacheControl,
-      // Add tracking metadata
-      lastAccessed: new Date().toISOString(),
-      uploadedAt: new Date().toISOString(),
-      associatedEntity: bucket === 'collection-images' 
-        ? 'collection' 
-        : bucket === 'product-images' 
-          ? 'product' 
-          : 'site',
-      optimized: isWebP && webpHandling === 'preserve' ? 'false' : 'true',
-      format: isWebP ? 'webp' : (fileToUpload.type.split('/')[1] || 'unknown')
-    };
-
-    console.log(`Uploading ${isWebP ? 'WebP' : 'image'} file to ${bucket}: ${cleanPath}`);
-    
     // Handle content type mismatch for JSON issue
     let contentType = fileToUpload.type;
     // Force the correct content type if it's detected as application/json erroneously
@@ -465,33 +362,15 @@ export async function uploadImage(
       fileToUpload = new File([fileToUpload], fileToUpload.name, { type: contentType });
     }
     
-    // Try three different upload methods with proper error handling
+    // Try upload with proper error handling
     let uploadData = null;
-    let uploadError = null;
     
-    // Method 1: Standard upload (most reliable)
     try {
       // Create a custom FormData with properly named fields
       const formData = new FormData();
       formData.append('file', fileToUpload, fileToUpload.name);
       formData.append('cacheControl', cacheControl);
       formData.append('contentType', contentType);
-      
-      // Add metadata as JSON string
-      const metadataStr = JSON.stringify({
-        contentType: contentType,
-        cacheControl: cacheControl,
-        lastAccessed: new Date().toISOString(),
-        uploadedAt: new Date().toISOString(),
-        associatedEntity: bucket === 'collection-images' 
-          ? 'collection' 
-          : bucket === 'product-images' 
-            ? 'product' 
-            : 'site',
-        optimized: isWebP && webpHandling === 'preserve' ? 'false' : 'true',
-        format: isWebP ? 'webp' : (contentType.split('/')[1] || 'unknown')
-      });
-      formData.append('metadata', metadataStr);
       
       // Direct approach to ensure proper field naming
       const supabaseUrl = (supabase as any).supabaseUrl || 
@@ -505,6 +384,7 @@ export async function uploadImage(
       // Log the token length for debugging (don't log the full token)
       console.log(`Auth token present: ${Boolean(token)} (length: ${token?.length || 0})`);
 
+      // Use object/public endpoint instead of render/image
       const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${fileName}`;
       console.log(`Uploading to: ${uploadUrl}`);
       
@@ -516,354 +396,29 @@ export async function uploadImage(
         },
         body: formData
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        uploadData = { path: data.Key || fileName };
-        uploadError = null;
-        console.log("Upload succeeded with custom FormData method");
-      } else {
-        // If the direct approach fails, fall back to the SDK
-        console.warn(`Direct upload failed with status ${response.status}, falling back to SDK`);
-        const result = await supabase.storage
-          .from(bucket)
-          .upload(fileName, fileToUpload, {
-            cacheControl,
-            contentType,
-            upsert,
-            metadata
-          });
-          
-        uploadData = result.data;
-        uploadError = result.error;
-        
-        if (!uploadError && uploadData) {
-          console.log("Upload succeeded with SDK fallback");
-        } else {
-          console.warn("Standard upload failed, trying alternative methods", uploadError);
-        }
-      }
-    } catch (err) {
-      console.warn("Standard upload threw exception:", err);
-      uploadError = err;
-    }
-    
-    // Method 2: If the first method failed, try FormData approach
-    if (uploadError && !uploadData) {
-      try {
-        // Extract just the filename without any path
-        const fallbackFileName = fileToUpload.name.split('/').pop() || fileToUpload.name;
-        
-        // Create a new FormData with proper field names
-        const fallbackFormData = new FormData();
-        fallbackFormData.append('file', fileToUpload, fileToUpload.name);
-        fallbackFormData.append('cacheControl', cacheControl);
-        fallbackFormData.append('contentType', contentType);
-        
-        // Create metadata JSON
-        const fallbackMetadataStr = JSON.stringify({
-          contentType: contentType,
-          cacheControl: cacheControl,
-          lastAccessed: new Date().toISOString(),
-          uploadedAt: new Date().toISOString(),
-          associatedEntity: bucket === 'collection-images' 
-            ? 'collection' 
-            : bucket === 'product-images' 
-              ? 'product' 
-              : 'site',
-          optimized: isWebP && webpHandling === 'preserve' ? 'false' : 'true',
-          format: isWebP ? 'webp' : (contentType.split('/')[1] || 'unknown')
-        });
-        fallbackFormData.append('metadata', fallbackMetadataStr);
-        
-        // Progress tracking with XMLHttpRequest
-        if (onProgress) {
-          // Share the fileName for consistent path handling
-          const xhrFileName = fallbackFileName;
-          
-          return new Promise<string>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            
-            // Create a fresh FormData to ensure proper field names
-            const progressFormData = new FormData();
-            progressFormData.append('file', fileToUpload, fileToUpload.name);
-            progressFormData.append('cacheControl', cacheControl);
-            progressFormData.append('contentType', contentType);
-            
-            // Create metadata for this request
-            const progressMetadataStr = JSON.stringify({
-              contentType: contentType,
-              cacheControl: cacheControl,
-              lastAccessed: new Date().toISOString(),
-              uploadedAt: new Date().toISOString(),
-              associatedEntity: bucket === 'collection-images' 
-                ? 'collection' 
-                : bucket === 'product-images' 
-                  ? 'product' 
-                  : 'site',
-              optimized: isWebP && webpHandling === 'preserve' ? 'false' : 'true',
-              format: isWebP ? 'webp' : (contentType.split('/')[1] || 'unknown')
-            });
-            progressFormData.append('metadata', progressMetadataStr);
-            
-            xhr.upload.addEventListener('progress', (event) => {
-              if (event.lengthComputable) {
-                const percentComplete = Math.round((event.loaded / event.total) * 100);
-                onProgress(percentComplete);
-              }
-            });
-            
-            xhr.addEventListener('load', async () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                  const data = JSON.parse(xhr.responseText);
-                  // Extract just the filename to avoid path duplication
-                  const responseFileName = data.Key || xhrFileName;
-                  
-                  const { data: { publicUrl } } = supabase.storage
-                    .from(bucket)
-                    .getPublicUrl(responseFileName);
-                  
-                  // Ensure we always use an object URL
-                  const fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
-                  const finalUrl = fixedUrl.includes('/storage/v1/render/image/') 
-                    ? fixedUrl.replace('/storage/v1/render/image/', '/storage/v1/object/') 
-                    : fixedUrl;
-                    
-                  onProgress(100);
-                  resolve(finalUrl);
-                } catch (err) {
-                  reject(err);
-                }
-              } else {
-                reject(new Error(`XHR upload failed with status ${xhr.status}`));
-              }
-            });
-            
-            xhr.addEventListener('error', () => {
-              reject(new Error('XHR upload failed'));
-            });
-            
-            xhr.addEventListener('abort', () => {
-              reject(new Error('XHR upload aborted'));
-            });
-            
-            // Get URL and token safely
-            supabase.auth.getSession().then(session => {
-              const token = session.data.session?.access_token || '';
-              const supabaseUrl = (supabase as any).supabaseUrl || 
-                                  import.meta.env.VITE_SUPABASE_URL;
-              
-              xhr.open('POST', `${supabaseUrl}/storage/v1/object/${bucket}/${xhrFileName}`);
-              xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-              xhr.setRequestHeader('x-upsert', upsert ? 'true' : 'false');
-              xhr.send(progressFormData);
-            }).catch(reject);
-          });
-        }
-        
-        // Direct API endpoint approach (bypass SDK issues)
-        // Get URL and token safely
-        const supabaseUrl = (supabase as any).supabaseUrl || 
-                           process.env.VITE_SUPABASE_URL || 
-                           import.meta.env.VITE_SUPABASE_URL;
-        const token = supabase.auth.getSession()
-          .then(session => session.data.session?.access_token || '')
-          .catch(() => '');
-                           
-        const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${fallbackFileName}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${await token}`,
-            'x-upsert': upsert ? 'true' : 'false'
-          },
-          body: fallbackFormData
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          uploadData = { path: data.Key || fallbackFileName };
-          uploadError = null;
-          console.log("Upload succeeded with FormData method");
-        } else {
-          const errorData = await response.json();
-          console.warn("FormData upload failed:", errorData);
-        }
-      } catch (err) {
-        console.warn("FormData upload threw exception:", err);
-      }
-    }
-    
-    // Method 3: Direct binary upload (last resort)
-    if (uploadError && !uploadData) {
-      try {
-        console.log("Attempting binary upload as last resort");
-        
-        // Extract just the filename without any path
-        const binaryFileName = fileToUpload.name.split('/').pop() || fileToUpload.name;
-        
-        // Get the file as a binary blob
-        const buffer = await fileToUpload.arrayBuffer();
-        
-        // Use raw upload with ArrayBuffer
-        const result = await supabase.storage
-          .from(bucket)
-          .upload(binaryFileName, buffer, {
-            contentType, // Use the corrected content type
-            cacheControl,
-            upsert
-          });
-          
-        uploadData = result.data;
-        uploadError = result.error;
-        
-        if (!uploadError && uploadData) {
-          console.log("Upload succeeded with binary method");
-        } else {
-          console.warn("Binary upload also failed:", uploadError);
-          
-          // Last ditch effort - try with Blob instead of ArrayBuffer
-          if (uploadError) {
-            const blobData = new Blob([fileToUpload], { type: contentType });
-            const blobResult = await supabase.storage
-              .from(bucket)
-              .upload(binaryFileName, blobData, {
-                contentType,
-                cacheControl,
-                upsert
-              });
-              
-            uploadData = blobResult.data;
-            uploadError = blobResult.error;
-            
-            if (!uploadError && uploadData) {
-              console.log("Upload succeeded with Blob method");
-            } else {
-              console.warn("Blob upload also failed:", uploadError);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Binary upload threw exception:", err);
-        uploadError = err;
-      }
-    }
 
-    // Method 4: Server-side upload fallback (absolute last resort)
-    if (uploadError && !uploadData) {
-      try {
-        console.log("Attempting server-side upload as final fallback");
-        
-        // Extract just the filename without any path
-        const serverFileName = fileToUpload.name.split('/').pop() || fileToUpload.name;
-        
-        // Create a simple FormData
-        const formData = new FormData();
-        formData.append('file', fileToUpload, fileToUpload.name);
-        formData.append('bucket', bucket);
-        formData.append('path', serverFileName);
-        formData.append('contentType', contentType);
-        
-        // Use a Netlify function or similar server endpoint
-        const serverUploadUrl = `${window.location.origin}/.netlify/functions/upload-file-fallback`;
-        const response = await fetch(serverUploadUrl, {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.url) {
-            console.log("Upload succeeded with server-side method");
-            return data.url; // Direct return since we already have the URL
-          }
-        } else {
-          console.warn("Server-side upload failed as well");
-        }
-      } catch (err) {
-        console.warn("Server-side upload threw exception:", err);
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
       }
-    }
 
-    // Final error handling if all methods failed
-    if (uploadError || !uploadData) {
-      // Extract more detailed error information
-      const statusCode = 
-        (uploadError as any)?.statusCode || 
-        (uploadError as any)?.status || 
-        (uploadError as any)?.code || 
-        'unknown';
-        
-      const errorMessage = 
-        (uploadError as any)?.message || 
-        (uploadError as any)?.error_description || 
-        (uploadError as any)?.error || 
-        'Unknown error';
-      
-      if (errorMessage.includes('bucket') || statusCode === 400) {
-        console.error(`Storage bucket '${bucket}' error (${statusCode}):`, uploadError);
-        toast.error(`Storage bucket '${bucket}' issue: ${errorMessage}`);
-      } else {
-        console.error(`Storage upload error (${statusCode}):`, uploadError);
-        toast.error(`Upload failed: ${errorMessage}`);
-      }
-      throw new Error(`Upload failed with status ${statusCode}: ${errorMessage}`);
-    }
-    
-    if (!uploadData?.path) {
-      const error = new Error('No upload path returned');
-      toast.error(error.message);
+      uploadData = await response.json();
+    } catch (error) {
+      console.error('Upload error:', error);
       throw error;
     }
+    
+    // If successful, get the public URL
+    if (uploadData) {
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(cleanPath);
 
-    // Get the public URL with proper handling to avoid duplication
-    const publicUrl = getCorrectPublicUrl(supabase, bucket, uploadData.path);
-    
-    // Fix any double slashes in the URL (except after protocol)
-    let fixedUrl = publicUrl.replace(/([^:])\/\//g, '$1/');
-    
-    // Check for duplicated bucket paths and fix as a safety net
-    const originalUrl = fixedUrl;
-    fixedUrl = fixDuplicatedBucketPath(fixedUrl);
+      // Return the object/public URL
+      return publicUrl;
+    }
 
-    // Log URL changes if they occurred
-    if (originalUrl !== fixedUrl) {
-      console.log('Detected and fixed duplicated bucket path:');
-      console.log('  Original:', originalUrl);
-      console.log('  Fixed:', fixedUrl);
-    }
-    
-    // ALWAYS use object URLs directly for production environment
-    // This avoids the 400 Bad Request errors with the render API
-    const finalUrl = fixedUrl.includes('/storage/v1/render/image/') 
-      ? fixedUrl.replace('/storage/v1/render/image/', '/storage/v1/object/') 
-      : fixedUrl;
-      
-    console.log(`Successfully uploaded to ${finalUrl}`);
-    
-    try {
-      // First verify with our standard method
-      await verifyUrlAccessibility(finalUrl);
-      
-      // Then try to get the working URL considering database modifications
-      const workingUrl = await getWorkingStorageUrl(finalUrl);
-      if (workingUrl && workingUrl !== finalUrl) {
-        console.log(`Found database-modified working URL: ${workingUrl}`);
-        // Return this URL instead since it actually exists
-        return workingUrl;
-      }
-    } catch (error) {
-      console.warn("URL verification failed but upload succeeded:", error);
-      // We'll still return the URL since the file was uploaded
-    }
-    
-    // Update progress to complete
-    if (onProgress) onProgress(100);
-    
-    return finalUrl;
+    throw new Error('Failed to upload file after all attempts');
   } catch (error) {
-    // On error ensure progress is reset
-    if (onProgress) onProgress(0);
     console.error('Upload error:', error);
     throw error;
   }
