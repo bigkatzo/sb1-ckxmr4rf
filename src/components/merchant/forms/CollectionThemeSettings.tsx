@@ -51,14 +51,14 @@ export function CollectionThemeSettings({ formData, onChange, collectionId }: Co
       const filePath = `${collectionId}/logo.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('collection-assets')
+        .from('collection-logos')
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('collection-assets')
+        .from('collection-logos')
         .getPublicUrl(filePath);
 
       // Update form data

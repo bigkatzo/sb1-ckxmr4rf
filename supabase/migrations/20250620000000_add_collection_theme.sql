@@ -1,47 +1,119 @@
 -- Start transaction
 BEGIN;
 
--- Create collection_assets bucket if it doesn't exist
-DO $$
-BEGIN
-  INSERT INTO storage.buckets (id, name, public)
-  VALUES ('collection-assets', 'collection-assets', true)
-  ON CONFLICT (id) DO NOTHING;
-END $$;
+-- Create collection-logos bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('collection-logos', 'collection-logos', true)
+ON CONFLICT (id) DO NOTHING;
 
--- Add storage policy for collection assets
-DO $$
-BEGIN
-  -- Drop existing policies to avoid conflicts
-  DROP POLICY IF EXISTS "Collection owners can upload assets" ON storage.objects;
-  DROP POLICY IF EXISTS "Anyone can view collection assets" ON storage.objects;
-  
-  -- Create policies
-  CREATE POLICY "Collection owners can upload assets"
-  ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (
-    bucket_id = 'collection-assets'
-    AND (
-      -- Extract collection ID from path (format: collection_id/file.ext)
-      EXISTS (
-        SELECT 1 FROM collections
-        WHERE id::text = SPLIT_PART(name, '/', 1)
-        AND user_id = auth.uid()
-      )
-      OR
-      -- Admins can upload anywhere
-      EXISTS (
-        SELECT 1 FROM user_profiles
-        WHERE id = auth.uid()
-        AND role = 'admin'
-      )
+-- Enable RLS on storage.objects
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Users can upload collection logos" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update collection logos" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete collection logos" ON storage.objects;
+
+-- Create storage policies for collection-logos bucket
+CREATE POLICY "Users can upload collection logos"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'collection-logos'
+  AND (
+    -- Check if user owns the collection
+    EXISTS (
+      SELECT 1 FROM collections c
+      WHERE c.id::text = (regexp_match(name, '^([^/]+)/'))[1]
+      AND c.user_id = auth.uid()
     )
-  );
+    OR
+    -- Or if user has edit access to the collection
+    EXISTS (
+      SELECT 1 FROM collection_access ca
+      WHERE ca.collection_id::text = (regexp_match(name, '^([^/]+)/'))[1]
+      AND ca.user_id = auth.uid()
+      AND ca.access_type = 'edit'
+    )
+    OR
+    -- Admins can upload anywhere
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+  )
+);
 
-  CREATE POLICY "Anyone can view collection assets"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'collection-assets');
-END $$;
+CREATE POLICY "Users can update collection logos"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (
+  bucket_id = 'collection-logos'
+  AND (
+    -- Check if user owns the collection
+    EXISTS (
+      SELECT 1 FROM collections c
+      WHERE c.id::text = (regexp_match(name, '^([^/]+)/'))[1]
+      AND c.user_id = auth.uid()
+    )
+    OR
+    -- Or if user has edit access to the collection
+    EXISTS (
+      SELECT 1 FROM collection_access ca
+      WHERE ca.collection_id::text = (regexp_match(name, '^([^/]+)/'))[1]
+      AND ca.user_id = auth.uid()
+      AND ca.access_type = 'edit'
+    )
+    OR
+    -- Admins can update anywhere
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+  )
+);
+
+CREATE POLICY "Users can delete collection logos"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'collection-logos'
+  AND (
+    -- Check if user owns the collection
+    EXISTS (
+      SELECT 1 FROM collections c
+      WHERE c.id::text = (regexp_match(name, '^([^/]+)/'))[1]
+      AND c.user_id = auth.uid()
+    )
+    OR
+    -- Or if user has edit access to the collection
+    EXISTS (
+      SELECT 1 FROM collection_access ca
+      WHERE ca.collection_id::text = (regexp_match(name, '^([^/]+)/'))[1]
+      AND ca.user_id = auth.uid()
+      AND ca.access_type = 'edit'
+    )
+    OR
+    -- Admins can delete anywhere
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
+    )
+  )
+);
+
+-- Create policy for public read access
+CREATE POLICY "Public can view collection logos"
+ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'collection-logos');
 
 -- Add theme columns to collections table
 ALTER TABLE collections
@@ -49,7 +121,6 @@ ADD COLUMN IF NOT EXISTS theme_primary_color text,
 ADD COLUMN IF NOT EXISTS theme_secondary_color text,
 ADD COLUMN IF NOT EXISTS theme_background_color text,
 ADD COLUMN IF NOT EXISTS theme_text_color text,
-ADD COLUMN IF NOT EXISTS theme_use_custom boolean DEFAULT false,
 ADD COLUMN IF NOT EXISTS theme_use_classic boolean DEFAULT true,
 ADD COLUMN IF NOT EXISTS theme_logo_url text;
 
@@ -93,9 +164,17 @@ SELECT
   theme_secondary_color,
   theme_background_color,
   theme_text_color,
-  theme_use_custom,
   theme_use_classic,
-  theme_logo_url
+  theme_logo_url,
+  -- Compute theme_use_custom based on whether any theme colors are set
+  COALESCE(
+    theme_primary_color IS NOT NULL OR 
+    theme_secondary_color IS NOT NULL OR 
+    theme_background_color IS NOT NULL OR 
+    theme_text_color IS NOT NULL OR 
+    theme_logo_url IS NOT NULL,
+    false
+  ) as theme_use_custom
 FROM collections
 WHERE visible = true;
 
@@ -114,7 +193,16 @@ SELECT
     WHEN c.user_id = auth.uid() THEN NULL
     WHEN ca.access_type IS NOT NULL THEN ca.access_type
     ELSE NULL
-  END as access_type
+  END as access_type,
+  -- Compute theme_use_custom based on whether any theme colors are set
+  COALESCE(
+    c.theme_primary_color IS NOT NULL OR 
+    c.theme_secondary_color IS NOT NULL OR 
+    c.theme_background_color IS NOT NULL OR 
+    c.theme_text_color IS NOT NULL OR 
+    c.theme_logo_url IS NOT NULL,
+    false
+  ) as theme_use_custom
 FROM collections c
 JOIN auth.users u ON u.id = c.user_id
 LEFT JOIN collection_access ca ON ca.collection_id = c.id AND ca.user_id = auth.uid()
@@ -138,9 +226,16 @@ BEGIN
     'theme_secondary_color', theme_secondary_color,
     'theme_background_color', theme_background_color,
     'theme_text_color', theme_text_color,
-    'theme_use_custom', theme_use_custom,
     'theme_use_classic', theme_use_classic,
-    'theme_logo_url', theme_logo_url
+    'theme_logo_url', theme_logo_url,
+    'theme_use_custom', COALESCE(
+      theme_primary_color IS NOT NULL OR 
+      theme_secondary_color IS NOT NULL OR 
+      theme_background_color IS NOT NULL OR 
+      theme_text_color IS NOT NULL OR 
+      theme_logo_url IS NOT NULL,
+      false
+    )
   )
   INTO theme_data
   FROM collections
@@ -175,9 +270,16 @@ BEGIN
         'theme_secondary_color', c.theme_secondary_color,
         'theme_background_color', c.theme_background_color,
         'theme_text_color', c.theme_text_color,
-        'theme_use_custom', c.theme_use_custom,
         'theme_use_classic', c.theme_use_classic,
-        'theme_logo_url', c.theme_logo_url
+        'theme_logo_url', c.theme_logo_url,
+        'theme_use_custom', COALESCE(
+          c.theme_primary_color IS NOT NULL OR 
+          c.theme_secondary_color IS NOT NULL OR 
+          c.theme_background_color IS NOT NULL OR 
+          c.theme_text_color IS NOT NULL OR 
+          c.theme_logo_url IS NOT NULL,
+          false
+        )
       )
     )
     INTO v_product_slug, v_collection_slug, NEW.collection_snapshot
@@ -202,12 +304,12 @@ BEGIN
     RAISE EXCEPTION 'Theme columns not added correctly';
   END IF;
 
-  -- Verify storage bucket
+  -- Verify storage bucket exists
   IF NOT EXISTS (
     SELECT 1 FROM storage.buckets 
-    WHERE id = 'collection-assets'
+    WHERE id = 'collection-logos'
   ) THEN
-    RAISE EXCEPTION 'Collection assets bucket not created';
+    RAISE EXCEPTION 'Collection logos bucket not created';
   END IF;
 
   -- Verify views
