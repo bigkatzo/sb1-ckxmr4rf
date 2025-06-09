@@ -68,23 +68,19 @@ export function OptimizedImage({
       // Use object endpoint for WebP, dash-pattern files, logos, and non-jpg/png files
       if (isWebp || hasDashPattern || isLogo || (!isPng && !isJpg)) {
         normalizedUrl = normalizedUrl
-          .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
-          .split('?')[0];
-      } 
-      // Use render endpoint for jpg/png images
-      else if (normalizedUrl.includes('/storage/v1/object/public/') && (isPng || isJpg)) {
-        normalizedUrl = normalizedUrl
-          .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-          
-        // Add optimization parameters if not already present
-        if (!normalizedUrl.includes('?')) {
-          normalizedUrl += `?width=${width || 800}&quality=${quality || 75}&format=original&cache=604800`;
-        }
+          .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+      }
+      
+      // Add optimization parameters for render endpoint
+      if (normalizedUrl.includes('/storage/v1/render/')) {
+        const hasParams = normalizedUrl.includes('?');
+        const separator = hasParams ? '&' : '?';
+        normalizedUrl = `${normalizedUrl}${separator}width=${width}&quality=80&format=webp&cache=604800`;
       }
     }
     
     return normalizedUrl;
-  }, [src, width, quality]);
+  }, [src, width]);
 
   // Only consider real high-priority images for eager loading
   // This helps avoid too many concurrent image loads

@@ -22,22 +22,15 @@ export function normalizeStorageUrl(url: string): string {
     const isPng = url.endsWith('.png');
     const isJpg = url.endsWith('.jpg') || url.endsWith('.jpeg');
     
-    if ((isWebp || hasDashPattern || isLogo || (!isPng && !isJpg)) && url.includes('/storage/v1/render/image/public/')) {
-      // Convert to object URL
-      return url
-        .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
-        .split('?')[0]; // Remove query params
+    if (url.includes('supabase') && url.includes('/storage/v1/')) {
+      if (isWebp || hasDashPattern || isLogo || (!isPng && !isJpg)) {
+        return url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+      }
     }
     
-    // For jpg/png images using object endpoint, convert to render endpoint
-    if ((isPng || isJpg) && url.includes('/storage/v1/object/public/')) {
-      return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-    }
-    
-    // Leave other URLs as is
     return url;
   } catch (error) {
-    console.error('Error normalizing URL:', error);
+    console.error('Error normalizing storage URL:', error);
     return url;
   }
 }
@@ -105,31 +98,25 @@ export function initializeImageHandling() {
 }
 
 /**
- * Function for components to use when displaying images
- * Converts URLs to the appropriate endpoint based on file type
+ * Validates an image URL and returns a normalized version or placeholder
+ * @param url The URL to validate
+ * @returns The validated and normalized URL, or a placeholder for invalid URLs
  */
 export function validateImageUrl(url: string): string {
-  if (!url) return '';
+  if (!url) return PLACEHOLDER_IMAGE;
   
-  // For WebP, dash-pattern files, logos, and non-jpg/png files, always use object URL
-  const isWebp = url.includes('.webp');
-  const hasDashPattern = url.includes('-d');
-  const isLogo = url.includes('logo');
-  const isPng = url.endsWith('.png');
-  const isJpg = url.endsWith('.jpg') || url.endsWith('.jpeg');
-  
-  if ((isWebp || hasDashPattern || isLogo || (!isPng && !isJpg)) && url.includes('/storage/v1/render/image/public/')) {
-    return url
-      .replace('/storage/v1/render/image/public/', '/storage/v1/object/public/')
-      .split('?')[0];
+  try {
+    // Normalize the URL first
+    const normalizedUrl = normalizeStorageUrl(url);
+    
+    // Basic URL validation
+    new URL(normalizedUrl);
+    
+    return normalizedUrl;
+  } catch (error) {
+    console.error('Invalid image URL:', error);
+    return PLACEHOLDER_IMAGE;
   }
-  
-  // For jpg/png images using object endpoint, convert to render endpoint
-  if ((isPng || isJpg) && url.includes('/storage/v1/object/public/')) {
-    return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-  }
-  
-  return url;
 }
 
 // Initialize on page load if we're in the browser

@@ -103,31 +103,9 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
 
   const saveTheme = async () => {
     try {
-      const formData = new FormData();
-      
-      // Add theme data
-      formData.append('theme_use_custom', 'true'); // Always true when saving theme
-      formData.append('theme_use_classic', themeData.theme_use_classic.toString());
-      
-      // Add theme colors if they exist
-      if (themeData.theme_primary_color) {
-        formData.append('theme_primary_color', themeData.theme_primary_color);
-      }
-      if (themeData.theme_secondary_color) {
-        formData.append('theme_secondary_color', themeData.theme_secondary_color);
-      }
-      if (themeData.theme_background_color) {
-        formData.append('theme_background_color', themeData.theme_background_color);
-      }
-      if (themeData.theme_text_color) {
-        formData.append('theme_text_color', themeData.theme_text_color);
-      }
-      if (themeData.theme_logo_url) {
-        formData.append('theme_logo_url', themeData.theme_logo_url);
-      }
-
-      // If this is a new collection, we need the basic info
+      // If this is a new collection, we need to create it first
       if (!collection?.id) {
+        // Validate required fields
         if (!name) {
           throw new Error('Collection name is required');
         }
@@ -138,18 +116,62 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
           throw new Error('Collection ID is required');
         }
 
-        // Add required fields for new collection
-        formData.append('name', name);
-        formData.append('description', description);
-        formData.append('launchDate', launchDate);
-        formData.append('slug', slug);
-        formData.append('visible', visible.toString());
-        formData.append('sale_ended', saleEnded.toString());
-        formData.append('tags', JSON.stringify(tags));
-      }
+        // Create a new FormData for the collection creation
+        const newCollectionData = new FormData();
+        newCollectionData.append('name', name);
+        newCollectionData.append('description', description);
+        newCollectionData.append('launchDate', launchDate);
+        newCollectionData.append('slug', slug);
+        newCollectionData.append('visible', visible.toString());
+        newCollectionData.append('sale_ended', saleEnded.toString());
+        newCollectionData.append('tags', JSON.stringify(tags));
 
-      await onSubmit(formData);
-      toast.success(collection?.id ? 'Theme settings saved successfully' : 'Collection created successfully');
+        // Add theme data
+        newCollectionData.append('theme_use_custom', 'true');
+        newCollectionData.append('theme_use_classic', themeData.theme_use_classic.toString());
+        if (themeData.theme_primary_color) {
+          newCollectionData.append('theme_primary_color', themeData.theme_primary_color);
+        }
+        if (themeData.theme_secondary_color) {
+          newCollectionData.append('theme_secondary_color', themeData.theme_secondary_color);
+        }
+        if (themeData.theme_background_color) {
+          newCollectionData.append('theme_background_color', themeData.theme_background_color);
+        }
+        if (themeData.theme_text_color) {
+          newCollectionData.append('theme_text_color', themeData.theme_text_color);
+        }
+        if (themeData.theme_logo_url) {
+          newCollectionData.append('theme_logo_url', themeData.theme_logo_url);
+        }
+
+        await onSubmit(newCollectionData);
+        toast.success('Collection created successfully');
+      } else {
+        // For existing collections, just update the theme
+        const formData = new FormData();
+        formData.append('id', collection.id);
+        formData.append('theme_use_custom', 'true');
+        formData.append('theme_use_classic', themeData.theme_use_classic.toString());
+        if (themeData.theme_primary_color) {
+          formData.append('theme_primary_color', themeData.theme_primary_color);
+        }
+        if (themeData.theme_secondary_color) {
+          formData.append('theme_secondary_color', themeData.theme_secondary_color);
+        }
+        if (themeData.theme_background_color) {
+          formData.append('theme_background_color', themeData.theme_background_color);
+        }
+        if (themeData.theme_text_color) {
+          formData.append('theme_text_color', themeData.theme_text_color);
+        }
+        if (themeData.theme_logo_url) {
+          formData.append('theme_logo_url', themeData.theme_logo_url);
+        }
+
+        await onSubmit(formData);
+        toast.success('Theme settings saved successfully');
+      }
     } catch (error) {
       console.error('Error saving theme:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save theme settings');
