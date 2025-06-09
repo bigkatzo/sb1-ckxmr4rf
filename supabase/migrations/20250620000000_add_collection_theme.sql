@@ -10,9 +10,17 @@ ON CONFLICT (id) DO NOTHING;
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Public can view collection logos" ON storage.objects;
 DROP POLICY IF EXISTS "Users can upload collection logos" ON storage.objects;
 DROP POLICY IF EXISTS "Users can update collection logos" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete collection logos" ON storage.objects;
+
+-- Create policy for public read access first
+CREATE POLICY "Public can view collection logos"
+ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'collection-logos');
 
 -- Create storage policies for collection-logos bucket
 CREATE POLICY "Users can upload collection logos"
@@ -108,13 +116,6 @@ USING (
   )
 );
 
--- Create policy for public read access
-CREATE POLICY "Public can view collection logos"
-ON storage.objects
-FOR SELECT
-TO public
-USING (bucket_id = 'collection-logos');
-
 -- Add theme columns to collections table
 ALTER TABLE collections
 ADD COLUMN IF NOT EXISTS theme_primary_color text,
@@ -123,6 +124,13 @@ ADD COLUMN IF NOT EXISTS theme_background_color text,
 ADD COLUMN IF NOT EXISTS theme_text_color text,
 ADD COLUMN IF NOT EXISTS theme_use_classic boolean DEFAULT true,
 ADD COLUMN IF NOT EXISTS theme_logo_url text;
+
+-- Drop existing constraints if they exist
+ALTER TABLE collections
+DROP CONSTRAINT IF EXISTS valid_primary_color,
+DROP CONSTRAINT IF EXISTS valid_secondary_color,
+DROP CONSTRAINT IF EXISTS valid_background_color,
+DROP CONSTRAINT IF EXISTS valid_text_color;
 
 -- Add check constraints for valid hex colors
 ALTER TABLE collections
@@ -327,5 +335,58 @@ BEGIN
     RAISE EXCEPTION 'Merchant collections view not created';
   END IF;
 END $$;
+
+-- Recreate the storefront functions
+DROP FUNCTION IF EXISTS public.get_featured_collections();
+DROP FUNCTION IF EXISTS public.get_upcoming_collections();
+DROP FUNCTION IF EXISTS public.get_latest_collections();
+
+CREATE OR REPLACE FUNCTION public.get_featured_collections()
+RETURNS SETOF public_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public_collections
+  WHERE featured = true
+  ORDER BY launch_date DESC;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_upcoming_collections()
+RETURNS SETOF public_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public_collections
+  WHERE launch_date > now()
+  ORDER BY launch_date ASC;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_latest_collections(
+  p_limit integer DEFAULT NULL,
+  p_offset integer DEFAULT 0
+)
+RETURNS SETOF public_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public_collections
+  WHERE launch_date <= now()
+  ORDER BY launch_date DESC
+  LIMIT p_limit
+  OFFSET p_offset;
+$$;
+
+-- Grant execution permissions
+GRANT EXECUTE ON FUNCTION public.get_featured_collections() TO anon;
+GRANT EXECUTE ON FUNCTION public.get_upcoming_collections() TO anon;
+GRANT EXECUTE ON FUNCTION public.get_latest_collections(integer, integer) TO anon;
+
+-- Add explicit comments for better documentation
+COMMENT ON FUNCTION public.get_featured_collections() IS 'Returns featured collections that are visible to the public';
+COMMENT ON FUNCTION public.get_upcoming_collections() IS 'Returns upcoming collections that are visible to the public';
+COMMENT ON FUNCTION public.get_latest_collections(integer, integer) IS 'Returns latest collections with pagination support for infinite scrolling';
 
 COMMIT; 

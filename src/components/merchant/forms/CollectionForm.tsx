@@ -7,6 +7,7 @@ import type { Collection } from '../../../types/collections';
 import { Dialog } from '@headlessui/react';
 import { OptimizedImage } from '../../ui/OptimizedImage';
 import { CollectionThemeSettings } from './CollectionThemeSettings';
+import { toast } from 'react-toastify';
 
 export interface CollectionFormProps {
   collection?: Partial<Collection & { tags?: string[] }>;
@@ -98,6 +99,54 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       ...prev,
       [field]: value
     }));
+  };
+
+  const saveTheme = async () => {
+    if (!collection?.id) {
+      // For new collections, we need to create it first
+      try {
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('description', description);
+        formData.append('launchDate', launchDate);
+        formData.append('slug', slug);
+        formData.append('visible', visible.toString());
+        formData.append('sale_ended', saleEnded.toString());
+        
+        // Add theme data
+        Object.entries(themeData).forEach(([key, value]) => {
+          if (value !== undefined) {
+            formData.append(key, value.toString());
+          }
+        });
+
+        await onSubmit(formData);
+        toast.success('Collection created. You can now upload a logo.');
+      } catch (error) {
+        console.error('Error creating collection:', error);
+        toast.error('Failed to create collection. Please try again.');
+        throw error;
+      }
+    } else {
+      // For existing collections, just update the theme
+      try {
+        const formData = new FormData();
+        
+        // Add only theme data
+        Object.entries(themeData).forEach(([key, value]) => {
+          if (value !== undefined) {
+            formData.append(key, value.toString());
+          }
+        });
+
+        await onSubmit(formData);
+        toast.success('Theme settings saved successfully');
+      } catch (error) {
+        console.error('Error saving theme:', error);
+        toast.error('Failed to save theme settings. Please try again.');
+        throw error;
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -563,22 +612,42 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                 formData={themeData}
                 onChange={handleThemeChange}
                 collectionId={collection?.id || ''}
+                onSave={saveTheme}
               />
               
               <div className="mt-6 flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsThemeModalOpen(false)}
+                  onClick={() => {
+                    // Reset theme data to what it was before opening modal
+                    setThemeData({
+                      theme_primary_color: collection?.theme_primary_color,
+                      theme_secondary_color: collection?.theme_secondary_color,
+                      theme_background_color: collection?.theme_background_color,
+                      theme_text_color: collection?.theme_text_color,
+                      theme_use_custom: collection?.theme_use_custom || false,
+                      theme_use_classic: collection?.theme_use_classic !== false,
+                      theme_logo_url: collection?.theme_logo_url
+                    });
+                    setIsThemeModalOpen(false);
+                  }}
                   className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
                 >
-                  Close
+                  Cancel
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsThemeModalOpen(false)}
+                  onClick={async () => {
+                    try {
+                      await saveTheme();
+                      setIsThemeModalOpen(false);
+                    } catch (error) {
+                      // Error is already handled in saveTheme
+                    }
+                  }}
                   className="bg-primary hover:bg-primary/80 px-6 py-2 rounded-lg transition-colors text-white"
                 >
-                  Apply Changes
+                  Save Changes
                 </button>
               </div>
             </Dialog.Panel>

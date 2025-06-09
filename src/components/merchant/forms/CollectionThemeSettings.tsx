@@ -16,9 +16,10 @@ interface CollectionThemeSettingsProps {
   };
   onChange: (field: string, value: any) => void;
   collectionId: string;
+  onSave: () => Promise<void>;
 }
 
-export function CollectionThemeSettings({ formData, onChange, collectionId }: CollectionThemeSettingsProps) {
+export function CollectionThemeSettings({ formData, onChange, collectionId, onSave }: CollectionThemeSettingsProps) {
   const [livePreviewActive, setLivePreviewActive] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   
@@ -31,7 +32,7 @@ export function CollectionThemeSettings({ formData, onChange, collectionId }: Co
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !collectionId) return;
 
     try {
       setUploadingLogo(true);
@@ -63,7 +64,11 @@ export function CollectionThemeSettings({ formData, onChange, collectionId }: Co
 
       // Update form data
       onChange('theme_logo_url', publicUrl);
-      toast.success('Logo uploaded successfully');
+      
+      // Save changes immediately
+      await onSave();
+      
+      toast.success('Logo uploaded and saved successfully');
 
     } catch (error) {
       console.error('Error uploading logo:', error);
