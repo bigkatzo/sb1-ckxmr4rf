@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
 import { WalletProvider } from './contexts/WalletContext';
@@ -21,6 +22,17 @@ import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
 import { setupRealtimeHealth } from './lib/realtime/subscriptions';
 import { useSyncWalletClaims } from './hooks/useSyncWalletClaims';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60, // 1 minute
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  }
+});
 
 // Validate environment variables at startup
 validateEnvironmentVariables();
@@ -153,23 +165,25 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <UserRoleProvider>
-          <WalletProvider>
-            <CollectionProvider>
-              <ModalProvider>
-                <HowItWorksProvider>
-                  <AppMessagesProvider>
-                    <CartProvider>
-                      <AppContent />
-                    </CartProvider>
-                  </AppMessagesProvider>
-                </HowItWorksProvider>
-              </ModalProvider>
-            </CollectionProvider>
-          </WalletProvider>
-        </UserRoleProvider>
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <UserRoleProvider>
+            <WalletProvider>
+              <CollectionProvider>
+                <ModalProvider>
+                  <HowItWorksProvider>
+                    <AppMessagesProvider>
+                      <CartProvider>
+                        <AppContent />
+                      </CartProvider>
+                    </AppMessagesProvider>
+                  </HowItWorksProvider>
+                </ModalProvider>
+              </CollectionProvider>
+            </WalletProvider>
+          </UserRoleProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
