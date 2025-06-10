@@ -1,6 +1,35 @@
 -- Start transaction
 BEGIN;
 
+-- First drop the views to remove constraints
+DROP VIEW IF EXISTS public_collections CASCADE;
+DROP VIEW IF EXISTS merchant_collections CASCADE;
+
+-- Fix any null user_ids first
+DO $$
+DECLARE
+    first_user_id uuid;
+BEGIN
+    -- Get the first valid user from auth.users
+    SELECT id INTO first_user_id 
+    FROM auth.users 
+    LIMIT 1;
+
+    IF first_user_id IS NULL THEN
+        RAISE EXCEPTION 'No users found in auth.users table';
+    END IF;
+
+    -- Update any collections with null user_id
+    UPDATE collections 
+    SET user_id = first_user_id
+    WHERE user_id IS NULL;
+
+    -- Verify no null user_ids remain
+    IF EXISTS (SELECT 1 FROM collections WHERE user_id IS NULL) THEN
+        RAISE EXCEPTION 'Failed to fix all null user_ids';
+    END IF;
+END $$;
+
 -- Add theme_use_custom column to collections table
 ALTER TABLE collections
 ADD COLUMN IF NOT EXISTS theme_use_custom boolean DEFAULT false;
@@ -16,8 +45,7 @@ SET theme_use_custom = COALESCE(
   false
 );
 
--- Update public_collections view to use the actual column
-DROP VIEW IF EXISTS public_collections CASCADE;
+-- Now recreate the views after fixing the data
 CREATE VIEW public_collections AS
 SELECT 
   id,
@@ -47,8 +75,6 @@ SELECT
 FROM collections
 WHERE visible = true;
 
--- Update merchant_collections view to use the actual column
-DROP VIEW IF EXISTS merchant_collections CASCADE;
 CREATE VIEW merchant_collections AS
 SELECT 
   c.*,
@@ -109,6 +135,14 @@ BEGIN
     AND column_name = 'theme_use_custom'
   ) THEN
     RAISE EXCEPTION 'theme_use_custom column not added correctly';
+  END IF;
+
+  -- Verify no null user_ids exist
+  IF EXISTS (
+    SELECT 1 FROM collections
+    WHERE user_id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'There are still collections with null user_id';
   END IF;
 
   -- Verify views

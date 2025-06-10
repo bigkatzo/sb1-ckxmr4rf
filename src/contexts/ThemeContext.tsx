@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import { applyTheme } from '../styles/themeUtils';
 
 type ThemeColors = {
@@ -21,10 +22,10 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType>({
   currentTheme: {
-    primaryColor: '#0f47e4',
-    secondaryColor: '#0ea5e9',
-    backgroundColor: '#000000',
-    textColor: '#ffffff',
+    primaryColor: '',
+    secondaryColor: '',
+    backgroundColor: '',
+    textColor: '',
     useClassic: true
   },
   isCollectionTheme: false,
@@ -40,15 +41,30 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const location = useLocation();
+  const { data: siteSettings, isLoading: isLoadingSiteSettings } = useSiteSettings();
   
-  // Default site theme
-  const [defaultTheme] = useState<ThemeColors>({
-    primaryColor: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#0f47e4',
-    secondaryColor: getComputedStyle(document.documentElement).getPropertyValue('--color-secondary').trim() || '#0ea5e9',
-    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-background').trim() || '#000000',
-    textColor: getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim() || '#ffffff',
+  // Initialize default theme from site settings
+  const [defaultTheme, setDefaultTheme] = useState<ThemeColors>({
+    primaryColor: '',
+    secondaryColor: '',
+    backgroundColor: '',
+    textColor: '',
     useClassic: true
   });
+  
+  // Update default theme when site settings load
+  useEffect(() => {
+    if (siteSettings) {
+      setDefaultTheme({
+        primaryColor: siteSettings.theme_primary_color,
+        secondaryColor: siteSettings.theme_secondary_color,
+        backgroundColor: siteSettings.theme_background_color,
+        textColor: siteSettings.theme_text_color,
+        useClassic: true,
+        logoUrl: siteSettings.theme_logo_url
+      });
+    }
+  }, [siteSettings]);
   
   const [currentTheme, setCurrentTheme] = useState<ThemeColors>(defaultTheme);
   const [isCollectionTheme, setIsCollectionTheme] = useState(false);
@@ -81,17 +97,34 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       );
     }
   };
+
+  // Check if a collection has enough theme settings to be considered customized
+  const hasCustomTheme = (collection: any): boolean => {
+    if (!collection?.theme_use_custom) return false;
+    
+    // Check if at least one theme color is set
+    return !!(
+      collection.theme_primary_color ||
+      collection.theme_secondary_color ||
+      collection.theme_background_color ||
+      collection.theme_text_color ||
+      collection.theme_logo_url
+    );
+  };
   
+  // Apply theme when collection or default theme changes
   useEffect(() => {
-    if (collection && collection.theme_use_custom) {
+    if (!siteSettings) return; // Wait for site settings to load
+    
+    if (collection && hasCustomTheme(collection)) {
       const useClassic = collection.theme_use_classic === undefined ? true : collection.theme_use_classic;
       
-      // Apply collection theme
+      // Apply collection theme, falling back to site settings when not set
       const newTheme = {
-        primaryColor: collection.theme_primary_color || defaultTheme.primaryColor,
-        secondaryColor: collection.theme_secondary_color || defaultTheme.secondaryColor,
-        backgroundColor: collection.theme_background_color || defaultTheme.backgroundColor,
-        textColor: collection.theme_text_color || defaultTheme.textColor,
+        primaryColor: collection.theme_primary_color || siteSettings.theme_primary_color,
+        secondaryColor: collection.theme_secondary_color || siteSettings.theme_secondary_color,
+        backgroundColor: collection.theme_background_color || siteSettings.theme_background_color,
+        textColor: collection.theme_text_color || siteSettings.theme_text_color,
         useClassic: useClassic,
         logoUrl: collection.theme_logo_url
       };
@@ -110,22 +143,34 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         newTheme.logoUrl
       );
     } else {
-      // Reset to default theme when not on a collection page or no theme defined
-      setCurrentTheme(defaultTheme);
+      // Reset to site settings theme when not on a collection page or no custom theme defined
+      const siteTheme = {
+        primaryColor: siteSettings.theme_primary_color,
+        secondaryColor: siteSettings.theme_secondary_color,
+        backgroundColor: siteSettings.theme_background_color,
+        textColor: siteSettings.theme_text_color,
+        useClassic: true,
+        logoUrl: siteSettings.theme_logo_url
+      };
+      
+      setCurrentTheme(siteTheme);
       setIsCollectionTheme(false);
       setCollectionSlug(undefined);
       
-      // Reset CSS variables to default
+      // Apply CSS variables using our utility
       applyTheme(
-        defaultTheme.primaryColor,
-        defaultTheme.secondaryColor,
-        defaultTheme.backgroundColor,
-        defaultTheme.textColor,
-        true, // Always use classic mode for site default
-        undefined // No custom logo for default theme
+        siteTheme.primaryColor,
+        siteTheme.secondaryColor,
+        siteTheme.backgroundColor,
+        siteTheme.textColor,
+        true, // Always use classic mode for site theme
+        siteTheme.logoUrl
       );
     }
-  }, [collection, defaultTheme, location.pathname]);
+  }, [collection, siteSettings, location.pathname]);
+  
+  // Show nothing until site settings load to prevent flash of unstyled content
+  if (isLoadingSiteSettings) return null;
   
   return (
     <ThemeContext.Provider value={{ currentTheme, isCollectionTheme, collectionSlug, setClassicMode }}>

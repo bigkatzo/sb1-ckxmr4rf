@@ -103,6 +103,8 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
 
   const saveTheme = async () => {
     try {
+      const formData = new FormData();
+      
       // If this is a new collection, we need to create it first
       if (!collection?.id) {
         // Validate required fields
@@ -117,61 +119,38 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
         }
 
         // Create a new FormData for the collection creation
-        const newCollectionData = new FormData();
-        newCollectionData.append('name', name);
-        newCollectionData.append('description', description);
-        newCollectionData.append('launchDate', launchDate);
-        newCollectionData.append('slug', slug);
-        newCollectionData.append('visible', visible.toString());
-        newCollectionData.append('sale_ended', saleEnded.toString());
-        newCollectionData.append('tags', JSON.stringify(tags));
-
-        // Add theme data
-        newCollectionData.append('theme_use_custom', 'true');
-        newCollectionData.append('theme_use_classic', themeData.theme_use_classic.toString());
-        if (themeData.theme_primary_color) {
-          newCollectionData.append('theme_primary_color', themeData.theme_primary_color);
-        }
-        if (themeData.theme_secondary_color) {
-          newCollectionData.append('theme_secondary_color', themeData.theme_secondary_color);
-        }
-        if (themeData.theme_background_color) {
-          newCollectionData.append('theme_background_color', themeData.theme_background_color);
-        }
-        if (themeData.theme_text_color) {
-          newCollectionData.append('theme_text_color', themeData.theme_text_color);
-        }
-        if (themeData.theme_logo_url) {
-          newCollectionData.append('theme_logo_url', themeData.theme_logo_url);
-        }
-
-        await onSubmit(newCollectionData);
-        toast.success('Collection created successfully');
+        formData.append('name', name);
+        formData.append('description', description);
+        formData.append('launchDate', launchDate);
+        formData.append('slug', slug);
+        formData.append('visible', visible.toString());
+        formData.append('sale_ended', saleEnded.toString());
+        formData.append('tags', JSON.stringify(tags));
       } else {
-        // For existing collections, just update the theme
-        const formData = new FormData();
         formData.append('id', collection.id);
-        formData.append('theme_use_custom', 'true');
-        formData.append('theme_use_classic', themeData.theme_use_classic.toString());
-        if (themeData.theme_primary_color) {
-          formData.append('theme_primary_color', themeData.theme_primary_color);
-        }
-        if (themeData.theme_secondary_color) {
-          formData.append('theme_secondary_color', themeData.theme_secondary_color);
-        }
-        if (themeData.theme_background_color) {
-          formData.append('theme_background_color', themeData.theme_background_color);
-        }
-        if (themeData.theme_text_color) {
-          formData.append('theme_text_color', themeData.theme_text_color);
-        }
-        if (themeData.theme_logo_url) {
-          formData.append('theme_logo_url', themeData.theme_logo_url);
-        }
-
-        await onSubmit(formData);
-        toast.success('Theme settings saved successfully');
       }
+
+      // Add theme data
+      formData.append('theme_use_custom', 'true');
+      formData.append('theme_use_classic', themeData.theme_use_classic.toString());
+      if (themeData.theme_primary_color) {
+        formData.append('theme_primary_color', themeData.theme_primary_color);
+      }
+      if (themeData.theme_secondary_color) {
+        formData.append('theme_secondary_color', themeData.theme_secondary_color);
+      }
+      if (themeData.theme_background_color) {
+        formData.append('theme_background_color', themeData.theme_background_color);
+      }
+      if (themeData.theme_text_color) {
+        formData.append('theme_text_color', themeData.theme_text_color);
+      }
+      if (themeData.theme_logo_url) {
+        formData.append('theme_logo_url', themeData.theme_logo_url);
+      }
+
+      await onSubmit(formData);
+      toast.success(collection?.id ? 'Theme settings saved successfully' : 'Collection created successfully');
     } catch (error) {
       console.error('Error saving theme:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save theme settings');
@@ -207,12 +186,26 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       if (pumpfunUrl) formData.append('pumpfun_url', pumpfunUrl);
       if (websiteUrl) formData.append('website_url', websiteUrl);
 
-      // Add theme data
-      Object.entries(themeData).forEach(([key, value]) => {
-        if (value !== undefined) {
-          formData.append(key, value.toString());
+      // Add theme data - preserve existing theme data if not changed in theme modal
+      if (themeData.theme_use_custom) {
+        formData.append('theme_use_custom', 'true');
+        formData.append('theme_use_classic', themeData.theme_use_classic.toString());
+        if (themeData.theme_primary_color) {
+          formData.append('theme_primary_color', themeData.theme_primary_color);
         }
-      });
+        if (themeData.theme_secondary_color) {
+          formData.append('theme_secondary_color', themeData.theme_secondary_color);
+        }
+        if (themeData.theme_background_color) {
+          formData.append('theme_background_color', themeData.theme_background_color);
+        }
+        if (themeData.theme_text_color) {
+          formData.append('theme_text_color', themeData.theme_text_color);
+        }
+        if (themeData.theme_logo_url) {
+          formData.append('theme_logo_url', themeData.theme_logo_url);
+        }
+      }
 
       // Handle image
       if (image) {
@@ -642,7 +635,6 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                 formData={themeData}
                 onChange={handleThemeChange}
                 collectionId={collection?.id || ''}
-                onSave={saveTheme}
               />
               
               <div className="mt-6 flex justify-end gap-3">
