@@ -9,6 +9,8 @@ import { OptimizedImage } from '../../ui/OptimizedImage';
 import { CollectionThemeSettings } from './CollectionThemeSettings';
 import { toast } from 'react-toastify';
 import { useSiteSettings } from '../../../hooks/useSiteSettings';
+import { cacheManager } from '../../../lib/cache';
+import { useCollectionCache } from '../../../contexts/CollectionContext';
 
 export interface CollectionFormProps {
   collection?: Partial<Collection & { tags?: string[] }>;
@@ -43,6 +45,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       : formatDateForInput(new Date())
   );
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const { invalidateCollection } = useCollectionCache();
   const { data: siteSettings } = useSiteSettings();
   
   const [themeData, setThemeData] = useState({
@@ -149,34 +152,40 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       }
 
       // Add theme data
-      // Set theme_use_custom to true if any theme value is set
-      const hasCustomValues = !!(
+      if (themeData.theme_primary_color) formData.append('theme_primary_color', themeData.theme_primary_color);
+      if (themeData.theme_secondary_color) formData.append('theme_secondary_color', themeData.theme_secondary_color);
+      if (themeData.theme_background_color) formData.append('theme_background_color', themeData.theme_background_color);
+      if (themeData.theme_text_color) formData.append('theme_text_color', themeData.theme_text_color);
+      
+      // Set theme_use_custom based on whether any theme values are set
+      const hasCustomTheme = !!(
         themeData.theme_primary_color ||
         themeData.theme_secondary_color ||
         themeData.theme_background_color ||
         themeData.theme_text_color ||
         themeData.theme_logo_url
       );
-      formData.append('theme_use_custom', hasCustomValues.toString());
+      formData.append('theme_use_custom', hasCustomTheme.toString());
+      
+      // Add other theme settings
       formData.append('theme_use_classic', themeData.theme_use_classic.toString());
       
-      if (themeData.theme_primary_color) {
-        formData.append('theme_primary_color', themeData.theme_primary_color);
-      }
-      if (themeData.theme_secondary_color) {
-        formData.append('theme_secondary_color', themeData.theme_secondary_color);
-      }
-      if (themeData.theme_background_color) {
-        formData.append('theme_background_color', themeData.theme_background_color);
-      }
-      if (themeData.theme_text_color) {
-        formData.append('theme_text_color', themeData.theme_text_color);
-      }
+      // Handle logo upload
       if (themeData.theme_logo_url) {
         formData.append('theme_logo_url', themeData.theme_logo_url);
       }
 
       await onSubmit(formData);
+      
+      // Invalidate collection cache to force a fresh fetch
+      if (collection?.slug) {
+        invalidateCollection(collection.slug);
+        // Also invalidate the collection:id cache
+        cacheManager.invalidateKey(`collection:${collection.id}`);
+        // And the collection_static cache
+        cacheManager.invalidateKey(`collection_static:${collection.id}`);
+      }
+      
       toast.success(collection?.id ? 'Theme settings saved successfully' : 'Collection created successfully');
     } catch (error) {
       console.error('Error saving theme:', error);
