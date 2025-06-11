@@ -18,7 +18,6 @@ import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
 import { supabase } from './lib/supabase';
 import 'react-toastify/dist/ReactToastify.css';
-import '/css/theme-variables.css';
 import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
 import { setupRealtimeHealth } from './lib/realtime/subscriptions';
