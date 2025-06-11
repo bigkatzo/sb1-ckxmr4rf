@@ -60,17 +60,17 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
             <div className="absolute inset-x-0 bottom-2 sm:bottom-3 flex justify-center">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 {isUpcoming && (
-                  <span className="inline-flex items-center rounded-full bg-primary/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
+                  <span className="inline-flex items-center rounded-full backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg text-white" style={{ backgroundColor: 'rgba(15, 71, 228, 0.9)' }}>
                     Coming Soon
                   </span>
                 )}
                 {isNew && (
-                  <span className="inline-flex items-center rounded-full bg-success/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
+                  <span className="inline-flex items-center rounded-full backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg text-white" style={{ backgroundColor: 'rgba(34, 197, 94, 0.9)' }}>
                     New Drop
                   </span>
                 )}
                 {collection.saleEnded && (
-                  <span className="inline-flex items-center rounded-full bg-error/90 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg">
+                  <span className="inline-flex items-center rounded-full backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-xs font-medium shadow-lg text-white" style={{ backgroundColor: 'rgba(239, 68, 68, 0.9)' }}>
                     <Ban className="mr-1 h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     Sale Ended
                   </span>
