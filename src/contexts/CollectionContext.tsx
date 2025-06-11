@@ -12,7 +12,7 @@ const CollectionContext = createContext<CollectionContextType>({
 export function CollectionProvider({ children }: { children: React.ReactNode }) {
   // Function to invalidate a collection in the cache
   const invalidateCollection = (slug: string) => {
-    cacheManager.invalidate(`collection:${slug}`);
+    cacheManager.invalidateKey(`collection:${slug}`);
   };
 
   return (
@@ -22,4 +22,4 @@ export function CollectionProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
-export const useCollectionCache = () => useContext(CollectionContext);
+export const useCollectionContext = () => useContext(CollectionContext);
