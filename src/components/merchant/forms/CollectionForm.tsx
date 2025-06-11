@@ -10,7 +10,7 @@ import { CollectionThemeSettings } from './CollectionThemeSettings';
 import { toast } from 'react-toastify';
 import { useSiteSettings } from '../../../hooks/useSiteSettings';
 import { cacheManager } from '../../../lib/cache';
-import { useCollectionCache } from '../../../contexts/CollectionContext';
+import { useCollectionContext } from '../../../contexts/CollectionContext';
 
 export interface CollectionFormProps {
   collection?: Partial<Collection & { tags?: string[] }>;
@@ -45,7 +45,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       : formatDateForInput(new Date())
   );
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
-  const { invalidateCollection } = useCollectionCache();
+  const { invalidateCollection } = useCollectionContext();
   const { data: siteSettings } = useSiteSettings();
   
   const [themeData, setThemeData] = useState({
