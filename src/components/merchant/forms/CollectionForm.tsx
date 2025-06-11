@@ -48,29 +48,29 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const { invalidateCollection } = useCollectionContext();
   const { data: siteSettings } = useSiteSettings();
   
-  const [themeData, setThemeData] = useState({
-    theme_primary_color: collection?.theme_primary_color || siteSettings?.theme_primary_color,
-    theme_secondary_color: collection?.theme_secondary_color || siteSettings?.theme_secondary_color,
-    theme_background_color: collection?.theme_background_color || siteSettings?.theme_background_color,
-    theme_text_color: collection?.theme_text_color || siteSettings?.theme_text_color,
+  // Initialize theme data with a proper fallback structure
+  const [themeData, setThemeData] = useState(() => ({
+    theme_primary_color: collection?.theme_primary_color || null,
+    theme_secondary_color: collection?.theme_secondary_color || null,
+    theme_background_color: collection?.theme_background_color || null,
+    theme_text_color: collection?.theme_text_color || null,
     theme_use_custom: collection?.theme_use_custom || false,
     theme_use_classic: collection?.theme_use_classic !== false,
-    theme_logo_url: collection?.theme_logo_url
-  });
+    theme_logo_url: collection?.theme_logo_url || null
+  }));
 
   // Update theme data when collection or site settings change
   useEffect(() => {
-    if (collection || siteSettings) {
-      setThemeData({
-        theme_primary_color: collection?.theme_primary_color || siteSettings?.theme_primary_color,
-        theme_secondary_color: collection?.theme_secondary_color || siteSettings?.theme_secondary_color,
-        theme_background_color: collection?.theme_background_color || siteSettings?.theme_background_color,
-        theme_text_color: collection?.theme_text_color || siteSettings?.theme_text_color,
-        theme_use_custom: collection?.theme_use_custom || false,
-        theme_use_classic: collection?.theme_use_classic !== false,
-        theme_logo_url: collection?.theme_logo_url
-      });
-    }
+    // Always update when siteSettings becomes available, or collection data changes
+    setThemeData({
+      theme_primary_color: collection?.theme_primary_color || null,
+      theme_secondary_color: collection?.theme_secondary_color || null,
+      theme_background_color: collection?.theme_background_color || null,
+      theme_text_color: collection?.theme_text_color || null,
+      theme_use_custom: collection?.theme_use_custom || false,
+      theme_use_classic: collection?.theme_use_classic !== false,
+      theme_logo_url: collection?.theme_logo_url || null
+    });
   }, [collection, siteSettings]);
 
   const { getRootProps, getInputProps } = useDropzone({
@@ -685,13 +685,13 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                   onClick={() => {
                     // Reset theme data to what it was before opening modal
                     setThemeData({
-                      theme_primary_color: collection?.theme_primary_color || siteSettings?.theme_primary_color,
-                      theme_secondary_color: collection?.theme_secondary_color || siteSettings?.theme_secondary_color,
-                      theme_background_color: collection?.theme_background_color || siteSettings?.theme_background_color,
-                      theme_text_color: collection?.theme_text_color || siteSettings?.theme_text_color,
+                      theme_primary_color: collection?.theme_primary_color || null,
+                      theme_secondary_color: collection?.theme_secondary_color || null,
+                      theme_background_color: collection?.theme_background_color || null,
+                      theme_text_color: collection?.theme_text_color || null,
                       theme_use_custom: collection?.theme_use_custom || false,
                       theme_use_classic: collection?.theme_use_classic !== false,
-                      theme_logo_url: collection?.theme_logo_url
+                      theme_logo_url: collection?.theme_logo_url || null
                     });
                     setIsThemeModalOpen(false);
                   }}

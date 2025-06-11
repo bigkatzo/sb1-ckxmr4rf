@@ -61,12 +61,12 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
 
   // Handle color change with validation
   const handleColorChange = (field: keyof ThemeFormData, value: string) => {
-    // If we're setting a color to the default value, set it to undefined
+    // If we're setting a color to the default value, set it to null
     // This will make the system use the site settings color
     if (field.includes('color')) {
       const colorKey = field.replace('theme_', '').replace('_color', '') as ColorKey;
       if (value === defaultColors[colorKey]) {
-        onChange(field, undefined);
+        onChange(field, null);
         return;
       }
     }
@@ -77,11 +77,11 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
   // Reset all theme settings to default
   const resetToDefault = () => {
     onChange('theme_use_custom', false);
-    onChange('theme_primary_color', undefined);
-    onChange('theme_secondary_color', undefined);
-    onChange('theme_background_color', undefined);
-    onChange('theme_text_color', undefined);
-    onChange('theme_logo_url', undefined);
+    onChange('theme_primary_color', null);
+    onChange('theme_secondary_color', null);
+    onChange('theme_background_color', null);
+    onChange('theme_text_color', null);
+    onChange('theme_logo_url', null);
     onChange('theme_use_classic', true);
   };
 
@@ -210,13 +210,13 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
                       onError={(e) => {
                         console.error('Error loading logo:', e);
                         // If the image fails to load, remove it from the form data
-                        onChange('theme_logo_url', undefined);
+                        onChange('theme_logo_url', null);
                         toast.error('Failed to load logo image. Please try uploading again.');
                       }}
                 />
                 <button
                   type="button"
-                  onClick={() => onChange('theme_logo_url', undefined)}
+                  onClick={() => onChange('theme_logo_url', null)}
                   className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
                 >
                   <X className="h-3 w-3" />
@@ -230,32 +230,34 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
               {/* Color inputs */}
               {(Object.entries(defaultColors) as [ColorKey, string][]).map(([key, defaultValue]) => {
                 const fieldName = `theme_${key}_color` as keyof ThemeFormData;
-                const value = (formData[fieldName] || defaultValue) as string;
-                const isDefault = !formData[fieldName];
+                // Use the collection's explicit color value if it exists, otherwise fall back to site settings
+                const collectionValue = formData[fieldName] as string | null | undefined;
+                const displayValue = collectionValue || defaultValue || '#000000'; // Fallback to black if no default loaded yet
+                const isUsingDefault = !collectionValue;
                 
                 return (
                   <div key={key}>
             <label className="block text-sm font-medium text-gray-300 mb-1">
                       {key.charAt(0).toUpperCase() + key.slice(1)} Color
-                      {isDefault && (
+                      {isUsingDefault && defaultValue && (
                         <span className="ml-2 text-xs text-gray-500">(Using Site Theme)</span>
                       )}
             </label>
             <div className="flex gap-2">
               <input
                 type="color"
-                        value={value}
+                        value={displayValue}
                         onChange={(e) => handleColorChange(fieldName, e.target.value)}
                 className="h-10 w-10 rounded cursor-pointer"
               />
               <input
                 type="text"
-                        value={value}
+                        value={displayValue}
                         onChange={(e) => handleColorChange(fieldName, e.target.value)}
-                        placeholder={defaultValue}
+                        placeholder={defaultValue || `#000000`}
                         className={[
                           'flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none',
-                          isDefault ? 'text-gray-400' : ''
+                          isUsingDefault ? 'text-gray-400' : ''
                         ].filter(Boolean).join(' ')}
               />
             </div>
