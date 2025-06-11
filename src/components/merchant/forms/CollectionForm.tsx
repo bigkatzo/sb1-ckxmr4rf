@@ -640,7 +640,8 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                   className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white transition-colors bg-gray-800 rounded-lg hover:bg-gray-700"
                 >
                   <Palette className="h-4 w-4" />
-                  Customize Theme
+                  <span className="sm:hidden">Theme</span>
+                  <span className="hidden sm:inline">Customize Theme</span>
                 </button>
                 <div className="flex gap-3">
                   <button
