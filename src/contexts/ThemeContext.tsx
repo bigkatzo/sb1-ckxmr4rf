@@ -118,6 +118,19 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   useEffect(() => {
     if (!siteSettings) return; // Wait for site settings to load
     
+    // Function to apply theme settings
+    const applyThemeSettings = (theme: ThemeColors) => {
+      setCurrentTheme(theme);
+      applyTheme(
+        theme.primaryColor,
+        theme.secondaryColor,
+        theme.backgroundColor,
+        theme.textColor,
+        theme.useClassic,
+        theme.logoUrl
+      );
+    };
+
     if (collection && hasCustomTheme(collection)) {
       const useClassic = collection.theme_use_classic === undefined ? true : collection.theme_use_classic;
       
@@ -131,19 +144,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         logoUrl: collection.theme_logo_url
       };
       
-      setCurrentTheme(newTheme);
       setIsCollectionTheme(true);
       setCollectionSlug(collection.slug);
-      
-      // Apply CSS variables using our utility
-      applyTheme(
-        newTheme.primaryColor,
-        newTheme.secondaryColor,
-        newTheme.backgroundColor,
-        newTheme.textColor,
-        newTheme.useClassic,
-        newTheme.logoUrl
-      );
+      applyThemeSettings(newTheme);
     } else {
       // Reset to site settings theme when not on a collection page or no custom theme defined
       const siteTheme = {
@@ -155,19 +158,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         logoUrl: siteSettings.theme_logo_url
       };
       
-      setCurrentTheme(siteTheme);
       setIsCollectionTheme(false);
       setCollectionSlug(undefined);
-      
-      // Apply CSS variables using our utility
-      applyTheme(
-        siteTheme.primaryColor,
-        siteTheme.secondaryColor,
-        siteTheme.backgroundColor,
-        siteTheme.textColor,
-        true, // Always use classic mode for site theme
-        siteTheme.logoUrl
-      );
+      applyThemeSettings(siteTheme);
     }
   }, [collection, siteSettings, location.pathname]);
   

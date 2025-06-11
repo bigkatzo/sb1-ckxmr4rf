@@ -145,17 +145,16 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
         formData.append('launchDate', launchDate);
         formData.append('slug', slug);
         formData.append('visible', visible.toString());
-        formData.append('sale_ended', saleEnded.toString());
-        formData.append('tags', JSON.stringify(tags));
       } else {
         formData.append('id', collection.id);
       }
 
-      // Add theme data
-      if (themeData.theme_primary_color) formData.append('theme_primary_color', themeData.theme_primary_color);
-      if (themeData.theme_secondary_color) formData.append('theme_secondary_color', themeData.theme_secondary_color);
-      if (themeData.theme_background_color) formData.append('theme_background_color', themeData.theme_background_color);
-      if (themeData.theme_text_color) formData.append('theme_text_color', themeData.theme_text_color);
+      // Add theme data - always include all theme fields to ensure proper state
+      formData.append('theme_primary_color', themeData.theme_primary_color || '');
+      formData.append('theme_secondary_color', themeData.theme_secondary_color || '');
+      formData.append('theme_background_color', themeData.theme_background_color || '');
+      formData.append('theme_text_color', themeData.theme_text_color || '');
+      formData.append('theme_logo_url', themeData.theme_logo_url || '');
       
       // Set theme_use_custom based on whether any theme values are set
       const hasCustomTheme = !!(
@@ -166,31 +165,29 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
         themeData.theme_logo_url
       );
       formData.append('theme_use_custom', hasCustomTheme.toString());
-      
-      // Add other theme settings
       formData.append('theme_use_classic', themeData.theme_use_classic.toString());
-      
-      // Handle logo upload
-      if (themeData.theme_logo_url) {
-        formData.append('theme_logo_url', themeData.theme_logo_url);
-      }
 
       await onSubmit(formData);
       
-      // Invalidate collection cache to force a fresh fetch
+      // Invalidate all relevant caches to ensure fresh data
       if (collection?.slug) {
+        // Invalidate collection by slug
         invalidateCollection(collection.slug);
-        // Also invalidate the collection:id cache
+        // Invalidate collection by ID
         cacheManager.invalidateKey(`collection:${collection.id}`);
-        // And the collection_static cache
+        // Invalidate collection static data
         cacheManager.invalidateKey(`collection_static:${collection.id}`);
+        // Invalidate public collections list
+        cacheManager.invalidateKey('public_collections');
+        // Invalidate merchant collections list
+        cacheManager.invalidateKey('merchant_collections');
       }
       
-      toast.success(collection?.id ? 'Theme settings saved successfully' : 'Collection created successfully');
+      toast.success('Theme settings saved successfully');
+      onClose();
     } catch (error) {
       console.error('Error saving theme:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save theme settings');
-      throw error;
     }
   };
 
