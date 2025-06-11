@@ -268,6 +268,14 @@ export function useCollection(slug: string) {
           pumpfun_url: collectionData.pumpfun_url || '',
           website_url: collectionData.website_url || '',
           free_notes: collectionData.free_notes || '',
+          // Add theme data
+          theme_primary_color: collectionData.theme_primary_color,
+          theme_secondary_color: collectionData.theme_secondary_color,
+          theme_background_color: collectionData.theme_background_color,
+          theme_text_color: collectionData.theme_text_color,
+          theme_use_custom: collectionData.theme_use_custom ?? false,
+          theme_use_classic: collectionData.theme_use_classic ?? true,
+          theme_logo_url: collectionData.theme_logo_url,
           categories: (categoriesResponse.data || []).map(category => ({
             id: category.id,
             name: category.name,
