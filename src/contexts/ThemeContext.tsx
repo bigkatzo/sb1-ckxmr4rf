@@ -120,38 +120,16 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   
   // Apply theme when collection or default theme changes
   useEffect(() => {
-    if (!siteSettings) return; // Wait for site settings to load
-    
-    // DEBUG: Log collection and theme data
-    console.log('DEBUG: ThemeContext effect triggered:', {
-      collection: collection ? {
-        slug: collection.slug,
-        theme_primary_color: collection.theme_primary_color,
-        theme_secondary_color: collection.theme_secondary_color,
-        theme_background_color: collection.theme_background_color,
-        theme_text_color: collection.theme_text_color,
-        theme_use_custom: collection.theme_use_custom,
-        theme_use_classic: collection.theme_use_classic,
-        theme_logo_url: collection.theme_logo_url
-      } : null,
-      slug,
-      hasCustomTheme: collection ? hasCustomTheme(collection) : false,
-      siteSettings: {
-        theme_primary_color: siteSettings.theme_primary_color,
-        theme_secondary_color: siteSettings.theme_secondary_color,
-        theme_background_color: siteSettings.theme_background_color,
-        theme_text_color: siteSettings.theme_text_color
-      }
-    });
+        // Don't block on siteSettings - use defaults if not available
     
     // Performance: Only process if we're on a collection page with valid data
     if (collection && slug && hasCustomTheme(collection)) {
       // Apply collection theme, falling back to site settings when not set
       const newTheme = {
-        primaryColor: collection.theme_primary_color || siteSettings.theme_primary_color || defaultTheme.primaryColor,
-        secondaryColor: collection.theme_secondary_color || siteSettings.theme_secondary_color || defaultTheme.secondaryColor,
-        backgroundColor: collection.theme_background_color || siteSettings.theme_background_color || defaultTheme.backgroundColor,
-        textColor: collection.theme_text_color || siteSettings.theme_text_color || defaultTheme.textColor,
+        primaryColor: collection.theme_primary_color || siteSettings?.theme_primary_color || defaultTheme.primaryColor,
+        secondaryColor: collection.theme_secondary_color || siteSettings?.theme_secondary_color || defaultTheme.secondaryColor,
+        backgroundColor: collection.theme_background_color || siteSettings?.theme_background_color || defaultTheme.backgroundColor,
+        textColor: collection.theme_text_color || siteSettings?.theme_text_color || defaultTheme.textColor,
         useClassic: collection.theme_use_classic === undefined ? true : collection.theme_use_classic,
         logoUrl: collection.theme_logo_url
       };
@@ -162,12 +140,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     } else {
       // Reset to site settings theme when not on a collection page or no custom theme defined
       const siteTheme = {
-        primaryColor: siteSettings.theme_primary_color || defaultTheme.primaryColor,
-        secondaryColor: siteSettings.theme_secondary_color || defaultTheme.secondaryColor,
-        backgroundColor: siteSettings.theme_background_color || defaultTheme.backgroundColor,
-        textColor: siteSettings.theme_text_color || defaultTheme.textColor,
+        primaryColor: siteSettings?.theme_primary_color || defaultTheme.primaryColor,
+        secondaryColor: siteSettings?.theme_secondary_color || defaultTheme.secondaryColor,
+        backgroundColor: siteSettings?.theme_background_color || defaultTheme.backgroundColor,
+        textColor: siteSettings?.theme_text_color || defaultTheme.textColor,
         useClassic: true,
-        logoUrl: siteSettings.theme_logo_url
+        logoUrl: siteSettings?.theme_logo_url
       };
       
       setIsCollectionTheme(false);

@@ -42,10 +42,25 @@ export function useCollection(slug: string) {
       }
 
       try {
-        // TEMPORARY DEBUG: Force fresh fetch by skipping cache
-        console.log('DEBUG: Forcing fresh collection fetch for debugging');
+        // First try to get from cache
+        const cacheKey = `collection:${slug}`;
+        const { value: cachedCollection, needsRevalidation } = await cacheManager.get<Collection>(cacheKey);
         
-        // Skip cache for debugging - force fresh fetch
+        // Use cached data if available
+        if (cachedCollection) {
+          if (isMounted) {
+            setCollection(cachedCollection);
+            setLoading(false);
+          }
+          
+          // If stale, revalidate in background
+          if (needsRevalidation && !isFetchingRef.current) {
+            revalidateCollection();
+          }
+          return;
+        }
+        
+        // No cache hit, fetch fresh data
         if (isMounted) {
           setLoading(true);
         }
@@ -94,18 +109,6 @@ export function useCollection(slug: string) {
 
         if (collectionError) throw collectionError;
         if (!collectionData) throw new Error('Collection not found');
-        
-        // Debug: Log the fetched collection data to see theme fields
-        console.log('DEBUG: Fetched collection data:', {
-          slug: collectionData.slug,
-          theme_primary_color: collectionData.theme_primary_color,
-          theme_secondary_color: collectionData.theme_secondary_color,
-          theme_background_color: collectionData.theme_background_color,
-          theme_text_color: collectionData.theme_text_color,
-          theme_use_custom: collectionData.theme_use_custom,
-          theme_use_classic: collectionData.theme_use_classic,
-          theme_logo_url: collectionData.theme_logo_url
-        });
 
         // Then fetch categories and products in parallel from public views
         const [categoriesResponse, productsResponse, orderCountsResponse] = await Promise.all([
