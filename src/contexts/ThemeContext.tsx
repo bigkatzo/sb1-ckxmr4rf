@@ -133,6 +133,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   useEffect(() => {
     if (!siteSettings) return; // Wait for site settings to load
     
+    console.log('ThemeContext effect triggered:', {
+      hasCollection: !!collection,
+      collectionSlug: collection?.slug,
+      pathname: location.pathname,
+      siteSettingsLoaded: !!siteSettings
+    });
+    
     if (collection && hasCustomTheme(collection)) {
       console.log('Applying collection theme');
       const useClassic = collection.theme_use_classic === undefined ? true : collection.theme_use_classic;
@@ -147,11 +154,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         logoUrl: collection.theme_logo_url
       };
       
+      console.log('Collection theme being applied:', newTheme);
+      
       setIsCollectionTheme(true);
       setCollectionSlug(collection.slug);
       applyThemeSettings(newTheme);
     } else {
-      console.log('Applying site theme');
+      console.log('Applying site theme - collection:', !!collection, 'hasCustomTheme:', collection ? hasCustomTheme(collection) : 'no collection');
       // Reset to site settings theme when not on a collection page or no custom theme defined
       const siteTheme = {
         primaryColor: siteSettings.theme_primary_color || defaultTheme.primaryColor,
@@ -161,6 +170,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         useClassic: true,
         logoUrl: siteSettings.theme_logo_url
       };
+      
+      console.log('Site theme being applied:', siteTheme);
       
       setIsCollectionTheme(false);
       setCollectionSlug(undefined);
