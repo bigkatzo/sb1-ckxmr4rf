@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { WalletProvider } from './contexts/WalletContext';
 import { ModalProvider } from './contexts/ModalContext';
 import { HowItWorksProvider } from './contexts/HowItWorksContext';
@@ -170,15 +171,17 @@ export function App() {
         <UserRoleProvider>
           <WalletProvider>
             <CollectionProvider>
-              <ModalProvider>
-                <HowItWorksProvider>
-                  <AppMessagesProvider>
-                    <CartProvider>
-                      <AppContent />
-                    </CartProvider>
-                  </AppMessagesProvider>
-                </HowItWorksProvider>
-              </ModalProvider>
+              <ThemeProvider>
+                <ModalProvider>
+                  <HowItWorksProvider>
+                    <AppMessagesProvider>
+                      <CartProvider>
+                        <AppContent />
+                      </CartProvider>
+                    </AppMessagesProvider>
+                  </HowItWorksProvider>
+                </ModalProvider>
+              </ThemeProvider>
             </CollectionProvider>
           </WalletProvider>
         </UserRoleProvider>
