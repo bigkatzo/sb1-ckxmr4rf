@@ -60,6 +60,23 @@
   --color-hover-overlay: rgba(255, 255, 255, 0.05);
   --color-active-overlay: rgba(255, 255, 255, 0.1);
   
+  /* Feedback colors */
+  --color-success: #22c55e;
+  --color-success-light: #4ade80;
+  --color-success-dark: #15803d;
+  
+  --color-warning: #f59e0b;
+  --color-warning-light: #fbbf24;
+  --color-warning-dark: #d97706;
+  
+  --color-error: #ef4444;
+  --color-error-light: #f87171;
+  --color-error-dark: #dc2626;
+  
+  --color-info: #3b82f6;
+  --color-info-light: #60a5fa;
+  --color-info-dark: #2563eb;
+  
   /* Add smooth transitions for all color properties */
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
