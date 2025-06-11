@@ -24,14 +24,26 @@ export function useSiteSettings() {
   return useQuery<SiteSettings>({
     queryKey: ['site-settings'],
     queryFn: async () => {
+      // Use public view for anonymous access, fallback to main table for authenticated users
       const { data, error } = await supabase
-        .from('site_settings')
+        .from('public_site_settings')
         .select('*')
         .single();
 
       if (error) {
         console.error('Error fetching site settings:', error);
-        throw error;
+        // If public view fails, try the main table (for authenticated users)
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('site_settings')
+          .select('*')
+          .single();
+          
+        if (fallbackError) {
+          console.error('Error fetching site settings fallback:', fallbackError);
+          throw fallbackError;
+        }
+        
+        return fallbackData as SiteSettings;
       }
 
       return data as SiteSettings;
