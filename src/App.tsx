@@ -166,23 +166,23 @@ export function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <UserRoleProvider>
-            <WalletProvider>
-              <CollectionProvider>
-                <ModalProvider>
-                  <HowItWorksProvider>
-                    <AppMessagesProvider>
-                      <CartProvider>
-                        <AppContent />
-                      </CartProvider>
-                    </AppMessagesProvider>
-                  </HowItWorksProvider>
-                </ModalProvider>
-              </CollectionProvider>
-            </WalletProvider>
-          </UserRoleProvider>
-        </AuthProvider>
+      <AuthProvider>
+        <UserRoleProvider>
+          <WalletProvider>
+            <CollectionProvider>
+              <ModalProvider>
+                <HowItWorksProvider>
+                  <AppMessagesProvider>
+                    <CartProvider>
+                      <AppContent />
+                    </CartProvider>
+                  </AppMessagesProvider>
+                </HowItWorksProvider>
+              </ModalProvider>
+            </CollectionProvider>
+          </WalletProvider>
+        </UserRoleProvider>
+      </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

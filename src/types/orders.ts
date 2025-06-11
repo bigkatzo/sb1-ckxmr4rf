@@ -1,3 +1,5 @@
+import type { AccessType } from './collections';
+
 export interface ShippingAddress {
   address: string;
   city: string;
@@ -48,6 +50,9 @@ export interface OrderTracking {
     product_name: string;
     shipping_address?: string;
   };
+  tracking_url?: string;
+  estimated_delivery?: string;
+  notes?: string;
 }
 
 export interface TrackingEvent {
@@ -93,6 +98,33 @@ export interface PaymentMetadata {
   [key: string]: any;
 }
 
+export interface OrderItem {
+  id: string;
+  product_id: string;
+  quantity: number;
+  price: number;
+  variant?: string;
+  notes?: string;
+}
+
+export interface OrderAddress {
+  name: string;
+  email: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  phone?: string;
+}
+
+export interface OrderNotes {
+  internal?: string;
+  customer?: string;
+  supplier?: string;
+}
+
 export interface Order {
   id: string;
   order_number: string;
@@ -119,7 +151,7 @@ export interface Order {
   collection_snapshot: CollectionSnapshot;
   payment_metadata?: PaymentMetadata;
   tracking: OrderTracking | null;
-  access_type?: 'admin' | 'owner' | 'edit' | string;
+  access_type?: AccessType;
   product_image_url?: string;
   order_variants?: OrderVariant[];
   product_variant_prices?: Record<string, any>;
@@ -127,6 +159,14 @@ export interface Order {
   batch_order_id?: string;
   item_index?: number;
   total_items_in_batch?: number;
+  user_id: string;
+  items: OrderItem[];
+  total: number;
+  created_at: string;
+  updated_at: string;
+  shipping_address: OrderAddress;
+  status_history?: OrderStatus[];
+  notes?: OrderNotes;
 }
 
 // Type for the public order counts view
@@ -143,4 +183,36 @@ export interface OrderCounts {
 export interface MerchantOrder extends Omit<Order, 'product_id' | 'collection_id'> {
   product_id: string | null;
   collection_id: string | null;
+}
+
+export interface OrderSummary {
+  id: string;
+  collection_id: string;
+  collection_name?: string;
+  total: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  tracking?: OrderTracking;
+  access_type?: AccessType;
+}
+
+export interface OrderStats {
+  total_orders: number;
+  total_revenue: number;
+  average_order_value: number;
+  orders_by_status: {
+    [key: string]: number;
+  };
+}
+
+export interface OrderFilters {
+  status?: string[];
+  dateRange?: {
+    start: Date;
+    end: Date;
+  };
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }

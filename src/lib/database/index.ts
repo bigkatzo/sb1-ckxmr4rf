@@ -1,5 +1,6 @@
 import { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
+import type { BaseAccessType } from '../../types/collections';
 
 export class DatabaseError extends Error {
   constructor(
@@ -80,41 +81,38 @@ export async function verifyOwnership(
 export async function verifyCollectionAccess(
   collectionId: string,
   userId: string,
-  accessType: AccessType = 'view'
+  accessType: BaseAccessType = 'view'
 ): Promise<boolean> {
   try {
-    // First check if user is owner
-    const { data: ownerData, error: ownerError } = await supabase
+    // First check if user is the owner
+    const { data: collection, error: collectionError } = await supabase
       .from('collections')
-      .select('id')
+      .select('user_id')
       .eq('id', collectionId)
-      .eq('user_id', userId)
-      .maybeSingle();
+      .single();
 
-    if (ownerError) throw ownerError;
-    if (ownerData) return true; // Owners have full access
+    if (collectionError) throw collectionError;
+    if (collection.user_id === userId) return true;
 
-    // Then check collection_access table
+    // If not owner, check collection_access
     const { data: accessData, error: accessError } = await supabase
       .from('collection_access')
       .select('access_type')
       .eq('collection_id', collectionId)
       .eq('user_id', userId)
-      .maybeSingle();
+      .single();
 
-    if (accessError) throw accessError;
-    
-    if (!accessData) return false;
-    
+    if (accessError) return false;
+
     // For view access, either view or edit permission is sufficient
     if (accessType === 'view') {
       return ['view', 'edit'].includes(accessData.access_type);
     }
-    
-    // For edit access, only edit permission is sufficient
+
+    // For edit access, must have edit permission
     return accessData.access_type === 'edit';
   } catch (error) {
-    console.error('Collection access verification failed:', error);
+    console.error('Error verifying collection access:', error);
     return false;
   }
 }

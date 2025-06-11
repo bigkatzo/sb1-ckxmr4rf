@@ -1,3 +1,5 @@
+import type { PriceWithDiscount } from './price';
+
 export type DiscountType = 'fixed_sol' | 'percentage';
 
 export interface Coupon {
@@ -28,11 +30,4 @@ export interface CouponResult {
   error?: string;
 }
 
-export type PriceWithDiscount = {
-  finalPrice: number;
-  couponDiscount: number;
-  originalPrice: number;
-  discountDisplay?: string;
-  couponCode?: string;
-  error?: string;
-}; 
+export type { PriceWithDiscount }; 

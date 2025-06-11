@@ -1,5 +1,8 @@
-export type PriceWithDiscount = {
-  price: number;
+export interface PriceWithDiscount {
+  originalPrice: number;
+  finalPrice: number;
   couponCode?: string;
-  couponDiscount?: number;
-}; 
+  couponDiscount: number;
+  discountDisplay?: string;
+  error?: string;
+} 

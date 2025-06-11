@@ -1,16 +1,57 @@
-export type AccessType = 'view' | 'edit' | 'admin' | null;
+// Base access type that represents the core permission levels
+export type BaseAccessType = 'view' | 'edit';
 
+// Extended access type that includes special roles
+export type AccessType = BaseAccessType | 'admin' | 'owner' | null;
+
+// Database collection type (matches the database schema)
+export interface DatabaseCollection {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  launch_date: string;
+  created_at: string;
+  user_id: string;
+  featured: boolean;
+  visible: boolean;
+  sale_ended: boolean;
+  slug: string;
+  custom_url?: string;
+  x_url?: string;
+  telegram_url?: string;
+  dexscreener_url?: string;
+  pumpfun_url?: string;
+  website_url?: string;
+  free_notes?: string;
+  // Theme-related fields
+  theme_primary_color?: string | null;
+  theme_secondary_color?: string | null;
+  theme_background_color?: string | null;
+  theme_text_color?: string | null;
+  theme_use_custom: boolean;
+  theme_use_classic: boolean;
+  theme_logo_url?: string | null;
+  // Additional fields that might come from the database
+  access_type?: AccessType;
+  is_owner?: boolean;
+  owner_username?: string | null;
+  collection_access?: CollectionAccess[];
+  categories?: any[];
+  products?: any[];
+  product_count?: number;
+  category_count?: number;
+}
+
+// Frontend collection type (used in the UI)
 export interface Collection {
   id: string;
   name: string;
   description: string;
-  image_url: string;
   imageUrl: string;
-  launch_date: string;
   launchDate: Date;
   featured: boolean;
   visible: boolean;
-  sale_ended: boolean;
   saleEnded: boolean;
   slug: string;
   user_id: string;
@@ -25,19 +66,19 @@ export interface Collection {
   products?: any[];
   productCount?: number;
   categoryCount?: number;
-  accessType: AccessType;
+  accessType: AccessType | null;
   isOwner: boolean;
   owner_username: string | null;
   collection_access?: CollectionAccess[];
   
   // Theme settings
-  theme_primary_color?: string;
-  theme_secondary_color?: string;
-  theme_background_color?: string;
-  theme_text_color?: string;
+  theme_primary_color?: string | null;
+  theme_secondary_color?: string | null;
+  theme_background_color?: string | null;
+  theme_text_color?: string | null;
   theme_use_custom?: boolean;
   theme_use_classic?: boolean;
-  theme_logo_url?: string;
+  theme_logo_url?: string | null;
 }
 
 export interface CollectionAccess {

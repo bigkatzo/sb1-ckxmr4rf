@@ -280,136 +280,68 @@ export function generateColorVariations(
  * Applies a complete theme to the document
  */
 export function applyTheme(
-  primaryColor: string,
-  secondaryColor: string,
-  backgroundColor: string,
-  textColor: string,
+  primaryColor: string | null | undefined,
+  secondaryColor: string | null | undefined,
+  backgroundColor: string | null | undefined,
+  textColor: string | null | undefined,
   useClassic: boolean,
-  logoUrl?: string
+  logoUrl?: string | null
 ): void {
+  // Default theme colors
+  const defaultTheme = {
+    primary: '#3b82f6',
+    secondary: '#8b5cf6',
+    background: '#111827',
+    text: '#ffffff'
+  };
+
+  // Validate and ensure we have valid colors
+  const validPrimaryColor = primaryColor || defaultTheme.primary;
+  const validSecondaryColor = secondaryColor || defaultTheme.secondary;
+  const validBackgroundColor = backgroundColor || defaultTheme.background;
+  const validTextColor = textColor || defaultTheme.text;
+
   // First remove any inline styles to reset to defaults
-  if (useClassic) {
-    document.documentElement.removeAttribute('style');
-    document.documentElement.classList.add('classic-theme');
-    document.documentElement.classList.remove('dynamic-theme');
-    
-    // Add classic hover and focus styles to maintain original behavior
-    const style = document.createElement('style');
-    style.id = 'classic-theme-hover-focus-styles';
-    style.textContent = `
-      .classic-theme .hover-effect:hover,
-      .classic-theme .card:hover,
-      .classic-theme .product-card:hover,
-      .classic-theme .collection-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        background-color: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.1);
-        transition: all 0.3s ease;
-      }
-      
-      .classic-theme .hover-effect:hover {
-        border-color: var(--color-secondary, #8b5cf6);
-        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
-      }
-      
-      .classic-theme a:focus-visible,
-      .classic-theme button:focus-visible,
-      .classic-theme input:focus-visible,
-      .classic-theme select:focus-visible,
-      .classic-theme textarea:focus-visible,
-      .classic-theme [tabindex]:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.5);
-      }
-    `;
-    
-    // Remove old style if it exists
-    const oldStyle = document.getElementById('classic-theme-hover-focus-styles');
-    if (oldStyle) {
-      oldStyle.remove();
-    }
-    
-    document.head.appendChild(style);
+  document.documentElement.removeAttribute('style');
+  document.documentElement.classList.remove('classic-theme', 'dynamic-theme');
+  
+  // Add appropriate theme class
+  document.documentElement.classList.add(useClassic ? 'classic-theme' : 'dynamic-theme');
+  
+  // Apply theme colors
+  const root = document.documentElement;
+  root.style.setProperty('--color-primary', validPrimaryColor);
+  root.style.setProperty('--color-secondary', validSecondaryColor);
+  root.style.setProperty('--color-background', validBackgroundColor);
+  root.style.setProperty('--color-text', validTextColor);
+  
+  // Apply derived colors for hover states and UI elements
+  const isDark = isColorDark(validBackgroundColor);
+  root.style.setProperty('--color-primary-hover', adjustColorBrightness(validPrimaryColor, isDark ? 15 : -15));
+  root.style.setProperty('--color-secondary-hover', adjustColorBrightness(validSecondaryColor, isDark ? 15 : -15));
+  root.style.setProperty('--color-background-hover', adjustColorBrightness(validBackgroundColor, isDark ? 15 : -15));
+  
+  // Apply card and input colors
+  root.style.setProperty('--color-card-background', adjustColorBrightness(validBackgroundColor, isDark ? 15 : -15));
+  root.style.setProperty('--color-input-background', adjustColorBrightness(validBackgroundColor, isDark ? 10 : -10));
+  
+  // Apply text contrast colors
+  root.style.setProperty('--color-text-muted', adjustColorBrightness(validTextColor, isDark ? -30 : 30));
+  root.style.setProperty('--color-text-disabled', adjustColorBrightness(validTextColor, isDark ? -50 : 50));
+  
+  // Apply logo if provided
+  if (logoUrl) {
+    root.style.setProperty('--logo-url', `url(${logoUrl})`);
   } else {
-    // If using dynamic theme, remove classic styles
-    const classicStyle = document.getElementById('classic-theme-hover-focus-styles');
-    if (classicStyle) {
-      classicStyle.remove();
-    }
-    
-    document.documentElement.classList.remove('classic-theme');
-    document.documentElement.classList.add('dynamic-theme');
+    root.style.removeProperty('--logo-url');
   }
   
-  // Set base colors
-  document.documentElement.style.setProperty('--color-primary', primaryColor);
-  document.documentElement.style.setProperty('--color-secondary', secondaryColor);
-  document.documentElement.style.setProperty('--color-background', backgroundColor);
-  document.documentElement.style.setProperty('--color-text', textColor);
-  
-  // Set RGB values for the base colors
-  document.documentElement.style.setProperty('--color-primary-rgb', hexToRgb(primaryColor));
-  document.documentElement.style.setProperty('--color-secondary-rgb', hexToRgb(secondaryColor));
-  document.documentElement.style.setProperty('--color-background-rgb', hexToRgb(backgroundColor));
-  document.documentElement.style.setProperty('--color-text-rgb', hexToRgb(textColor));
-  
-  // Set logo URL if provided
-  document.documentElement.style.setProperty('--collection-logo-url', logoUrl ? `url(${logoUrl})` : 'none');
-  
-  // Generate and set all color variations
-  const colorVariations = generateColorVariations(primaryColor, secondaryColor, backgroundColor, textColor);
-  Object.entries(colorVariations).forEach(([key, value]) => {
-    document.documentElement.style.setProperty(`--color-${key}`, value);
-  });
-  
-  // Generate and set all shadow variations
-  const shadows = generateElevationShadows(isColorDark(backgroundColor));
-  Object.entries(shadows).forEach(([key, value]) => {
-    document.documentElement.style.setProperty(`--color-${key}`, value);
-  });
-  
-  // Add dynamic theme-specific CSS for hover and focus effects
-  const dynamicStyle = document.createElement('style');
-  dynamicStyle.id = 'dynamic-theme-hover-focus-styles';
-  
-  // Create secondary color with alpha for the ring effect
-  const secondaryRgb = hexToRgb(secondaryColor);
-  
-  // Add dynamic hover and focus styles
-  dynamicStyle.textContent = `
-    .dynamic-theme .hover-effect:hover,
-    .dynamic-theme .card:hover,
-    .dynamic-theme .product-card:hover,
-    .dynamic-theme .collection-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--color-elevation-2);
-      background-color: var(--color-card-background-hover);
-      border-color: var(--color-border-light);
-      transition: all 0.3s ease;
-    }
-    
-    .dynamic-theme .hover-effect:hover {
-      border-color: var(--color-secondary);
-      box-shadow: 0 0 0 2px rgba(${secondaryRgb}, 0.3);
-    }
-    
-    .dynamic-theme a:focus-visible,
-    .dynamic-theme button:focus-visible,
-    .dynamic-theme input:focus-visible,
-    .dynamic-theme select:focus-visible,
-    .dynamic-theme textarea:focus-visible,
-    .dynamic-theme [tabindex]:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 2px rgba(${secondaryRgb}, 0.5);
-    }
-  `;
-  
-  // Remove old style if it exists
-  const oldDynamicStyle = document.getElementById('dynamic-theme-hover-focus-styles');
-  if (oldDynamicStyle) {
-    oldDynamicStyle.remove();
+  // Apply theme-specific styles
+  if (!useClassic) {
+    // Dynamic theme gets additional color variations
+    root.style.setProperty('--color-primary-light', adjustColorBrightness(validPrimaryColor, 30));
+    root.style.setProperty('--color-primary-dark', adjustColorBrightness(validPrimaryColor, -30));
+    root.style.setProperty('--color-secondary-light', adjustColorBrightness(validSecondaryColor, 30));
+    root.style.setProperty('--color-secondary-dark', adjustColorBrightness(validSecondaryColor, -30));
   }
-  
-  document.head.appendChild(dynamicStyle);
 } 

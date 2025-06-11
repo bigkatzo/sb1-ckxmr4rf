@@ -8,6 +8,7 @@ interface ThemePreviewProps {
     theme_background_color: string;
     theme_text_color: string;
     theme_use_classic?: boolean;
+    theme_logo_url?: string | null;
   };
   isActive: boolean;
 }
@@ -18,7 +19,8 @@ export const ThemePreview: React.FC<ThemePreviewProps> = ({ theme, isActive }) =
     secondaryColor: '',
     backgroundColor: '',
     textColor: '',
-    useClassic: true
+    useClassic: true,
+    logoUrl: null as string | null
   });
   
   const hasCleanedUp = useRef(false);
@@ -33,7 +35,8 @@ export const ThemePreview: React.FC<ThemePreviewProps> = ({ theme, isActive }) =
         secondaryColor: rootStyles.getPropertyValue('--color-secondary').trim(),
         backgroundColor: rootStyles.getPropertyValue('--color-background').trim(),
         textColor: rootStyles.getPropertyValue('--color-text').trim(),
-        useClassic: document.documentElement.classList.contains('classic-theme')
+        useClassic: document.documentElement.classList.contains('classic-theme'),
+        logoUrl: rootStyles.getPropertyValue('--logo-url').trim() || null
       };
       setOriginalTheme(savedTheme);
       
@@ -43,7 +46,8 @@ export const ThemePreview: React.FC<ThemePreviewProps> = ({ theme, isActive }) =
         theme.theme_secondary_color,
         theme.theme_background_color,
         theme.theme_text_color,
-        theme.theme_use_classic !== false
+        theme.theme_use_classic !== false,
+        theme.theme_logo_url
       );
       
       hasCleanedUp.current = false;
@@ -54,24 +58,12 @@ export const ThemePreview: React.FC<ThemePreviewProps> = ({ theme, isActive }) =
         originalTheme.secondaryColor,
         originalTheme.backgroundColor,
         originalTheme.textColor,
-        originalTheme.useClassic
+        originalTheme.useClassic,
+        originalTheme.logoUrl
       );
+      hasCleanedUp.current = true;
     }
-    
-    // Cleanup function for component unmount or when isActive changes
-    return () => {
-      if (isActive && originalTheme.primaryColor && !hasCleanedUp.current) {
-        applyTheme(
-          originalTheme.primaryColor,
-          originalTheme.secondaryColor,
-          originalTheme.backgroundColor,
-          originalTheme.textColor,
-          originalTheme.useClassic
-        );
-        hasCleanedUp.current = true;
-      }
-    };
-  }, [isActive]);
+  }, [isActive, theme.theme_logo_url]);
   
   // Apply theme changes when theme props change and preview is active
   useEffect(() => {
@@ -81,7 +73,8 @@ export const ThemePreview: React.FC<ThemePreviewProps> = ({ theme, isActive }) =
         theme.theme_secondary_color,
         theme.theme_background_color,
         theme.theme_text_color,
-        theme.theme_use_classic !== false
+        theme.theme_use_classic !== false,
+        theme.theme_logo_url
       );
     }
   }, [
@@ -90,8 +83,26 @@ export const ThemePreview: React.FC<ThemePreviewProps> = ({ theme, isActive }) =
     theme.theme_secondary_color,
     theme.theme_background_color,
     theme.theme_text_color,
-    theme.theme_use_classic
+    theme.theme_use_classic,
+    theme.theme_logo_url
   ]);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (originalTheme.primaryColor && !hasCleanedUp.current) {
+        applyTheme(
+          originalTheme.primaryColor,
+          originalTheme.secondaryColor,
+          originalTheme.backgroundColor,
+          originalTheme.textColor,
+          originalTheme.useClassic,
+          originalTheme.logoUrl
+        );
+        hasCleanedUp.current = true;
+      }
+    };
+  }, [originalTheme]);
   
   // No visible UI - this component just handles the theme application
   return null;

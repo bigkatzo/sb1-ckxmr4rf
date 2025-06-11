@@ -1,4 +1,4 @@
-import type { Category, Collection, Product } from '../../types/index';
+import type { Category, Collection, DatabaseCollection, Product } from '../../types/index';
 
 export function transformCategory(category: any): Category | undefined {
   if (!category?.id) return undefined;
@@ -54,7 +54,7 @@ export function transformProduct(product: any, collectionData: any): Product | n
   };
 }
 
-export function transformCollection(data: any): Collection | null {
+export function transformCollection(data: Partial<DatabaseCollection>): Collection | null {
   if (!data?.id || !data?.slug) {
     console.warn('Invalid collection data:', data);
     return null;
@@ -68,18 +68,63 @@ export function transformCollection(data: any): Collection | null {
     .map((product: any) => transformProduct(product, data))
     .filter((product: Product | null): product is Product => product !== null);
 
-  return {
+  // Log theme data for debugging
+  console.log('Collection theme data:', {
+    theme_use_custom: data.theme_use_custom,
+    theme_primary_color: data.theme_primary_color,
+    theme_secondary_color: data.theme_secondary_color,
+    theme_background_color: data.theme_background_color,
+    theme_text_color: data.theme_text_color,
+    theme_use_classic: data.theme_use_classic,
+    theme_logo_url: data.theme_logo_url
+  });
+
+  const launchDate = new Date(data.launch_date || Date.now());
+
+  // Handle access type conversion
+  let accessType: Collection['accessType'] = null;
+  if (data.is_owner) {
+    accessType = 'owner';
+  } else if (data.access_type === 'admin') {
+    accessType = 'owner'; // Map admin to owner for frontend
+  } else if (data.access_type === 'view' || data.access_type === 'edit') {
+    accessType = data.access_type;
+  }
+
+  // Create the collection object with explicit type
+  const collection: Collection = {
     id: data.id,
     name: data.name || '',
     description: data.description || '',
     imageUrl: data.image_url || '',
-    launchDate: new Date(data.launch_date || Date.now()),
+    launchDate,
     featured: Boolean(data.featured),
     visible: data.visible ?? true,
     saleEnded: data.sale_ended ?? false,
-    accessType: data.access_type ?? null,
     slug: data.slug,
+    user_id: data.user_id || '',
+    custom_url: data.custom_url || '',
+    x_url: data.x_url || '',
+    telegram_url: data.telegram_url || '',
+    dexscreener_url: data.dexscreener_url || '',
+    pumpfun_url: data.pumpfun_url || '',
+    website_url: data.website_url || '',
+    free_notes: data.free_notes || '',
     categories,
-    products
+    products,
+    accessType,
+    isOwner: data.is_owner ?? false,
+    owner_username: data.owner_username || null,
+    collection_access: data.collection_access || [],
+    // Theme data
+    theme_primary_color: data.theme_primary_color || null,
+    theme_secondary_color: data.theme_secondary_color || null,
+    theme_background_color: data.theme_background_color || null,
+    theme_text_color: data.theme_text_color || null,
+    theme_use_custom: data.theme_use_custom ?? false,
+    theme_use_classic: data.theme_use_classic ?? true,
+    theme_logo_url: data.theme_logo_url || null
   };
+
+  return collection;
 }

@@ -1,30 +1,10 @@
 import type { ProductVariant, VariantPricing } from './variants';
+import { formatPrice } from '../utils/formatters';
 
 export interface CategoryColorSet {
   base: string;
   light: string;
   bg: string;
-}
-
-export interface Collection {
-  id: string;
-  name: string;
-  description: string;
-  imageUrl: string;
-  launchDate: Date;
-  featured: boolean;
-  visible: boolean;
-  saleEnded: boolean;
-  slug: string;
-  custom_url?: string;
-  x_url?: string;
-  telegram_url?: string;
-  dexscreener_url?: string;
-  pumpfun_url?: string;
-  website_url?: string;
-  categories: any[];
-  products: any[];
-  accessType: 'view' | 'edit' | 'owner' | null;
 }
 
 export interface CategoryRule {
@@ -106,15 +86,13 @@ export interface WhitelistVerificationResult {
 
 export type { TransactionStatus } from './transactions';
 
-// Re-export types from other files to ensure they are available
-// Commenting out because some types are already exported explicitly above
-// export * from './variants';
-// export * from './collections'; 
-// export * from './orders';
-// export * from './coupons';
-// export * from './price';
-// export * from './transactions';
-
-// Explicitly add path to utils formatters for TypeScript resolution
-import { formatPrice } from '../utils/formatters';
+// Export utility functions
 export { formatPrice };
+
+// Export types from other files
+export * from './collections';
+export * from './orders';
+export * from './variants';
+export * from './coupons';
+export * from './price';
+export * from './transactions';

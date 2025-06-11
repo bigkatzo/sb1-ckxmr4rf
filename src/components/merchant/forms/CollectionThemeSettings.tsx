@@ -6,13 +6,13 @@ import { useSiteSettings } from '../../../hooks/useSiteSettings';
 import { uploadImage } from '../../../lib/storage';
 
 interface ThemeFormData {
-  theme_primary_color?: string;
-  theme_secondary_color?: string;
-  theme_background_color?: string;
-  theme_text_color?: string;
-  theme_use_custom: boolean;
-  theme_use_classic: boolean;
-  theme_logo_url?: string;
+    theme_primary_color?: string | null;
+    theme_secondary_color?: string | null;
+    theme_background_color?: string | null;
+    theme_text_color?: string | null;
+    theme_use_custom: boolean;
+    theme_use_classic: boolean;
+    theme_logo_url?: string | null;
 }
 
 interface CollectionThemeSettingsProps {
@@ -41,7 +41,7 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
     const file = e.target.files[0];
     if (!file) return;
 
-    setUploadingLogo(true);
+      setUploadingLogo(true);
 
     try {
       // Use our shared uploadImage function with standard options
@@ -118,7 +118,7 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
             Use custom theme for this collection
           </label>
         </div>
-
+        
         {formData.theme_use_custom && (
           <div className="flex items-center gap-4">
             <button
@@ -128,21 +128,21 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
             >
               Reset to Site Theme
             </button>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setLivePreviewActive(!livePreviewActive)}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${
-                  livePreviewActive 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                {livePreviewActive ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                {livePreviewActive ? 'Disable Preview' : 'Live Preview'}
-              </button>
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setLivePreviewActive(!livePreviewActive)}
+            className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${
+              livePreviewActive 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            {livePreviewActive ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            {livePreviewActive ? 'Disable Preview' : 'Live Preview'}
+          </button>
+        </div>
+      </div>
         )}
       </div>
 
@@ -167,66 +167,66 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
             </div>
           </div>
 
-          <div className="space-y-6">
-            {/* Logo Upload */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Collection Logo
+      <div className="space-y-6">
+        {/* Logo Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Collection Logo
                 {!formData.theme_logo_url && siteSettings?.theme_logo_url && (
                   <span className="ml-2 text-xs text-gray-500">(Using Site Logo)</span>
                 )}
-              </label>
-              <div className="mt-1 flex items-center gap-3">
-                <label className="flex-1">
-                  <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-700 border-dashed rounded-lg hover:border-gray-600 transition-colors cursor-pointer">
-                    <div className="space-y-1 text-center">
-                      <Upload className="mx-auto h-8 w-8 text-gray-400" />
-                      <div className="text-sm text-gray-400">
-                        <label htmlFor="logo-upload" className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary">
-                          <span>Upload a logo</span>
-                          <input
-                            id="logo-upload"
-                            name="logo-upload"
-                            type="file"
-                            accept="image/*"
-                            className="sr-only"
-                            onChange={handleLogoUpload}
-                            disabled={uploadingLogo}
-                          />
-                        </label>
-                        <p className="pl-1">or drag and drop</p>
-                      </div>
-                      <p className="text-xs text-gray-500">PNG, JPG, GIF up to 2MB</p>
-                    </div>
+          </label>
+          <div className="mt-1 flex items-center gap-3">
+            <label className="flex-1">
+              <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-700 border-dashed rounded-lg hover:border-gray-600 transition-colors cursor-pointer">
+                <div className="space-y-1 text-center">
+                  <Upload className="mx-auto h-8 w-8 text-gray-400" />
+                  <div className="text-sm text-gray-400">
+                    <label htmlFor="logo-upload" className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary">
+                      <span>Upload a logo</span>
+                      <input
+                        id="logo-upload"
+                        name="logo-upload"
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={handleLogoUpload}
+                        disabled={uploadingLogo}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
                   </div>
-                </label>
-                
-                {formData.theme_logo_url && (
-                  <div className="relative">
-                    <img 
-                      src={formData.theme_logo_url} 
-                      alt="Collection Logo" 
-                      className="h-20 w-20 object-contain bg-gray-800 rounded-lg"
+                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 2MB</p>
+                </div>
+              </div>
+            </label>
+            
+            {formData.theme_logo_url && (
+              <div className="relative">
+                <img 
+                  src={formData.theme_logo_url} 
+                  alt="Collection Logo" 
+                  className="h-20 w-20 object-contain bg-gray-800 rounded-lg"
                       onError={(e) => {
                         console.error('Error loading logo:', e);
                         // If the image fails to load, remove it from the form data
                         onChange('theme_logo_url', undefined);
                         toast.error('Failed to load logo image. Please try uploading again.');
                       }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onChange('theme_logo_url', undefined)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                )}
+                />
+                <button
+                  type="button"
+                  onClick={() => onChange('theme_logo_url', undefined)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </div>
-            </div>
+            )}
+          </div>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Color inputs */}
               {(Object.entries(defaultColors) as [ColorKey, string][]).map(([key, defaultValue]) => {
                 const fieldName = `theme_${key}_color` as keyof ThemeFormData;
@@ -235,21 +235,21 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
                 
                 return (
                   <div key={key}>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
                       {key.charAt(0).toUpperCase() + key.slice(1)} Color
                       {isDefault && (
                         <span className="ml-2 text-xs text-gray-500">(Using Site Theme)</span>
                       )}
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="color"
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="color"
                         value={value}
                         onChange={(e) => handleColorChange(fieldName, e.target.value)}
-                        className="h-10 w-10 rounded cursor-pointer"
-                      />
-                      <input
-                        type="text"
+                className="h-10 w-10 rounded cursor-pointer"
+              />
+              <input
+                type="text"
                         value={value}
                         onChange={(e) => handleColorChange(fieldName, e.target.value)}
                         placeholder={defaultValue}
@@ -257,94 +257,94 @@ export function CollectionThemeSettings({ formData, onChange }: CollectionThemeS
                           'flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none',
                           isDefault ? 'text-gray-400' : ''
                         ].filter(Boolean).join(' ')}
-                      />
-                    </div>
-                  </div>
+              />
+            </div>
+          </div>
                 );
               })}
-            </div>
-            
-            {/* Theme Preview */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-300 mb-3">Theme Preview</h4>
-              <div className="rounded-lg overflow-hidden border border-gray-700">
-                <div className="p-3" style={{
-                  backgroundColor: formData.theme_background_color || defaultColors.background
-                }}>
-                  <div className="rounded-lg p-3" style={{
-                    backgroundColor: adjustColorBrightness(
-                      formData.theme_background_color || defaultColors.background, 
-                      isColorDark(formData.theme_background_color || defaultColors.background) ? 15 : -15
-                    )
-                  }}>
+        </div>
+        
+        {/* Theme Preview */}
+        <div>
+          <h4 className="text-sm font-medium text-gray-300 mb-3">Theme Preview</h4>
+          <div className="rounded-lg overflow-hidden border border-gray-700">
+            <div className="p-3" style={{
+              backgroundColor: formData.theme_background_color || defaultColors.background
+            }}>
+              <div className="rounded-lg p-3" style={{
+                backgroundColor: adjustColorBrightness(
+                  formData.theme_background_color || defaultColors.background, 
+                  isColorDark(formData.theme_background_color || defaultColors.background) ? 15 : -15
+                )
+              }}>
                     {(formData.theme_logo_url || (!formData.theme_use_custom && siteSettings?.theme_logo_url)) && (
-                      <img 
+                  <img 
                         src={formData.theme_logo_url || siteSettings?.theme_logo_url} 
                         alt="Logo" 
-                        className="h-8 w-auto object-contain mb-4"
+                    className="h-8 w-auto object-contain mb-4"
                         onError={(e) => {
                           console.error('Error loading logo in preview:', e);
                           // Hide the image on error
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
-                      />
-                    )}
-                    <h3 style={{
-                      color: formData.theme_text_color || defaultColors.text
-                    }} className="text-lg font-semibold mb-2">
-                      Collection Theme
-                    </h3>
-                    <p style={{
-                      color: adjustColorBrightness(
-                        formData.theme_text_color || defaultColors.text, 
-                        isColorDark(formData.theme_background_color || defaultColors.background) ? -30 : 30
-                      )
-                    }} className="mb-2">
-                      This is how your collection page will look.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        className="px-4 py-2 rounded-lg text-sm font-medium"
-                        style={{
-                          backgroundColor: formData.theme_primary_color || defaultColors.primary,
-                          color: '#ffffff'
-                        }}
-                      >
-                        Primary Button
-                      </button>
-                      <button
-                        className="px-4 py-2 rounded-lg text-sm font-medium"
-                        style={{
-                          backgroundColor: formData.theme_secondary_color || defaultColors.secondary,
-                          color: '#ffffff'
-                        }}
-                      >
-                        Secondary Button
-                      </button>
-                    </div>
-                  </div>
+                  />
+                )}
+                <h3 style={{
+                  color: formData.theme_text_color || defaultColors.text
+                }} className="text-lg font-semibold mb-2">
+                  Collection Theme
+                </h3>
+                <p style={{
+                  color: adjustColorBrightness(
+                    formData.theme_text_color || defaultColors.text, 
+                    isColorDark(formData.theme_background_color || defaultColors.background) ? -30 : 30
+                  )
+                }} className="mb-2">
+                  This is how your collection page will look.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    className="px-4 py-2 rounded-lg text-sm font-medium"
+                    style={{
+                      backgroundColor: formData.theme_primary_color || defaultColors.primary,
+                      color: '#ffffff'
+                    }}
+                  >
+                    Primary Button
+                  </button>
+                  <button
+                    className="px-4 py-2 rounded-lg text-sm font-medium"
+                    style={{
+                      backgroundColor: formData.theme_secondary_color || defaultColors.secondary,
+                      color: '#ffffff'
+                    }}
+                  >
+                    Secondary Button
+                  </button>
                 </div>
               </div>
-              
-              <p className="text-xs text-gray-400 mt-2">
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-400 mt-2">
                 {!hasCustomColors && (
                   <span className="block text-gray-400">
                     Using site theme colors. Customize colors above to create your unique theme.
                   </span>
                 )}
-                {formData.theme_use_classic === false && (
-                  <span className="block mt-1 text-yellow-400">
-                    Dynamic mode is active: This will generate a complete theme based on your colors.
-                  </span>
-                )}
-              </p>
-              {livePreviewActive && (
-                <p className="text-xs text-primary mt-1 animate-pulse">
-                  Live preview is active: All changes are immediately visible throughout the entire site.
-                </p>
-              )}
-            </div>
-          </div>
+            {formData.theme_use_classic === false && (
+              <span className="block mt-1 text-yellow-400">
+                Dynamic mode is active: This will generate a complete theme based on your colors.
+              </span>
+            )}
+          </p>
+          {livePreviewActive && (
+            <p className="text-xs text-primary mt-1 animate-pulse">
+              Live preview is active: All changes are immediately visible throughout the entire site.
+            </p>
+          )}
+        </div>
+      </div>
         </>
       )}
     </div>
