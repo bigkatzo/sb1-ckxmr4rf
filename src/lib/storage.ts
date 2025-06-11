@@ -9,7 +9,7 @@ import imageCompression from 'browser-image-compression';
 // For debugging storage issues
 const DEBUG_STORAGE = false;
 
-export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets' | 'profile-images' | 'product-design-files';
+export type StorageBucket = 'collection-images' | 'product-images' | 'site-assets' | 'profile-images' | 'product-design-files' | 'collection-logos';
 
 export interface UploadResult {
   path: string;

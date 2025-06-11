@@ -52,6 +52,21 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
     theme_logo_url: collection?.theme_logo_url
   });
 
+  // Update theme data when collection changes
+  useEffect(() => {
+    if (collection) {
+      setThemeData({
+        theme_primary_color: collection.theme_primary_color,
+        theme_secondary_color: collection.theme_secondary_color,
+        theme_background_color: collection.theme_background_color,
+        theme_text_color: collection.theme_text_color,
+        theme_use_custom: collection.theme_use_custom || false,
+        theme_use_classic: collection.theme_use_classic !== false,
+        theme_logo_url: collection.theme_logo_url
+      });
+    }
+  }, [collection]);
+
   const { getRootProps, getInputProps } = useDropzone({
     accept: { 'image/*': [] },
     maxFiles: 1,
@@ -232,6 +247,21 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       document.body.style.overflow = 'unset';
     };
   }, []);
+
+  // Update theme data when collection changes
+  useEffect(() => {
+    if (collection) {
+      setThemeData({
+        theme_primary_color: collection.theme_primary_color,
+        theme_secondary_color: collection.theme_secondary_color,
+        theme_background_color: collection.theme_background_color,
+        theme_text_color: collection.theme_text_color,
+        theme_use_custom: collection.theme_use_custom || false,
+        theme_use_classic: collection.theme_use_classic !== false,
+        theme_logo_url: collection.theme_logo_url
+      });
+    }
+  }, [collection]);
 
   return (
     <Dialog
@@ -634,7 +664,6 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
               <CollectionThemeSettings
                 formData={themeData}
                 onChange={handleThemeChange}
-                collectionId={collection?.id || ''}
               />
               
               <div className="mt-6 flex justify-end gap-3">

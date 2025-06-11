@@ -50,12 +50,12 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
             loading={loadingPriority !== undefined ? (loadingPriority < 3 ? "eager" : "lazy") : undefined}
           />
         ) : (
-          <div className="h-full w-full bg-gray-800 flex items-center justify-center">
-            <ImageIcon className="h-6 w-6 sm:h-8 sm:w-8 md:h-12 md:w-12 text-gray-600" />
+          <div className="h-full w-full bg-background-800 flex items-center justify-center">
+            <ImageIcon className="h-6 w-6 sm:h-8 sm:w-8 md:h-12 md:w-12 text-background-600" />
           </div>
         )}
         
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/25 to-transparent">
+        <div className="absolute inset-0 bg-gradient-to-t from-background-900/90 via-background-900/25 to-transparent">
           {(isUpcoming || isNew || collection.saleEnded) && (
             <div className="absolute inset-x-0 bottom-2 sm:bottom-3 flex justify-center">
               <div className="flex items-center gap-1.5 sm:gap-2">

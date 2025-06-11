@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Upload, Eye, EyeOff, X } from 'lucide-react';
 import { isColorDark, adjustColorBrightness } from '../../../styles/themeUtils';
-import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-toastify';
 import { useSiteSettings } from '../../../hooks/useSiteSettings';
+import { uploadImage } from '../../../lib/storage';
 
 interface ThemeFormData {
   theme_primary_color?: string;
@@ -18,10 +18,9 @@ interface ThemeFormData {
 interface CollectionThemeSettingsProps {
   formData: ThemeFormData;
   onChange: (field: keyof ThemeFormData, value: any) => void;
-  collectionId: string;
 }
 
-export function CollectionThemeSettings({ formData, onChange, collectionId }: CollectionThemeSettingsProps) {
+export function CollectionThemeSettings({ formData, onChange }: CollectionThemeSettingsProps) {
   const [livePreviewActive, setLivePreviewActive] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const { data: siteSettings, isLoading: isLoadingSiteSettings } = useSiteSettings();
@@ -42,28 +41,16 @@ export function CollectionThemeSettings({ formData, onChange, collectionId }: Co
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file size (2MB max)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Logo file must be under 2MB');
-      return;
-    }
-
     setUploadingLogo(true);
 
     try {
-      const { data, error } = await supabase.storage
-        .from('logos')
-        .upload(`collection-${collectionId}-${Date.now()}`, file);
+      // Use our shared uploadImage function with standard options
+      const publicUrl = await uploadImage(file, 'collection-logos', {
+        maxSizeMB: 2,
+        webpHandling: 'preserve' // Preserve original format for logos
+      });
 
-      if (error) throw error;
-
-      if (data) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('logos')
-          .getPublicUrl(data.path);
-
-        onChange('theme_logo_url', publicUrl);
-      }
+      onChange('theme_logo_url', publicUrl);
     } catch (error) {
       console.error('Error uploading logo:', error);
       toast.error('Failed to upload logo. Please try again.');
