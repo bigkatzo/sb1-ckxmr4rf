@@ -56,8 +56,25 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const isSystemRoute = ['search', 'merchant', 'admin', 'orders', 'tracking', 'api'].includes(pathParts[0]);
   const slug = !isSystemRoute && pathParts.length > 0 ? pathParts[0] : undefined;
   
+  // Debug: Log URL parsing
+  console.log('ThemeProvider URL parsing:', {
+    pathname: location.pathname,
+    pathParts,
+    isSystemRoute,
+    detectedSlug: slug
+  });
+  
   // Use the useCollection hook to get collection data when on a collection or product page
   const { collection, loading: isLoadingCollection } = useCollection(slug || '');
+
+  // Debug: Log collection data received by ThemeContext
+  console.log('ThemeProvider collection data:', {
+    hasCollection: !!collection,
+    collectionSlug: collection?.slug,
+    collectionId: collection?.id,
+    themeUseCustom: collection?.theme_use_custom,
+    isLoadingCollection
+  });
 
   // Check if a collection has enough theme settings to be considered customized
   const hasCustomTheme = useCallback((collection: any): boolean => {
