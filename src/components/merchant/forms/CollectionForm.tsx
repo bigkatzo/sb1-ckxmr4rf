@@ -169,18 +169,25 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
 
       await onSubmit(formData);
       
-      // Invalidate all relevant caches to ensure fresh data
+      // Selective cache invalidation - only clear theme-related data for performance
       if (collection?.slug) {
-        // Invalidate collection by slug
+        // Only invalidate the specific collection's theme-related cache
+        // Keep images, products, and other performance-critical data cached
+        const collectionCacheKey = `collection:${collection.slug}`;
+        const collectionIdCacheKey = `collection:${collection.id}`;
+        
+        // Invalidate collection data (contains theme info)
         invalidateCollection(collection.slug);
-        // Invalidate collection by ID
-        cacheManager.invalidateKey(`collection:${collection.id}`);
-        // Invalidate collection static data
-        cacheManager.invalidateKey(`collection_static:${collection.id}`);
-        // Invalidate public collections list
-        cacheManager.invalidateKey('public_collections');
-        // Invalidate merchant collections list
-        cacheManager.invalidateKey('merchant_collections');
+        cacheManager.invalidateKey(collectionCacheKey);
+        cacheManager.invalidateKey(collectionIdCacheKey);
+        
+        // DON'T invalidate these performance-critical caches:
+        // - collection_static (images, basic info)
+        // - product images or product data
+        // - public_collections (list view)
+        // - merchant_collections (admin list)
+        
+        console.log('Theme cache invalidated for:', collection.slug);
         
         // Add small delay to ensure cache invalidation events are processed
         await new Promise(resolve => setTimeout(resolve, 100));

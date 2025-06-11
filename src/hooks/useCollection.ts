@@ -110,20 +110,6 @@ export function useCollection(slug: string) {
         if (collectionError) throw collectionError;
         if (!collectionData) throw new Error('Collection not found');
 
-        // Debug: Log the raw collection data from database
-        console.log('Raw collection data from database:', {
-          id: collectionData.id,
-          name: collectionData.name,
-          slug: collectionData.slug,
-          theme_primary_color: collectionData.theme_primary_color,
-          theme_secondary_color: collectionData.theme_secondary_color,
-          theme_background_color: collectionData.theme_background_color,
-          theme_text_color: collectionData.theme_text_color,
-          theme_use_custom: collectionData.theme_use_custom,
-          theme_use_classic: collectionData.theme_use_classic,
-          theme_logo_url: collectionData.theme_logo_url
-        });
-
         // Then fetch categories and products in parallel from public views
         const [categoriesResponse, productsResponse, orderCountsResponse] = await Promise.all([
           supabase
@@ -319,20 +305,6 @@ export function useCollection(slug: string) {
           isOwner: false,
           owner_username: null
         };
-
-        // Debug: Log the transformed collection with theme data
-        console.log('Transformed collection object:', {
-          id: transformedCollection.id,
-          name: transformedCollection.name,
-          slug: transformedCollection.slug,
-          theme_primary_color: transformedCollection.theme_primary_color,
-          theme_secondary_color: transformedCollection.theme_secondary_color,
-          theme_background_color: transformedCollection.theme_background_color,
-          theme_text_color: transformedCollection.theme_text_color,
-          theme_use_custom: transformedCollection.theme_use_custom,
-          theme_use_classic: transformedCollection.theme_use_classic,
-          theme_logo_url: transformedCollection.theme_logo_url
-        });
 
         // Cache the complete collection
         await cacheManager.set(
