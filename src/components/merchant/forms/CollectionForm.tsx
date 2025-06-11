@@ -8,6 +8,7 @@ import { Dialog } from '@headlessui/react';
 import { OptimizedImage } from '../../ui/OptimizedImage';
 import { CollectionThemeSettings } from './CollectionThemeSettings';
 import { toast } from 'react-toastify';
+import { useSiteSettings } from '../../../hooks/useSiteSettings';
 
 export interface CollectionFormProps {
   collection?: Partial<Collection & { tags?: string[] }>;
@@ -42,30 +43,32 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       : formatDateForInput(new Date())
   );
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const { data: siteSettings } = useSiteSettings();
+  
   const [themeData, setThemeData] = useState({
-    theme_primary_color: collection?.theme_primary_color,
-    theme_secondary_color: collection?.theme_secondary_color,
-    theme_background_color: collection?.theme_background_color,
-    theme_text_color: collection?.theme_text_color,
+    theme_primary_color: collection?.theme_primary_color || siteSettings?.theme_primary_color,
+    theme_secondary_color: collection?.theme_secondary_color || siteSettings?.theme_secondary_color,
+    theme_background_color: collection?.theme_background_color || siteSettings?.theme_background_color,
+    theme_text_color: collection?.theme_text_color || siteSettings?.theme_text_color,
     theme_use_custom: collection?.theme_use_custom || false,
     theme_use_classic: collection?.theme_use_classic !== false,
     theme_logo_url: collection?.theme_logo_url
   });
 
-  // Update theme data when collection changes
+  // Update theme data when collection or site settings change
   useEffect(() => {
-    if (collection) {
+    if (collection || siteSettings) {
       setThemeData({
-        theme_primary_color: collection.theme_primary_color,
-        theme_secondary_color: collection.theme_secondary_color,
-        theme_background_color: collection.theme_background_color,
-        theme_text_color: collection.theme_text_color,
-        theme_use_custom: collection.theme_use_custom || false,
-        theme_use_classic: collection.theme_use_classic !== false,
-        theme_logo_url: collection.theme_logo_url
+        theme_primary_color: collection?.theme_primary_color || siteSettings?.theme_primary_color,
+        theme_secondary_color: collection?.theme_secondary_color || siteSettings?.theme_secondary_color,
+        theme_background_color: collection?.theme_background_color || siteSettings?.theme_background_color,
+        theme_text_color: collection?.theme_text_color || siteSettings?.theme_text_color,
+        theme_use_custom: collection?.theme_use_custom || false,
+        theme_use_classic: collection?.theme_use_classic !== false,
+        theme_logo_url: collection?.theme_logo_url
       });
     }
-  }, [collection]);
+  }, [collection, siteSettings]);
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: { 'image/*': [] },
@@ -247,21 +250,6 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       document.body.style.overflow = 'unset';
     };
   }, []);
-
-  // Update theme data when collection changes
-  useEffect(() => {
-    if (collection) {
-      setThemeData({
-        theme_primary_color: collection.theme_primary_color,
-        theme_secondary_color: collection.theme_secondary_color,
-        theme_background_color: collection.theme_background_color,
-        theme_text_color: collection.theme_text_color,
-        theme_use_custom: collection.theme_use_custom || false,
-        theme_use_classic: collection.theme_use_classic !== false,
-        theme_logo_url: collection.theme_logo_url
-      });
-    }
-  }, [collection]);
 
   return (
     <Dialog
@@ -672,10 +660,10 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                   onClick={() => {
                     // Reset theme data to what it was before opening modal
                     setThemeData({
-                      theme_primary_color: collection?.theme_primary_color,
-                      theme_secondary_color: collection?.theme_secondary_color,
-                      theme_background_color: collection?.theme_background_color,
-                      theme_text_color: collection?.theme_text_color,
+                      theme_primary_color: collection?.theme_primary_color || siteSettings?.theme_primary_color,
+                      theme_secondary_color: collection?.theme_secondary_color || siteSettings?.theme_secondary_color,
+                      theme_background_color: collection?.theme_background_color || siteSettings?.theme_background_color,
+                      theme_text_color: collection?.theme_text_color || siteSettings?.theme_text_color,
                       theme_use_custom: collection?.theme_use_custom || false,
                       theme_use_classic: collection?.theme_use_classic !== false,
                       theme_logo_url: collection?.theme_logo_url

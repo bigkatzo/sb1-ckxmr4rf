@@ -100,15 +100,17 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   // Check if a collection has enough theme settings to be considered customized
   const hasCustomTheme = (collection: any): boolean => {
-    if (!collection?.theme_use_custom) return false;
+    // If theme_use_custom is explicitly set to false, don't use custom theme
+    if (collection?.theme_use_custom === false) return false;
     
-    // Check if at least one theme color is set
+    // If any theme value is set, consider it a custom theme
     return !!(
-      collection.theme_primary_color ||
-      collection.theme_secondary_color ||
-      collection.theme_background_color ||
-      collection.theme_text_color ||
-      collection.theme_logo_url
+      collection?.theme_use_custom ||
+      collection?.theme_primary_color ||
+      collection?.theme_secondary_color ||
+      collection?.theme_background_color ||
+      collection?.theme_text_color ||
+      collection?.theme_logo_url
     );
   };
   
