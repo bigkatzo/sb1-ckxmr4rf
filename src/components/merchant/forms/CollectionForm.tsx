@@ -181,6 +181,9 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
         cacheManager.invalidateKey('public_collections');
         // Invalidate merchant collections list
         cacheManager.invalidateKey('merchant_collections');
+        
+        // Add small delay to ensure cache invalidation events are processed
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       toast.success('Theme settings saved successfully');

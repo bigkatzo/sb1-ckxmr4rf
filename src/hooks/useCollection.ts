@@ -15,6 +15,23 @@ export function useCollection(slug: string) {
   useEffect(() => {
     let isMounted = true;
     
+    // Cache keys to listen for invalidation
+    const cacheKeys = [`collection:${slug}`, `collection_static:${slug}`, `collection_dynamic:${slug}`];
+    
+    // Function to handle cache invalidation
+    const handleCacheInvalidation = (invalidatedKey: string) => {
+      if (cacheKeys.some(key => invalidatedKey.includes(key) || key.includes(invalidatedKey))) {
+        console.log('Collection cache invalidated, refetching...', invalidatedKey);
+        // Refetch collection data when cache is invalidated
+        if (isMounted && !isFetchingRef.current) {
+          revalidateCollection();
+        }
+      }
+    };
+    
+    // Listen for cache invalidation events
+    cacheManager.on('invalidated', handleCacheInvalidation);
+    
     async function fetchCollection() {
       if (!slug || !isValidCollectionSlug(slug)) {
         if (isMounted) {
@@ -251,13 +268,10 @@ export function useCollection(slug: string) {
           id: collectionData.id,
           name: collectionData.name,
           description: collectionData.description,
-          image_url: collectionData.image_url || '',
           imageUrl: collectionData.image_url ? normalizeStorageUrl(collectionData.image_url) : '',
-          launch_date: collectionData.launch_date,
           launchDate: new Date(collectionData.launch_date),
           featured: collectionData.featured || false,
           visible: collectionData.visible ?? true,
-          sale_ended: collectionData.sale_ended ?? false,
           saleEnded: collectionData.sale_ended ?? false,
           slug: collectionData.slug,
           user_id: collectionData.user_id || '',
@@ -332,6 +346,8 @@ export function useCollection(slug: string) {
     
     return () => {
       isMounted = false;
+      // Remove cache invalidation listener
+      cacheManager.off('invalidated', handleCacheInvalidation);
     };
   }, [slug]);
 
