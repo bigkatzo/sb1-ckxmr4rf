@@ -562,7 +562,8 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
       <div className="min-h-screen w-full flex items-start justify-center p-0 pt-14 sm:p-4 sm:pt-16 sm:items-center">
         <div 
           ref={modalRef}
-          className="relative bg-gray-900 w-full min-h-[calc(100vh-56px)] sm:min-h-0 sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden z-[45]"
+          className="relative w-full min-h-[calc(100vh-56px)] sm:min-h-0 sm:h-auto sm:max-h-[90vh] sm:w-[800px] sm:max-w-5xl sm:rounded-xl overflow-hidden z-[45]"
+          style={{ backgroundColor: 'var(--color-card-background)' }}
         >
           <div className="absolute top-4 right-4 z-[47] flex items-center gap-2">
             <ShareButton 
@@ -582,7 +583,10 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
 
           {/* Mobile: Single scroll container, Desktop: Grid layout */}
           <div className="min-h-screen sm:min-h-0 sm:h-auto md:grid md:grid-cols-2">
-            <div className="w-full aspect-square md:aspect-auto md:h-[600px] relative bg-gray-950/50 overflow-hidden">
+            <div 
+              className="w-full aspect-square md:aspect-auto md:h-[600px] relative overflow-hidden"
+              style={{ backgroundColor: 'var(--color-background)' }}
+            >
               {/* Fixed navigation arrows */}
               {images.length > 1 && (
                 <>
@@ -701,15 +705,32 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     <Link
                       to={`/${product.collectionSlug}`}
                       onClick={onClose}
-                      className="text-sm text-gray-400 hover:text-secondary transition-colors"
+                      className="text-sm transition-colors"
+                      style={{ 
+                        color: 'var(--color-text-muted)',
+                        '--hover-color': 'var(--color-secondary)'
+                      } as React.CSSProperties}
+                      onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-secondary)'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}
                     >
                       {product.collectionName}
                     </Link>
                   )}
 
                   <div>
-                    <h2 id="modal-title" className="text-xl font-bold text-white">{product.name}</h2>
-                    <p className="mt-2 text-sm text-gray-400">{product.description}</p>
+                    <h2 
+                      id="modal-title" 
+                      className="text-xl font-bold"
+                      style={{ color: 'var(--color-text)' }}
+                    >
+                      {product.name}
+                    </h2>
+                    <p 
+                      className="mt-2 text-sm"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      {product.description}
+                    </p>
                   </div>
 
                   {hasVariants && (
@@ -747,9 +768,20 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                   />
 
                   {product.category && (
-                    <div className="border-t border-gray-800 pt-4">
-                      <h3 className="text-sm font-medium text-white mb-2">Category & Eligibility</h3>
-                      <div className="bg-gray-950/50 rounded-lg p-3">
+                    <div 
+                      className="border-t pt-4"
+                      style={{ borderColor: 'var(--color-card-background)' }}
+                    >
+                      <h3 
+                        className="text-sm font-medium mb-2"
+                        style={{ color: 'var(--color-text)' }}
+                      >
+                        Category & Eligibility
+                      </h3>
+                      <div 
+                        className="rounded-lg p-3"
+                        style={{ backgroundColor: 'var(--color-background)' }}
+                      >
                         <CategoryDescription 
                           category={product.category} 
                           categoryIndex={categoryIndex}
@@ -766,7 +798,13 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
               </div>
 
               {/* Buy button for mobile - fixed position */}
-              <div className="fixed md:hidden bottom-0 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-[47] safe-area-bottom">
+              <div 
+                className="fixed md:hidden bottom-0 left-0 right-0 p-4 backdrop-blur-sm border-t z-[47] safe-area-bottom"
+                style={{ 
+                  backgroundColor: 'rgba(var(--color-card-background-rgb), 0.95)',
+                  borderColor: 'var(--color-card-background)' 
+                }}
+              >
                 <ProductBuyButton
                   product={product}
                   selectedOptions={selectedOptions}

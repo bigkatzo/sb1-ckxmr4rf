@@ -21,16 +21,25 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <span className="text-2xl font-bold text-white">
+        <span 
+          className="text-2xl font-bold"
+          style={{ color: 'var(--color-text)' }}
+        >
           {modifiedPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
         </span>
         {priceLoading && (
-          <span className="text-sm text-gray-500 animate-pulse">
+          <span 
+            className="text-sm animate-pulse"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
             Calculating price...
           </span>
         )}
       </div>
-      <div className="text-sm text-gray-400">
+      <div 
+        className="text-sm"
+        style={{ color: 'var(--color-text-muted)' }}
+      >
         {ordersLoading ? (
           <span className="animate-pulse">Loading stock...</span>
         ) : (

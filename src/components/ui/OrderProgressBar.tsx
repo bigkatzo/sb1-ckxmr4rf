@@ -62,14 +62,27 @@ export function OrderProgressBar({
   }
 
   return (
-    <div className="space-y-4 bg-gray-950/50 rounded-lg p-4">
+    <div 
+      className="space-y-4 rounded-lg p-4"
+      style={{ backgroundColor: 'var(--color-background)' }}
+    >
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-1 relative">
-          <span className="text-gray-400">Bonding Curve</span>
+          <span style={{ color: 'var(--color-text-muted)' }}>Bonding Curve</span>
           <button 
-            className="text-gray-500 hover:text-gray-300 transition-colors"
-            onMouseEnter={() => setShowTooltip(true)}
-            onMouseLeave={() => setShowTooltip(false)}
+            className="transition-colors"
+            style={{ 
+              color: 'var(--color-text-disabled)',
+              '--hover-color': 'var(--color-text-muted)'
+            } as React.CSSProperties}
+            onMouseEnter={(e) => {
+              setShowTooltip(true);
+              e.currentTarget.style.color = 'var(--color-text-muted)';
+            }}
+            onMouseLeave={(e) => {
+              setShowTooltip(false);
+              e.currentTarget.style.color = 'var(--color-text-disabled)';
+            }}
             onClick={() => setShowTooltip(!showTooltip)}
           >
             <HelpCircle size={14} />

@@ -29,34 +29,74 @@ export function ProductNotes({ notes, freeNotes }: ProductNotesProps) {
   const displayFreeNotes = hasFreeNotes ? freeNotes : '';
 
   return (
-    <div className="border-t border-gray-800 pt-4">
-      <h3 className="text-sm font-medium text-white mb-2">Product Notes</h3>
+    <div 
+      className="border-t pt-4"
+      style={{ borderColor: 'var(--color-card-background)' }}
+    >
+      <h3 
+        className="text-sm font-medium mb-2"
+        style={{ color: 'var(--color-text-primary)' }}
+      >
+        Product Notes
+      </h3>
       <div className="space-y-2">
         {displayNotes.shipping && (
-          <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
+          <div 
+            className="flex items-start gap-2 rounded-lg p-3"
+            style={{ backgroundColor: 'var(--color-background)' }}
+          >
             <Package className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-gray-300">{displayNotes.shipping}</p>
+            <p 
+              className="text-sm"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {displayNotes.shipping}
+            </p>
           </div>
         )}
         
         {displayNotes.quality && (
-          <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
+          <div 
+            className="flex items-start gap-2 rounded-lg p-3"
+            style={{ backgroundColor: 'var(--color-background)' }}
+          >
             <ShieldCheck className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-gray-300">{displayNotes.quality}</p>
+            <p 
+              className="text-sm"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {displayNotes.quality}
+            </p>
           </div>
         )}
         
         {displayNotes.returns && (
-          <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
+          <div 
+            className="flex items-start gap-2 rounded-lg p-3"
+            style={{ backgroundColor: 'var(--color-background)' }}
+          >
             <Ban className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-gray-300">{displayNotes.returns}</p>
+            <p 
+              className="text-sm"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {displayNotes.returns}
+            </p>
           </div>
         )}
 
         {hasFreeNotes && (
-          <div className="flex items-start gap-2 bg-gray-950/50 rounded-lg p-3">
+          <div 
+            className="flex items-start gap-2 rounded-lg p-3"
+            style={{ backgroundColor: 'var(--color-background)' }}
+          >
             <Info className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-gray-300 whitespace-pre-wrap">{displayFreeNotes}</p>
+            <p 
+              className="text-sm whitespace-pre-wrap"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {displayFreeNotes}
+            </p>
           </div>
         )}
 

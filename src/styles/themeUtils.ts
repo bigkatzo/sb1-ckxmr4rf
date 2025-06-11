@@ -315,6 +315,12 @@ export function applyTheme(
   root.style.setProperty('--color-background', validBackgroundColor);
   root.style.setProperty('--color-text', validTextColor);
   
+  // Apply RGB versions for transparency usage
+  root.style.setProperty('--color-primary-rgb', hexToRgb(validPrimaryColor));
+  root.style.setProperty('--color-secondary-rgb', hexToRgb(validSecondaryColor));
+  root.style.setProperty('--color-background-rgb', hexToRgb(validBackgroundColor));
+  root.style.setProperty('--color-text-rgb', hexToRgb(validTextColor));
+  
   // Apply derived colors for hover states and UI elements
   const isDark = isColorDark(validBackgroundColor);
   root.style.setProperty('--color-primary-hover', adjustColorBrightness(validPrimaryColor, isDark ? 15 : -15));
@@ -322,10 +328,18 @@ export function applyTheme(
   root.style.setProperty('--color-background-hover', adjustColorBrightness(validBackgroundColor, isDark ? 15 : -15));
   
   // Apply card and input colors
-  root.style.setProperty('--color-card-background', adjustColorBrightness(validBackgroundColor, isDark ? 15 : -15));
-  root.style.setProperty('--color-input-background', adjustColorBrightness(validBackgroundColor, isDark ? 10 : -10));
+  const cardBackgroundColor = adjustColorBrightness(validBackgroundColor, isDark ? 15 : -15);
+  const inputBackgroundColor = adjustColorBrightness(validBackgroundColor, isDark ? 10 : -10);
+  root.style.setProperty('--color-card-background', cardBackgroundColor);
+  root.style.setProperty('--color-input-background', inputBackgroundColor);
+  
+  // Apply RGB versions for transparency
+  root.style.setProperty('--color-card-background-rgb', hexToRgb(cardBackgroundColor));
+  root.style.setProperty('--color-input-background-rgb', hexToRgb(inputBackgroundColor));
   
   // Apply text contrast colors
+  root.style.setProperty('--color-text-primary', validTextColor);
+  root.style.setProperty('--color-text-secondary', adjustColorBrightness(validTextColor, isDark ? -20 : 20));
   root.style.setProperty('--color-text-muted', adjustColorBrightness(validTextColor, isDark ? -30 : 30));
   root.style.setProperty('--color-text-disabled', adjustColorBrightness(validTextColor, isDark ? -50 : 50));
   
