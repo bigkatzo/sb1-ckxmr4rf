@@ -135,7 +135,7 @@ export function CollectionListItem({
                 ) : (
                   <>
                     {collection.isOwner ? (
-                      <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-purple-500/20 text-purple-400">
+                      <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-primary/20 text-primary">
                         Owner
                       </span>
                     ) : (

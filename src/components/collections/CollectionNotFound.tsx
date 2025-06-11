@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Home, AlertCircle } from 'lucide-react';
 
@@ -18,7 +17,7 @@ export function CollectionNotFound({ error }: CollectionNotFoundProps) {
       </p>
       <Link
         to="/"
-        className="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors"
+        className="inline-flex items-center space-x-2 bg-primary hover:bg-primary-hover text-white px-6 py-3 rounded-lg transition-colors"
       >
         <Home className="h-5 w-5" />
         <span>Return Home</span>

@@ -150,7 +150,7 @@ export function CouponsTab() {
             <RefreshButton onRefresh={loadCoupons} />
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
+              className="flex items-center justify-center gap-1 bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded-lg transition-colors text-sm whitespace-nowrap"
             >
               <Plus className="h-4 w-4" />
               <span>Add Coupon</span>
@@ -197,7 +197,7 @@ export function CouponsTab() {
                   </div>
                   
                   <div className="flex items-center flex-wrap gap-2 mt-1">
-                    <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                       {coupon.discount_type === 'fixed_sol' 
                         ? `${coupon.discount_value} SOL off`
                         : `${coupon.discount_value}% off`}

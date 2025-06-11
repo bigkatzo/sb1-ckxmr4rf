@@ -627,7 +627,7 @@ export function CollectionPage() {
 
             <div className="absolute top-0 left-0 w-full p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               {isUpcoming ? (
-                <div className="flex items-center gap-2 bg-purple-500/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
+                <div className="flex items-center gap-2 bg-primary/90 backdrop-blur-sm text-white px-2.5 py-1 sm:px-4 sm:py-2 md:px-5 md:py-2.5 rounded-xl sm:rounded-2xl">
                   <Clock className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
                   <CountdownTimer 
                     targetDate={collection.launchDate!} 

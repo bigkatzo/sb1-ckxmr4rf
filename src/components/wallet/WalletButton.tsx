@@ -22,7 +22,7 @@ export function WalletButton() {
     <>
       <button
         onClick={handleClick}
-        className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm transition-colors whitespace-nowrap"
+        className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm transition-colors whitespace-nowrap"
       >
         <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         <span>

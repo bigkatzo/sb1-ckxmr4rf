@@ -280,7 +280,7 @@ export function OrdersPage() {
             onClick={() => {
               window.location.reload();
             }}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm"
+            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-md transition-colors text-sm"
           >
             Verify Now
           </button>
@@ -305,7 +305,7 @@ export function OrdersPage() {
             onClick={() => {
               window.location.reload();
             }}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm"
+            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-md transition-colors text-sm"
           >
             Reconnect
           </button>
@@ -498,7 +498,7 @@ export function OrdersPage() {
                               href={getTransactionUrl(group[0].transactionSignature)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`text-xs ${isStripeReceiptUrl(group[0].transactionSignature) || group[0].transactionSignature?.startsWith('pi_') ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
+                              className={`${isStripeReceiptUrl(group[0].transactionSignature) || group[0].transactionSignature?.startsWith('pi_') ? '' : 'font-mono'} text-secondary hover:text-secondary-hover flex items-center gap-1`}
                             >
                               {formatTransactionSignature(group[0].transactionSignature)}
                               <ExternalLink className="h-3 w-3" />
@@ -519,7 +519,7 @@ export function OrdersPage() {
                           {group[0].tracking.tracking_number ? (
                             <Link
                               to={`/tracking/${group[0].tracking.tracking_number}`}
-                              className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                              className="text-xs text-secondary hover:text-secondary-hover flex items-center gap-1"
                               target="_blank"
                               rel="noopener noreferrer"
                             >

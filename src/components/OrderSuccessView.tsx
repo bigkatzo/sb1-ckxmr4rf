@@ -210,7 +210,7 @@ export function OrderSuccessView({
         <motion.div
           initial={{ y: 20 }}
           animate={{ y: 0 }}
-          className="relative w-full max-w-md sm:max-w-lg bg-gradient-to-br from-purple-900/90 via-indigo-900/90 to-blue-900/90 rounded-xl p-4 sm:p-6 overflow-hidden"
+          className="relative w-full max-w-md sm:max-w-lg bg-gradient-to-br from-primary/90 via-primary-dark/90 to-secondary/90 rounded-xl p-4 sm:p-6 overflow-hidden"
           onClick={e => e.stopPropagation()}
         >
           {/* Close button */}
@@ -223,7 +223,7 @@ export function OrderSuccessView({
           </button>
 
           {/* Holographic effect overlays - with pointer-events-none */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-transparent to-blue-500/10 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-secondary/10 pointer-events-none" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(120,0,255,0.1),transparent_70%)] pointer-events-none" />
           
           {/* Success animation */}
@@ -297,7 +297,7 @@ export function OrderSuccessView({
                   href={getTransactionUrl(transactionSignature)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`${isStripeReceiptUrl(transactionSignature) || transactionSignature?.startsWith('pi_') ? '' : 'font-mono'} text-purple-400 hover:text-purple-300 flex items-center gap-1`}
+                  className={`${isStripeReceiptUrl(transactionSignature) || transactionSignature?.startsWith('pi_') ? '' : 'font-mono'} text-secondary hover:text-secondary-hover flex items-center gap-1`}
                 >
                   {isStripeReceiptUrl(transactionSignature) 
                     ? 'View Receipt' 
@@ -316,7 +316,7 @@ export function OrderSuccessView({
                     href={receiptUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                    className="text-secondary hover:text-secondary-hover flex items-center gap-1"
                   >
                     View Receipt
                     <ExternalLink className="w-3 h-3" />
@@ -328,7 +328,7 @@ export function OrderSuccessView({
             <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mt-6 sm:mt-8">
               <button
                 onClick={handleOrdersNavigation}
-                className="px-4 sm:px-6 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                className="px-4 sm:px-6 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors"
               >
                 See My Orders
               </button>

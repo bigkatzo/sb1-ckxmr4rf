@@ -53,7 +53,7 @@ export function HowItWorksModal() {
             <div className="mt-4 sm:mt-5 space-y-3">
               <button
                 onClick={closeHowItWorks}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
+                className="w-full bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
               >
                 I'm ready to shop
               </button>

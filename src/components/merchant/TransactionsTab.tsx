@@ -371,7 +371,7 @@ export function TransactionsTab() {
                         {anomaly.type.replace(/_/g, ' ')}
                       </span>
                       {anomaly.amount_sol && (
-                        <span className="text-xs bg-purple-600/20 text-purple-400 px-1.5 py-0.5 rounded">
+                        <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded">
                           {anomaly.amount_sol} SOL
                         </span>
                       )}

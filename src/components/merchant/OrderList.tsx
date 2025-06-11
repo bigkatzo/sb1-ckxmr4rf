@@ -944,7 +944,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
       <div className="mt-4 pt-4 border-t border-gray-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Truck className="h-4 w-4 text-purple-400" />
+            <Truck className="h-4 w-4 text-secondary" />
             <span className="text-sm text-gray-400">Tracking Number</span>
           </div>
           {canEdit && (
@@ -952,7 +952,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               {!order.tracking?.tracking_number && (
                 <button
                   onClick={() => setEditingTrackingId(order.id)}
-                  className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                  className="text-xs text-secondary hover:text-secondary-hover flex items-center gap-1"
                 >
                   <Package className="h-3 w-3" />
                   Add Tracking
@@ -1056,7 +1056,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                       <button
                         type="button"
                         onClick={() => setShowAllCarriers(true)}
-                        className="mt-1 text-xs text-purple-400 hover:text-purple-300"
+                        className="mt-1 text-xs text-secondary hover:text-secondary-hover"
                       >
                         Show all {filteredCarriers.length} carriers
                       </button>
@@ -1073,7 +1073,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             <div className="flex items-center justify-end gap-2">
               <button
                 type="submit"
-                className="px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg flex items-center gap-1"
+                className="px-3 py-2 bg-primary hover:bg-primary-hover text-white text-sm rounded-lg flex items-center gap-1"
               >
                 <CheckCircle2 className="h-3 w-3" />
                 Save
