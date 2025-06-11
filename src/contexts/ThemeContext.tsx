@@ -60,8 +60,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     return !isSystemRoute && pathParts.length > 0 ? pathParts[0] : undefined;
   }, [location.pathname]);
   
-  // Only fetch collection data if we have a valid slug
-  const { collection, loading: isLoadingCollection } = useCollection(slug || '');
+  // Only fetch collection data if we have a valid slug - avoid unnecessary API calls
+  const shouldFetchCollection = Boolean(slug);
+  const { collection, loading: isLoadingCollection } = useCollection(shouldFetchCollection ? slug! : '');
 
   // Memoize theme detection for performance
   const hasCustomTheme = useCallback((collection: any): boolean => {
@@ -118,44 +119,55 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     });
   }, []);
   
-  // Apply theme when collection or default theme changes
-  useEffect(() => {
-        // Don't block on siteSettings - use defaults if not available
+  // Memoize theme calculation to avoid unnecessary re-renders
+  const calculatedTheme = useMemo(() => {
+    // Don't calculate if we don't have collection data when we should
+    if (shouldFetchCollection && isLoadingCollection) {
+      return null;
+    }
     
     // Performance: Only process if we're on a collection page with valid data
     if (collection && slug && hasCustomTheme(collection)) {
-      // Apply collection theme, falling back to site settings when not set
-      const newTheme = {
-        primaryColor: collection.theme_primary_color || siteSettings?.theme_primary_color || defaultTheme.primaryColor,
-        secondaryColor: collection.theme_secondary_color || siteSettings?.theme_secondary_color || defaultTheme.secondaryColor,
-        backgroundColor: collection.theme_background_color || siteSettings?.theme_background_color || defaultTheme.backgroundColor,
-        textColor: collection.theme_text_color || siteSettings?.theme_text_color || defaultTheme.textColor,
-        useClassic: collection.theme_use_classic === undefined ? true : collection.theme_use_classic,
-        logoUrl: collection.theme_logo_url
+      return {
+        theme: {
+          primaryColor: collection.theme_primary_color || siteSettings?.theme_primary_color || defaultTheme.primaryColor,
+          secondaryColor: collection.theme_secondary_color || siteSettings?.theme_secondary_color || defaultTheme.secondaryColor,
+          backgroundColor: collection.theme_background_color || siteSettings?.theme_background_color || defaultTheme.backgroundColor,
+          textColor: collection.theme_text_color || siteSettings?.theme_text_color || defaultTheme.textColor,
+          useClassic: collection.theme_use_classic === undefined ? true : collection.theme_use_classic,
+          logoUrl: collection.theme_logo_url
+        },
+        isCollectionTheme: true,
+        collectionSlug: collection.slug
       };
-      
-      setIsCollectionTheme(true);
-      setCollectionSlug(collection.slug);
-      applyThemeSettings(newTheme);
     } else {
       // Reset to site settings theme when not on a collection page or no custom theme defined
-      const siteTheme = {
-        primaryColor: siteSettings?.theme_primary_color || defaultTheme.primaryColor,
-        secondaryColor: siteSettings?.theme_secondary_color || defaultTheme.secondaryColor,
-        backgroundColor: siteSettings?.theme_background_color || defaultTheme.backgroundColor,
-        textColor: siteSettings?.theme_text_color || defaultTheme.textColor,
-        useClassic: true,
-        logoUrl: siteSettings?.theme_logo_url
+      return {
+        theme: {
+          primaryColor: siteSettings?.theme_primary_color || defaultTheme.primaryColor,
+          secondaryColor: siteSettings?.theme_secondary_color || defaultTheme.secondaryColor,
+          backgroundColor: siteSettings?.theme_background_color || defaultTheme.backgroundColor,
+          textColor: siteSettings?.theme_text_color || defaultTheme.textColor,
+          useClassic: true,
+          logoUrl: siteSettings?.theme_logo_url
+        },
+        isCollectionTheme: false,
+        collectionSlug: undefined
       };
-      
-      setIsCollectionTheme(false);
-      setCollectionSlug(undefined);
-      applyThemeSettings(siteTheme);
     }
-  }, [collection, siteSettings, slug, hasCustomTheme, applyThemeSettings]);
+  }, [collection, siteSettings, slug, hasCustomTheme, shouldFetchCollection, isLoadingCollection]);
+
+  // Apply theme only when calculated theme actually changes
+  useEffect(() => {
+    if (!calculatedTheme) return;
+    
+    setIsCollectionTheme(calculatedTheme.isCollectionTheme);
+    setCollectionSlug(calculatedTheme.collectionSlug);
+    applyThemeSettings(calculatedTheme.theme);
+  }, [calculatedTheme, applyThemeSettings]);
   
   // Performance: Only render when critical data is loaded
-  if (isLoadingSiteSettings || (slug && isLoadingCollection)) return null;
+  if (isLoadingSiteSettings || (shouldFetchCollection && isLoadingCollection)) return null;
   
   return (
     <ThemeContext.Provider value={{ currentTheme, isCollectionTheme, collectionSlug, setClassicMode }}>

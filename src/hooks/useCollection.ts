@@ -8,11 +8,18 @@ import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 
 export function useCollection(slug: string) {
   const [collection, setCollection] = useState<Collection | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!slug ? false : true); // Don't load if no slug
   const [error, setError] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
 
   useEffect(() => {
+    // Early return if no slug - avoid all the expensive cache and fetch logic
+    if (!slug) {
+      setCollection(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     let isMounted = true;
     
     // Cache keys to listen for invalidation
