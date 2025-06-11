@@ -149,8 +149,17 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       }
 
       // Add theme data
-      formData.append('theme_use_custom', 'true');
+      // Set theme_use_custom to true if any theme value is set
+      const hasCustomValues = !!(
+        themeData.theme_primary_color ||
+        themeData.theme_secondary_color ||
+        themeData.theme_background_color ||
+        themeData.theme_text_color ||
+        themeData.theme_logo_url
+      );
+      formData.append('theme_use_custom', hasCustomValues.toString());
       formData.append('theme_use_classic', themeData.theme_use_classic.toString());
+      
       if (themeData.theme_primary_color) {
         formData.append('theme_primary_color', themeData.theme_primary_color);
       }
