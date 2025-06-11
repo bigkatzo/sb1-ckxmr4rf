@@ -47,6 +47,9 @@
     <!-- Canonical URL -->
     <link rel="canonical" href="https://store.fun" />
     
+    <!-- Theme variables CSS - Load early for consistent theming -->
+    <link rel="stylesheet" href="/css/theme-variables.css" />
+    
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://store.fun" />
@@ -252,8 +255,6 @@
       });
     </script>
     <style id="critical-css">.text-primary{ color:var(--color-primary);}.text-secondary{ color:var(--color-secondary);}</style>
-    <!-- Theme Variables CSS - Load with highest priority to override Tailwind -->
-    <link rel="stylesheet" href="/css/theme-variables.css">
   </head>
   <body>
     <!-- Loading Screen -->

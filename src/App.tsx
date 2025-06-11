@@ -18,7 +18,7 @@ import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
 import { supabase } from './lib/supabase';
 import 'react-toastify/dist/ReactToastify.css';
-import '../public/css/theme-variables.css';
+import '/css/theme-variables.css';
 import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
 import { setupRealtimeHealth } from './lib/realtime/subscriptions';
@@ -128,11 +128,26 @@ export function App() {
         const style = document.createElement('style');
         style.id = 'theme-override-styles';
         style.innerHTML = `
-          /* Force purple overrides with theme variables */
-          .bg-purple-600, .hover\\:bg-purple-600:hover { background-color: var(--color-primary) !important; }
-          .bg-purple-700, .hover\\:bg-purple-700:hover { background-color: var(--color-primary-hover) !important; }
-          .text-purple-400, .hover\\:text-purple-400:hover { color: var(--color-primary) !important; }
-          .text-purple-300, .hover\\:text-purple-300:hover { color: var(--color-primary-light) !important; }
+          /* Comprehensive purple overrides with theme variables */
+          html body .bg-purple-300, html body .hover\\:bg-purple-300:hover { background-color: var(--color-primary-light) !important; }
+          html body .bg-purple-400, html body .hover\\:bg-purple-400:hover { background-color: var(--color-primary) !important; }
+          html body .bg-purple-500, html body .hover\\:bg-purple-500:hover { background-color: var(--color-primary) !important; }
+          html body .bg-purple-600, html body .hover\\:bg-purple-600:hover { background-color: var(--color-primary) !important; }
+          html body .bg-purple-700, html body .hover\\:bg-purple-700:hover { background-color: var(--color-primary-hover) !important; }
+          html body .bg-purple-900\\/20, html body .bg-purple-900\\/30, html body .bg-purple-900\\/50 { background-color: rgba(var(--color-primary-rgb), 0.2) !important; }
+          
+          html body .text-purple-200, html body .hover\\:text-purple-200:hover { color: var(--color-primary-light) !important; }
+          html body .text-purple-300, html body .hover\\:text-purple-300:hover { color: var(--color-primary-light) !important; }
+          html body .text-purple-400, html body .hover\\:text-purple-400:hover { color: var(--color-primary) !important; }
+          html body .text-purple-500, html body .hover\\:text-purple-500:hover { color: var(--color-primary) !important; }
+          
+          html body .bg-purple-500\\/10 { background-color: rgba(var(--color-primary-rgb), 0.1) !important; }
+          html body .bg-purple-500\\/20 { background-color: rgba(var(--color-primary-rgb), 0.2) !important; }
+          html body .bg-purple-600\\/20 { background-color: rgba(var(--color-primary-rgb), 0.2) !important; }
+          html body .bg-purple-700\\/60 { background-color: rgba(var(--color-primary-rgb), 0.6) !important; }
+          
+          html body .border-purple-500\\/20 { border-color: rgba(var(--color-primary-rgb), 0.2) !important; }
+          html body .border-purple-500, html body .border-b-2.border-purple-500 { border-color: var(--color-primary) !important; }
         `;
         document.head.appendChild(style);
         console.log('Theme override styles applied');
