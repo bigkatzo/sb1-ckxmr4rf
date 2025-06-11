@@ -140,7 +140,7 @@ export function AddToCartButton({
     <button
       onClick={handleAddToCart}
       disabled={disabled || isVerifying || !areAllOptionsSelected()}
-      className={`flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`flex items-center justify-center gap-1 bg-secondary hover:bg-secondary-hover text-white px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       aria-label="Add to cart"
     >
       {isVerifying ? (
