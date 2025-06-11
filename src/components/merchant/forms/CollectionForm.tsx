@@ -61,6 +61,19 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
 
   // Update theme data when collection or site settings change
   useEffect(() => {
+    // Debug: Log collection theme data
+    if (collection) {
+      console.log('Collection theme data received:', {
+        theme_primary_color: collection.theme_primary_color,
+        theme_secondary_color: collection.theme_secondary_color,
+        theme_background_color: collection.theme_background_color,
+        theme_text_color: collection.theme_text_color,
+        theme_use_custom: collection.theme_use_custom,
+        theme_use_classic: collection.theme_use_classic,
+        theme_logo_url: collection.theme_logo_url
+      });
+    }
+    
     // Always update when siteSettings becomes available, or collection data changes
     setThemeData({
       theme_primary_color: collection?.theme_primary_color || null,

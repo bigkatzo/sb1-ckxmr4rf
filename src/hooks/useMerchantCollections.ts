@@ -254,7 +254,14 @@ export function useMerchantCollections(options: {
             dexscreener_url,
             pumpfun_url,
             website_url,
-            free_notes
+            free_notes,
+            theme_primary_color,
+            theme_secondary_color,
+            theme_background_color,
+            theme_text_color,
+            theme_use_custom,
+            theme_use_classic,
+            theme_logo_url
           `)
           .order('created_at', { ascending: false });
       } catch (initialError) {
@@ -266,7 +273,7 @@ export function useMerchantCollections(options: {
           if (!session) throw new Error('No authentication session');
           
           // Build a proper URL manually
-          const url = `${SUPABASE_URL}/rest/v1/merchant_collections?select=id,name,description,image_url,launch_date,featured,visible,sale_ended,slug,user_id,access_type,owner_username,collection_access(user_id,access_type),custom_url,x_url,telegram_url,dexscreener_url,pumpfun_url,website_url,free_notes&order=created_at.desc`;
+          const url = `${SUPABASE_URL}/rest/v1/merchant_collections?select=id,name,description,image_url,launch_date,featured,visible,sale_ended,slug,user_id,access_type,owner_username,collection_access(user_id,access_type),custom_url,x_url,telegram_url,dexscreener_url,pumpfun_url,website_url,free_notes,theme_primary_color,theme_secondary_color,theme_background_color,theme_text_color,theme_use_custom,theme_use_classic,theme_logo_url&order=created_at.desc`;
           
           const response = await fetch(url, {
             headers: {
@@ -343,6 +350,14 @@ export function useMerchantCollections(options: {
           pumpfun_url: collection.pumpfun_url || '',
           website_url: collection.website_url || '',
           free_notes: collection.free_notes || '',
+          // Theme fields
+          theme_primary_color: collection.theme_primary_color || null,
+          theme_secondary_color: collection.theme_secondary_color || null,
+          theme_background_color: collection.theme_background_color || null,
+          theme_text_color: collection.theme_text_color || null,
+          theme_use_custom: collection.theme_use_custom || false,
+          theme_use_classic: collection.theme_use_classic !== false,
+          theme_logo_url: collection.theme_logo_url || null,
           productCount: productCountMap[collection.id] || 0,
           categoryCount: categoryCountMap[collection.id] || 0,
           accessType: collection.access_type,
