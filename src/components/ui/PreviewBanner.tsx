@@ -1,5 +1,5 @@
 import { Eye, X } from 'lucide-react';
-import { isPreviewMode } from '../../utils/preview';
+import { isPreviewMode, clearPreviewCache } from '../../utils/preview';
 
 interface PreviewBannerProps {
   onClose?: () => void;
@@ -10,7 +10,10 @@ export function PreviewBanner({ onClose }: PreviewBannerProps) {
     return null;
   }
 
-  const handleClose = () => {
+  const handleClose = async () => {
+    // Clear preview cache before removing the parameter
+    await clearPreviewCache();
+    
     // Remove preview parameter and reload
     const url = new URL(window.location.href);
     url.searchParams.delete('preview');

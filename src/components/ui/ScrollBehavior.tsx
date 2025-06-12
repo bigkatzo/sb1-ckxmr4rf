@@ -49,10 +49,10 @@ export function ScrollBehavior() {
     const hasPreview = searchParams.has('preview');
 
     // Remove preview parameter for navigation to homepage or different collections
-    if (hasPreview && !isCollectionProductNavigation) {
+    if (hasPreview) {
       // If going to homepage or a different collection, remove preview
       if (pathname === '/' || (segments.length === 1 && prevPath && !prevPath.startsWith(`/${segments[0]}`))) {
-        // Use the same approach as PreviewBanner for consistency
+        // Force a page reload to ensure clean state
         const url = new URL(window.location.href);
         url.searchParams.delete('preview');
         window.location.href = url.toString();

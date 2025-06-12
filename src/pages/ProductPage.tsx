@@ -7,6 +7,7 @@ import { useEffect, useState, useRef } from 'react';
 import SEO from '../components/SEO';
 import { preloadPageResources, prefetchGallery } from '../lib/service-worker';
 import { createPortal } from 'react-dom';
+import { clearPreviewCache } from '../utils/preview';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
@@ -134,16 +135,28 @@ export function ProductPage() {
   };
   
   // Handle closing the product modal and returning to collection page
-  const handleClose = () => {
+  const handleClose = async () => {
     const scrollPosition = location.state?.scrollPosition;
     // Only pass the category if it was explicitly selected before
     const activeCategory = location.state?.selectedCategoryId;
     
-    // Preserve preview mode if it was active
+    // Check if preview mode is being turned off
     const searchParams = new URLSearchParams(window.location.search);
     const hasPreview = searchParams.has('preview');
-    const collectionUrl = `/${collectionSlug}${hasPreview ? '?preview' : ''}`;
+    const newSearchParams = new URLSearchParams(window.location.search);
+    
+    // If preview parameter is being removed, we need to force a page reload
+    // to ensure the collection page properly resets its state
+    if (hasPreview && !newSearchParams.has('preview')) {
+      // Clear preview cache before redirecting
+      await clearPreviewCache();
+      const baseUrl = `/${collectionSlug}`;
+      window.location.href = baseUrl;
+      return;
+    }
 
+    // Otherwise proceed with normal navigation
+    const collectionUrl = `/${collectionSlug}${hasPreview ? '?preview' : ''}`;
     navigate(collectionUrl, {
       replace: true, // Use replace to ensure back button works correctly
       state: {

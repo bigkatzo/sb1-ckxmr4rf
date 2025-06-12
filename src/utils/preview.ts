@@ -2,6 +2,8 @@
  * Utility functions for handling preview mode for hidden/unpublished content
  */
 
+import { cacheManager } from '../lib/cache';
+
 /**
  * Checks if the current URL has the preview query parameter
  */
@@ -36,6 +38,21 @@ export function togglePreviewParam(url: string, enable: boolean): string {
   
   // Return relative URL
   return urlObj.pathname + urlObj.search;
+}
+
+/**
+ * Clears all preview-specific cache entries
+ */
+export async function clearPreviewCache(): Promise<void> {
+  // Get cache statistics to find all keys
+  const stats = await cacheManager.getStats();
+  
+  // Iterate through memory cache and invalidate preview entries
+  for (const [key] of stats.metrics.entries()) {
+    if (key.includes(':preview')) {
+      cacheManager.invalidateKey(key);
+    }
+  }
 }
 
 /**
