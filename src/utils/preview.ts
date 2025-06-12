@@ -41,25 +41,41 @@ export function togglePreviewParam(url: string, enable: boolean): string {
 }
 
 /**
- * Clears all preview-specific cache entries
+ * Checks if preview mode is enabled and the user has permission to view hidden content
+ */
+export function canPreviewHiddenContent(): boolean {
+  return isPreviewMode();
+}
+
+/**
+ * Clear all preview-related cache entries
  */
 export async function clearPreviewCache(): Promise<void> {
-  // Get cache statistics to find all keys
-  const stats = await cacheManager.getStats();
-  
-  // Iterate through memory cache and invalidate preview entries
-  for (const [key] of stats.metrics.entries()) {
-    if (key.includes(':preview')) {
-      cacheManager.invalidateKey(key);
-    }
+  try {
+    // Get cache statistics to find all keys
+    const stats = await cacheManager.getStats();
+    
+    // Find and invalidate all preview-related keys
+    const previewKeys = Array.from(stats.metrics.keys()).filter((key: string) => 
+      key.includes(':preview') || 
+      key.includes('preview:') ||
+      key.includes('collection:') ||
+      key.includes('product:') ||
+      key.includes('category:')
+    );
+    
+    // Invalidate each key
+    await Promise.all(previewKeys.map((key: string) => cacheManager.invalidateKey(key)));
+    
+    console.log('Cleared preview cache keys:', previewKeys);
+  } catch (err) {
+    console.error('Error clearing preview cache:', err);
   }
 }
 
 /**
- * Checks if preview mode is enabled and the user has permission to view hidden content
- * For now, we'll allow preview mode for any user, but this could be extended to check
- * for admin permissions or other authorization logic
+ * Get the cache key for a resource, taking preview mode into account
  */
-export function canPreviewHiddenContent(): boolean {
-  return isPreviewMode();
+export function getPreviewAwareCacheKey(baseKey: string): string {
+  return isPreviewMode() ? `${baseKey}:preview` : baseKey;
 } 

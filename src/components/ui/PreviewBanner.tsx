@@ -11,13 +11,21 @@ export function PreviewBanner({ onClose }: PreviewBannerProps) {
   }
 
   const handleClose = async () => {
-    // Clear preview cache before removing the parameter
-    await clearPreviewCache();
-    
-    // Remove preview parameter and reload
-    const url = new URL(window.location.href);
-    url.searchParams.delete('preview');
-    window.location.href = url.toString();
+    try {
+      // Clear preview cache before removing the parameter
+      await clearPreviewCache();
+      
+      // Remove preview parameter and force a full page reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete('preview');
+      window.location.replace(url.toString());
+    } catch (err) {
+      console.error('Error exiting preview mode:', err);
+      // If cache clearing fails, still try to exit preview mode
+      const url = new URL(window.location.href);
+      url.searchParams.delete('preview');
+      window.location.replace(url.toString());
+    }
   };
 
   return (

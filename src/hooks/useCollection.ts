@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleCollectionError } from '../utils/error-handlers';
 import { isValidCollectionSlug } from '../utils/validation';
-import { canPreviewHiddenContent } from '../utils/preview';
+import { canPreviewHiddenContent, getPreviewAwareCacheKey } from '../utils/preview';
 import type { Collection } from '../types/collections';
 import { normalizeStorageUrl } from '../lib/storage';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
@@ -23,8 +23,12 @@ export function useCollection(slug: string) {
     }
     let isMounted = true;
     
-    // Cache keys to listen for invalidation
-    const cacheKeys = [`collection:${slug}`, `collection_static:${slug}`, `collection_dynamic:${slug}`];
+    // Cache keys to listen for invalidation - use preview-aware keys
+    const cacheKeys = [
+      getPreviewAwareCacheKey(`collection:${slug}`),
+      getPreviewAwareCacheKey(`collection_static:${slug}`),
+      getPreviewAwareCacheKey(`collection_dynamic:${slug}`)
+    ];
     
     // Function to handle cache invalidation
     const handleCacheInvalidation = (invalidatedKey: string) => {
@@ -50,8 +54,8 @@ export function useCollection(slug: string) {
       }
 
       try {
-        // First try to get from cache
-        const cacheKey = `collection:${slug}`;
+        // First try to get from cache - use preview-aware key
+        const cacheKey = getPreviewAwareCacheKey(`collection:${slug}`);
         const { value: cachedCollection, needsRevalidation } = await cacheManager.get<Collection>(cacheKey);
         
         // Use cached data if available
@@ -209,9 +213,9 @@ export function useCollection(slug: string) {
           })),
         };
         
-        // Cache static collection data with long TTL
+        // Cache static collection data with long TTL - use preview-aware key
         await cacheManager.set(
-          `collection_static:${collectionData.id}`, 
+          getPreviewAwareCacheKey(`collection_static:${collectionData.id}`), 
           collectionStatic, 
           CACHE_DURATIONS.STATIC.TTL,
           { staleTime: CACHE_DURATIONS.STATIC.STALE }
@@ -250,9 +254,9 @@ export function useCollection(slug: string) {
             createdAt: product.created_at || null,
           };
 
-          // Cache static product data
+          // Cache static product data - use preview-aware key
           await cacheManager.set(
-            `product_static:${product.id}`, 
+            getPreviewAwareCacheKey(`product_static:${product.id}`), 
             productStatic, 
             CACHE_DURATIONS.STATIC.TTL,
             { staleTime: CACHE_DURATIONS.STATIC.STALE }
@@ -268,9 +272,9 @@ export function useCollection(slug: string) {
             priceModifierAfterMin: product.price_modifier_after_min ?? null
           };
 
-          // Cache dynamic product data
+          // Cache dynamic product data - use preview-aware key
           await cacheManager.set(
-            `product_dynamic:${product.id}`, 
+            getPreviewAwareCacheKey(`product_dynamic:${product.id}`), 
             productDynamic, 
             CACHE_DURATIONS.REALTIME.TTL,
             { staleTime: CACHE_DURATIONS.REALTIME.STALE }
@@ -304,9 +308,9 @@ export function useCollection(slug: string) {
           saleEnded: collectionData.sale_ended,
         };
 
-        // Cache dynamic collection data
+        // Cache dynamic collection data - use preview-aware key
         await cacheManager.set(
-          `collection_dynamic:${collectionData.id}`, 
+          getPreviewAwareCacheKey(`collection_dynamic:${collectionData.id}`), 
           collectionDynamic, 
           CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
           { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
@@ -355,9 +359,9 @@ export function useCollection(slug: string) {
           owner_username: null
         };
 
-        // Cache the complete collection
+        // Cache the complete collection - use preview-aware key
         await cacheManager.set(
-          `collection:${slug}`, 
+          getPreviewAwareCacheKey(`collection:${slug}`), 
           transformedCollection, 
           CACHE_DURATIONS.SEMI_DYNAMIC.TTL,
           { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
