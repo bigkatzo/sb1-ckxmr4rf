@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Star } from 'lucide-react';
 import type { Collection } from '../../types/collections';
 import { supabase } from '../../lib/supabase';
 import { ProfileImage } from '../ui/ProfileImage';
@@ -16,6 +16,7 @@ interface MerchantProfile {
   profileImage: string | null;
   websiteUrl: string;
   merchantTier: MerchantTier;
+  successfulSalesCount: number;
 }
 
 interface CollectionLinksProps {
@@ -46,7 +47,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
         // Fetch merchant profile from the public view
         const { data: profile, error } = await supabase
           .from('public_user_profiles')
-          .select('display_name, description, profile_image, website_url, merchant_tier')
+          .select('display_name, description, profile_image, website_url, merchant_tier, successful_sales_count')
           .eq('id', collection.user_id)
           .single();
         
@@ -61,7 +62,8 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
           description: profile.description || '',
           profileImage: profile.profile_image,
           websiteUrl: profile.website_url || '',
-          merchantTier: profile.merchant_tier || 'starter_merchant'
+          merchantTier: profile.merchant_tier || 'starter_merchant',
+          successfulSalesCount: profile.successful_sales_count || 0
         });
         setIsFetchingProfile(false);
       } catch (error) {
@@ -556,6 +558,14 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                       tier={merchantProfile.merchantTier} 
                       className="text-lg" 
                     />
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
+                    <div className="flex items-center gap-1 text-yellow-400">
+                      <Star className="h-4 w-4 fill-current" />
+                      <span>{merchantProfile.successfulSalesCount}</span>
+                    </div>
+                    <span className="text-gray-500">·</span>
+                    <span>successful sales</span>
                   </div>
                   {merchantProfile.websiteUrl && (
                     <a

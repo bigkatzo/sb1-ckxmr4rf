@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, User, Camera, Trash2 } from 'lucide-react';
+import { X, User, Camera, Trash2, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
 import { ProfileImage } from '../ui/ProfileImage';
@@ -301,11 +301,16 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     <h3 className="text-sm font-medium text-white">Merchant Status</h3>
                     <VerificationBadge tier={profileData.merchantTier} className="text-lg" />
                   </div>
-                  <div className="text-xs text-gray-400">
-                    {profileData.successfulSalesCount} successful sales
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <div className="flex items-center gap-1 text-yellow-400">
+                      <Star className="h-3.5 w-3.5 fill-current" />
+                      <span>{profileData.successfulSalesCount}</span>
+                    </div>
+                    <span className="text-gray-500">·</span>
+                    <span>successful sales</span>
                     {profileData.merchantTier === 'starter_merchant' && profileData.successfulSalesCount < 10 && (
-                      <span className="block mt-1">
-                        Complete {10 - profileData.successfulSalesCount} more sales to reach Trusted Merchant status
+                      <span className="block mt-1 ml-1 text-gray-500">
+                        ({10 - profileData.successfulSalesCount} more to reach Trusted Merchant)
                       </span>
                     )}
                   </div>
