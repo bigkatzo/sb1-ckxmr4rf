@@ -156,7 +156,7 @@ function RankedProductItem({
   // Handle click to navigate to product page
   const handleClick = () => {
     if (product.collectionSlug && product.slug) {
-      navigate(`/${product.collectionSlug}/${product.slug}${window.location.search}`);
+      navigate(`/${product.collectionSlug}/${product.slug}`);
     }
   };
 
@@ -164,7 +164,7 @@ function RankedProductItem({
   const handleCollectionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (product.collectionSlug) {
-      navigate(`/${product.collectionSlug}${window.location.search}`);
+      navigate(`/${product.collectionSlug}`);
     }
   };
 

@@ -111,15 +111,13 @@ export function ProductGrid({
     }
 
     // Navigate to product page with product data, category index, and selected category ID
-    navigate(`/${product.collectionSlug}/${product.slug}`, {
+    navigate(`/${product.collectionSlug}/${product.slug}${window.location.search}`, {
       state: { 
         product,
         categoryIndex: categoryIndices[product.categoryId] || 0,
         selectedCategoryId: categoryId,
         scrollPosition,
-        returnedFromProduct: true,
-        // Preserve preview mode in state
-        preservePreview: window.location.search.includes('preview')
+        returnedFromProduct: true
       }
     });
   };
