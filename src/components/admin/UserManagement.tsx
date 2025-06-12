@@ -510,7 +510,7 @@ export function UserManagement() {
                       <span className={`
                         font-medium px-1.5 py-0.5 rounded-full
                         ${user.role === 'admin' ? 'bg-red-500/20 text-red-400' : 
-                          user.role === 'merchant' ? 'bg-primary/20 text-primary' :
+                          user.role === 'merchant' ? 'bg-emerald-500/20 text-emerald-400' :
                           'bg-blue-500/20 text-blue-400'}
                       `}>
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
