@@ -52,10 +52,11 @@ export function ScrollBehavior() {
     if (hasPreview && !isCollectionProductNavigation) {
       // If going to homepage or a different collection, remove preview
       if (pathname === '/' || (segments.length === 1 && prevPath && !prevPath.startsWith(`/${segments[0]}`))) {
-        searchParams.delete('preview');
-        const newSearch = searchParams.toString();
-        const newUrl = `${pathname}${newSearch ? `?${newSearch}` : ''}`;
-        window.history.replaceState({}, '', newUrl);
+        // Use the same approach as PreviewBanner for consistency
+        const url = new URL(window.location.href);
+        url.searchParams.delete('preview');
+        window.location.href = url.toString();
+        return; // Early return since we're reloading
       }
     }
 
