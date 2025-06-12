@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 export function ScrollBehavior() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const prevPathRef = useRef<string | null>(null);
   const scrollPositionsRef = useRef<Record<string, number>>({});
 
@@ -44,6 +44,21 @@ export function ScrollBehavior() {
       // Current path is collection and previous was its product
       (segments.length === 1 && prevPath?.startsWith(`/${segments[0]}/`));
 
+    // Handle preview parameter
+    const searchParams = new URLSearchParams(search);
+    const hasPreview = searchParams.has('preview');
+
+    // Remove preview parameter for navigation to homepage or different collections
+    if (hasPreview && !isCollectionProductNavigation) {
+      // If going to homepage or a different collection, remove preview
+      if (pathname === '/' || (segments.length === 1 && prevPath && !prevPath.startsWith(`/${segments[0]}`))) {
+        searchParams.delete('preview');
+        const newSearch = searchParams.toString();
+        const newUrl = `${pathname}${newSearch ? `?${newSearch}` : ''}`;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+
     // Save current position before navigating away
     if (prevPath) {
       scrollPositionsRef.current[prevPath] = window.scrollY;
@@ -74,7 +89,7 @@ export function ScrollBehavior() {
 
     // Store current path in localStorage for persistence across page reloads
     localStorage.setItem('prevPath', pathname);
-  }, [pathname]);
+  }, [pathname, search]);
 
   return null;
 } 
