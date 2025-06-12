@@ -54,10 +54,10 @@ export function ProductListItem({
   // Add View Product as the first option if we have the slug
   if (product.slug && product.collectionSlug) {
     dropdownItems.push({
-      label: 'View Product',
+      label: product.visible ? 'View Product' : 'Preview Product',
       icon: <ExternalLink className="h-4 w-4" />,
       as: Link,
-      to: `/${product.collectionSlug}/${product.slug}`,
+      to: `/${product.collectionSlug}/${product.slug}${!product.visible ? '?preview' : ''}`,
       target: "_blank"
     });
   }

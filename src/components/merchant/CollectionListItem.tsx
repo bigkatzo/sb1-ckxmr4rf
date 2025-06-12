@@ -48,10 +48,10 @@ export function CollectionListItem({
   // Add View Collection as the first option
   if (collection.slug) {
     dropdownItems.push({
-      label: 'View Collection',
+      label: collection.visible ? 'View Collection' : 'Preview Collection',
       icon: <ExternalLink className="h-4 w-4" />,
       as: Link,
-      to: `/${collection.slug}`,
+      to: `/${collection.slug}${!collection.visible ? '?preview' : ''}`,
       target: "_blank"
     });
   }

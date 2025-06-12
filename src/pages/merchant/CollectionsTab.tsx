@@ -382,10 +382,10 @@ export function CollectionsTab() {
                         <DropdownMenu
                           items={[
                             {
-                              label: 'View Collection',
+                              label: collection.visible ? 'View Collection' : 'Preview Collection',
                               icon: <ExternalLink className="h-4 w-4" />,
                               as: Link,
-                              to: `/${collection.slug || collection.id}`,
+                              to: `/${collection.slug || collection.id}${!collection.visible ? '?preview' : ''}`,
                               target: "_blank"
                             },
                             {
