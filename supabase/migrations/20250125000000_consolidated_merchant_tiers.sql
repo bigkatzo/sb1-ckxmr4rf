@@ -11,7 +11,7 @@ BEGIN
   END IF;
 END $$;
 
--- Add merchant_tier column to user_profiles if it doesn't exist
+-- Add merchant_tier and successful_sales_count columns to user_profiles if they don't exist
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -23,11 +23,7 @@ BEGIN
     ALTER TABLE user_profiles
     ADD COLUMN merchant_tier merchant_tier NOT NULL DEFAULT 'starter_merchant';
   END IF;
-END $$;
 
--- Add successful_sales_count column if it doesn't exist
-DO $$
-BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM information_schema.columns
@@ -74,11 +70,11 @@ CREATE TRIGGER increment_sales_count_trigger
 CREATE OR REPLACE FUNCTION update_merchant_tier()
 RETURNS trigger AS $$
 BEGIN
-  -- Only update tier if current tier is not manually set (verified or elite)
-  -- And if the user is a merchant or admin
+  -- Only update tier if current tier is starter_merchant and user has enough sales
+  -- This won't affect users who are already verified_merchant or elite_merchant
   IF NEW.successful_sales_count >= 10 AND 
      OLD.merchant_tier = 'starter_merchant' AND
-     (SELECT role IN ('merchant', 'admin') FROM user_profiles WHERE id = NEW.id) THEN
+     NEW.role IN ('merchant', 'admin') THEN
     NEW.merchant_tier = 'trusted_merchant';
   END IF;
   
@@ -117,8 +113,106 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION admin_set_merchant_tier(uuid, merchant_tier) TO authenticated;
 
--- Set all existing merchants and admins to starter_merchant tier if not already set
+-- Drop existing trigger and function
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+
+-- Create function to handle new user creation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    _role user_role;
+    _is_merchant_local boolean;
+BEGIN
+    -- Check if email is merchant.local
+    _is_merchant_local := NEW.email LIKE '%@merchant.local';
+    
+    -- Set proper metadata
+    IF _is_merchant_local THEN
+        -- For merchant.local emails, set verified in app_metadata
+        NEW.raw_app_meta_data := jsonb_build_object(
+            'role', 'merchant',
+            'provider', 'email',
+            'providers', ARRAY['email'],
+            'email_verified', true
+        );
+        NEW.raw_user_meta_data := jsonb_build_object(
+            'role', 'merchant',
+            'email', NEW.email,
+            'email_verified', false,
+            'phone_verified', false
+        );
+    ELSE
+        -- For regular emails, update metadata properly
+        NEW.raw_app_meta_data := jsonb_build_object(
+            'provider', 'email',
+            'providers', ARRAY['email']
+        );
+        NEW.raw_user_meta_data := jsonb_build_object(
+            'role', 'merchant',
+            'email', NEW.email,
+            'email_verified', false,
+            'phone_verified', false,
+            'email_confirmed', false
+        );
+    END IF;
+
+    -- Get role for user_profiles
+    _role := COALESCE(
+        (NEW.raw_app_meta_data->>'role')::user_role,
+        (NEW.raw_user_meta_data->>'role')::user_role,
+        'merchant'::user_role
+    );
+
+    -- Insert with error handling
+    BEGIN
+        INSERT INTO public.user_profiles (id, role, email, merchant_tier)
+        VALUES (
+            NEW.id,
+            _role,
+            NEW.email,
+            'starter_merchant'  -- Set default merchant tier for all new users
+        );
+        RAISE LOG 'Created user profile for % with role % and starter merchant tier', NEW.email, _role;
+    EXCEPTION WHEN others THEN
+        RAISE WARNING 'Error creating user profile: %, SQLSTATE: %', SQLERRM, SQLSTATE;
+        RETURN NEW;
+    END;
+
+    RETURN NEW;
+END;
+$$;
+
+-- Create trigger for new user creation
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_new_user();
+
+-- Drop existing view if it exists
+DROP VIEW IF EXISTS public_user_profiles;
+
+-- Create public view of user profiles with merchant tier info
+CREATE VIEW public_user_profiles AS
+SELECT 
+  id,
+  display_name,
+  description,
+  profile_image,
+  website_url,
+  merchant_tier,
+  successful_sales_count,
+  role
+FROM user_profiles;
+
+-- Grant select permission to authenticated users
+GRANT SELECT ON public_user_profiles TO authenticated;
+
+-- Update existing users without a merchant tier
 UPDATE user_profiles
 SET merchant_tier = 'starter_merchant'
-WHERE role IN ('merchant', 'admin')
-AND merchant_tier IS NULL; 
+WHERE merchant_tier IS NULL; 
