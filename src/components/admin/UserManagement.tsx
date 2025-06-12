@@ -33,7 +33,10 @@ interface BasicUserData {
   id: string;
   email: string;
   role: 'admin' | 'merchant' | 'user';
+  merchant_tier: MerchantTier;
   created_at: string;
+  collections_count: number;
+  access_count: number;
 }
 
 // Type for sort options
@@ -132,7 +135,7 @@ export function UserManagement() {
       // Then fetch additional profile data for all users
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
-        .select('id, display_name, description, website_url, profile_image, payout_wallet')
+        .select('id, display_name, description, website_url, profile_image, payout_wallet, merchant_tier')
         .in('id', basicUserData.map((user: BasicUserData) => user.id));
         
       if (profilesError) throw profilesError;
@@ -156,6 +159,7 @@ export function UserManagement() {
           website_url: profile.website_url || null,
           profile_image: profile.profile_image || null,
           payout_wallet: profile.payout_wallet || null,
+          merchant_tier: user.merchant_tier || 'starter_merchant',
           collections: []
         };
       });
