@@ -114,10 +114,10 @@ function AppContent() {
   return (
     <>
       <PreviewBanner />
-      <PageTransition>
-        <Outlet />
-        <CartDrawer />
-      </PageTransition>
+    <PageTransition>
+      <Outlet />
+      <CartDrawer />
+    </PageTransition>
     </>
   );
 }

@@ -138,8 +138,13 @@ export function ProductPage() {
     const scrollPosition = location.state?.scrollPosition;
     // Only pass the category if it was explicitly selected before
     const activeCategory = location.state?.selectedCategoryId;
+    
+    // Preserve preview mode if it was active
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasPreview = searchParams.has('preview');
+    const collectionUrl = `/${collectionSlug}${hasPreview ? '?preview' : ''}`;
 
-    navigate(`/${collectionSlug}`, {
+    navigate(collectionUrl, {
       replace: true, // Use replace to ensure back button works correctly
       state: {
         scrollPosition,

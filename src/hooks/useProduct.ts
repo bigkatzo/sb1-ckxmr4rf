@@ -103,9 +103,9 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         } else {
           // Use public view which already filters by visibility
           productQuery = supabase
-            .from('public_products')
-            .select('*')
-            .eq('collection_slug', collectionSlug)
+          .from('public_products')
+          .select('*')
+          .eq('collection_slug', collectionSlug)
             .eq('slug', productSlug);
         }
         

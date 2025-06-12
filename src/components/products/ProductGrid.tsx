@@ -117,7 +117,9 @@ export function ProductGrid({
         categoryIndex: categoryIndices[product.categoryId] || 0,
         selectedCategoryId: categoryId,
         scrollPosition,
-        returnedFromProduct: true
+        returnedFromProduct: true,
+        // Preserve preview mode in state
+        preservePreview: window.location.search.includes('preview')
       }
     });
   };

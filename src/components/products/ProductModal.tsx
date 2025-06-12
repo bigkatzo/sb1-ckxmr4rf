@@ -703,7 +703,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                 <div className="p-4 space-y-4">
                   {product.collectionSlug && product.collectionName && (
                     <Link
-                      to={`/${product.collectionSlug}`}
+                      to={`/${product.collectionSlug}${window.location.search}`}
                       onClick={onClose}
                       className="text-sm transition-colors"
                       style={{ 
