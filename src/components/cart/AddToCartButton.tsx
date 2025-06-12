@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Plus, Loader2 } from 'lucide-react';
+import { ShoppingCart, Plus, Loader2, Eye } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { useWallet } from '../../contexts/WalletContext';
+import { isPreviewMode } from '../../utils/preview';
 import type { Product } from '../../types/variants';
 import { toast } from 'react-toastify';
 import { verifyAndAddToCart } from '../../utils/productAccessVerification';
@@ -30,6 +31,7 @@ export function AddToCartButton({
   const { walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
   const [isVerifying, setIsVerifying] = useState(false);
+  const isPreview = isPreviewMode();
   
   // Get the correctly modified price based on product, variants and dynamic pricing
   const { modifiedPrice } = useModifiedPrice({ product, selectedOptions });
@@ -135,6 +137,20 @@ export function AddToCartButton({
       }
     }
   };
+
+  // If in preview mode, show preview button
+  if (isPreview) {
+    return (
+      <button
+        disabled
+        className={`flex items-center justify-center gap-1 bg-gray-800/80 backdrop-blur-sm text-gray-400 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+        aria-label="Preview mode"
+      >
+        <Eye className={sizeClasses[size]} />
+        {showText && <span>Preview</span>}
+      </button>
+    );
+  }
 
   return (
     <button

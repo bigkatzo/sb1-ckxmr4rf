@@ -1,9 +1,10 @@
 import type { MouseEvent } from 'react';
-import { ShoppingBag, Clock, Ban } from 'lucide-react';
+import { ShoppingBag, Clock, Ban, Eye } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useModal } from '../../contexts/ModalContext';
 import { useOrderStats } from '../../hooks/useOrderStats';
+import { isPreviewMode } from '../../utils/preview';
 import type { Product } from '../../types/variants';
 
 interface BuyButtonProps {
@@ -36,6 +37,7 @@ export function BuyButton({
     product.stock === 0 || // No stock available
     (typeof currentOrders === 'number' && currentOrders >= (product.stock as number)) // Current orders reached or exceeded stock limit
   );
+  const isPreview = isPreviewMode();
 
   const handleClick = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // Prevent event bubbling
@@ -58,6 +60,24 @@ export function BuyButton({
       console.error('Buy error:', error);
     }
   };
+
+  // If in preview mode, show preview button
+  if (isPreview) {
+    return (
+      <button 
+        disabled
+        className={`
+          flex items-center gap-1 bg-gray-800/80 backdrop-blur-sm
+          text-gray-400 px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-[10px] sm:text-xs 
+          cursor-not-allowed transition-colors
+          ${className}
+        `}
+      >
+        <Eye className="h-3 w-3" />
+        <span>Preview</span>
+      </button>
+    );
+  }
 
   // If sale has ended, show ended button
   if (isSaleEnded) {
