@@ -3,7 +3,10 @@ import { X, User, Camera, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
 import { ProfileImage } from '../ui/ProfileImage';
+import { VerificationBadge } from '../ui/VerificationBadge';
 import { generateSafeFilename, uploadImage } from '../../lib/storage';
+
+type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -16,6 +19,8 @@ interface ProfileData {
   payoutWallet: string;
   profileImage: string | null;
   websiteUrl: string;
+  merchantTier: MerchantTier;
+  successfulSalesCount: number;
 }
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
@@ -28,7 +33,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     description: '',
     payoutWallet: '',
     profileImage: null,
-    websiteUrl: ''
+    websiteUrl: '',
+    merchantTier: 'starter_merchant',
+    successfulSalesCount: 0
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -52,7 +59,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       // Fetch profile data from user_profiles table
       const { data: profile, error } = await supabase
         .from('user_profiles')
-        .select('display_name, description, payout_wallet, profile_image, website_url')
+        .select('display_name, description, payout_wallet, profile_image, website_url, merchant_tier, successful_sales_count')
         .eq('id', user.id)
         .single();
       
@@ -68,7 +75,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         description: profile?.description || '',
         payoutWallet: profile?.payout_wallet || '',
         profileImage: profileImage,
-        websiteUrl: profile?.website_url || ''
+        websiteUrl: profile?.website_url || '',
+        merchantTier: profile?.merchant_tier || 'starter_merchant',
+        successfulSalesCount: profile?.successful_sales_count || 0
       });
       
       // Set image preview directly from profile data
@@ -284,6 +293,22 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       Remove Image
                     </button>
                   )}
+                </div>
+
+                {/* Merchant Tier Status */}
+                <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-white">Merchant Status</h3>
+                    <VerificationBadge tier={profileData.merchantTier} className="text-lg" />
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {profileData.successfulSalesCount} successful sales
+                    {profileData.merchantTier === 'starter_merchant' && profileData.successfulSalesCount < 10 && (
+                      <span className="block mt-1">
+                        Complete {10 - profileData.successfulSalesCount} more sales to reach Trusted Merchant status
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

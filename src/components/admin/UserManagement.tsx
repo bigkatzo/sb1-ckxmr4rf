@@ -6,11 +6,15 @@ import { toast } from 'react-toastify';
 import { RefreshButton } from '../ui/RefreshButton';
 import { debounce } from '../../utils/debounce';
 import { ProfileImage } from '../ui/ProfileImage';
+import { VerificationBadge } from '../ui/VerificationBadge';
+
+type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 
 interface User {
   id: string;
   email: string;
   role: 'admin' | 'merchant' | 'user';
+  merchant_tier: MerchantTier;
   created_at: string;
   display_name?: string | null;
   description?: string | null;
@@ -367,6 +371,30 @@ export function UserManagement() {
     );
   }
 
+  // Add new function to handle tier updates
+  async function updateMerchantTier(userId: string, tier: MerchantTier) {
+    try {
+      const { error } = await supabase.rpc('admin_set_merchant_tier', {
+        p_user_id: userId,
+        p_tier: tier
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      setUsers(users.map(user => 
+        user.id === userId 
+          ? { ...user, merchant_tier: tier } 
+          : user
+      ));
+
+      toast.success('Merchant tier updated successfully');
+    } catch (error) {
+      console.error('Error updating merchant tier:', error);
+      toast.error('Failed to update merchant tier');
+    }
+  }
+
   if (loading) {
     return (
       <div className="animate-pulse space-y-3">
@@ -452,80 +480,105 @@ export function UserManagement() {
 
         <div className="space-y-2">
           {users.map((user) => (
-            <div key={user.id} className="bg-gray-900 rounded-lg">
-              <div className="p-2.5 sm:p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="p-1.5 sm:p-2 bg-gray-800 rounded-lg">
-                      {user.role === 'admin' ? (
-                        <Shield className="h-4 w-4 text-red-400" />
-                      ) : user.role === 'merchant' ? (
-                        <Store className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Users className="h-4 w-4 text-blue-400" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
+            <div key={user.id} className="border-b border-gray-800 last:border-0">
+              <div className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2">
+          <ProfileImage
+            src={user.profile_image}
+            alt={user.display_name || user.email}
+            displayName={user.display_name || user.email}
+            size="md"
+          />
+          <div className="p-1.5 bg-gray-800 rounded-lg">
+            {user.role === 'admin' ? (
+              <Shield className="h-4 w-4 text-red-400" />
+            ) : user.role === 'merchant' ? (
+              <Store className="h-4 w-4 text-primary" />
+            ) : (
+              <Users className="h-4 w-4 text-blue-400" />
+            )}
+          </div>
+        </div>
+                  
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
                       <p className="text-xs sm:text-sm font-medium truncate">
                         {user.display_name || user.email}
                       </p>
-                      <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-400">
-                        <span>{user.email}</span>
-                        <span className="text-[8px] mx-1">•</span>
-                        <span className={`
-                          font-medium
-                          ${user.role === 'admin' ? 'text-red-400' : 
-                            user.role === 'merchant' ? 'text-primary' :
-                            'text-blue-400'}
-                        `}>
-                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                        </span>
-                        {user.collections && user.collections.length > 0 && (
-                          <>
-                            <span className="text-[8px] mx-1">•</span>
-                            <span className="text-primary">
-                              {user.collections.length} {user.collections.length === 1 ? 'collection' : 'collections'}
-                            </span>
-                          </>
-                        )}
-                      </div>
+                      {user.role === 'merchant' && (
+                        <VerificationBadge tier={user.merchant_tier} className="text-sm" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-400">
+                      <span>{user.email}</span>
+                      <span className="text-[8px] mx-1">•</span>
+                      <span className={`
+                        font-medium
+                        ${user.role === 'admin' ? 'text-red-400' : 
+                          user.role === 'merchant' ? 'text-primary' :
+                          'text-blue-400'}
+                      `}>
+                        {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                      </span>
+                      {user.collections && user.collections.length > 0 && (
+                        <>
+                          <span className="text-[8px] mx-1">•</span>
+                          <span className="text-primary">
+                            {user.collections.length} {user.collections.length === 1 ? 'collection' : 'collections'}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {user.role === 'merchant' && (
+                    <select
+                      value={user.merchant_tier}
+                      onChange={(e) => updateMerchantTier(user.id, e.target.value as MerchantTier)}
+                      className="bg-gray-800 text-white text-sm rounded-lg px-2 py-1 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="starter_merchant">Starter</option>
+                      <option value="verified_merchant">Verified</option>
+                      <option value="trusted_merchant">Trusted</option>
+                      <option value="elite_merchant">Elite</option>
+                    </select>
+                  )}
                   
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingUser(user);
-                        setShowEditModal(true);
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-                      title="Edit user"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
+                  <button
+                    onClick={() => {
+                      setEditingUser(user);
+                      setShowEditModal(true);
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                    title="Edit user"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
 
-                    <button
-                      onClick={() => {
-                        setDeletingUser(user);
-                        setShowDeleteModal(true);
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
-                      title="Delete user"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                  <button
+                    onClick={() => {
+                      setDeletingUser(user);
+                      setShowDeleteModal(true);
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
+                    title="Delete user"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
 
-                    <button
-                      onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}
-                      className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-                    >
-                      {expandedUser === user.id ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}
+                    className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                  >
+                    {expandedUser === user.id ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 

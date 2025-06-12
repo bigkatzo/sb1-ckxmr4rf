@@ -3,15 +3,19 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { Collection } from '../../types/collections';
 import { supabase } from '../../lib/supabase';
 import { ProfileImage } from '../ui/ProfileImage';
+import { VerificationBadge } from '../ui/VerificationBadge';
 
 // No longer need the icon components since we're using inline SVGs in the HTML string
 // Just keeping the interface definitions
+
+type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 
 interface MerchantProfile {
   displayName: string;
   description: string;
   profileImage: string | null;
   websiteUrl: string;
+  merchantTier: MerchantTier;
 }
 
 interface CollectionLinksProps {
@@ -42,7 +46,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
         // Fetch merchant profile from the public view
         const { data: profile, error } = await supabase
           .from('public_user_profiles')
-          .select('display_name, description, profile_image, website_url')
+          .select('display_name, description, profile_image, website_url, merchant_tier')
           .eq('id', collection.user_id)
           .single();
         
@@ -56,7 +60,8 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
           displayName: profile.display_name || 'Anonymous',
           description: profile.description || '',
           profileImage: profile.profile_image,
-          websiteUrl: profile.website_url || ''
+          websiteUrl: profile.website_url || '',
+          merchantTier: profile.merchant_tier || 'starter_merchant'
         });
         setIsFetchingProfile(false);
       } catch (error) {
@@ -190,6 +195,10 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
               ${profileImage}
             </div>
             <span class="text-xs font-medium truncate max-w-[120px]">${merchantProfile.displayName}</span>
+            <VerificationBadge 
+              tier={merchantProfile.merchantTier} 
+              className="text-sm ml-0.5" 
+            />
           </div>
         </div>
       `;
@@ -399,7 +408,13 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                       displayName={merchantProfile.displayName}
                       size="sm"
                     />
-                    <span className="text-xs font-medium truncate max-w-[120px]">{merchantProfile.displayName}</span>
+                    <span className="text-xs font-medium truncate max-w-[120px]">
+                      {merchantProfile.displayName}
+                    </span>
+                    <VerificationBadge 
+                      tier={merchantProfile.merchantTier} 
+                      className="text-sm ml-0.5" 
+                    />
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-1.5 bg-white/10 text-white px-2 py-1 rounded-full">
@@ -533,7 +548,15 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                   size="xl"
                 />
                 <div>
-                  <h3 className="text-lg font-semibold text-white">{merchantProfile.displayName}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-white">
+                      {merchantProfile.displayName}
+                    </h3>
+                    <VerificationBadge 
+                      tier={merchantProfile.merchantTier} 
+                      className="text-lg" 
+                    />
+                  </div>
                   {merchantProfile.websiteUrl && (
                     <a
                       href={merchantProfile.websiteUrl}
