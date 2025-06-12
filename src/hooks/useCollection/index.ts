@@ -3,6 +3,7 @@ import { getCollectionQuery } from './query';
 import { transformCollection } from './transformers';
 import { handleCollectionError } from '../../utils/error-handlers';
 import { isValidCollectionSlug } from '../../utils/validation';
+import { canPreviewHiddenContent } from '../../utils/preview';
 import type { Collection } from '../../types';
 
 export function useCollection(slug: string) {
@@ -22,7 +23,10 @@ export function useCollection(slug: string) {
         setLoading(true);
         setError(null);
 
-        const { data, error: queryError } = await getCollectionQuery(slug);
+        // Check if preview mode is enabled
+        const includeHidden = canPreviewHiddenContent();
+        
+        const { data, error: queryError } = await getCollectionQuery(slug, includeHidden);
 
         if (queryError) throw queryError;
         if (!data) throw new Error('Collection not found');

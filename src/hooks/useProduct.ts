@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
+import { canPreviewHiddenContent } from '../utils/preview';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Product } from '../types/index';
 
@@ -12,13 +13,16 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
 
   useEffect(() => {
     let isMounted = true;
+    
+    // Check if preview mode is enabled (needs to be in the outer scope)
+    const includeHidden = canPreviewHiddenContent();
 
     async function fetchProduct() {
       if (!collectionSlug || !productSlug) return;
 
       try {
         // First try to get from cache
-        const cacheKey = `product:${collectionSlug}:${productSlug}`;
+        const cacheKey = `product:${collectionSlug}:${productSlug}${includeHidden ? ':preview' : ''}`;
         const { value: cachedProduct, needsRevalidation } = await cacheManager.get<Product>(cacheKey);
 
         // Use cached data if available
@@ -66,12 +70,46 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           setLoading(true);
         }
 
-        const { data, error } = await supabase
-          .from('public_products')
-          .select('*')
-          .eq('collection_slug', collectionSlug)
-          .eq('slug', productSlug)
-          .single();
+        // Check if preview mode is enabled
+        const includeHidden = canPreviewHiddenContent();
+        
+        let productQuery;
+        if (includeHidden) {
+          // When in preview mode, fetch from products table with joins
+          productQuery = supabase
+            .from('products')
+            .select(`
+              *,
+              categories:category_id (
+                id,
+                name,
+                description,
+                type,
+                eligibility_rules,
+                visible,
+                sale_ended
+              ),
+              collections:collection_id (
+                id,
+                name,
+                slug,
+                launch_date,
+                sale_ended,
+                visible
+              )
+            `)
+            .eq('slug', productSlug)
+            .eq('collections.slug', collectionSlug);
+        } else {
+          // Use public view which already filters by visibility
+          productQuery = supabase
+            .from('public_products')
+            .select('*')
+            .eq('collection_slug', collectionSlug)
+            .eq('slug', productSlug);
+        }
+        
+        const { data, error } = await productQuery.single();
 
         if (error) throw error;
         if (!data) throw new Error('Product not found');
@@ -93,11 +131,11 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           designFiles: (data.design_files || []).map((file: string) => normalizeStorageUrl(file)),
           categoryId: data.category_id,
           collectionId: data.collection_id,
-          collectionName: data.collection_name,
-          collectionSlug: data.collection_slug,
-          collectionLaunchDate: data.collection_launch_date ? new Date(data.collection_launch_date) : undefined,
-          collectionSaleEnded: data.collection_sale_ended ?? false,
-          categorySaleEnded: data.category_sale_ended ?? false,
+          collectionName: data.collection_name || data.collections?.name,
+          collectionSlug: data.collection_slug || data.collections?.slug,
+          collectionLaunchDate: data.collection_launch_date ? new Date(data.collection_launch_date) : (data.collections?.launch_date ? new Date(data.collections.launch_date) : undefined),
+          collectionSaleEnded: data.collection_sale_ended ?? data.collections?.sale_ended ?? false,
+          categorySaleEnded: data.category_sale_ended ?? data.categories?.sale_ended ?? false,
           slug: data.slug || '',
           stock: data.quantity,
           minimumOrderQuantity: data.minimum_order_quantity || 50,
@@ -115,8 +153,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           freeNotes: freeNotesValue
         };
 
-        // Cache the product data
-        const cacheKey = `product:${collectionSlug}:${productSlug}`;
+        // Cache the product data with preview mode awareness
+        const cacheKey = `product:${collectionSlug}:${productSlug}${includeHidden ? ':preview' : ''}`;
         await cacheManager.set(
           cacheKey, 
           transformedProduct, 

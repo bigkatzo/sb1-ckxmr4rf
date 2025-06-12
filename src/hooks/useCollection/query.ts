@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabase';
 
-export function getCollectionQuery(slug: string) {
-  return supabase
+export function getCollectionQuery(slug: string, includeHidden: boolean = false) {
+  let query = supabase
     .from('collections')
     .select(`
       id,
@@ -24,7 +24,8 @@ export function getCollectionQuery(slug: string) {
         name,
         description,
         type,
-        eligibility_rules
+        eligibility_rules,
+        visible
       ),
       products (
         id,
@@ -38,16 +39,23 @@ export function getCollectionQuery(slug: string) {
         variants,
         variant_prices,
         slug,
+        visible,
         categories:category_id (
           id,
           name,
           description,
           type,
-          eligibility_rules
+          eligibility_rules,
+          visible
         )
       )
     `)
-    .eq('slug', slug)
-    .eq('visible', true)
-    .single();
+    .eq('slug', slug);
+  
+  // Only filter by visibility if not in preview mode
+  if (!includeHidden) {
+    query = query.eq('visible', true);
+  }
+  
+  return query.single();
 }

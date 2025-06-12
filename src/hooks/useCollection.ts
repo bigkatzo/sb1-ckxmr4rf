@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { handleCollectionError } from '../utils/error-handlers';
 import { isValidCollectionSlug } from '../utils/validation';
+import { canPreviewHiddenContent } from '../utils/preview';
 import type { Collection } from '../types/collections';
 import { normalizeStorageUrl } from '../lib/storage';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
@@ -107,26 +108,67 @@ export function useCollection(slug: string) {
           setError(null);
         }
 
-        // Fetch collection from public view
-        const { data: collectionData, error: collectionError } = await supabase
-          .from('public_collections')
+        // Check if preview mode is enabled
+        const includeHidden = canPreviewHiddenContent();
+        
+        // Fetch collection - use full table in preview mode, public view otherwise
+        const collectionTable = includeHidden ? 'collections' : 'public_collections';
+        let collectionQuery = supabase
+          .from(collectionTable)
           .select('*')
-          .eq('slug', slug)
-          .single();
+          .eq('slug', slug);
+        
+        // If using the full collections table in preview mode, don't filter by visibility
+        if (!includeHidden) {
+          // The public_collections view already filters by visibility
+        }
+        
+        const { data: collectionData, error: collectionError } = await collectionQuery.single();
 
         if (collectionError) throw collectionError;
         if (!collectionData) throw new Error('Collection not found');
 
-        // Then fetch categories and products in parallel from public views
-        const [categoriesResponse, productsResponse, orderCountsResponse] = await Promise.all([
-          supabase
-            .from('public_categories')
-            .select('*')
-            .eq('collection_id', collectionData.id),
-          supabase
+        // Then fetch categories and products in parallel - use full tables in preview mode
+        const categoriesTable = includeHidden ? 'categories' : 'public_categories';
+        
+        let productsQuery;
+        if (includeHidden) {
+          // When in preview mode, fetch from products table with joins
+          productsQuery = supabase
+            .from('products')
+            .select(`
+              *,
+              categories:category_id (
+                id,
+                name,
+                description,
+                type,
+                eligibility_rules,
+                visible,
+                sale_ended
+              ),
+              collections:collection_id (
+                name,
+                slug,
+                launch_date,
+                sale_ended
+              )
+            `)
+            .eq('collection_id', collectionData.id);
+        } else {
+          // Use public view which already has flattened fields
+          productsQuery = supabase
             .from('public_products_with_categories')
             .select('*')
+            .eq('collection_id', collectionData.id);
+        }
+        
+        const [categoriesResponse, productsResponse, orderCountsResponse] = await Promise.all([
+          supabase
+            .from(categoriesTable)
+            .select('*')
             .eq('collection_id', collectionData.id),
+          productsQuery,
           // Fetch order counts from public_order_counts
           supabase
             .from('public_order_counts')
@@ -191,17 +233,17 @@ export function useCollection(slug: string) {
             categoryId: product.category_id,
             category: product.category_id ? {
               id: product.category_id,
-              name: product.category_name,
-              description: product.category_description,
-              type: product.category_type,
-              visible: true,
+              name: product.category_name || product.categories?.name,
+              description: product.category_description || product.categories?.description,
+              type: product.category_type || product.categories?.type,
+              visible: product.categories?.visible ?? true,
               eligibilityRules: {
-                groups: product.category_eligibility_rules?.groups || []
+                groups: product.category_eligibility_rules?.groups || product.categories?.eligibility_rules?.groups || []
               }
             } : undefined,
             collectionId: product.collection_id,
-            collectionName: product.collection_name,
-            collectionSlug: product.collection_slug,
+            collectionName: product.collection_name || product.collections?.name,
+            collectionSlug: product.collection_slug || product.collections?.slug,
             slug: product.slug || '',
             variants: product.variants || [],
             // Add created_at timestamp if available
@@ -238,9 +280,9 @@ export function useCollection(slug: string) {
           return {
             ...productStatic,
             ...productDynamic,
-            collectionLaunchDate: new Date(collectionData.launch_date),
-            collectionSaleEnded: collectionData.sale_ended ?? false,
-            categorySaleEnded: product.category_sale_ended ?? false,
+            collectionLaunchDate: new Date(collectionData.launch_date || product.collections?.launch_date),
+            collectionSaleEnded: collectionData.sale_ended ?? product.collections?.sale_ended ?? false,
+            categorySaleEnded: product.category_sale_ended ?? product.categories?.sale_ended ?? false,
             saleEnded: product.sale_ended ?? false,
             // Add public order count for accurate sorting
             publicOrderCount: publicOrderCount,

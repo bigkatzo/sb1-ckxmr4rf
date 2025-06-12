@@ -13,6 +13,7 @@ import { CartProvider } from './contexts/CartContext';
 import { CartDrawer } from './components/cart/CartDrawer';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { PageTransition } from './components/ui/PageTransition';
+import { PreviewBanner } from './components/ui/PreviewBanner';
 import { validateEnvironmentVariables } from './utils/env-validation';
 import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
@@ -111,10 +112,13 @@ function AppContent() {
 
   // Wrap the Outlet with PageTransition for smooth navigation
   return (
-    <PageTransition>
-      <Outlet />
-      <CartDrawer />
-    </PageTransition>
+    <>
+      <PreviewBanner />
+      <PageTransition>
+        <Outlet />
+        <CartDrawer />
+      </PageTransition>
+    </>
   );
 }
 
