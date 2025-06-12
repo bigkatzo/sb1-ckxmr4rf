@@ -67,9 +67,9 @@ export function BuyButton({
       <button 
         disabled
         className={`
-          flex items-center gap-1 bg-gray-800/80 backdrop-blur-sm
-          text-gray-400 px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-[10px] sm:text-xs 
-          cursor-not-allowed transition-colors
+          flex items-center gap-1 bg-gray-600/30 backdrop-blur-sm
+          text-gray-300 px-1.5 py-1 sm:px-2 sm:py-1.5 rounded text-[10px] sm:text-xs 
+          cursor-not-allowed transition-colors border border-gray-500/30
           ${className}
         `}
       >

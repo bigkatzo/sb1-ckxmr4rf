@@ -143,7 +143,7 @@ export function AddToCartButton({
     return (
       <button
         disabled
-        className={`flex items-center justify-center gap-1 bg-gray-800/80 backdrop-blur-sm text-gray-400 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+        className={`flex items-center justify-center gap-1 bg-gray-600/30 backdrop-blur-sm text-gray-300 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-500/30 ${className}`}
         aria-label="Preview mode"
       >
         <Eye className={sizeClasses[size]} />
