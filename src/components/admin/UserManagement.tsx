@@ -506,7 +506,7 @@ export function UserManagement() {
                       <p className="text-xs sm:text-sm font-medium truncate">
                         {user.display_name || user.email}
                       </p>
-                      {user.role === 'merchant' && user.merchant_tier && (
+                      {user.merchant_tier && (
                         <VerificationBadge tier={user.merchant_tier} className="text-sm" />
                       )}
                     </div>
@@ -514,10 +514,10 @@ export function UserManagement() {
                       <span>{user.email}</span>
                       <span className="text-[8px] mx-1">•</span>
                       <span className={`
-                        font-medium
-                        ${user.role === 'admin' ? 'text-red-400' : 
-                          user.role === 'merchant' ? 'text-primary' :
-                          'text-blue-400'}
+                        font-medium px-1.5 py-0.5 rounded-full
+                        ${user.role === 'admin' ? 'bg-red-500/20 text-red-400' : 
+                          user.role === 'merchant' ? 'bg-primary/20 text-primary' :
+                          'bg-blue-500/20 text-blue-400'}
                       `}>
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                       </span>

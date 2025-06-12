@@ -199,14 +199,11 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
               ${profileImage}
             </div>
             <span class="text-xs font-medium truncate max-w-[120px]">${merchantProfile.displayName}</span>
-            {merchantProfile.role === 'merchant' && merchantProfile.merchantTier && (
+            {merchantProfile.merchantTier && (
               <VerificationBadge 
                 tier={merchantProfile.merchantTier} 
                 className="text-sm ml-0.5" 
               />
-            )}
-            {merchantProfile.role === 'admin' && (
-              <span className="text-xs bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded-full ml-1">Admin</span>
             )}
           </div>
         </div>
@@ -420,14 +417,11 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                     <span className="text-xs font-medium truncate max-w-[120px]">
                       {merchantProfile.displayName}
                     </span>
-                    {merchantProfile.role === 'merchant' && merchantProfile.merchantTier && (
+                    {merchantProfile.merchantTier && (
                       <VerificationBadge 
                         tier={merchantProfile.merchantTier} 
                         className="text-sm ml-0.5" 
                       />
-                    )}
-                    {merchantProfile.role === 'admin' && (
-                      <span className="text-xs bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded-full ml-1">Admin</span>
                     )}
                   </div>
                 ) : (
@@ -566,14 +560,11 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                     <h3 className="text-lg font-semibold text-white">
                       {merchantProfile.displayName}
                     </h3>
-                    {merchantProfile.role === 'merchant' && merchantProfile.merchantTier && (
+                    {merchantProfile.merchantTier && (
                       <VerificationBadge 
                         tier={merchantProfile.merchantTier} 
                         className="text-lg" 
                       />
-                    )}
-                    {merchantProfile.role === 'admin' && (
-                      <span className="text-xs bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded-full ml-1">Admin</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">

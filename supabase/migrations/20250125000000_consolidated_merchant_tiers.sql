@@ -3,10 +3,10 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'merchant_tier') THEN
     CREATE TYPE merchant_tier AS ENUM (
-      'starter_merchant',
-      'verified_merchant',
-      'trusted_merchant',
-      'elite_merchant'
+      'starter_merchant',    -- New seller, no verification
+      'verified_merchant',   -- Basic verification completed
+      'trusted_merchant',    -- Has 10+ successful sales
+      'elite_merchant'       -- VIP/special status
     );
   END IF;
 END $$;
@@ -20,6 +20,7 @@ BEGIN
     WHERE table_name = 'user_profiles'
     AND column_name = 'merchant_tier'
   ) THEN
+    -- Add merchant_tier column - every user gets this regardless of their role
     ALTER TABLE user_profiles
     ADD COLUMN merchant_tier merchant_tier NOT NULL DEFAULT 'starter_merchant';
   END IF;
@@ -42,7 +43,6 @@ BEGIN
   -- Only increment when status changes to shipped or delivered for the first time
   IF (NEW.status IN ('shipped', 'delivered') AND OLD.status NOT IN ('shipped', 'delivered')) THEN
     -- Get the collection owner's ID and increment their successful sales count
-    -- This will work for both merchants and admins who own collections
     UPDATE user_profiles
     SET successful_sales_count = successful_sales_count + 1
     WHERE id = (
@@ -70,11 +70,9 @@ CREATE TRIGGER increment_sales_count_trigger
 CREATE OR REPLACE FUNCTION update_merchant_tier()
 RETURNS trigger AS $$
 BEGIN
-  -- Only update tier if current tier is starter_merchant and user has enough sales
-  -- This won't affect users who are already verified_merchant or elite_merchant
-  IF NEW.successful_sales_count >= 10 AND 
-     OLD.merchant_tier = 'starter_merchant' AND
-     NEW.role IN ('merchant', 'admin') THEN
+  -- Update verification tier based on sales count
+  -- This is completely independent of role - verification badges only show tier status
+  IF NEW.successful_sales_count >= 10 AND OLD.merchant_tier = 'starter_merchant' THEN
     NEW.merchant_tier = 'trusted_merchant';
   END IF;
   
@@ -98,12 +96,13 @@ CREATE OR REPLACE FUNCTION admin_set_merchant_tier(
 )
 RETURNS void AS $$
 BEGIN
-  -- Verify caller is admin
+  -- Verify caller has admin role (for access control only)
   IF NOT auth.is_admin() THEN
     RAISE EXCEPTION 'Only admin can set merchant tiers';
   END IF;
 
-  -- Update merchant tier
+  -- Update verification tier - can be set for any user regardless of their role
+  -- This tier is what determines which badge icon shows up
   UPDATE user_profiles
   SET merchant_tier = p_tier
   WHERE id = p_user_id;
@@ -116,7 +115,9 @@ GRANT EXECUTE ON FUNCTION admin_set_merchant_tier(uuid, merchant_tier) TO authen
 -- Drop existing view if it exists
 DROP VIEW IF EXISTS public_user_profiles;
 
--- Create public view of user profiles with merchant tier info
+-- Create view for public profile info
+-- Note: While this includes role, the verification badge/tier icons
+-- should ONLY use merchant_tier, completely ignoring the role field
 CREATE VIEW public_user_profiles AS
 SELECT 
   id,
@@ -124,15 +125,17 @@ SELECT
   description,
   profile_image,
   website_url,
-  merchant_tier,
-  successful_sales_count,
-  role
+  role,                     -- Can be shown in tables/info, but NOT in verification badges
+  merchant_tier,            -- This determines which verification badge/icon to show
+  successful_sales_count    -- Can be shown as part of seller info
 FROM user_profiles;
 
 -- Grant select permission to authenticated users
 GRANT SELECT ON public_user_profiles TO authenticated;
 
--- Update existing users without a merchant tier
+-- Ensure all existing users have both a role and a merchant tier
 UPDATE user_profiles
-SET merchant_tier = 'starter_merchant'
-WHERE merchant_tier IS NULL; 
+SET 
+  merchant_tier = COALESCE(merchant_tier, 'starter_merchant'),
+  role = COALESCE(role, 'user')
+WHERE merchant_tier IS NULL OR role IS NULL; 
