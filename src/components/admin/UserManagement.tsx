@@ -506,7 +506,7 @@ export function UserManagement() {
                       <p className="text-xs sm:text-sm font-medium truncate">
                         {user.display_name || user.email}
                       </p>
-                      {user.role === 'merchant' && (
+                      {user.role === 'merchant' && user.merchant_tier && (
                         <VerificationBadge tier={user.merchant_tier} className="text-sm" />
                       )}
                     </div>

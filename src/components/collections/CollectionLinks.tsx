@@ -17,6 +17,7 @@ interface MerchantProfile {
   websiteUrl: string;
   merchantTier: MerchantTier;
   successfulSalesCount: number;
+  role: 'admin' | 'merchant' | 'user';
 }
 
 interface CollectionLinksProps {
@@ -44,15 +45,15 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
           return;
         }
         
-        // Fetch merchant profile from the public view
+        // Fetch user profile from the public view
         const { data: profile, error } = await supabase
           .from('public_user_profiles')
-          .select('display_name, description, profile_image, website_url, merchant_tier, successful_sales_count')
+          .select('display_name, description, profile_image, website_url, merchant_tier, successful_sales_count, role')
           .eq('id', collection.user_id)
           .single();
         
         if (error) {
-          console.error('Error fetching merchant profile:', error);
+          console.error('Error fetching user profile:', error);
           setIsFetchingProfile(false);
           return;
         }
@@ -63,7 +64,8 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
           profileImage: profile.profile_image,
           websiteUrl: profile.website_url || '',
           merchantTier: profile.merchant_tier || 'starter_merchant',
-          successfulSalesCount: profile.successful_sales_count || 0
+          successfulSalesCount: profile.successful_sales_count || 0,
+          role: profile.role
         });
         setIsFetchingProfile(false);
       } catch (error) {
@@ -197,10 +199,15 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
               ${profileImage}
             </div>
             <span class="text-xs font-medium truncate max-w-[120px]">${merchantProfile.displayName}</span>
-            <VerificationBadge 
-              tier={merchantProfile.merchantTier} 
-              className="text-sm ml-0.5" 
-            />
+            {merchantProfile.role === 'merchant' && merchantProfile.merchantTier && (
+              <VerificationBadge 
+                tier={merchantProfile.merchantTier} 
+                className="text-sm ml-0.5" 
+              />
+            )}
+            {merchantProfile.role === 'admin' && (
+              <span className="text-xs bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded-full ml-1">Admin</span>
+            )}
           </div>
         </div>
       `;
@@ -413,10 +420,15 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                     <span className="text-xs font-medium truncate max-w-[120px]">
                       {merchantProfile.displayName}
                     </span>
-                    <VerificationBadge 
-                      tier={merchantProfile.merchantTier} 
-                      className="text-sm ml-0.5" 
-                    />
+                    {merchantProfile.role === 'merchant' && merchantProfile.merchantTier && (
+                      <VerificationBadge 
+                        tier={merchantProfile.merchantTier} 
+                        className="text-sm ml-0.5" 
+                      />
+                    )}
+                    {merchantProfile.role === 'admin' && (
+                      <span className="text-xs bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded-full ml-1">Admin</span>
+                    )}
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-1.5 bg-white/10 text-white px-2 py-1 rounded-full">
@@ -554,10 +566,15 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                     <h3 className="text-lg font-semibold text-white">
                       {merchantProfile.displayName}
                     </h3>
-                    <VerificationBadge 
-                      tier={merchantProfile.merchantTier} 
-                      className="text-lg" 
-                    />
+                    {merchantProfile.role === 'merchant' && merchantProfile.merchantTier && (
+                      <VerificationBadge 
+                        tier={merchantProfile.merchantTier} 
+                        className="text-lg" 
+                      />
+                    )}
+                    {merchantProfile.role === 'admin' && (
+                      <span className="text-xs bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded-full ml-1">Admin</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
                     <div className="flex items-center gap-1 text-yellow-400">
