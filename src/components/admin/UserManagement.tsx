@@ -240,12 +240,14 @@ export function UserManagement() {
     try {
       const formData = new FormData(e.target as HTMLFormElement);
       const role = formData.get('role') as 'admin' | 'merchant' | 'user';
+      const merchantTier = formData.get('merchant_tier') as MerchantTier;
 
       // Validate role
       if (!['admin', 'merchant', 'user'].includes(role)) {
         throw new Error('Invalid role selected');
       }
 
+      // Update role
       const { error: roleError } = await supabase.rpc('change_user_role', {
         p_user_id: editingUser.id,
         p_new_role: role
@@ -253,13 +255,21 @@ export function UserManagement() {
 
       if (roleError) throw roleError;
 
+      // Update merchant tier
+      const { error: tierError } = await supabase.rpc('admin_set_merchant_tier', {
+        p_user_id: editingUser.id,
+        p_tier: merchantTier
+      });
+
+      if (tierError) throw tierError;
+
       setShowEditModal(false);
       setEditingUser(null);
       await fetchUsers();
-      toast.success('User role updated successfully');
+      toast.success('User updated successfully');
     } catch (err) {
       console.error('Error updating user:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update user role';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update user';
       toast.error(errorMessage);
     }
   }
@@ -369,30 +379,6 @@ export function UserManagement() {
         </div>
       </div>
     );
-  }
-
-  // Add new function to handle tier updates
-  async function updateMerchantTier(userId: string, tier: MerchantTier) {
-    try {
-      const { error } = await supabase.rpc('admin_set_merchant_tier', {
-        p_user_id: userId,
-        p_tier: tier
-      });
-
-      if (error) throw error;
-
-      // Update local state
-      setUsers(users.map(user => 
-        user.id === userId 
-          ? { ...user, merchant_tier: tier } 
-          : user
-      ));
-
-      toast.success('Merchant tier updated successfully');
-    } catch (error) {
-      console.error('Error updating merchant tier:', error);
-      toast.error('Failed to update merchant tier');
-    }
   }
 
   if (loading) {
@@ -507,7 +493,11 @@ export function UserManagement() {
                         {user.display_name || user.email}
                       </p>
                       {user.merchant_tier && (
-                        <VerificationBadge tier={user.merchant_tier} className="text-sm" />
+                        <VerificationBadge 
+                          tier={user.merchant_tier} 
+                          className="text-base sm:text-lg" 
+                          showTooltip={true}
+                        />
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-400">
@@ -534,19 +524,6 @@ export function UserManagement() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {user.role === 'merchant' && (
-                    <select
-                      value={user.merchant_tier}
-                      onChange={(e) => updateMerchantTier(user.id, e.target.value as MerchantTier)}
-                      className="bg-gray-800 text-white text-sm rounded-lg px-2 py-1 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="starter_merchant">Starter</option>
-                      <option value="verified_merchant">Verified</option>
-                      <option value="trusted_merchant">Trusted</option>
-                      <option value="elite_merchant">Elite</option>
-                    </select>
-                  )}
-                  
                   <button
                     onClick={() => {
                       setEditingUser(user);
@@ -616,6 +593,21 @@ export function UserManagement() {
                   <option value="merchant">Merchant</option>
                   <option value="admin">Admin</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Verification Tier</label>
+                <select
+                  name="merchant_tier"
+                  defaultValue={editingUser.merchant_tier}
+                  className="w-full bg-gray-800 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="starter_merchant">Starter</option>
+                  <option value="verified_merchant">Verified</option>
+                  <option value="trusted_merchant">Trusted</option>
+                  <option value="elite_merchant">Elite</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">This determines which verification badge appears next to the user's name.</p>
               </div>
 
               <div className="flex justify-end gap-2 mt-6">
