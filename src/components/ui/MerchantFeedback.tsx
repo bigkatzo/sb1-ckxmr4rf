@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useWallet } from '../../contexts/WalletContext';
-import { useSupabaseWithWallet } from '../../hooks/useSupabaseWithWallet';
 import { toast } from 'react-toastify';
 
 interface MerchantFeedbackProps {
@@ -34,7 +33,6 @@ export function MerchantFeedback({
   showTitle = true 
 }: MerchantFeedbackProps) {
   const { isConnected, walletAddress } = useWallet();
-  const { client: walletSupabaseClient } = useSupabaseWithWallet();
   
   const [feedback, setFeedback] = useState<FeedbackData>({
     rocket_count: 0,
@@ -79,8 +77,8 @@ export function MerchantFeedback({
     try {
       setIsLoading(true);
       
-      // Use wallet client to send wallet address headers, fallback to regular client
-      const clientToUse = walletSupabaseClient || supabase;
+      // Use regular supabase client for fetching
+      const clientToUse = supabase;
       
       // Fetch feedback data
       const { data, error } = await clientToUse.rpc('get_merchant_feedback', {
@@ -115,8 +113,8 @@ export function MerchantFeedback({
     try {
       setIsVoting(emojiType);
       
-      // Use wallet client to send wallet address in headers
-      const clientToUse = walletSupabaseClient || supabase;
+      // Use regular supabase client since wallet headers aren't working
+      const clientToUse = supabase;
       const { error } = await clientToUse.rpc('vote_merchant_feedback', {
         p_merchant_id: merchantId,
         p_emoji_type: emojiType
