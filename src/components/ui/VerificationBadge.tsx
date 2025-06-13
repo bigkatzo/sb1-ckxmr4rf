@@ -13,22 +13,30 @@ const tierConfig = {
   starter_merchant: {
     label: 'Starter Merchant',
     description: 'New seller, not verified yet',
-    className: 'text-gray-400'
+    className: 'text-gray-400',
+    tooltipColor: 'text-gray-400',
+    details: 'Getting started on the platform'
   },
   verified_merchant: {
     label: 'Verified Merchant',
     description: 'Identity or business verified',
-    className: 'text-gray-500'
+    className: 'text-gray-500',
+    tooltipColor: 'text-gray-300',
+    details: 'Trusted seller with verified credentials'
   },
   trusted_merchant: {
     label: 'Trusted Merchant',
     description: 'Completed 10+ successful sales',
-    className: 'text-blue-400'
+    className: 'text-blue-400',
+    tooltipColor: 'text-blue-400',
+    details: 'Proven track record of reliability'
   },
   elite_merchant: {
     label: 'Elite Merchant',
     description: 'VIP status, high performance and credibility',
-    className: 'text-yellow-400'
+    className: 'text-yellow-400',
+    tooltipColor: 'text-yellow-400',
+    details: 'Top-tier merchant with exceptional service'
   }
 };
 
@@ -53,9 +61,16 @@ export function VerificationBadge({ tier, showTooltip = true, className = '' }: 
   }
 
   const tooltipContent = (
-    <div>
-      <div className="font-bold">{config.label}</div>
-      <div>{config.description}</div>
+    <div className="w-64">
+      <div className={`font-medium ${config.tooltipColor} mb-1`}>
+        {config.label}
+      </div>
+      <div className="text-gray-300 mb-2">
+        {config.description}
+      </div>
+      <div className="text-gray-400 text-xs">
+        {config.details}
+      </div>
     </div>
   );
 

@@ -57,6 +57,20 @@ export function Tooltip({ children, content, trigger = 'both' }: TooltipProps) {
     setPosition({ top, left, arrowLeft });
   };
 
+  // Hide tooltip on scroll to prevent dragging behavior
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isVisible) {
+        setIsVisible(false);
+      }
+    };
+
+    if (isVisible) {
+      window.addEventListener('scroll', handleScroll, true); // Use capture phase
+      return () => window.removeEventListener('scroll', handleScroll, true);
+    }
+  }, [isVisible]);
+
   // Click outside handler
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -148,11 +162,11 @@ export function Tooltip({ children, content, trigger = 'both' }: TooltipProps) {
       onMouseEnter={handleTooltipMouseEnter}
       onMouseLeave={handleTooltipMouseLeave}
     >
-      <div className="bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-xs shadow-lg relative max-w-64">
+      <div className="bg-gray-900 border border-gray-800 text-gray-100 p-3 rounded-md shadow-lg relative text-xs">
         {content}
         {/* Arrow pointing up */}
         <div 
-          className="absolute -top-1 w-2 h-2 bg-gray-800 rotate-45"
+          className="absolute -top-1 w-2 h-2 bg-gray-900 border-l border-t border-gray-800 rotate-45"
           style={{
             left: `${position.arrowLeft}px`
           }}
@@ -163,17 +177,16 @@ export function Tooltip({ children, content, trigger = 'both' }: TooltipProps) {
 
   return (
     <>
-      <div className="inline-flex items-center">
-        <div
-          ref={triggerRef}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          onClick={handleClick}
-          className="cursor-pointer"
-        >
-          {children}
-        </div>
-      </div>
+      <span
+        ref={triggerRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onClick={handleClick}
+        className="cursor-pointer"
+        style={{ display: 'contents' }}
+      >
+        {children}
+      </span>
       
       {/* Render tooltip in portal */}
       {tooltipElement && createPortal(tooltipElement, document.body)}
