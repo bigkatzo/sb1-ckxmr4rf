@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Star } from 'lucide-react';
 import type { Collection } from '../../types/collections';
 import { supabase } from '../../lib/supabase';
@@ -233,6 +234,11 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
     </div>
   ) : null;
 
+  // Find the collection-details container for mobile portal
+  const collectionDetailsContainer = typeof document !== 'undefined' 
+    ? document.querySelector('.collection-details') 
+    : null;
+
   return (
     <div className={`relative ${className}`}>
       {/* Toggle button */}
@@ -246,15 +252,16 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
         {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
       
-      {/* Mobile expanded content - renders as separate card */}
-      {isExpanded && isMobile && (
-        <div className="collection-expanded-content bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 mb-4 mt-2">
+      {/* Mobile expanded content - render in collection-details container via portal */}
+      {isExpanded && isMobile && collectionDetailsContainer && createPortal(
+        <div className="collection-expanded-content bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 mb-4">
           <div className="space-y-3">
             <CreatorSection />
             <NotesSection />
             <LinksSection />
           </div>
-        </div>
+        </div>,
+        collectionDetailsContainer
       )}
       
       {/* Desktop expanded content - renders inline with border-top (original layout) */}
