@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
 import { usePreventScroll } from '../../hooks/usePreventScroll';
+import { MerchantFeedback } from '../ui/MerchantFeedback';
 
 // No longer need the icon components since we're using inline SVGs in the HTML string
 // Just keeping the interface definitions
@@ -466,6 +467,14 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
               {merchantProfile.description && (
                 <p className="text-sm text-gray-300">{merchantProfile.description}</p>
               )}
+              
+              {/* Merchant Feedback Section */}
+              <div className="pt-4 border-t border-white/10">
+                <MerchantFeedback 
+                  merchantId={collection.user_id || ''} 
+                  className="" 
+                />
+              </div>
               
               <div className="pt-4 border-t border-white/10">
                 <button

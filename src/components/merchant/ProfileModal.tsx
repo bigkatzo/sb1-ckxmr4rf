@@ -6,6 +6,7 @@ import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
 import { generateSafeFilename, uploadImage } from '../../lib/storage';
 import { usePreventScroll } from '../../hooks/usePreventScroll';
+import { MerchantFeedback } from '../ui/MerchantFeedback';
 
 type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 
@@ -30,6 +31,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileData, setProfileData] = useState<ProfileData>({
     displayName: '',
@@ -58,6 +60,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       if (!user) {
         throw new Error("User not authenticated");
       }
+      
+      // Set current user ID for feedback component
+      setCurrentUserId(user.id);
       
       // Fetch profile data from user_profiles table
       const { data: profile, error } = await supabase
@@ -318,6 +323,19 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     )}
                   </div>
                 </div>
+
+                {/* Merchant Feedback Section - Read Only */}
+                {currentUserId && (
+                  <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
+                    <h3 className="text-sm font-medium text-white mb-3">Your Community Feedback</h3>
+                    <MerchantFeedback 
+                      merchantId={currentUserId} 
+                      readOnly={true}
+                      showTitle={false}
+                      className="" 
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label htmlFor="displayName" className="block text-sm font-medium text-gray-300">

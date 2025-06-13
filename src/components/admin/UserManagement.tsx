@@ -7,6 +7,7 @@ import { RefreshButton } from '../ui/RefreshButton';
 import { debounce } from '../../utils/debounce';
 import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
+import { MerchantFeedback } from '../ui/MerchantFeedback';
 
 type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 
@@ -381,6 +382,19 @@ export function UserManagement() {
             </div>
           </div>
         </div>
+        
+        {/* Merchant Feedback Section for Admins */}
+        {(user.role === 'merchant' || user.role === 'admin') && (
+          <div className="mt-4 pt-3 border-t border-gray-800">
+            <h5 className="text-xs font-medium text-gray-300 mb-2">Community Feedback</h5>
+            <MerchantFeedback 
+              merchantId={user.id} 
+              readOnly={true}
+              showTitle={false}
+              className="" 
+            />
+          </div>
+        )}
       </div>
     );
   }
