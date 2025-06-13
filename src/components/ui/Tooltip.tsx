@@ -12,7 +12,7 @@ export function Tooltip({ children, content, trigger = 'both' }: TooltipProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0, arrowLeft: 0 });
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Detect if device supports touch
@@ -182,8 +182,7 @@ export function Tooltip({ children, content, trigger = 'both' }: TooltipProps) {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
-        className="cursor-pointer"
-        style={{ display: 'contents' }}
+        className="inline-flex items-center cursor-pointer"
       >
         {children}
       </span>
