@@ -139,26 +139,28 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
     try {
       const formData = new FormData();
       
-      // If this is a new collection, we need to create it first
-      if (!collection?.id) {
-        // Validate required fields
-        if (!name) {
-          throw new Error('Collection name is required');
-        }
-        if (!launchDate) {
-          throw new Error('Launch date is required');
-        }
-        if (!slug) {
-          throw new Error('Collection ID is required');
-        }
+      // Always include required fields (needed for service validation)
+      if (!name) {
+        throw new Error('Collection name is required');
+      }
+      if (!launchDate) {
+        throw new Error('Launch date is required');
+      }
+      if (!slug) {
+        throw new Error('Collection ID is required');
+      }
 
-        // Create a new FormData for the collection creation
-        formData.append('name', name);
-        formData.append('description', description);
-        formData.append('launchDate', launchDate);
-        formData.append('slug', slug);
-        formData.append('visible', visible.toString());
-      } else {
+      // Add all required fields for both new and existing collections
+      formData.append('name', name);
+      formData.append('description', description);
+      formData.append('launchDate', launchDate);
+      formData.append('slug', slug);
+      formData.append('visible', visible.toString());
+      formData.append('sale_ended', saleEnded.toString());
+      formData.append('tags', JSON.stringify(tags));
+      
+      // For existing collections, include the ID
+      if (collection?.id) {
         formData.append('id', collection.id);
       }
 
