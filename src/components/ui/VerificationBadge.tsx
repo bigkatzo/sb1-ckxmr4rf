@@ -60,7 +60,7 @@ export function VerificationBadge({ tier, showTooltip = true, className = '' }: 
   );
 
   return (
-    <Tooltip content={tooltipContent}>
+    <Tooltip content={tooltipContent} trigger="both">
       {badge}
     </Tooltip>
   );
