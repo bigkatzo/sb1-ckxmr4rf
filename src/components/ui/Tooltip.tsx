@@ -3,7 +3,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 
 interface TooltipProps {
   children: React.ReactNode;
-  content: string;
+  content: string | React.ReactNode;
 }
 
 export function Tooltip({ children, content }: TooltipProps) {
@@ -15,11 +15,11 @@ export function Tooltip({ children, content }: TooltipProps) {
         </TooltipPrimitive.Trigger>
         <TooltipPrimitive.Portal>
           <TooltipPrimitive.Content
-            className="bg-gray-900 text-gray-100 px-3 py-1.5 rounded text-xs shadow-lg z-[9999]"
+            className="bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-xs shadow-lg z-[9999]"
             sideOffset={5}
           >
             {content}
-            <TooltipPrimitive.Arrow className="fill-gray-900" />
+            <TooltipPrimitive.Arrow className="fill-gray-800" />
           </TooltipPrimitive.Content>
         </TooltipPrimitive.Portal>
       </TooltipPrimitive.Root>

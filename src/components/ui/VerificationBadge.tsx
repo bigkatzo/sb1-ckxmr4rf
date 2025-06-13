@@ -52,7 +52,12 @@ export function VerificationBadge({ tier, showTooltip = true, className = '' }: 
     return badge;
   }
 
-  const tooltipContent = `${config.label}\n${config.description}`;
+  const tooltipContent = (
+    <div>
+      <div className="font-bold">{config.label}</div>
+      <div>{config.description}</div>
+    </div>
+  );
 
   return (
     <Tooltip content={tooltipContent}>
