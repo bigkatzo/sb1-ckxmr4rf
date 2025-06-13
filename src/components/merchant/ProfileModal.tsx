@@ -324,19 +324,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   </div>
                 </div>
 
-                {/* Merchant Feedback Section - Read Only */}
-                {currentUserId && (
-                  <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
-                    <h3 className="text-sm font-medium text-white mb-3">Your Community Feedback</h3>
-                    <MerchantFeedback 
-                      merchantId={currentUserId} 
-                      readOnly={true}
-                      showTitle={false}
-                      className="" 
-                    />
-                  </div>
-                )}
-
                 <div className="space-y-2">
                   <label htmlFor="displayName" className="block text-sm font-medium text-gray-300">
                     Display Name
@@ -396,6 +383,19 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     placeholder="Solana wallet address for payouts"
                   />
                 </div>
+                
+                {/* Merchant Feedback Section - Read Only */}
+                {currentUserId && (
+                  <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
+                    <h3 className="text-sm font-medium text-white mb-3">Your Community Feedback</h3>
+                    <MerchantFeedback 
+                      merchantId={currentUserId} 
+                      readOnly={true}
+                      showTitle={false}
+                      className="" 
+                    />
+                  </div>
+                )}
                 
                 <div className="pt-4 flex justify-end gap-2">
                   <button

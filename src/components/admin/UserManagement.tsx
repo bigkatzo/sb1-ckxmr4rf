@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, Store, ChevronDown, ChevronUp, Pencil, Trash2, Globe, Copy, Check, Search, Filter, SortAsc, SortDesc } from 'lucide-react';
+import { Users, Shield, Store, ChevronDown, ChevronUp, Pencil, Trash2, Globe, Copy, Check, Search, Filter, SortAsc, SortDesc, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { CollectionAccess } from './CollectionAccess';
 import { toast } from 'react-toastify';
@@ -22,6 +22,7 @@ interface User {
   website_url?: string | null;
   profile_image?: string | null;
   payout_wallet?: string | null;
+  successful_sales_count?: number;
   collections?: Array<{
     id: string;
     name: string;
@@ -136,7 +137,7 @@ export function UserManagement() {
       // Then fetch additional profile data for all users
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
-        .select('id, display_name, description, website_url, profile_image, payout_wallet, merchant_tier')
+        .select('id, display_name, description, website_url, profile_image, payout_wallet, merchant_tier, successful_sales_count')
         .in('id', basicUserData.map((user: BasicUserData) => user.id));
         
       if (profilesError) throw profilesError;
@@ -161,6 +162,7 @@ export function UserManagement() {
           profile_image: profile.profile_image || null,
           payout_wallet: profile.payout_wallet || null,
           merchant_tier: user.merchant_tier || 'starter_merchant',
+          successful_sales_count: profile.successful_sales_count || 0,
           collections: []
         };
       });
@@ -341,6 +343,23 @@ export function UserManagement() {
               </h4>
               <span className="text-xs text-gray-500">({user.email})</span>
             </div>
+            
+            {/* Merchant tier and successful sales */}
+            {(user.role === 'merchant' || user.role === 'admin') && (
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                {user.merchant_tier && (
+                  <VerificationBadge 
+                    tier={user.merchant_tier} 
+                    className="text-sm" 
+                  />
+                )}
+                <div className="flex items-center gap-1 text-yellow-400">
+                  <Star className="h-3 w-3 fill-current" />
+                  <span>{user.successful_sales_count || 0}</span>
+                </div>
+                <span className="text-gray-500">successful sales</span>
+              </div>
+            )}
             
             {user.description && (
               <p className="text-xs text-gray-400">{user.description}</p>
