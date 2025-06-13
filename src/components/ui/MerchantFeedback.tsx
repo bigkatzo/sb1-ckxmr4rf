@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useWallet } from '../../contexts/WalletContext';
+import { useSupabaseWithWallet } from '../../hooks/useSupabaseWithWallet';
 import { toast } from 'react-toastify';
 
 interface MerchantFeedbackProps {
@@ -14,7 +16,6 @@ interface FeedbackData {
   fire_count: number;
   poop_count: number;
   flag_count: number;
-  user_votes: string[];
 }
 
 type EmojiType = 'rocket' | 'fire' | 'poop' | 'flag';
@@ -32,31 +33,57 @@ export function MerchantFeedback({
   readOnly = false, 
   showTitle = true 
 }: MerchantFeedbackProps) {
+  const { isConnected, walletAddress } = useWallet();
+  const { client: walletSupabaseClient } = useSupabaseWithWallet();
+  
   const [feedback, setFeedback] = useState<FeedbackData>({
     rocket_count: 0,
     fire_count: 0,
     poop_count: 0,
-    flag_count: 0,
-    user_votes: []
+    flag_count: 0
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isVoting, setIsVoting] = useState<EmojiType | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Simple: customers need wallet connected to vote on merchants
+  const canVote = isConnected && walletAddress;
+  
+  // Browser-based rate limiting (24 hours)
+  const getVoteKey = (merchantId: string, emojiType: EmojiType) => 
+    `merchant_vote_${merchantId}_${emojiType}_${walletAddress}`;
+  
+  const hasVotedRecently = (emojiType: EmojiType) => {
+    if (!walletAddress) return false;
+    const key = getVoteKey(merchantId, emojiType);
+    const lastVote = localStorage.getItem(key);
+    if (!lastVote) return false;
+    
+    const lastVoteTime = parseInt(lastVote, 10);
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    
+    return (now - lastVoteTime) < twentyFourHours;
+  };
+  
+  const markAsVoted = (emojiType: EmojiType) => {
+    if (!walletAddress) return;
+    const key = getVoteKey(merchantId, emojiType);
+    localStorage.setItem(key, Date.now().toString());
+  };
 
   useEffect(() => {
-    checkAuthAndFetchFeedback();
+    fetchFeedback();
   }, [merchantId]);
 
-  async function checkAuthAndFetchFeedback() {
+  async function fetchFeedback() {
     try {
       setIsLoading(true);
       
-      // Check authentication
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
+      // Use wallet client to send wallet address headers, fallback to regular client
+      const clientToUse = walletSupabaseClient || supabase;
       
       // Fetch feedback data
-      const { data, error } = await supabase.rpc('get_merchant_feedback', {
+      const { data, error } = await clientToUse.rpc('get_merchant_feedback', {
         p_merchant_id: merchantId
       });
 
@@ -73,8 +100,13 @@ export function MerchantFeedback({
   async function handleVote(emojiType: EmojiType) {
     if (readOnly) return;
     
-    if (!isAuthenticated) {
-      toast.error('Please connect your wallet to vote');
+    if (!canVote) {
+      toast.error('Please connect your wallet to rate this merchant');
+      return;
+    }
+
+    if (hasVotedRecently(emojiType)) {
+      toast.error('You can only vote once per emoji every 24 hours');
       return;
     }
 
@@ -83,19 +115,23 @@ export function MerchantFeedback({
     try {
       setIsVoting(emojiType);
       
-      const { data, error } = await supabase.rpc('vote_merchant_feedback', {
+      // Use wallet client to send wallet address in headers
+      const clientToUse = walletSupabaseClient || supabase;
+      const { error } = await clientToUse.rpc('vote_merchant_feedback', {
         p_merchant_id: merchantId,
         p_emoji_type: emojiType
       });
 
       if (error) throw error;
 
+      // Mark as voted in browser storage
+      markAsVoted(emojiType);
+
       // Refresh feedback data
-      await checkAuthAndFetchFeedback();
+      await fetchFeedback();
       
-      const action = data.action === 'added' ? 'added' : 'removed';
       const emojiLabel = EMOJI_CONFIG[emojiType].label;
-      toast.success(`Vote ${action}: ${emojiLabel}`);
+      toast.success(`${emojiLabel} vote added!`);
     } catch (error) {
       console.error('Error voting:', error);
       toast.error('Failed to submit vote');
@@ -124,8 +160,8 @@ export function MerchantFeedback({
       {showTitle && (
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-medium text-gray-300">Community Feedback</h4>
-          {!readOnly && !isAuthenticated && (
-            <span className="text-xs text-gray-500">Connect wallet to vote</span>
+          {!readOnly && !canVote && (
+            <span className="text-xs text-gray-500">Connect wallet to rate</span>
           )}
         </div>
       )}
@@ -133,31 +169,39 @@ export function MerchantFeedback({
       <div className="grid grid-cols-4 gap-2">
         {(Object.entries(EMOJI_CONFIG) as [EmojiType, typeof EMOJI_CONFIG[EmojiType]][]).map(([type, config]) => {
           const count = feedback[`${type}_count` as keyof FeedbackData] as number;
-          const hasVoted = feedback.user_votes.includes(type);
           const isCurrentlyVoting = isVoting === type;
+          const hasVotedThisEmoji = hasVotedRecently(type);
           
           return (
             <button
               key={type}
               onClick={() => handleVote(type)}
-              disabled={readOnly || isCurrentlyVoting || !isAuthenticated}
+              disabled={readOnly || isCurrentlyVoting || !canVote || hasVotedThisEmoji}
               className={`
                 relative group flex flex-col items-center justify-center p-2 rounded-lg 
                 transition-all duration-200 border-2
-                ${hasVoted 
-                  ? 'bg-gray-700 border-gray-600 shadow-md' 
+                ${hasVotedThisEmoji 
+                  ? 'bg-gray-700 border-gray-600 opacity-60' 
                   : 'bg-gray-800 border-gray-700 hover:border-gray-600'
                 }
                 ${readOnly 
                   ? 'cursor-default' 
-                  : isAuthenticated 
+                  : canVote && !hasVotedThisEmoji
                     ? `${config.hoverColor} cursor-pointer` 
                     : 'cursor-not-allowed opacity-60'
                 }
-                ${isCurrentlyVoting ? 'opacity-50 scale-95' : readOnly ? '' : 'hover:scale-105'}
+                ${isCurrentlyVoting ? 'opacity-50 scale-95' : readOnly || hasVotedThisEmoji ? '' : 'hover:scale-105'}
                 disabled:cursor-not-allowed disabled:opacity-50
               `}
-              title={readOnly ? config.label : (isAuthenticated ? config.label : 'Connect wallet to vote')}
+              title={
+                readOnly 
+                  ? config.label 
+                  : hasVotedThisEmoji 
+                    ? 'You voted recently (24h cooldown)'
+                    : canVote 
+                      ? config.label 
+                      : 'Connect wallet to rate merchant'
+              }
             >
               {isCurrentlyVoting && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
@@ -169,15 +213,9 @@ export function MerchantFeedback({
                 {config.emoji}
               </span>
               
-              <span className={`text-xs font-medium transition-colors ${
-                hasVoted ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'
-              }`}>
+              <span className="text-xs font-medium transition-colors text-gray-400 group-hover:text-gray-300">
                 {count}
               </span>
-              
-              {!readOnly && hasVoted && (
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></div>
-              )}
             </button>
           );
         })}
