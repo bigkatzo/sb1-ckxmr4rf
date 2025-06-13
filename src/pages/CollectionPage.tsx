@@ -578,7 +578,7 @@ export function CollectionPage() {
   return (
     <div 
       ref={pageRef}
-      className={`space-y-4 sm:space-y-5 md:space-y-6 ${loading && !isInitialLoad && !location.state?.returnedFromProduct ? 'opacity-60' : ''}`}
+      className={`space-y-2 sm:space-y-5 md:space-y-6 ${loading && !isInitialLoad && !location.state?.returnedFromProduct ? 'opacity-60' : ''}`}
       style={{ transition: 'opacity 150ms ease-out' }}
     >
       {/* Only show skeleton on initial load */}

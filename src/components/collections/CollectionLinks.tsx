@@ -115,10 +115,10 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
       {/* Mobile expanded content - render in collection-details container via portal */}
       {isExpanded && isMobile && collectionDetailsContainer && createPortal(
         <div className="collection-expanded-content">
-          <div className="px-4 py-4 space-y-3">
+          <div className="px-4 py-2 space-y-2.5">
             {/* Creator Section */}
             <div>
-              <h4 className="text-xs text-white/70 uppercase mb-2">Creator</h4>
+              <h4 className="text-xs text-white/70 uppercase mb-1.5">Creator</h4>
               {isFetchingProfile ? (
                 <div className="animate-pulse flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded-full w-24">
                   <div className="h-4 w-4 rounded-full bg-white/20"></div>
@@ -164,7 +164,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             {/* Notes Section */}
             {hasNotes && (
               <div>
-                <h4 className="text-xs text-white/70 uppercase mb-2">Notes</h4>
+                <h4 className="text-xs text-white/70 uppercase mb-1.5">Notes</h4>
                                   <div className="flex flex-wrap gap-1.5">
                     <span className="inline-flex bg-white text-black px-2 py-1 rounded-full text-xs">
                       {collection.free_notes}
@@ -176,7 +176,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             {/* Links Section */}
             {hasLinks && (
               <div>
-                <h4 className="text-xs text-white/70 uppercase mb-2">Links</h4>
+                <h4 className="text-xs text-white/70 uppercase mb-1.5">Links</h4>
                 <div className="flex flex-wrap gap-1.5">
                   {collection.website_url && (
                     <a
