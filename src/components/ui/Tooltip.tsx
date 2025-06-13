@@ -163,7 +163,7 @@ export function Tooltip({ children, content, trigger = 'both' }: TooltipProps) {
 
   return (
     <>
-      <div className="relative inline-block">
+      <div className="inline-flex items-center">
         <div
           ref={triggerRef}
           onMouseEnter={handleMouseEnter}
