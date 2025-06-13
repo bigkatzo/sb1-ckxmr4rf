@@ -71,13 +71,13 @@ export async function createCollection(data: FormData) {
         visible: data.get('visible') === 'true',
         sale_ended: data.get('sale_ended') === 'true',
         tags,
-        custom_url: data.get('custom_url') as string || null,
-        x_url: data.get('x_url') as string || null,
-        telegram_url: data.get('telegram_url') as string || null,
-        dexscreener_url: data.get('dexscreener_url') as string || null,
-        pumpfun_url: data.get('pumpfun_url') as string || null,
-        website_url: data.get('website_url') as string || null,
-        free_notes: data.get('free_notes') as string || null,
+        custom_url: (data.get('custom_url') as string)?.trim() || null,
+        x_url: (data.get('x_url') as string)?.trim() || null,
+        telegram_url: (data.get('telegram_url') as string)?.trim() || null,
+        dexscreener_url: (data.get('dexscreener_url') as string)?.trim() || null,
+        pumpfun_url: (data.get('pumpfun_url') as string)?.trim() || null,
+        website_url: (data.get('website_url') as string)?.trim() || null,
+        free_notes: (data.get('free_notes') as string)?.trim() || null,
         user_id: user.id  // Explicitly set the user_id
       };
 
@@ -173,80 +173,72 @@ export async function updateCollection(id: string, data: FormData) {
       }
     }
 
-    // Check if this is a theme-only update
-    const isThemeUpdate = data.get('theme_use_custom') !== null;
+    // Standard form behavior: validate required fields and update all provided fields
+    const name = data.get('name');
+    if (!name) throw new Error('Collection name is required');
     
-    let updateData: any = {};
+    const launchDate = data.get('launchDate');
+    if (!launchDate) throw new Error('Launch date is required');
+    const parsedDate = parseFormDate(launchDate as string);
+    if (!parsedDate) throw new Error('Invalid launch date format');
     
-    if (isThemeUpdate) {
-      // For theme updates, only include theme-related fields
-      updateData = {
+    const slug = data.get('slug') as string;
+    if (!slug) throw new Error('Slug is required');
+    
+    // Parse tags
+    let tags = [];
+    try {
+      const tagsStr = data.get('tags');
+      if (tagsStr) {
+        tags = JSON.parse(tagsStr as string);
+      }
+    } catch (e) {
+      throw new Error('Invalid tags format');
+    }
+
+    // Handle image upload
+    const imageFile = data.get('image') as File;
+    let imageUrl = existingCollection.image_url;
+    
+    if (imageFile) {
+      try {
+        imageUrl = await uploadCollectionImage(imageFile);
+      } catch (uploadError) {
+        throw new Error('Failed to upload collection image. Please try again.');
+      }
+    } else if (data.get('removeImage') === 'true') {
+      imageUrl = null;
+    }
+
+    // Build update data with all fields from form
+    const updateData = {
+      name: name as string,
+      description: data.get('description') as string,
+      image_url: imageUrl,
+      launch_date: parsedDate.toISOString(),
+      slug,
+      visible: data.get('visible') === 'true',
+      sale_ended: data.get('sale_ended') === 'true',
+      tags,
+      custom_url: (data.get('custom_url') as string)?.trim() || null,
+      x_url: (data.get('x_url') as string)?.trim() || null,
+      telegram_url: (data.get('telegram_url') as string)?.trim() || null,
+      dexscreener_url: (data.get('dexscreener_url') as string)?.trim() || null,
+      pumpfun_url: (data.get('pumpfun_url') as string)?.trim() || null,
+      website_url: (data.get('website_url') as string)?.trim() || null,
+      free_notes: (data.get('free_notes') as string)?.trim() || null,
+      // Include theme fields if provided
+      ...(data.get('theme_use_custom') !== null && {
         theme_use_custom: data.get('theme_use_custom') === 'true',
         theme_use_classic: data.get('theme_use_classic') === 'true',
-        theme_primary_color: data.get('theme_primary_color') as string || null,
-        theme_secondary_color: data.get('theme_secondary_color') as string || null,
-        theme_background_color: data.get('theme_background_color') as string || null,
-        theme_text_color: data.get('theme_text_color') as string || null,
-        theme_logo_url: data.get('theme_logo_url') as string || null,
-        updated_at: new Date().toISOString()
-      };
-    } else {
-      // For full collection updates, validate required fields
-      const name = data.get('name');
-      if (!name) throw new Error('Collection name is required');
-      
-      const launchDate = data.get('launchDate');
-      if (!launchDate) throw new Error('Launch date is required');
-      const parsedDate = parseFormDate(launchDate as string);
-      if (!parsedDate) throw new Error('Invalid launch date format');
-      
-      const slug = data.get('slug') as string;
-      if (!slug) throw new Error('Slug is required');
-      
-      // Parse tags
-      let tags = [];
-      try {
-        const tagsStr = data.get('tags');
-        if (tagsStr) {
-          tags = JSON.parse(tagsStr as string);
-        }
-      } catch (e) {
-        throw new Error('Invalid tags format');
-      }
-
-      // Handle image upload AFTER validation has passed
-      const imageFile = data.get('image') as File;
-      let imageUrl = existingCollection.image_url;
-      
-      if (imageFile) {
-        try {
-          imageUrl = await uploadCollectionImage(imageFile);
-        } catch (uploadError) {
-          throw new Error('Failed to upload collection image. Please try again.');
-        }
-      } else if (data.get('removeImage') === 'true') {
-        imageUrl = null;
-      }
-
-      updateData = {
-        name: name as string,
-        description: data.get('description') as string,
-        image_url: imageUrl,
-        launch_date: parsedDate.toISOString(),
-        slug,
-        visible: data.get('visible') === 'true',
-        sale_ended: data.get('sale_ended') === 'true',
-        tags,
-        custom_url: data.get('custom_url') as string || null,
-        x_url: data.get('x_url') as string || null,
-        telegram_url: data.get('telegram_url') as string || null,
-        dexscreener_url: data.get('dexscreener_url') as string || null,
-        pumpfun_url: data.get('pumpfun_url') as string || null,
-        website_url: data.get('website_url') as string || null,
-        free_notes: data.get('free_notes') as string || null,
-        updated_at: new Date().toISOString()
-      };
-    }
+        theme_primary_color: (data.get('theme_primary_color') as string)?.trim() || null,
+        theme_secondary_color: (data.get('theme_secondary_color') as string)?.trim() || null,
+        theme_background_color: (data.get('theme_background_color') as string)?.trim() || null,
+        theme_text_color: (data.get('theme_text_color') as string)?.trim() || null,
+        theme_logo_url: (data.get('theme_logo_url') as string)?.trim() || null,
+      }),
+      updated_at: new Date().toISOString()
+    };
 
     const { data: collection, error } = await supabase
       .from('collections')

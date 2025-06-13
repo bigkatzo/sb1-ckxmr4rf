@@ -180,6 +180,15 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('theme_use_custom', hasCustomTheme.toString());
       formData.append('theme_use_classic', themeData.theme_use_classic.toString());
 
+      // Also include URL fields so they don't get lost when saving themes
+      formData.append('custom_url', customUrl || '');
+      formData.append('x_url', xUrl || '');
+      formData.append('telegram_url', telegramUrl || '');
+      formData.append('dexscreener_url', dexscreenerUrl || '');
+      formData.append('pumpfun_url', pumpfunUrl || '');
+      formData.append('website_url', websiteUrl || '');
+      formData.append('free_notes', freeNotes || '');
+
       await onSubmit(formData);
       
       // Selective cache invalidation - only clear theme-related data for performance
@@ -231,16 +240,14 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('sale_ended', saleEnded.toString());
       formData.append('tags', JSON.stringify(tags));
       
-      // Add optional fields
-      if (freeNotes) formData.append('free_notes', freeNotes);
-      
-      // Add optional URL fields
-      if (customUrl) formData.append('custom_url', customUrl);
-      if (xUrl) formData.append('x_url', xUrl);
-      if (telegramUrl) formData.append('telegram_url', telegramUrl);
-      if (dexscreenerUrl) formData.append('dexscreener_url', dexscreenerUrl);
-      if (pumpfunUrl) formData.append('pumpfun_url', pumpfunUrl);
-      if (websiteUrl) formData.append('website_url', websiteUrl);
+      // Add optional fields - always include them so they can be updated/cleared
+      formData.append('free_notes', freeNotes || '');
+      formData.append('custom_url', customUrl || '');
+      formData.append('x_url', xUrl || '');
+      formData.append('telegram_url', telegramUrl || '');
+      formData.append('dexscreener_url', dexscreenerUrl || '');
+      formData.append('pumpfun_url', pumpfunUrl || '');
+      formData.append('website_url', websiteUrl || '');
 
       // Add theme data - preserve existing theme data if not changed in theme modal
       if (themeData.theme_use_custom) {
