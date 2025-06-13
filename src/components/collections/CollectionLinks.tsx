@@ -114,11 +114,11 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
       
       {/* Mobile expanded content - render in collection-details container via portal */}
       {isExpanded && isMobile && collectionDetailsContainer && createPortal(
-        <div className="collection-expanded-content bg-gray-900/95 backdrop-blur-sm rounded-xl border border-white/10 mx-4 mb-3 shadow-xl">
-          <div className="px-3 py-3 space-y-2.5">
+        <div className="collection-expanded-content">
+          <div className="px-4 py-4 space-y-3">
             {/* Creator Section */}
             <div>
-              <h4 className="text-xs text-white/60 uppercase tracking-wide mb-1.5 font-medium">Creator</h4>
+              <h4 className="text-xs text-white/70 uppercase mb-2">Creator</h4>
               {isFetchingProfile ? (
                 <div className="animate-pulse flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded-full w-24">
                   <div className="h-4 w-4 rounded-full bg-white/20"></div>
@@ -126,7 +126,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                 </div>
               ) : merchantProfile ? (
                 <div
-                  className="inline-flex items-center gap-1.5 cursor-pointer bg-white/10 hover:bg-white/20 transition-colors text-white px-2 py-1.5 rounded-full"
+                  className="inline-flex items-center gap-1.5 cursor-pointer bg-white/10 hover:bg-white/20 transition-colors text-white px-2 py-1 rounded-full"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowProfileModal(true);
@@ -138,25 +138,25 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                     displayName={merchantProfile.displayName}
                     size="sm"
                   />
-                  <span className="text-xs font-medium truncate max-w-[100px]">
+                  <span className="text-xs font-medium truncate max-w-[120px]">
                     {merchantProfile.displayName}
                   </span>
                   {merchantProfile.merchantTier && (
                     <VerificationBadge 
                       tier={merchantProfile.merchantTier} 
-                      className="text-xs ml-0.5" 
+                      className="text-sm ml-0.5" 
                     />
                   )}
                 </div>
               ) : (
-                <div className="inline-flex items-center gap-1.5 bg-white/10 text-white px-2 py-1.5 rounded-full">
+                <div className="inline-flex items-center gap-1.5 bg-white/10 text-white px-2 py-1 rounded-full">
                   <ProfileImage 
                     src={null} 
                     alt="Anonymous Creator"
                     displayName="Anonymous"
                     size="sm"
                   />
-                  <span className="text-xs font-medium truncate max-w-[100px]">Anonymous Creator</span>
+                  <span className="text-xs font-medium truncate max-w-[120px]">Anonymous Creator</span>
                 </div>
               )}
             </div>
@@ -164,26 +164,26 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
             {/* Notes Section */}
             {hasNotes && (
               <div>
-                <h4 className="text-xs text-white/60 uppercase tracking-wide mb-1.5 font-medium">Notes</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="inline-flex bg-white text-black px-2.5 py-1 rounded-full text-xs font-medium">
-                    {collection.free_notes}
-                  </span>
-                </div>
+                <h4 className="text-xs text-white/70 uppercase mb-2">Notes</h4>
+                                  <div className="flex flex-wrap gap-1.5">
+                    <span className="inline-flex bg-white text-black px-2 py-1 rounded-full text-xs">
+                      {collection.free_notes}
+                    </span>
+                  </div>
               </div>
             )}
 
             {/* Links Section */}
             {hasLinks && (
               <div>
-                <h4 className="text-xs text-white/60 uppercase tracking-wide mb-1.5 font-medium">Links</h4>
+                <h4 className="text-xs text-white/70 uppercase mb-2">Links</h4>
                 <div className="flex flex-wrap gap-1.5">
                   {collection.website_url && (
                     <a
                       href={collection.website_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 bg-white/15 hover:bg-white/25 transition-colors text-white px-2 py-1.5 rounded-full text-xs"
+                      className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                       aria-label="Website"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
@@ -195,7 +195,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                       href={collection.x_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 bg-white/15 hover:bg-white/25 transition-colors text-white px-2 py-1.5 rounded-full text-xs"
+                      className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                       aria-label="Twitter"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -209,7 +209,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                       href={collection.telegram_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 bg-white/15 hover:bg-white/25 transition-colors text-white px-2 py-1.5 rounded-full text-xs"
+                      className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                       aria-label="Telegram"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
@@ -221,7 +221,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                       href={collection.dexscreener_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 bg-white/15 hover:bg-white/25 transition-colors text-white px-2 py-1.5 rounded-full text-xs"
+                      className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                       aria-label="DexScreener"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16h3V8H7v8Z"/><path d="M14 16h3v-4h-3v4Z"/><path d="M14 8v2"/></svg>
@@ -233,7 +233,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                       href={collection.pumpfun_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 bg-white/15 hover:bg-white/25 transition-colors text-white px-2 py-1.5 rounded-full text-xs"
+                      className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                       aria-label="PumpFun"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -247,7 +247,7 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
                       href={collection.custom_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 bg-white/15 hover:bg-white/25 transition-colors text-white px-2 py-1.5 rounded-full text-xs"
+                      className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors text-white px-2 py-1 rounded-full text-xs"
                       aria-label="Link"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
