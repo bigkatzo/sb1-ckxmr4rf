@@ -22,6 +22,7 @@ import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
 import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
+import { usePreventScroll } from '../../hooks/usePreventScroll';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -86,6 +87,8 @@ export function TokenVerificationModal({
   shippingInfo = {},
   paymentMetadata = {}
 }: TokenVerificationModalProps) {
+  usePreventScroll(true); // Modal is always showing when component is rendered
+  
   const { walletAddress, isConnected } = useWallet();
   const { processPayment } = usePayment();
   const [verifying, setVerifying] = useState(true);
@@ -387,7 +390,6 @@ export function TokenVerificationModal({
       let orderId: string | undefined;
       let orderNumber: string;
       let batchOrderId;
-      let isBatchOrder = false;
       
       // If user has a batch checkout from cart, use batch order endpoint
       if (paymentMetadata?.isBatchOrder) {
@@ -437,7 +439,6 @@ export function TokenVerificationModal({
 
         orderNumber = batchData.orderNumbers?.[0]; 
         batchOrderId = batchData.batchOrderId;
-        isBatchOrder = true;
 
         console.log("Successfully created batch order data with batch id above: ", batchOrderId);
       } else {

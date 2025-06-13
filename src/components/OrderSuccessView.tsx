@@ -8,6 +8,7 @@ import {
   isStripeReceiptUrl 
 } from '../utils/transactions';
 import { useWallet } from '../contexts/WalletContext';
+import { usePreventScroll } from '../hooks/usePreventScroll';
 
 // Shareable version without sensitive info
 const ShareableView = ({ productImage, collectionName }: { productImage?: string, collectionName: string }) => {
@@ -123,6 +124,8 @@ export function OrderSuccessView({
   itemPosition,
   isBatchOrder
 }: OrderSuccessViewProps) {
+  usePreventScroll(true); // Modal is always showing when component is rendered
+  
   const navigate = useNavigate();
   const { ensureAuthenticated } = useWallet();
   

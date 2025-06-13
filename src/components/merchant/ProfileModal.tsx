@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
 import { generateSafeFilename, uploadImage } from '../../lib/storage';
+import { usePreventScroll } from '../../hooks/usePreventScroll';
 
 type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 
@@ -24,6 +25,8 @@ interface ProfileData {
 }
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
+  usePreventScroll(isOpen);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);

@@ -5,6 +5,7 @@ import type { Collection } from '../../types/collections';
 import { supabase } from '../../lib/supabase';
 import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
+import { usePreventScroll } from '../../hooks/usePreventScroll';
 
 // No longer need the icon components since we're using inline SVGs in the HTML string
 // Just keeping the interface definitions
@@ -32,6 +33,8 @@ export function CollectionLinks({ collection, className = '' }: CollectionLinksP
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  
+  usePreventScroll(showProfileModal);
 
   const hasLinks = collection.custom_url || collection.x_url || collection.telegram_url || 
                    collection.dexscreener_url || collection.pumpfun_url || collection.website_url;
