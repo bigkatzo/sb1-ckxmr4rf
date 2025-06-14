@@ -14,6 +14,7 @@ interface PublicCollection {
   visible: boolean;
   sale_ended: boolean;
   slug: string;
+  owner_merchant_tier?: string;
 }
 
 interface CollectionOptions {
@@ -132,6 +133,7 @@ export function useCollections(
                 visible: collection.visible,
                 saleEnded: collection.sale_ended,
                 slug: collection.slug,
+                ownerMerchantTier: collection.owner_merchant_tier as any,
                 products: [],
                 categories: []
               }));
@@ -213,6 +215,7 @@ export function useCollections(
         visible: collection.visible,
         saleEnded: collection.sale_ended,
         slug: collection.slug,
+        ownerMerchantTier: collection.owner_merchant_tier as any,
         products: [], // Products are loaded separately when needed
         categories: [] // Categories are loaded separately when needed
       }));
