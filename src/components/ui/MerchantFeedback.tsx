@@ -160,26 +160,21 @@ export function MerchantFeedback({
       {showTitle && (
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-medium text-gray-300">Community Feedback</h4>
-                      <div className="flex items-center gap-2">
-              {!readOnly && !canVote && (
-                <span className="text-xs text-gray-500">Connect wallet to rate</span>
-              )}
-              {showReportButton && (
-                <a
-                  href="https://t.me/storedotfun"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-gray-500 hover:text-gray-400 transition-colors px-2 py-1 rounded-lg hover:bg-gray-800/50 text-xs"
-                  title="Report to moderators"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
-                    <line x1="4" y1="22" x2="4" y2="15"/>
-                  </svg>
-                  <span>Report</span>
-                </a>
-              )}
-            </div>
+                      {showReportButton && (
+              <a
+                href="https://t.me/storedotfun"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-gray-500 hover:text-gray-400 transition-colors px-2 py-1 rounded-lg hover:bg-gray-800/50 text-xs"
+                title="Report to moderators"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                  <line x1="4" y1="22" x2="4" y2="15"/>
+                </svg>
+                <span>Report</span>
+              </a>
+            )}
         </div>
       )}
       
