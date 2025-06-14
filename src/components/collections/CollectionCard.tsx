@@ -94,11 +94,13 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
             `}>
               {collection.name}
             </h3>
-            <CollectionBadge 
-              merchantTier={collection.ownerMerchantTier} 
-              className={isLarge ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}
-              showTooltip={true}
-            />
+            <div className="flex items-center">
+              <CollectionBadge 
+                merchantTier={collection.ownerMerchantTier} 
+                className={isLarge ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}
+                showTooltip={true}
+              />
+            </div>
           </div>
         </div>
         

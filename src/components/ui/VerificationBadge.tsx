@@ -79,7 +79,7 @@ export function VerificationBadge({ tier, showTooltip = true, className = '' }: 
   
   const badge = (
     <span 
-      className={`inline-flex items-center justify-center ${config.className} ${className}`}
+      className={`inline-flex items-center justify-center align-middle ${config.className} ${className}`}
       aria-label={config.label}
     >
       {tier === 'starter_merchant' ? (
