@@ -12,6 +12,7 @@ import { ShareButton } from '../ui/ShareButton';
 import { ProductModalSkeleton } from '../ui/Skeletons';
 import { ProductNotes } from './ProductNotes';
 import { AddToCartButton } from '../cart/AddToCartButton';
+import { CompactCreator } from '../ui/CompactCreator';
 import type { Product as BaseProduct } from '../../types/variants';
 import type { MerchantTier } from '../../types/collections';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
@@ -34,6 +35,7 @@ interface Product extends BaseProduct {
   freeNotes?: string;
   saleEnded?: boolean;
   collectionOwnerMerchantTier?: MerchantTier;
+  collectionUserId?: string;
 }
 
 interface ProductModalProps {
@@ -802,6 +804,12 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     notes={product.notes} 
                     freeNotes={typeof product.freeNotes === 'string' ? product.freeNotes : ''}
                   />
+
+                  {product.collectionUserId && (
+                    <CompactCreator 
+                      userId={product.collectionUserId}
+                    />
+                  )}
                 </div>
               </div>
 

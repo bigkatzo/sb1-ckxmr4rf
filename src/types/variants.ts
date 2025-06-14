@@ -34,6 +34,7 @@ export interface Product {
   collectionSaleEnded?: boolean;
   categorySaleEnded?: boolean;
   collectionOwnerMerchantTier?: import('./collections').MerchantTier;
+  collectionUserId?: string; // User ID of the collection owner
   slug: string;
   stock: number | null; // Base stock, null means unlimited
   minimumOrderQuantity: number;

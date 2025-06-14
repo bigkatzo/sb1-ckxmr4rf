@@ -150,6 +150,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           visible: data.visible ?? true,
           saleEnded: data.sale_ended ?? false,
           notes: hasValidNotes ? data.notes : undefined,
+          collectionUserId: data.collection_user_id,
           freeNotes: freeNotesValue
         };
 
