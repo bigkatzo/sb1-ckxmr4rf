@@ -50,7 +50,7 @@ const getSizeFromClassName = (className: string): string => {
   if (className.includes('text-lg')) return 'h-4 w-4';     // Medium-large text
   if (className.includes('text-base')) return 'h-4 w-4';   // Base text
   if (className.includes('text-sm')) return 'h-4 w-4';     // Our benchmark - good visibility
-  if (className.includes('text-xs')) return 'h-3 w-3';     // Small text
+  if (className.includes('text-xs')) return 'h-4 w-4';     // Small text - now same as benchmark
   
   // Default size matches our benchmark
   return 'h-4 w-4';
