@@ -33,6 +33,7 @@ export interface Product {
   collectionLaunchDate?: Date;
   collectionSaleEnded?: boolean;
   categorySaleEnded?: boolean;
+  collectionOwnerMerchantTier?: import('./collections').MerchantTier;
   slug: string;
   stock: number | null; // Base stock, null means unlimited
   minimumOrderQuantity: number;

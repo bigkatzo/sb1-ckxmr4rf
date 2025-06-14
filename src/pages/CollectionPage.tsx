@@ -10,6 +10,7 @@ import { CollectionSkeleton } from '../components/ui/Skeletons';
 import { CollectionNotFound } from '../components/collections/CollectionNotFound';
 import { createCategoryIndices } from '../utils/category-mapping';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
+import { CollectionBadge } from '../components/ui/CollectionBadge';
 import { ShareButton } from '../components/ui/ShareButton';
 import type { Category, Product } from '../types/index';
 import SEO from '../components/SEO';
@@ -651,10 +652,17 @@ export function CollectionPage() {
             </div>
 
             <div className="absolute bottom-0 w-full p-4 sm:p-8">
-              <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white max-w-2xl">
-                {collection.name}
-              </h1>
-              <p className="text-sm sm:text-base text-gray-300 max-w-xl mt-2 sm:mt-4 line-clamp-2 sm:line-clamp-none">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-4">
+                <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white max-w-2xl">
+                  {collection.name}
+                </h1>
+                <CollectionBadge 
+                  merchantTier={collection.ownerMerchantTier} 
+                  className="text-xl sm:text-2xl md:text-3xl"
+                  showTooltip={true}
+                />
+              </div>
+              <p className="text-sm sm:text-base text-gray-300 max-w-xl line-clamp-2 sm:line-clamp-none">
                 {collection.description}
               </p>
               

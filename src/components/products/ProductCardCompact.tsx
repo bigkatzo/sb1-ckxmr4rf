@@ -4,8 +4,10 @@ import { ImageIcon, Ban } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { CollectionBadge } from '../ui/CollectionBadge';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import type { Product } from '../../types/variants';
+import type { MerchantTier } from '../../types/collections';
 
 interface ProductCardCompactProps {
   product: Product;
@@ -14,6 +16,7 @@ interface ProductCardCompactProps {
   showCategory?: boolean;
   isInInitialViewport?: boolean;
   loadingPriority?: number;
+  collectionMerchantTier?: MerchantTier;
 }
 
 export function ProductCardCompact({ 
@@ -22,7 +25,8 @@ export function ProductCardCompact({
   categoryIndex = 0,
   showCategory = false,
   isInInitialViewport = false,
-  loadingPriority
+  loadingPriority,
+  collectionMerchantTier
 }: ProductCardCompactProps) {
   const navigate = useNavigate();
   const { modifiedPrice } = useModifiedPrice({ product });
@@ -147,9 +151,14 @@ export function ProductCardCompact({
         {product.collectionSlug && product.collectionName && (
           <button
             onClick={handleCollectionClick}
-            className="block text-[10px] sm:text-xs text-gray-400 hover:text-secondary transition-colors line-clamp-1 mt-0.5"
+            className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-400 hover:text-secondary transition-colors mt-0.5"
           >
-            {product.collectionName}
+            <span className="line-clamp-1">{product.collectionName}</span>
+            <CollectionBadge 
+              merchantTier={collectionMerchantTier} 
+              className="text-[8px] sm:text-[10px]"
+              showTooltip={false}
+            />
           </button>
         )}
         <div className="mt-1.5 sm:mt-2 flex items-center justify-between">

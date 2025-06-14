@@ -1,7 +1,9 @@
 import { Image as ImageIcon, Ban, ArrowRight, Calendar } from 'lucide-react';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { Card } from '../ui/Card';
+import { CollectionBadge } from '../ui/CollectionBadge';
 import { format } from 'date-fns';
+import type { MerchantTier } from '../../types/collections';
 
 // Simplified Collection interface that matches what we actually use in this component
 interface SimpleCollection {
@@ -12,6 +14,7 @@ interface SimpleCollection {
   launchDate: Date;
   saleEnded: boolean;
   slug: string;
+  ownerMerchantTier?: MerchantTier;
 }
 
 interface CollectionCardProps {
@@ -82,13 +85,20 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
       </div>
       
       <div className="p-3">
-        <h3 className={`
-          font-semibold text-text line-clamp-1 
-          group-hover:text-secondary transition-colors
-          ${isLarge ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'}
-        `}>
-          {collection.name}
-        </h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className={`
+            font-semibold text-text line-clamp-1 flex-1
+            group-hover:text-secondary transition-colors
+            ${isLarge ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'}
+          `}>
+            {collection.name}
+          </h3>
+          <CollectionBadge 
+            merchantTier={collection.ownerMerchantTier} 
+            className={isLarge ? 'text-sm' : 'text-xs'}
+            showTooltip={true}
+          />
+        </div>
         
         <p className={`
           text-text-muted line-clamp-2 mt-1

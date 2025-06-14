@@ -4,6 +4,7 @@ import { ArrowRight, Clock, Image as ImageIcon, ChevronLeft, ChevronRight } from
 import { useFeaturedCollections } from '../../hooks/useFeaturedCollections';
 import { CountdownTimer } from '../ui/CountdownTimer';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { CollectionBadge } from '../ui/CollectionBadge';
 import { FeaturedCollectionSkeleton } from './FeaturedCollectionSkeleton';
 
 // Keep track of whether the component has been loaded before
@@ -416,9 +417,16 @@ export function FeaturedCollection() {
                   </div>
 
                   <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 w-full px-4 sm:px-6 md:px-8">
-                    <h1 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold text-white max-w-2xl">
-                      {collection.name}
-                    </h1>
+                    <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 md:mb-6">
+                      <h1 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold text-white max-w-2xl">
+                        {collection.name}
+                      </h1>
+                      <CollectionBadge 
+                        merchantTier={(collection as any).ownerMerchantTier} 
+                        className="text-lg sm:text-xl md:text-2xl lg:text-3xl"
+                        showTooltip={true}
+                      />
+                    </div>
 
                     <Link
                       to={`/${collection.slug}`}

@@ -105,6 +105,7 @@ export function BestSellers() {
                 showCategory={false}
                 isInInitialViewport={index < visibleItemCount}
                 loadingPriority={index}
+                collectionMerchantTier={product.collectionOwnerMerchantTier}
               />
             </div>
           ))}

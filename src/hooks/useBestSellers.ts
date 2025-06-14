@@ -25,6 +25,7 @@ interface PublicProduct {
   collection_slug: string;
   collection_launch_date: string;
   collection_sale_ended: boolean;
+  collection_owner_merchant_tier?: string;
   slug: string;
   variants: any[];
   variant_prices: Record<string, number>;
@@ -155,6 +156,7 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             collectionSlug: product.collection_slug,
             collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
             collectionSaleEnded: product.collection_sale_ended,
+            collectionOwnerMerchantTier: product.collection_owner_merchant_tier as any,
             slug: product.slug || '',
             stock: product.quantity,
             minimumOrderQuantity: product.minimum_order_quantity || 50,

@@ -4,6 +4,9 @@ export type BaseAccessType = 'view' | 'edit';
 // Extended access type that includes special roles
 export type AccessType = BaseAccessType | 'admin' | 'owner' | null;
 
+// Merchant tier type (matching VerificationBadge component)
+export type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
+
 // Database collection type (matches the database schema)
 export interface DatabaseCollection {
   id: string;
@@ -36,6 +39,7 @@ export interface DatabaseCollection {
   access_type?: AccessType;
   is_owner?: boolean;
   owner_username?: string | null;
+  owner_merchant_tier?: MerchantTier;
   collection_access?: CollectionAccess[];
   categories?: any[];
   products?: any[];
@@ -69,6 +73,7 @@ export interface Collection {
   accessType: AccessType | null;
   isOwner: boolean;
   owner_username: string | null;
+  ownerMerchantTier?: MerchantTier;
   collection_access?: CollectionAccess[];
   
   // Theme settings

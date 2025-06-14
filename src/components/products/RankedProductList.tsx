@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ImageIcon, TrendingUp, Crown, Clock } from 'lucide-react';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
+import { CollectionBadge } from '../ui/CollectionBadge';
 import { BuyButton } from './BuyButton';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import type { Product } from '../../types/index';
@@ -271,9 +272,14 @@ function RankedProductItem({
           {showCollection && product.collectionName && (
             <button 
               onClick={handleCollectionClick}
-              className="hover:text-secondary truncate transition-colors"
+              className="flex items-center gap-1 hover:text-secondary transition-colors"
             >
-              {product.collectionName}
+              <span className="truncate">{product.collectionName}</span>
+              <CollectionBadge 
+                merchantTier={product.collectionOwnerMerchantTier} 
+                className="text-xs"
+                showTooltip={false}
+              />
             </button>
           )}
         </div>

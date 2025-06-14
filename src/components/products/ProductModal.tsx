@@ -7,11 +7,13 @@ import { ProductVariantPrice } from './ProductVariantPrice';
 import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
+import { CollectionBadge } from '../ui/CollectionBadge';
 import { ShareButton } from '../ui/ShareButton';
 import { ProductModalSkeleton } from '../ui/Skeletons';
 import { ProductNotes } from './ProductNotes';
 import { AddToCartButton } from '../cart/AddToCartButton';
 import type { Product as BaseProduct } from '../../types/variants';
+import type { MerchantTier } from '../../types/collections';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
 import { prefetchGallery, updateGalleryImage } from '../../lib/service-worker';
 import { validateImageUrl } from '../../utils/imageValidator';
@@ -31,6 +33,7 @@ interface Product extends BaseProduct {
   };
   freeNotes?: string;
   saleEnded?: boolean;
+  collectionOwnerMerchantTier?: MerchantTier;
 }
 
 interface ProductModalProps {
@@ -705,7 +708,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     <Link
                       to={`/${product.collectionSlug}${window.location.search}`}
                       onClick={onClose}
-                      className="text-sm transition-colors"
+                      className="flex items-center gap-1.5 text-sm transition-colors"
                       style={{ 
                         color: 'var(--color-text-muted)',
                         '--hover-color': 'var(--color-secondary)'
@@ -713,7 +716,12 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                       onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-secondary)'}
                       onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}
                     >
-                      {product.collectionName}
+                      <span>{product.collectionName}</span>
+                      <CollectionBadge 
+                        merchantTier={product.collectionOwnerMerchantTier} 
+                        className="text-sm"
+                        showTooltip={true}
+                      />
                     </Link>
                   )}
 

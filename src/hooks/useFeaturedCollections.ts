@@ -14,6 +14,7 @@ type DbCollection = {
   visible: boolean;
   sale_ended: boolean;
   slug: string;
+  owner_merchant_tier?: string;
 };
 
 export function useFeaturedCollections() {
@@ -82,7 +83,8 @@ export function useFeaturedCollections() {
           featured: collection.featured,
           visible: collection.visible,
           saleEnded: collection.sale_ended,
-          slug: collection.slug
+          slug: collection.slug,
+          ownerMerchantTier: collection.owner_merchant_tier as any
         }));
 
         if (isMounted) {

@@ -218,6 +218,7 @@ export function useProductsByTimePeriod({
             collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
             collectionSaleEnded: product.collection_sale_ended,
             categorySaleEnded: product.category_sale_ended,
+            collectionOwnerMerchantTier: product.collection_owner_merchant_tier as any,
             slug: product.slug || '',
             stock: product.quantity,
             minimumOrderQuantity: product.minimum_order_quantity || 50,
