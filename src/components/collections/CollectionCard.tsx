@@ -95,7 +95,7 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
           </h3>
           <CollectionBadge 
             merchantTier={collection.ownerMerchantTier} 
-            className={isLarge ? 'text-sm' : 'text-xs'}
+            className={isLarge ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}
             showTooltip={true}
           />
         </div>

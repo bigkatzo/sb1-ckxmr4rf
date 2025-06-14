@@ -658,7 +658,7 @@ export function CollectionPage() {
                 </h1>
                 <CollectionBadge 
                   merchantTier={collection.ownerMerchantTier} 
-                  className="text-xl sm:text-2xl md:text-3xl"
+                  className="text-3xl sm:text-5xl md:text-6xl"
                   showTooltip={true}
                 />
               </div>

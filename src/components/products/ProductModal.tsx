@@ -719,7 +719,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                       <span>{product.collectionName}</span>
                       <CollectionBadge 
                         merchantTier={product.collectionOwnerMerchantTier} 
-                        className="text-sm"
+                        className="text-base"
                         showTooltip={true}
                       />
                     </Link>

@@ -277,7 +277,7 @@ function RankedProductItem({
               <span className="truncate">{product.collectionName}</span>
               <CollectionBadge 
                 merchantTier={product.collectionOwnerMerchantTier} 
-                className="text-xs"
+                className="text-sm"
                 showTooltip={false}
               />
             </button>
