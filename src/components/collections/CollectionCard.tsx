@@ -86,18 +86,20 @@ export function CollectionCard({ collection, variant = 'large', loadingPriority 
       
       <div className="p-3">
         <div className="flex items-center gap-1.5">
-          <h3 className={`
-            font-semibold text-text line-clamp-1 flex-1
-            group-hover:text-secondary transition-colors
-            ${isLarge ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'}
-          `}>
-            {collection.name}
-          </h3>
-          <CollectionBadge 
-            merchantTier={collection.ownerMerchantTier} 
-            className={isLarge ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}
-            showTooltip={true}
-          />
+          <div className="flex items-center gap-1.5 flex-1">
+            <h3 className={`
+              font-semibold text-text line-clamp-1
+              group-hover:text-secondary transition-colors
+              ${isLarge ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'}
+            `}>
+              {collection.name}
+            </h3>
+            <CollectionBadge 
+              merchantTier={collection.ownerMerchantTier} 
+              className={isLarge ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}
+              showTooltip={true}
+            />
+          </div>
         </div>
         
         <p className={`
