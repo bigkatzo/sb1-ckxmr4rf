@@ -19,7 +19,7 @@ const tierConfig = {
   verified_merchant: {
     label: 'Verified Merchant',
     description: 'Identity or business verified',
-    className: 'text-gray-600',
+    className: 'text-gray-700',
     tooltipColor: 'text-gray-300'
   },
   trusted_merchant: {
@@ -79,7 +79,7 @@ export function VerificationBadge({ tier, showTooltip = true, className = '' }: 
   
   const badge = (
     <span 
-      className={`inline-flex items-center justify-center align-middle ${config.className} ${className}`}
+      className={`inline-flex items-center justify-center align-middle ${className} ${config.className}`}
       aria-label={config.label}
     >
       {tier === 'starter_merchant' ? (
