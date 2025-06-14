@@ -40,19 +40,30 @@ const tierConfig = {
 const getSizeFromClassName = (className: string): string => {
   // Based on user feedback: small sizes (xs, sm) and large sizes (3xl+) are good
   // Need to bump up the middle sizes (base, lg, xl, 2xl) for better visibility
-  if (className.includes('text-6xl')) return 'h-8 w-8';    // Largest hero sections ✅
-  if (className.includes('text-5xl')) return 'h-7 w-7';    // Large hero sections ✅  
-  if (className.includes('text-4xl')) return 'h-6 w-6';    // Hero sections ✅
-  if (className.includes('text-3xl')) return 'h-5 w-5';    // Page headers ✅
+  // Also bumping text-sm for creator badge visibility
+  // Adding responsive sizing for hero sections - smaller on mobile
+  // Special handling for collection card responsive classes
+  
+  // Handle responsive collection card classes first
+  if (className.includes('text-base sm:text-lg')) return 'h-6 w-6 sm:h-7 sm:w-7';  // Large collection cards (bumped)
+  if (className.includes('text-sm sm:text-base')) return 'h-5 w-5 sm:h-6 sm:w-6';  // Small collection cards (bumped)
+  
+  // Hero sections with responsive sizing
+  if (className.includes('text-6xl')) return 'h-6 w-6 sm:h-8 sm:w-8';    // Largest hero sections (smaller on mobile)
+  if (className.includes('text-5xl')) return 'h-5 w-5 sm:h-7 sm:w-7';    // Large hero sections (smaller on mobile)  
+  if (className.includes('text-4xl')) return 'h-5 w-5 sm:h-6 sm:w-6';    // Hero sections (smaller on mobile)
+  if (className.includes('text-3xl')) return 'h-4 w-4 sm:h-5 sm:w-5';    // Page headers (smaller on mobile)
+  
+  // Single size classes
   if (className.includes('text-2xl')) return 'h-6 w-6';    // Section headers (bumped up)
   if (className.includes('text-xl')) return 'h-5 w-5';     // Large text (bumped up)
   if (className.includes('text-lg')) return 'h-5 w-5';     // Medium-large text (bumped up)
   if (className.includes('text-base')) return 'h-5 w-5';   // Base text (bumped up)
-  if (className.includes('text-sm')) return 'h-4 w-4';     // Our benchmark ✅
+  if (className.includes('text-sm')) return 'h-5 w-5';     // Creator badge & trending (bumped up)
   if (className.includes('text-xs')) return 'h-3 w-3';     // Small text ✅
   
-  // Default size matches our benchmark
-  return 'h-4 w-4';
+  // Default size matches improved middle size
+  return 'h-5 w-5';
 };
 
 export function VerificationBadge({ tier, showTooltip = true, className = '' }: VerificationBadgeProps) {
