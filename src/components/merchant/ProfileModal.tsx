@@ -392,6 +392,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       merchantId={currentUserId} 
                       readOnly={true}
                       showTitle={false}
+                      showReportButton={false}
                       className="" 
                     />
                   </div>

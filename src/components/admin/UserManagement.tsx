@@ -410,6 +410,7 @@ export function UserManagement() {
               merchantId={user.id} 
               readOnly={true}
               showTitle={false}
+              showReportButton={false}
               className="" 
             />
           </div>
