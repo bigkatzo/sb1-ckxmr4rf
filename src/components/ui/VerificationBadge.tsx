@@ -38,19 +38,18 @@ const tierConfig = {
 
 // Map text size classes to icon dimensions using proper UI design principles
 const getSizeFromClassName = (className: string): string => {
-  // Based on codebase patterns: CartButton sm=h-4, md=h-5, lg=h-6
-  // HiddenContentBadge sm=h-3, md=h-4
-  // Our text-sm benchmark should be around h-4 w-4 for good visibility
-  if (className.includes('text-6xl')) return 'h-8 w-8';    // Largest hero sections
-  if (className.includes('text-5xl')) return 'h-7 w-7';    // Large hero sections  
-  if (className.includes('text-4xl')) return 'h-6 w-6';    // Hero sections
-  if (className.includes('text-3xl')) return 'h-5 w-5';    // Page headers
-  if (className.includes('text-2xl')) return 'h-5 w-5';    // Section headers
-  if (className.includes('text-xl')) return 'h-4 w-4';     // Large text
-  if (className.includes('text-lg')) return 'h-4 w-4';     // Medium-large text
-  if (className.includes('text-base')) return 'h-4 w-4';   // Base text
-  if (className.includes('text-sm')) return 'h-4 w-4';     // Our benchmark - good visibility
-  if (className.includes('text-xs')) return 'h-4 w-4';     // Small text - now same as benchmark
+  // Based on user feedback: small sizes (xs, sm) and large sizes (3xl+) are good
+  // Need to bump up the middle sizes (base, lg, xl, 2xl) for better visibility
+  if (className.includes('text-6xl')) return 'h-8 w-8';    // Largest hero sections ✅
+  if (className.includes('text-5xl')) return 'h-7 w-7';    // Large hero sections ✅  
+  if (className.includes('text-4xl')) return 'h-6 w-6';    // Hero sections ✅
+  if (className.includes('text-3xl')) return 'h-5 w-5';    // Page headers ✅
+  if (className.includes('text-2xl')) return 'h-6 w-6';    // Section headers (bumped up)
+  if (className.includes('text-xl')) return 'h-5 w-5';     // Large text (bumped up)
+  if (className.includes('text-lg')) return 'h-5 w-5';     // Medium-large text (bumped up)
+  if (className.includes('text-base')) return 'h-5 w-5';   // Base text (bumped up)
+  if (className.includes('text-sm')) return 'h-4 w-4';     // Our benchmark ✅
+  if (className.includes('text-xs')) return 'h-3 w-3';     // Small text ✅
   
   // Default size matches our benchmark
   return 'h-4 w-4';
