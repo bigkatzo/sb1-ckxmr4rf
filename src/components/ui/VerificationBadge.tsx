@@ -19,7 +19,7 @@ const tierConfig = {
   verified_merchant: {
     label: 'Verified Merchant',
     description: 'Identity or business verified',
-    className: 'text-gray-700',
+    className: 'text-gray-500',
     tooltipColor: 'text-gray-300'
   },
   trusted_merchant: {
