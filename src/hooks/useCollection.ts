@@ -288,6 +288,7 @@ export function useCollection(slug: string) {
             collectionSaleEnded: collectionData.sale_ended ?? product.collections?.sale_ended ?? false,
             categorySaleEnded: product.category_sale_ended ?? product.categories?.sale_ended ?? false,
             saleEnded: product.sale_ended ?? false,
+            collectionOwnerMerchantTier: collectionData.owner_merchant_tier as any,
             // Add public order count for accurate sorting
             publicOrderCount: publicOrderCount,
             // Add salesCount for backward compatibility
@@ -327,6 +328,7 @@ export function useCollection(slug: string) {
           visible: collectionData.visible ?? true,
           saleEnded: collectionData.sale_ended ?? false,
           slug: collectionData.slug,
+          ownerMerchantTier: collectionData.owner_merchant_tier as any,
           user_id: collectionData.user_id || '',
           custom_url: collectionData.custom_url || '',
           x_url: collectionData.x_url || '',

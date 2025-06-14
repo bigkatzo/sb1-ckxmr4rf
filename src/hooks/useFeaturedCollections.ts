@@ -74,10 +74,6 @@ export function useFeaturedCollections() {
 
         if (error) throw error;
 
-        // Debug logging to see what data we're getting
-        console.log('Featured collections raw data:', data);
-        console.log('First collection owner_merchant_tier:', data?.[0]?.owner_merchant_tier);
-
         const transformedCollections = (data || []).map((collection: DbCollection) => ({
           id: collection.id,
           name: collection.name,
@@ -90,10 +86,6 @@ export function useFeaturedCollections() {
           slug: collection.slug,
           ownerMerchantTier: collection.owner_merchant_tier as any
         }));
-
-        // Debug logging to see transformed data
-        console.log('Transformed collections:', transformedCollections);
-        console.log('First collection ownerMerchantTier:', transformedCollections?.[0]?.ownerMerchantTier);
 
         if (isMounted) {
           setCollections(transformedCollections);

@@ -52,6 +52,90 @@ WHERE p.visible = true AND c.visible = true;
 -- Grant permissions on the view
 GRANT SELECT ON public_products_with_categories TO anon;
 
+-- Update public_collections view to include merchant tier
+DROP VIEW IF EXISTS public_collections CASCADE;
+CREATE VIEW public_collections AS
+SELECT 
+  c.id,
+  c.name,
+  c.description,
+  c.image_url,
+  c.launch_date,
+  c.featured,
+  c.visible,
+  c.sale_ended,
+  c.slug,
+  c.user_id,
+  c.custom_url,
+  c.x_url,
+  c.telegram_url,
+  c.dexscreener_url,
+  c.pumpfun_url,
+  c.website_url,
+  c.free_notes,
+  c.theme_primary_color,
+  c.theme_secondary_color,
+  c.theme_background_color,
+  c.theme_text_color,
+  c.theme_use_classic,
+  c.theme_logo_url,
+  c.theme_use_custom,
+  c.created_at,
+  c.updated_at,
+  up.merchant_tier as owner_merchant_tier
+FROM collections c
+LEFT JOIN user_profiles up ON c.user_id = up.id
+WHERE c.visible = true;
+
+-- Grant permissions on the updated view
+GRANT SELECT ON public_collections TO anon;
+GRANT SELECT ON public_collections TO authenticated;
+
+-- Recreate the public functions that depend on this view
+DROP FUNCTION IF EXISTS public.get_featured_collections();
+DROP FUNCTION IF EXISTS public.get_upcoming_collections();
+DROP FUNCTION IF EXISTS public.get_latest_collections(integer, integer);
+
+CREATE OR REPLACE FUNCTION public.get_featured_collections()
+RETURNS SETOF public_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public_collections
+  WHERE featured = true
+  ORDER BY launch_date DESC;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_upcoming_collections()
+RETURNS SETOF public_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public_collections
+  WHERE launch_date > now()
+  ORDER BY launch_date ASC;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_latest_collections(p_limit integer DEFAULT 10, p_offset integer DEFAULT 0)
+RETURNS SETOF public_collections
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public_collections
+  WHERE launch_date <= now()
+  ORDER BY launch_date DESC
+  LIMIT p_limit
+  OFFSET p_offset;
+$$;
+
+-- Grant execute permissions on functions
+GRANT EXECUTE ON FUNCTION public.get_featured_collections() TO anon;
+GRANT EXECUTE ON FUNCTION public.get_upcoming_collections() TO anon;
+GRANT EXECUTE ON FUNCTION public.get_latest_collections(integer, integer) TO anon;
+
 -- Drop and recreate the get_trending_products function with explicit column selection
 DROP FUNCTION IF EXISTS public.get_trending_products(integer, integer, text);
 

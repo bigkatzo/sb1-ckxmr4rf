@@ -110,17 +110,13 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
           setLoading(true);
         }
         
-        const { data, error } = await supabase
-          .rpc('get_best_sellers', { 
-            p_limit: limit,
-            p_sort_by: sortBy
-          });
+        const { data, error } = await supabase.rpc('get_trending_products', {
+          p_limit: limit,
+          p_offset: 0,
+          p_time_period: 'all'
+        });
 
         if (error) throw error;
-
-        // Debug logging to see what data we're getting
-        console.log('Best sellers raw data:', data);
-        console.log('First product collection_owner_merchant_tier:', data?.[0]?.collection_owner_merchant_tier);
 
         const transformedProducts = (data || []).map((product: PublicProduct) => {
           // Fix for empty object in JSONB column
