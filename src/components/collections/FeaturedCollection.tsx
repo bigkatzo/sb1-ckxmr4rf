@@ -422,7 +422,7 @@ export function FeaturedCollection() {
                         {collection.name}
                       </h1>
                       <CollectionBadge 
-                        merchantTier={(collection as any).ownerMerchantTier} 
+                        merchantTier={(collection as any).ownerMerchantTier || 'elite_merchant'} 
                         className="text-lg sm:text-xl md:text-2xl lg:text-3xl"
                         showTooltip={true}
                       />

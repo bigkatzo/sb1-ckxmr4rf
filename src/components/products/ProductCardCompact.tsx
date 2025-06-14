@@ -155,7 +155,7 @@ export function ProductCardCompact({
           >
             <span className="line-clamp-1">{product.collectionName}</span>
             <CollectionBadge 
-              merchantTier={collectionMerchantTier} 
+              merchantTier={collectionMerchantTier || 'elite_merchant'} 
               className="text-[8px] sm:text-[10px]"
               showTooltip={false}
             />

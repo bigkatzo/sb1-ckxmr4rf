@@ -118,6 +118,10 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
 
         if (error) throw error;
 
+        // Debug logging to see what data we're getting
+        console.log('Best sellers raw data:', data);
+        console.log('First product collection_owner_merchant_tier:', data?.[0]?.collection_owner_merchant_tier);
+
         const transformedProducts = (data || []).map((product: PublicProduct) => {
           // Fix for empty object in JSONB column
           const hasValidNotes = product.notes && typeof product.notes === 'object' && Object.keys(product.notes).length > 0;

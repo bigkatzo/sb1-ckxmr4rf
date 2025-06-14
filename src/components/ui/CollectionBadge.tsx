@@ -12,16 +12,25 @@ export function CollectionBadge({
   className = '', 
   showTooltip = true 
 }: CollectionBadgeProps) {
+  // Debug logging
+  console.log('CollectionBadge received merchantTier:', merchantTier);
+  
   // Don't render anything if no merchant tier is provided
   if (!merchantTier) {
+    console.log('CollectionBadge: No merchant tier provided, not rendering');
     return null;
   }
 
+  // Add a visible test indicator
   return (
-    <VerificationBadge 
-      tier={merchantTier} 
-      className={className}
-      showTooltip={showTooltip}
-    />
+    <div className="inline-flex items-center gap-1">
+      <VerificationBadge 
+        tier={merchantTier} 
+        className={className}
+        showTooltip={showTooltip}
+      />
+      {/* Temporary test indicator */}
+      <span className="text-red-500 text-xs font-bold">BADGE</span>
+    </div>
   );
 } 
