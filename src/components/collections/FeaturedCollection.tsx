@@ -58,7 +58,7 @@ export function FeaturedCollection() {
       if (!isDragging && !isAnimating.current) {
         setCurrentIndex((prev) => (prev + 1) % collections.length);
       }
-    }, 6000);
+    }, 5000);
   }, [collections.length, isDragging]);
 
   // Touch handlers
