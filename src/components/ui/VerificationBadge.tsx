@@ -36,8 +36,27 @@ const tierConfig = {
   }
 };
 
+// Map text size classes to icon dimensions
+const getSizeFromClassName = (className: string): string => {
+  // Extract text size classes and map to icon sizes
+  if (className.includes('text-6xl')) return 'h-12 w-12 sm:h-16 sm:w-16 md:h-20 md:w-20 lg:h-24 lg:w-24';
+  if (className.includes('text-5xl')) return 'h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16';
+  if (className.includes('text-4xl')) return 'h-8 w-8 sm:h-10 sm:w-10';
+  if (className.includes('text-3xl')) return 'h-6 w-6 sm:h-8 sm:w-8';
+  if (className.includes('text-2xl')) return 'h-5 w-5 sm:h-6 sm:w-6';
+  if (className.includes('text-xl')) return 'h-4 w-4 sm:h-5 sm:w-5';
+  if (className.includes('text-lg')) return 'h-4 w-4';
+  if (className.includes('text-base')) return 'h-3.5 w-3.5';
+  if (className.includes('text-sm')) return 'h-3 w-3';
+  if (className.includes('text-xs')) return 'h-2.5 w-2.5';
+  
+  // Default size for any other cases
+  return 'h-3 w-3';
+};
+
 export function VerificationBadge({ tier, showTooltip = true, className = '' }: VerificationBadgeProps) {
   const config = tierConfig[tier];
+  const iconSize = getSizeFromClassName(className);
   
   const badge = (
     <span 
@@ -45,9 +64,9 @@ export function VerificationBadge({ tier, showTooltip = true, className = '' }: 
       aria-label={config.label}
     >
       {tier === 'starter_merchant' ? (
-        <Sparkles className="h-full w-full stroke-current" />
+        <Sparkles className={`${iconSize} stroke-current`} />
       ) : (
-        <BadgeCheck className="h-full w-full fill-current stroke-white stroke-[1.5]" />
+        <BadgeCheck className={`${iconSize} fill-current stroke-white stroke-[1.5]`} />
       )}
     </span>
   );
