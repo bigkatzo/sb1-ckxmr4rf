@@ -60,7 +60,12 @@ const getSizeFromClassName = (className: string): string => {
   if (className.includes('text-base')) return 'h-5 w-5';   // Base text (bumped up)
   if (className.includes('text-sm')) {
     // If it's compact context (ProductCardCompact desktop, RankedProductList), make smaller
-    return isCompactContext ? 'h-4 w-4' : 'h-5 w-5';     // Compact: bigger bump, Regular: creator badge size
+    if (isCompactContext) {
+      return 'h-4 w-4';     // Compact: bigger bump
+    } else {
+      // Creator badge (has ml-) gets responsive sizing - bigger on desktop
+      return className.includes('ml-') ? 'h-5 w-5 sm:h-6 sm:w-6' : 'h-5 w-5';     // Creator: responsive, Regular: standard
+    }
   }
   if (className.includes('text-xs')) return 'h-4 w-4';     // Bigger bump for ProductCardCompact mobile
   
