@@ -42,6 +42,11 @@ const getSizeFromClassName = (className: string): string => {
   // Need to bump up the middle sizes (base, lg, xl, 2xl) for better visibility
   // Also bumping text-sm for creator badge visibility
   // Adding responsive sizing for hero sections - smaller on mobile
+  // Making compact product cards and trending lists smaller
+  
+  // Check if this is a compact context (has responsive sm: classes indicating mobile/desktop differences)
+  const isCompactContext = className.includes('sm:text-');
+  
   if (className.includes('text-6xl')) return 'h-6 w-6 sm:h-8 sm:w-8';    // Largest hero sections (smaller on mobile)
   if (className.includes('text-5xl')) return 'h-5 w-5 sm:h-7 sm:w-7';    // Large hero sections (smaller on mobile)  
   if (className.includes('text-4xl')) return 'h-5 w-5 sm:h-6 sm:w-6';    // Hero sections (smaller on mobile)
@@ -50,8 +55,11 @@ const getSizeFromClassName = (className: string): string => {
   if (className.includes('text-xl')) return 'h-5 w-5';     // Large text (bumped up)
   if (className.includes('text-lg')) return 'h-5 w-5';     // Medium-large text (bumped up)
   if (className.includes('text-base')) return 'h-5 w-5';   // Base text (bumped up)
-  if (className.includes('text-sm')) return 'h-5 w-5';     // Creator badge & trending (bumped up)
-  if (className.includes('text-xs')) return 'h-3 w-3';     // Small text ✅
+  if (className.includes('text-sm')) {
+    // If it's compact context (ProductCardCompact desktop, RankedProductList), make smaller
+    return isCompactContext ? 'h-3 w-3' : 'h-5 w-5';     // Compact: smaller, Regular: creator badge size
+  }
+  if (className.includes('text-xs')) return 'h-2 w-2';     // Very small for ProductCardCompact mobile
   
   // Default size matches improved middle size
   return 'h-5 w-5';
