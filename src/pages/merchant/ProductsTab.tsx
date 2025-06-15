@@ -71,9 +71,13 @@ export function ProductsTab() {
         data.append('collection', selectedCollection);
         
         // If we're duplicating a product (editingProduct exists but has no ID)
-        // Make sure the existing images are properly included
+        // Make sure the existing images and design files are properly included
         if (editingProduct && editingProduct.images && !data.has('currentImages')) {
           data.append('currentImages', JSON.stringify(editingProduct.images));
+        }
+        
+        if (editingProduct && editingProduct.designFiles && !data.has('currentDesignFiles')) {
+          data.append('currentDesignFiles', JSON.stringify(editingProduct.designFiles));
         }
         
         await createProduct(selectedCollection, data);

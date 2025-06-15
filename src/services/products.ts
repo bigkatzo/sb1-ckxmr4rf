@@ -2,6 +2,7 @@ import { supabase, retry } from '../lib/supabase';
 import { uploadProductImages } from './products/upload';
 import { cacheManager } from '../lib/cache';
 import { uploadImage } from '../lib/storage';
+import { transformProduct } from '../lib/realtime/transformers';
 
 // Helper to invalidate product-related caches
 const invalidateProductCaches = (collectionId: string, categoryId?: string) => {
@@ -721,10 +722,28 @@ export async function toggleProductVisibility(id: string, visible: boolean) {
 
 export async function getProductForDuplication(id: string) {
   try {
-    // Get the product data
+    // Get the product data with all related information
     const { data: product, error } = await supabase
       .from('products')
-      .select('*')
+      .select(`
+        *,
+        categories:category_id (
+          id,
+          name,
+          description,
+          type,
+          visible,
+          sale_ended,
+          eligibility_rules
+        ),
+        collections:collection_id (
+          id,
+          name,
+          slug,
+          launch_date,
+          sale_ended
+        )
+      `)
       .eq('id', id)
       .limit(1)
       .maybeSingle();
@@ -734,12 +753,15 @@ export async function getProductForDuplication(id: string) {
       throw new Error('Product not found');
     }
 
-    // Return a copy of the product with a new name
+    // Transform the database product to frontend format using the same transformer
+    const transformedProduct = transformProduct(product);
+    
+    // Return a copy of the product with a new name and removed ID
     return {
       success: true,
       productData: {
-        ...product,
-        name: `${product.name} (Copy)`,
+        ...transformedProduct,
+        name: `${transformedProduct.name} (Copy)`,
         id: undefined, // Remove the ID to force creation of a new product
       }
     };
