@@ -1,5 +1,5 @@
 import { useDropzone } from 'react-dropzone';
-import { Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon, Info } from 'lucide-react';
 import { ImagePreview } from '../../../ui/ImagePreview';
 import { toast } from 'react-toastify';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -189,7 +189,28 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
 
   return (
     <div>
-      <label className="block text-sm font-medium text-white mb-2">Product Images</label>
+      {/* Label with info icon */}
+      <div className="flex items-center gap-2 mb-1">
+        <label className="block text-sm font-medium text-white">Product Images</label>
+        <div className="group relative">
+          <Info className="h-4 w-4 text-gray-400 hover:text-gray-300 cursor-help" />
+          <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+            <div className="font-medium text-white mb-1">Image Guidelines:</div>
+            <div className="space-y-1">
+              <div>• <strong>Aspect Ratio:</strong> 3:4 (portrait)</div>
+              <div>• <strong>Resolution:</strong> 1532 x 2048px</div>
+              <div>• <strong>Format:</strong> JPG, PNG, WebP</div>
+              <div>• <strong>File Size:</strong> Under 5MB each</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Helper text */}
+      <p className="text-xs text-gray-400 mb-3">
+        Recommended 3:4 aspect ratio (1532x2048) • Max 10 images • 5MB each
+      </p>
+      
       <div
         {...getRootProps()}
         className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
@@ -229,7 +250,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
               Drag and drop images, or click to select
             </p>
             <p className="text-xs text-gray-500">
-              Maximum 10 images (5MB each)
+              3:4 aspect ratio recommended for best results
             </p>
           </div>
         )}
