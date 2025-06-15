@@ -75,7 +75,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         
         let productQuery;
         if (includeHidden) {
-          // When in preview mode, fetch from products table with joins
+          // When in preview mode, fetch from products table with joins including merchant tier
           productQuery = supabase
             .from('products')
             .select(`
@@ -95,15 +95,19 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
                 slug,
                 launch_date,
                 sale_ended,
-                visible
+                visible,
+                user_id,
+                user_profiles!collections_user_id_fkey (
+                  merchant_tier
+                )
               )
             `)
             .eq('slug', productSlug)
             .eq('collections.slug', collectionSlug);
         } else {
-          // Use public view which already filters by visibility
+          // Use public_products_with_categories view which includes collection_owner_merchant_tier
           productQuery = supabase
-          .from('public_products')
+          .from('public_products_with_categories')
           .select('*')
           .eq('collection_slug', collectionSlug)
             .eq('slug', productSlug);
@@ -119,6 +123,16 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         
         // CRITICAL FIX: Make sure free_notes is properly processed from database column name
         const freeNotesValue = data.free_notes !== null && data.free_notes !== undefined ? String(data.free_notes) : '';
+
+        // Extract merchant tier from different query structures
+        let collectionOwnerMerchantTier;
+        if (includeHidden) {
+          // In preview mode, merchant tier comes from nested user_profiles
+          collectionOwnerMerchantTier = data.collections?.user_profiles?.merchant_tier;
+        } else {
+          // In normal mode, it comes directly from the view
+          collectionOwnerMerchantTier = data.collection_owner_merchant_tier;
+        }
 
         const transformedProduct: Product = {
           id: data.id,
@@ -151,6 +165,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           saleEnded: data.sale_ended ?? false,
           notes: hasValidNotes ? data.notes : undefined,
           collectionUserId: data.collection_user_id,
+          collectionOwnerMerchantTier: collectionOwnerMerchantTier,
           freeNotes: freeNotesValue
         };
 
