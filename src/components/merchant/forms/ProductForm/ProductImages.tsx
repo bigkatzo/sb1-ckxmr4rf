@@ -194,7 +194,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
         <label className="block text-sm font-medium text-white">Product Images</label>
         <div className="group relative">
           <Info className="h-4 w-4 text-gray-400 hover:text-gray-300 cursor-help" />
-          <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+          <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-gray-900 border border-gray-600 rounded-lg shadow-xl text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[9999]">
             <div className="font-medium text-white mb-1">Image Guidelines:</div>
             <div className="space-y-1">
               <div>• <strong>Aspect Ratio:</strong> 3:4 (portrait)</div>
@@ -250,7 +250,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
               Drag and drop images, or click to select
             </p>
             <p className="text-xs text-gray-500">
-              3:4 aspect ratio recommended for best results
+              Maximum 10 images (5MB each)
             </p>
           </div>
         )}
