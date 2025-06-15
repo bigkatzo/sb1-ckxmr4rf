@@ -96,12 +96,12 @@ export function VerificationBadge({ tier, showTooltip = true, className = '' }: 
 
   const tooltipContent = (
     <div className="w-64">
-      <div className={`font-medium ${config.tooltipColor} mb-1 flex items-center gap-2`}>
+      <div className={`font-medium ${config.tooltipColor} mb-1 flex items-center gap-1.5`}>
         <span className={`inline-flex items-center justify-center ${config.className}`}>
           {tier === 'starter_merchant' ? (
-            <Sparkles className="h-3 w-3 stroke-current" />
+            <Sparkles className="h-3.5 w-3.5 stroke-current" />
           ) : (
-            <BadgeCheck className="h-3 w-3 fill-current stroke-white stroke-[1.5]" />
+            <BadgeCheck className="h-3.5 w-3.5 fill-current stroke-white stroke-[1.5]" />
           )}
         </span>
         {config.label}
