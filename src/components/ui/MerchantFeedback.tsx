@@ -184,62 +184,85 @@ export function MerchantFeedback({
           const count = feedback[`${type}_count` as keyof FeedbackData] as number;
           const isCurrentlyVoting = isVoting === type;
           const hasVotedThisEmoji = hasVotedRecently(type);
+          const isButtonDisabled = readOnly || isCurrentlyVoting || !canVote || hasVotedThisEmoji;
           
-          const tooltipContent = readOnly 
-            ? config.label 
-            : hasVotedThisEmoji 
-              ? 'You voted recently (24h cooldown)'
-              : canVote 
-                ? config.label 
-                : (
-                  <div className="bg-gray-600 border border-gray-500 text-gray-100 p-3 rounded-md shadow-lg relative text-xs -m-3">
-                    Connect wallet to rate
-                  </div>
-                );
+          // Only show tooltips for disabled buttons (inactive states)
+          const shouldShowTooltip = isButtonDisabled && !readOnly && !isCurrentlyVoting;
           
           const buttonElement = (
             <button
               key={type}
               onClick={() => handleVote(type)}
-              disabled={readOnly || isCurrentlyVoting || !canVote || hasVotedThisEmoji}
+              disabled={isButtonDisabled}
               className={`
                 relative group flex flex-col items-center justify-center p-2 rounded-lg 
                 transition-all duration-200 border-2
                 ${hasVotedThisEmoji 
-                  ? 'bg-gray-700 border-gray-600 opacity-60' 
+                  ? 'bg-gray-800 border-gray-600' 
                   : 'bg-gray-800 border-gray-700 hover:border-gray-600'
                 }
                 ${readOnly 
                   ? 'cursor-default' 
                   : canVote && !hasVotedThisEmoji
                     ? `${config.hoverColor} cursor-pointer` 
-                    : 'cursor-not-allowed opacity-60'
+                    : !canVote
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'cursor-default'
                 }
                 ${isCurrentlyVoting ? 'opacity-50 scale-95' : readOnly || hasVotedThisEmoji ? '' : 'hover:scale-105'}
-                disabled:cursor-not-allowed disabled:opacity-50
               `}
             >
+              {/* White overlay for selected/voted state */}
+              {hasVotedThisEmoji && (
+                <div className="absolute inset-0 bg-white/20 rounded-lg"></div>
+              )}
+              
               {isCurrentlyVoting && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
                   <div className="h-4 w-4 border-2 border-t-transparent border-gray-400 rounded-full animate-spin"></div>
                 </div>
               )}
               
-              <span className="text-lg mb-1" role="img" aria-label={config.label}>
+              <span className="text-lg mb-1 relative z-10" role="img" aria-label={config.label}>
                 {config.emoji}
               </span>
               
-              <span className="text-xs font-medium transition-colors text-gray-400 group-hover:text-gray-300">
+              <span className="text-xs font-medium transition-colors text-gray-400 group-hover:text-gray-300 relative z-10">
                 {count}
               </span>
             </button>
           );
           
-          return (
-            <Tooltip key={type} content={tooltipContent} trigger="both">
-              {buttonElement}
-            </Tooltip>
-          );
+          // Custom tooltip component for "Connect wallet to rate" with proper colors
+          if (shouldShowTooltip && !canVote) {
+            const customTooltipContent = (
+              <div className="fixed z-[10000] pointer-events-auto">
+                <div className="bg-gray-600 border border-gray-500 text-gray-100 p-3 rounded-md shadow-lg relative text-xs">
+                  Connect wallet to rate
+                  {/* Arrow pointing up with matching colors */}
+                  <div className="absolute -top-1 w-2 h-2 bg-gray-600 border-l border-t border-gray-500 rotate-45 left-1/2 transform -translate-x-1/2"></div>
+                </div>
+              </div>
+            );
+            
+            return (
+              <Tooltip key={type} content={customTooltipContent} trigger="click">
+                {buttonElement}
+              </Tooltip>
+            );
+          }
+          
+          // Regular tooltip for cooldown state
+          if (shouldShowTooltip && hasVotedThisEmoji) {
+            return (
+              <Tooltip key={type} content="You voted recently (24h cooldown)" trigger="click">
+                {buttonElement}
+              </Tooltip>
+            );
+          }
+          
+          // No tooltip for active buttons
+          return buttonElement;
         })}
       </div>
       
