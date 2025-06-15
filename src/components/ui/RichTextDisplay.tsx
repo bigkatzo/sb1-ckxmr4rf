@@ -1,4 +1,4 @@
-
+ 
 
 interface RichTextDisplayProps {
   content: string;

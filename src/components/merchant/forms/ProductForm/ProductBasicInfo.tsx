@@ -49,6 +49,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
           type="text"
           id="name"
           {...register('name')}
+          placeholder="Enter product name"
           className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
         />
         {errors.name && (
@@ -63,7 +64,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         <RichTextEditor
           content={currentDescription}
           onChange={(content) => setValue('description', content, { shouldDirty: true })}
-          placeholder="Enter product description with formatting..."
+          placeholder="Enter product description"
           className="mt-1"
         />
         {errors.description && (

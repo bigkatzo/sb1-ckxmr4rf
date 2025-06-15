@@ -248,7 +248,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
             onMouseLeave={handleMouseLeave}
           />
           <PortalTooltip isVisible={showTooltip} triggerRect={triggerRect}>
-            <div className="font-medium text-white mb-1">Image Guidelines:</div>
+            <div className="font-medium text-white mb-1">Best Practices:</div>
             <div className="space-y-1">
               <div>• <strong>Aspect Ratio:</strong> 3:4 (portrait)</div>
               <div>• <strong>Resolution:</strong> 1532 x 2048px</div>

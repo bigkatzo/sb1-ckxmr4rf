@@ -165,7 +165,7 @@ export function RichTextEditor({
         )}
         
         {(!content || content.trim() === '' || content === '<p></p>') && (
-          <div className="absolute inset-0 top-0 p-3 pointer-events-none text-gray-500 text-sm">
+          <div className="absolute inset-0 top-0 p-3 pointer-events-none text-gray-400 text-sm">
             {placeholder}
           </div>
         )}

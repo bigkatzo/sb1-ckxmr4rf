@@ -781,13 +781,12 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
             transform: 'translateX(-50%)',
           }}
         >
-          <div className="font-medium mb-1">Collection Image Guidelines</div>
+          <div className="font-medium mb-1">Best Practices</div>
           <div className="space-y-1 text-gray-300">
             <div>• <strong>Format:</strong> 1500x500 pixels (banner style)</div>
             <div>• <strong>Aspect ratio:</strong> 3:1 (wide banner)</div>
             <div>• <strong>File size:</strong> Maximum 5MB</div>
             <div>• <strong>File types:</strong> JPG, PNG, WebP</div>
-            <div>• <strong>Usage:</strong> Collection header/banner</div>
           </div>
         </div>,
         document.body
