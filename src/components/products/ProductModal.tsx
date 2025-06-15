@@ -13,6 +13,7 @@ import { ProductModalSkeleton } from '../ui/Skeletons';
 import { ProductNotes } from './ProductNotes';
 import { AddToCartButton } from '../cart/AddToCartButton';
 import { CompactCreator } from '../ui/CompactCreator';
+import { RichTextDisplay } from '../ui/RichTextDisplay';
 import type { Product as BaseProduct } from '../../types/variants';
 import type { MerchantTier } from '../../types/collections';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
@@ -735,12 +736,12 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     >
                       {product.name}
                     </h2>
-                    <p 
+                    <div 
                       className="mt-2 text-sm"
                       style={{ color: 'var(--color-text-muted)' }}
                     >
-                      {product.description}
-                    </p>
+                      <RichTextDisplay content={product.description} />
+                    </div>
                   </div>
 
                   {hasVariants && (

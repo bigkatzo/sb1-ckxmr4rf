@@ -202,3 +202,52 @@ div[aria-modal="true"][role="dialog"][aria-labelledby="modal-title"]:has(h2#moda
     transform: translateX(200%);
   }
 }
+
+/* Rich Text Editor Styles */
+.rich-text-content {
+  color: inherit;
+}
+
+.rich-text-content p {
+  margin-bottom: 0.5rem;
+}
+
+.rich-text-content p:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text-content strong {
+  font-weight: 600;
+}
+
+.rich-text-content em {
+  font-style: italic;
+}
+
+.rich-text-content .rich-text-bullet-list {
+  list-style-type: disc;
+  margin-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.rich-text-content .rich-text-bullet-list li {
+  margin-bottom: 0.25rem;
+}
+
+.rich-text-content .rich-text-ordered-list {
+  list-style-type: decimal;
+  margin-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.rich-text-content .rich-text-ordered-list li {
+  margin-bottom: 0.25rem;
+}
+
+.rich-text-content ul, .rich-text-content ol {
+  margin-bottom: 0.5rem;
+}
+
+.rich-text-content ul:last-child, .rich-text-content ol:last-child {
+  margin-bottom: 0;
+}
