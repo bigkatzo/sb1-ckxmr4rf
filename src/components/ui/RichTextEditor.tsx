@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
@@ -89,70 +89,81 @@ export function RichTextEditor({
 
   return (
     <div className={`border border-gray-700 rounded-lg bg-gray-800 focus-within:ring-2 focus-within:ring-primary ${className}`}>
-      {/* Toolbar */}
-      <div className="flex items-center gap-1 p-2 border-b border-gray-700">
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`p-2 rounded text-sm transition-colors ${
-            editor.isActive('bold')
-              ? 'bg-primary text-white'
-              : 'text-gray-300 hover:text-white hover:bg-gray-700'
-          }`}
-          disabled={disabled}
-          title="Bold"
-        >
-          <BoldIcon className="h-4 w-4" />
-        </button>
-        
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`p-2 rounded text-sm transition-colors ${
-            editor.isActive('italic')
-              ? 'bg-primary text-white'
-              : 'text-gray-300 hover:text-white hover:bg-gray-700'
-          }`}
-          disabled={disabled}
-          title="Italic"
-        >
-          <ItalicIcon className="h-4 w-4" />
-        </button>
-        
-        <div className="w-px h-6 bg-gray-600 mx-1" />
-        
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={`p-2 rounded text-sm transition-colors ${
-            editor.isActive('bulletList')
-              ? 'bg-primary text-white'
-              : 'text-gray-300 hover:text-white hover:bg-gray-700'
-          }`}
-          disabled={disabled}
-          title="Bullet List"
-        >
-          <List className="h-4 w-4" />
-        </button>
-        
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={`p-2 rounded text-sm transition-colors ${
-            editor.isActive('orderedList')
-              ? 'bg-primary text-white'
-              : 'text-gray-300 hover:text-white hover:bg-gray-700'
-          }`}
-          disabled={disabled}
-          title="Numbered List"
-        >
-          <ListOrdered className="h-4 w-4" />
-        </button>
-      </div>
-      
       {/* Editor Content */}
       <div className="text-white relative">
         <EditorContent editor={editor} />
+        
+        {/* Bubble Menu - appears only when text is selected */}
+        {editor && (
+          <BubbleMenu 
+            editor={editor} 
+            tippyOptions={{ 
+              duration: 100,
+              placement: 'top',
+              offset: [0, 8],
+            }}
+            className="flex items-center gap-1 p-2 bg-gray-900 border border-gray-600 rounded-lg shadow-lg"
+          >
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              className={`p-2 rounded text-sm transition-colors ${
+                editor.isActive('bold')
+                  ? 'bg-primary text-white'
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
+              }`}
+              disabled={disabled}
+              title="Bold"
+            >
+              <BoldIcon className="h-4 w-4" />
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              className={`p-2 rounded text-sm transition-colors ${
+                editor.isActive('italic')
+                  ? 'bg-primary text-white'
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
+              }`}
+              disabled={disabled}
+              title="Italic"
+            >
+              <ItalicIcon className="h-4 w-4" />
+            </button>
+            
+            <div className="w-px h-6 bg-gray-600 mx-1" />
+            
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              className={`p-2 rounded text-sm transition-colors ${
+                editor.isActive('bulletList')
+                  ? 'bg-primary text-white'
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
+              }`}
+              disabled={disabled}
+              title="Bullet List"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              className={`p-2 rounded text-sm transition-colors ${
+                editor.isActive('orderedList')
+                  ? 'bg-primary text-white'
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
+              }`}
+              disabled={disabled}
+              title="Numbered List"
+            >
+              <ListOrdered className="h-4 w-4" />
+            </button>
+          </BubbleMenu>
+        )}
+        
         {(!content || content.trim() === '' || content === '<p></p>') && (
           <div className="absolute inset-0 top-0 p-3 pointer-events-none text-gray-500 text-sm">
             {placeholder}
