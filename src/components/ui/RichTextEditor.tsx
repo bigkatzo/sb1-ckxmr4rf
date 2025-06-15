@@ -69,7 +69,7 @@ export function RichTextEditor({
     editable: !disabled,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[80px] p-3',
+        class: 'rich-text-content focus:outline-none min-h-[80px] p-3',
       },
     },
   });
@@ -151,10 +151,10 @@ export function RichTextEditor({
       </div>
       
       {/* Editor Content */}
-      <div className="text-white">
+      <div className="text-white relative">
         <EditorContent editor={editor} />
-        {content === '' && (
-          <div className="absolute inset-0 top-[52px] p-3 pointer-events-none text-gray-500">
+        {(!content || content.trim() === '' || content === '<p></p>') && (
+          <div className="absolute inset-0 top-0 p-3 pointer-events-none text-gray-500 text-sm">
             {placeholder}
           </div>
         )}

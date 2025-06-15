@@ -2,9 +2,8 @@ import { useFormContext } from 'react-hook-form';
 import type { ProductFormValues } from './schema';
 import { PricingCurveEditor } from './PricingCurveEditor';
 import { RichTextEditor } from '../../../ui/RichTextEditor';
-import { RichTextDisplay } from '../../../ui/RichTextDisplay';
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Eye, Edit3 } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ProductBasicInfoProps {
   categories: {
@@ -37,7 +36,6 @@ function InlineCategory({ categories }: { categories: ProductBasicInfoProps['cat
 export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
   const { register, watch, setValue, formState: { errors } } = useFormContext<ProductFormValues>();
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const [showDescriptionPreview, setShowDescriptionPreview] = useState(false);
   
   const currentDescription = watch('description') || '';
   
@@ -59,47 +57,15 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className="block text-sm font-medium text-white">
-            Product Description
-          </label>
-          {currentDescription && (
-            <button
-              type="button"
-              onClick={() => setShowDescriptionPreview(!showDescriptionPreview)}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
-            >
-              {showDescriptionPreview ? (
-                <>
-                  <Edit3 className="h-3 w-3" />
-                  Edit
-                </>
-              ) : (
-                <>
-                  <Eye className="h-3 w-3" />
-                  Preview
-                </>
-              )}
-            </button>
-          )}
-        </div>
-        
-        {showDescriptionPreview ? (
-          <div className="mt-1 p-4 border border-gray-700 rounded-lg bg-gray-800 min-h-[120px]">
-            <div className="text-sm text-gray-300 mb-2">Preview:</div>
-            <div className="text-white">
-              <RichTextDisplay content={currentDescription} />
-            </div>
-          </div>
-        ) : (
-          <RichTextEditor
-            content={currentDescription}
-            onChange={(content) => setValue('description', content, { shouldDirty: true })}
-            placeholder="Enter product description with formatting..."
-            className="mt-1"
-          />
-        )}
-        
+        <label className="block text-sm font-medium text-white mb-1">
+          Product Description
+        </label>
+        <RichTextEditor
+          content={currentDescription}
+          onChange={(content) => setValue('description', content, { shouldDirty: true })}
+          placeholder="Enter product description with formatting..."
+          className="mt-1"
+        />
         {errors.description && (
           <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>
         )}
