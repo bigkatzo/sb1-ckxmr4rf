@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Palette } from 'lucide-react';
+import { X, Plus, Trash2, Palette, Info } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Toggle } from '../../ui/Toggle';
 import { formatDateForInput } from '../../../utils/date-helpers';
@@ -11,6 +11,7 @@ import { toast } from 'react-toastify';
 import { useSiteSettings } from '../../../hooks/useSiteSettings';
 import { cacheManager } from '../../../lib/cache';
 import { useCollectionContext } from '../../../contexts/CollectionContext';
+import { createPortal } from 'react-dom';
 
 export interface CollectionFormProps {
   collection?: Partial<Collection & { tags?: string[] }>;
@@ -45,6 +46,8 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       : formatDateForInput(new Date())
   );
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const [showImageTooltip, setShowImageTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const { invalidateCollection } = useCollectionContext();
   const { data: siteSettings } = useSiteSettings();
   
@@ -133,6 +136,19 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleImageTooltipMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltipPosition({
+      top: rect.bottom + 8,
+      left: rect.left + rect.width / 2
+    });
+    setShowImageTooltip(true);
+  };
+
+  const handleImageTooltipMouseLeave = () => {
+    setShowImageTooltip(false);
   };
 
   const saveTheme = async () => {
@@ -332,9 +348,22 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                 )}
 
                 <div>
-                  <label htmlFor="image" className="block text-sm font-medium text-white mb-1">
-                    Image
-                  </label>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label htmlFor="image" className="block text-sm font-medium text-white">
+                      Collection Image
+                    </label>
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-white transition-colors"
+                      onMouseEnter={handleImageTooltipMouseEnter}
+                      onMouseLeave={handleImageTooltipMouseLeave}
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-3">
+                    Banner format recommended (1500x500) • 5MB max
+                  </p>
                   <div
                     {...getRootProps()}
                     className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
@@ -741,6 +770,28 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
           </div>
         </div>
       </Dialog>
+
+      {/* Portal-based tooltip for collection image guidelines */}
+      {showImageTooltip && createPortal(
+        <div 
+          className="fixed z-[9999] px-3 py-2 text-xs text-white bg-gray-800 rounded-lg shadow-lg border border-gray-700 max-w-xs"
+          style={{
+            top: tooltipPosition.top,
+            left: tooltipPosition.left,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <div className="font-medium mb-1">Collection Image Guidelines</div>
+          <div className="space-y-1 text-gray-300">
+            <div>• <strong>Format:</strong> 1500x500 pixels (banner style)</div>
+            <div>• <strong>Aspect ratio:</strong> 3:1 (wide banner)</div>
+            <div>• <strong>File size:</strong> Maximum 5MB</div>
+            <div>• <strong>File types:</strong> JPG, PNG, WebP</div>
+            <div>• <strong>Usage:</strong> Collection header/banner</div>
+          </div>
+        </div>,
+        document.body
+      )}
     </Dialog>
   );
 }
