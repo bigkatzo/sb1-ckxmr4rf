@@ -348,7 +348,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                 )}
 
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-3">
                     <label htmlFor="image" className="block text-sm font-medium text-white">
                       Collection Image
                     </label>
@@ -361,9 +361,6 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                       <Info className="h-4 w-4" />
                     </button>
                   </div>
-                  <p className="text-xs text-gray-400 mb-3">
-                    Banner format recommended (1500x500) • 5MB max
-                  </p>
                   <div
                     {...getRootProps()}
                     className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${

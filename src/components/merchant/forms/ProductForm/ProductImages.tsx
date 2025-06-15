@@ -6,7 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useFormContext } from 'react-hook-form';
-import { useEffect, useState, useContext, useRef } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { createPortal } from 'react-dom';
 
 // Create context for direct image file access
@@ -29,34 +29,7 @@ interface SortableImageProps {
   onRemove?: () => void;
 }
 
-// Portal-based tooltip component
-interface TooltipProps {
-  isVisible: boolean;
-  triggerRect: DOMRect | null;
-  children: React.ReactNode;
-}
 
-function PortalTooltip({ isVisible, triggerRect, children }: TooltipProps) {
-  if (!isVisible || !triggerRect) return null;
-
-  const tooltipStyle: React.CSSProperties = {
-    position: 'fixed',
-    left: triggerRect.left,
-    top: triggerRect.top - 8, // 8px above the trigger
-    transform: 'translateY(-100%)',
-    zIndex: 9999,
-  };
-
-  return createPortal(
-    <div 
-      style={tooltipStyle}
-      className="w-64 p-3 bg-gray-900 border border-gray-600 rounded-lg shadow-xl text-xs text-gray-300 pointer-events-none"
-    >
-      {children}
-    </div>,
-    document.body
-  );
-}
 
 function SortableImage({ id, src, onRemove }: SortableImageProps) {
   const {
@@ -94,8 +67,7 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
   
   // Tooltip state
   const [showTooltip, setShowTooltip] = useState(false);
-  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
-  const infoIconRef = useRef<SVGSVGElement>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   
   // Register the image fields with react-hook-form
   useEffect(() => {
@@ -222,47 +194,33 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
     }
   };
 
-  const handleMouseEnter = () => {
-    if (infoIconRef.current) {
-      const rect = infoIconRef.current.getBoundingClientRect();
-      setTriggerRect(rect);
-      setShowTooltip(true);
-    }
+  const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltipPosition({
+      top: rect.bottom + 8,
+      left: rect.left + rect.width / 2
+    });
+    setShowTooltip(true);
   };
 
   const handleMouseLeave = () => {
     setShowTooltip(false);
-    setTriggerRect(null);
   };
 
   return (
     <div>
       {/* Label with info icon */}
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-3">
         <label className="block text-sm font-medium text-white">Product Images</label>
-        <div>
-          <Info 
-            ref={infoIconRef}
-            className="h-4 w-4 text-gray-400 hover:text-gray-300 cursor-help" 
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-          />
-          <PortalTooltip isVisible={showTooltip} triggerRect={triggerRect}>
-            <div className="font-medium text-white mb-1">Best Practices:</div>
-            <div className="space-y-1">
-              <div>• <strong>Aspect Ratio:</strong> 3:4 (portrait)</div>
-              <div>• <strong>Resolution:</strong> 1532 x 2048px</div>
-              <div>• <strong>Format:</strong> JPG, PNG, WebP</div>
-              <div>• <strong>File Size:</strong> Under 5MB each</div>
-            </div>
-          </PortalTooltip>
-        </div>
+        <button
+          type="button"
+          className="text-gray-400 hover:text-white transition-colors"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <Info className="h-4 w-4" />
+        </button>
       </div>
-      
-      {/* Helper text */}
-      <p className="text-xs text-gray-400 mb-3">
-        Recommended 3:4 aspect ratio (1532x2048) • Max 10 images • 5MB each
-      </p>
       
       <div
         {...getRootProps()}
@@ -308,6 +266,27 @@ export function ProductImages({ initialExistingImages = [] }: ProductImagesProps
           </div>
         )}
       </div>
+      
+      {/* Portal-based tooltip for product image guidelines */}
+      {showTooltip && createPortal(
+        <div 
+          className="fixed z-[9999] px-3 py-2 text-xs text-white bg-gray-800 rounded-lg shadow-lg border border-gray-700 max-w-xs"
+          style={{
+            top: tooltipPosition.top,
+            left: tooltipPosition.left,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <div className="font-medium mb-1">Best Practices</div>
+          <div className="space-y-1 text-gray-300">
+            <div>• <strong>Aspect Ratio:</strong> 3:4 (portrait)</div>
+            <div>• <strong>Resolution:</strong> 1532 x 2048px</div>
+            <div>• <strong>Format:</strong> JPG, PNG, WebP</div>
+            <div>• <strong>File Size:</strong> Under 5MB each</div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
