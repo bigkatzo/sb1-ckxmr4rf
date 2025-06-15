@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useWallet } from '../../contexts/WalletContext';
 import { toast } from 'react-toastify';
+import { Tooltip } from './Tooltip';
 
 interface MerchantFeedbackProps {
   merchantId: string;
@@ -184,7 +185,19 @@ export function MerchantFeedback({
           const isCurrentlyVoting = isVoting === type;
           const hasVotedThisEmoji = hasVotedRecently(type);
           
-          return (
+          const tooltipContent = readOnly 
+            ? config.label 
+            : hasVotedThisEmoji 
+              ? 'You voted recently (24h cooldown)'
+              : canVote 
+                ? config.label 
+                : (
+                  <div className="bg-gray-600 border border-gray-500 text-gray-100 p-3 rounded-md shadow-lg relative text-xs -m-3">
+                    Connect wallet to rate
+                  </div>
+                );
+          
+          const buttonElement = (
             <button
               key={type}
               onClick={() => handleVote(type)}
@@ -205,15 +218,6 @@ export function MerchantFeedback({
                 ${isCurrentlyVoting ? 'opacity-50 scale-95' : readOnly || hasVotedThisEmoji ? '' : 'hover:scale-105'}
                 disabled:cursor-not-allowed disabled:opacity-50
               `}
-              title={
-                readOnly 
-                  ? config.label 
-                  : hasVotedThisEmoji 
-                    ? 'You voted recently (24h cooldown)'
-                    : canVote 
-                      ? config.label 
-                      : 'Connect wallet to rate merchant'
-              }
             >
               {isCurrentlyVoting && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
@@ -229,6 +233,12 @@ export function MerchantFeedback({
                 {count}
               </span>
             </button>
+          );
+          
+          return (
+            <Tooltip key={type} content={tooltipContent} trigger="both">
+              {buttonElement}
+            </Tooltip>
           );
         })}
       </div>
