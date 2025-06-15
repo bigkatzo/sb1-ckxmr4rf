@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { useWallet } from '../../contexts/WalletContext';
 import { toast } from 'react-toastify';
@@ -45,6 +46,9 @@ export function MerchantFeedback({
   const [isLoading, setIsLoading] = useState(true);
   const [isVoting, setIsVoting] = useState<EmojiType | null>(null);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0, arrowLeft: 0, showAbove: false });
+  const [isMounted, setIsMounted] = useState(false);
+  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   
   // Simple: customers need wallet connected to vote on merchants
   const canVote = isConnected && walletAddress;
@@ -73,6 +77,23 @@ export function MerchantFeedback({
   };
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Handle wallet state changes
+  useEffect(() => {
+    // Clear any active tooltips when wallet state changes
+    if (activeTooltip) {
+      hideTooltip();
+    }
+    
+    // Force a re-render by clearing any pending votes when wallet disconnects
+    if (!isConnected || !walletAddress) {
+      setIsVoting(null);
+    }
+  }, [isConnected, walletAddress]);
+
+  useEffect(() => {
     fetchFeedback();
   }, [merchantId]);
 
@@ -97,6 +118,52 @@ export function MerchantFeedback({
       setIsLoading(false);
     }
   }
+
+  const calculateTooltipPosition = (buttonElement: HTMLButtonElement) => {
+    const rect = buttonElement.getBoundingClientRect();
+    const tooltipWidth = 200; // Approximate tooltip width
+    const tooltipHeight = 40; // Approximate tooltip height
+    const arrowSize = 8; // Arrow size
+    const padding = 16; // Viewport padding
+
+    // Calculate initial position (below button)
+    let top = rect.bottom + arrowSize + 4;
+    let left = rect.left + rect.width / 2 - tooltipWidth / 2;
+    let showAbove = false;
+
+    // Check if tooltip would go below viewport
+    if (top + tooltipHeight > window.innerHeight - padding) {
+      // Show above instead
+      top = rect.top - tooltipHeight - arrowSize - 4;
+      showAbove = true;
+    }
+
+    // Ensure tooltip doesn't go off-screen horizontally
+    if (left < padding) {
+      left = padding;
+    } else if (left + tooltipWidth > window.innerWidth - padding) {
+      left = window.innerWidth - tooltipWidth - padding;
+    }
+
+    // Calculate arrow position relative to tooltip
+    const buttonCenter = rect.left + rect.width / 2;
+    let arrowLeft = buttonCenter - left - arrowSize / 2;
+    
+    // Clamp arrow position to stay within tooltip bounds
+    arrowLeft = Math.max(12, Math.min(arrowLeft, tooltipWidth - 20));
+
+    return { top, left, arrowLeft, showAbove };
+  };
+
+  const showTooltip = (tooltipId: string, buttonElement: HTMLButtonElement) => {
+    const position = calculateTooltipPosition(buttonElement);
+    setTooltipPosition(position);
+    setActiveTooltip(tooltipId);
+  };
+
+  const hideTooltip = () => {
+    setActiveTooltip(null);
+  };
 
   async function handleVote(emojiType: EmojiType) {
     if (readOnly) return;
@@ -192,8 +259,14 @@ export function MerchantFeedback({
           
           const handleButtonClick = () => {
             if (shouldShowTooltip) {
-              // Toggle tooltip on disabled button click
-              setActiveTooltip(activeTooltip === tooltipId ? null : tooltipId);
+              const buttonElement = buttonRefs.current[type];
+              if (buttonElement) {
+                if (activeTooltip === tooltipId) {
+                  hideTooltip();
+                } else {
+                  showTooltip(tooltipId, buttonElement);
+                }
+              }
             } else {
               // Handle vote on active button
               handleVote(type);
@@ -201,84 +274,100 @@ export function MerchantFeedback({
           };
           
           return (
-            <div key={type} className="relative">
-              <button
-                onClick={handleButtonClick}
-                disabled={isCurrentlyVoting}
-                className={`
-                  relative group flex flex-col items-center justify-center p-2 rounded-lg 
-                  transition-all duration-200 border-2 h-16 w-full
-                  ${hasVotedThisEmoji 
-                    ? 'bg-gray-800 border-gray-600' 
-                    : 'bg-gray-800 border-gray-700 hover:border-gray-600'
-                  }
-                  ${readOnly 
-                    ? 'cursor-default' 
-                    : canVote && !hasVotedThisEmoji
-                      ? `${config.hoverColor} cursor-pointer` 
-                      : !canVote
-                        ? 'cursor-pointer'
-                        : 'cursor-default'
-                  }
-                  ${isCurrentlyVoting ? 'opacity-50' : ''}
-                `}
-              >
-                {/* White overlay for selected/voted state */}
-                {hasVotedThisEmoji && (
-                  <div className="absolute inset-0 bg-white/20 rounded-lg"></div>
-                )}
-                
-                {isCurrentlyVoting && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
-                    <div className="h-4 w-4 border-2 border-t-transparent border-gray-400 rounded-full animate-spin"></div>
-                  </div>
-                )}
-                
-                <span className="text-lg mb-1 relative z-10" role="img" aria-label={config.label}>
-                  {config.emoji}
-                </span>
-                
-                <span className="text-xs font-medium transition-colors text-gray-400 group-hover:text-gray-300 relative z-10">
-                  {count}
-                </span>
-              </button>
-              
-              {/* Custom tooltip for inactive states */}
-              {shouldShowTooltip && activeTooltip === tooltipId && (
-                <>
-                  {/* Backdrop to close tooltip */}
-                  <div 
-                    className="fixed inset-0 z-[9998]" 
-                    onClick={() => setActiveTooltip(null)}
-                  />
-                  
-                  {/* Tooltip content */}
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-[9999]">
-                    <div className={`
-                      px-3 py-2 rounded-md shadow-lg text-xs whitespace-nowrap relative
-                      ${!canVote 
-                        ? 'bg-gray-600 border border-gray-500 text-gray-100' 
-                        : 'bg-gray-900 border border-gray-800 text-gray-100'
-                      }
-                    `}>
-                      {!canVote ? 'Connect wallet to rate' : 'You voted recently (24h cooldown)'}
-                      
-                      {/* Arrow pointing down */}
-                      <div className={`
-                        absolute top-full left-1/2 transform -translate-x-1/2 w-2 h-2 rotate-45
-                        ${!canVote 
-                          ? 'bg-gray-600 border-r border-b border-gray-500' 
-                          : 'bg-gray-900 border-r border-b border-gray-800'
-                        }
-                      `}></div>
-                    </div>
-                  </div>
-                </>
+            <button
+              key={type}
+              ref={(el) => (buttonRefs.current[type] = el)}
+              onClick={handleButtonClick}
+              disabled={isCurrentlyVoting}
+              className={`
+                relative group flex flex-col items-center justify-center p-2 rounded-lg 
+                transition-all duration-200 border-2 h-16 w-full
+                ${hasVotedThisEmoji 
+                  ? 'bg-gray-800 border-gray-600' 
+                  : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                }
+                ${readOnly 
+                  ? 'cursor-default' 
+                  : canVote && !hasVotedThisEmoji
+                    ? `${config.hoverColor} cursor-pointer` 
+                    : !canVote
+                      ? 'cursor-pointer'
+                      : 'cursor-default'
+                }
+                ${isCurrentlyVoting ? 'opacity-50' : ''}
+              `}
+            >
+              {/* White overlay for selected/voted state */}
+              {hasVotedThisEmoji && (
+                <div className="absolute inset-0 bg-white/20 rounded-lg"></div>
               )}
-            </div>
+              
+              {isCurrentlyVoting && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                  <div className="h-4 w-4 border-2 border-t-transparent border-gray-400 rounded-full animate-spin"></div>
+                </div>
+              )}
+              
+              <span className="text-lg mb-1 relative z-10" role="img" aria-label={config.label}>
+                {config.emoji}
+              </span>
+              
+              <span className="text-xs font-medium transition-colors text-gray-400 group-hover:text-gray-300 relative z-10">
+                {count}
+              </span>
+            </button>
           );
         })}
       </div>
+      
+      {/* Portal tooltip - rendered outside main container */}
+      {isMounted && activeTooltip && createPortal(
+        <>
+          {/* Backdrop to close tooltip */}
+          <div 
+            className="fixed inset-0 z-[9998]" 
+            onClick={hideTooltip}
+          />
+          
+          {/* Tooltip content */}
+          <div 
+            className="fixed z-[9999] pointer-events-none"
+            style={{
+              top: `${tooltipPosition.top}px`,
+              left: `${tooltipPosition.left}px`,
+            }}
+          >
+            <div className={`
+              px-3 py-2 rounded-md shadow-lg text-xs whitespace-nowrap relative pointer-events-auto
+              ${!canVote 
+                ? 'bg-gray-600 border border-gray-500 text-gray-100' 
+                : 'bg-gray-900 border border-gray-800 text-gray-100'
+              }
+            `}>
+              {!canVote ? 'Connect wallet to rate' : 'You voted recently (24h cooldown)'}
+              
+              {/* Arrow */}
+              <div 
+                className={`
+                  absolute w-2 h-2 rotate-45
+                  ${!canVote 
+                    ? 'bg-gray-600 border-gray-500' 
+                    : 'bg-gray-900 border-gray-800'
+                  }
+                  ${tooltipPosition.showAbove 
+                    ? 'bottom-[-4px] border-r border-b' 
+                    : 'top-[-4px] border-l border-t'
+                  }
+                `}
+                style={{
+                  left: `${tooltipPosition.arrowLeft}px`
+                }}
+              />
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
       
       {/* Total votes display */}
       {(feedback.rocket_count + feedback.fire_count + feedback.poop_count + feedback.flag_count) > 0 && (
