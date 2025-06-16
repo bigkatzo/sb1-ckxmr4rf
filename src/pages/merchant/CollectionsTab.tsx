@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban, Clock } from 'lucide-react';
+import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban, Clock, UserCheck } from 'lucide-react';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { useFilterPersistence } from '../../hooks/useFilterPersistence';
@@ -15,6 +15,7 @@ import { StarButton } from '../../components/ui/StarButton';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CollapsibleSearchBar } from '../../components/merchant/CollapsibleSearchBar';
+import { TransferOwnershipModal } from '../../components/merchant/TransferOwnershipModal';
 
 // Define the filter state type
 interface CollectionFilterState {
@@ -36,6 +37,8 @@ export function CollectionsTab() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMerchant, setIsMerchant] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferCollection, setTransferCollection] = useState<any>(null);
 
   // Use the filter persistence hook
   const [filters, setFilters] = useFilterPersistence<CollectionFilterState>(
@@ -159,6 +162,22 @@ export function CollectionsTab() {
         toast.info(`Selected collection "${collection.name}"`, { autoClose: 2000 });
       }
     }
+  };
+
+  const handleTransferOwnership = (collection: any) => {
+    setTransferCollection(collection);
+    setShowTransferModal(true);
+  };
+
+  const handleTransferComplete = () => {
+    setTransferCollection(null);
+    setShowTransferModal(false);
+    refetch(); // Refresh the collections list
+  };
+
+  const handleCloseTransferModal = () => {
+    setTransferCollection(null);
+    setShowTransferModal(false);
   };
 
   // Check if user is admin or merchant
@@ -402,6 +421,13 @@ export function CollectionsTab() {
                                 () => handleToggleSaleEnded(collection.id, !collection.saleEnded) : 
                                 undefined
                             },
+                            ...(isAdmin ? [{
+                              label: 'Transfer Ownership',
+                              icon: <UserCheck className="h-4 w-4" />,
+                              onClick: actionLoading !== collection.id ? 
+                                () => handleTransferOwnership(collection) : 
+                                undefined
+                            }] : []),
                             {
                               label: 'Delete',
                               icon: <Trash className="h-4 w-4" />,
@@ -452,6 +478,15 @@ export function CollectionsTab() {
           confirmLabel="Delete"
         onConfirm={() => deletingId && handleDelete(deletingId)}
         />
+
+      {showTransferModal && transferCollection && (
+        <TransferOwnershipModal
+          isOpen={showTransferModal}
+          onClose={handleCloseTransferModal}
+          collection={transferCollection}
+          onTransferComplete={handleTransferComplete}
+        />
+      )}
     </div>
   );
 }

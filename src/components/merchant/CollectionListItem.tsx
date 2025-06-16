@@ -1,8 +1,9 @@
-import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag, ExternalLink } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag, ExternalLink, UserCheck } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { StarButton } from '../ui/StarButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { DropdownMenu } from '../ui/DropdownMenu';
+import { VerificationBadge } from '../ui/VerificationBadge';
 import { Link } from 'react-router-dom';
 
 interface CollectionListItemProps {
@@ -18,6 +19,7 @@ interface CollectionListItemProps {
     isOwner?: boolean;
     accessType?: string | null;
     owner_username?: string | null;
+    ownerMerchantTier?: 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
     slug?: string;
   };
   isAdmin?: boolean;
@@ -26,6 +28,7 @@ interface CollectionListItemProps {
   onToggleVisibility?: (visible: boolean) => void;
   onToggleSaleEnded?: (saleEnded: boolean) => void;
   onToggleFeatured?: (featured: boolean) => void;
+  onTransferOwnership?: () => void;
   canEdit?: boolean;
 }
 
@@ -37,6 +40,7 @@ export function CollectionListItem({
   onToggleVisibility,
   onToggleSaleEnded,
   onToggleFeatured,
+  onTransferOwnership,
   canEdit = false
 }: CollectionListItemProps) {
   // Only show actions if user has edit permission
@@ -69,6 +73,14 @@ export function CollectionListItem({
       label: collection.saleEnded ? 'Resume Sale' : 'End Sale',
       icon: <Tag className="h-4 w-4" />,
       onClick: () => onToggleSaleEnded(collection.saleEnded)
+    });
+  }
+  
+  if (isAdmin && onTransferOwnership) {
+    dropdownItems.push({
+      label: 'Transfer Ownership',
+      icon: <UserCheck className="h-4 w-4" />,
+      onClick: onTransferOwnership
     });
   }
   
@@ -129,8 +141,15 @@ export function CollectionListItem({
               </p>
               <div className="mt-1 flex items-center gap-2">
                 {isAdmin ? (
-                  <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
-                    Owner: {collection.owner_username}
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
+                    <span>Owner: {collection.owner_username}</span>
+                    {collection.ownerMerchantTier && (
+                      <VerificationBadge 
+                        tier={collection.ownerMerchantTier} 
+                        className="text-xs" 
+                        showTooltip={true}
+                      />
+                    )}
                   </span>
                 ) : (
                   <>

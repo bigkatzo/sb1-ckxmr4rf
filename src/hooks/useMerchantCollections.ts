@@ -247,6 +247,7 @@ export function useMerchantCollections(options: {
             user_id,
             access_type,
             owner_username,
+            owner_merchant_tier,
             collection_access(user_id, access_type),
             custom_url,
             x_url,
@@ -273,7 +274,7 @@ export function useMerchantCollections(options: {
           if (!session) throw new Error('No authentication session');
           
           // Build a proper URL manually
-          const url = `${SUPABASE_URL}/rest/v1/merchant_collections?select=id,name,description,image_url,launch_date,featured,visible,sale_ended,slug,user_id,access_type,owner_username,collection_access(user_id,access_type),custom_url,x_url,telegram_url,dexscreener_url,pumpfun_url,website_url,free_notes,theme_primary_color,theme_secondary_color,theme_background_color,theme_text_color,theme_use_custom,theme_use_classic,theme_logo_url&order=created_at.desc`;
+          const url = `${SUPABASE_URL}/rest/v1/merchant_collections?select=id,name,description,image_url,launch_date,featured,visible,sale_ended,slug,user_id,access_type,owner_username,owner_merchant_tier,collection_access(user_id,access_type),custom_url,x_url,telegram_url,dexscreener_url,pumpfun_url,website_url,free_notes,theme_primary_color,theme_secondary_color,theme_background_color,theme_text_color,theme_use_custom,theme_use_classic,theme_logo_url&order=created_at.desc`;
           
           const response = await fetch(url, {
             headers: {
@@ -362,7 +363,8 @@ export function useMerchantCollections(options: {
           categoryCount: categoryCountMap[collection.id] || 0,
           accessType: collection.access_type,
           isOwner: collection.user_id === user.id || isAdmin,
-          owner_username: collection.owner_username
+          owner_username: collection.owner_username,
+          ownerMerchantTier: collection.owner_merchant_tier
         } as Collection));
 
       if (isMountedRef.current) {
