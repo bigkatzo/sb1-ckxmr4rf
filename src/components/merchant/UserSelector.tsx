@@ -14,6 +14,7 @@ interface UserForTransfer {
   role: string;
   merchant_tier: MerchantTier;
   display_name: string;
+  profile_image: string;
 }
 
 interface UserSelectorProps {
@@ -102,7 +103,7 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
         </label>
         <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
           <ProfileImage
-            src={null}
+            src={selectedUser.profile_image || null}
             alt={selectedUser.display_name || selectedUser.username}
             displayName={selectedUser.display_name || selectedUser.username}
             size="sm"
@@ -184,7 +185,7 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
                   className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-700 transition-colors text-left"
                 >
                   <ProfileImage
-                    src={null}
+                    src={user.profile_image || null}
                     alt={user.display_name || user.username}
                     displayName={user.display_name || user.username}
                     size="sm"

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban, Clock, UserCheck } from 'lucide-react';
+import { VerificationBadge } from '../../components/ui/VerificationBadge';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { useFilterPersistence } from '../../hooks/useFilterPersistence';
@@ -15,7 +16,7 @@ import { StarButton } from '../../components/ui/StarButton';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CollapsibleSearchBar } from '../../components/merchant/CollapsibleSearchBar';
-import { TransferOwnershipModal } from '../../components/merchant/TransferOwnershipModal';
+import { ManageAccessModal } from '../../components/merchant/ManageAccessModal';
 
 // Define the filter state type
 interface CollectionFilterState {
@@ -373,10 +374,17 @@ export function CollectionsTab() {
                 
                 {/* Add owner information for admins */}
                 {isAdmin && collection.owner_username && (
-                  <div className="mt-1 sm:mt-1.5 flex items-center">
+                  <div className="mt-1 sm:mt-1.5 flex items-center gap-2">
                     <span className="text-[10px] sm:text-xs text-green-400 bg-green-900/40 px-1.5 py-0.5 rounded">
-                      {collection.owner_username}
+                      Owner: {collection.owner_username}
                     </span>
+                    {collection.ownerMerchantTier && (
+                      <VerificationBadge 
+                        tier={collection.ownerMerchantTier} 
+                        className="text-xs" 
+                        showTooltip={true}
+                      />
+                    )}
                   </div>
                 )}
                 
@@ -422,7 +430,7 @@ export function CollectionsTab() {
                                 undefined
                             },
                             ...(isAdmin ? [{
-                              label: 'Transfer Ownership',
+                              label: 'Manage Access',
                               icon: <UserCheck className="h-4 w-4" />,
                               onClick: actionLoading !== collection.id ? 
                                 () => handleTransferOwnership(collection) : 
@@ -480,11 +488,11 @@ export function CollectionsTab() {
         />
 
       {showTransferModal && transferCollection && (
-        <TransferOwnershipModal
+        <ManageAccessModal
           isOpen={showTransferModal}
           onClose={handleCloseTransferModal}
           collection={transferCollection}
-          onTransferComplete={handleTransferComplete}
+          onAccessChange={handleTransferComplete}
         />
       )}
     </div>

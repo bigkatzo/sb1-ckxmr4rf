@@ -96,6 +96,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Grant execute permission to authenticated users (admin check is inside function)
 GRANT EXECUTE ON FUNCTION transfer_collection_ownership(uuid, uuid, boolean) TO authenticated;
 
+-- Drop existing function first to handle return type change
+DROP FUNCTION IF EXISTS search_users_for_transfer(text, uuid);
+
 -- Create function to search users for ownership transfer
 CREATE OR REPLACE FUNCTION search_users_for_transfer(
   p_search_query text DEFAULT '',
@@ -107,7 +110,8 @@ RETURNS TABLE (
   email text,
   role text,
   merchant_tier text,
-  display_name text
+  display_name text,
+  profile_image text
 ) AS $$
 BEGIN
   -- Check if caller is admin
@@ -122,7 +126,8 @@ BEGIN
     u.email::text,
     COALESCE(up.role, 'user')::text as role,
     COALESCE(up.merchant_tier, 'starter_merchant')::text as merchant_tier,
-    COALESCE(up.display_name, '')::text as display_name
+    COALESCE(up.display_name, '')::text as display_name,
+    COALESCE(up.profile_image, '')::text as profile_image
   FROM auth.users u
   LEFT JOIN user_profiles up ON up.id = u.id
   WHERE 
