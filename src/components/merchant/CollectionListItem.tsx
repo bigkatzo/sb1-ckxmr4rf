@@ -76,9 +76,9 @@ export function CollectionListItem({
     });
   }
   
-  if (isAdmin && onTransferOwnership) {
+  if ((isAdmin || collection.isOwner) && onTransferOwnership) {
     dropdownItems.push({
-      label: 'Transfer Ownership',
+      label: 'Manage Access',
       icon: <UserCheck className="h-4 w-4" />,
       onClick: onTransferOwnership
     });

@@ -429,7 +429,7 @@ export function CollectionsTab() {
                                 () => handleToggleSaleEnded(collection.id, !collection.saleEnded) : 
                                 undefined
                             },
-                            ...(isAdmin ? [{
+                            ...((isAdmin || collection.isOwner) ? [{
                               label: 'Manage Access',
                               icon: <UserCheck className="h-4 w-4" />,
                               onClick: actionLoading !== collection.id ? 

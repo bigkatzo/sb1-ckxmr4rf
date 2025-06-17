@@ -90,14 +90,20 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
       const dropdownHeight = Math.min(320, users.length * 60 + 40); // max-h-80 = 320px
       const dropdownWidth = rect.width;
       
+      // Safe area padding
+      const safeAreaTop = 8;
+      const safeAreaBottom = 8;
+      const safeAreaLeft = 16;
+      const safeAreaRight = 16;
+      
       // Calculate preferred position (below input)
       let top = rect.bottom + scrollY + 4;
       let left = rect.left + scrollX;
       let flippedUp = false;
       
       // Check if dropdown would be cut off at the bottom
-      const spaceBelow = viewportHeight - rect.bottom;
-      const spaceAbove = rect.top;
+      const spaceBelow = viewportHeight - rect.bottom - safeAreaBottom;
+      const spaceAbove = rect.top - safeAreaTop;
       
       // If not enough space below and more space above, flip to top
       if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
@@ -106,26 +112,31 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
       }
       
       // Check if dropdown would be cut off on the right
-      const spaceRight = viewportWidth - rect.left;
+      const spaceRight = viewportWidth - rect.left - safeAreaRight;
       if (spaceRight < dropdownWidth) {
-        // Align to right edge of viewport with some padding
-        left = viewportWidth - dropdownWidth - 16 + scrollX;
+        // Align to right edge of viewport with safe area padding
+        left = viewportWidth - dropdownWidth - safeAreaRight + scrollX;
       }
       
       // Ensure dropdown doesn't go off the left edge
-      if (left < scrollX + 8) {
-        left = scrollX + 8;
+      if (left < scrollX + safeAreaLeft) {
+        left = scrollX + safeAreaLeft;
       }
       
       // Ensure dropdown doesn't go off the top
-      if (top < scrollY + 8) {
-        top = scrollY + 8;
+      if (top < scrollY + safeAreaTop) {
+        top = scrollY + safeAreaTop;
+      }
+      
+      // Ensure dropdown doesn't go off the bottom
+      if (top + dropdownHeight > scrollY + viewportHeight - safeAreaBottom) {
+        top = scrollY + viewportHeight - dropdownHeight - safeAreaBottom;
       }
       
       setDropdownPosition({
         top,
         left,
-        width: Math.min(dropdownWidth, viewportWidth - 32), // Ensure width fits with padding
+        width: Math.min(dropdownWidth, viewportWidth - safeAreaLeft - safeAreaRight), // Ensure width fits with safe area padding
         flippedUp
       });
     }
@@ -209,37 +220,36 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
   if (selectedUser) {
     return (
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-300">
+        <label className="block text-sm font-medium text-white">
           Selected User
         </label>
-        <div className="flex items-center gap-3 p-3 sm:p-4 bg-gray-800/50 rounded-xl border border-gray-700">
-          <ProfileImage
-            src={selectedUser.profile_image || null}
-            alt={selectedUser.display_name || selectedUser.username}
-            displayName={selectedUser.display_name || selectedUser.username}
-            size="md"
-          />
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
-              <p className="text-sm font-medium text-white truncate">
-                {selectedUser.display_name || selectedUser.username}
+        <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <ProfileImage
+              src={selectedUser.profile_image || null}
+              alt={selectedUser.display_name || selectedUser.username}
+              displayName={selectedUser.display_name || selectedUser.username}
+              size="sm"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-sm font-medium text-white truncate">
+                  {selectedUser.display_name || selectedUser.username}
+                </p>
+                <VerificationBadge 
+                  tier={selectedUser.merchant_tier} 
+                  className="text-xs" 
+                  showTooltip={true}
+                />
+              </div>
+              <p className="text-xs text-gray-400 truncate">
+                {selectedUser.email}
               </p>
-              <VerificationBadge 
-                tier={selectedUser.merchant_tier} 
-                className="text-xs" 
-                showTooltip={true}
-              />
             </div>
-            <p className="text-xs text-gray-400 truncate">
-              {selectedUser.email}
-            </p>
-            <p className="text-xs text-gray-500 capitalize">
-              {selectedUser.role}
-            </p>
           </div>
           <button
             onClick={handleClear}
-            className="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 rounded-lg transition-colors shrink-0"
+            className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors shrink-0"
           >
             <X className="h-4 w-4" />
           </button>
@@ -250,7 +260,7 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
 
   return (
     <div className="space-y-2 relative" ref={containerRef}>
-      <label className="block text-sm font-medium text-gray-300">
+      <label className="block text-sm font-medium text-white">
         Search for User
       </label>
       <div className="relative">
@@ -264,7 +274,7 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
             placeholder="Search by username, email, or display name..."
-            className="w-full pl-10 pr-10 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all"
+            className="w-full pl-10 pr-10 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-colors"
           />
         </div>
 
@@ -280,19 +290,17 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
       {showDropdown && typeof window !== 'undefined' && createPortal(
         <div 
           data-dropdown="user-selector"
-          className={`fixed z-[9999] bg-gray-800 border border-gray-700 rounded-xl shadow-2xl overflow-y-auto backdrop-blur-sm transition-all duration-200 ${
-            dropdownPosition.flippedUp ? 'animate-in slide-in-from-bottom-2' : 'animate-in slide-in-from-top-2'
-          }`}
+          className="fixed z-[9999] bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-y-auto"
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
             width: `${dropdownPosition.width}px`,
-            maxHeight: '320px', // max-h-80
-            maxWidth: 'calc(100vw - 32px)' // Ensure it fits on small screens
+            maxHeight: '320px',
+            maxWidth: 'calc(100vw - 32px)'
           }}
         >
           {error ? (
-            <div className="px-4 py-3 text-sm text-red-400 border-b border-gray-700/50">
+            <div className="px-4 py-3 text-sm text-red-400">
               {error}
             </div>
           ) : users.length === 0 && !loading ? (
@@ -303,13 +311,13 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
               }
             </div>
           ) : (
-            <div className="py-2">
+            <div className="py-1">
               {users.map((user, index) => (
                 <button
                   key={user.id}
                   onClick={() => handleUserSelect(user)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700/50 transition-colors text-left ${
-                    index > 0 ? 'border-t border-gray-700/30' : ''
+                  className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 transition-colors text-left ${
+                    index > 0 ? 'border-t border-gray-700' : ''
                   }`}
                 >
                   <ProfileImage
@@ -319,7 +327,7 @@ export function UserSelector({ onSelect, excludeUserId, selectedUser, onClear }:
                     size="sm"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                    <div className="flex items-center gap-2 mb-1">
                       <p className="text-sm font-medium text-white truncate">
                         {user.display_name || user.username}
                       </p>

@@ -22,6 +22,15 @@ interface DropdownMenuProps {
   position?: 'left' | 'right' | 'auto';
 }
 
+interface MenuPosition {
+  top: number;
+  left: number;
+  right: number;
+  maxHeight: number;
+  transformOrigin: string;
+  isFlipped: boolean;
+}
+
 export function DropdownMenu({
   items,
   triggerIcon = <MoreVertical className="h-4 w-4" />,
@@ -30,7 +39,14 @@ export function DropdownMenu({
   position = 'auto'
 }: DropdownMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, right: 0 });
+  const [menuPosition, setMenuPosition] = useState<MenuPosition>({
+    top: 0,
+    left: 0,
+    right: 0,
+    maxHeight: 300,
+    transformOrigin: 'top left',
+    isFlipped: false
+  });
   const [dropdownPosition, setDropdownPosition] = useState<'left' | 'right'>('right');
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -52,42 +68,127 @@ export function DropdownMenu({
     };
   }, [isOpen]);
 
-  // Calculate dropdown position and coordinates when opening
+  // Calculate smart dropdown position with full viewport awareness
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const buttonRect = buttonRef.current.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
-      const menuWidth = 200; // Approximate menu width
+      const viewportHeight = window.innerHeight;
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
       
-      let finalPos: 'left' | 'right' = position === 'auto' ? 'right' : position;
+      // Menu dimensions (estimated)
+      const menuWidth = 200;
+      const itemHeight = 40; // Approximate height per item
+      const menuPadding = 8; // py-1 = 8px total
+      const estimatedMenuHeight = Math.min(items.length * itemHeight + menuPadding, 320);
       
-      // For auto position, determine direction based on available space
+      // Safe margins from viewport edges
+      const safeMargin = 8;
+      const mobileBreakpoint = 768;
+      const isMobile = viewportWidth < mobileBreakpoint;
+      
+      // Calculate available space in all directions
+      const spaceRight = viewportWidth - buttonRect.right - safeMargin;
+      const spaceLeft = buttonRect.left - safeMargin;
+      const spaceBelow = viewportHeight - buttonRect.bottom - safeMargin;
+      const spaceAbove = buttonRect.top - safeMargin;
+      
+      // Determine horizontal position
+      let finalHorizontalPos: 'left' | 'right' = position === 'auto' ? 'right' : position;
+      
       if (position === 'auto') {
-        if (buttonRect.right + menuWidth > viewportWidth) {
-          finalPos = 'left';
+        if (isMobile) {
+          // On mobile, prefer the side with more space
+          finalHorizontalPos = spaceRight >= spaceLeft ? 'right' : 'left';
+        } else {
+          // On desktop, check if menu fits on the right
+          finalHorizontalPos = spaceRight >= menuWidth ? 'right' : 'left';
         }
       }
       
-      setDropdownPosition(finalPos);
+      // Determine vertical position (above or below)
+      const shouldFlipVertically = spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow;
       
-      // Calculate absolute position for the menu
-      const topPosition = buttonRect.bottom + window.scrollY;
+      // Calculate final position
+      let top: number;
+      let left: number;
+      let right: number;
+      let maxHeight: number;
+      let transformOrigin: string;
       
-      if (finalPos === 'right') {
-        setMenuPosition({
-          top: topPosition,
-          left: buttonRect.left + window.scrollX,
-          right: 0
-        });
+      // Vertical positioning
+      if (shouldFlipVertically) {
+        // Position above the button
+        top = buttonRect.top + scrollY - 4; // Small gap above button
+        maxHeight = Math.min(spaceAbove - 4, 320);
+        transformOrigin = finalHorizontalPos === 'right' ? 'bottom left' : 'bottom right';
       } else {
-        setMenuPosition({
-          top: topPosition,
-          left: 0,
-          right: window.innerWidth - buttonRect.right - window.scrollX
-        });
+        // Position below the button
+        top = buttonRect.bottom + scrollY + 4; // Small gap below button
+        maxHeight = Math.min(spaceBelow - 4, 320);
+        transformOrigin = finalHorizontalPos === 'right' ? 'top left' : 'top right';
       }
+      
+      // Horizontal positioning
+      if (finalHorizontalPos === 'right') {
+        left = buttonRect.left + scrollX;
+        right = 0;
+        
+        // Ensure menu doesn't go off-screen on the right
+        if (left + menuWidth > viewportWidth - safeMargin) {
+          left = viewportWidth - menuWidth - safeMargin + scrollX;
+        }
+      } else {
+        left = 0;
+        right = viewportWidth - buttonRect.right - scrollX;
+        
+        // Ensure menu doesn't go off-screen on the left
+        if (right + menuWidth > viewportWidth - safeMargin) {
+          right = viewportWidth - menuWidth - safeMargin;
+        }
+      }
+      
+      // On mobile, ensure menu fits within safe bounds
+      if (isMobile) {
+        const mobileMenuWidth = Math.min(menuWidth, viewportWidth - (safeMargin * 2));
+        
+        if (finalHorizontalPos === 'right') {
+          left = Math.max(safeMargin + scrollX, Math.min(left, viewportWidth - mobileMenuWidth - safeMargin + scrollX));
+        } else {
+          right = Math.max(safeMargin, Math.min(right, viewportWidth - mobileMenuWidth - safeMargin));
+        }
+      }
+      
+      setDropdownPosition(finalHorizontalPos);
+      setMenuPosition({
+        top,
+        left,
+        right,
+        maxHeight,
+        transformOrigin,
+        isFlipped: shouldFlipVertically
+      });
     }
-  }, [isOpen, position]);
+  }, [isOpen, position, items.length]);
+
+  // Handle scroll and resize events to reposition dropdown
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleScrollOrResize = () => {
+      // Trigger recalculation by toggling isOpen
+      setIsOpen(false);
+    };
+
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [isOpen]);
 
   const toggleDropdown = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -123,9 +224,11 @@ export function DropdownMenu({
               ? { left: `${menuPosition.left}px` } 
               : { right: `${menuPosition.right}px` }),
             zIndex: 9999,
-            marginTop: '4px'
+            maxHeight: `${menuPosition.maxHeight}px`,
+            transformOrigin: menuPosition.transformOrigin,
+            ...(menuPosition.isFlipped ? { marginTop: '-4px' } : { marginTop: '0px' })
           }}
-          className={`${menuClassName}`}
+          className={`${menuClassName} overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent animate-in fade-in-0 zoom-in-95 duration-100`}
         >
           <div className="overflow-hidden">
             {items.map((item, index) => {
