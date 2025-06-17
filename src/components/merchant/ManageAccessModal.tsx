@@ -390,7 +390,7 @@ export function ManageAccessModal({
                           />
                         </div>
                         <p className="text-xs text-gray-400 truncate">
-                          {accessDetails.owner_id}
+                          {accessDetails.owner_username}
                         </p>
                       </div>
                     </div>
