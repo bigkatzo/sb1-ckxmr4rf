@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 
 type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 type UserRole = 'user' | 'merchant' | 'admin';
-type AccessType = 'view' | 'edit' | 'owner';
+type AccessType = 'view' | 'edit' | 'owner' | 'collaborator';
 
 interface UserForTransfer {
   id: string;
@@ -231,6 +231,8 @@ export function ManageAccessModal({
       case 'view': return 'View';
       case 'edit': return 'Editor';
       case 'owner': return 'Owner';
+      case 'collaborator': return 'Collaborator';
+      default: return 'Unknown';
     }
   };
 
@@ -239,6 +241,8 @@ export function ManageAccessModal({
       case 'view': return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
       case 'edit': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
       case 'owner': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+      case 'collaborator': return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+      default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
     }
   };
 
@@ -246,7 +250,7 @@ export function ManageAccessModal({
     switch (userRole) {
       case 'user': return ['view', 'edit'];
       case 'merchant':
-      case 'admin': return ['view', 'edit', 'owner'];
+      case 'admin': return ['view', 'edit', 'collaborator', 'owner'];
       default: return ['view'];
     }
   };
@@ -608,6 +612,7 @@ export function ManageAccessModal({
                                   <div className="text-xs text-gray-400">
                                     {type === 'view' && 'Can browse and see all items'}
                                     {type === 'edit' && 'Can add, modify, and organize items'}
+                                    {type === 'collaborator' && 'Can create and manage own products/categories'}
                                     {type === 'owner' && 'Full control + can manage access'}
                                   </div>
                                 </div>

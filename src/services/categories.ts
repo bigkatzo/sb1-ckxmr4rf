@@ -8,6 +8,9 @@ export async function createCategory(data: FormData, collectionId: string) {
     const visible = data.get('visible') === 'true';
     const saleEnded = data.get('saleEnded') === 'true';
     
+    // Get current user for creator tracking
+    const { data: { user } } = await supabase.auth.getUser();
+    
     const categoryData = {
       collection_id: collectionId,
       name,
@@ -15,7 +18,8 @@ export async function createCategory(data: FormData, collectionId: string) {
       type: groups.length > 0 ? 'rules-based' : 'blank',
       eligibility_rules: { groups },
       visible,
-      sale_ended: saleEnded
+      sale_ended: saleEnded,
+      created_by: user?.id || null // Track who created this category
     };
 
     const { data: category, error } = await supabase

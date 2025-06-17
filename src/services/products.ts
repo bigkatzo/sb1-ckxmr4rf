@@ -215,6 +215,9 @@ export async function createProduct(collectionId: string, data: FormData) {
     
     console.log('Completed design files processing, total design files:', designFiles.length);
 
+    // Get current user for creator tracking
+    const { data: { user } } = await supabase.auth.getUser();
+
     const { error } = await supabase
       .from('products')
       .insert({
@@ -238,7 +241,8 @@ export async function createProduct(collectionId: string, data: FormData) {
         technique: technique || null,
         note_for_supplier: noteForSupplier || null,
         notes,
-        free_notes: freeNotes
+        free_notes: freeNotes,
+        created_by: user?.id || null // Track who created this product
       });
 
     if (error) throw error;

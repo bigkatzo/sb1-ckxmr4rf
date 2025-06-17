@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban, Clock, UserCheck } from 'lucide-react';
+import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban, Clock, UserCheck, DollarSign } from 'lucide-react';
 import { VerificationBadge } from '../../components/ui/VerificationBadge';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CollapsibleSearchBar } from '../../components/merchant/CollapsibleSearchBar';
 import { ManageAccessModal } from '../../components/merchant/ManageAccessModal';
+import { FinanceManagementModal } from '../../components/merchant/FinanceManagementModal';
 
 // Define the filter state type
 interface CollectionFilterState {
@@ -40,6 +41,9 @@ export function CollectionsTab() {
   const [isMerchant, setIsMerchant] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferCollection, setTransferCollection] = useState<any>(null);
+  const [showFinanceModal, setShowFinanceModal] = useState(false);
+  const [financeCollection, setFinanceCollection] = useState<any>(null);
+  const [userAccess, setUserAccess] = useState<string | null>(null);
 
   // Use the filter persistence hook
   const [filters, setFilters] = useFilterPersistence<CollectionFilterState>(
@@ -179,6 +183,18 @@ export function CollectionsTab() {
   const handleCloseTransferModal = () => {
     setTransferCollection(null);
     setShowTransferModal(false);
+  };
+
+  const handleFinanceManagement = (collection: any) => {
+    setFinanceCollection(collection);
+    setUserAccess(collection.isOwner ? 'owner' : collection.accessType);
+    setShowFinanceModal(true);
+  };
+
+  const handleCloseFinanceModal = () => {
+    setFinanceCollection(null);
+    setShowFinanceModal(false);
+    setUserAccess(null);
   };
 
   // Check if user is admin or merchant
@@ -436,6 +452,13 @@ export function CollectionsTab() {
                                 () => handleTransferOwnership(collection) : 
                                 undefined
                             }] : []),
+                            ...((isAdmin || collection.isOwner) ? [{
+                              label: 'Finance Management',
+                              icon: <DollarSign className="h-4 w-4" />,
+                              onClick: actionLoading !== collection.id ? 
+                                () => handleFinanceManagement(collection) : 
+                                undefined
+                            }] : []),
                             {
                               label: 'Delete',
                               icon: <Trash className="h-4 w-4" />,
@@ -493,6 +516,16 @@ export function CollectionsTab() {
           onClose={handleCloseTransferModal}
           collection={transferCollection}
           onAccessChange={handleTransferComplete}
+        />
+      )}
+
+      {showFinanceModal && financeCollection && (
+        <FinanceManagementModal
+          isOpen={showFinanceModal}
+          onClose={handleCloseFinanceModal}
+          collection={financeCollection}
+          userAccess={userAccess as any}
+          isAdmin={isAdmin}
         />
       )}
     </div>

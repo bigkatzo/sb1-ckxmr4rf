@@ -1,4 +1,4 @@
-import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag, ExternalLink, UserCheck } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag, ExternalLink, UserCheck, DollarSign } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { StarButton } from '../ui/StarButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -29,6 +29,7 @@ interface CollectionListItemProps {
   onToggleSaleEnded?: (saleEnded: boolean) => void;
   onToggleFeatured?: (featured: boolean) => void;
   onTransferOwnership?: () => void;
+  onFinanceManagement?: () => void;
   canEdit?: boolean;
 }
 
@@ -41,6 +42,7 @@ export function CollectionListItem({
   onToggleSaleEnded,
   onToggleFeatured,
   onTransferOwnership,
+  onFinanceManagement,
   canEdit = false
 }: CollectionListItemProps) {
   // Only show actions if user has edit permission
@@ -81,6 +83,14 @@ export function CollectionListItem({
       label: 'Manage Access',
       icon: <UserCheck className="h-4 w-4" />,
       onClick: onTransferOwnership
+    });
+  }
+  
+  if ((isAdmin || collection.isOwner) && onFinanceManagement) {
+    dropdownItems.push({
+      label: 'Finance Management',
+      icon: <DollarSign className="h-4 w-4" />,
+      onClick: onFinanceManagement
     });
   }
   
