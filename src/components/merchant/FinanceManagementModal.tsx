@@ -3,15 +3,12 @@ import { X, DollarSign, Users, TrendingUp, Settings, Eye, Edit3, Plus, AlertTria
 import { supabase } from '../../lib/supabase';
 import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
-import { RevenueConfigForm } from './forms/RevenueConfigForm';
 import { IndividualShareForm } from './forms/IndividualShareForm';
 import { toast } from 'react-toastify';
 
 type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 type UserRole = 'user' | 'merchant' | 'admin';
 type AccessType = 'view' | 'edit' | 'owner' | 'collaborator';
-type RevenueModel = 'owner_only' | 'equal_split' | 'contribution_based' | 'custom';
-type ShareType = 'percentage' | 'fixed_amount' | 'per_item';
 
 interface Collection {
   id: string;
@@ -20,19 +17,9 @@ interface Collection {
   user_id: string;
 }
 
-interface RevenueConfig {
-  id: string;
-  collection_id: string;
-  owner_share_percentage: number;
-  editor_share_percentage: number;
-  collaborator_share_percentage: number;
-  viewer_share_percentage: number;
-  split_model: RevenueModel;
-  enable_individual_splits: boolean;
-  smart_contract_address?: string;
-  auto_distribute: boolean;
-}
+// Note: Revenue config is now minimal - mainly for future smart contract features
 
+// Simplified individual share - no access_type dependency
 interface IndividualShare {
   id: string;
   collection_id: string;
@@ -40,12 +27,9 @@ interface IndividualShare {
   username: string;
   display_name: string;
   profile_image: string;
-  access_type: AccessType;
   role: UserRole;
   merchant_tier: MerchantTier;
   share_percentage: number;
-  share_type: ShareType;
-  fixed_amount?: number;
   wallet_address?: string;
   is_active: boolean;
   effective_from: string;
@@ -92,12 +76,10 @@ export function FinanceManagementModal({
   isAdmin 
 }: FinanceManagementModalProps) {
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'splits' | 'items' | 'analytics' | 'agreements'>('overview');
-  const [revenueConfig, setRevenueConfig] = useState<RevenueConfig | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'shares' | 'items' | 'analytics' | 'agreements'>('overview');
   const [individualShares, setIndividualShares] = useState<IndividualShare[]>([]);
   const [itemAttributions, setItemAttributions] = useState<ItemAttribution[]>([]);
   const [revenueEvents, setRevenueEvents] = useState<RevenueEvent[]>([]);
-  const [showConfigForm, setShowConfigForm] = useState(false);
   const [showShareForm, setShowShareForm] = useState(false);
   const [editingShare, setEditingShare] = useState<IndividualShare | null>(null);
 
@@ -116,18 +98,7 @@ export function FinanceManagementModal({
     try {
       setLoading(true);
       
-      // Load revenue config
-      const { data: configData, error: configError } = await supabase
-        .from('collection_revenue_config')
-        .select('*')
-        .eq('collection_id', collection.id)
-        .single();
-
-      if (configError && configError.code !== 'PGRST116') {
-        throw configError;
-      }
-
-      setRevenueConfig(configData);
+      // Note: Revenue config exists for future smart contract features but not used in current UI
 
       // Load individual shares
       const { data: sharesData, error: sharesError } = await supabase
@@ -233,24 +204,6 @@ export function FinanceManagementModal({
     }
   };
 
-  const saveRevenueConfig = async (config: Partial<RevenueConfig>) => {
-    try {
-      const { error } = await supabase
-        .from('collection_revenue_config')
-        .upsert({
-          collection_id: collection.id,
-          ...config
-        });
-
-      if (error) throw error;
-      toast.success('Revenue configuration saved');
-      loadFinanceData();
-    } catch (err) {
-      console.error('Error saving config:', err);
-      toast.error('Failed to save configuration');
-    }
-  };
-
   const deleteIndividualShare = async (shareId: string) => {
     try {
       const { error } = await supabase
@@ -267,18 +220,12 @@ export function FinanceManagementModal({
     }
   };
 
-
-
-  const calculateTotalPercentage = () => {
-    if (!revenueConfig) return 0;
-    return revenueConfig.owner_share_percentage + 
-           revenueConfig.editor_share_percentage + 
-           revenueConfig.collaborator_share_percentage + 
-           revenueConfig.viewer_share_percentage;
+  const getTotalSharedPercentage = () => {
+    return individualShares.reduce((total, share) => total + share.share_percentage, 0);
   };
 
-  const getTotalIndividualShares = () => {
-    return individualShares.reduce((total, share) => total + share.share_percentage, 0);
+  const getRemainingPercentage = () => {
+    return Math.max(0, 100 - getTotalSharedPercentage());
   };
 
   if (!isOpen || !canView) return null;
@@ -306,10 +253,10 @@ export function FinanceManagementModal({
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-semibold text-white">
-                  Finance Management
+                  Revenue Sharing
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-400 mt-1">
-                  Revenue sharing for "{collection.name}"
+                  Manage revenue shares for "{collection.name}"
                 </p>
               </div>
             </div>
@@ -333,8 +280,8 @@ export function FinanceManagementModal({
           <div className="flex overflow-x-auto p-1">
             {[
               { id: 'overview', label: 'Overview', icon: TrendingUp },
-              { id: 'splits', label: 'Revenue Splits', icon: Users },
-              { id: 'items', label: 'Item Attribution', icon: Settings },
+              { id: 'shares', label: 'Revenue Shares', icon: Users },
+              { id: 'items', label: 'Collaborator Items', icon: Settings },
               { id: 'analytics', label: 'Analytics', icon: DollarSign },
               { id: 'agreements', label: 'Agreements', icon: Settings }
             ].map(tab => (
@@ -365,42 +312,50 @@ export function FinanceManagementModal({
               {/* Overview Tab */}
               {activeTab === 'overview' && (
                 <div className="space-y-6">
-                  {/* Revenue Model Summary */}
+                  {/* Revenue Sharing Summary */}
                   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-white">Revenue Model</h3>
-                      {canEdit && (
-                        <button
-                          onClick={() => setShowConfigForm(true)}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-primary hover:bg-primary/80 text-white rounded-lg text-sm transition-colors"
-                        >
-                          <Edit3 className="h-3 w-3" />
-                          Configure
-                        </button>
-                      )}
+                      <h3 className="text-lg font-semibold text-white">Revenue Sharing Overview</h3>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-400 mb-2">Current Model</p>
-                        <p className="text-white font-medium capitalize">
-                          {revenueConfig?.split_model?.replace('_', ' ') || 'Owner Only'}
-                        </p>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <p className="text-sm text-gray-400 mb-2">Total Allocated</p>
                         <p className="text-white font-medium">
-                          {calculateTotalPercentage()}%
+                          {getTotalSharedPercentage()}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400 mb-2">Remaining</p>
+                        <p className="text-white font-medium">
+                          {getRemainingPercentage()}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400 mb-2">Active Shares</p>
+                        <p className="text-white font-medium">
+                          {individualShares.length}
                         </p>
                       </div>
                     </div>
 
-                    {revenueConfig && calculateTotalPercentage() !== 100 && (
+                    {getTotalSharedPercentage() > 100 && (
+                      <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-red-400" />
+                          <p className="text-sm text-red-200">
+                            Revenue shares exceed 100% by {getTotalSharedPercentage() - 100}%. Please adjust shares.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {getRemainingPercentage() > 0 && getTotalSharedPercentage() <= 100 && (
                       <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="h-4 w-4 text-yellow-400" />
                           <p className="text-sm text-yellow-200">
-                            Revenue shares don't add up to 100%. Remaining: {100 - calculateTotalPercentage()}%
+                            {getRemainingPercentage()}% of revenue is unallocated and will go to the collection owner.
                           </p>
                         </div>
                       </div>
@@ -409,18 +364,6 @@ export function FinanceManagementModal({
 
                   {/* Quick Stats */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-500/20 rounded-lg">
-                          <Users className="h-5 w-5 text-blue-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-400">Active Shares</p>
-                          <p className="text-xl font-semibold text-white">{individualShares.length}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
                     <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-green-500/20 rounded-lg">
@@ -446,42 +389,34 @@ export function FinanceManagementModal({
                         </div>
                       </div>
                     </div>
+
+                    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-500/20 rounded-lg">
+                          <Settings className="h-5 w-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Collaborator Items</p>
+                          <p className="text-xl font-semibold text-white">{itemAttributions.length}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Revenue Splits Tab */}
-              {activeTab === 'splits' && (
+              {/* Revenue Shares Tab */}
+              {activeTab === 'shares' && (
                 <div className="space-y-6">
-                  {/* Default Splits by Access Type */}
-                  {revenueConfig && (
-                    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                      <h3 className="text-lg font-semibold text-white mb-4">Default Revenue Splits</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="text-center">
-                          <p className="text-sm text-gray-400">Owner</p>
-                          <p className="text-2xl font-bold text-yellow-400">{revenueConfig.owner_share_percentage}%</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-400">Editor</p>
-                          <p className="text-2xl font-bold text-blue-400">{revenueConfig.editor_share_percentage}%</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-400">Collaborator</p>
-                          <p className="text-2xl font-bold text-purple-400">{revenueConfig.collaborator_share_percentage}%</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-400">Viewer</p>
-                          <p className="text-2xl font-bold text-gray-400">{revenueConfig.viewer_share_percentage}%</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Individual Shares */}
+                  {/* Revenue Shares */}
                   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-white">Individual Revenue Shares</h3>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">Revenue Shares</h3>
+                        <p className="text-sm text-gray-400">
+                          Direct percentage allocation to users. Simple and straightforward.
+                        </p>
+                      </div>
                       {canEdit && (
                         <button
                           onClick={() => {
@@ -496,14 +431,30 @@ export function FinanceManagementModal({
                       )}
                     </div>
 
+                    {/* Total Summary */}
+                    <div className="mb-6 p-3 bg-gray-700 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-300">Total Allocated:</span>
+                        <span className={`font-semibold ${
+                          getTotalSharedPercentage() > 100 ? 'text-red-400' : 
+                          getTotalSharedPercentage() === 100 ? 'text-green-400' : 'text-yellow-400'
+                        }`}>
+                          {getTotalSharedPercentage()}%
+                        </span>
+                      </div>
+                    </div>
+
                     {individualShares.length === 0 ? (
                       <div className="text-center py-8 text-gray-400">
                         <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No individual revenue shares configured</p>
+                        <p className="text-sm">No revenue shares configured</p>
+                        <p className="text-xs mt-1">Collection owner receives 100% by default</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {individualShares.map((share) => (
+                        {individualShares
+                          .sort((a, b) => b.share_percentage - a.share_percentage)
+                          .map((share) => (
                           <div key={share.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
                             <div className="flex items-center gap-3 flex-1">
                               <ProfileImage
@@ -521,14 +472,21 @@ export function FinanceManagementModal({
                                     tier={share.merchant_tier} 
                                     className="text-xs" 
                                   />
+                                  {share.user_id === collection.user_id && (
+                                    <span className="text-xs px-2 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full">
+                                      Owner
+                                    </span>
+                                  )}
                                 </div>
-                                <p className="text-xs text-gray-400 capitalize">{share.access_type}</p>
+                                <p className="text-xs text-gray-400">{share.role}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
                               <div className="text-right">
-                                <p className="text-sm font-medium text-white">{share.share_percentage}%</p>
-                                <p className="text-xs text-gray-400 capitalize">{share.share_type}</p>
+                                <p className="text-lg font-bold text-white">{share.share_percentage}%</p>
+                                <p className="text-xs text-gray-400">
+                                  ${((revenueEvents.reduce((sum, event) => sum + event.total_amount, 0) * share.share_percentage) / 100).toFixed(2)} earned
+                                </p>
                               </div>
                               {canEdit && (
                                 <div className="flex items-center gap-1">
@@ -558,99 +516,61 @@ export function FinanceManagementModal({
                         ))}
                       </div>
                     )}
-
-                    {getTotalIndividualShares() > 0 && (
-                      <div className="mt-4 p-3 bg-gray-700 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-400">Total Individual Shares</span>
-                          <span className="text-sm font-medium text-white">{getTotalIndividualShares()}%</span>
-                        </div>
-                        {getTotalIndividualShares() > 100 && (
-                          <p className="text-xs text-red-400 mt-1">
-                            ⚠️ Individual shares exceed 100%
-                          </p>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
 
-              {/* Item Attribution Tab */}
+              {/* Collaborator Items Tab */}
               {activeTab === 'items' && (
                 <div className="space-y-6">
                   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                    <h3 className="text-lg font-semibold text-white mb-4">Collaborator Item Attribution</h3>
+                    <h3 className="text-lg font-semibold text-white mb-4">Collaborator Item Revenue</h3>
                     <p className="text-sm text-gray-400 mb-4">
-                      Collaborators only receive revenue from items they create. This shows which items are attributed to which collaborators.
+                      Collaborators automatically receive revenue share only from items they create (products or categories).
+                      This is separate from general revenue shares.
                     </p>
 
                     {itemAttributions.length === 0 ? (
                       <div className="text-center py-8 text-gray-400">
                         <Settings className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No item attributions found</p>
-                        <p className="text-xs mt-1">Collaborators will see their items here when they create products or categories</p>
+                        <p className="text-sm">No collaborator items found</p>
+                        <p className="text-xs mt-1">When collaborators create products or categories, they'll appear here</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {itemAttributions.map((attribution) => (
                           <div key={attribution.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
                             <div className="flex items-center gap-3 flex-1">
-                              <div className={`p-2 rounded-lg ${
-                                attribution.item_type === 'product' 
-                                  ? 'bg-blue-500/20 text-blue-400' 
-                                  : 'bg-green-500/20 text-green-400'
-                              }`}>
-                                {attribution.item_type === 'product' ? '📦' : '📁'}
-                              </div>
-                              <div className="flex-1">
+                              <ProfileImage
+                                src={attribution.creator_profile_image || null}
+                                alt={attribution.creator_name}
+                                displayName={attribution.creator_name}
+                                size="sm"
+                              />
+                              <div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-medium text-white">
-                                    {attribution.item_name}
+                                    {attribution.creator_name}
                                   </span>
                                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                    attribution.item_type === 'product'
-                                      ? 'bg-blue-500/20 text-blue-300'
-                                      : 'bg-green-500/20 text-green-300'
+                                    attribution.item_type === 'product' 
+                                      ? 'bg-blue-500/20 text-blue-300' 
+                                      : 'bg-purple-500/20 text-purple-300'
                                   }`}>
                                     {attribution.item_type}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <ProfileImage
-                                    src={attribution.creator_profile_image || null}
-                                    alt={attribution.creator_name}
-                                    displayName={attribution.creator_name}
-                                    size="xs"
-                                  />
-                                  <span className="text-xs text-gray-400">
-                                    Created by {attribution.creator_name}
-                                  </span>
-                                </div>
+                                <p className="text-xs text-gray-400">{attribution.item_name}</p>
                               </div>
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-medium text-white">{attribution.revenue_share_percentage}%</p>
-                              <p className="text-xs text-gray-400">revenue share</p>
+                              <p className="text-xs text-gray-400">per item sale</p>
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
-
-                    <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <div className="text-blue-400 mt-0.5">ℹ️</div>
-                        <div>
-                          <p className="text-sm text-blue-200 font-medium">How Item Attribution Works</p>
-                          <p className="text-xs text-blue-300 mt-1">
-                            • Collaborators receive their specified percentage only from items they create<br/>
-                            • Collection-wide revenue shares apply to remaining revenue after collaborator items<br/>
-                            • Item attribution is automatically tracked when collaborators create products/categories
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
@@ -660,7 +580,11 @@ export function FinanceManagementModal({
                 <div className="space-y-6">
                   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                     <h3 className="text-lg font-semibold text-white mb-4">Revenue Analytics</h3>
-                    <p className="text-gray-400 text-sm">Revenue analytics and reporting features coming soon...</p>
+                    <div className="text-center py-8 text-gray-400">
+                      <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Advanced analytics coming soon</p>
+                      <p className="text-xs mt-1">Revenue breakdown, performance metrics, and distribution history</p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -669,8 +593,12 @@ export function FinanceManagementModal({
               {activeTab === 'agreements' && (
                 <div className="space-y-6">
                   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                    <h3 className="text-lg font-semibold text-white mb-4">Revenue Agreements</h3>
-                    <p className="text-gray-400 text-sm">Smart contract agreements and legal documentation coming soon...</p>
+                    <h3 className="text-lg font-semibold text-white mb-4">Smart Contracts & Agreements</h3>
+                    <div className="text-center py-8 text-gray-400">
+                      <Settings className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Smart contract integration coming soon</p>
+                      <p className="text-xs mt-1">Automated revenue distribution and transparent agreements</p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -678,15 +606,6 @@ export function FinanceManagementModal({
           )}
         </div>
       </div>
-
-      {/* Revenue Configuration Form Modal */}
-      <RevenueConfigForm
-        isOpen={showConfigForm}
-        onClose={() => setShowConfigForm(false)}
-        config={revenueConfig}
-        onSave={saveRevenueConfig}
-        readOnly={!canEdit}
-      />
 
       {/* Individual Share Form Modal */}
       <IndividualShareForm

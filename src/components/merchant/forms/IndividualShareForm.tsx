@@ -167,9 +167,7 @@ export function IndividualShareForm({
       const shareData = {
         collection_id: collectionId,
         user_id: selectedUser.id,
-        access_type: selectedUser.access_type,
         share_percentage: sharePercentage,
-        share_type: 'percentage',
         wallet_address: walletAddress || null,
         is_active: true,
         effective_from: new Date().toISOString()
