@@ -57,7 +57,9 @@ export function DropdownMenu({
     if (isOpen && buttonRef.current) {
       const buttonRect = buttonRef.current.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
       const menuWidth = 200; // Approximate menu width
+      const menuHeight = 100; // Approximate menu height
       
       let finalPos: 'left' | 'right' = position === 'auto' ? 'right' : position;
       
@@ -70,16 +72,23 @@ export function DropdownMenu({
       
       setDropdownPosition(finalPos);
       
-      // Calculate absolute position for the menu
-      const topPosition = buttonRect.bottom + window.scrollY;
+      // Calculate absolute position for the menu - position closer to button
+      let topPosition = buttonRect.bottom + window.scrollY;
+      
+      // Check if there's enough space below, if not, position above
+      if (buttonRect.bottom + menuHeight > viewportHeight) {
+        topPosition = buttonRect.top + window.scrollY - menuHeight;
+      }
       
       if (finalPos === 'right') {
+        // Align dropdown's right edge with button's right edge for better positioning
         setMenuPosition({
           top: topPosition,
-          left: buttonRect.left + window.scrollX,
+          left: buttonRect.right + window.scrollX - menuWidth,
           right: 0
         });
       } else {
+        // For left positioning, align menu's right edge with button's right edge
         setMenuPosition({
           top: topPosition,
           left: 0,
@@ -122,8 +131,7 @@ export function DropdownMenu({
             ...(dropdownPosition === 'right' 
               ? { left: `${menuPosition.left}px` } 
               : { right: `${menuPosition.right}px` }),
-            zIndex: 9999,
-            marginTop: '4px'
+            zIndex: 9999
           }}
           className={`${menuClassName}`}
         >
