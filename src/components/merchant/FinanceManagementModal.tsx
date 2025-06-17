@@ -5,6 +5,7 @@ import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
 import { IndividualShareForm } from './forms/IndividualShareForm';
 import { toast } from 'react-toastify';
+import { usePreventScroll } from '../../hooks/usePreventScroll';
 
 type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 type UserRole = 'user' | 'merchant' | 'admin';
@@ -84,6 +85,9 @@ export function FinanceManagementModal({
   const [revenueEvents, setRevenueEvents] = useState<RevenueEvent[]>([]);
   const [showShareForm, setShowShareForm] = useState(false);
   const [editingShare, setEditingShare] = useState<IndividualShare | null>(null);
+
+  // Enhanced scroll prevention
+  usePreventScroll(isOpen);
 
   // Check if user can edit (owner or admin)
   const canEdit = userAccess === 'owner' || isAdmin;
@@ -249,7 +253,15 @@ export function FinanceManagementModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-all duration-300 ease-out flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto"
+      style={{
+        paddingTop: 'max(12px, env(safe-area-inset-top))',
+        paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(12px, env(safe-area-inset-left))',
+        paddingRight: 'max(12px, env(safe-area-inset-right))',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)'
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

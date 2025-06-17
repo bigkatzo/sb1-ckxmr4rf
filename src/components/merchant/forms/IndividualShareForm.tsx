@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { ProfileImage } from '../../ui/ProfileImage';
 import { VerificationBadge } from '../../ui/VerificationBadge';
 import { toast } from 'react-toastify';
+import { usePreventScroll } from '../../../hooks/usePreventScroll';
 
 interface User {
   id: string;
@@ -54,6 +55,9 @@ export function IndividualShareForm({
   const [sharePercentage, setSharePercentage] = useState(0);
   const [walletAddress, setWalletAddress] = useState('');
   const [shareName, setShareName] = useState('');
+
+  // Use scroll prevention hook
+  usePreventScroll(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -291,21 +295,55 @@ export function IndividualShareForm({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-lg w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h3 className="text-lg font-semibold text-white">
-            {existingShare ? 'Edit' : 'Add'} Revenue Share
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto"
+      style={{
+        paddingTop: 'max(16px, env(safe-area-inset-top))',
+        paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(16px, env(safe-area-inset-left))',
+        paddingRight: 'max(16px, env(safe-area-inset-right))'
+      }}
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="modal-title"
+    >
+      {/* Enhanced backdrop with blur */}
+      <div 
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      
+      {/* Modal container */}
+      <div className="flex min-h-full items-center justify-center p-4 sm:p-6 lg:p-8">
+        <div 
+          className="relative w-full max-w-md sm:max-w-lg bg-gray-800 rounded-xl border border-gray-700 shadow-2xl transform transition-all duration-300 modal-content"
+          style={{
+            maxHeight: 'calc(100vh - max(32px, env(safe-area-inset-top)) - max(32px, env(safe-area-inset-bottom)))'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+            {/* Header - fixed */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700 bg-gray-800 shrink-0">
+              <h3 
+                id="modal-title"
+                className="text-lg sm:text-xl font-semibold text-white truncate pr-4"
+              >
+                {existingShare ? 'Edit' : 'Add'} Revenue Share
+              </h3>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-700 shrink-0"
+                aria-label="Close modal"
+              >
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto overscroll-contain" data-modal-scrollable>
+
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Share Type Selection */}
           {!existingShare && (
             <div className="space-y-2">
@@ -517,7 +555,9 @@ export function IndividualShareForm({
             )}
           </div>
         </form>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-} 
+    );
+  } 
