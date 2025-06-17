@@ -88,17 +88,27 @@ export function IndividualShareForm({
 
   const loadAvailableUsers = async () => {
     try {
-      // Get users who have access to this collection but don't already have individual shares
+      // Get users who have access to this collection
       const { data: accessData, error: accessError } = await supabase
         .from('collection_access')
-        .select(`
-          user_id,
-          access_type,
-          user_profiles!inner(display_name, profile_image, role, merchant_tier, payout_wallet)
-        `)
+        .select('user_id, access_type')
         .eq('collection_id', collectionId);
 
       if (accessError) throw accessError;
+
+      if (!accessData || accessData.length === 0) {
+        setAvailableUsers([]);
+        return;
+      }
+
+      // Get user profiles separately
+      const userIds = accessData.map(a => a.user_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, display_name, profile_image, role, merchant_tier, payout_wallet')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
 
       // Get existing shares to exclude users who already have them
       const { data: existingShares, error: sharesError } = await supabase
@@ -112,25 +122,34 @@ export function IndividualShareForm({
 
       const existingUserIds = new Set(existingShares?.map(s => s.user_id) || []);
       
+      // Combine access and profile data
+      const combinedData = accessData.map(access => {
+        const profile = profilesData?.find(p => p.id === access.user_id);
+        return {
+          user_id: access.user_id,
+          access_type: access.access_type,
+          profile
+        };
+      });
+      
       // Filter out users who already have shares (unless we're editing an existing share)
-      const filteredUsers = accessData?.filter(user => 
+      const filteredUsers = combinedData.filter(user => 
         !existingUserIds.has(user.user_id) || 
         (existingShare && user.user_id === existingShare.user_id)
-      ) || [];
+      );
 
       const transformedUsers = filteredUsers.map(user => {
-        // Handle both array and object forms of user_profiles
-        const profiles = Array.isArray(user.user_profiles) ? user.user_profiles[0] : user.user_profiles;
+        const profile = user.profile;
         
         return {
           id: user.user_id,
-          username: profiles?.display_name || `User ${user.user_id.slice(0, 8)}`,
-          display_name: profiles?.display_name || '',
-          profile_image: profiles?.profile_image || '',
-          role: profiles?.role || 'user',
-          merchant_tier: profiles?.merchant_tier || 'starter_merchant',
+          username: profile?.display_name || `User ${user.user_id.slice(0, 8)}`,
+          display_name: profile?.display_name || '',
+          profile_image: profile?.profile_image || '',
+          role: profile?.role || 'user',
+          merchant_tier: profile?.merchant_tier || 'starter_merchant',
           access_type: user.access_type,
-          payout_wallet: profiles?.payout_wallet || ''
+          payout_wallet: profile?.payout_wallet || ''
         };
       });
 
@@ -143,32 +162,34 @@ export function IndividualShareForm({
 
   const loadUserDetails = async (userId: string) => {
     try {
-      const { data: accessData, error } = await supabase
+      const { data: accessData, error: accessError } = await supabase
         .from('collection_access')
-        .select(`
-          user_id,
-          access_type,
-          user_profiles!inner(display_name, profile_image, role, merchant_tier, payout_wallet)
-        `)
+        .select('user_id, access_type')
         .eq('collection_id', collectionId)
         .eq('user_id', userId)
         .single();
 
-      if (error) throw error;
+      if (accessError) throw accessError;
 
       if (accessData) {
-        // Handle both array and object forms of user_profiles
-        const profiles = Array.isArray(accessData.user_profiles) ? accessData.user_profiles[0] : accessData.user_profiles;
+        // Get user profile separately
+        const { data: profileData, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('id, display_name, profile_image, role, merchant_tier, payout_wallet')
+          .eq('id', userId)
+          .single();
+
+        if (profileError) throw profileError;
         
         const user = {
           id: accessData.user_id,
-          username: profiles?.display_name || `User ${accessData.user_id.slice(0, 8)}`,
-          display_name: profiles?.display_name || '',
-          profile_image: profiles?.profile_image || '',
-          role: profiles?.role || 'user',
-          merchant_tier: profiles?.merchant_tier || 'starter_merchant',
+          username: profileData?.display_name || `User ${accessData.user_id.slice(0, 8)}`,
+          display_name: profileData?.display_name || '',
+          profile_image: profileData?.profile_image || '',
+          role: profileData?.role || 'user',
+          merchant_tier: profileData?.merchant_tier || 'starter_merchant',
           access_type: accessData.access_type,
-          payout_wallet: profiles?.payout_wallet || ''
+          payout_wallet: profileData?.payout_wallet || ''
         };
         setSelectedUser(user);
       }
