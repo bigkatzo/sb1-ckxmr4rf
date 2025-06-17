@@ -123,9 +123,10 @@ export function useCollection(slug: string) {
           .eq('slug', slug);
         
         // If using the full collections table in preview mode, don't filter by visibility
-        if (!includeHidden) {
-          // The public_collections view already filters by visibility
-        }
+        // The public_collections view already filters by visibility
+        
+        console.log(`Fetching collection from ${collectionTable} with slug: ${slug} (includeHidden: ${includeHidden})`);
+        
         
         const { data: collectionData, error: collectionError } = await collectionQuery.single();
 

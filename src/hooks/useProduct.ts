@@ -73,9 +73,11 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         // Check if preview mode is enabled
         const includeHidden = canPreviewHiddenContent();
         
+        console.log(`Fetching product with preview mode: ${includeHidden}, collection: ${collectionSlug}, product: ${productSlug}`);
+        
         let productQuery;
         if (includeHidden) {
-          // When in preview mode, fetch from products table with joins including merchant tier
+          // When in preview mode, fetch from products table with joins (without problematic foreign key)
           productQuery = supabase
             .from('products')
             .select(`
@@ -97,9 +99,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
                 sale_ended,
                 visible,
                 user_id,
-                user_profiles!collections_user_id_fkey (
-                  merchant_tier
-                )
+                owner_merchant_tier
               )
             `)
             .eq('slug', productSlug)
@@ -127,8 +127,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         // Extract merchant tier from different query structures
         let collectionOwnerMerchantTier;
         if (includeHidden) {
-          // In preview mode, merchant tier comes from nested user_profiles
-          collectionOwnerMerchantTier = data.collections?.user_profiles?.merchant_tier;
+          // In preview mode, merchant tier comes directly from collections table
+          collectionOwnerMerchantTier = data.collections?.owner_merchant_tier;
         } else {
           // In normal mode, it comes directly from the view
           collectionOwnerMerchantTier = data.collection_owner_merchant_tier;
