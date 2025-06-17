@@ -175,9 +175,9 @@ export function CollectionsTab() {
   };
 
   const handleTransferComplete = () => {
-    setTransferCollection(null);
-    setShowTransferModal(false);
-    refetch(); // Refresh the collections list
+    // Only refresh collections list, don't close modal
+    // Modal stays open for continued access management
+    refetch();
   };
 
   const handleCloseTransferModal = () => {
