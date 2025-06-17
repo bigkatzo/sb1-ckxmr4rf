@@ -34,7 +34,7 @@ const initialFilterState: ProductFilterState = {
 };
 
 export function ProductsTab() {
-  const { selectedCollection, selectedCategory } = useMerchantDashboard();
+  const { selectedCollection, selectedCategory, globalSearchQuery } = useMerchantDashboard();
   
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -211,8 +211,19 @@ export function ProductsTab() {
 
   // Filter products based on current filter settings
   const filteredProducts = products.filter(product => {
-    // Filter by search query
-    if (filters.searchQuery) {
+    // Filter by global search query (takes precedence)
+    if (globalSearchQuery) {
+      const query = globalSearchQuery.toLowerCase();
+      const nameMatch = product.name?.toLowerCase().includes(query) || false;
+      const skuMatch = product.sku?.toLowerCase().includes(query) || false;
+      const descriptionMatch = product.description?.toLowerCase().includes(query) || false;
+      
+      if (!(nameMatch || skuMatch || descriptionMatch)) {
+        return false;
+      }
+    }
+    // Filter by local search query (only if no global search)
+    else if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
       const nameMatch = product.name?.toLowerCase().includes(query) || false;
       const skuMatch = product.sku?.toLowerCase().includes(query) || false;

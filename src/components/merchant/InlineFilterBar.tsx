@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { ChevronDown, X, Filter } from 'lucide-react';
+import { ChevronDown, X, Filter, Search } from 'lucide-react';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { useCategories } from '../../hooks/useCategories';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
@@ -13,9 +13,11 @@ type FilterOption = {
 export function InlineFilterBar() {
   const { 
     selectedCollection, 
-    selectedCategory, 
+    selectedCategory,
+    globalSearchQuery,
     setSelectedCollection, 
     setSelectedCategory,
+    setGlobalSearchQuery,
     clearAllSelections 
   } = useMerchantDashboard();
   
@@ -31,7 +33,7 @@ export function InlineFilterBar() {
   const selectedCollectionName = collections.find(c => c.id === selectedCollection)?.name;
   const selectedCategoryName = categories.find(c => c.id === selectedCategory)?.name;
   
-  const hasActiveFilters = selectedCollection || selectedCategory;
+  const hasActiveFilters = selectedCollection || selectedCategory || globalSearchQuery;
   
   // Close the dropdown when clicking outside
   useEffect(() => {
@@ -107,6 +109,25 @@ export function InlineFilterBar() {
     ));
   };
   
+  // Generate display text for the filter button
+  const getFilterDisplayText = () => {
+    const parts = [];
+    if (globalSearchQuery) {
+      parts.push(`"${globalSearchQuery.substring(0, 15)}${globalSearchQuery.length > 15 ? '...' : ''}"`);
+    }
+    if (selectedCollectionName) {
+      parts.push(selectedCollectionName);
+    }
+    if (selectedCategoryName) {
+      parts.push(selectedCategoryName);
+    }
+    
+    if (parts.length === 0) return 'Global Filter';
+    if (parts.length === 1) return parts[0];
+    if (parts.length === 2) return parts.join(' • ');
+    return `${parts[0]} • +${parts.length - 1}`;
+  };
+  
   // Collapsed mobile view
   if (isCollapsed && !isOpen) {
     return (
@@ -127,14 +148,12 @@ export function InlineFilterBar() {
               <Filter className="h-3.5 w-3.5" />
               <span className="font-medium truncate max-w-[150px]">
                 {hasActiveFilters 
-                  ? `${selectedCollectionName?.substring(0, 10)}${selectedCollectionName && selectedCollectionName.length > 10 ? '...' : ''}` 
+                  ? getFilterDisplayText()
                   : 'Filter'}
               </span>
             </div>
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
-
-          {/* Removed clear button from here for mobile collapsed view */}
         </div>
       </div>
     );
@@ -161,9 +180,7 @@ export function InlineFilterBar() {
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4" />
             <span className="font-medium truncate max-w-[100px] md:max-w-[140px]">
-              {hasActiveFilters 
-                ? `${selectedCollectionName}${selectedCategoryName ? ` • ${selectedCategoryName}` : ''}` 
-                : 'Global Filter'}
+              {getFilterDisplayText()}
             </span>
           </div>
           <ChevronDown className="h-4 w-4" />
@@ -219,6 +236,35 @@ export function InlineFilterBar() {
               </div>
             </div>
           )}
+          
+          {/* Global Search Section */}
+          <div className="px-3 py-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search across all items..."
+                value={globalSearchQuery}
+                onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                className={`w-full bg-gray-800 rounded-md pl-9 pr-3 py-1.5 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary ${
+                  isCollapsed ? 'text-xs' : 'text-sm'
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {globalSearchQuery && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGlobalSearchQuery('');
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-white"
+                  title="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
           
           {/* Collection selector */}
           <div className="py-0.5">

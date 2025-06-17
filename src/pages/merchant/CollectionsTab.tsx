@@ -29,7 +29,7 @@ const initialFilterState: CollectionFilterState = {
 };
 
 export function CollectionsTab() {
-  const { setSelectedCollection, selectedCollection } = useMerchantDashboard();
+  const { setSelectedCollection, selectedCollection, globalSearchQuery } = useMerchantDashboard();
   
   const [showForm, setShowForm] = useState(false);
   const [editingCollection, setEditingCollection] = useState<any>(null);
@@ -57,8 +57,16 @@ export function CollectionsTab() {
   
   // Filter collections based on current filter settings
   const filteredCollections = collections.filter(collection => {
-    // Filter by search query
-    if (filters.searchQuery) {
+    // Filter by global search query (takes precedence)
+    if (globalSearchQuery) {
+      const query = globalSearchQuery.toLowerCase();
+      if (!collection.name.toLowerCase().includes(query) && 
+          !collection.description?.toLowerCase().includes(query)) {
+        return false;
+      }
+    }
+    // Filter by local search query (only if no global search)
+    else if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
       if (!collection.name.toLowerCase().includes(query)) {
         return false;
