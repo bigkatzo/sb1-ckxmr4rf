@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Crown, Edit3, Eye, UserPlus, Trash2, AlertTriangle, Shield, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Crown, PenTool, Eye, UserPlus, Trash2, AlertTriangle, Shield, ChevronDown, ChevronUp, Settings } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { UserSelector } from './UserSelector';
 import { ProfileImage } from '../ui/ProfileImage';
@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
 type UserRole = 'user' | 'merchant' | 'admin';
 type AccessType = 'view' | 'edit' | 'owner';
+type DisplayAccessType = 'view' | 'editor' | 'owner';
 
 interface UserForTransfer {
   id: string;
@@ -73,6 +74,11 @@ export function ManageAccessModal({
   const [transferTarget, setTransferTarget] = useState<UserForTransfer | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [expandedAccessList, setExpandedAccessList] = useState(true);
+  const [pendingAccessChange, setPendingAccessChange] = useState<{
+    userId: string;
+    newAccessType: AccessType;
+    userName: string;
+  } | null>(null);
 
   // Load access details when modal opens
   useEffect(() => {
@@ -192,9 +198,22 @@ export function ManageAccessModal({
   const getAccessTypeIcon = (accessType: AccessType) => {
     switch (accessType) {
       case 'view': return <Eye className="h-4 w-4" />;
-      case 'edit': return <Edit3 className="h-4 w-4" />;
+      case 'edit': return <PenTool className="h-4 w-4" />;
       case 'owner': return <Crown className="h-4 w-4" />;
     }
+  };
+
+  const getDisplayAccessType = (accessType: AccessType): DisplayAccessType => {
+    switch (accessType) {
+      case 'view': return 'view';
+      case 'edit': return 'editor';
+      case 'owner': return 'owner';
+    }
+  };
+
+  const getDisplayAccessTypeLabel = (accessType: AccessType): string => {
+    const displayType = getDisplayAccessType(accessType);
+    return displayType.charAt(0).toUpperCase() + displayType.slice(1);
   };
 
   const getAccessTypeColor = (accessType: AccessType) => {
@@ -219,26 +238,62 @@ export function ManageAccessModal({
   };
 
   const handleUpdateUserAccess = (userId: string, newAccessType: AccessType) => {
+    const user = accessDetails?.access_users.find(u => u.user_id === userId);
+    if (!user) return;
+
     if (newAccessType === 'owner') {
-      // Find the user info for transfer confirmation
-      const user = accessDetails?.access_users.find(u => u.user_id === userId);
-      if (user) {
-        setTransferTarget({
-          id: user.user_id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          merchant_tier: user.merchant_tier,
-          display_name: user.display_name,
-          profile_image: user.profile_image
-        });
-        setShowTransferConfirm(true);
-      }
+      // Transfer ownership needs special confirmation
+      setTransferTarget({
+        id: user.user_id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        merchant_tier: user.merchant_tier,
+        display_name: user.display_name,
+        profile_image: user.profile_image
+      });
+      setShowTransferConfirm(true);
     } else {
-      handleManageAccess(userId, 'update', newAccessType);
+      // Set up confirmation for access level change
+      setPendingAccessChange({
+        userId: userId,
+        newAccessType: newAccessType,
+        userName: user.display_name || user.username
+      });
     }
     setEditingUserId(null);
   };
+
+  const confirmAccessChange = async () => {
+    if (!pendingAccessChange) return;
+    
+    await handleManageAccess(
+      pendingAccessChange.userId, 
+      'update', 
+      pendingAccessChange.newAccessType
+    );
+    setPendingAccessChange(null);
+  };
+
+  const cancelAccessChange = () => {
+    setPendingAccessChange(null);
+  };
+
+  // Auto-scroll to confirmation dialogs when they appear
+  useEffect(() => {
+    if (pendingAccessChange || showTransferConfirm) {
+      // Small delay to ensure the element is rendered
+      setTimeout(() => {
+        const modalContent = document.querySelector('.manage-access-modal-content');
+        if (modalContent) {
+          modalContent.scrollTo({
+            top: modalContent.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+  }, [pendingAccessChange, showTransferConfirm]);
 
   const handleClose = () => {
     if (!actionLoading) {
@@ -247,6 +302,7 @@ export function ManageAccessModal({
       setShowTransferConfirm(false);
       setTransferTarget(null);
       setEditingUserId(null);
+      setPendingAccessChange(null);
       onClose();
     }
   };
@@ -276,7 +332,7 @@ export function ManageAccessModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="manage-access-modal-content p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -370,43 +426,57 @@ export function ManageAccessModal({
                             </div>
                             <div className="flex items-center gap-2">
                               {editingUserId === user.user_id ? (
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 p-2 bg-gray-700/50 rounded-lg border border-gray-600">
+                                  <span className="text-xs text-gray-400 mr-2">Change to:</span>
                                   {getAvailableAccessTypes(user.role).map((type) => (
                                     <button
                                       key={type}
                                       onClick={() => handleUpdateUserAccess(user.user_id, type)}
                                       disabled={!!actionLoading}
-                                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                         user.access_type === type
-                                          ? getAccessTypeColor(type)
-                                          : 'text-gray-400 bg-gray-600/50 hover:bg-gray-600'
+                                          ? `${getAccessTypeColor(type)} ring-2 ring-primary/30`
+                                          : 'text-gray-300 bg-gray-600/50 hover:bg-gray-600 hover:text-white'
                                       }`}
-                                    >
-                                      {getAccessTypeIcon(type)}
-                                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                                    </button>
+                                                                          >
+                                        {getAccessTypeIcon(type)}
+                                        {getDisplayAccessTypeLabel(type)}
+                                      </button>
                                   ))}
                                   <button
                                     onClick={() => setEditingUserId(null)}
-                                    className="p-1 text-gray-400 hover:text-gray-300 transition-colors ml-1"
+                                    className="p-1.5 text-gray-400 hover:text-gray-300 hover:bg-gray-600 rounded transition-colors ml-2"
+                                    title="Cancel editing"
                                   >
                                     <X className="h-3 w-3" />
                                   </button>
                                 </div>
                               ) : (
                                 <>
-                                  <button
-                                    onClick={() => handleEditUserAccess(user)}
-                                    disabled={!!actionLoading}
-                                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:ring-2 hover:ring-primary/20 ${getAccessTypeColor(user.access_type)}`}
-                                  >
-                                    {getAccessTypeIcon(user.access_type)}
-                                    {user.access_type.charAt(0).toUpperCase() + user.access_type.slice(1)}
-                                  </button>
+                                  <div className="flex items-center gap-2">
+                                    {/* Access Level Badge */}
+                                                                         <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium ${getAccessTypeColor(user.access_type)}`}>
+                                       {getAccessTypeIcon(user.access_type)}
+                                       {getDisplayAccessTypeLabel(user.access_type)}
+                                     </span>
+                                    
+                                    {/* Edit Access Button */}
+                                    <button
+                                      onClick={() => handleEditUserAccess(user)}
+                                      disabled={!!actionLoading}
+                                      className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                      title="Change access level"
+                                    >
+                                      <Settings className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Remove Access Button */}
                                   <button
                                     onClick={() => handleManageAccess(user.user_id, 'remove')}
                                     disabled={!!actionLoading}
                                     className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                    title="Remove access"
                                   >
                                     {actionLoading === user.user_id ? (
                                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
@@ -468,16 +538,16 @@ export function ManageAccessModal({
                               <div className={`p-1.5 rounded ${getAccessTypeColor(type)}`}>
                                 {getAccessTypeIcon(type)}
                               </div>
-                              <div className="text-left">
-                                <div className="font-medium">
-                                  {type.charAt(0).toUpperCase() + type.slice(1)} Access
-                                </div>
-                                <div className="text-xs opacity-75">
-                                  {type === 'view' && 'Can view collection contents'}
-                                  {type === 'edit' && 'Can modify and manage collection'}
-                                  {type === 'owner' && 'Full control including deletion'}
-                                </div>
-                              </div>
+                                                             <div className="text-left">
+                                 <div className="font-medium">
+                                   {getDisplayAccessTypeLabel(type)} Access
+                                 </div>
+                                 <div className="text-xs opacity-75">
+                                   {type === 'view' && 'Can browse and see all items'}
+                                   {type === 'edit' && 'Can add, modify, and organize items'}
+                                   {type === 'owner' && 'Full control + can manage access'}
+                                 </div>
+                               </div>
                             </button>
                           ))}
                         </div>
@@ -504,6 +574,41 @@ export function ManageAccessModal({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Access Change Confirmation */}
+              {pendingAccessChange && (
+                <div className="space-y-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl backdrop-blur-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                      <Settings className="h-4 w-4 text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-blue-200">Confirm Access Change</h4>
+                                             <p className="text-xs text-blue-200/80 mt-1">
+                         Change <strong>{pendingAccessChange.userName}</strong>'s access to{' '}
+                         <strong>{getDisplayAccessType(pendingAccessChange.newAccessType)}</strong> level?
+                       </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={confirmAccessChange}
+                      disabled={!!actionLoading}
+                      className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      {actionLoading ? 'Updating...' : 'Confirm Change'}
+                    </button>
+                    <button
+                      onClick={cancelAccessChange}
+                      disabled={!!actionLoading}
+                      className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
 
