@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, UserPlus, Shield, Crown, Settings, Trash2, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, UserPlus, Shield, Crown, AlertTriangle, ChevronUp, ChevronDown, MoreVertical, Edit, UserX } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { UserSelector } from './UserSelector';
 import { VerificationBadge } from '../ui/VerificationBadge';
 import { ProfileImage } from '../ui/ProfileImage';
+import { DropdownMenu } from '../ui/DropdownMenu';
 import { toast } from 'react-toastify';
 
 type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
@@ -543,27 +544,35 @@ export function ManageAccessModal({
                                     {getAccessTypeLabel(user.access_type)}
                                   </span>
                                   
-                                  <button
-                                    onClick={() => handleEditUserAccess(user)}
-                                    disabled={!!actionLoading}
-                                    className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-                                    title="Change access level"
-                                  >
-                                    <Settings className="h-4 w-4" />
-                                  </button>
-                                  
-                                  <button
-                                    onClick={() => handleManageAccess(user.user_id, 'remove')}
-                                    disabled={!!actionLoading}
-                                    className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-                                    title="Remove access"
-                                  >
-                                    {actionLoading === user.user_id ? (
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
-                                    ) : (
-                                      <Trash2 className="h-4 w-4" />
-                                    )}
-                                  </button>
+                                  <DropdownMenu
+                                    items={[
+                                      {
+                                        label: 'Change Access Level',
+                                        icon: <Edit className="h-4 w-4" />,
+                                        onClick: actionLoading !== user.user_id ? 
+                                          () => handleEditUserAccess(user) : 
+                                          undefined
+                                      },
+                                      {
+                                        label: 'Remove Access',
+                                        icon: actionLoading === user.user_id ? (
+                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
+                                        ) : (
+                                          <UserX className="h-4 w-4" />
+                                        ),
+                                        onClick: actionLoading !== user.user_id ? 
+                                          () => handleManageAccess(user.user_id, 'remove') : 
+                                          undefined,
+                                        destructive: true
+                                      }
+                                    ]}
+                                    triggerIcon={<MoreVertical className="h-4 w-4" />}
+                                    triggerClassName={`p-2 text-gray-400 hover:text-gray-300 transition-colors rounded-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100 ${
+                                      actionLoading === user.user_id ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
+                                    menuClassName="bg-gray-800 rounded-md shadow-lg py-1 min-w-[160px] shadow-xl z-[100]"
+                                    position="auto"
+                                  />
                                 </div>
                               </div>
                             )}
@@ -676,7 +685,7 @@ export function ManageAccessModal({
                 <div className="space-y-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                   <div className="flex items-start gap-3">
                     <div className="p-2 bg-blue-500/20 rounded-lg shrink-0">
-                      <Settings className="h-4 w-4 text-blue-400" />
+                      <Edit className="h-4 w-4 text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-medium text-blue-200">Confirm Access Change</h4>
