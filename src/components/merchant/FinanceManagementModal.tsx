@@ -134,7 +134,7 @@ export function FinanceManagementModal({
         .from('collection_individual_shares')
         .select(`
           *,
-          user_profiles!inner(display_name, profile_image, role, merchant_tier)
+          user_profiles(display_name, profile_image, role, merchant_tier)
         `)
         .eq('collection_id', collection.id)
         .eq('is_active', true);
@@ -158,9 +158,7 @@ export function FinanceManagementModal({
         .from('item_revenue_attribution')
         .select(`
           *,
-          products!item_revenue_attribution_item_id_fkey(name),
-          categories!item_revenue_attribution_item_id_fkey(name),
-          user_profiles!item_revenue_attribution_creator_id_fkey(display_name, profile_image)
+          user_profiles(display_name, profile_image)
         `)
         .eq('collection_id', collection.id)
         .eq('is_active', true);
@@ -168,19 +166,41 @@ export function FinanceManagementModal({
       if (attributionError) {
         console.error('Error loading attributions:', attributionError);
       } else {
-        const transformedAttributions = attributionData?.map(attr => ({
-          id: attr.id,
-          item_id: attr.item_id,
-          item_type: attr.item_type,
-          item_name: attr.item_type === 'product' 
-            ? attr.products?.name || 'Unknown Product'
-            : attr.categories?.name || 'Unknown Category',
-          creator_id: attr.creator_id,
-          creator_name: attr.user_profiles?.display_name || `User ${attr.creator_id.slice(0, 8)}`,
-          creator_profile_image: attr.user_profiles?.profile_image || '',
-          revenue_share_percentage: attr.revenue_share_percentage,
-          is_active: attr.is_active
-        })) || [];
+        // Get item names separately based on item_type
+        const transformedAttributions = [];
+        
+        for (const attr of attributionData || []) {
+          let itemName = 'Unknown Item';
+          
+          if (attr.item_type === 'product') {
+            const { data: product } = await supabase
+              .from('products')
+              .select('name')
+              .eq('id', attr.item_id)
+              .single();
+            itemName = product?.name || 'Unknown Product';
+          } else if (attr.item_type === 'category') {
+            const { data: category } = await supabase
+              .from('categories')
+              .select('name')
+              .eq('id', attr.item_id)
+              .single();
+            itemName = category?.name || 'Unknown Category';
+          }
+          
+          transformedAttributions.push({
+            id: attr.id,
+            item_id: attr.item_id,
+            item_type: attr.item_type,
+            item_name: itemName,
+            creator_id: attr.creator_id,
+            creator_name: attr.user_profiles?.display_name || `User ${attr.creator_id.slice(0, 8)}`,
+            creator_profile_image: attr.user_profiles?.profile_image || '',
+            revenue_share_percentage: attr.revenue_share_percentage,
+            is_active: attr.is_active
+          });
+        }
+        
         setItemAttributions(transformedAttributions);
       }
 
