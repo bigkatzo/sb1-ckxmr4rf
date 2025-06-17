@@ -142,7 +142,7 @@ export function CollectionListItem({
               <div className="mt-1 flex items-center gap-2">
                 {isAdmin ? (
                   <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium bg-green-500/10 text-green-400">
-                    <span>Owner: {collection.owner_username}</span>
+                    Owner: {collection.owner_username}
                     {collection.ownerMerchantTier && (
                       <VerificationBadge 
                         tier={collection.ownerMerchantTier} 

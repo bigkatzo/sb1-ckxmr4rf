@@ -374,17 +374,17 @@ export function CollectionsTab() {
                 
                 {/* Add owner information for admins */}
                 {isAdmin && collection.owner_username && (
-                  <div className="mt-1 sm:mt-1.5 flex items-center gap-2">
-                    <span className="text-[10px] sm:text-xs text-green-400 bg-green-900/40 px-1.5 py-0.5 rounded">
+                  <div className="mt-1 sm:mt-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs text-green-400 bg-green-900/40 px-1.5 py-0.5 rounded">
                       Owner: {collection.owner_username}
+                      {collection.ownerMerchantTier && (
+                        <VerificationBadge 
+                          tier={collection.ownerMerchantTier} 
+                          className="text-xs" 
+                          showTooltip={true}
+                        />
+                      )}
                     </span>
-                    {collection.ownerMerchantTier && (
-                      <VerificationBadge 
-                        tier={collection.ownerMerchantTier} 
-                        className="text-xs" 
-                        showTooltip={true}
-                      />
-                    )}
                   </div>
                 )}
                 
