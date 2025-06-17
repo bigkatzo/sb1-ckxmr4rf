@@ -129,44 +129,47 @@ export function FinanceManagementModal({
 
       setRevenueConfig(configData);
 
-      // Load individual shares with user details - simplified for now
+      // Load individual shares
       const { data: sharesData, error: sharesError } = await supabase
         .from('collection_individual_shares')
-        .select(`
-          *,
-          user_profiles(display_name, profile_image, role, merchant_tier)
-        `)
+        .select('*')
         .eq('collection_id', collection.id)
         .eq('is_active', true);
 
       if (sharesError) throw sharesError;
       
-      // Transform the data - we'll use display_name as username for now
-      const transformedShares = sharesData?.map(share => ({
-        ...share,
-        username: share.user_profiles?.display_name || `User ${share.user_id.slice(0, 8)}`,
-        display_name: share.user_profiles?.display_name || '',
-        profile_image: share.user_profiles?.profile_image || '',
-        role: share.user_profiles?.role || 'user',
-        merchant_tier: share.user_profiles?.merchant_tier || 'starter_merchant'
-      })) || [];
+      // Get user profiles for all shares
+      const transformedShares = [];
+      for (const share of sharesData || []) {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('display_name, profile_image, role, merchant_tier')
+          .eq('id', share.user_id)
+          .single();
+          
+        transformedShares.push({
+          ...share,
+          username: userProfile?.display_name || `User ${share.user_id.slice(0, 8)}`,
+          display_name: userProfile?.display_name || '',
+          profile_image: userProfile?.profile_image || '',
+          role: userProfile?.role || 'user',
+          merchant_tier: userProfile?.merchant_tier || 'starter_merchant'
+        });
+      }
 
       setIndividualShares(transformedShares);
 
       // Load item attributions for collaborators
       const { data: attributionData, error: attributionError } = await supabase
         .from('item_revenue_attribution')
-        .select(`
-          *,
-          user_profiles(display_name, profile_image)
-        `)
+        .select('*')
         .eq('collection_id', collection.id)
         .eq('is_active', true);
 
       if (attributionError) {
         console.error('Error loading attributions:', attributionError);
       } else {
-        // Get item names separately based on item_type
+        // Get item names and user profiles separately
         const transformedAttributions = [];
         
         for (const attr of attributionData || []) {
@@ -188,14 +191,21 @@ export function FinanceManagementModal({
             itemName = category?.name || 'Unknown Category';
           }
           
+          // Get user profile for creator
+          const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('display_name, profile_image')
+            .eq('id', attr.creator_id)
+            .single();
+          
           transformedAttributions.push({
             id: attr.id,
             item_id: attr.item_id,
             item_type: attr.item_type,
             item_name: itemName,
             creator_id: attr.creator_id,
-            creator_name: attr.user_profiles?.display_name || `User ${attr.creator_id.slice(0, 8)}`,
-            creator_profile_image: attr.user_profiles?.profile_image || '',
+            creator_name: userProfile?.display_name || `User ${attr.creator_id.slice(0, 8)}`,
+            creator_profile_image: userProfile?.profile_image || '',
             revenue_share_percentage: attr.revenue_share_percentage,
             is_active: attr.is_active
           });
