@@ -41,6 +41,7 @@ interface CollectionAccessDetails {
   owner_merchant_tier: MerchantTier;
   owner_display_name: string;
   owner_profile_image: string;
+  owner_email: string;
   access_users: AccessUser[];
 }
 
@@ -416,7 +417,7 @@ export function ManageAccessModal({
                           />
                         </div>
                         <p className="text-xs text-gray-400 truncate">
-                          {accessDetails.owner_display_name || accessDetails.owner_username}
+                          {accessDetails.owner_email}
                         </p>
                       </div>
                     </div>
