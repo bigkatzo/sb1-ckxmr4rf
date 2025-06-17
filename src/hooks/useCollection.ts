@@ -127,8 +127,14 @@ export function useCollection(slug: string) {
         
         console.log(`Fetching collection from ${collectionTable} with slug: ${slug} (includeHidden: ${includeHidden})`);
         
-        
         const { data: collectionData, error: collectionError } = await collectionQuery.single();
+
+        // If collection not found in public view but we're not in preview mode, 
+        // it might be a hidden collection that the user is trying to access
+        if (collectionError && !includeHidden && collectionError.code === 'PGRST116') {
+          console.log('Collection not found in public view, this might be a hidden collection');
+          throw new Error('Collection not found or not visible');
+        }
 
         if (collectionError) throw collectionError;
         if (!collectionData) throw new Error('Collection not found');

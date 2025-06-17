@@ -77,7 +77,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         
         let productQuery;
         if (includeHidden) {
-          // When in preview mode, fetch from products table with joins (without problematic foreign key)
+          // When in preview mode, fetch from products table with joins
           productQuery = supabase
             .from('products')
             .select(`
@@ -98,8 +98,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
                 launch_date,
                 sale_ended,
                 visible,
-                user_id,
-                owner_merchant_tier
+                user_id
               )
             `)
             .eq('slug', productSlug)
@@ -127,8 +126,25 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
         // Extract merchant tier from different query structures
         let collectionOwnerMerchantTier;
         if (includeHidden) {
-          // In preview mode, merchant tier comes directly from collections table
-          collectionOwnerMerchantTier = data.collections?.owner_merchant_tier;
+          // In preview mode, we need to fetch merchant tier separately from user_profiles
+          // For now, let's set it to null and fetch it later if needed
+          collectionOwnerMerchantTier = null;
+          
+          // If we have a collection user_id, fetch the merchant tier
+          if (data.collections?.user_id) {
+            try {
+              const { data: userProfile } = await supabase
+                .from('user_profiles')
+                .select('merchant_tier')
+                .eq('id', data.collections.user_id)
+                .single();
+              
+              collectionOwnerMerchantTier = userProfile?.merchant_tier || null;
+            } catch (err) {
+              console.warn('Could not fetch merchant tier:', err);
+              collectionOwnerMerchantTier = null;
+            }
+          }
         } else {
           // In normal mode, it comes directly from the view
           collectionOwnerMerchantTier = data.collection_owner_merchant_tier;
