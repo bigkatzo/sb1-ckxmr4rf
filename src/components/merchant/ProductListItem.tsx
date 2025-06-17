@@ -1,4 +1,4 @@
-import { Image as ImageIcon, EyeOff, Ban, Copy, Trash, Eye, Tag, ExternalLink, Pin } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Copy, Trash, Eye, Tag, ExternalLink, Pin, Palette } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useOrderStats } from '../../hooks/useOrderStats';
@@ -58,6 +58,17 @@ export function ProductListItem({
       icon: <ExternalLink className="h-4 w-4" />,
       as: Link,
       to: `/${product.collectionSlug}/${product.slug}${!product.visible ? '?preview' : ''}`,
+      target: "_blank"
+    });
+  }
+
+  // Add View design page link
+  if (product.slug && product.collectionSlug) {
+    dropdownItems.push({
+      label: 'View design page',
+      icon: <Palette className="h-4 w-4" />,
+      as: Link,
+      to: `/${product.collectionSlug}/${product.slug}/design`,
       target: "_blank"
     });
   }
