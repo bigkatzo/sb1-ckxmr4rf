@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Search } from 'lucide-react';
+import { X, Save, Search, User, Wallet } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { ProfileImage } from '../../ui/ProfileImage';
 import { VerificationBadge } from '../../ui/VerificationBadge';
@@ -13,14 +13,17 @@ interface User {
   role: string;
   merchant_tier: string;
   access_type: string;
+  payout_wallet?: string;
 }
 
 interface IndividualShare {
   id?: string;
   collection_id: string;
-  user_id: string;
+  user_id?: string;
   share_percentage: number;
   wallet_address?: string;
+  share_name?: string;
+  is_standalone_wallet?: boolean;
   is_active: boolean;
 }
 
@@ -33,6 +36,8 @@ interface IndividualShareFormProps {
   readOnly?: boolean;
 }
 
+type ShareType = 'user' | 'wallet';
+
 export function IndividualShareForm({ 
   isOpen, 
   onClose, 
@@ -42,11 +47,13 @@ export function IndividualShareForm({
   readOnly = false 
 }: IndividualShareFormProps) {
   const [loading, setLoading] = useState(false);
+  const [shareType, setShareType] = useState<ShareType>('user');
   const [searchQuery, setSearchQuery] = useState('');
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [sharePercentage, setSharePercentage] = useState(0);
   const [walletAddress, setWalletAddress] = useState('');
+  const [shareName, setShareName] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -54,8 +61,16 @@ export function IndividualShareForm({
       if (existingShare) {
         setSharePercentage(existingShare.share_percentage);
         setWalletAddress(existingShare.wallet_address || '');
-        // Load user details for existing share
-        loadUserDetails(existingShare.user_id);
+        setShareName(existingShare.share_name || '');
+        
+        if (existingShare.is_standalone_wallet) {
+          setShareType('wallet');
+        } else {
+          setShareType('user');
+          if (existingShare.user_id) {
+            loadUserDetails(existingShare.user_id);
+          }
+        }
       } else {
         resetForm();
       }
@@ -63,9 +78,11 @@ export function IndividualShareForm({
   }, [isOpen, existingShare]);
 
   const resetForm = () => {
+    setShareType('user');
     setSelectedUser(null);
     setSharePercentage(0);
     setWalletAddress('');
+    setShareName('');
     setSearchQuery('');
   };
 
@@ -77,7 +94,7 @@ export function IndividualShareForm({
         .select(`
           user_id,
           access_type,
-          user_profiles!inner(display_name, profile_image, role, merchant_tier)
+          user_profiles!inner(display_name, profile_image, role, merchant_tier, payout_wallet)
         `)
         .eq('collection_id', collectionId);
 
@@ -88,7 +105,8 @@ export function IndividualShareForm({
         .from('collection_individual_shares')
         .select('user_id')
         .eq('collection_id', collectionId)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('is_standalone_wallet', false); // Only exclude user-based shares
 
       if (sharesError) throw sharesError;
 
@@ -111,7 +129,8 @@ export function IndividualShareForm({
           profile_image: profiles?.profile_image || '',
           role: profiles?.role || 'user',
           merchant_tier: profiles?.merchant_tier || 'starter_merchant',
-          access_type: user.access_type
+          access_type: user.access_type,
+          payout_wallet: profiles?.payout_wallet || ''
         };
       });
 
@@ -129,7 +148,7 @@ export function IndividualShareForm({
         .select(`
           user_id,
           access_type,
-          user_profiles!inner(display_name, profile_image, role, merchant_tier)
+          user_profiles!inner(display_name, profile_image, role, merchant_tier, payout_wallet)
         `)
         .eq('collection_id', collectionId)
         .eq('user_id', userId)
@@ -148,7 +167,8 @@ export function IndividualShareForm({
           profile_image: profiles?.profile_image || '',
           role: profiles?.role || 'user',
           merchant_tier: profiles?.merchant_tier || 'starter_merchant',
-          access_type: accessData.access_type
+          access_type: accessData.access_type,
+          payout_wallet: profiles?.payout_wallet || ''
         };
         setSelectedUser(user);
       }
@@ -157,39 +177,79 @@ export function IndividualShareForm({
     }
   };
 
+  const validateWalletAddress = (address: string): boolean => {
+    // Basic Solana wallet address validation
+    return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (readOnly || !selectedUser || sharePercentage <= 0) return;
+    if (readOnly || sharePercentage <= 0) return;
+
+    // Validation based on share type
+    if (shareType === 'user' && !selectedUser) {
+      toast.error('Please select a user');
+      return;
+    }
+
+    if (shareType === 'wallet') {
+      if (!walletAddress) {
+        toast.error('Please enter a wallet address');
+        return;
+      }
+      if (!validateWalletAddress(walletAddress)) {
+        toast.error('Please enter a valid Solana wallet address');
+        return;
+      }
+      if (!shareName) {
+        toast.error('Please enter a name for this wallet share');
+        return;
+      }
+    }
 
     try {
       setLoading(true);
 
-      const shareData = {
-        collection_id: collectionId,
-        user_id: selectedUser.id,
-        share_percentage: sharePercentage,
-        wallet_address: walletAddress || null,
-        is_active: true,
-        effective_from: new Date().toISOString()
-      };
-
-      if (existingShare) {
-        // Update existing share
-        const { error } = await supabase
-          .from('collection_individual_shares')
-          .update(shareData)
-          .eq('id', existingShare.id);
+      if (shareType === 'wallet') {
+        // Use the standalone wallet function
+        const { error } = await supabase.rpc('add_standalone_wallet_share', {
+          p_collection_id: collectionId,
+          p_wallet_address: walletAddress,
+          p_share_name: shareName,
+          p_percentage: sharePercentage
+        });
 
         if (error) throw error;
-        toast.success('Revenue share updated successfully');
+        toast.success('Wallet share added successfully');
       } else {
-        // Create new share
-        const { error } = await supabase
-          .from('collection_individual_shares')
-          .insert(shareData);
+        // User-based share
+        const shareData = {
+          collection_id: collectionId,
+          user_id: selectedUser!.id,
+          share_percentage: sharePercentage,
+          is_standalone_wallet: false,
+          is_active: true,
+          effective_from: new Date().toISOString()
+        };
 
-        if (error) throw error;
-        toast.success('Revenue share added successfully');
+        if (existingShare && !existingShare.is_standalone_wallet) {
+          // Update existing user share
+          const { error } = await supabase
+            .from('collection_individual_shares')
+            .update(shareData)
+            .eq('id', existingShare.id);
+
+          if (error) throw error;
+          toast.success('Revenue share updated successfully');
+        } else {
+          // Create new user share
+          const { error } = await supabase
+            .from('collection_individual_shares')
+            .insert(shareData);
+
+          if (error) throw error;
+          toast.success('Revenue share added successfully');
+        }
       }
 
       onSave();
@@ -203,217 +263,238 @@ export function IndividualShareForm({
   };
 
   const filteredUsers = availableUsers.filter(user =>
-    user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.display_name.toLowerCase().includes(searchQuery.toLowerCase())
+    user.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-xl shadow-xl w-full max-w-md border border-gray-800">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-800">
-          <h2 className="text-xl font-semibold text-white">
-            {existingShare ? 'Edit Revenue Share' : 'Add Revenue Share'}
-          </h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-lg w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+          <h3 className="text-lg font-semibold text-white">
+            {existingShare ? 'Edit' : 'Add'} Revenue Share
+          </h3>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 hover:text-white transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* User Selection */}
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* Share Type Selection */}
           {!existingShare && (
-            <div>
-              <label className="block text-sm font-medium text-white mb-3">
-                Select User
-              </label>
-              
-              {!selectedUser ? (
-                <>
-                  <div className="relative mb-3">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search users..."
-                      className="w-full pl-10 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    />
-                  </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Share Type</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShareType('user')}
+                  className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
+                    shareType === 'user'
+                      ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                  }`}
+                >
+                  <User className="h-4 w-4 mx-auto mb-1" />
+                  Platform User
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShareType('wallet')}
+                  className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
+                    shareType === 'wallet'
+                      ? 'border-purple-500 bg-purple-500/20 text-purple-300'
+                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                  }`}
+                >
+                  <Wallet className="h-4 w-4 mx-auto mb-1" />
+                  External Wallet
+                </button>
+              </div>
+            </div>
+          )}
 
-                  <div className="max-h-48 overflow-y-auto space-y-2">
-                    {filteredUsers.map(user => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => setSelectedUser(user)}
-                        className="w-full p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-3">
-                          <ProfileImage
-                            src={user.profile_image || null}
-                            alt={user.display_name || user.username}
-                            displayName={user.display_name || user.username}
-                            size="sm"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-white">
-                                {user.display_name || user.username}
-                              </span>
-                              <VerificationBadge 
-                                tier={user.merchant_tier as any} 
-                                className="text-xs" 
-                              />
-                            </div>
-                            <p className="text-xs text-gray-400 capitalize">{user.access_type}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                    {filteredUsers.length === 0 && (
-                      <div className="text-center py-4 text-gray-400">
-                        <p className="text-sm">No users found</p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="p-3 bg-gray-800 rounded-lg">
+          {/* User Selection (for user type) */}
+          {shareType === 'user' && (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Select User</label>
+              
+              {!selectedUser && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search users..."
+                    className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    disabled={readOnly}
+                  />
+                </div>
+              )}
+
+              {selectedUser ? (
+                <div className="p-3 bg-gray-700 rounded-lg border border-gray-600">
                   <div className="flex items-center gap-3">
                     <ProfileImage
                       src={selectedUser.profile_image || null}
-                      alt={selectedUser.display_name || selectedUser.username}
-                      displayName={selectedUser.display_name || selectedUser.username}
+                      alt={selectedUser.display_name}
+                      displayName={selectedUser.display_name}
                       size="sm"
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-white">
-                          {selectedUser.display_name || selectedUser.username}
-                        </span>
-                        <VerificationBadge 
-                          tier={selectedUser.merchant_tier as any} 
-                          className="text-xs" 
-                        />
+                        <span className="font-medium text-white">{selectedUser.display_name}</span>
+                                                 <VerificationBadge tier={selectedUser.merchant_tier as any} />
                       </div>
                       <p className="text-xs text-gray-400 capitalize">{selectedUser.access_type}</p>
+                      {selectedUser.payout_wallet && (
+                        <p className="text-xs text-green-400 font-mono">
+                          {selectedUser.payout_wallet.slice(0, 8)}...{selectedUser.payout_wallet.slice(-8)}
+                        </p>
+                      )}
+                      {!selectedUser.payout_wallet && (
+                        <p className="text-xs text-orange-400">No wallet set in profile</p>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedUser(null)}
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                    {!readOnly && !existingShare && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUser(null)}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
+                </div>
+              ) : (
+                <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-600 rounded-lg">
+                  {filteredUsers.length === 0 ? (
+                    <p className="text-gray-400 text-sm p-3">No available users found</p>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => setSelectedUser(user)}
+                        disabled={readOnly}
+                        className="w-full p-3 text-left hover:bg-gray-700 transition-colors disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <ProfileImage
+                            src={user.profile_image || null}
+                            alt={user.display_name}
+                            displayName={user.display_name}
+                            size="sm"
+                          />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-white">{user.display_name}</span>
+                                                             <VerificationBadge tier={user.merchant_tier as any} />
+                            </div>
+                            <p className="text-xs text-gray-400 capitalize">{user.access_type}</p>
+                            {user.payout_wallet ? (
+                              <p className="text-xs text-green-400 font-mono">
+                                {user.payout_wallet.slice(0, 8)}...{user.payout_wallet.slice(-8)}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-orange-400">No wallet in profile</p>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Selected User Display for Edit Mode */}
-          {existingShare && selectedUser && (
-            <div>
-              <label className="block text-sm font-medium text-white mb-3">
-                User
-              </label>
-              <div className="p-3 bg-gray-800 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <ProfileImage
-                    src={selectedUser.profile_image || null}
-                    alt={selectedUser.display_name || selectedUser.username}
-                    displayName={selectedUser.display_name || selectedUser.username}
-                    size="sm"
-                  />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white">
-                        {selectedUser.display_name || selectedUser.username}
-                      </span>
-                      <VerificationBadge 
-                        tier={selectedUser.merchant_tier as any} 
-                        className="text-xs" 
-                      />
-                    </div>
-                    <p className="text-xs text-gray-400 capitalize">{selectedUser.access_type}</p>
-                  </div>
-                </div>
+          {/* Wallet Address and Name (for wallet type) */}
+          {shareType === 'wallet' && (
+            <>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">
+                  Share Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={shareName}
+                  onChange={(e) => setShareName(e.target.value)}
+                  placeholder="e.g., Marketing Fund, Development Team"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none"
+                  disabled={readOnly}
+                  required
+                />
               </div>
-            </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">
+                  Wallet Address <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={walletAddress}
+                  onChange={(e) => setWalletAddress(e.target.value)}
+                  placeholder="Enter Solana wallet address"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none font-mono text-sm"
+                  disabled={readOnly}
+                  required
+                />
+                {walletAddress && !validateWalletAddress(walletAddress) && (
+                  <p className="text-xs text-red-400">Invalid wallet address format</p>
+                )}
+              </div>
+            </>
           )}
 
           {/* Share Percentage */}
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">
-              Revenue Share Percentage
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Share Percentage <span className="text-red-400">*</span>
             </label>
             <div className="relative">
               <input
                 type="number"
-                min="0.1"
+                min="0.01"
                 max="100"
-                step="0.1"
-                value={sharePercentage}
+                step="0.01"
+                value={sharePercentage || ''}
                 onChange={(e) => setSharePercentage(parseFloat(e.target.value) || 0)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none pr-8"
+                placeholder="0.00"
                 disabled={readOnly}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="0.0"
+                required
               />
-              <span className="absolute right-3 top-2 text-gray-400 text-sm">%</span>
+              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              Percentage of revenue this user will receive
-            </p>
           </div>
 
-          {/* Wallet Address */}
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">
-              Wallet Address (Optional)
-            </label>
-            <input
-              type="text"
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-              disabled={readOnly}
-              placeholder="0x... (for future smart contract payments)"
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              Wallet address for automated revenue distribution (future feature)
-            </p>
-          </div>
-
-          {/* Form Actions */}
-          {!readOnly && (
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4 border-t border-gray-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            {!readOnly && (
               <button
                 type="submit"
-                disabled={loading || !selectedUser || sharePercentage <= 0}
-                className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+                disabled={loading}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {existingShare ? 'Update Share' : 'Add Share'}
+                <Save className="h-4 w-4" />
+                {loading ? 'Saving...' : existingShare ? 'Update' : 'Add Share'}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </form>
       </div>
     </div>

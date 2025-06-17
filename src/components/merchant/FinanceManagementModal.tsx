@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, DollarSign, Users, TrendingUp, Settings, Eye, Edit3, Plus, AlertTriangle, Trash } from 'lucide-react';
+import { X, DollarSign, Users, TrendingUp, Settings, Eye, Edit3, Plus, AlertTriangle, Trash, Wallet } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
@@ -19,11 +19,11 @@ interface Collection {
 
 // Note: Revenue config is now minimal - mainly for future smart contract features
 
-// Simplified individual share - no access_type dependency
+// Enhanced individual share with wallet support
 interface IndividualShare {
   id: string;
   collection_id: string;
-  user_id: string;
+  user_id?: string; // Optional for standalone wallets
   username: string;
   display_name: string;
   profile_image: string;
@@ -31,6 +31,8 @@ interface IndividualShare {
   merchant_tier: MerchantTier;
   share_percentage: number;
   wallet_address?: string;
+  share_name?: string; // For standalone wallet names
+  is_standalone_wallet?: boolean;
   is_active: boolean;
   effective_from: string;
   effective_until?: string;
@@ -100,7 +102,7 @@ export function FinanceManagementModal({
       
       // Note: Revenue config exists for future smart contract features but not used in current UI
 
-      // Load individual shares
+      // Load individual shares (both user-based and standalone wallets)
       const { data: sharesData, error: sharesError } = await supabase
         .from('collection_individual_shares')
         .select('*')
@@ -109,23 +111,38 @@ export function FinanceManagementModal({
 
       if (sharesError) throw sharesError;
       
-      // Get user profiles for all shares
+      // Transform shares based on type (user vs standalone wallet)
       const transformedShares = [];
       for (const share of sharesData || []) {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('display_name, profile_image, role, merchant_tier')
-          .eq('id', share.user_id)
-          .single();
-          
-        transformedShares.push({
-          ...share,
-          username: userProfile?.display_name || `User ${share.user_id.slice(0, 8)}`,
-          display_name: userProfile?.display_name || '',
-          profile_image: userProfile?.profile_image || '',
-          role: userProfile?.role || 'user',
-          merchant_tier: userProfile?.merchant_tier || 'starter_merchant'
-        });
+        if (share.is_standalone_wallet) {
+          // Standalone wallet share
+          transformedShares.push({
+            ...share,
+            username: share.share_name || 'External Wallet',
+            display_name: share.share_name || 'External Wallet',
+            profile_image: '',
+            role: 'user' as UserRole,
+            merchant_tier: 'starter_merchant' as MerchantTier
+          });
+        } else if (share.user_id) {
+          // User-based share
+          const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('display_name, profile_image, role, merchant_tier, payout_wallet')
+            .eq('id', share.user_id)
+            .single();
+            
+          transformedShares.push({
+            ...share,
+            username: userProfile?.display_name || `User ${share.user_id.slice(0, 8)}`,
+            display_name: userProfile?.display_name || '',
+            profile_image: userProfile?.profile_image || '',
+            role: userProfile?.role || 'user',
+            merchant_tier: userProfile?.merchant_tier || 'starter_merchant',
+            // Use wallet from profile if not explicitly set
+            wallet_address: share.wallet_address || userProfile?.payout_wallet
+          });
+        }
       }
 
       setIndividualShares(transformedShares);
@@ -402,6 +419,69 @@ export function FinanceManagementModal({
                       </div>
                     </div>
                   </div>
+
+                  {/* Smart Contract Readiness */}
+                  <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-white">Smart Contract Readiness</h3>
+                      <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        getTotalSharedPercentage() === 100 && 
+                        individualShares.every(share => share.wallet_address) &&
+                        individualShares.length > 0
+                          ? 'bg-green-500/20 text-green-300'
+                          : 'bg-yellow-500/20 text-yellow-300'
+                      }`}>
+                        {getTotalSharedPercentage() === 100 && 
+                         individualShares.every(share => share.wallet_address) &&
+                         individualShares.length > 0 ? 'Ready' : 'Not Ready'}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${
+                            getTotalSharedPercentage() === 100 ? 'bg-green-400' : 'bg-red-400'
+                          }`} />
+                          <span className="text-sm text-gray-300">Total Allocation: 100%</span>
+                        </div>
+                        <span className="text-sm text-white">{getTotalSharedPercentage()}%</span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${
+                            individualShares.every(share => share.wallet_address) ? 'bg-green-400' : 'bg-red-400'
+                          }`} />
+                          <span className="text-sm text-gray-300">All Wallets Configured</span>
+                        </div>
+                        <span className="text-sm text-white">
+                          {individualShares.filter(share => share.wallet_address).length}/{individualShares.length}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Wallet className="w-4 h-4 text-blue-400" />
+                          <span className="text-sm text-gray-300">Distribution Types</span>
+                        </div>
+                        <div className="flex gap-2 text-xs">
+                          <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded">
+                            {individualShares.filter(s => !s.is_standalone_wallet).length} Users
+                          </span>
+                          <span className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
+                            {individualShares.filter(s => s.is_standalone_wallet).length} External
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      <p className="text-xs text-blue-200">
+                        💡 When smart contracts are deployed, they'll automatically distribute payments to these wallet addresses based on the configured percentages.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -457,28 +537,57 @@ export function FinanceManagementModal({
                           .map((share) => (
                           <div key={share.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
                             <div className="flex items-center gap-3 flex-1">
-                              <ProfileImage
-                                src={share.profile_image || null}
-                                alt={share.display_name || share.username}
-                                displayName={share.display_name || share.username}
-                                size="sm"
-                              />
-                              <div>
+                              <div className="relative">
+                                <ProfileImage
+                                  src={share.profile_image || null}
+                                  alt={share.display_name || share.username}
+                                  displayName={share.display_name || share.username}
+                                  size="sm"
+                                />
+                                {share.is_standalone_wallet && (
+                                  <div className="absolute -bottom-1 -right-1 p-1 bg-purple-500 rounded-full">
+                                    <Wallet className="h-2.5 w-2.5 text-white" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-medium text-white">
                                     {share.display_name || share.username}
                                   </span>
-                                  <VerificationBadge 
-                                    tier={share.merchant_tier} 
-                                    className="text-xs" 
-                                  />
+                                  {!share.is_standalone_wallet && (
+                                    <VerificationBadge 
+                                      tier={share.merchant_tier} 
+                                      className="text-xs" 
+                                    />
+                                  )}
                                   {share.user_id === collection.user_id && (
                                     <span className="text-xs px-2 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full">
                                       Owner
                                     </span>
                                   )}
+                                  {share.is_standalone_wallet && (
+                                    <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full">
+                                      External Wallet
+                                    </span>
+                                  )}
                                 </div>
-                                <p className="text-xs text-gray-400">{share.role}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {!share.is_standalone_wallet && (
+                                    <p className="text-xs text-gray-400">{share.role}</p>
+                                  )}
+                                  {share.wallet_address && (
+                                    <div className="flex items-center gap-1">
+                                      <Wallet className="h-3 w-3 text-green-400" />
+                                      <p className="text-xs text-green-400 font-mono">
+                                        {share.wallet_address.slice(0, 8)}...{share.wallet_address.slice(-8)}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {!share.wallet_address && !share.is_standalone_wallet && (
+                                    <p className="text-xs text-orange-400">No payout wallet</p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
