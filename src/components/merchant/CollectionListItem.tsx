@@ -1,4 +1,4 @@
-import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag, ExternalLink, UserCheck, DollarSign } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag, ExternalLink, UserCheck, Coins } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { StarButton } from '../ui/StarButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -89,7 +89,7 @@ export function CollectionListItem({
   if ((isAdmin || collection.isOwner) && onFinanceManagement) {
     dropdownItems.push({
       label: 'Finance Management',
-      icon: <DollarSign className="h-4 w-4" />,
+      icon: <Coins className="h-4 w-4" />,
       onClick: onFinanceManagement
     });
   }

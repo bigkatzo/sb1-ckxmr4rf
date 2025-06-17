@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, DollarSign, Users, TrendingUp, Settings, Eye, Edit3, Plus, AlertTriangle, Trash, Wallet } from 'lucide-react';
+import { X, Coins, Users, TrendingUp, Settings, Eye, Edit3, Plus, AlertTriangle, Trash, Wallet } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
@@ -278,7 +278,7 @@ export function FinanceManagementModal({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-500/20 rounded-lg">
-                <DollarSign className="h-5 w-5 text-green-400" />
+                <Coins className="h-5 w-5 text-green-400" />
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-semibold text-white">
@@ -311,7 +311,7 @@ export function FinanceManagementModal({
               { id: 'overview', label: 'Overview', icon: TrendingUp },
               { id: 'shares', label: 'Revenue Shares', icon: Users },
               { id: 'items', label: 'Collaborator Items', icon: Settings },
-              { id: 'analytics', label: 'Analytics', icon: DollarSign },
+              { id: 'analytics', label: 'Analytics', icon: Coins },
               { id: 'agreements', label: 'Agreements', icon: Settings }
             ].map(tab => (
               <button
@@ -401,7 +401,7 @@ export function FinanceManagementModal({
                         <div>
                           <p className="text-sm text-gray-400">Total Revenue</p>
                           <p className="text-xl font-semibold text-white">
-                            ${revenueEvents.reduce((sum, event) => sum + event.total_amount, 0).toFixed(2)}
+                            {revenueEvents.reduce((sum, event) => sum + event.total_amount, 0).toFixed(2)} SOL
                           </p>
                         </div>
                       </div>
@@ -410,7 +410,7 @@ export function FinanceManagementModal({
                     <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-purple-500/20 rounded-lg">
-                          <DollarSign className="h-5 w-5 text-purple-400" />
+                          <Coins className="h-5 w-5 text-purple-400" />
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Recent Sales</p>
@@ -606,7 +606,7 @@ export function FinanceManagementModal({
                               <div className="text-right">
                                 <p className="text-lg font-bold text-white">{share.share_percentage}%</p>
                                 <p className="text-xs text-gray-400">
-                                  ${((revenueEvents.reduce((sum, event) => sum + event.total_amount, 0) * share.share_percentage) / 100).toFixed(2)} earned
+                                  {((revenueEvents.reduce((sum, event) => sum + event.total_amount, 0) * share.share_percentage) / 100).toFixed(2)} SOL earned
                                 </p>
                               </div>
                               {canEdit && (

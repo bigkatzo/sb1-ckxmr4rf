@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban, Clock, UserCheck, DollarSign } from 'lucide-react';
+import { Plus, ExternalLink, EyeOff, Eye, Tag, Trash, Ban, Clock, UserCheck, Coins } from 'lucide-react';
 import { VerificationBadge } from '../../components/ui/VerificationBadge';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
@@ -454,7 +454,7 @@ export function CollectionsTab() {
                             }] : []),
                             ...((isAdmin || collection.isOwner) ? [{
                               label: 'Finance Management',
-                              icon: <DollarSign className="h-4 w-4" />,
+                              icon: <Coins className="h-4 w-4" />,
                               onClick: actionLoading !== collection.id ? 
                                 () => handleFinanceManagement(collection) : 
                                 undefined
