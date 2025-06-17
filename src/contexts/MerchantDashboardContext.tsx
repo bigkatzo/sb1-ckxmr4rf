@@ -3,26 +3,20 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 interface MerchantDashboardContextType {
   selectedCollection: string;
   selectedCategory: string;
-  globalSearchQuery: string;
   setSelectedCollection: (id: string) => void;
   setSelectedCategory: (id: string) => void;
-  setGlobalSearchQuery: (query: string) => void;
   clearCollectionSelection: () => void;
   clearCategorySelection: () => void;
-  clearGlobalSearch: () => void;
   clearAllSelections: () => void;
 }
 
 const defaultContext: MerchantDashboardContextType = {
   selectedCollection: '',
   selectedCategory: '',
-  globalSearchQuery: '',
   setSelectedCollection: () => {},
   setSelectedCategory: () => {},
-  setGlobalSearchQuery: () => {},
   clearCollectionSelection: () => {},
   clearCategorySelection: () => {},
-  clearGlobalSearch: () => {},
   clearAllSelections: () => {}
 };
 
@@ -37,11 +31,6 @@ export function MerchantDashboardProvider({ children }: { children: React.ReactN
   
   const [selectedCategory, setSelectedCategoryState] = useState<string>(() => {
     const saved = localStorage.getItem('merchant_dashboard_selected_category');
-    return saved || '';
-  });
-
-  const [globalSearchQuery, setGlobalSearchQueryState] = useState<string>(() => {
-    const saved = localStorage.getItem('merchant_dashboard_global_search');
     return saved || '';
   });
   
@@ -62,15 +51,6 @@ export function MerchantDashboardProvider({ children }: { children: React.ReactN
       localStorage.removeItem('merchant_dashboard_selected_category');
     }
   }, [selectedCategory]);
-
-  // Save global search to localStorage whenever it changes
-  useEffect(() => {
-    if (globalSearchQuery) {
-      localStorage.setItem('merchant_dashboard_global_search', globalSearchQuery);
-    } else {
-      localStorage.removeItem('merchant_dashboard_global_search');
-    }
-  }, [globalSearchQuery]);
   
   // When collection changes, clear the category selection
   useEffect(() => {
@@ -84,10 +64,6 @@ export function MerchantDashboardProvider({ children }: { children: React.ReactN
   const setSelectedCategory = (id: string) => {
     setSelectedCategoryState(id);
   };
-
-  const setGlobalSearchQuery = (query: string) => {
-    setGlobalSearchQueryState(query);
-  };
   
   const clearCollectionSelection = () => {
     setSelectedCollectionState('');
@@ -96,15 +72,10 @@ export function MerchantDashboardProvider({ children }: { children: React.ReactN
   const clearCategorySelection = () => {
     setSelectedCategoryState('');
   };
-
-  const clearGlobalSearch = () => {
-    setGlobalSearchQueryState('');
-  };
   
   const clearAllSelections = () => {
     setSelectedCollectionState('');
     setSelectedCategoryState('');
-    setGlobalSearchQueryState('');
   };
   
   return (
@@ -112,13 +83,10 @@ export function MerchantDashboardProvider({ children }: { children: React.ReactN
       value={{ 
         selectedCollection, 
         selectedCategory,
-        globalSearchQuery,
         setSelectedCollection,
         setSelectedCategory,
-        setGlobalSearchQuery,
         clearCollectionSelection,
         clearCategorySelection,
-        clearGlobalSearch,
         clearAllSelections
       }}
     >

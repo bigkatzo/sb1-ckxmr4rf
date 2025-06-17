@@ -4,7 +4,6 @@ import { OrderList } from '../../components/merchant/OrderList';
 import { OrderFilters } from '../../components/merchant/OrderFilters';
 import { useMerchantOrders } from '../../hooks/useMerchantOrders';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
-import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { toast } from 'react-toastify';
 import type { OrderStatus } from '../../types/orders';
 import { Loading, LoadingType } from '../../components/ui/LoadingStates';
@@ -12,7 +11,6 @@ import { supabase } from '../../lib/supabase';
 import { addTracking, deleteTracking } from '../../services/tracking';
 
 export function OrdersTab() {
-  const { globalSearchQuery } = useMerchantDashboard();
   const { orders, loading, error, refreshOrders, updateOrderStatus } = useMerchantOrders();
   const { collections } = useMerchantCollections();
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
@@ -161,46 +159,8 @@ export function OrdersTab() {
         }
       }
 
-      // Filter by global search query (takes precedence)
-      if (globalSearchQuery) {
-        const query = globalSearchQuery.toLowerCase();
-        // Create a full name from firstName and lastName if they exist
-        const fullName = order.contactInfo?.firstName && order.contactInfo?.lastName 
-          ? `${order.contactInfo.firstName} ${order.contactInfo.lastName}`.toLowerCase()
-          : '';
-          
-        return (
-          // Order identification
-          (order.order_number?.toLowerCase().includes(query) || false) ||
-          
-          // Product information
-          (order.product_name?.toLowerCase().includes(query) || false) ||
-          (order.product_sku?.toLowerCase().includes(query) || false) ||
-          (order.collection_name?.toLowerCase().includes(query) || false) ||
-          
-          // Shipping info
-          (order.shippingAddress?.address?.toLowerCase().includes(query) || false) ||
-          (order.shippingAddress?.city?.toLowerCase().includes(query) || false) ||
-          (order.shippingAddress?.country?.toLowerCase().includes(query) || false) ||
-          
-          // Contact info - check all parts of contact information
-          (order.contactInfo?.value?.toLowerCase().includes(query) || false) ||
-          (order.contactInfo?.firstName?.toLowerCase().includes(query) || false) ||
-          (order.contactInfo?.lastName?.toLowerCase().includes(query) || false) ||
-          (order.contactInfo?.phoneNumber?.toLowerCase().includes(query) || false) ||
-          fullName.includes(query) ||
-          
-          // Transaction details
-          (order.transactionSignature?.toLowerCase().includes(query) || false) ||
-          (order.walletAddress?.toLowerCase().includes(query) || false) ||
-          
-          // Tracking and coupon
-          (order.tracking?.tracking_number?.toLowerCase().includes(query) || false) ||
-          (order.payment_metadata?.couponCode?.toLowerCase().includes(query) || false)
-        );
-      }
-      // Filter by local search query (only if no global search)
-      else if (searchQuery) {
+      // Filter by search query
+      if (searchQuery) {
         const query = searchQuery.toLowerCase();
         // Create a full name from firstName and lastName if they exist
         const fullName = order.contactInfo?.firstName && order.contactInfo?.lastName 
@@ -240,7 +200,7 @@ export function OrdersTab() {
 
       return true;
     });
-  }, [orders, selectedCollections, selectedProducts, selectedStatuses, selectedPaymentMethods, searchQuery, globalSearchQuery]);
+  }, [orders, selectedCollections, selectedProducts, selectedStatuses, selectedPaymentMethods, searchQuery]);
 
   if (loading) {
     return (

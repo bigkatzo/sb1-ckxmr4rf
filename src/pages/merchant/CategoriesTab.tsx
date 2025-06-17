@@ -24,7 +24,7 @@ const initialFilterState: CategoryFilterState = {
 };
 
 export function CategoriesTab() {
-  const { selectedCollection, setSelectedCategory, selectedCategory, globalSearchQuery } = useMerchantDashboard();
+  const { selectedCollection, setSelectedCategory, selectedCategory } = useMerchantDashboard();
   
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any>(null);
@@ -49,16 +49,8 @@ export function CategoriesTab() {
   
   // Filter categories based on current filter settings
   const filteredCategories = categories.filter(category => {
-    // Filter by global search query (takes precedence)
-    if (globalSearchQuery) {
-      const query = globalSearchQuery.toLowerCase();
-      if (!category.name?.toLowerCase().includes(query) && 
-          !category.description?.toLowerCase().includes(query)) {
-        return false;
-      }
-    }
-    // Filter by local search query (only if no global search)
-    else if (filters.searchQuery) {
+    // Filter by search query
+    if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
       if (!category.name?.toLowerCase().includes(query)) {
         return false;
