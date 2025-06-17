@@ -7,7 +7,7 @@ import { useEffect, useState, useRef } from 'react';
 import SEO from '../components/SEO';
 import { preloadPageResources, prefetchGallery } from '../lib/service-worker';
 import { createPortal } from 'react-dom';
-import { clearPreviewCache } from '../utils/preview';
+import { clearPreviewCache, isPreviewMode } from '../utils/preview';
 
 export function ProductPage() {
   const { productSlug, collectionSlug } = useParams();
@@ -19,6 +19,18 @@ export function ProductPage() {
   // Keep track of the previous route to detect changes
   const prevRouteRef = useRef<string>('');
   const currentRoute = `${collectionSlug}/${productSlug}`;
+  
+  // Track preview mode state to detect changes
+  const [previewMode] = useState(() => isPreviewMode());
+  
+  // Detect if preview mode has changed during the session
+  useEffect(() => {
+    const currentPreviewMode = isPreviewMode();
+    if (currentPreviewMode !== previewMode) {
+      // Preview mode has changed, need to reload the page to ensure proper state
+      window.location.reload();
+    }
+  }, [previewMode]);
   
   // Immediately preload possible LCP image from URL params before product data loads
   useEffect(() => {
@@ -140,23 +152,22 @@ export function ProductPage() {
     // Only pass the category if it was explicitly selected before
     const activeCategory = location.state?.selectedCategoryId;
     
-    // Check if preview mode is being turned off
-    const searchParams = new URLSearchParams(window.location.search);
-    const hasPreview = searchParams.has('preview');
-    const newSearchParams = new URLSearchParams(window.location.search);
+    // Check current preview mode state
+    const currentPreviewMode = isPreviewMode();
     
-    // If preview parameter is being removed, we need to force a page reload
-    // to ensure the collection page properly resets its state
-    if (hasPreview && !newSearchParams.has('preview')) {
-      // Clear preview cache before redirecting
+    // Always navigate back to the collection with the same preview state
+    const collectionUrl = `/${collectionSlug}${currentPreviewMode ? '?preview' : ''}`;
+    
+    // For preview mode changes, we need to be more careful about cache and state
+    if (currentPreviewMode !== previewMode) {
+      // Preview mode has changed since the product page was loaded
+      // Clear cache and force a full page reload to ensure clean state
       await clearPreviewCache();
-      const baseUrl = `/${collectionSlug}`;
-      window.location.href = baseUrl;
+      window.location.href = collectionUrl;
       return;
     }
 
-    // Otherwise proceed with normal navigation
-    const collectionUrl = `/${collectionSlug}${hasPreview ? '?preview' : ''}`;
+    // Normal navigation - maintain current preview state
     navigate(collectionUrl, {
       replace: true, // Use replace to ensure back button works correctly
       state: {
