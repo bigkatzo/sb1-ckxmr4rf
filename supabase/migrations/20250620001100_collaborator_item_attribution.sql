@@ -37,10 +37,7 @@ CREATE TABLE IF NOT EXISTS item_revenue_attribution (
   UNIQUE(item_id, item_type, is_active) DEFERRABLE INITIALLY DEFERRED
 );
 
--- Enhanced revenue events to track item-level attribution
-ALTER TABLE revenue_events 
-ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-ADD COLUMN IF NOT EXISTS item_creator_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+-- Note: Enhanced revenue events columns (category_id, item_creator_id) are now included in the base table creation
 
 -- Function to register when a collaborator creates an item
 CREATE OR REPLACE FUNCTION register_collaborator_item(
@@ -279,7 +276,7 @@ CREATE OR REPLACE FUNCTION record_item_revenue_event(
   p_product_id UUID DEFAULT NULL,
   p_category_id UUID DEFAULT NULL,
   p_total_amount DECIMAL,
-  p_currency TEXT DEFAULT 'USD',
+  p_currency TEXT DEFAULT 'SOL',
   p_sale_creator_id UUID DEFAULT NULL,
   p_order_id UUID DEFAULT NULL,
   p_transaction_hash TEXT DEFAULT NULL,
@@ -363,23 +360,42 @@ CREATE INDEX IF NOT EXISTS idx_categories_created_by ON categories(created_by);
 -- Enable RLS
 ALTER TABLE item_revenue_attribution ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view item attribution for collections they have access to" ON item_revenue_attribution;
+DROP POLICY IF EXISTS "Owners and admins can manage item attribution" ON item_revenue_attribution;
+
 -- RLS Policies
 CREATE POLICY "Users can view item attribution for collections they have access to"
   ON item_revenue_attribution FOR SELECT
   USING (
+    -- Collection owner can view
     EXISTS (
-      SELECT 1 FROM get_collection_access_details(collection_id, auth.uid())
-      WHERE access_type IS NOT NULL
+      SELECT 1 FROM collections c
+      WHERE c.id = collection_id AND c.user_id = auth.uid()
     )
+    OR
+    -- Users with access can view
+    EXISTS (
+      SELECT 1 FROM collection_access ca
+      WHERE ca.collection_id = item_revenue_attribution.collection_id
+      AND ca.user_id = auth.uid()
+    )
+    OR
+    -- Admins can view all
+    (SELECT is_admin())
   );
 
 CREATE POLICY "Owners and admins can manage item attribution"
   ON item_revenue_attribution FOR ALL
   USING (
+    -- Collection owner can manage
     EXISTS (
-      SELECT 1 FROM get_collection_access_details(collection_id, auth.uid())
-      WHERE access_type IN ('owner') OR is_admin = true
+      SELECT 1 FROM collections c
+      WHERE c.id = collection_id AND c.user_id = auth.uid()
     )
+    OR
+    -- Admins can manage all
+    (SELECT is_admin())
   );
 
 -- Grant permissions

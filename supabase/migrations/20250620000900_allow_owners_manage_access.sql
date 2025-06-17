@@ -3,6 +3,16 @@
 
 BEGIN;
 
+-- First, update the collection_access table constraint to include new access types
+-- Drop all existing access_type constraints (there might be multiple with different names)
+ALTER TABLE collection_access DROP CONSTRAINT IF EXISTS valid_access_type;
+ALTER TABLE collection_access DROP CONSTRAINT IF EXISTS valid_access_types;
+ALTER TABLE collection_access DROP CONSTRAINT IF EXISTS collection_access_access_type_check;
+ALTER TABLE collection_access DROP CONSTRAINT IF EXISTS collection_access_check;
+
+-- Add the new constraint with all valid access types
+ALTER TABLE collection_access ADD CONSTRAINT valid_access_type CHECK (access_type IN ('view', 'edit', 'owner', 'collaborator'));
+
 -- Update the get_collection_access_details function to allow collection owners
 CREATE OR REPLACE FUNCTION get_collection_access_details(p_collection_id uuid)
 RETURNS TABLE (
@@ -87,7 +97,7 @@ CREATE OR REPLACE FUNCTION manage_collection_access(
   p_collection_id uuid,
   p_target_user_id uuid,
   p_action text, -- 'add', 'update', 'remove', 'transfer_ownership'
-  p_access_type text DEFAULT NULL -- 'view', 'edit', 'owner'
+  p_access_type text DEFAULT NULL -- 'view', 'edit', 'owner', 'collaborator'
 )
 RETURNS json AS $$
 DECLARE
@@ -155,8 +165,8 @@ BEGIN
       RAISE EXCEPTION 'Users can only receive view or edit access';
     END IF;
 
-    -- Merchants and admins can get view/edit/owner
-    IF v_target_user_info.role IN ('merchant', 'admin') AND p_access_type NOT IN ('view', 'edit', 'owner') THEN
+    -- Merchants and admins can get view/edit/owner/collaborator
+    IF v_target_user_info.role IN ('merchant', 'admin') AND p_access_type NOT IN ('view', 'edit', 'owner', 'collaborator') THEN
       RAISE EXCEPTION 'Invalid access type: %', p_access_type;
     END IF;
   END IF;
@@ -180,8 +190,7 @@ BEGIN
       VALUES (p_collection_id, p_target_user_id, p_access_type)
       ON CONFLICT (collection_id, user_id) 
       DO UPDATE SET 
-        access_type = EXCLUDED.access_type,
-        updated_at = NOW();
+        access_type = EXCLUDED.access_type;
 
       v_result := json_build_object(
         'action', p_action,

@@ -163,6 +163,23 @@ export function ManageAccessModal({
     try {
       setActionLoading(targetUserId);
 
+      // Get user display name from frontend data for better toast messages
+      const getUserDisplayName = (userId: string): string => {
+        // Check selectedUser first (for add operations)
+        if (selectedUser && selectedUser.id === userId) {
+          return selectedUser.display_name || selectedUser.username;
+        }
+        
+        // Check existing access users (for update/remove operations)
+        const existingUser = accessDetails?.access_users.find(u => u.user_id === userId);
+        if (existingUser) {
+          return existingUser.display_name || existingUser.username;
+        }
+        
+        // Fallback to backend data
+        return data?.user_username || 'User';
+      };
+
       const { data, error } = await supabase.rpc('manage_collection_access', {
         p_collection_id: collection.id,
         p_target_user_id: targetUserId,
@@ -172,19 +189,23 @@ export function ManageAccessModal({
 
       if (error) throw error;
 
+      const userDisplayName = getUserDisplayName(targetUserId);
+
       // Show success message based on action
       switch (action) {
         case 'add':
-          toast.success(`Added ${data.user_username} with ${getAccessTypeLabel(accessType!)} access`);
+          toast.success(`Added ${userDisplayName} with ${getAccessTypeLabel(accessType!)} access`);
           break;
         case 'update':
-          toast.success(`Updated ${data.user_username} to ${getAccessTypeLabel(accessType!)} access`);
+          toast.success(`Updated ${userDisplayName} to ${getAccessTypeLabel(accessType!)} access`);
           break;
         case 'remove':
-          toast.success(`Removed ${data.user_username} from collection`);
+          toast.success(`Removed ${userDisplayName} from collection`);
           break;
         case 'transfer_ownership':
-          toast.success(`Ownership transferred to ${data.new_owner_username}`);
+          // For ownership transfer, we need to get the new owner's display name
+          const newOwnerDisplayName = getUserDisplayName(targetUserId);
+          toast.success(`Ownership transferred to ${newOwnerDisplayName}`);
           toast.info(`Previous owner now has Editor access`);
           break;
       }
@@ -267,7 +288,7 @@ export function ManageAccessModal({
       // Transfer ownership needs special confirmation
       setTransferTarget({
         id: user.user_id,
-        username: user.username,
+        username: user.display_name || user.username,
         email: user.email,
         role: user.role,
         merchant_tier: user.merchant_tier,
@@ -394,7 +415,7 @@ export function ManageAccessModal({
                           />
                         </div>
                         <p className="text-xs text-gray-400 truncate">
-                          {accessDetails.owner_username}
+                          {accessDetails.owner_display_name || accessDetails.owner_username}
                         </p>
                       </div>
                     </div>

@@ -47,10 +47,12 @@ CREATE TABLE IF NOT EXISTS revenue_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   collection_id UUID NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
   product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
   order_id UUID, -- Reference to orders when that system is implemented
   total_amount DECIMAL(10,2) NOT NULL CHECK (total_amount >= 0),
-  currency TEXT NOT NULL DEFAULT 'USD',
+  currency TEXT NOT NULL DEFAULT 'SOL',
   primary_contributor_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  item_creator_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   revenue_splits JSONB NOT NULL DEFAULT '[]', -- Array of {user_id, amount, percentage}
   transaction_hash TEXT, -- For blockchain transactions
   smart_contract_address TEXT,
@@ -76,61 +78,118 @@ ALTER TABLE collection_revenue_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_individual_shares ENABLE ROW LEVEL SECURITY;
 ALTER TABLE revenue_events ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view revenue config for collections they have access to" ON collection_revenue_config;
+DROP POLICY IF EXISTS "Owners and admins can manage revenue config" ON collection_revenue_config;
+
 -- RLS Policies for collection_revenue_config
 CREATE POLICY "Users can view revenue config for collections they have access to"
   ON collection_revenue_config FOR SELECT
   USING (
+    -- Collection owner can view
     EXISTS (
-      SELECT 1 FROM get_collection_access_details(collection_id, auth.uid())
-      WHERE access_type IS NOT NULL
+      SELECT 1 FROM collections c
+      WHERE c.id = collection_id AND c.user_id = auth.uid()
     )
+    OR
+    -- Users with access can view
+    EXISTS (
+      SELECT 1 FROM collection_access ca
+      WHERE ca.collection_id = collection_revenue_config.collection_id
+      AND ca.user_id = auth.uid()
+    )
+    OR
+    -- Admins can view all
+    (SELECT is_admin())
   );
 
 CREATE POLICY "Owners and admins can manage revenue config"
   ON collection_revenue_config FOR ALL
   USING (
+    -- Collection owner can manage
     EXISTS (
-      SELECT 1 FROM get_collection_access_details(collection_id, auth.uid())
-      WHERE access_type IN ('owner') OR is_admin = true
+      SELECT 1 FROM collections c
+      WHERE c.id = collection_id AND c.user_id = auth.uid()
     )
+    OR
+    -- Admins can manage all
+    (SELECT is_admin())
   );
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view individual shares for collections they have access to" ON collection_individual_shares;
+DROP POLICY IF EXISTS "Owners and admins can manage individual shares" ON collection_individual_shares;
 
 -- RLS Policies for collection_individual_shares
 CREATE POLICY "Users can view individual shares for collections they have access to"
   ON collection_individual_shares FOR SELECT
   USING (
+    -- Collection owner can view
     EXISTS (
-      SELECT 1 FROM get_collection_access_details(collection_id, auth.uid())
-      WHERE access_type IS NOT NULL
+      SELECT 1 FROM collections c
+      WHERE c.id = collection_id AND c.user_id = auth.uid()
     )
+    OR
+    -- Users with access can view
+    EXISTS (
+      SELECT 1 FROM collection_access ca
+      WHERE ca.collection_id = collection_individual_shares.collection_id
+      AND ca.user_id = auth.uid()
+    )
+    OR
+    -- Admins can view all
+    (SELECT is_admin())
   );
 
 CREATE POLICY "Owners and admins can manage individual shares"
   ON collection_individual_shares FOR ALL
   USING (
+    -- Collection owner can manage
     EXISTS (
-      SELECT 1 FROM get_collection_access_details(collection_id, auth.uid())
-      WHERE access_type IN ('owner') OR is_admin = true
+      SELECT 1 FROM collections c
+      WHERE c.id = collection_id AND c.user_id = auth.uid()
     )
+    OR
+    -- Admins can manage all
+    (SELECT is_admin())
   );
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view revenue events for collections they have access to" ON revenue_events;
+DROP POLICY IF EXISTS "Owners and admins can manage revenue events" ON revenue_events;
 
 -- RLS Policies for revenue_events
 CREATE POLICY "Users can view revenue events for collections they have access to"
   ON revenue_events FOR SELECT
   USING (
+    -- Collection owner can view
     EXISTS (
-      SELECT 1 FROM get_collection_access_details(collection_id, auth.uid())
-      WHERE access_type IS NOT NULL
+      SELECT 1 FROM collections c
+      WHERE c.id = collection_id AND c.user_id = auth.uid()
     )
+    OR
+    -- Users with access can view
+    EXISTS (
+      SELECT 1 FROM collection_access ca
+      WHERE ca.collection_id = revenue_events.collection_id
+      AND ca.user_id = auth.uid()
+    )
+    OR
+    -- Admins can view all
+    (SELECT is_admin())
   );
 
 CREATE POLICY "Owners and admins can manage revenue events"
   ON revenue_events FOR ALL
   USING (
+    -- Collection owner can manage
     EXISTS (
-      SELECT 1 FROM get_collection_access_details(collection_id, auth.uid())
-      WHERE access_type IN ('owner') OR is_admin = true
+      SELECT 1 FROM collections c
+      WHERE c.id = collection_id AND c.user_id = auth.uid()
     )
+    OR
+    -- Admins can manage all
+    (SELECT is_admin())
   );
 
 -- Function to calculate revenue splits based on configuration
@@ -255,7 +314,7 @@ CREATE OR REPLACE FUNCTION record_revenue_event(
   p_collection_id UUID,
   p_product_id UUID,
   p_total_amount DECIMAL,
-  p_currency TEXT DEFAULT 'USD',
+  p_currency TEXT DEFAULT 'SOL',
   p_primary_contributor_id UUID DEFAULT NULL,
   p_order_id UUID DEFAULT NULL,
   p_transaction_hash TEXT DEFAULT NULL,
