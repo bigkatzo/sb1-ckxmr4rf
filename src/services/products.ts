@@ -253,11 +253,7 @@ export async function createProduct(collectionId: string, data: FormData) {
       created_by: user?.id
     };
 
-    console.log('Database insert data (advanced fields):', {
-      blank_code: insertData.blank_code,
-      technique: insertData.technique,
-      note_for_supplier: insertData.note_for_supplier
-    });
+
 
     const { error } = await supabase
       .from('products')
@@ -323,16 +319,6 @@ export async function updateProduct(id: string, data: FormData) {
     const blankCode = data.get('blankCode') as string;
     const technique = data.get('technique') as string;
     const noteForSupplier = data.get('noteForSupplier') as string;
-    
-    // DEBUG: Check what we're receiving
-    console.log('🔍 Services receiving advanced fields:', {
-      blankCode: blankCode,
-      technique: technique,
-      noteForSupplier: noteForSupplier,
-      blankCodeType: typeof blankCode,
-      techniqueType: typeof technique,
-      noteForSupplierType: typeof noteForSupplier
-    });
     
     updateData.blank_code = blankCode || null;
     updateData.technique = technique || null;
@@ -468,44 +454,15 @@ export async function updateProduct(id: string, data: FormData) {
     }
     
     // Perform the update with all necessary fields
-    console.log('🔍 About to update database with:', {
-      blank_code: updateData.blank_code,
-      technique: updateData.technique,
-      note_for_supplier: updateData.note_for_supplier
-    });
-
-    const { error: updateError } = await supabase
+    const { data, error } = await supabase
       .from('products')
       .update(updateData)
-      .eq('id', id);
-
-    if (updateError) {
-      console.error('❌ Database update failed:', updateError);
-      throw updateError;
-    }
-
-    console.log('✅ Database update completed successfully');
-
-    // Verify the update by fetching the updated product
-    const { data: verifyData, error: verifyError } = await supabase
-      .from('products')
-      .select('blank_code, technique, note_for_supplier')
       .eq('id', id)
+      .select('*')
       .single();
 
-    if (!verifyError && verifyData) {
-      console.log('🔍 Verification - Data after update:', {
-        blank_code: verifyData.blank_code,
-        technique: verifyData.technique,
-        note_for_supplier: verifyData.note_for_supplier
-      });
-    }
-
-    // Invalidate caches after successful update
-    invalidateProductCaches(currentProduct.collection_id, currentProduct.category_id);
-    invalidateProductCaches(currentProduct.collection_id, categoryId);
-
-    return { success: true };
+    if (error) throw error;
+    return data;
   } catch (error) {
     console.error('Error updating product:', error);
     throw error;
