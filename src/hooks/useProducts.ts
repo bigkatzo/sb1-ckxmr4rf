@@ -119,8 +119,98 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
       const { data, error } = result;
       if (error) throw error;
 
+      // DEBUG: Check if advanced fields are coming from the database
+      if (data && data.length > 0) {
+        console.log('🔍 First product from merchant_products view:', {
+          blank_code: data[0].blank_code,
+          technique: data[0].technique,
+          note_for_supplier: data[0].note_for_supplier,
+          full_product: data[0]
+        });
+      }
+
       // Transform the data
       const transformedProducts = (data || []).map((product: any) => {
+        // Handle notes properly - check if notes is a valid object with properties
+        let notesObject: Record<string, string> = {};
+        let freeNotesValue = '';
+        
+        try {
+          if (product.notes && typeof product.notes === 'object') {
+            notesObject = product.notes;
+          } else if (product.notes && typeof product.notes === 'string') {
+            try {
+              notesObject = JSON.parse(product.notes);
+            } catch (e) {
+              // If it can't be parsed as JSON, store it as free notes
+              freeNotesValue = product.notes;
+            }
+          }
+          
+          // Ensure free_notes is properly processed (checking for both null and undefined)
+          freeNotesValue = (product.free_notes !== null && product.free_notes !== undefined) ? 
+            String(product.free_notes) : freeNotesValue;
+        } catch (err) {
+          console.error('Error processing product notes:', err);
+        }
+
+        return {
+          id: product.id,
+          sku: product.sku,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
+          images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
+          designFiles: (product.design_files || []).map((file: string) => normalizeStorageUrl(file)),
+          categoryId: product.category_id,
+          category: product.category_id && product.category_name ? {
+            id: product.category_id,
+            name: product.category_name,
+            description: product.category_description,
+            type: product.category_type,
+            visible: true,
+            saleEnded: product.category_sale_ended ?? false,
+            eligibilityRules: {
+              groups: product.category_eligibility_rules?.groups || []
+            }
+          } : undefined,
+          collectionId: product.collection_id,
+          collectionName: product.collection_name,
+          collectionSlug: product.collection_slug,
+          collectionLaunchDate: product.collection_launch_date ? new Date(product.collection_launch_date) : undefined,
+          collectionSaleEnded: product.collection_sale_ended ?? false,
+          categorySaleEnded: product.category_sale_ended ?? false,
+          slug: product.slug || '',
+          stock: product.quantity,
+          minimumOrderQuantity: product.minimum_order_quantity || 50,
+          variants: product.variants || [],
+          variantPrices: product.variant_prices || {},
+          priceModifierBeforeMin: product.price_modifier_before_min ?? null,
+          priceModifierAfterMin: product.price_modifier_after_min ?? null,
+          pinOrder: product.pin_order ?? null,
+          blankCode: product.blank_code || '',
+          technique: product.technique || '',
+          noteForSupplier: product.note_for_supplier || '',
+          visible: product.visible ?? true,
+          saleEnded: product.sale_ended ?? false,
+          notes: notesObject,  // Always pass the properly structured object
+          freeNotes: freeNotesValue
+        };
+      }).slice(0, 1); // DEBUG: Only transform first product for logging
+
+      // DEBUG: Check what the transformed product looks like
+      if (transformedProducts.length > 0) {
+        console.log('🔍 First transformed product:', {
+          blankCode: transformedProducts[0].blankCode,
+          technique: transformedProducts[0].technique,
+          noteForSupplier: transformedProducts[0].noteForSupplier,
+          full_product: transformedProducts[0]
+        });
+      }
+
+      // Now transform all products
+      const allTransformedProducts = data?.map((product: any) => {
         // Handle notes properly - check if notes is a valid object with properties
         let notesObject: Record<string, string> = {};
         let freeNotesValue = '';
@@ -190,14 +280,14 @@ export function useProducts(collectionId?: string, categoryId?: string, isMercha
       });
 
       if (isMountedRef.current) {
-        setProducts(transformedProducts);
+        setProducts(allTransformedProducts);
         setLoading(false);
       }
       
       // Cache the transformed products
       await cacheManager.set(
         cacheKey,
-        transformedProducts,
+        allTransformedProducts,
         CACHE_DURATIONS.SEMI_DYNAMIC.TTL, 
         { staleTime: CACHE_DURATIONS.SEMI_DYNAMIC.STALE }
       );
