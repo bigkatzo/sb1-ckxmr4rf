@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, Store, Unlink } from 'lucide-react';
+import { Plus, Store, Unlink, Crown, AlertTriangle, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Collection as BaseCollection } from '../../types';
+import { toast } from 'react-toastify';
+import { VerificationBadge } from '../ui/VerificationBadge';
+import { ManageAccessModal } from '../merchant/ManageAccessModal';
 
 interface CollectionAccessProps {
   userId: string;
@@ -9,7 +12,7 @@ interface CollectionAccessProps {
 
 interface CollectionAccessData {
   collection_id: string;
-  access_type: 'view' | 'edit' | null;
+  access_type: 'view' | 'edit' | 'collaborator' | null;
   collections: {
     id: string;
     name: string;
@@ -25,8 +28,19 @@ interface CollectionAccessData {
 }
 
 interface Collection extends BaseCollection {
-  accessType: 'view' | 'edit' | null;
+  accessType: 'view' | 'edit' | 'collaborator' | null;
   isOwner?: boolean;
+  owner_username?: string;
+  ownerMerchantTier?: string;
+}
+
+interface UserForTransfer {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  merchant_tier: string;
+  display_name: string;
 }
 
 export function CollectionAccess({ userId }: CollectionAccessProps) {
@@ -36,7 +50,11 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
   const [error, setError] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<string>('');
-  const [selectedAccessType, setSelectedAccessType] = useState<'view' | 'edit'>('view');
+  const [selectedAccessType, setSelectedAccessType] = useState<'view' | 'edit' | 'collaborator' | 'owner'>('view');
+  
+  // State for ManageAccessModal
+  const [showManageAccessModal, setShowManageAccessModal] = useState(false);
+  const [selectedCollectionForManagement, setSelectedCollectionForManagement] = useState<any>(null);
 
   useEffect(() => {
     fetchCollections();
@@ -150,13 +168,30 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
     if (!selectedCollection || !selectedAccessType) return;
 
     try {
-      const { error } = await supabase.rpc('grant_collection_access', {
-        p_user_id: userId,
-        p_collection_id: selectedCollection,
-        p_access_type: selectedAccessType
-      });
+      if (selectedAccessType === 'owner') {
+        // Handle ownership transfer via assignment
+        const { error } = await supabase.rpc('manage_collection_access', {
+          p_collection_id: selectedCollection,
+          p_target_user_id: userId,
+          p_action: 'transfer_ownership',
+          p_access_type: 'owner'
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success('Ownership transferred successfully');
+        toast.info('Previous owner now has Editor access');
+      } else {
+        // Handle regular access assignment
+        const { error } = await supabase.rpc('manage_collection_access', {
+          p_collection_id: selectedCollection,
+          p_target_user_id: userId,
+          p_action: 'add',
+          p_access_type: selectedAccessType
+        });
+
+        if (error) throw error;
+        toast.success(`${getAccessTypeLabel(selectedAccessType)} access granted successfully`);
+      }
 
       setShowAssignModal(false);
       setSelectedCollection('');
@@ -164,24 +199,99 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
       await fetchCollections();
     } catch (err) {
       console.error('Error assigning collection:', err);
-      setError(err instanceof Error ? err.message : 'Failed to assign collection');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to assign collection';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   }
 
   async function handleRevokeAccess(collectionId: string) {
     try {
-      const { error } = await supabase.rpc('revoke_collection_access', {
-        p_user_id: userId,
-        p_collection_id: collectionId
+      const { error } = await supabase.rpc('manage_collection_access', {
+        p_collection_id: collectionId,
+        p_target_user_id: userId,
+        p_action: 'remove'
       });
 
       if (error) throw error;
+      toast.success('Access revoked successfully');
       await fetchCollections();
     } catch (err) {
       console.error('Error revoking access:', err);
-      setError(err instanceof Error ? err.message : 'Failed to revoke access');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to revoke access';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   }
+
+  const handleManageAccess = (collection: Collection) => {
+    // Prepare collection object for the ManageAccessModal
+    const collectionForModal = {
+      id: collection.id,
+      name: collection.name,
+      user_id: collection.isOwner ? userId : '', // This will be corrected by the modal when it loads
+      owner_username: collection.isOwner ? '' : collection.owner_username
+    };
+    
+    setSelectedCollectionForManagement(collectionForModal);
+    setShowManageAccessModal(true);
+  };
+
+  const handleAccessModalClose = () => {
+    setShowManageAccessModal(false);
+    setSelectedCollectionForManagement(null);
+    // Refresh collections after any changes
+    fetchCollections();
+  };
+
+  const handleAccessChange = () => {
+    // Refresh collections when access changes are made
+    fetchCollections();
+  };
+
+  const getAccessTypeLabel = (accessType: string) => {
+    switch (accessType) {
+      case 'view': return 'View';
+      case 'edit': return 'Editor';
+      case 'collaborator': return 'Collaborator';
+      case 'owner': return 'Owner';
+      default: return 'Unknown';
+    }
+  };
+
+  const getAccessTypeColor = (accessType: string) => {
+    switch (accessType) {
+      case 'view': return 'bg-gray-500/10 text-gray-400';
+      case 'edit': return 'bg-primary/10 text-primary';
+      case 'collaborator': return 'bg-yellow-500/10 text-yellow-400';
+      case 'owner': return 'bg-green-500/10 text-green-400';
+      default: return 'bg-gray-500/10 text-gray-400';
+    }
+  };
+
+  // Get current user's display name for transfer confirmation
+  const [currentUserName, setCurrentUserName] = useState<string>('');
+
+  useEffect(() => {
+    async function getCurrentUserName() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('display_name')
+            .eq('id', user.id)
+            .single();
+          
+          setCurrentUserName(profile?.display_name || user.email?.split('@')[0] || 'Current User');
+        }
+      } catch (err) {
+        console.error('Error getting current user name:', err);
+        setCurrentUserName('Current User');
+      }
+    }
+    getCurrentUserName();
+  }, []);
 
   if (loading) {
     return (
@@ -221,11 +331,18 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
       ) : (
         <div className="space-y-3">
           {collections.map((collection) => (
-            <div key={collection.id} className="flex items-center justify-between p-3 bg-gray-900 rounded-lg">
-              <div>
+            <div 
+              key={collection.id} 
+              onClick={() => handleManageAccess(collection)}
+              className="flex items-center justify-between p-3 bg-gray-900 hover:bg-gray-800 rounded-lg cursor-pointer transition-colors group"
+            >
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <Store className="h-4 w-4 text-primary" />
-                  <h4 className="font-medium">{collection.name}</h4>
+                  <h4 className="font-medium group-hover:text-white transition-colors">{collection.name}</h4>
+                  {collection.isOwner && (
+                    <Crown className="h-4 w-4 text-yellow-400" />
+                  )}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   {collection.isOwner ? (
@@ -233,26 +350,27 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                       Owner
                     </span>
                   ) : (
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      collection.accessType === 'edit' 
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-blue-500/10 text-blue-400'
-                    }`}>
-                      {collection.accessType === 'edit' ? 'Full Access' : 'View Only'}
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${getAccessTypeColor(collection.accessType || 'view')}`}>
+                      {getAccessTypeLabel(collection.accessType || 'view')}
                     </span>
                   )}
+                  <span className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
+                    Click to manage access
+                  </span>
                 </div>
               </div>
               
-              {!collection.isOwner && (
-                <button
-                  onClick={() => handleRevokeAccess(collection.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                  title="Revoke access"
-                >
-                  <Unlink className="h-4 w-4" />
-                </button>
-              )}
+              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                {!collection.isOwner && (
+                  <button
+                    onClick={() => handleRevokeAccess(collection.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    title="Revoke access"
+                  >
+                    <Unlink className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -288,13 +406,30 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                 <label className="block text-sm font-medium mb-2">Access Type</label>
                 <select
                   value={selectedAccessType}
-                  onChange={(e) => setSelectedAccessType(e.target.value as 'view' | 'edit')}
+                  onChange={(e) => setSelectedAccessType(e.target.value as 'view' | 'edit' | 'collaborator' | 'owner')}
                   className="w-full bg-gray-800 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  <option value="view">View Only</option>
-                  <option value="edit">Full Access</option>
+                  <option value="view">View Only - Can browse and see all items</option>
+                  <option value="edit">Editor - Can add, modify, and organize items</option>
+                  <option value="collaborator">Collaborator - Can create and manage own products/categories</option>
+                  <option value="owner">Transfer Ownership - Full control + can manage access</option>
                 </select>
               </div>
+
+              {selectedAccessType === 'owner' && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-red-200">
+                      <p className="font-medium mb-1">Transfer Ownership</p>
+                      <p className="text-xs text-red-200/80">
+                        This will transfer full ownership of the collection to this user. 
+                        The current owner will automatically receive Editor access.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-4">
                 <button
@@ -308,12 +443,22 @@ export function CollectionAccess({ userId }: CollectionAccessProps) {
                   disabled={!selectedCollection}
                   className="bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-colors"
                 >
-                  Assign Collection
+                  {selectedAccessType === 'owner' ? 'Transfer Ownership' : 'Assign Access'}
                 </button>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Manage Access Modal */}
+      {showManageAccessModal && selectedCollectionForManagement && (
+        <ManageAccessModal
+          isOpen={showManageAccessModal}
+          onClose={handleAccessModalClose}
+          collection={selectedCollectionForManagement}
+          onAccessChange={handleAccessChange}
+        />
       )}
     </div>
   );

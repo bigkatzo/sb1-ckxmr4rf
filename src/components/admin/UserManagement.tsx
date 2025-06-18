@@ -62,7 +62,7 @@ export function UserManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'merchant' | 'user'>('all');
   const [sortOption, setSortOption] = useState<SortOption>({ field: 'created_at', direction: 'desc' });
-
+  
   useEffect(() => {
     fetchUsers();
   }, []);
