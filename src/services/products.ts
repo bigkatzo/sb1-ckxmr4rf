@@ -96,6 +96,12 @@ export async function createProduct(collectionId: string, data: FormData) {
     const technique = data.get('technique') as string;
     const noteForSupplier = data.get('noteForSupplier') as string;
 
+    console.log('Advanced fields received in createProduct:', {
+      blankCode,
+      technique,
+      noteForSupplier
+    });
+
     // Initialize images and design files arrays
     let images: string[] = [];
     let designFiles: string[] = [];
@@ -218,32 +224,40 @@ export async function createProduct(collectionId: string, data: FormData) {
     // Get current user for creator tracking
     const { data: { user } } = await supabase.auth.getUser();
 
+    const insertData = {
+      name,
+      description: data.get('description'),
+      price,
+      quantity,
+      category_id: categoryId,
+      collection_id: collectionId,
+      images,
+      design_files: designFiles,
+      variants,
+      variant_prices: variantPrices,
+      minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
+      price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
+      price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
+      visible: data.get('visible') === 'true',
+      sale_ended: data.get('saleEnded') === 'true',
+      pin_order: data.get('pinOrder') ? parseInt(data.get('pinOrder') as string, 10) : null,
+      blank_code: blankCode || null,
+      technique: technique || null,
+      note_for_supplier: noteForSupplier || null,
+      notes,
+      free_notes: freeNotes,
+      created_by: user?.id || null // Track who created this product
+    };
+
+    console.log('Database insert data (advanced fields):', {
+      blank_code: insertData.blank_code,
+      technique: insertData.technique,
+      note_for_supplier: insertData.note_for_supplier
+    });
+
     const { error } = await supabase
       .from('products')
-      .insert({
-        name,
-        description: data.get('description'),
-        price,
-        quantity,
-        category_id: categoryId,
-        collection_id: collectionId,
-        images,
-        design_files: designFiles,
-        variants,
-        variant_prices: variantPrices,
-        minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
-        price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
-        price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
-        visible: data.get('visible') === 'true',
-        sale_ended: data.get('saleEnded') === 'true',
-        pin_order: data.get('pinOrder') ? parseInt(data.get('pinOrder') as string, 10) : null,
-        blank_code: blankCode || null,
-        technique: technique || null,
-        note_for_supplier: noteForSupplier || null,
-        notes,
-        free_notes: freeNotes,
-        created_by: user?.id || null // Track who created this product
-      });
+      .insert(insertData);
 
     if (error) throw error;
 
@@ -305,6 +319,12 @@ export async function updateProduct(id: string, data: FormData) {
     const blankCode = data.get('blankCode') as string;
     const technique = data.get('technique') as string;
     const noteForSupplier = data.get('noteForSupplier') as string;
+    
+    console.log('Advanced fields received in updateProduct:', {
+      blankCode,
+      technique,
+      noteForSupplier
+    });
     
     updateData.blank_code = blankCode || null;
     updateData.technique = technique || null;
@@ -440,6 +460,12 @@ export async function updateProduct(id: string, data: FormData) {
     }
     
     // Perform the update with all necessary fields
+    console.log('Database update data (advanced fields):', {
+      blank_code: updateData.blank_code,
+      technique: updateData.technique,
+      note_for_supplier: updateData.note_for_supplier
+    });
+
     const { error: updateError } = await supabase
       .from('products')
       .update(updateData)

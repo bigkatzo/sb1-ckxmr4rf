@@ -86,6 +86,9 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       // Reset form with initialData and properly structured notes
       methods.reset({
         ...defaultValues,
+        blankCode: initialData?.blankCode ?? '',
+        technique: initialData?.technique ?? '',
+        noteForSupplier: initialData?.noteForSupplier ?? '',
         notes: notesForReset,
         freeNotes: initialData?.freeNotes ?? ''
       });
@@ -106,6 +109,11 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     setError(null);
 
       console.log("Form submission data:", data);
+      console.log("Advanced fields in submission:", {
+        blankCode: data.blankCode,
+        technique: data.technique,
+        noteForSupplier: data.noteForSupplier
+      });
       
       const formData = new FormData();
 
@@ -123,6 +131,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             key !== 'existingDesignFiles' &&
             key !== 'removedDesignFiles' &&
             key !== 'notes') {
+          console.log(`Adding field to FormData: ${key} = ${val}`);
           formData.append(key, val.toString());
         }
       });
