@@ -43,36 +43,36 @@ export async function uploadDesignFiles(files: File[]): Promise<string[]> {
   return Promise.all(files.map(file => uploadDesignFile(file)));
 }
 
-export async function createProduct(collectionId: string, data: FormData) {
+export async function createProduct(collectionId: string, formData: FormData) {
   try {
     // Validate critical form fields first
     // Get category ID
-    const categoryId = data.get('categoryId') as string;
+    const categoryId = formData.get('categoryId') as string;
     if (!categoryId) {
       throw new Error('Category is required');
     }
 
     // Process other fields
-    const name = data.get('name');
+    const name = formData.get('name');
     if (!name) {
       throw new Error('Product name is required');
     }
 
-    const stockValue = data.get('stock') as string;
+    const stockValue = formData.get('stock') as string;
     const quantity = stockValue === '' ? null : parseInt(stockValue, 10);
-    const price = parseFloat(data.get('price') as string);
+    const price = parseFloat(formData.get('price') as string);
     if (isNaN(price)) {
       throw new Error('Invalid price value');
     }
 
     // Parse variant data
-    const variants = JSON.parse(data.get('variants') as string || '[]');
-    const variantPrices = JSON.parse(data.get('variantPrices') as string || '{}');
+    const variants = JSON.parse(formData.get('variants') as string || '[]');
+    const variantPrices = JSON.parse(formData.get('variantPrices') as string || '{}');
 
     // Handle notes according to database constraint
-    const shippingNote = data.get('notes.shipping');
-    const qualityNote = data.get('notes.quality');
-    const returnsNote = data.get('notes.returns');
+    const shippingNote = formData.get('notes.shipping');
+    const qualityNote = formData.get('notes.quality');
+    const returnsNote = formData.get('notes.returns');
     
     // Only include notes if at least one field is not empty
     let notes: { shipping?: string; quality?: string; returns?: string; } | null = null;
@@ -88,13 +88,13 @@ export async function createProduct(collectionId: string, data: FormData) {
     }
     
     // Handle free notes
-    const freeNotesValue = data.get('freeNotes');
+    const freeNotesValue = formData.get('freeNotes');
     const freeNotes = freeNotesValue && freeNotesValue !== '' ? freeNotesValue : null;
 
     // Handle advanced options
-    const blankCode = data.get('blankCode') as string;
-    const technique = data.get('technique') as string;
-    const noteForSupplier = data.get('noteForSupplier') as string;
+    const blankCode = formData.get('blankCode') as string;
+    const technique = formData.get('technique') as string;
+    const noteForSupplier = formData.get('noteForSupplier') as string;
     
 
     
@@ -103,7 +103,7 @@ export async function createProduct(collectionId: string, data: FormData) {
     let designFiles: string[] = [];
     
     // First, check if there are existing images from a duplicated product
-    const currentImagesStr = data.get('currentImages') as string;
+    const currentImagesStr = formData.get('currentImages') as string;
     if (currentImagesStr) {
       try {
         const currentImages = JSON.parse(currentImagesStr);
@@ -118,7 +118,7 @@ export async function createProduct(collectionId: string, data: FormData) {
     }
 
     // Check if there are existing design files from a duplicated product
-    const currentDesignFilesStr = data.get('currentDesignFiles') as string;
+    const currentDesignFilesStr = formData.get('currentDesignFiles') as string;
     if (currentDesignFilesStr) {
       try {
         const currentDesignFiles = JSON.parse(currentDesignFilesStr);
@@ -142,7 +142,7 @@ export async function createProduct(collectionId: string, data: FormData) {
     for (let i = 0; i < 10; i++) { // Check up to 10 possible images
       try {
         const imageKey = `image${i}`;
-        const imageFile = data.get(imageKey);
+        const imageFile = formData.get(imageKey);
         
         if (!imageFile) {
           console.log(`No image found for ${imageKey}, stopping image processing`);
@@ -183,7 +183,7 @@ export async function createProduct(collectionId: string, data: FormData) {
     for (let i = 0; i < 10; i++) { // Check up to 10 possible design files
       try {
         const designFileKey = `designFile${i}`;
-        const designFile = data.get(designFileKey);
+        const designFile = formData.get(designFileKey);
         
         if (!designFile) {
           console.log(`No design file found for ${designFileKey}, stopping design file processing`);
@@ -222,7 +222,7 @@ export async function createProduct(collectionId: string, data: FormData) {
 
     const insertData = {
       name,
-      description: data.get('description'),
+      description: formData.get('description'),
       price,
       quantity,
       category_id: categoryId,
@@ -231,12 +231,12 @@ export async function createProduct(collectionId: string, data: FormData) {
       design_files: designFiles,
       variants,
       variant_prices: variantPrices,
-      minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
-      price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
-      price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
-      visible: data.get('visible') === 'true',
-      sale_ended: data.get('saleEnded') === 'true',
-      pin_order: data.get('pinOrder') ? parseInt(data.get('pinOrder') as string, 10) : null,
+      minimum_order_quantity: parseInt(formData.get('minimumOrderQuantity') as string, 10) || 50,
+      price_modifier_before_min: formData.get('priceModifierBeforeMin') ? parseFloat(formData.get('priceModifierBeforeMin') as string) : null,
+      price_modifier_after_min: formData.get('priceModifierAfterMin') ? parseFloat(formData.get('priceModifierAfterMin') as string) : null,
+      visible: formData.get('visible') === 'true',
+      sale_ended: formData.get('saleEnded') === 'true',
+      pin_order: formData.get('pinOrder') ? parseInt(formData.get('pinOrder') as string, 10) : null,
       blank_code: blankCode || null,
       technique: technique || null,
       note_for_supplier: noteForSupplier || null,
@@ -263,7 +263,7 @@ export async function createProduct(collectionId: string, data: FormData) {
   }
 }
 
-export async function updateProduct(id: string, data: FormData) {
+export async function updateProduct(id: string, formData: FormData) {
   try {
     // First, get the current product to ensure proper updates
     const { data: currentProduct, error: fetchError } = await supabase
@@ -277,17 +277,17 @@ export async function updateProduct(id: string, data: FormData) {
     }
     
     // Validate critical form fields first
-    const name = data.get('name') as string;
+    const name = formData.get('name') as string;
     if (!name) {
       throw new Error('Name is required');
     }
     
-    const price = parseFloat(data.get('price') as string);
+    const price = parseFloat(formData.get('price') as string);
     if (isNaN(price)) {
       throw new Error('Invalid price value');
     }
     
-    const categoryId = data.get('categoryId') as string;
+    const categoryId = formData.get('categoryId') as string;
     if (!categoryId) {
       throw new Error('Category is required');
     }
@@ -295,31 +295,31 @@ export async function updateProduct(id: string, data: FormData) {
     // Prepare basic product data
     const updateData: Record<string, any> = {
       name,
-      description: data.get('description') as string,
+      description: formData.get('description') as string,
       price,
-      quantity: data.get('stock') ? parseInt(data.get('stock') as string, 10) : null,
+      quantity: formData.get('stock') ? parseInt(formData.get('stock') as string, 10) : null,
       category_id: categoryId,
-      minimum_order_quantity: parseInt(data.get('minimumOrderQuantity') as string, 10) || 50,
-      visible: data.get('visible') === 'true',
-      sale_ended: data.get('saleEnded') === 'true',
-      price_modifier_before_min: data.get('priceModifierBeforeMin') ? parseFloat(data.get('priceModifierBeforeMin') as string) : null,
-      price_modifier_after_min: data.get('priceModifierAfterMin') ? parseFloat(data.get('priceModifierAfterMin') as string) : null,
-      pin_order: data.get('pinOrder') ? parseInt(data.get('pinOrder') as string, 10) : null,
+      minimum_order_quantity: parseInt(formData.get('minimumOrderQuantity') as string, 10) || 50,
+      visible: formData.get('visible') === 'true',
+      sale_ended: formData.get('saleEnded') === 'true',
+      price_modifier_before_min: formData.get('priceModifierBeforeMin') ? parseFloat(formData.get('priceModifierBeforeMin') as string) : null,
+      price_modifier_after_min: formData.get('priceModifierAfterMin') ? parseFloat(formData.get('priceModifierAfterMin') as string) : null,
+      pin_order: formData.get('pinOrder') ? parseInt(formData.get('pinOrder') as string, 10) : null,
     };
     
     // Handle advanced options
-    const blankCode = data.get('blankCode') as string;
-    const technique = data.get('technique') as string;
-    const noteForSupplier = data.get('noteForSupplier') as string;
+    const blankCode = formData.get('blankCode') as string;
+    const technique = formData.get('technique') as string;
+    const noteForSupplier = formData.get('noteForSupplier') as string;
     
     updateData.blank_code = blankCode || null;
     updateData.technique = technique || null;
     updateData.note_for_supplier = noteForSupplier || null;
     
     // Handle notes according to database constraint
-    const shippingNote = data.get('notes.shipping');
-    const qualityNote = data.get('notes.quality');
-    const returnsNote = data.get('notes.returns');
+    const shippingNote = formData.get('notes.shipping');
+    const qualityNote = formData.get('notes.quality');
+    const returnsNote = formData.get('notes.returns');
     
     // Only add notes if at least one note field has a value (handle empty strings too)
     const hasShippingNote = shippingNote && String(shippingNote) !== '';
@@ -346,36 +346,36 @@ export async function updateProduct(id: string, data: FormData) {
     }
     
     // Handle free notes
-    const freeNotesValue = data.get('freeNotes');
+    const freeNotesValue = formData.get('freeNotes');
     updateData.free_notes = freeNotesValue ? String(freeNotesValue) : '';
     
     // 1. Process variant data if provided
-    if (data.get('variants') !== null) {
-      const variantsStr = data.get('variants') as string;
+    if (formData.get('variants') !== null) {
+      const variantsStr = formData.get('variants') as string;
       const variants = JSON.parse(variantsStr || '[]');
       updateData.variants = variants;
     }
     
     // 2. Process variant prices if provided
-    if (data.get('variantPrices') !== null) {
-      const pricesStr = data.get('variantPrices') as string;
+    if (formData.get('variantPrices') !== null) {
+      const pricesStr = formData.get('variantPrices') as string;
       const variantPrices = JSON.parse(pricesStr || '{}');
       updateData.variant_prices = variantPrices;
     }
     
     // 3. Process image changes if any (AFTER all validation has passed)
-    if (data.get('currentImages') !== null || data.get('image0') !== null) {
+    if (formData.get('currentImages') !== null || formData.get('image0') !== null) {
       // Upload any new images first
       const newImageUrls: string[] = [];
       let newImageCount = 0;
       
       // Count how many images are in the form data
-      while (data.get(`image${newImageCount}`)) {
+      while (formData.get(`image${newImageCount}`)) {
         newImageCount++;
       }
       
       for (let i = 0; i < newImageCount; i++) {
-        const imageFile = data.get(`image${i}`) as File;
+        const imageFile = formData.get(`image${i}`) as File;
         if (imageFile instanceof File) {
           const imageUrls = await uploadProductImages([imageFile]);
           newImageUrls.push(...imageUrls);
@@ -384,11 +384,11 @@ export async function updateProduct(id: string, data: FormData) {
       
       // Process existing and removed images
       let finalImages: string[];
-      const hasCurrentImages = !!data.get('currentImages');
+      const hasCurrentImages = !!formData.get('currentImages');
       
       if (hasCurrentImages) {
-        const currentImagesStr = data.get('currentImages') as string;
-        const removedImagesStr = data.get('removedImages') as string;
+        const currentImagesStr = formData.get('currentImages') as string;
+        const removedImagesStr = formData.get('removedImages') as string;
         
         const currentImages = JSON.parse(currentImagesStr || '[]') as string[];
         const removedImages = JSON.parse(removedImagesStr || '[]') as string[];
@@ -405,18 +405,18 @@ export async function updateProduct(id: string, data: FormData) {
     }
 
     // 4. Process design file changes
-    if (data.get('currentDesignFiles') !== null || data.get('designFile0') !== null) {
+    if (formData.get('currentDesignFiles') !== null || formData.get('designFile0') !== null) {
       // Upload any new design files first
       const newDesignFileUrls: string[] = [];
       let newDesignFileCount = 0;
       
       // Count how many design files are in the form data
-      while (data.get(`designFile${newDesignFileCount}`)) {
+      while (formData.get(`designFile${newDesignFileCount}`)) {
         newDesignFileCount++;
       }
       
       for (let i = 0; i < newDesignFileCount; i++) {
-        const designFile = data.get(`designFile${i}`) as File;
+        const designFile = formData.get(`designFile${i}`) as File;
         if (designFile instanceof File) {
           const designFileUrls = await uploadDesignFiles([designFile]);
           newDesignFileUrls.push(...designFileUrls);
@@ -425,11 +425,11 @@ export async function updateProduct(id: string, data: FormData) {
       
       // Process existing and removed design files
       let finalDesignFiles: string[];
-      const hasCurrentDesignFiles = !!data.get('currentDesignFiles');
+      const hasCurrentDesignFiles = !!formData.get('currentDesignFiles');
       
       if (hasCurrentDesignFiles) {
-        const currentDesignFilesStr = data.get('currentDesignFiles') as string;
-        const removedDesignFilesStr = data.get('removedDesignFiles') as string;
+        const currentDesignFilesStr = formData.get('currentDesignFiles') as string;
+        const removedDesignFilesStr = formData.get('removedDesignFiles') as string;
         
         const currentDesignFiles = JSON.parse(currentDesignFilesStr || '[]') as string[];
         const removedDesignFiles = JSON.parse(removedDesignFilesStr || '[]') as string[];
