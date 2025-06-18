@@ -468,14 +468,37 @@ export async function updateProduct(id: string, data: FormData) {
     }
     
     // Perform the update with all necessary fields
+    console.log('🔍 About to update database with:', {
+      blank_code: updateData.blank_code,
+      technique: updateData.technique,
+      note_for_supplier: updateData.note_for_supplier
+    });
+
     const { error: updateError } = await supabase
       .from('products')
       .update(updateData)
       .eq('id', id);
 
     if (updateError) {
-      console.error('Error updating product:', updateError);
+      console.error('❌ Database update failed:', updateError);
       throw updateError;
+    }
+
+    console.log('✅ Database update completed successfully');
+
+    // Verify the update by fetching the updated product
+    const { data: verifyData, error: verifyError } = await supabase
+      .from('products')
+      .select('blank_code, technique, note_for_supplier')
+      .eq('id', id)
+      .single();
+
+    if (!verifyError && verifyData) {
+      console.log('🔍 Verification - Data after update:', {
+        blank_code: verifyData.blank_code,
+        technique: verifyData.technique,
+        note_for_supplier: verifyData.note_for_supplier
+      });
     }
 
     // Invalidate caches after successful update
