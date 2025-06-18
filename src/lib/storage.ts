@@ -378,11 +378,15 @@ export async function uploadImage(
       const token = await supabase.auth.getSession()
         .then(session => session.data.session?.access_token || '');
       
-      // Extract just the filename without any path and avoid bucket name duplication
-      const fileName = fileToUpload.name.split('/').pop() || fileToUpload.name;
+      // For profile images, preserve the full path including user folder
+      // For other buckets, extract just the filename to avoid path issues
+      const fileName = bucket === 'profile-images' 
+        ? fileToUpload.name  // Keep full path like "userId/filename.jpg"
+        : fileToUpload.name.split('/').pop() || fileToUpload.name;
       
       // Log the token length for debugging (don't log the full token)
       console.log(`Auth token present: ${Boolean(token)} (length: ${token?.length || 0})`);
+      console.log(`Upload path for ${bucket}: ${fileName}`);
 
       // Use object/public endpoint instead of render/image
       const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${fileName}`;

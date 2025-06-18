@@ -61,17 +61,6 @@ export function ProductListItem({
       target: "_blank"
     });
   }
-
-  // Add View design page link
-  if (product.slug && product.collectionSlug) {
-    dropdownItems.push({
-      label: 'View design page',
-      icon: <Palette className="h-4 w-4" />,
-      as: Link,
-      to: `/${product.collectionSlug}/${product.slug}/design`,
-      target: "_blank"
-    });
-  }
   
   if (canEdit && onDuplicate) {
     dropdownItems.push({
@@ -114,6 +103,17 @@ export function ProductListItem({
         onClick: () => onPin(0) // 0 is a special value that tells the backend to assign the next available position
       });
     }
+  }
+  
+  // Add View Design Files link
+  if (product.slug && product.collectionSlug) {
+    dropdownItems.push({
+      label: 'View Design Files',
+      icon: <Palette className="h-4 w-4" />,
+      as: Link,
+      to: `/${product.collectionSlug}/${product.slug}/design`,
+      target: "_blank"
+    });
   }
   
   if (canEdit && onDelete) {
