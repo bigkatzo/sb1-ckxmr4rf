@@ -7,7 +7,7 @@ import { saveAs } from 'file-saver';
 
 export function ProductDesignPage() {
   const { productSlug, collectionSlug } = useParams();
-  const { product, loading, error } = useProduct(collectionSlug, productSlug);
+  const { product, loading, error } = useProduct(collectionSlug, productSlug, true);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {

@@ -6,7 +6,7 @@ import { canPreviewHiddenContent } from '../utils/preview';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Product } from '../types/index';
 
-export function useProduct(collectionSlug?: string, productSlug?: string) {
+export function useProduct(collectionSlug?: string, productSlug?: string, includeHiddenForDesign?: boolean) {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,14 +70,14 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
           setLoading(true);
         }
 
-        // Check if preview mode is enabled
-        const includeHidden = canPreviewHiddenContent();
+        // Check if preview mode is enabled OR if we're on a design page
+        const includeHidden = canPreviewHiddenContent() || includeHiddenForDesign;
         
         console.log(`Fetching product with preview mode: ${includeHidden}, collection: ${collectionSlug}, product: ${productSlug}`);
         
         let productQuery;
         if (includeHidden) {
-          // When in preview mode, fetch from products table with joins
+          // When in preview mode or design page, fetch from products table with joins
           productQuery = supabase
             .from('products')
             .select(`
@@ -221,7 +221,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string) {
     return () => {
       isMounted = false;
     };
-  }, [collectionSlug, productSlug]);
+  }, [collectionSlug, productSlug, includeHiddenForDesign]);
 
   return { product, loading, error };
 }
