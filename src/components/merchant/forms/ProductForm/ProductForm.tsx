@@ -107,13 +107,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     try {
     setLoading(true);
     setError(null);
-
-      console.log("Form submission data:", data);
-      console.log("Advanced fields in submission:", {
-        blankCode: data.blankCode,
-        technique: data.technique,
-        noteForSupplier: data.noteForSupplier
-      });
       
       const formData = new FormData();
 
@@ -131,7 +124,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             key !== 'existingDesignFiles' &&
             key !== 'removedDesignFiles' &&
             key !== 'notes') {
-          console.log(`Adding field to FormData: ${key} = ${val}`);
           formData.append(key, val.toString());
         }
       });
@@ -155,18 +147,20 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       // Explicitly add saleEnded even though it's already included in the object entries loop
       formData.set('saleEnded', data.saleEnded.toString());
 
-      // DIRECT ACCESS TO IMAGE FILES: Use our component state directly
-      console.log("Image files from direct state:", imageFiles.length, "files");
-      
+      // Image files from direct state: Use our component state directly
       if (imageFiles.length > 0) {
         setUploading(true);
         
         imageFiles.forEach((file, index) => {
-          console.log(`Adding image${index} to form data:`, file.name, file.type, file.size);
           formData.append(`image${index}`, file);
         });
-      } else {
-        console.log('No image files to upload');
+      }
+
+      // Design files from direct state: Use our component state directly
+      if (designFiles.length > 0) {
+        designFiles.forEach((file, index) => {
+          formData.append(`designFile${index}`, file);
+        });
       }
 
       // Add current images if editing
@@ -177,20 +171,6 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         // Ensure these fields are always included, even for new products
         formData.append('currentImages', JSON.stringify([]));
         formData.append('removedImages', JSON.stringify([]));
-      }
-
-      // Handle design files similar to product images
-      console.log("Design files from direct state:", designFiles.length, "files");
-      
-      if (designFiles.length > 0) {
-        setUploading(true);
-        
-        designFiles.forEach((file, index) => {
-          console.log(`Adding designFile${index} to form data:`, file.name, file.type, file.size);
-          formData.append(`designFile${index}`, file);
-        });
-      } else {
-        console.log('No design files to upload');
       }
 
       // Add current design files if editing
@@ -207,9 +187,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       formData.append('variants', JSON.stringify(data.variants || []));
       formData.append('variantPrices', JSON.stringify(data.variantPrices || {}));
 
-      // DEBUG: Verify final FormData contents
-      console.log("FormData keys:", Array.from(formData.keys()));
-      
+      // Submit to the appropriate endpoint
       await onSubmit(formData);
       onClose();
     } catch (error) {

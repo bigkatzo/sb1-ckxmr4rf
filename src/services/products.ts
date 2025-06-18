@@ -96,12 +96,6 @@ export async function createProduct(collectionId: string, data: FormData) {
     const technique = data.get('technique') as string;
     const noteForSupplier = data.get('noteForSupplier') as string;
 
-    console.log('Advanced fields received in createProduct:', {
-      blankCode,
-      technique,
-      noteForSupplier
-    });
-
     // Initialize images and design files arrays
     let images: string[] = [];
     let designFiles: string[] = [];
@@ -244,9 +238,9 @@ export async function createProduct(collectionId: string, data: FormData) {
       blank_code: blankCode || null,
       technique: technique || null,
       note_for_supplier: noteForSupplier || null,
-      notes,
-      free_notes: freeNotes,
-      created_by: user?.id || null // Track who created this product
+      notes: hasShippingNote || hasQualityNote || hasReturnsNote ? notes : {},
+      free_notes: freeNotesValue || '',
+      created_by: user?.id
     };
 
     console.log('Database insert data (advanced fields):', {
@@ -276,7 +270,7 @@ export async function updateProduct(id: string, data: FormData) {
     // First, get the current product to ensure proper updates
     const { data: currentProduct, error: fetchError } = await supabase
       .from('products')
-      .select('images, design_files, variants, variant_prices, notes, free_notes, collection_id, category_id')
+      .select('images, design_files, variants, variant_prices, notes, free_notes, collection_id, category_id, blank_code, technique, note_for_supplier')
       .eq('id', id)
       .single();
     
@@ -319,12 +313,6 @@ export async function updateProduct(id: string, data: FormData) {
     const blankCode = data.get('blankCode') as string;
     const technique = data.get('technique') as string;
     const noteForSupplier = data.get('noteForSupplier') as string;
-    
-    console.log('Advanced fields received in updateProduct:', {
-      blankCode,
-      technique,
-      noteForSupplier
-    });
     
     updateData.blank_code = blankCode || null;
     updateData.technique = technique || null;
@@ -460,12 +448,6 @@ export async function updateProduct(id: string, data: FormData) {
     }
     
     // Perform the update with all necessary fields
-    console.log('Database update data (advanced fields):', {
-      blank_code: updateData.blank_code,
-      technique: updateData.technique,
-      note_for_supplier: updateData.note_for_supplier
-    });
-
     const { error: updateError } = await supabase
       .from('products')
       .update(updateData)
