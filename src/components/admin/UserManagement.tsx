@@ -324,81 +324,71 @@ export function UserManagement() {
   function renderUserProfileDetails(user: User) {
     return (
       <div className="space-y-3 mb-4">
-        <div className="flex items-start gap-4">
-          {/* Profile Image */}
-          <div className="flex-shrink-0">
-            <ProfileImage
-              src={user.profile_image}
-              alt={user.display_name || 'User'}
-              displayName={user.display_name || user.email}
-              size="lg"
-            />
+        {/* User ID and Created Date */}
+        <div className="flex items-center justify-between text-xs text-gray-400 bg-gray-800/50 px-3 py-2 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">User ID:</span>
+            <span className="font-mono text-gray-300">{user.id}</span>
           </div>
-          
-          {/* User Details */}
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center gap-2">
-              <h4 className="text-sm font-medium">
-                {user.display_name || 'No display name'}
-              </h4>
-              <span className="text-xs text-gray-500">({user.email})</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Created:</span>
+            <span className="text-gray-300">{new Date(user.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+
+        {/* Sales Information for Merchants/Admins */}
+        {(user.role === 'merchant' || user.role === 'admin') && (
+          <div className="flex items-center gap-1 text-sm">
+            <div className="flex items-center gap-1 text-yellow-400">
+              <Star className="h-4 w-4 fill-current" />
+              <span className="font-medium">{user.successful_sales_count || 0}</span>
             </div>
+            <span className="text-gray-400">successful sales</span>
+          </div>
+        )}
+        
+        {/* Additional Profile Information */}
+        <div className="space-y-2">
+          {user.description && (
+            <div>
+              <span className="text-xs font-medium text-gray-300 block mb-1">Description:</span>
+              <p className="text-sm text-gray-400">{user.description}</p>
+            </div>
+          )}
+          
+          <div className="flex flex-wrap gap-2">
+            {user.website_url && (
+              <a 
+                href={user.website_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-1 bg-gray-800 rounded text-sm text-blue-400 hover:text-blue-300 hover:bg-gray-700 transition-colors"
+              >
+                <Globe className="h-3 w-3" />
+                <span className="truncate max-w-[200px]">
+                  {user.website_url.replace(/^https?:\/\//, '')}
+                </span>
+              </a>
+            )}
             
-            {/* Merchant tier and successful sales */}
-            {(user.role === 'merchant' || user.role === 'admin') && (
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                {user.merchant_tier && (
-                  <VerificationBadge 
-                    tier={user.merchant_tier} 
-                    className="text-sm" 
-                  />
-                )}
-                <div className="flex items-center gap-1 text-yellow-400">
-                  <Star className="h-3 w-3 fill-current" />
-                  <span>{user.successful_sales_count || 0}</span>
-                </div>
-                <span className="text-gray-500">successful sales</span>
+            {user.payout_wallet && (
+              <div className="inline-flex items-center gap-1 px-2 py-1 bg-gray-800 rounded text-sm text-gray-400 hover:bg-gray-700 cursor-pointer group">
+                <span className="font-mono whitespace-nowrap overflow-x-auto max-w-[240px] scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                  {user.payout_wallet}
+                </span>
+                <button
+                  onClick={(e) => user.payout_wallet && copyWalletToClipboard(user.payout_wallet, e)}
+                  className="p-0.5 hover:bg-gray-600 rounded"
+                  title="Copy wallet address"
+                >
+                  {copiedWallet === user.payout_wallet ? (
+                    <Check className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <Copy className="h-3 w-3 text-gray-400 group-hover:text-white" />
+                  )}
+                </button>
               </div>
             )}
-            
-            {user.description && (
-              <p className="text-xs text-gray-400">{user.description}</p>
-            )}
-            
-            <div className="flex flex-wrap gap-2 mt-1">
-              {user.website_url && (
-                <a 
-                  href={user.website_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-800 rounded text-xs text-blue-400 hover:text-blue-300"
-                >
-                  <Globe className="h-3 w-3" />
-                  <span className="truncate max-w-[200px]">
-                    {user.website_url.replace(/^https?:\/\//, '')}
-                  </span>
-                </a>
-              )}
-              
-              {user.payout_wallet && (
-                <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-800 rounded text-xs text-gray-400 hover:bg-gray-700 cursor-pointer group">
-                  <span className="font-mono whitespace-nowrap overflow-x-auto max-w-[240px] scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent py-0.5">
-                    Wallet: {user.payout_wallet}
-                  </span>
-                  <button
-                    onClick={(e) => user.payout_wallet && copyWalletToClipboard(user.payout_wallet, e)}
-                    className="p-0.5 hover:bg-gray-600 rounded"
-                    title="Copy wallet address"
-                  >
-                    {copiedWallet === user.payout_wallet ? (
-                      <Check className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Copy className="h-3 w-3 text-gray-400 group-hover:text-white" />
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
         
