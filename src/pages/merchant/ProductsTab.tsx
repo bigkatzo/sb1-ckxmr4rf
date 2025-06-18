@@ -53,7 +53,9 @@ export function ProductsTab() {
 
   const { collections, loading: collectionsLoading } = useMerchantCollections();
   const { categories } = useCategories(selectedCollection);
-  const { products, loading: productsLoading, error: productsError, refreshProducts } = useProducts(selectedCollection, undefined, true);
+  const { products, loading: productsLoading, error: productsError, refreshProducts } = useProducts({ 
+    collectionId: selectedCollection
+  });
 
   // Create category indices mapping
   const categoryIndices = createCategoryIndices(categories);
