@@ -107,6 +107,16 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     try {
     setLoading(true);
     setError(null);
+
+      // DEBUG: Check advanced fields specifically
+      console.log('🔍 Advanced fields check:', {
+        blankCode: data.blankCode,
+        technique: data.technique,
+        noteForSupplier: data.noteForSupplier,
+        blankCodeType: typeof data.blankCode,
+        techniqueType: typeof data.technique,
+        noteForSupplierType: typeof data.noteForSupplier
+      });
       
       const formData = new FormData();
 
@@ -124,6 +134,12 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             key !== 'existingDesignFiles' &&
             key !== 'removedDesignFiles' &&
             key !== 'notes') {
+          
+          // DEBUG: Track advanced fields specifically
+          if (key === 'blankCode' || key === 'technique' || key === 'noteForSupplier') {
+            console.log(`🔍 Adding advanced field to FormData: ${key} = "${val}" (${typeof val})`);
+          }
+          
           formData.append(key, val.toString());
         }
       });

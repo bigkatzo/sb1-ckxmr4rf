@@ -128,6 +128,10 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
                 {...register('blankCode')}
                 className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Enter blank code"
+                onChange={(e) => {
+                  console.log('🔍 Blank Code input changed:', e.target.value);
+                  register('blankCode').onChange(e);
+                }}
               />
             </div>
             
@@ -141,6 +145,10 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
                 {...register('technique')}
                 className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Enter manufacturing technique"
+                onChange={(e) => {
+                  console.log('🔍 Technique input changed:', e.target.value);
+                  register('technique').onChange(e);
+                }}
               />
             </div>
             
@@ -154,6 +162,10 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
                 {...register('noteForSupplier')}
                 className="mt-1 block w-full bg-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Special instructions for the supplier"
+                onChange={(e) => {
+                  console.log('🔍 Note for Supplier input changed:', e.target.value);
+                  register('noteForSupplier').onChange(e);
+                }}
               ></textarea>
             </div>
           </div>

@@ -95,7 +95,17 @@ export async function createProduct(collectionId: string, data: FormData) {
     const blankCode = data.get('blankCode') as string;
     const technique = data.get('technique') as string;
     const noteForSupplier = data.get('noteForSupplier') as string;
-
+    
+    // DEBUG: Check what we're receiving
+    console.log('🔍 Services receiving advanced fields:', {
+      blankCode: blankCode,
+      technique: technique,
+      noteForSupplier: noteForSupplier,
+      blankCodeType: typeof blankCode,
+      techniqueType: typeof technique,
+      noteForSupplierType: typeof noteForSupplier
+    });
+    
     // Initialize images and design files arrays
     let images: string[] = [];
     let designFiles: string[] = [];
@@ -313,6 +323,16 @@ export async function updateProduct(id: string, data: FormData) {
     const blankCode = data.get('blankCode') as string;
     const technique = data.get('technique') as string;
     const noteForSupplier = data.get('noteForSupplier') as string;
+    
+    // DEBUG: Check what we're receiving
+    console.log('🔍 Services receiving advanced fields:', {
+      blankCode: blankCode,
+      technique: technique,
+      noteForSupplier: noteForSupplier,
+      blankCodeType: typeof blankCode,
+      techniqueType: typeof technique,
+      noteForSupplierType: typeof noteForSupplier
+    });
     
     updateData.blank_code = blankCode || null;
     updateData.technique = technique || null;
