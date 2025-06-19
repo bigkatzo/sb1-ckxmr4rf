@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, User, Camera, Trash2, Star } from 'lucide-react';
+import { User, Camera, Trash2, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
 import { ProfileImage } from '../ui/ProfileImage';
 import { VerificationBadge } from '../ui/VerificationBadge';
 import { generateSafeFilename, uploadImage } from '../../lib/storage';
-import { usePreventScroll } from '../../hooks/usePreventScroll';
+import { Modal } from '../ui/Modal/Modal';
 import { MerchantFeedback } from '../ui/MerchantFeedback';
 
 type MerchantTier = 'starter_merchant' | 'verified_merchant' | 'trusted_merchant' | 'elite_merchant';
@@ -26,8 +26,6 @@ interface ProfileData {
 }
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
-  usePreventScroll(isOpen);
-  
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -218,208 +216,194 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[75] overflow-y-auto">
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="relative min-h-screen flex items-center justify-center p-4">
-        <div className="relative bg-gray-900 rounded-xl max-w-md w-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
-            <h2 className="text-lg font-semibold text-white">Profile Settings</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Profile Settings"
+      maxWidth="md"
+      className="z-[75]"
+    >
+      <div className="p-4">
+        {isLoading ? (
+          <div className="space-y-4">
+            <div className="h-10 bg-gray-800 animate-pulse rounded-lg"></div>
+            <div className="h-24 bg-gray-800 animate-pulse rounded-lg"></div>
+            <div className="h-10 bg-gray-800 animate-pulse rounded-lg"></div>
           </div>
-
-          {/* Content */}
-          <div className="p-4">
-            {isLoading ? (
-              <div className="space-y-4">
-                <div className="h-10 bg-gray-800 animate-pulse rounded-lg"></div>
-                <div className="h-24 bg-gray-800 animate-pulse rounded-lg"></div>
-                <div className="h-10 bg-gray-800 animate-pulse rounded-lg"></div>
-              </div>
-            ) : (
-              <form onSubmit={saveProfile} className="space-y-4">
-                {/* Profile Image Upload */}
-                <div className="flex flex-col items-center mb-6">
-                  <div className="relative mb-3">
-                    <div className={`relative ${isUploading ? 'opacity-50' : ''}`}>
-                      {imagePreview ? (
-                        <ProfileImage
-                          src={imagePreview}
-                          alt={profileData.displayName || "Profile"}
-                          displayName={profileData.displayName}
-                          size="xl"
-                          className="border-2 border-gray-700"
-                        />
-                      ) : (
-                        <div className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gray-800 border-2 border-gray-700">
-                          <User className="h-12 w-12 text-gray-500" />
-                        </div>
-                      )}
-                      
-                      {isUploading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
-                          <div className="h-6 w-6 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageUpload}
-                      disabled={isUploading}
+        ) : (
+          <form onSubmit={saveProfile} className="space-y-4">
+            {/* Profile Image Upload */}
+            <div className="flex flex-col items-center mb-6">
+              <div className="relative mb-3">
+                <div className={`relative ${isUploading ? 'opacity-50' : ''}`}>
+                  {imagePreview ? (
+                    <ProfileImage
+                      src={imagePreview}
+                      alt={profileData.displayName || "Profile"}
+                      displayName={profileData.displayName}
+                      size="xl"
+                      className="border-2 border-gray-700"
                     />
-                    
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute bottom-0 right-0 bg-primary hover:bg-primary/80 rounded-full p-1.5 text-white transition-colors disabled:opacity-50"
-                      disabled={isUploading}
-                      title="Upload image"
-                    >
-                      <Camera className="h-4 w-4" />
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gray-800 border-2 border-gray-700">
+                      <User className="h-12 w-12 text-gray-500" />
+                    </div>
+                  )}
+                  
+                  {isUploading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+                      <div className="h-6 w-6 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="absolute -bottom-2 -right-2 flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 bg-gray-800 hover:bg-gray-700 rounded-full text-gray-400 hover:text-white transition-colors"
+                    title="Upload image"
+                  >
+                    <Camera className="h-4 w-4" />
+                  </button>
                   
                   {imagePreview && (
                     <button
                       type="button"
                       onClick={removeImage}
-                      className="flex items-center text-xs text-red-400 hover:text-red-300"
-                      disabled={isUploading}
+                      className="p-2 bg-gray-800 hover:bg-gray-700 rounded-full text-gray-400 hover:text-red-400 transition-colors"
+                      title="Remove image"
                     >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Remove Image
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
+              </div>
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+            </div>
 
-                {/* Merchant Tier Status */}
-                <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-white">Merchant Status</h3>
-                    <VerificationBadge tier={profileData.merchantTier} className="text-lg" />
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <div className="flex items-center gap-1 text-yellow-400">
-                      <Star className="h-3.5 w-3.5 fill-current" />
-                      <span>{profileData.successfulSalesCount}</span>
-                    </div>
-                    <span className="text-gray-500">·</span>
-                    <span>successful sales</span>
-                    {profileData.merchantTier === 'starter_merchant' && profileData.successfulSalesCount < 10 && (
-                      <span className="block mt-1 ml-1 text-gray-500">
-                        ({10 - profileData.successfulSalesCount} more to reach Trusted Merchant)
-                      </span>
-                    )}
-                  </div>
+            {/* Merchant Tier Status */}
+            <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-white">Merchant Status</h3>
+                <VerificationBadge tier={profileData.merchantTier} className="text-lg" />
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <div className="flex items-center gap-1 text-yellow-400">
+                  <Star className="h-3.5 w-3.5 fill-current" />
+                  <span>{profileData.successfulSalesCount}</span>
                 </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="displayName" className="block text-sm font-medium text-gray-300">
-                    Display Name
-                  </label>
-                  <input
-                    type="text"
-                    id="displayName"
-                    name="displayName"
-                    value={profileData.displayName}
-                    onChange={handleChange}
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Your display name"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-300">
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={profileData.description}
-                    onChange={handleChange}
-                    rows={4}
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Tell us a bit about yourself or your store"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label htmlFor="websiteUrl" className="block text-sm font-medium text-gray-300">
-                    Website or Social Media URL <span className="text-gray-500 text-xs">(Optional)</span>
-                  </label>
-                  <input
-                    type="url"
-                    id="websiteUrl"
-                    name="websiteUrl"
-                    value={profileData.websiteUrl}
-                    onChange={handleChange}
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="https://twitter.com/yourusername"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label htmlFor="payoutWallet" className="block text-sm font-medium text-gray-300">
-                    Payout Wallet Address
-                  </label>
-                  <input
-                    type="text"
-                    id="payoutWallet"
-                    name="payoutWallet"
-                    value={profileData.payoutWallet}
-                    onChange={handleChange}
-                    className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Solana wallet address for payouts"
-                  />
-                </div>
-                
-                {/* Merchant Feedback Section - Read Only */}
-                {currentUserId && (
-                  <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
-                    <h3 className="text-sm font-medium text-white mb-3">Your Community Feedback</h3>
-                    <MerchantFeedback 
-                      merchantId={currentUserId} 
-                      readOnly={true}
-                      showTitle={false}
-                      showReportButton={false}
-                      className="" 
-                    />
-                  </div>
+                <span className="text-gray-500">·</span>
+                <span>successful sales</span>
+                {profileData.merchantTier === 'starter_merchant' && profileData.successfulSalesCount < 10 && (
+                  <span className="block mt-1 ml-1 text-gray-500">
+                    ({10 - profileData.successfulSalesCount} more to reach Trusted Merchant)
+                  </span>
                 )}
-                
-                <div className="pt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
-                    disabled={isSaving || isUploading}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-primary hover:bg-primary/80 px-4 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:pointer-events-none"
-                    disabled={isSaving || isUploading}
-                  >
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </form>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="displayName" className="block text-sm font-medium text-gray-300">
+                Display Name
+              </label>
+              <input
+                type="text"
+                id="displayName"
+                name="displayName"
+                value={profileData.displayName}
+                onChange={handleChange}
+                className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Your display name"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-300">
+                Description
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                value={profileData.description}
+                onChange={handleChange}
+                rows={4}
+                className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Tell us a bit about yourself or your store"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="websiteUrl" className="block text-sm font-medium text-gray-300">
+                Website or Social Media URL <span className="text-gray-500 text-xs">(Optional)</span>
+              </label>
+              <input
+                type="url"
+                id="websiteUrl"
+                name="websiteUrl"
+                value={profileData.websiteUrl}
+                onChange={handleChange}
+                className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="https://twitter.com/yourusername"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="payoutWallet" className="block text-sm font-medium text-gray-300">
+                Payout Wallet Address
+              </label>
+              <input
+                type="text"
+                id="payoutWallet"
+                name="payoutWallet"
+                value={profileData.payoutWallet}
+                onChange={handleChange}
+                className="w-full bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Solana wallet address for payouts"
+              />
+            </div>
+            
+            {/* Merchant Feedback Section - Read Only */}
+            {currentUserId && (
+              <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
+                <h3 className="text-sm font-medium text-white mb-3">Your Community Feedback</h3>
+                <MerchantFeedback 
+                  merchantId={currentUserId} 
+                  readOnly={true}
+                  showTitle={false}
+                  showReportButton={false}
+                  className="" 
+                />
+              </div>
             )}
-          </div>
-        </div>
+            
+            <div className="pt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                disabled={isSaving || isUploading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="bg-primary hover:bg-primary/80 px-4 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:pointer-events-none"
+                disabled={isSaving || isUploading}
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 } 
