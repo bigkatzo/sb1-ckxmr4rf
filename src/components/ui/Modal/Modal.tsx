@@ -96,36 +96,7 @@ export function Modal({
     return () => document.removeEventListener('keydown', handleTabKey);
   }, [isOpen]);
 
-  // Lock scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      // Store current scroll position and body styles
-      const scrollY = window.scrollY;
-      const originalStyles = {
-        overflow: document.body.style.overflow,
-        position: document.body.style.position,
-        width: document.body.style.width,
-        top: document.body.style.top,
-      };
 
-      // Lock scroll
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.top = `-${scrollY}px`;
-
-      return () => {
-        // Restore original styles
-        document.body.style.overflow = originalStyles.overflow;
-        document.body.style.position = originalStyles.position;
-        document.body.style.width = originalStyles.width;
-        document.body.style.top = originalStyles.top;
-        
-        // Restore scroll position
-        window.scrollTo(0, scrollY);
-      };
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
