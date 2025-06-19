@@ -11,6 +11,7 @@ let globalOriginalStyles: {
   right: string;
   width: string;
   paddingRight: string;
+  height: string;
 } = {
   overflow: '',
   position: '',
@@ -18,35 +19,16 @@ let globalOriginalStyles: {
   left: '',
   right: '',
   width: '',
-  paddingRight: ''
+  paddingRight: '',
+  height: ''
 };
+
+let touchMoveHandler: ((e: TouchEvent) => void) | null = null;
 
 export function usePreventScroll(prevent: boolean) {
   const wasPreventingRef = useRef(false);
 
   useEffect(() => {
-    // Prevent touch scrolling on iOS while allowing modal content to scroll
-    const preventTouchMove = (e: TouchEvent) => {
-      const target = e.target as HTMLElement;
-      
-      // Allow scrolling within modal content areas
-      const allowedSelectors = [
-        '.modal-content',
-        '.modal-scrollable',
-        '[data-modal-scrollable]',
-        '.overflow-y-auto',
-        '.overflow-auto'
-      ];
-      
-      const isScrollableArea = allowedSelectors.some(selector => 
-        target.closest(selector)
-      );
-      
-      if (!isScrollableArea) {
-        e.preventDefault();
-      }
-    };
-
     if (prevent && !wasPreventingRef.current) {
       // Starting to prevent scroll
       scrollPreventCount++;
@@ -68,30 +50,92 @@ export function usePreventScroll(prevent: boolean) {
           left: body.style.left || '',
           right: body.style.right || '',
           width: body.style.width || '',
-          paddingRight: body.style.paddingRight || ''
+          paddingRight: body.style.paddingRight || '',
+          height: body.style.height || ''
         };
 
         // Calculate scrollbar width to prevent layout shift
         const scrollBarWidth = window.innerWidth - html.clientWidth;
         
-        // Apply scroll lock styles with multiple fallbacks for mobile
+        // Apply comprehensive scroll lock styles
         body.style.overflow = 'hidden';
         body.style.position = 'fixed';
         body.style.top = `-${globalScrollY}px`;
         body.style.left = '0';
         body.style.right = '0';
         body.style.width = '100%';
+        body.style.height = '100%';
         
         // Prevent layout shift by adding padding for scrollbar
         if (scrollBarWidth > 0) {
           body.style.paddingRight = `${scrollBarWidth}px`;
         }
         
-        // Additional mobile scroll prevention
+        // Additional comprehensive mobile scroll prevention
         html.style.overflow = 'hidden';
+        html.style.position = 'fixed';
+        html.style.height = '100%';
+        html.style.width = '100%';
         
-        // Add touch event listeners for iOS
-        document.addEventListener('touchmove', preventTouchMove, { passive: false });
+        // Enhanced touch event prevention for all mobile devices
+        touchMoveHandler = (e: TouchEvent) => {
+          const target = e.target as HTMLElement;
+          
+          // Allow scrolling within specific modal content areas
+          const allowedSelectors = [
+            '.modal-content',
+            '.modal-scrollable',
+            '[data-modal-scrollable]',
+            '.overflow-y-auto',
+            '.overflow-auto',
+            '[data-allow-scroll="true"]'
+          ];
+          
+          const isScrollableArea = allowedSelectors.some(selector => 
+            target.closest(selector)
+          );
+          
+          // Prevent all touch scrolling outside allowed areas
+          if (!isScrollableArea) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        };
+        
+        // Add comprehensive touch event listeners with all event types
+        document.addEventListener('touchmove', touchMoveHandler, { passive: false });
+        document.addEventListener('touchstart', touchMoveHandler, { passive: false });
+        document.addEventListener('touchend', touchMoveHandler, { passive: false });
+        
+        // Prevent wheel scrolling on desktop
+        const wheelHandler = (e: WheelEvent) => {
+          const target = e.target as HTMLElement;
+          const allowedSelectors = [
+            '.modal-content',
+            '.modal-scrollable',
+            '[data-modal-scrollable]',
+            '.overflow-y-auto',
+            '.overflow-auto',
+            '[data-allow-scroll="true"]'
+          ];
+          
+          const isScrollableArea = allowedSelectors.some(selector => 
+            target.closest(selector)
+          );
+          
+          if (!isScrollableArea) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        };
+        
+        document.addEventListener('wheel', wheelHandler, { passive: false });
+        
+        // Store handlers globally for cleanup
+        (window as any).__modalTouchHandler = touchMoveHandler;
+        (window as any).__modalWheelHandler = wheelHandler;
       }
     } else if (!prevent && wasPreventingRef.current) {
       // Stopping scroll prevention
@@ -111,11 +155,30 @@ export function usePreventScroll(prevent: boolean) {
         body.style.right = globalOriginalStyles.right;
         body.style.width = globalOriginalStyles.width;
         body.style.paddingRight = globalOriginalStyles.paddingRight;
+        body.style.height = globalOriginalStyles.height;
         
         html.style.overflow = '';
+        html.style.position = '';
+        html.style.height = '';
+        html.style.width = '';
         
-        // Remove touch event listeners
-        document.removeEventListener('touchmove', preventTouchMove);
+        // Remove all event listeners
+        const storedTouchHandler = (window as any).__modalTouchHandler;
+        const storedWheelHandler = (window as any).__modalWheelHandler;
+        
+        if (storedTouchHandler) {
+          document.removeEventListener('touchmove', storedTouchHandler);
+          document.removeEventListener('touchstart', storedTouchHandler);
+          document.removeEventListener('touchend', storedTouchHandler);
+        }
+        
+        if (storedWheelHandler) {
+          document.removeEventListener('wheel', storedWheelHandler);
+        }
+        
+        // Clean up global references
+        delete (window as any).__modalTouchHandler;
+        delete (window as any).__modalWheelHandler;
         
         // Restore scroll position
         window.scrollTo(0, globalScrollY);
@@ -129,7 +192,8 @@ export function usePreventScroll(prevent: boolean) {
           left: '',
           right: '',
           width: '',
-          paddingRight: ''
+          paddingRight: '',
+          height: ''
         };
       }
     }
@@ -153,11 +217,30 @@ export function usePreventScroll(prevent: boolean) {
           body.style.right = globalOriginalStyles.right;
           body.style.width = globalOriginalStyles.width;
           body.style.paddingRight = globalOriginalStyles.paddingRight;
+          body.style.height = globalOriginalStyles.height;
           
           html.style.overflow = '';
+          html.style.position = '';
+          html.style.height = '';
+          html.style.width = '';
           
-          // Remove touch event listeners
-          document.removeEventListener('touchmove', preventTouchMove);
+          // Remove all event listeners
+          const storedTouchHandler = (window as any).__modalTouchHandler;
+          const storedWheelHandler = (window as any).__modalWheelHandler;
+          
+          if (storedTouchHandler) {
+            document.removeEventListener('touchmove', storedTouchHandler);
+            document.removeEventListener('touchstart', storedTouchHandler);
+            document.removeEventListener('touchend', storedTouchHandler);
+          }
+          
+          if (storedWheelHandler) {
+            document.removeEventListener('wheel', storedWheelHandler);
+          }
+          
+          // Clean up global references
+          delete (window as any).__modalTouchHandler;
+          delete (window as any).__modalWheelHandler;
           
           // Restore scroll position
           window.scrollTo(0, globalScrollY);
@@ -171,7 +254,8 @@ export function usePreventScroll(prevent: boolean) {
             left: '',
             right: '',
             width: '',
-            paddingRight: ''
+            paddingRight: '',
+            height: ''
           };
         }
       }
