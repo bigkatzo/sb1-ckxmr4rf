@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, Clock, Ban } from 'lucide-react';
 import { CategoryDescription } from '../collections/CategoryDescription';
+import { CompactReviewSection } from '../reviews/CompactReviewSection';
 import { VariantDisplay } from './variants/VariantDisplay';
 import { ProductVariantPrice } from './ProductVariantPrice';
 import { OrderProgressBar } from '../ui/OrderProgressBar';
@@ -806,10 +807,21 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     freeNotes={typeof product.freeNotes === 'string' ? product.freeNotes : ''}
                   />
 
+                  {/* Creator Section */}
                   {product.collectionUserId && (
                     <CompactCreator 
                       userId={product.collectionUserId}
                     />
+                  )}
+
+                  {/* Review Section */}
+                  {product.reviewStats && (
+                    <div className="border-t pt-4 mt-4">
+                      <CompactReviewSection 
+                        productId={product.id}
+                        stats={product.reviewStats}
+                      />
+                    </div>
                   )}
                 </div>
               </div>

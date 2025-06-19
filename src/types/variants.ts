@@ -1,4 +1,5 @@
 import type { Category } from './index';
+import type { ReviewStats } from './reviews';
 
 export interface ProductVariantOption {
   id: string;
@@ -58,6 +59,7 @@ export interface Product {
     returns?: string;
   };
   freeNotes?: string; // Free-form notes for additional information
+  reviewStats?: ReviewStats; // Add review stats
 }
 
 export interface ProductVariantFormData {
