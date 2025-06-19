@@ -94,7 +94,7 @@ class ReviewService {
     if (error) throw error;
 
     // If no stats found, return default
-    if (!data || data.length === 0) {
+    if (!data) {
       return {
         totalReviews: 0,
         averageRating: 0,
@@ -108,17 +108,18 @@ class ReviewService {
       };
     }
 
-    const stats = data[0];
+    // The function returns a JSONB object directly, not an array
     return {
-      totalReviews: stats.total_reviews || 0,
-      averageRating: stats.average_rating || 0,
+      totalReviews: data.total_reviews || 0,
+      averageRating: data.average_rating || 0,
       ratingDistribution: {
-        '1': stats.rating_1_count || 0,
-        '2': stats.rating_2_count || 0,
-        '3': stats.rating_3_count || 0,
-        '4': stats.rating_4_count || 0,
-        '5': stats.rating_5_count || 0
-      }
+        '1': data.rating_distribution?.['1'] || 0,
+        '2': data.rating_distribution?.['2'] || 0,
+        '3': data.rating_distribution?.['3'] || 0,
+        '4': data.rating_distribution?.['4'] || 0,
+        '5': data.rating_distribution?.['5'] || 0
+      },
+      recentReviews: data.recent_reviews || []
     };
   }
 
