@@ -35,7 +35,8 @@ export function DeliveredOrderReviewOverlay({
   const [rating, setRating] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [existingReview, setExistingReview] = useState<any>(null);
-  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
 
   useEffect(() => {
     const status = orderStatus.toLowerCase();
@@ -113,7 +114,7 @@ export function DeliveredOrderReviewOverlay({
         }, walletAddress || undefined, walletAuthToken || undefined);
       }
       
-      setShowReviewForm(false);
+      setIsEditing(false);
       setShowReviewModal(false);
       if (onClose) onClose();
       await checkReviewStatus(); // Refresh status
@@ -129,28 +130,14 @@ export function DeliveredOrderReviewOverlay({
       setRating(existingReview.productRating);
       setReviewText(existingReview.reviewText || '');
     }
-    setShowReviewForm(true);
+    setIsEditing(true);
   };
 
-  const handleStartReview = () => {
-    // Reset form for new review
-    if (!existingReview) {
-      setRating(0);
-      setReviewText('');
-    }
+  const handleCancelEdit = () => {
+    setIsEditing(false);
     setError(null);
-    setShowReviewForm(true);
-  };
-
-  const handleCancelReview = () => {
-    setShowReviewForm(false);
-    setError(null);
-    // Reset form if it was a new review
-    if (!existingReview) {
-      setRating(0);
-      setReviewText('');
-    } else {
-      // Restore original values if editing
+    // Reset to original values
+    if (existingReview) {
       setRating(existingReview.productRating);
       setReviewText(existingReview.reviewText || '');
     }
@@ -254,52 +241,35 @@ export function DeliveredOrderReviewOverlay({
       {/* Transparent Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent rounded-lg flex items-end p-4 z-10">
         <div className="w-full bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 border border-gray-700/50">
-          {!showReviewForm ? (
-            // Initial prompt state
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                {existingReview ? (
-                  <div className="space-y-2">
-                    <p className="text-white font-medium text-sm">Thank you for your review!</p>
-                    <div className="flex items-center gap-2">
-                      <StarRating rating={existingReview.productRating} size="sm" />
-                      <span className="text-sm text-gray-300">
-                        {existingReview.productRating}/5 stars
-                      </span>
-                    </div>
-                    {existingReview.reviewText && (
-                      <p className="text-sm text-gray-400 line-clamp-2">
-                        "{existingReview.reviewText}"
-                      </p>
-                    )}
-                    <button
-                      onClick={handleEditReview}
-                      className="text-sm text-secondary hover:text-secondary-light transition-colors"
-                    >
-                      Edit Review
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-white font-medium text-sm">
-                      We hope you loved your products!
-                    </p>
-                    <p className="text-gray-300 text-sm">
-                      Let us know what you think:
-                    </p>
-                  </div>
-                )}
+          {existingReview && !isEditing ? (
+            // Show existing review display - centered and properly formatted
+            <div className="flex flex-col items-center space-y-4 max-w-md mx-auto">
+              <div className="text-center">
+                <h4 className="text-white font-medium text-lg mb-1">Your Review</h4>
+                <p className="text-gray-300 text-sm">
+                  Thank you for reviewing {productName}!
+                </p>
               </div>
-              
-              <div className="flex items-center gap-2">
-                {!existingReview && (
-                  <button
-                    onClick={handleStartReview}
-                    className="bg-secondary text-white px-4 py-2 rounded-lg hover:bg-secondary-dark transition-colors text-sm font-medium"
-                  >
-                    Leave a Review
-                  </button>
-                )}
+
+              {/* Rating Display */}
+              <div className="flex flex-col items-center space-y-2">
+                <StarRating rating={existingReview.productRating} size="lg" />
+                <span className="text-gray-300 text-sm font-medium">
+                  {existingReview.productRating}/5 stars
+                </span>
+              </div>
+
+              {/* Review Text Display */}
+              {existingReview.reviewText && (
+                <div className="w-full bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                  <p className="text-gray-200 text-sm leading-relaxed text-center">
+                    "{existingReview.reviewText}"
+                  </p>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-3 w-full max-w-xs">
                 <button
                   onClick={() => {
                     setShowOverlay(false);
@@ -307,50 +277,45 @@ export function DeliveredOrderReviewOverlay({
                       onDismiss();
                     }
                   }}
-                  className="text-gray-400 hover:text-gray-300 p-1"
+                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
                 >
-                  <X className="h-4 w-4" />
+                  Close
+                </button>
+                <button
+                  onClick={handleEditReview}
+                  className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors text-sm font-medium"
+                >
+                  Edit Review
                 </button>
               </div>
             </div>
           ) : (
-            // Review form state - directly in the overlay
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-white font-medium text-sm">
-                  {existingReview ? 'Edit Your Review' : `Review ${productName}`}
+            // Show review form - either for new review or editing existing
+            <div className="flex flex-col items-center space-y-4 max-w-sm mx-auto">
+              <div className="text-center">
+                <h4 className="text-white font-medium text-lg mb-1">
+                  {existingReview && isEditing ? 'Edit Your Review' : 'Leave a Review!'}
                 </h4>
-                <button
-                  onClick={() => {
-                    handleCancelReview();
-                    if (forceShow && onDismiss) {
-                      onDismiss();
-                    }
-                  }}
-                  className="text-gray-400 hover:text-gray-300 p-1"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <p className="text-gray-300 text-sm">
+                  {existingReview && isEditing 
+                    ? 'Update your thoughts about this product:'
+                    : 'We hope you loved your products. Let us know:'
+                  }
+                </p>
               </div>
 
               {/* Rating */}
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-2">
-                  Rating *
-                </label>
+              <div className="flex flex-col items-center space-y-2">
                 <StarRating
                   rating={rating}
                   onRatingChange={setRating}
                   interactive
-                  size="md"
+                  size="lg"
                 />
               </div>
 
               {/* Review Text */}
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-2">
-                  Review (Optional)
-                </label>
+              <div className="w-full">
                 <textarea
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
@@ -359,28 +324,38 @@ export function DeliveredOrderReviewOverlay({
                   placeholder="Share your thoughts about this product..."
                   maxLength={500}
                 />
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-xs text-gray-400 mt-1 text-center">
                   {reviewText.length}/500 characters
                 </div>
               </div>
 
               {error && (
-                <div className="text-red-400 text-sm">{error}</div>
+                <div className="text-red-400 text-sm text-center">{error}</div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              {/* Action buttons */}
+              <div className="flex items-center gap-3 w-full max-w-xs">
                 <button
-                  onClick={handleCancelReview}
-                  className="flex-1 px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                  onClick={() => {
+                    if (existingReview && isEditing) {
+                      handleCancelEdit();
+                    } else {
+                      setShowOverlay(false);
+                      if (forceShow && onDismiss) {
+                        onDismiss();
+                      }
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
                 >
-                  Cancel
+                  {existingReview && isEditing ? 'Cancel' : 'Skip'}
                 </button>
                 <button
                   onClick={handleSubmitReview}
                   disabled={submitting || rating === 0}
-                  className="flex-1 px-3 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
                 >
-                  {submitting ? 'Submitting...' : (existingReview ? 'Update' : 'Submit')}
+                  {submitting ? 'Submitting...' : (existingReview && isEditing ? 'Update' : 'Submit')}
                 </button>
               </div>
             </div>
