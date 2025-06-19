@@ -136,7 +136,7 @@ export async function createProduct(collectionId: string, formData: FormData) {
     console.log('Starting image processing for product creation');
     
     // Debug: List all form data keys to see what's present
-    console.log('Form data keys:', Array.from(data.keys()));
+    console.log('Form data keys:', Array.from(formData.keys()));
     
     // IMPROVED IMAGE PROCESSING: More robust check for images
     for (let i = 0; i < 10; i++) { // Check up to 10 possible images
@@ -241,7 +241,7 @@ export async function createProduct(collectionId: string, formData: FormData) {
       technique: technique || null,
       note_for_supplier: noteForSupplier || null,
       notes: hasShippingNote || hasQualityNote || hasReturnsNote ? notes : {},
-      free_notes: freeNotesValue || '',
+      free_notes: freeNotes || '',
       created_by: user?.id
     };
 
