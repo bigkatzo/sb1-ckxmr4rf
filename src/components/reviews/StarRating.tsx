@@ -1,4 +1,3 @@
-import React from 'react';
 import { Star } from 'lucide-react';
 
 interface StarRatingProps {
@@ -33,7 +32,6 @@ export function StarRating({
       {[...Array(maxRating)].map((_, index) => {
         const starValue = index + 1;
         const isFilled = starValue <= rating;
-        const isPartiallyFilled = rating > index && rating < starValue;
         
         return (
           <button
@@ -44,19 +42,11 @@ export function StarRating({
             className={`
               ${starSize} transition-colors relative
               ${interactive ? 'cursor-pointer hover:text-yellow-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-opacity-50 rounded' : 'cursor-default'}
-              ${isFilled ? 'text-yellow-400 fill-current' : 'text-gray-400'}
+              ${isFilled ? 'text-yellow-400' : 'text-gray-400'}
             `}
             aria-label={`${starValue} star${starValue !== 1 ? 's' : ''}`}
           >
-            <Star className="w-full h-full" />
-            {isPartiallyFilled && (
-              <div 
-                className="absolute inset-0 overflow-hidden text-yellow-400"
-                style={{ width: `${(rating - index) * 100}%` }}
-              >
-                <Star className="w-full h-full fill-current" />
-              </div>
-            )}
+            <Star className={`w-full h-full ${isFilled ? 'fill-current' : ''}`} />
           </button>
         );
       })}

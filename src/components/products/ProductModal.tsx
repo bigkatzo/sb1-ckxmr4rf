@@ -22,6 +22,7 @@ import type { ReviewStats } from '../../types/reviews';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
 import { prefetchGallery, updateGalleryImage } from '../../lib/service-worker';
 import { validateImageUrl } from '../../utils/imageValidator';
+import { FullReviewModal } from '../reviews/FullReviewModal';
 
 // Create a local Set to track preloaded images for this component instance
 const preloadedImages = new Set<string>();
@@ -133,6 +134,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   const [dragVelocity, setDragVelocity] = useState(0);
   const [scrollDirection, setScrollDirection] = useState<'horizontal' | 'vertical' | null>(null);
   const isAnimating = useRef(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   
   // Required minimum swipe distance in pixels
   const minSwipeDistance = 50;
@@ -854,10 +856,18 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-secondary"></div>
                       </div>
                     ) : reviewStats ? (
-                      <CompactReviewSection 
-                        productId={product.id}
-                        stats={reviewStats}
-                      />
+                      <>
+                        <CompactReviewSection 
+                          stats={reviewStats}
+                          onClick={() => setShowReviewModal(true)}
+                        />
+                        <FullReviewModal
+                          isOpen={showReviewModal}
+                          onClose={() => setShowReviewModal(false)}
+                          productId={product.id}
+                          stats={reviewStats}
+                        />
+                      </>
                     ) : (
                       <div className="text-gray-400 text-sm py-4">
                         No reviews yet. Be the first to review this product!

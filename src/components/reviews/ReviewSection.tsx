@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 import { CompactReviewSection } from './CompactReviewSection';
+import { FullReviewModal } from './FullReviewModal';
 import { reviewService } from '../../services/reviews';
 import type { ReviewStats } from '../../types/reviews';
 
 interface ReviewSectionProps {
   productId: string;
-  orderId?: string;
   className?: string;
 }
 
-export function ReviewSection({ productId, orderId, className = '' }: ReviewSectionProps) {
+export function ReviewSection({ productId, className = '' }: ReviewSectionProps) {
   const [stats, setStats] = useState<ReviewStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showFullReviews, setShowFullReviews] = useState(false);
 
   // Review service is now a singleton - security handled at order level
 
@@ -46,8 +47,13 @@ export function ReviewSection({ productId, orderId, className = '' }: ReviewSect
   return (
     <div className={className}>
       <CompactReviewSection
+        stats={stats}
+        onClick={() => setShowFullReviews(true)}
+      />
+      <FullReviewModal
+        isOpen={showFullReviews}
+        onClose={() => setShowFullReviews(false)}
         productId={productId}
-        orderId={orderId}
         stats={stats}
       />
     </div>
