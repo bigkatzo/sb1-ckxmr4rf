@@ -256,9 +256,9 @@ export function DeliveredOrderReviewOverlay({
 
   return (
     <>
-      {/* Transparent Overlay */}
+      {/* Semi-transparent background overlay - only covers bottom 70% */}
       <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-40 transition-opacity duration-300" 
+        className="absolute inset-x-0 bottom-0 h-[70%] bg-black/60 backdrop-blur-[2px] z-40 transition-opacity duration-300 rounded-lg" 
         onClick={() => {
           if (!isEditing) {
             setShowOverlay(false);
@@ -268,40 +268,41 @@ export function DeliveredOrderReviewOverlay({
           }
         }} 
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent rounded-xl flex items-end p-6 z-50">
+      {/* Content container - positioned in bottom half */}
+      <div className="absolute inset-x-0 bottom-0 rounded-lg flex items-end p-4 z-50">
         <div 
-          className="w-full bg-gray-900/95 backdrop-blur-md rounded-xl p-6 border border-gray-700/50 shadow-2xl transform transition-all duration-300 ease-out"
+          className="w-full bg-gray-900/95 backdrop-blur-md rounded-xl p-5 border border-gray-700/50 shadow-2xl transform transition-all duration-300 ease-out"
           onClick={(e) => e.stopPropagation()}
         >
           {existingReview && !isEditing ? (
-            // Show existing review display - centered and properly formatted
-            <div className="flex flex-col items-center space-y-6 max-w-md mx-auto">
+            // Show existing review display - more compact
+            <div className="flex flex-col items-center space-y-4 max-w-md mx-auto">
               <div className="text-center">
-                <h4 className="text-white font-semibold text-xl mb-2 tracking-tight">Your Review</h4>
+                <h4 className="text-white font-semibold text-lg mb-1 tracking-tight">Your Review</h4>
                 <p className="text-gray-300 text-sm">
-                  Thank you for reviewing {productName}!
+                  Thank you for reviewing this product!
                 </p>
               </div>
 
               {/* Rating Display */}
-              <div className="flex flex-col items-center space-y-3">
-                <StarRating rating={existingReview.product_rating} size="lg" />
+              <div className="flex flex-col items-center space-y-2">
+                <StarRating rating={existingReview.product_rating} size="md" />
                 <span className="text-gray-300 text-sm font-medium">
                   {existingReview.product_rating}/5 stars
                 </span>
               </div>
 
-              {/* Review Text Display */}
+              {/* Review Text Display - more compact */}
               {existingReview.review_text && (
-                <div className="w-full bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-                  <p className="text-gray-200 text-sm leading-relaxed text-center italic">
+                <div className="w-full bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                  <p className="text-gray-200 text-sm leading-relaxed text-center italic line-clamp-2">
                     "{existingReview.review_text}"
                   </p>
                 </div>
               )}
 
               {/* Action buttons */}
-              <div className="flex items-center gap-4 w-full max-w-xs">
+              <div className="flex items-center gap-3 w-full max-w-xs">
                 <button
                   onClick={() => {
                     setShowOverlay(false);
@@ -309,23 +310,23 @@ export function DeliveredOrderReviewOverlay({
                       onDismiss();
                     }
                   }}
-                  className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition-colors text-sm font-medium"
+                  className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
                 >
                   Close
                 </button>
                 <button
                   onClick={handleEditReview}
-                  className="flex-1 px-6 py-3 bg-secondary text-white rounded-xl hover:bg-secondary-dark transition-colors text-sm font-medium shadow-lg shadow-secondary/20"
+                  className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors text-sm font-medium shadow-lg shadow-secondary/20"
                 >
                   Edit Review
                 </button>
               </div>
             </div>
           ) : (
-            // Show review form - either for new review or editing existing
-            <div className="flex flex-col items-center space-y-6 max-w-sm mx-auto">
+            // Show review form - more compact
+            <div className="flex flex-col items-center space-y-4 max-w-sm mx-auto">
               <div className="text-center">
-                <h4 className="text-white font-semibold text-xl mb-2 tracking-tight">
+                <h4 className="text-white font-semibold text-lg mb-1 tracking-tight">
                   {existingReview && isEditing ? 'Edit Your Review' : 'Leave a Review!'}
                 </h4>
                 <p className="text-gray-300 text-sm">
@@ -336,12 +337,12 @@ export function DeliveredOrderReviewOverlay({
               </div>
 
               {/* Rating */}
-              <div className="flex flex-col items-center space-y-3">
+              <div className="flex flex-col items-center space-y-2">
                 <StarRating
                   rating={rating}
                   onRatingChange={setRating}
                   interactive
-                  size="lg"
+                  size="md"
                 />
               </div>
 
@@ -350,22 +351,24 @@ export function DeliveredOrderReviewOverlay({
                 <textarea
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-800/80 border border-gray-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent resize-none text-sm transition-all duration-200"
-                  rows={3}
+                  className="w-full px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent resize-none text-sm transition-all duration-200"
+                  rows={2}
                   placeholder="Share your thoughts about this product..."
                   maxLength={500}
                 />
-                <div className="text-xs text-gray-400 mt-2 text-right">
+                <div className="text-xs text-gray-400 mt-1 text-right">
                   {reviewText.length}/500 characters
                 </div>
               </div>
 
               {error && (
-                <div className="text-red-400 text-sm bg-red-500/10 px-4 py-2 rounded-lg text-center">{error}</div>
+                <div className="text-red-400 text-sm bg-red-500/10 px-3 py-1.5 rounded-lg text-center">
+                  {error}
+                </div>
               )}
 
               {/* Action buttons */}
-              <div className="flex items-center gap-4 w-full max-w-xs">
+              <div className="flex items-center gap-3 w-full max-w-xs">
                 <button
                   onClick={() => {
                     if (existingReview && isEditing) {
@@ -377,14 +380,14 @@ export function DeliveredOrderReviewOverlay({
                       }
                     }
                   }}
-                  className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition-colors text-sm font-medium"
+                  className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
                 >
                   {existingReview && isEditing ? 'Cancel' : 'Skip'}
                 </button>
                 <button
                   onClick={handleSubmitReview}
                   disabled={submitting || rating === 0}
-                  className="flex-1 px-6 py-3 bg-secondary text-white rounded-xl hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-lg shadow-secondary/20"
+                  className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-lg shadow-secondary/20"
                 >
                   {submitting ? 'Submitting...' : (existingReview && isEditing ? 'Update' : 'Submit')}
                 </button>
