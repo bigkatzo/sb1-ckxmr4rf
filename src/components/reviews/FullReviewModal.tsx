@@ -41,7 +41,12 @@ export function FullReviewModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Product Reviews">
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      title="Product Reviews"
+      className="z-[60]"
+    >
       <div className="bg-gray-900 rounded-lg shadow-xl max-w-3xl w-full mx-auto">
         <div className="p-6 space-y-6">
           {/* Review Statistics */}

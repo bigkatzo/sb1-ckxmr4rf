@@ -106,7 +106,7 @@ export function Modal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 overflow-y-auto"
+      className={`fixed inset-0 z-[60] overflow-y-auto ${className}`}
       style={{
         paddingTop: 'max(16px, env(safe-area-inset-top))',
         paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
@@ -120,7 +120,7 @@ export function Modal({
     >
       {/* Enhanced backdrop with smooth transition and blur */}
       <div 
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-all duration-300 ease-out"
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-all duration-300 ease-out z-[55]"
         onClick={handleBackdropClick}
         aria-hidden="true"
         style={{
@@ -130,7 +130,7 @@ export function Modal({
       />
       
       {/* Modal container with improved mobile handling */}
-      <div className="flex min-h-full items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="flex min-h-full items-center justify-center p-4 sm:p-6 lg:p-8 z-[65]">
         <div 
           className={`
             relative w-full ${maxWidthClasses[maxWidth]} 

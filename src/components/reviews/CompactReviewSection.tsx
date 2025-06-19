@@ -23,11 +23,16 @@ export function CompactReviewSection({ stats, className = '', onClick }: Compact
       className={`w-full text-left hover:bg-gray-800/50 rounded-lg p-4 transition-colors ${className}`}
     >
       <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <StarRating rating={stats.averageRating} size="sm" />
-            <span className="text-gray-300">
-              {stats.averageRating.toFixed(1)} ({stats.totalReviews} {stats.totalReviews === 1 ? 'review' : 'reviews'})
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <StarRating rating={stats.averageRating} size="md" />
+              <span className="text-lg font-medium text-gray-200">
+                {stats.averageRating.toFixed(1)}
+              </span>
+            </div>
+            <span className="text-sm text-gray-400">
+              ({stats.totalReviews} {stats.totalReviews === 1 ? 'review' : 'reviews'})
             </span>
           </div>
           
