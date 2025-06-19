@@ -1,52 +1,52 @@
-import React, { useState, useEffect } from 'react';
-import { ReviewPreview } from './ReviewPreview';
+import { useState, useEffect } from 'react';
+import { CompactReviewSection } from './CompactReviewSection';
 import { reviewService } from '../../services/reviews';
-import type { FormattedReview } from '../../types/reviews';
+import type { ReviewStats } from '../../types/reviews';
 
 interface ReviewSectionProps {
   productId: string;
+  orderId?: string;
+  className?: string;
 }
 
-export function ReviewSection({ productId }: ReviewSectionProps) {
-  const [reviews, setReviews] = useState<FormattedReview[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+export function ReviewSection({ productId, orderId, className = '' }: ReviewSectionProps) {
+  const [stats, setStats] = useState<ReviewStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadReviews();
-  }, [productId, currentPage]);
+    loadData();
+  }, [productId]);
 
-  const loadReviews = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const { reviews: newReviews, totalCount: newTotal } = await reviewService.getProductReviews(
-        productId,
-        currentPage
-      );
-      setReviews(newReviews);
-      setTotalCount(newTotal);
+      const statsData = await reviewService.getProductStats(productId);
+      setStats(statsData);
     } catch (error) {
-      console.error('Error loading reviews:', error);
+      console.error('Failed to load review data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-    // Scroll the reviews section into view when changing pages
-    document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' });
-  };
+  if (loading) {
+    return <div className="animate-pulse bg-gray-800 h-32 rounded-lg" />;
+  }
+
+  if (!stats || stats.totalReviews === 0) {
+    return (
+      <div className={`text-center py-8 ${className}`}>
+        <p className="text-gray-400">No reviews yet. Be the first to review!</p>
+      </div>
+    );
+  }
 
   return (
-    <div id="reviews-section" className="mt-6">
-      <ReviewPreview
-        reviews={reviews}
-        totalCount={totalCount}
-        page={currentPage}
-        onPageChange={handlePageChange}
-        loading={loading}
+    <div className={className}>
+      <CompactReviewSection
+        productId={productId}
+        orderId={orderId}
+        stats={stats}
       />
     </div>
   );

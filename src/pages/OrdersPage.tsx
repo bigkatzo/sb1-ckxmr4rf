@@ -21,6 +21,7 @@ import { WalletAuthDebug } from '../components/debug/WalletAuthDebug';
 import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
 import { useUserRole } from '../contexts/UserRoleContext';
 import { OrderShippingAddress } from '../components/OrderShippingAddress';
+import { OrderReviewButton } from '../components/reviews/OrderReviewButton';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -569,6 +570,22 @@ export function OrdersPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Review Section */}
+                    <div className="mt-4 pt-4 border-t border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-medium text-gray-400">Review Product</h4>
+                        {group[0].product_id && (
+                          <OrderReviewButton
+                            orderId={group[0].id}
+                            productId={group[0].product_id}
+                            productName={group[0].product_name || 'Product'}
+                            orderStatus={group[0].status}
+                            className="ml-2"
+                          />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

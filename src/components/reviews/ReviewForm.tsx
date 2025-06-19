@@ -9,10 +9,9 @@ interface ReviewFormProps {
     reviewText?: string;
   };
   merchantId: string;
-  orderId: string;
 }
 
-export function ReviewForm({ onSubmit, initialData, merchantId, orderId }: ReviewFormProps) {
+export function ReviewForm({ onSubmit, initialData, merchantId }: ReviewFormProps) {
   const [productRating, setProductRating] = useState(initialData?.productRating || 0);
   const [reviewText, setReviewText] = useState(initialData?.reviewText || '');
   const [error, setError] = useState<string | null>(null);
@@ -116,5 +115,4 @@ export function ReviewForm({ onSubmit, initialData, merchantId, orderId }: Revie
       </button>
     </form>
   );
-} 
 } 

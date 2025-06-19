@@ -48,22 +48,77 @@ class ReviewService {
     };
   }
 
-  async getProductReviewStats(productId: string): Promise<ReviewStats> {
+  async getProductStats(productId: string): Promise<ReviewStats> {
     const { data, error } = await supabase
-      .rpc('get_product_review_stats', { p_product_id: productId });
+      .rpc('get_product_review_stats', {
+        p_product_id: productId
+      });
 
     if (error) throw error;
-    
-    // Ensure we return a properly formatted ReviewStats object
+
+    // If no stats found, return default
+    if (!data || data.length === 0) {
+      return {
+        totalReviews: 0,
+        averageRating: 0,
+        ratingDistribution: {
+          '1': 0,
+          '2': 0,
+          '3': 0,
+          '4': 0,
+          '5': 0
+        }
+      };
+    }
+
+    const stats = data[0];
     return {
-      totalReviews: data?.total_reviews || 0,
-      averageRating: data?.average_rating || 0,
-      ratingDistribution: data?.rating_distribution || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
-      recentReviews: data?.recent_reviews || []
+      totalReviews: stats.total_reviews || 0,
+      averageRating: stats.average_rating || 0,
+      ratingDistribution: {
+        '1': stats.rating_1_count || 0,
+        '2': stats.rating_2_count || 0,
+        '3': stats.rating_3_count || 0,
+        '4': stats.rating_4_count || 0,
+        '5': stats.rating_5_count || 0
+      }
     };
   }
 
-  async canUserReviewProduct(orderId: string, productId: string): Promise<ReviewPermissionCheck> {
+  async submitReview(productId: string, orderId: string, data: ReviewFormData): Promise<ProductReview> {
+    const { data: review, error } = await supabase
+      .from('product_reviews')
+      .insert({
+        product_id: productId,
+        order_id: orderId,
+        product_rating: data.productRating,
+        review_text: data.reviewText,
+        wallet_address: null // Will be set by RLS policy
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return review;
+  }
+
+  async updateReview(reviewId: string, data: ReviewFormData): Promise<ProductReview> {
+    const { data: review, error } = await supabase
+      .from('product_reviews')
+      .update({
+        product_rating: data.productRating,
+        review_text: data.reviewText,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', reviewId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return review;
+  }
+
+  async canUserReview(orderId: string, productId: string): Promise<ReviewPermissionCheck> {
     const { data, error } = await supabase
       .rpc('can_user_review_product', {
         p_order_id: orderId,
@@ -72,39 +127,34 @@ class ReviewService {
 
     if (error) throw error;
     
+    // Transform database response to match TypeScript interface
+    const dbResult = data || { can_review: false, reason: 'Unknown error' };
     return {
-      canReview: data?.can_review || false,
-      reason: data?.reason || 'Unknown error',
-      orderStatus: data?.order_status
+      canReview: dbResult.can_review || false,
+      reason: dbResult.reason || 'Unknown error',
+      orderStatus: dbResult.order_status
     };
   }
 
-  async submitReview(orderId: string, productId: string, reviewData: ReviewFormData): Promise<void> {
+  async getUserReview(productId: string, orderId: string): Promise<ProductReview | null> {
     const { data, error } = await supabase
-      .rpc('submit_product_review', {
-        p_order_id: orderId,
-        p_product_id: productId,
-        p_product_rating: reviewData.productRating,
-        p_review_text: reviewData.reviewText
-      });
+      .from('product_reviews')
+      .select('*')
+      .eq('product_id', productId)
+      .eq('order_id', orderId)
+      .maybeSingle();
 
     if (error) throw error;
-    
-    if (!data?.success) {
-      throw new Error(data?.error || 'Failed to submit review');
-    }
+    return data;
   }
 
-  private formatWalletAddress(wallet: string): string {
-    if (!wallet || wallet.length < 8) return wallet;
-    return `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
-  }
+  async deleteReview(reviewId: string): Promise<void> {
+    const { error } = await supabase
+      .from('product_reviews')
+      .delete()
+      .eq('id', reviewId);
 
-  private getDaysAgo(dateString: string): number {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (error) throw error;
   }
 }
 
