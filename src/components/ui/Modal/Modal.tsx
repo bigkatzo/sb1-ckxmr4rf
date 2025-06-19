@@ -40,25 +40,16 @@ export function Modal({
   closeOnEscape = true
 }: ModalProps) {
   const [isMobile, setIsMobile] = useState(false);
-  const [hasMobileBuyButton, setHasMobileBuyButton] = useState(false);
   const { activeMarquee } = useAppMessages();
 
   // Enhanced scroll prevention
   usePreventScroll(isOpen);
 
-  // Detect mobile and mobile buy button
+  // Detect mobile for responsive behavior
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth <= 768;
       setIsMobile(mobile);
-      
-      // Check for mobile buy button
-      if (mobile) {
-        const buyButton = document.querySelector('.fixed.bottom-0, .safe-area-bottom');
-        setHasMobileBuyButton(!!buyButton);
-      } else {
-        setHasMobileBuyButton(false);
-      }
     };
     
     checkMobile();
@@ -129,32 +120,31 @@ export function Modal({
     }
   };
 
-  // Calculate dynamic heights accounting for navbar, marquee, and mobile buy buttons
-  const mobileBuyButtonHeight = hasMobileBuyButton ? 120 : 0;
-  const basePadding = 32;
-  const modalHeaderHeight = 80;
-  const navbarHeight = isMobile ? 56 : 64; // h-14 = 56px, h-16 = 64px
-  const marqueeHeight = activeMarquee ? 32 : 0; // top-8 = 32px when marquee is active
-  
-  const calculateMaxHeight = () => {
-    const totalSpacing = basePadding + navbarHeight + marqueeHeight + mobileBuyButtonHeight;
-    return `calc(100vh - ${totalSpacing}px)`;
+  // Dynamic responsive calculations using viewport units and CSS custom properties
+  const getResponsivePadding = () => {
+    return isMobile ? 'max(4vw, 16px)' : 'max(2vw, 24px)';
   };
   
-  const calculateContentMaxHeight = () => {
-    const totalSpacing = basePadding + navbarHeight + marqueeHeight + modalHeaderHeight + mobileBuyButtonHeight;
-    return `calc(100vh - ${totalSpacing}px)`;
+  const getNavbarHeight = () => {
+    return isMobile ? 'max(14vw, 56px)' : 'max(8vh, 64px)';
+  };
+  
+  const getMarqueeHeight = () => {
+    return activeMarquee ? 'max(4vh, 32px)' : '0px';
+  };
+  
+  const getModalHeaderHeight = () => {
+    return isMobile ? 'max(10vh, 80px)' : 'max(8vh, 80px)';
   };
 
   return (
     <div 
       className={`fixed inset-0 flex items-center justify-center ${className.includes('z-[') ? className.match(/z-\[[^\]]+\]/)?.[0] || 'z-[70]' : 'z-[70]'}`}
       style={{
-        paddingTop: `max(env(safe-area-inset-top), ${16 + navbarHeight + marqueeHeight}px)`,
-        paddingLeft: 'max(env(safe-area-inset-left), 16px)',
-        paddingRight: 'max(env(safe-area-inset-right), 16px)',
-        // Account for mobile buy button on small screens, safe area on larger screens
-        paddingBottom: isMobile && hasMobileBuyButton ? `${mobileBuyButtonHeight}px` : 'max(env(safe-area-inset-bottom), 16px)'
+        paddingTop: `max(env(safe-area-inset-top), calc(${getResponsivePadding()} + ${getNavbarHeight()} + ${getMarqueeHeight()}))`,
+        paddingLeft: `max(env(safe-area-inset-left), ${getResponsivePadding()})`,
+        paddingRight: `max(env(safe-area-inset-right), ${getResponsivePadding()})`,
+        paddingBottom: `max(env(safe-area-inset-bottom), ${getResponsivePadding()})`
       }}
       aria-modal="true"
       role="dialog"
@@ -184,9 +174,9 @@ export function Modal({
           ${className.replace(/z-\[[^\]]+\]/g, '').trim()}
         `}
         style={{
-          maxHeight: calculateMaxHeight(),
+          maxHeight: `calc(100vh - ${getResponsivePadding()} - ${getNavbarHeight()} - ${getMarqueeHeight()})`,
           height: 'auto',
-          minHeight: '200px',
+          minHeight: isMobile ? 'max(40vh, 200px)' : 'max(30vh, 200px)',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -222,7 +212,7 @@ export function Modal({
             data-modal-scrollable
             data-allow-scroll="true"
             style={{
-              maxHeight: calculateContentMaxHeight(),
+              maxHeight: `calc(100vh - ${getResponsivePadding()} - ${getNavbarHeight()} - ${getMarqueeHeight()} - ${getModalHeaderHeight()})`,
               overflowY: 'auto',
               overscrollBehavior: 'contain'
             }}

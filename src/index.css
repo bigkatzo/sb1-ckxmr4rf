@@ -381,13 +381,13 @@ body.modal-open {
   -ms-user-select: none;
 }
 
-/* Enhanced mobile modal handling */
+/* Enhanced mobile modal handling - responsive */
 @media (max-width: 640px) {
   .modal-content {
-    min-height: 200px !important;
-    /* Account for navbar (56px) + mobile buy button space (120px) + padding (16px) */
-    max-height: calc(100vh - 16px - 56px - 120px) !important;
-    margin: 8px !important;
+    min-height: max(40vh, 200px) !important;
+    /* Responsive mobile spacing */
+    max-height: calc(100vh - max(4vw, 16px) - max(14vw, 56px)) !important;
+    margin: max(2vw, 8px) !important;
     border-radius: 1rem !important;
   }
   
@@ -396,90 +396,82 @@ body.modal-open {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     overflow-y: auto !important;
-    /* Account for navbar + mobile buy buttons + modal header */
-    max-height: calc(100vh - 56px - 120px - 80px) !important;
-  }
-  
-  /* Additional space for mobile devices with buy buttons */
-  body:has(.fixed.bottom-0) .modal-content {
-    max-height: calc(100vh - 16px - 56px - 120px) !important;
-  }
-  
-  body:has(.fixed.bottom-0) .modal-content [data-modal-scrollable] {
-    max-height: calc(100vh - 56px - 120px - 80px) !important;
+    /* Responsive mobile content area */
+    max-height: calc(100vh - max(14vw, 56px) - max(10vh, 80px) - max(4vw, 16px)) !important;
   }
   
   /* Account for marquee when present on mobile */
   .modal-content.with-marquee {
-    max-height: calc(100vh - 16px - 56px - 32px - 120px) !important;
+    max-height: calc(100vh - max(4vw, 16px) - max(14vw, 56px) - max(4vh, 32px)) !important;
   }
   
   .modal-content.with-marquee [data-modal-scrollable] {
-    max-height: calc(100vh - 56px - 32px - 120px - 80px) !important;
+    max-height: calc(100vh - max(14vw, 56px) - max(4vh, 32px) - max(10vh, 80px) - max(4vw, 16px)) !important;
   }
 }
 
-/* Desktop modal spacing - account for navbar */
+/* Desktop modal spacing - responsive to viewport */
 @media (min-width: 641px) {
   .modal-content {
-    /* Account for navbar (64px) + padding (32px) */
-    max-height: calc(100vh - 32px - 64px) !important;
+    /* Responsive spacing based on viewport */
+    max-height: calc(100vh - max(2vw, 24px) - max(8vh, 64px)) !important;
   }
   
   .modal-content [data-modal-scrollable] {
-    /* Account for navbar + modal header + padding */
-    max-height: calc(100vh - 64px - 80px - 32px) !important;
+    /* Responsive content area */
+    max-height: calc(100vh - max(8vh, 64px) - max(8vh, 80px) - max(2vw, 24px)) !important;
   }
   
   .modal-content.with-marquee {
-    /* Account for navbar + marquee + padding */
-    max-height: calc(100vh - 32px - 64px - 32px) !important;
+    /* Account for marquee responsively */
+    max-height: calc(100vh - max(2vw, 24px) - max(8vh, 64px) - max(4vh, 32px)) !important;
   }
   
   .modal-content.with-marquee [data-modal-scrollable] {
-    /* Account for navbar + marquee + modal header + padding */
-    max-height: calc(100vh - 64px - 32px - 80px - 32px) !important;
+    /* Responsive with marquee */
+    max-height: calc(100vh - max(8vh, 64px) - max(4vh, 32px) - max(8vh, 80px) - max(2vw, 24px)) !important;
   }
 }
 
-/* Prevent modal content from getting squished on very small screens */
+/* Responsive handling for short screens */
 @media (max-height: 600px) {
   .modal-content {
-    min-height: auto !important;
-    /* Account for navbar on short screens */
-    max-height: calc(100vh - 16px - 56px - 60px) !important;
+    min-height: max(25vh, 150px) !important;
+    /* Responsive short screen spacing */
+    max-height: calc(100vh - max(3vh, 16px) - max(10vh, 56px)) !important;
   }
   
   .modal-content [data-modal-scrollable] {
-    max-height: calc(100vh - 56px - 80px - 60px) !important;
+    max-height: calc(100vh - max(10vh, 56px) - max(12vh, 80px) - max(3vh, 16px)) !important;
   }
 }
 
-/* Ultra-short screens (landscape mobile) */
+/* Ultra-responsive landscape mobile handling */
 @media (max-height: 400px) {
   .modal-content {
-    /* Account for navbar on ultra-short screens */
-    max-height: calc(100vh - 8px - 56px - 40px) !important;
+    /* Ultra-responsive spacing for landscape */
+    max-height: calc(100vh - max(2vh, 8px) - max(12vh, 56px)) !important;
+    min-height: max(20vh, 120px) !important;
   }
   
   .modal-content [data-modal-scrollable] {
-    max-height: calc(100vh - 56px - 80px - 40px) !important;
+    max-height: calc(100vh - max(12vh, 56px) - max(15vh, 80px) - max(2vh, 8px)) !important;
   }
   
   .modal-content.with-marquee {
-    max-height: calc(100vh - 8px - 56px - 32px - 40px) !important;
+    max-height: calc(100vh - max(2vh, 8px) - max(12vh, 56px) - max(6vh, 32px)) !important;
   }
   
   .modal-content.with-marquee [data-modal-scrollable] {
-    max-height: calc(100vh - 56px - 32px - 80px - 40px) !important;
+    max-height: calc(100vh - max(12vh, 56px) - max(6vh, 32px) - max(15vh, 80px) - max(2vh, 8px)) !important;
   }
   
   .modal-content .p-4 {
-    padding: 0.5rem !important;
+    padding: max(1vh, 0.5rem) !important;
   }
   
   .modal-content .sm\:p-6 {
-    padding: 0.5rem !important;
+    padding: max(1vh, 0.5rem) !important;
   }
 }
 
