@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { ChevronDown, X, Filter } from 'lucide-react';
+import { ChevronDown, X, Filter, Search } from 'lucide-react';
 import { useMerchantDashboard } from '../../contexts/MerchantDashboardContext';
 import { useCategories } from '../../hooks/useCategories';
 import { useMerchantCollections } from '../../hooks/useMerchantCollections';
@@ -25,13 +25,21 @@ export function InlineFilterBar() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubMenu, setActiveSubMenu] = useState<'collections' | 'categories' | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
   const filterRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Get display values for selected items
   const selectedCollectionName = collections.find(c => c.id === selectedCollection)?.name;
   const selectedCategoryName = categories.find(c => c.id === selectedCategory)?.name;
   
   const hasActiveFilters = selectedCollection || selectedCategory;
+  
+  // Filter collections based on search query
+  const filteredCollections = collections.filter(collection => {
+    if (!collectionSearchQuery.trim()) return true;
+    return collection.name.toLowerCase().includes(collectionSearchQuery.toLowerCase());
+  });
   
   // Close the dropdown when clicking outside
   useEffect(() => {
@@ -46,12 +54,27 @@ export function InlineFilterBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
-  // Reset active submenu when dropdown closes
+  // Reset active submenu and search when dropdown closes
   useEffect(() => {
     if (!isOpen) {
       setActiveSubMenu(null);
+      setCollectionSearchQuery('');
     }
   }, [isOpen]);
+
+  // Reset search when switching submenus
+  useEffect(() => {
+    if (activeSubMenu !== 'collections') {
+      setCollectionSearchQuery('');
+    } else {
+      // Focus search input when collections submenu opens
+      setTimeout(() => {
+        if (searchInputRef.current && !isCollapsed) {
+          searchInputRef.current.focus();
+        }
+      }, 100);
+    }
+  }, [activeSubMenu, isCollapsed]);
 
   // Check viewport size to handle mobile view
   useEffect(() => {
@@ -88,7 +111,9 @@ export function InlineFilterBar() {
   // Format options for rendering
   const renderOptions = (options: FilterOption[], type: 'collection' | 'category') => {
     if (options.length === 0) {
-      return <div className={`px-3 py-2 text-sm text-gray-400 ${isCollapsed ? 'text-xs py-1.5' : ''}`}>No options available</div>;
+      const isSearching = type === 'collection' && collectionSearchQuery.trim();
+      const noResultsText = isSearching ? 'No collections found' : 'No options available';
+      return <div className={`px-3 py-2 text-sm text-gray-400 ${isCollapsed ? 'text-xs py-1.5' : ''}`}>{noResultsText}</div>;
     }
     
     return options.map((option) => (
@@ -241,10 +266,39 @@ export function InlineFilterBar() {
             
             {activeSubMenu === 'collections' && (
               <div className="max-h-[300px] sm:max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
+                {/* Minimal search input for collections */}
+                {!collectionsLoading && (
+                  <div className="px-3 py-2 border-b border-gray-800">
+                    <div className="relative">
+                      <Search className={`absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 ${isCollapsed ? 'h-3 w-3' : 'h-3.5 w-3.5'}`} />
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        placeholder="Search collections..."
+                        value={collectionSearchQuery}
+                        onChange={(e) => setCollectionSearchQuery(e.target.value)}
+                        className={`w-full bg-gray-800 border border-gray-700 rounded text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-colors ${isCollapsed ? 'text-xs px-6 py-1.5 pl-6' : 'text-sm px-8 py-1.5 pl-8'}`}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      {collectionSearchQuery && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCollectionSearchQuery('');
+                          }}
+                          className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors ${isCollapsed ? 'p-0.5' : 'p-1'}`}
+                        >
+                          <X className={isCollapsed ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 {collectionsLoading ? (
                   <div className="px-3 py-2 animate-pulse bg-gray-800/50 mx-3 rounded"></div>
                 ) : (
-                  renderOptions(collections, 'collection')
+                  renderOptions(filteredCollections, 'collection')
                 )}
               </div>
             )}
