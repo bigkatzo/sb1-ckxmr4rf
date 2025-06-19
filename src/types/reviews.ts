@@ -1,13 +1,13 @@
 export interface ProductReview {
   id: string;
-  productId: string;
-  orderId: string;
-  walletAddress: string;
-  productRating: number; // 1-5
-  reviewText: string | null;
-  isVerifiedPurchase: boolean;
-  createdAt: string;
-  updatedAt: string;
+  product_id: string;
+  order_id: string;
+  wallet_address: string;
+  product_rating: number; // 1-5
+  review_text: string | null;
+  is_verified_purchase: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ReviewStats {
@@ -29,7 +29,7 @@ export interface ReviewStats {
 
 export interface ReviewFormData {
   productRating: number;
-  reviewText?: string | null;
+  reviewText: string | null;
 }
 
 export interface FormattedReview {

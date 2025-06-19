@@ -174,7 +174,6 @@ class ReviewService {
     }
 
     // Fallback to regular supabase client (will likely fail due to missing wallet_address)
-    // This is kept for backward compatibility but may need wallet authentication
     const { data: review, error } = await supabase
       .from('product_reviews')
       .insert({
@@ -195,7 +194,6 @@ class ReviewService {
 
   async updateReview(reviewId: string, data: ReviewFormData): Promise<ProductReview> {
     // Update the review - RLS policies will ensure users can only update their own reviews
-    // The updated_at field will be automatically set by the database trigger
     const { data: review, error } = await supabase
       .from('product_reviews')
       .update({
