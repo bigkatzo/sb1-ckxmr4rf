@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { ReviewService } from '../../services/reviews';
+import { reviewService } from '../../services/reviews';
 import { StarRating } from './StarRating';
-import { useSupabaseWithWallet } from '../../hooks/useSupabaseWithWallet';
 
 interface DeliveredOrderReviewOverlayProps {
   orderId: string;
@@ -31,11 +30,7 @@ export function DeliveredOrderReviewOverlay({
   const [error, setError] = useState<string | null>(null);
   const [existingReview, setExistingReview] = useState<any>(null);
 
-  // Get wallet-authenticated Supabase client
-  const { client: walletClient } = useSupabaseWithWallet();
-  
-  // Create review service instance with wallet client
-  const reviewService = walletClient ? new ReviewService(walletClient) : null;
+  // Review service is now a singleton - security handled at order level
 
   useEffect(() => {
     const status = orderStatus.toLowerCase();
@@ -54,12 +49,6 @@ export function DeliveredOrderReviewOverlay({
   }, [forceShowModal]);
 
   const checkReviewStatus = async () => {
-    if (!reviewService) {
-      console.error('DeliveredOrderReviewOverlay: No wallet client available for review service');
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       console.log('DeliveredOrderReviewOverlay: Checking review status for', { orderId, productId, orderStatus });
@@ -94,11 +83,6 @@ export function DeliveredOrderReviewOverlay({
   const handleSubmitReview = async () => {
     if (rating === 0) {
       setError('Please select a rating');
-      return;
-    }
-
-    if (!reviewService) {
-      setError('Please connect your wallet to submit a review');
       return;
     }
 

@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import type { 
   ProductReview, 
   ReviewStats, 
@@ -5,11 +6,8 @@ import type {
   ReviewPermissionCheck,
   FormattedReview 
 } from '../types/reviews';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../lib/database.types';
 
 class ReviewService {
-  constructor(private client: SupabaseClient<Database>) {}
 
   async getProductReviews(productId: string, page = 1, limit = 10): Promise<{
     reviews: FormattedReview[];
@@ -18,7 +16,7 @@ class ReviewService {
     const offset = (page - 1) * limit;
     
     // Use the database function for formatted reviews
-    const { data: reviews, error } = await this.client
+    const { data: reviews, error } = await supabase
       .rpc('get_product_reviews_formatted', {
         p_product_id: productId,
         p_limit: limit,
@@ -29,7 +27,7 @@ class ReviewService {
     if (error) throw error;
 
     // Get total count for pagination
-    const { count } = await this.client
+    const { count } = await supabase
       .from('product_reviews')
       .select('*', { count: 'exact', head: true })
       .eq('product_id', productId);
@@ -52,7 +50,7 @@ class ReviewService {
   }
 
   async getProductStats(productId: string): Promise<ReviewStats> {
-    const { data, error } = await this.client
+    const { data, error } = await supabase
       .rpc('get_product_review_stats', {
         p_product_id: productId
       });
@@ -95,8 +93,8 @@ class ReviewService {
       throw new Error('You have already reviewed this product. Please use the edit option instead.');
     }
 
-    // Use direct table access for now since the function doesn't handle auth properly in this context
-    const { data: review, error } = await this.client
+    // Use direct table access - security is handled at the order level
+    const { data: review, error } = await supabase
       .from('product_reviews')
       .insert({
         product_id: productId,
@@ -116,7 +114,7 @@ class ReviewService {
   }
 
   async updateReview(reviewId: string, data: ReviewFormData): Promise<ProductReview> {
-    const { data: review, error } = await this.client
+    const { data: review, error } = await supabase
       .from('product_reviews')
       .update({
         product_rating: data.productRating,
@@ -132,7 +130,7 @@ class ReviewService {
   }
 
   async canUserReview(orderId: string, productId: string): Promise<ReviewPermissionCheck> {
-    const { data, error } = await this.client
+    const { data, error } = await supabase
       .rpc('can_user_review_product', {
         p_order_id: orderId,
         p_product_id: productId
@@ -150,7 +148,7 @@ class ReviewService {
   }
 
   async getUserReview(productId: string, orderId: string): Promise<ProductReview | null> {
-    const { data, error } = await this.client
+    const { data, error } = await supabase
       .from('product_reviews')
       .select('*')
       .eq('product_id', productId)
@@ -162,7 +160,7 @@ class ReviewService {
   }
 
   async deleteReview(reviewId: string): Promise<void> {
-    const { error } = await this.client
+    const { error } = await supabase
       .from('product_reviews')
       .delete()
       .eq('id', reviewId);
@@ -171,5 +169,6 @@ class ReviewService {
   }
 }
 
-// Export the ReviewService class for creating instances with wallet clients
+// Export singleton instance - security is handled at the order level
+export const reviewService = new ReviewService();
 export { ReviewService }; 

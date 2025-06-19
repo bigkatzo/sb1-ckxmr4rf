@@ -22,8 +22,7 @@ import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
 import { useUserRole } from '../contexts/UserRoleContext';
 import { OrderShippingAddress } from '../components/OrderShippingAddress';
 import { DeliveredOrderReviewOverlay } from '../components/reviews/DeliveredOrderReviewOverlay';
-import { ReviewService } from '../services/reviews';
-import { useSupabaseWithWallet } from '../hooks/useSupabaseWithWallet';
+import { reviewService } from '../services/reviews';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -58,9 +57,7 @@ export function OrdersPage() {
   const [existingReviews, setExistingReviews] = useState<Map<string, any>>(new Map());
   const [showReviewModal, setShowReviewModal] = useState<{ orderId: string; productId: string; productName: string } | null>(null);
   
-  // Get wallet-authenticated Supabase client for reviews
-  const { client: walletClient } = useSupabaseWithWallet();
-  const reviewService = walletClient ? new ReviewService(walletClient) : null;
+  // Review service is now a singleton - security handled at order level
   
   // Debug logging
   useEffect(() => {
@@ -102,8 +99,6 @@ export function OrdersPage() {
   // Load existing reviews for delivered orders
   useEffect(() => {
     const loadExistingReviews = async () => {
-      if (!reviewService) return;
-      
       const deliveredOrders = orders.filter(order => order.status === 'delivered');
       const reviewPromises = deliveredOrders.map(async (order) => {
         try {
@@ -123,10 +118,10 @@ export function OrdersPage() {
       setExistingReviews(reviewMap);
     };
 
-    if (orders.length > 0 && !loading && reviewService) {
+    if (orders.length > 0 && !loading) {
       loadExistingReviews();
     }
-  }, [orders, loading, reviewService]);
+  }, [orders, loading]);
 
   const toggleDropdown = (orderId: string, productId: string) => {
     const key = `${orderId}-${productId}`;
@@ -444,15 +439,6 @@ export function OrdersPage() {
         <div className="space-y-3">
           {orderGroups.map((group) => (
             <div key={group[0].batch_order_id || group[0].id} className="relative bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-secondary/20 transition-all">
-              {/* Review Overlay for Delivered Orders */}
-              {group[0].product_id && group[0].status === 'delivered' && (
-                <DeliveredOrderReviewOverlay
-                  orderId={group[0].id}
-                  productId={group[0].product_id}
-                  productName={group[0].product_name || 'Product'}
-                  orderStatus={group[0].status}
-                />
-              )}
               {/* Order Number Header */}
               <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
                 <div className="flex flex-col gap-0.5 sm:gap-2">
@@ -698,7 +684,7 @@ export function OrdersPage() {
               </div>
               
               {/* Review Overlay for Delivered Orders */}
-              {group[0].status === 'delivered' && (
+              {group[0].status === 'delivered' && group[0].product_id && (
                 <DeliveredOrderReviewOverlay
                   orderId={group[0].id}
                   productId={group[0].product_id}
