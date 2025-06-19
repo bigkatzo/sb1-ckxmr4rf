@@ -1,6 +1,6 @@
 import { useWallet } from '../contexts/WalletContext';
 import { useOrders } from '../hooks/useOrders';
-import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter, Bug, PackageOpen, HelpCircle, ShoppingCart } from 'lucide-react';
+import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter, Bug, PackageOpen, HelpCircle, ShoppingCart, MoreVertical, Star } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../types/orders';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
@@ -22,6 +22,7 @@ import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
 import { useUserRole } from '../contexts/UserRoleContext';
 import { OrderShippingAddress } from '../components/OrderShippingAddress';
 import { DeliveredOrderReviewOverlay } from '../components/reviews/DeliveredOrderReviewOverlay';
+import { reviewService } from '../services/reviews';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -50,6 +51,11 @@ export function OrdersPage() {
   const prevWalletRef = useRef<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
   const { isAdmin } = useUserRole();
+  
+  // Review menu state
+  const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
+  const [existingReviews, setExistingReviews] = useState<Map<string, any>>(new Map());
+  const [showReviewModal, setShowReviewModal] = useState<{ orderId: string; productId: string; productName: string } | null>(null);
   
   // Debug logging
   useEffect(() => {
@@ -87,6 +93,66 @@ export function OrdersPage() {
       setIsInitialLoad(false);
     }
   }, [loading, isInitialLoad]);
+
+  // Load existing reviews for delivered orders
+  useEffect(() => {
+    const loadExistingReviews = async () => {
+      const deliveredOrders = orders.filter(order => order.status === 'delivered');
+      const reviewPromises = deliveredOrders.map(async (order) => {
+        try {
+          const review = await reviewService.getUserReview(order.product_id, order.id);
+          return { orderId: order.id, productId: order.product_id, review };
+        } catch (error) {
+          console.error('Failed to load review:', error);
+          return { orderId: order.id, productId: order.product_id, review: null };
+        }
+      });
+      
+      const results = await Promise.all(reviewPromises);
+      const reviewMap = new Map();
+      results.forEach(({ orderId, productId, review }) => {
+        reviewMap.set(`${orderId}-${productId}`, review);
+      });
+      setExistingReviews(reviewMap);
+    };
+
+    if (orders.length > 0 && !loading) {
+      loadExistingReviews();
+    }
+  }, [orders, loading]);
+
+  const toggleDropdown = (orderId: string, productId: string) => {
+    const key = `${orderId}-${productId}`;
+    const newOpenDropdowns = new Set(openDropdowns);
+    if (newOpenDropdowns.has(key)) {
+      newOpenDropdowns.delete(key);
+    } else {
+      newOpenDropdowns.clear(); // Close other dropdowns
+      newOpenDropdowns.add(key);
+    }
+    setOpenDropdowns(newOpenDropdowns);
+  };
+
+  const handleReviewAction = (orderId: string, productId: string, productName: string) => {
+    setShowReviewModal({ orderId, productId, productName });
+    setOpenDropdowns(new Set()); // Close dropdown
+  };
+
+  const closeReviewModal = () => {
+    setShowReviewModal(null);
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenDropdowns(new Set());
+    };
+
+    if (openDropdowns.size > 0) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openDropdowns]);
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
@@ -475,6 +541,45 @@ export function OrdersPage() {
                           </div>
                         )}
                       </div>
+                      
+                      {/* Three Dots Menu for Delivered Orders */}
+                      {group[0].status === 'delivered' && (
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleDropdown(group[0].id, group[0].product_id);
+                            }}
+                            className="p-1 text-gray-400 hover:text-gray-300 hover:bg-gray-800 rounded-md transition-colors"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          
+                          {/* Dropdown Menu */}
+                          {openDropdowns.has(`${group[0].id}-${group[0].product_id}`) && (
+                            <div 
+                              className="absolute right-0 top-8 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-20 min-w-[160px]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="py-1">
+                                {(() => {
+                                  const reviewKey = `${group[0].id}-${group[0].product_id}`;
+                                  const existingReview = existingReviews.get(reviewKey);
+                                  return (
+                                    <button
+                                      onClick={() => handleReviewAction(group[0].id, group[0].product_id, group[0].product_name || 'Unknown Product')}
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
+                                    >
+                                      <Star className="h-4 w-4" />
+                                      {existingReview ? 'Edit Review' : 'Leave a Review'}
+                                    </button>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     {/* Order Details */}
@@ -597,6 +702,18 @@ export function OrdersPage() {
             </div>
           ))}
         </div>
+      )}
+      
+      {/* Review Modal triggered from three dots menu */}
+      {showReviewModal && (
+        <DeliveredOrderReviewOverlay
+          orderId={showReviewModal.orderId}
+          productId={showReviewModal.productId}
+          productName={showReviewModal.productName}
+          orderStatus="delivered"
+          forceShowModal={true}
+          onClose={closeReviewModal}
+        />
       )}
     </div>
   );

@@ -8,13 +8,17 @@ interface DeliveredOrderReviewOverlayProps {
   productId: string;
   productName: string;
   orderStatus: string;
+  forceShowModal?: boolean;
+  onClose?: () => void;
 }
 
 export function DeliveredOrderReviewOverlay({ 
   orderId, 
   productId, 
   productName, 
-  orderStatus 
+  orderStatus,
+  forceShowModal = false,
+  onClose
 }: DeliveredOrderReviewOverlayProps) {
 
   const [showOverlay, setShowOverlay] = useState(false);
@@ -27,23 +31,39 @@ export function DeliveredOrderReviewOverlay({
   const [existingReview, setExistingReview] = useState<any>(null);
 
   useEffect(() => {
-    if (orderStatus === 'DELIVERED' || orderStatus === 'delivered') {
+    const status = orderStatus.toLowerCase();
+    if (status === 'delivered') {
       checkReviewStatus();
     }
   }, [orderId, productId, orderStatus]);
 
+  // Handle forced modal display
+  useEffect(() => {
+    if (forceShowModal) {
+      checkReviewStatus().then(() => {
+        setShowReviewModal(true);
+      });
+    }
+  }, [forceShowModal]);
+
   const checkReviewStatus = async () => {
     try {
       setLoading(true);
+      console.log('DeliveredOrderReviewOverlay: Checking review status for', { orderId, productId, orderStatus });
+      
       const [permission, existing] = await Promise.all([
         reviewService.canUserReview(orderId, productId),
         reviewService.getUserReview(productId, orderId)
       ]);
       
+      console.log('DeliveredOrderReviewOverlay: Review status result', { permission, existing });
+      
       setExistingReview(existing);
       
       // Show overlay if user can review OR if they have an existing review
-      setShowOverlay(permission.canReview || existing !== null);
+      const shouldShow = permission.canReview || existing !== null;
+      console.log('DeliveredOrderReviewOverlay: Should show overlay?', shouldShow);
+      setShowOverlay(shouldShow);
     } catch (error) {
       console.error('Failed to check review status:', error);
     } finally {
@@ -74,6 +94,7 @@ export function DeliveredOrderReviewOverlay({
       }
       
       setShowReviewModal(false);
+      if (onClose) onClose();
       await checkReviewStatus(); // Refresh status
     } catch (error) {
       setError('Failed to submit review. Please try again.');
@@ -90,9 +111,98 @@ export function DeliveredOrderReviewOverlay({
     setShowReviewModal(true);
   };
 
-  if (loading || !showOverlay || orderStatus !== 'DELIVERED') {
+  // If forceShowModal is true, only show the modal, not the overlay
+  if (forceShowModal) {
+    return (
+      <>
+        {/* Review Modal */}
+        {showReviewModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-900 rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-white">
+                    {existingReview ? 'Edit Review' : 'Review'} {productName}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowReviewModal(false);
+                      if (onClose) onClose();
+                    }}
+                    className="text-gray-400 hover:text-gray-300"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Rating */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-200 mb-2">
+                      Rating
+                    </label>
+                    <StarRating
+                      rating={rating}
+                      onRatingChange={setRating}
+                      interactive
+                      size="lg"
+                    />
+                  </div>
+
+                  {/* Review Text */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-200 mb-2">
+                      Review (Optional)
+                    </label>
+                    <textarea
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent resize-none"
+                      rows={4}
+                      placeholder="Share your thoughts about this product..."
+                      maxLength={500}
+                    />
+                    <div className="text-xs text-gray-400 mt-1">
+                      {reviewText.length}/500 characters
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="text-red-400 text-sm">{error}</div>
+                  )}
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => {
+                        setShowReviewModal(false);
+                        if (onClose) onClose();
+                      }}
+                      className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSubmitReview}
+                      disabled={submitting || rating === 0}
+                      className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {submitting ? 'Submitting...' : (existingReview ? 'Update Review' : 'Submit Review')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  if (loading || !showOverlay || orderStatus.toLowerCase() !== 'delivered') {
     return null;
   }
+
+  console.log('DeliveredOrderReviewOverlay: Rendering overlay!', { orderId, productId, orderStatus, existingReview });
 
   return (
     <>
@@ -164,7 +274,10 @@ export function DeliveredOrderReviewOverlay({
                   {existingReview ? 'Edit Review' : 'Review'} {productName}
                 </h3>
                 <button
-                  onClick={() => setShowReviewModal(false)}
+                  onClick={() => {
+                    setShowReviewModal(false);
+                    if (onClose) onClose();
+                  }}
                   className="text-gray-400 hover:text-gray-300"
                 >
                   <X className="h-5 w-5" />
