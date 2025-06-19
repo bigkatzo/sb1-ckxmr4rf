@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { reviewService } from '../../services/reviews';
 import { StarRating } from './StarRating';
+import { useWallet } from '../../contexts/WalletContext';
 
 interface DeliveredOrderReviewOverlayProps {
   orderId: string;
@@ -21,6 +22,7 @@ export function DeliveredOrderReviewOverlay({
   onClose
 }: DeliveredOrderReviewOverlayProps) {
 
+  const { walletAddress, walletAuthToken } = useWallet();
   const [showOverlay, setShowOverlay] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -29,8 +31,6 @@ export function DeliveredOrderReviewOverlay({
   const [rating, setRating] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [existingReview, setExistingReview] = useState<any>(null);
-
-  // Review service is now a singleton - security handled at order level
 
   useEffect(() => {
     const status = orderStatus.toLowerCase();
@@ -54,7 +54,7 @@ export function DeliveredOrderReviewOverlay({
       console.log('DeliveredOrderReviewOverlay: Checking review status for', { orderId, productId, orderStatus });
       
       const [permission, existing] = await Promise.all([
-        reviewService.canUserReview(orderId, productId),
+        reviewService.canUserReview(orderId, productId, walletAddress || undefined, walletAuthToken || undefined),
         reviewService.getUserReview(productId, orderId)
       ]);
       
@@ -99,7 +99,7 @@ export function DeliveredOrderReviewOverlay({
         await reviewService.submitReview(productId, orderId, {
           productRating: rating,
           reviewText: reviewText.trim() || null
-        });
+        }, walletAddress || undefined, walletAuthToken || undefined);
       }
       
       setShowReviewModal(false);

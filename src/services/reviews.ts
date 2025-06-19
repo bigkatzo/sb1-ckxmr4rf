@@ -8,6 +8,42 @@ import type {
 } from '../types/reviews';
 
 class ReviewService {
+  
+  // Helper to make authenticated RPC calls with wallet headers
+  private async makeWalletAuthenticatedRPC(
+    functionName: string, 
+    params: Record<string, any>,
+    walletAddress: string,
+    walletAuthToken: string
+  ) {
+    if (!walletAddress || !walletAuthToken) {
+      throw new Error('Wallet authentication required');
+    }
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/${functionName}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'X-Wallet-Address': walletAddress,
+          'X-Wallet-Auth-Token': walletAuthToken
+        },
+        body: JSON.stringify(params)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`RPC call failed: ${response.status}`);
+    }
+
+    return response.json();
+  }
 
   async getProductReviews(productId: string, page = 1, limit = 10): Promise<{
     reviews: FormattedReview[];
@@ -86,22 +122,45 @@ class ReviewService {
     };
   }
 
-  async submitReview(productId: string, orderId: string, data: ReviewFormData): Promise<ProductReview> {
-    // Check if review already exists first
-    const existing = await this.getUserReview(productId, orderId);
-    if (existing) {
-      throw new Error('You have already reviewed this product. Please use the edit option instead.');
+  async submitReview(productId: string, orderId: string, data: ReviewFormData, walletAddress?: string, walletAuthToken?: string): Promise<ProductReview> {
+    // If wallet context is provided, use authenticated RPC
+    if (walletAddress && walletAuthToken) {
+      const result = await this.makeWalletAuthenticatedRPC('submit_product_review', {
+        p_order_id: orderId,
+        p_product_id: productId,
+        p_product_rating: data.productRating,
+        p_review_text: data.reviewText || null
+      }, walletAddress, walletAuthToken);
+
+      // Check if the function returned an error
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      // Fetch the created review to return it
+      const { data: review, error: fetchError } = await supabase
+        .from('product_reviews')
+        .select('*')
+        .eq('id', result.review_id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching created review:', fetchError);
+        throw fetchError;
+      }
+
+      return review;
     }
 
-    // Use direct table access - security is handled at the order level
+    // Fallback to regular supabase client (will likely fail due to missing wallet_address)
+    // This is kept for backward compatibility but may need wallet authentication
     const { data: review, error } = await supabase
       .from('product_reviews')
       .insert({
         product_id: productId,
         order_id: orderId,
         product_rating: data.productRating,
-        review_text: data.reviewText
-        // wallet_address will be set by RLS trigger
+        review_text: data.reviewText || null
       })
       .select()
       .single();
@@ -114,22 +173,43 @@ class ReviewService {
   }
 
   async updateReview(reviewId: string, data: ReviewFormData): Promise<ProductReview> {
+    // Update the review - RLS policies will ensure users can only update their own reviews
+    // The updated_at field will be automatically set by the database trigger
     const { data: review, error } = await supabase
       .from('product_reviews')
       .update({
         product_rating: data.productRating,
-        review_text: data.reviewText,
-        updated_at: new Date().toISOString()
+        review_text: data.reviewText || null
       })
       .eq('id', reviewId)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Review update error:', error);
+      throw error;
+    }
     return review;
   }
 
-  async canUserReview(orderId: string, productId: string): Promise<ReviewPermissionCheck> {
+  async canUserReview(orderId: string, productId: string, walletAddress?: string, walletAuthToken?: string): Promise<ReviewPermissionCheck> {
+    // If wallet context is provided, use authenticated RPC
+    if (walletAddress && walletAuthToken) {
+      const data = await this.makeWalletAuthenticatedRPC('can_user_review_product', {
+        p_order_id: orderId,
+        p_product_id: productId
+      }, walletAddress, walletAuthToken);
+      
+      // Transform database response to match TypeScript interface
+      const dbResult = data || { can_review: false, reason: 'Unknown error' };
+      return {
+        canReview: dbResult.can_review || false,
+        reason: dbResult.reason || 'Unknown error',
+        orderStatus: dbResult.order_status
+      };
+    }
+
+    // Fallback to regular supabase client
     const { data, error } = await supabase
       .rpc('can_user_review_product', {
         p_order_id: orderId,

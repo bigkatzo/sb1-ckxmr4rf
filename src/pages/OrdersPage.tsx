@@ -118,10 +118,10 @@ export function OrdersPage() {
       setExistingReviews(reviewMap);
     };
 
-    if (orders.length > 0 && !loading) {
+    if (orders.length > 0 && !loading && walletAddress && walletAuthToken) {
       loadExistingReviews();
     }
-  }, [orders, loading]);
+  }, [orders, loading, walletAddress, walletAuthToken]);
 
   const toggleDropdown = (orderId: string, productId: string) => {
     const key = `${orderId}-${productId}`;
