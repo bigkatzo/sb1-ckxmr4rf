@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal/Modal';
 import { ReviewStats } from './ReviewStats';
 import { StarRating } from './StarRating';
-import { Shield, Clock } from 'lucide-react';
+import { Shield, Clock, CheckCircle2 } from 'lucide-react';
 import { reviewService } from '../../services/reviews';
 import type { ReviewStats as ReviewStatsType, FormattedReview } from '../../types/reviews';
+import { formatDistanceToNow } from 'date-fns';
 
 interface FullReviewModalProps {
   isOpen: boolean;
@@ -94,7 +95,16 @@ export function FullReviewModal({
                         <span className="text-gray-500 font-mono">
                           {review.formattedWallet}
                         </span>
+                        {review.isVerifiedPurchase && (
+                          <span className="text-green-400 flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Verified
+                          </span>
+                        )}
                       </div>
+                      <span className="text-gray-400">
+                        {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}
+                      </span>
                     </div>
                   </div>
                 ))}

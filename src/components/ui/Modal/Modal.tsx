@@ -96,6 +96,37 @@ export function Modal({
     return () => document.removeEventListener('keydown', handleTabKey);
   }, [isOpen]);
 
+  // Lock scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Store current scroll position and body styles
+      const scrollY = window.scrollY;
+      const originalStyles = {
+        overflow: document.body.style.overflow,
+        position: document.body.style.position,
+        width: document.body.style.width,
+        top: document.body.style.top,
+      };
+
+      // Lock scroll
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = `-${scrollY}px`;
+
+      return () => {
+        // Restore original styles
+        document.body.style.overflow = originalStyles.overflow;
+        document.body.style.position = originalStyles.position;
+        document.body.style.width = originalStyles.width;
+        document.body.style.top = originalStyles.top;
+        
+        // Restore scroll position
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -108,8 +139,8 @@ export function Modal({
     <div 
       className={`fixed inset-0 z-[60] overflow-y-auto ${className}`}
       style={{
-        paddingTop: 'max(16px, env(safe-area-inset-top))',
-        paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+        paddingTop: 'calc(max(16px, env(safe-area-inset-top)) + var(--navbar-height, 64px))',
+        paddingBottom: 'calc(max(16px, env(safe-area-inset-bottom)) + var(--mobile-buy-button-height, 80px))',
         paddingLeft: 'max(16px, env(safe-area-inset-left))',
         paddingRight: 'max(16px, env(safe-area-inset-right))'
       }}
@@ -140,7 +171,7 @@ export function Modal({
             ${className}
           `}
           style={{
-            maxHeight: 'calc(100vh - max(32px, env(safe-area-inset-top)) - max(32px, env(safe-area-inset-bottom)))',
+            maxHeight: 'calc(100vh - var(--navbar-height, 64px) - var(--mobile-buy-button-height, 80px) - max(32px, env(safe-area-inset-top)) - max(32px, env(safe-area-inset-bottom)))',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)'
           }}
           onClick={(e) => e.stopPropagation()}

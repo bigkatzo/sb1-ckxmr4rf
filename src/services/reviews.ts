@@ -45,6 +45,33 @@ class ReviewService {
     return response.json();
   }
 
+  private formatWalletAddress(walletAddress: string): string {
+    if (!walletAddress || walletAddress.length < 4) return walletAddress;
+    return `...${walletAddress.slice(-4)}`;
+  }
+
+  async getFormattedReviews(productId: string, limit = 10, offset = 0): Promise<FormattedReview[]> {
+    const { data: reviews, error } = await supabase
+      .from('product_reviews')
+      .select('*')
+      .eq('product_id', productId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    return reviews.map(review => ({
+      id: review.id,
+      productRating: review.product_rating,
+      reviewText: review.review_text,
+      formattedWallet: this.formatWalletAddress(review.wallet_address),
+      createdAt: review.created_at,
+      updatedAt: review.updated_at,
+      isVerifiedPurchase: review.is_verified_purchase,
+      daysAgo: Math.floor((Date.now() - new Date(review.created_at).getTime()) / (1000 * 60 * 60 * 24))
+    }));
+  }
+
   async getProductReviews(productId: string, page = 1, limit = 10): Promise<{
     reviews: FormattedReview[];
     totalCount: number;
