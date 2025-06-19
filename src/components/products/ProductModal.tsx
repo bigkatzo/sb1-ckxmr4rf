@@ -15,8 +15,10 @@ import { ProductNotes } from './ProductNotes';
 import { AddToCartButton } from '../cart/AddToCartButton';
 import { CompactCreator } from '../ui/CompactCreator';
 import { RichTextDisplay } from '../ui/RichTextDisplay';
+import { reviewService } from '../../services/reviews';
 import type { Product as BaseProduct } from '../../types/variants';
 import type { MerchantTier } from '../../types/collections';
+import type { ReviewStats } from '../../types/reviews';
 import { preloadImages, preloadGallery } from '../../utils/ImagePreloader';
 import { prefetchGallery, updateGalleryImage } from '../../lib/service-worker';
 import { validateImageUrl } from '../../utils/imageValidator';
@@ -119,6 +121,8 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(product.reviewStats || null);
+  const [loadingReviews, setLoadingReviews] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const images = product.images?.length ? product.images : [product.imageUrl];
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
@@ -188,6 +192,29 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [onClose]);
+
+  // Load review stats when modal opens
+  useEffect(() => {
+    if (!reviewStats && !loadingReviews) {
+      setLoadingReviews(true);
+      reviewService.getProductStats(product.id)
+        .then(stats => {
+          setReviewStats(stats);
+        })
+        .catch(error => {
+          console.error('Failed to load review stats:', error);
+          // Set empty stats on error so we don't keep retrying
+          setReviewStats({
+            totalReviews: 0,
+            averageRating: 0,
+            ratingDistribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
+          });
+        })
+        .finally(() => {
+          setLoadingReviews(false);
+        });
+    }
+  }, [product.id, reviewStats, loadingReviews]);
 
   const handleOptionChange = (variantId: string, value: string) => {
     setSelectedOptions(prev => ({
@@ -815,14 +842,28 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                   )}
 
                   {/* Review Section */}
-                  {product.reviewStats && (
-                    <div className="border-t pt-4 mt-4">
+                  <div className="border-t pt-4 mt-4" style={{ borderColor: 'var(--color-card-background)' }}>
+                    <h3 
+                      className="text-sm font-medium mb-3"
+                      style={{ color: 'var(--color-text)' }}
+                    >
+                      Customer Reviews
+                    </h3>
+                    {loadingReviews ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-secondary"></div>
+                      </div>
+                    ) : reviewStats ? (
                       <CompactReviewSection 
                         productId={product.id}
-                        stats={product.reviewStats}
+                        stats={reviewStats}
                       />
-                    </div>
-                  )}
+                    ) : (
+                      <div className="text-gray-400 text-sm py-4">
+                        No reviews yet. Be the first to review this product!
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
