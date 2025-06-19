@@ -98,108 +98,107 @@ export function FullReviewModal({
       isOpen={isOpen} 
       onClose={onClose} 
       title="Product Reviews"
-      className="z-[60]"
+      maxWidth="3xl"
+      className="z-[70]"
     >
-      <div className="bg-gray-900 rounded-lg shadow-xl max-w-3xl w-full mx-auto">
-        <div className="p-6 space-y-6">
-          {/* Review Statistics */}
-          <ReviewStats stats={stats} />
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        {/* Review Statistics */}
+        <ReviewStats stats={stats} />
 
-          {/* Sort Controls */}
-          <div className="flex items-center justify-between border-b border-gray-800 pb-4">
-            <h3 className="text-lg font-medium text-white">All Reviews</h3>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">Sort by:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {Object.entries(sortOptions).map(([key, { label }]) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
-            </div>
+        {/* Sort Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 border-b border-gray-800 pb-4">
+          <h3 className="text-lg font-medium text-white">All Reviews</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400">Sort by:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary min-w-0 flex-1 sm:flex-none"
+            >
+              {Object.entries(sortOptions).map(([key, { label }]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
           </div>
+        </div>
 
-          {/* Reviews List */}
-          <div className="space-y-4">
-            {loading ? (
+        {/* Reviews List */}
+        <div className="space-y-4">
+          {loading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="h-24 bg-gray-800 rounded-lg"></div>
+                </div>
+              ))}
+            </div>
+          ) : reviews.length > 0 ? (
+            <>
               <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-24 bg-gray-800 rounded-lg"></div>
-                  </div>
-                ))}
-              </div>
-            ) : reviews.length > 0 ? (
-              <>
-                <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <StarRating rating={review.productRating} size="md" />
-                          {review.isVerifiedPurchase && (
-                            <div className="flex items-center gap-1 text-green-400 text-xs">
-                              <Shield className="h-3 w-3" />
-                              <span>Verified Purchase</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 text-gray-400 text-xs">
-                          <Clock className="h-3 w-3" />
-                          <span>{formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}</span>
-                        </div>
+                {reviews.map((review) => (
+                  <div key={review.id} className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <StarRating rating={review.productRating} size="md" />
+                        {review.isVerifiedPurchase && (
+                          <div className="flex items-center gap-1 text-green-400 text-xs">
+                            <Shield className="h-3 w-3 flex-shrink-0" />
+                            <span>Verified Purchase</span>
+                          </div>
+                        )}
                       </div>
-                      
-                      {review.reviewText && (
-                        <p className="text-gray-300 mb-3 leading-relaxed">
-                          {review.reviewText}
-                        </p>
-                      )}
-                      
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500 font-mono">
-                            {review.formattedWallet}
-                          </span>
-                          {review.isVerifiedPurchase && (
-                            <span className="text-green-400 flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Verified
-                            </span>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-1 text-gray-400 text-xs">
+                        <Clock className="h-3 w-3 flex-shrink-0" />
+                        <span>{formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-
-                {/* Load More Button */}
-                {hasMore && (
-                  <div className="flex justify-center pt-4">
-                    <button
-                      onClick={handleLoadMore}
-                      disabled={loadingMore}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-white transition-colors disabled:opacity-50"
-                    >
-                      {loadingMore ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                      Load More Reviews
-                    </button>
+                    
+                    {review.reviewText && (
+                      <p className="text-gray-300 mb-3 leading-relaxed text-sm sm:text-base">
+                        {review.reviewText}
+                      </p>
+                    )}
+                    
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 text-xs">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-gray-500 font-mono text-xs break-all">
+                          {review.formattedWallet}
+                        </span>
+                        {review.isVerifiedPurchase && (
+                          <span className="text-green-400 flex items-center gap-1 flex-shrink-0">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Verified</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-8 text-gray-400">
-                No reviews yet
+                ))}
               </div>
-            )}
-          </div>
+
+              {/* Load More Button */}
+              {hasMore && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-white transition-colors disabled:opacity-50"
+                  >
+                    {loadingMore ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                    Load More Reviews
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              No reviews yet
+            </div>
+          )}
         </div>
       </div>
     </Modal>

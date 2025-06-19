@@ -16,6 +16,7 @@ import { AddToCartButton } from '../cart/AddToCartButton';
 import { CompactCreator } from '../ui/CompactCreator';
 import { RichTextDisplay } from '../ui/RichTextDisplay';
 import { reviewService } from '../../services/reviews';
+import { usePreventScroll } from '../../hooks/usePreventScroll';
 import type { Product as BaseProduct } from '../../types/variants';
 import type { MerchantTier } from '../../types/collections';
 import type { ReviewStats } from '../../types/reviews';
@@ -135,6 +136,9 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   const [scrollDirection, setScrollDirection] = useState<'horizontal' | 'vertical' | null>(null);
   const isAnimating = useRef(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+
+  // Use standardized scroll prevention
+  usePreventScroll(true);
   
   // Required minimum swipe distance in pixels
   const minSwipeDistance = 50;
@@ -169,14 +173,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     preloadGallery(images, selectedImageIndex, 2);
   }, [selectedImageIndex, product.id, product.slug, images.length]);
 
-  useEffect(() => {
-    // Lock body scroll when modal is open
-    document.body.style.overflow = 'hidden';
-    return () => {
-      // Unlock body scroll when modal is closed
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
+
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
