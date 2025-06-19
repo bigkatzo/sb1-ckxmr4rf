@@ -47,7 +47,8 @@ class ReviewService {
 
   private formatWalletAddress(walletAddress: string): string {
     if (!walletAddress || walletAddress.length < 4) return walletAddress;
-    return `...${walletAddress.slice(-4)}`;
+    // Only show last 4 digits
+    return `•••${walletAddress.slice(-4)}`;
   }
 
   async getFormattedReviews(productId: string, limit = 10, offset = 0): Promise<FormattedReview[]> {
@@ -72,43 +73,35 @@ class ReviewService {
     }));
   }
 
-  async getProductReviews(productId: string, page = 1, limit = 10): Promise<{
-    reviews: FormattedReview[];
-    totalCount: number;
-  }> {
+  async getProductReviews(
+    productId: string,
+    page: number = 1,
+    limit: number = 10,
+    orderBy: string = 'created_at DESC'
+  ): Promise<{ reviews: FormattedReview[]; total: number }> {
     const offset = (page - 1) * limit;
-    
-    // Use the database function for formatted reviews
-    const { data: reviews, error } = await supabase
-      .rpc('get_product_reviews_formatted', {
-        p_product_id: productId,
-        p_limit: limit,
-        p_offset: offset,
-        p_order_by: 'created_at DESC'
-      });
+
+    const { data: reviews, error, count } = await supabase
+      .from('product_reviews')
+      .select('*', { count: 'exact' })
+      .eq('product_id', productId)
+      .order(orderBy.split(' ')[0], { ascending: orderBy.includes('ASC') })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
 
-    // Get total count for pagination
-    const { count } = await supabase
-      .from('product_reviews')
-      .select('*', { count: 'exact', head: true })
-      .eq('product_id', productId);
-
-    const formattedReviews = (reviews || []).map((review: any) => ({
-      id: review.id,
-      productRating: review.product_rating,
-      reviewText: review.review_text,
-      formattedWallet: review.formatted_wallet,
-      createdAt: review.created_at,
-      updatedAt: review.updated_at,
-      isVerifiedPurchase: review.is_verified_purchase,
-      daysAgo: review.days_ago
-    }));
-
     return {
-      reviews: formattedReviews,
-      totalCount: count || 0
+      reviews: (reviews || []).map(review => ({
+        id: review.id,
+        productRating: review.product_rating,
+        reviewText: review.review_text,
+        formattedWallet: this.formatWalletAddress(review.wallet_address),
+        createdAt: review.created_at,
+        updatedAt: review.updated_at,
+        isVerifiedPurchase: review.is_verified_purchase,
+        daysAgo: Math.floor((Date.now() - new Date(review.created_at).getTime()) / (1000 * 60 * 60 * 24))
+      })),
+      total: count || 0
     };
   }
 

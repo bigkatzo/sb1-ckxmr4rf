@@ -177,7 +177,7 @@ export function Modal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header - always visible and accessible */}
-          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700 bg-gray-900 rounded-t-xl shrink-0">
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700 bg-gray-900 rounded-t-xl shrink-0 sticky top-0 z-10">
             <h2 
               id="modal-title"
               className="text-lg sm:text-xl font-semibold text-white truncate pr-4"
@@ -200,7 +200,7 @@ export function Modal({
             className="flex-1 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
             data-modal-scrollable
             style={{
-              maxHeight: 'calc(100vh - max(120px, env(safe-area-inset-top) + env(safe-area-inset-bottom) + 120px))'
+              maxHeight: 'calc(100vh - var(--navbar-height, 64px) - var(--mobile-buy-button-height, 80px) - max(120px, env(safe-area-inset-top) + env(safe-area-inset-bottom) + 120px))'
             }}
           >
             {children}
