@@ -13,8 +13,30 @@ export function usePreventScroll(prevent: boolean) {
   });
 
   useEffect(() => {
+    // Prevent touch scrolling on iOS while allowing modal content to scroll
+    const preventTouchMove = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Allow scrolling within modal content areas
+      const allowedSelectors = [
+        '.modal-content',
+        '.modal-scrollable',
+        '[data-modal-scrollable]',
+        '.overflow-y-auto',
+        '.overflow-auto'
+      ];
+      
+      const isScrollableArea = allowedSelectors.some(selector => 
+        target.closest(selector)
+      );
+      
+      if (!isScrollableArea) {
+        e.preventDefault();
+      }
+    };
+
+    // Store current scroll position and original styles only when locking
     if (prevent) {
-      // Store current scroll position
       scrollY.current = window.scrollY;
       
       // Store original styles
@@ -50,36 +72,18 @@ export function usePreventScroll(prevent: boolean) {
       // Additional mobile scroll prevention
       html.style.overflow = 'hidden';
       
-      // Prevent touch scrolling on iOS while allowing modal content to scroll
-      const preventTouchMove = (e: TouchEvent) => {
-        const target = e.target as HTMLElement;
-        
-        // Allow scrolling within modal content areas
-        const allowedSelectors = [
-          '.modal-content',
-          '.modal-scrollable',
-          '[data-modal-scrollable]',
-          '.overflow-y-auto',
-          '.overflow-auto'
-        ];
-        
-        const isScrollableArea = allowedSelectors.some(selector => 
-          target.closest(selector)
-        );
-        
-        if (!isScrollableArea) {
-          e.preventDefault();
-        }
-      };
-      
       // Add touch event listeners for iOS
       document.addEventListener('touchmove', preventTouchMove, { passive: false });
+    }
+    
+    // Always return cleanup function
+    return () => {
+      const body = document.body;
+      const html = document.documentElement;
       
-      return () => {
+      // Only restore styles and scroll if we were previously preventing scroll
+      if (prevent) {
         // Restore original styles
-        const body = document.body;
-        const html = document.documentElement;
-        
         body.style.overflow = originalStyles.current.overflow;
         body.style.position = originalStyles.current.position;
         body.style.top = originalStyles.current.top;
@@ -95,7 +99,7 @@ export function usePreventScroll(prevent: boolean) {
         
         // Restore scroll position
         window.scrollTo(0, scrollY.current);
-      };
-    }
+      }
+    };
   }, [prevent]);
 }
