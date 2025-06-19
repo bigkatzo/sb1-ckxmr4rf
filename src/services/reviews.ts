@@ -1,4 +1,3 @@
-import { supabase } from '../lib/supabase';
 import type { 
   ProductReview, 
   ReviewStats, 
@@ -6,8 +5,12 @@ import type {
   ReviewPermissionCheck,
   FormattedReview 
 } from '../types/reviews';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../lib/database.types';
 
 class ReviewService {
+  constructor(private client: SupabaseClient<Database>) {}
+
   async getProductReviews(productId: string, page = 1, limit = 10): Promise<{
     reviews: FormattedReview[];
     totalCount: number;
@@ -15,7 +18,7 @@ class ReviewService {
     const offset = (page - 1) * limit;
     
     // Use the database function for formatted reviews
-    const { data: reviews, error } = await supabase
+    const { data: reviews, error } = await this.client
       .rpc('get_product_reviews_formatted', {
         p_product_id: productId,
         p_limit: limit,
@@ -26,7 +29,7 @@ class ReviewService {
     if (error) throw error;
 
     // Get total count for pagination
-    const { count } = await supabase
+    const { count } = await this.client
       .from('product_reviews')
       .select('*', { count: 'exact', head: true })
       .eq('product_id', productId);
@@ -49,7 +52,7 @@ class ReviewService {
   }
 
   async getProductStats(productId: string): Promise<ReviewStats> {
-    const { data, error } = await supabase
+    const { data, error } = await this.client
       .rpc('get_product_review_stats', {
         p_product_id: productId
       });
@@ -86,24 +89,34 @@ class ReviewService {
   }
 
   async submitReview(productId: string, orderId: string, data: ReviewFormData): Promise<ProductReview> {
-    const { data: review, error } = await supabase
+    // Check if review already exists first
+    const existing = await this.getUserReview(productId, orderId);
+    if (existing) {
+      throw new Error('You have already reviewed this product. Please use the edit option instead.');
+    }
+
+    // Use direct table access for now since the function doesn't handle auth properly in this context
+    const { data: review, error } = await this.client
       .from('product_reviews')
       .insert({
         product_id: productId,
         order_id: orderId,
         product_rating: data.productRating,
-        review_text: data.reviewText,
-        wallet_address: null // Will be set by RLS policy
+        review_text: data.reviewText
+        // wallet_address will be set by RLS trigger
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Review submission error:', error);
+      throw error;
+    }
     return review;
   }
 
   async updateReview(reviewId: string, data: ReviewFormData): Promise<ProductReview> {
-    const { data: review, error } = await supabase
+    const { data: review, error } = await this.client
       .from('product_reviews')
       .update({
         product_rating: data.productRating,
@@ -119,7 +132,7 @@ class ReviewService {
   }
 
   async canUserReview(orderId: string, productId: string): Promise<ReviewPermissionCheck> {
-    const { data, error } = await supabase
+    const { data, error } = await this.client
       .rpc('can_user_review_product', {
         p_order_id: orderId,
         p_product_id: productId
@@ -137,7 +150,7 @@ class ReviewService {
   }
 
   async getUserReview(productId: string, orderId: string): Promise<ProductReview | null> {
-    const { data, error } = await supabase
+    const { data, error } = await this.client
       .from('product_reviews')
       .select('*')
       .eq('product_id', productId)
@@ -149,7 +162,7 @@ class ReviewService {
   }
 
   async deleteReview(reviewId: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await this.client
       .from('product_reviews')
       .delete()
       .eq('id', reviewId);
@@ -158,4 +171,5 @@ class ReviewService {
   }
 }
 
-export const reviewService = new ReviewService(); 
+// Export the ReviewService class for creating instances with wallet clients
+export { ReviewService }; 

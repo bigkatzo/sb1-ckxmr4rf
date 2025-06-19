@@ -22,7 +22,8 @@ import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
 import { useUserRole } from '../contexts/UserRoleContext';
 import { OrderShippingAddress } from '../components/OrderShippingAddress';
 import { DeliveredOrderReviewOverlay } from '../components/reviews/DeliveredOrderReviewOverlay';
-import { reviewService } from '../services/reviews';
+import { ReviewService } from '../services/reviews';
+import { useSupabaseWithWallet } from '../hooks/useSupabaseWithWallet';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -56,6 +57,10 @@ export function OrdersPage() {
   const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
   const [existingReviews, setExistingReviews] = useState<Map<string, any>>(new Map());
   const [showReviewModal, setShowReviewModal] = useState<{ orderId: string; productId: string; productName: string } | null>(null);
+  
+  // Get wallet-authenticated Supabase client for reviews
+  const { client: walletClient } = useSupabaseWithWallet();
+  const reviewService = walletClient ? new ReviewService(walletClient) : null;
   
   // Debug logging
   useEffect(() => {
@@ -97,6 +102,8 @@ export function OrdersPage() {
   // Load existing reviews for delivered orders
   useEffect(() => {
     const loadExistingReviews = async () => {
+      if (!reviewService) return;
+      
       const deliveredOrders = orders.filter(order => order.status === 'delivered');
       const reviewPromises = deliveredOrders.map(async (order) => {
         try {
@@ -116,10 +123,10 @@ export function OrdersPage() {
       setExistingReviews(reviewMap);
     };
 
-    if (orders.length > 0 && !loading) {
+    if (orders.length > 0 && !loading && reviewService) {
       loadExistingReviews();
     }
-  }, [orders, loading]);
+  }, [orders, loading, reviewService]);
 
   const toggleDropdown = (orderId: string, productId: string) => {
     const key = `${orderId}-${productId}`;
