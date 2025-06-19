@@ -150,7 +150,7 @@ export function Modal({
     <div 
       className={`fixed inset-0 flex items-center justify-center ${className.includes('z-[') ? className.match(/z-\[[^\]]+\]/)?.[0] || 'z-[70]' : 'z-[70]'}`}
       style={{
-        paddingTop: 'max(env(safe-area-inset-top), 16px)',
+        paddingTop: `max(env(safe-area-inset-top), ${16 + navbarHeight + marqueeHeight}px)`,
         paddingLeft: 'max(env(safe-area-inset-left), 16px)',
         paddingRight: 'max(env(safe-area-inset-right), 16px)',
         // Account for mobile buy button on small screens, safe area on larger screens

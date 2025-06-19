@@ -88,7 +88,13 @@ export function usePreventScroll(prevent: boolean) {
             '[data-modal-scrollable]',
             '.overflow-y-auto',
             '.overflow-auto',
-            '[data-allow-scroll="true"]'
+            '[data-allow-scroll="true"]',
+            'button',
+            'input',
+            'textarea',
+            'select',
+            '[role="button"]',
+            '[tabindex]'
           ];
           
           const isScrollableArea = allowedSelectors.some(selector => 
@@ -103,10 +109,8 @@ export function usePreventScroll(prevent: boolean) {
           }
         };
         
-        // Add comprehensive touch event listeners with all event types
+        // Only prevent touchmove (not touchstart/touchend which are needed for clicks)
         document.addEventListener('touchmove', touchMoveHandler, { passive: false });
-        document.addEventListener('touchstart', touchMoveHandler, { passive: false });
-        document.addEventListener('touchend', touchMoveHandler, { passive: false });
         
         // Prevent wheel scrolling on desktop
         const wheelHandler = (e: WheelEvent) => {
@@ -168,8 +172,6 @@ export function usePreventScroll(prevent: boolean) {
         
         if (storedTouchHandler) {
           document.removeEventListener('touchmove', storedTouchHandler);
-          document.removeEventListener('touchstart', storedTouchHandler);
-          document.removeEventListener('touchend', storedTouchHandler);
         }
         
         if (storedWheelHandler) {
@@ -230,8 +232,6 @@ export function usePreventScroll(prevent: boolean) {
           
           if (storedTouchHandler) {
             document.removeEventListener('touchmove', storedTouchHandler);
-            document.removeEventListener('touchstart', storedTouchHandler);
-            document.removeEventListener('touchend', storedTouchHandler);
           }
           
           if (storedWheelHandler) {

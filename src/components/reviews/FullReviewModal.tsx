@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Modal } from '../ui/Modal/Modal';
 import { ReviewStats } from './ReviewStats';
 import { StarRating } from './StarRating';
@@ -93,13 +94,13 @@ export function FullReviewModal({
     }
   };
 
-  return (
+  const modalContent = (
     <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
       title="Product Reviews"
       maxWidth="3xl"
-      className="z-[80]"
+      className="z-[90]"
     >
       <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Review Statistics */}
@@ -203,4 +204,7 @@ export function FullReviewModal({
       </div>
     </Modal>
   );
+
+  // Render the modal at the root level to avoid stacking context issues
+  return createPortal(modalContent, document.body);
 } 
