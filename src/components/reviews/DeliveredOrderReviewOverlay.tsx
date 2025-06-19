@@ -11,6 +11,8 @@ interface DeliveredOrderReviewOverlayProps {
   orderStatus: string;
   forceShowModal?: boolean;
   onClose?: () => void;
+  forceShow?: boolean;
+  onDismiss?: () => void;
 }
 
 export function DeliveredOrderReviewOverlay({ 
@@ -19,7 +21,9 @@ export function DeliveredOrderReviewOverlay({
   productName, 
   orderStatus,
   forceShowModal = false,
-  onClose
+  onClose,
+  forceShow = false,
+  onDismiss
 }: DeliveredOrderReviewOverlayProps) {
 
   const { walletAddress, walletAuthToken } = useWallet();
@@ -31,6 +35,7 @@ export function DeliveredOrderReviewOverlay({
   const [rating, setRating] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [existingReview, setExistingReview] = useState<any>(null);
+  const [showReviewForm, setShowReviewForm] = useState(false);
 
   useEffect(() => {
     const status = orderStatus.toLowerCase();
@@ -61,6 +66,12 @@ export function DeliveredOrderReviewOverlay({
       console.log('DeliveredOrderReviewOverlay: Review status result', { permission, existing });
       
       setExistingReview(existing);
+      
+      // Initialize form with existing review data if editing
+      if (existing) {
+        setRating(existing.productRating);
+        setReviewText(existing.reviewText || '');
+      }
       
       // For delivered orders, always show the overlay so users can leave or edit reviews
       // The database function returns canReview: false when a review exists, but we still want to show
@@ -102,6 +113,7 @@ export function DeliveredOrderReviewOverlay({
         }, walletAddress || undefined, walletAuthToken || undefined);
       }
       
+      setShowReviewForm(false);
       setShowReviewModal(false);
       if (onClose) onClose();
       await checkReviewStatus(); // Refresh status
@@ -114,10 +126,34 @@ export function DeliveredOrderReviewOverlay({
 
   const handleEditReview = () => {
     if (existingReview) {
-      setRating(existingReview.product_rating);
-      setReviewText(existingReview.review_text || '');
+      setRating(existingReview.productRating);
+      setReviewText(existingReview.reviewText || '');
     }
-    setShowReviewModal(true);
+    setShowReviewForm(true);
+  };
+
+  const handleStartReview = () => {
+    // Reset form for new review
+    if (!existingReview) {
+      setRating(0);
+      setReviewText('');
+    }
+    setError(null);
+    setShowReviewForm(true);
+  };
+
+  const handleCancelReview = () => {
+    setShowReviewForm(false);
+    setError(null);
+    // Reset form if it was a new review
+    if (!existingReview) {
+      setRating(0);
+      setReviewText('');
+    } else {
+      // Restore original values if editing
+      setRating(existingReview.productRating);
+      setReviewText(existingReview.reviewText || '');
+    }
   };
 
   // If forceShowModal is true, only show the modal, not the overlay
@@ -207,7 +243,7 @@ export function DeliveredOrderReviewOverlay({
     );
   }
 
-  if (loading || !showOverlay || orderStatus.toLowerCase() !== 'delivered') {
+  if (loading || (!showOverlay && !forceShow) || orderStatus.toLowerCase() !== 'delivered') {
     return null;
   }
 
@@ -218,134 +254,139 @@ export function DeliveredOrderReviewOverlay({
       {/* Transparent Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent rounded-lg flex items-end p-4 z-10">
         <div className="w-full bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 border border-gray-700/50">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              {existingReview ? (
-                <div className="space-y-2">
-                  <p className="text-white font-medium text-sm">Thank you for your review!</p>
-                  <div className="flex items-center gap-2">
-                    <StarRating rating={existingReview.product_rating} size="sm" />
-                    <span className="text-sm text-gray-300">
-                      {existingReview.product_rating}/5 stars
-                    </span>
+          {!showReviewForm ? (
+            // Initial prompt state
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                {existingReview ? (
+                  <div className="space-y-2">
+                    <p className="text-white font-medium text-sm">Thank you for your review!</p>
+                    <div className="flex items-center gap-2">
+                      <StarRating rating={existingReview.productRating} size="sm" />
+                      <span className="text-sm text-gray-300">
+                        {existingReview.productRating}/5 stars
+                      </span>
+                    </div>
+                    {existingReview.reviewText && (
+                      <p className="text-sm text-gray-400 line-clamp-2">
+                        "{existingReview.reviewText}"
+                      </p>
+                    )}
+                    <button
+                      onClick={handleEditReview}
+                      className="text-sm text-secondary hover:text-secondary-light transition-colors"
+                    >
+                      Edit Review
+                    </button>
                   </div>
-                  {existingReview.review_text && (
-                    <p className="text-sm text-gray-400 line-clamp-2">
-                      "{existingReview.review_text}"
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-white font-medium text-sm">
+                      We hope you loved your products!
                     </p>
-                  )}
+                    <p className="text-gray-300 text-sm">
+                      Let us know what you think:
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {!existingReview && (
                   <button
-                    onClick={handleEditReview}
-                    className="text-sm text-secondary hover:text-secondary-light transition-colors"
+                    onClick={handleStartReview}
+                    className="bg-secondary text-white px-4 py-2 rounded-lg hover:bg-secondary-dark transition-colors text-sm font-medium"
                   >
-                    Edit Review
+                    Leave a Review
                   </button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-white font-medium text-sm">
-                    We hope you loved your products!
-                  </p>
-                  <p className="text-gray-300 text-sm">
-                    Let us know what you think:
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {!existingReview && (
-                <button
-                  onClick={() => setShowReviewModal(true)}
-                  className="bg-secondary text-white px-4 py-2 rounded-lg hover:bg-secondary-dark transition-colors text-sm font-medium"
-                >
-                  Leave a Review
-                </button>
-              )}
-              <button
-                onClick={() => setShowOverlay(false)}
-                className="text-gray-400 hover:text-gray-300 p-1"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Review Modal */}
-      {showReviewModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-white">
-                  {existingReview ? 'Edit Review' : 'Review'} {productName}
-                </h3>
+                )}
                 <button
                   onClick={() => {
-                    setShowReviewModal(false);
-                    if (onClose) onClose();
+                    setShowOverlay(false);
+                    if (forceShow && onDismiss) {
+                      onDismiss();
+                    }
                   }}
-                  className="text-gray-400 hover:text-gray-300"
+                  className="text-gray-400 hover:text-gray-300 p-1"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            // Review form state - directly in the overlay
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-white font-medium text-sm">
+                  {existingReview ? 'Edit Your Review' : `Review ${productName}`}
+                </h4>
+                <button
+                  onClick={() => {
+                    handleCancelReview();
+                    if (forceShow && onDismiss) {
+                      onDismiss();
+                    }
+                  }}
+                  className="text-gray-400 hover:text-gray-300 p-1"
+                >
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="space-y-4">
-                {/* Rating */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-2">
-                    Rating
-                  </label>
-                  <StarRating
-                    rating={rating}
-                    onRatingChange={setRating}
-                    interactive
-                    size="lg"
-                  />
-                </div>
+              {/* Rating */}
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-2">
+                  Rating *
+                </label>
+                <StarRating
+                  rating={rating}
+                  onRatingChange={setRating}
+                  interactive
+                  size="md"
+                />
+              </div>
 
-                {/* Review Text */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-2">
-                    Review (Optional)
-                  </label>
-                  <textarea
-                    value={reviewText}
-                    onChange={(e) => setReviewText(e.target.value)}
-                    className="w-full h-24 px-3 py-2 text-gray-200 bg-gray-800 rounded-lg border border-gray-700 
-                             focus:ring-2 focus:ring-secondary focus:border-transparent resize-none"
-                    placeholder="Share your experience..."
-                  />
-                </div>
-
-                {error && (
-                  <div className="text-red-500 text-sm">{error}</div>
-                )}
-
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => setShowReviewModal(false)}
-                    className="flex-1 px-4 py-2 text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSubmitReview}
-                    disabled={submitting}
-                    className="flex-1 px-4 py-2 text-white bg-secondary rounded-lg hover:bg-secondary-dark 
-                             disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {submitting ? 'Submitting...' : (existingReview ? 'Update Review' : 'Submit Review')}
-                  </button>
+              {/* Review Text */}
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-2">
+                  Review (Optional)
+                </label>
+                <textarea
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent resize-none text-sm"
+                  rows={3}
+                  placeholder="Share your thoughts about this product..."
+                  maxLength={500}
+                />
+                <div className="text-xs text-gray-400 mt-1">
+                  {reviewText.length}/500 characters
                 </div>
               </div>
+
+              {error && (
+                <div className="text-red-400 text-sm">{error}</div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleCancelReview}
+                  className="flex-1 px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={submitting || rating === 0}
+                  className="flex-1 px-3 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {submitting ? 'Submitting...' : (existingReview ? 'Update' : 'Submit')}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </>
   );
 } 

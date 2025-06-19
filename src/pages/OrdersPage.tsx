@@ -1,6 +1,6 @@
 import { useWallet } from '../contexts/WalletContext';
 import { useOrders } from '../hooks/useOrders';
-import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter, Bug, PackageOpen, HelpCircle, ShoppingCart, MoreVertical, Star } from 'lucide-react';
+import { Package, ExternalLink, Clock, Ban, CheckCircle2, Truck, Send, Mail, Twitter, Bug, PackageOpen, HelpCircle, ShoppingCart, MoreVertical, Star, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Order, OrderStatus } from '../types/orders';
 import { OptimizedImage } from '../components/ui/OptimizedImage';
@@ -56,6 +56,7 @@ export function OrdersPage() {
   const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
   const [existingReviews, setExistingReviews] = useState<Map<string, any>>(new Map());
   const [showReviewModal, setShowReviewModal] = useState<{ orderId: string; productId: string; productName: string } | null>(null);
+  const [forceShowOverlay, setForceShowOverlay] = useState<Set<string>>(new Set());
   
   // Review service is now a singleton - security handled at order level
   
@@ -136,8 +137,25 @@ export function OrdersPage() {
   };
 
   const handleReviewAction = (orderId: string, productId: string, productName: string) => {
+    // For "Leave Review" - open modal directly 
     setShowReviewModal({ orderId, productId, productName });
     setOpenDropdowns(new Set()); // Close dropdown
+  };
+
+  const handleSeeReview = (orderId: string, productId: string) => {
+    // For "See Review" - force show the overlay temporarily
+    const key = `${orderId}-${productId}`;
+    setForceShowOverlay(prev => new Set([...prev, key]));
+    setOpenDropdowns(new Set()); // Close dropdown
+    
+    // Auto-hide the forced overlay after 10 seconds
+    setTimeout(() => {
+      setForceShowOverlay(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(key);
+        return newSet;
+      });
+    }, 10000);
   };
 
   const closeReviewModal = () => {
@@ -558,15 +576,30 @@ export function OrdersPage() {
                                 {(() => {
                                   const reviewKey = `${group[0].id}-${group[0].product_id}`;
                                   const existingReview = existingReviews.get(reviewKey);
-                                  return (
-                                    <button
-                                      onClick={() => handleReviewAction(group[0].id, group[0].product_id, group[0].product_name || 'Unknown Product')}
-                                      className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
-                                    >
-                                      <Star className="h-4 w-4" />
-                                      {existingReview ? 'Edit Review' : 'Leave a Review'}
-                                    </button>
-                                  );
+                                  
+                                  if (existingReview) {
+                                    // Show "See Review" option for existing reviews
+                                    return (
+                                      <button
+                                        onClick={() => handleSeeReview(group[0].id, group[0].product_id)}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                        See Review
+                                      </button>
+                                    );
+                                  } else {
+                                    // Show "Leave Review" option for no existing reviews
+                                    return (
+                                      <button
+                                        onClick={() => handleReviewAction(group[0].id, group[0].product_id, group[0].product_name || 'Unknown Product')}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
+                                      >
+                                        <Star className="h-4 w-4" />
+                                        Leave Review
+                                      </button>
+                                    );
+                                  }
                                 })()}
                               </div>
                             </div>
@@ -690,6 +723,15 @@ export function OrdersPage() {
                   productId={group[0].product_id}
                   productName={group[0].product_name || 'Unknown Product'}
                   orderStatus={group[0].status}
+                  forceShow={forceShowOverlay.has(`${group[0].id}-${group[0].product_id}`)}
+                  onDismiss={() => {
+                    const key = `${group[0].id}-${group[0].product_id}`;
+                    setForceShowOverlay(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(key);
+                      return newSet;
+                    });
+                  }}
                 />
               )}
             </div>
