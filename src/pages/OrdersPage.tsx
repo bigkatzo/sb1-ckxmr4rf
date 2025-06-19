@@ -584,6 +584,16 @@ export function OrdersPage() {
                   </div>
                 </div>
               </div>
+              
+              {/* Review Overlay for Delivered Orders */}
+              {group[0].status === 'delivered' && (
+                <DeliveredOrderReviewOverlay
+                  orderId={group[0].id}
+                  productId={group[0].product_id}
+                  productName={group[0].product_name || 'Unknown Product'}
+                  orderStatus={group[0].status}
+                />
+              )}
             </div>
           ))}
         </div>
