@@ -21,7 +21,7 @@ import { WalletAuthDebug } from '../components/debug/WalletAuthDebug';
 import { OrderDebugPanel } from '../components/debug/OrderDebugPanel';
 import { useUserRole } from '../contexts/UserRoleContext';
 import { OrderShippingAddress } from '../components/OrderShippingAddress';
-import { OrderReviewButton } from '../components/reviews/OrderReviewButton';
+import { DeliveredOrderReviewOverlay } from '../components/reviews/DeliveredOrderReviewOverlay';
 
 // Helper function to safely parse dates
 const safeParseDate = (date: any): Date => {
@@ -370,7 +370,16 @@ export function OrdersPage() {
       ) : (
         <div className="space-y-3">
           {orderGroups.map((group) => (
-            <div key={group[0].batch_order_id || group[0].id} className="bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-secondary/20 transition-all">
+            <div key={group[0].batch_order_id || group[0].id} className="relative bg-gray-900 rounded-lg overflow-hidden group hover:ring-1 hover:ring-secondary/20 transition-all">
+              {/* Review Overlay for Delivered Orders */}
+              {group[0].product_id && group[0].status === 'delivered' && (
+                <DeliveredOrderReviewOverlay
+                  orderId={group[0].id}
+                  productId={group[0].product_id}
+                  productName={group[0].product_name || 'Product'}
+                  orderStatus={group[0].status}
+                />
+              )}
               {/* Order Number Header */}
               <div className="bg-gray-800/50 px-3 sm:px-4 py-2 sm:py-3">
                 <div className="flex flex-col gap-0.5 sm:gap-2">
@@ -571,21 +580,7 @@ export function OrdersPage() {
                       </div>
                     )}
 
-                    {/* Review Section */}
-                    <div className="mt-4 pt-4 border-t border-gray-800">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-medium text-gray-400">Review Product</h4>
-                        {group[0].product_id && (
-                          <OrderReviewButton
-                            orderId={group[0].id}
-                            productId={group[0].product_id}
-                            productName={group[0].product_name || 'Product'}
-                            orderStatus={group[0].status}
-                            className="ml-2"
-                          />
-                        )}
-                      </div>
-                    </div>
+                    {/* Review Section - now handled by overlay for delivered orders */}
                   </div>
                 </div>
               </div>

@@ -1,11 +1,64 @@
 -- ==========================================
--- PRODUCT REVIEW SYSTEM - FUNCTIONS
+-- PRODUCT REVIEW SYSTEM - COMPLETE MIGRATION
 -- ==========================================
 
 BEGIN;
 
--- Function: Get comprehensive review statistics for a product
-CREATE OR REPLACE FUNCTION get_product_review_stats(p_product_id uuid)
+-- Drop existing table if it exists to ensure clean creation
+DROP TABLE IF EXISTS product_reviews;
+
+-- Create product_reviews table with all required fields
+CREATE TABLE product_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+    wallet_address TEXT NOT NULL,
+    product_rating INTEGER NOT NULL CHECK (product_rating >= 1 AND product_rating <= 5),
+    review_text TEXT CHECK (review_text IS NULL OR length(review_text) BETWEEN 10 AND 1000),
+    is_verified_purchase BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(product_id, wallet_address)
+);
+
+-- Add indexes for performance
+CREATE INDEX IF NOT EXISTS idx_product_reviews_product_id ON product_reviews(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_wallet_address ON product_reviews(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_order_id ON product_reviews(order_id);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_rating ON product_reviews(product_rating);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_verified ON product_reviews(is_verified_purchase);
+
+-- Enable RLS
+ALTER TABLE product_reviews ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+CREATE POLICY "anyone_can_read_reviews"
+    ON product_reviews FOR SELECT
+    USING (true);
+
+CREATE POLICY "authenticated_users_can_manage_reviews"
+    ON product_reviews
+    FOR ALL
+    TO authenticated
+    USING (true)
+    WITH CHECK (true);
+
+-- Create trigger to update updated_at
+CREATE OR REPLACE FUNCTION update_product_review_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_product_review_updated_at
+    BEFORE UPDATE ON product_reviews
+    FOR EACH ROW
+    EXECUTE FUNCTION update_product_review_updated_at();
+
+-- Function: Get product rating stats
+CREATE OR REPLACE FUNCTION get_product_review_stats(p_product_id UUID)
 RETURNS jsonb AS $$
 DECLARE
     result jsonb;
@@ -61,15 +114,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function: Check if user can review a specific product from an order
+-- Function: Check if user can review a product from an order
 CREATE OR REPLACE FUNCTION can_user_review_product(p_order_id uuid, p_product_id uuid)
 RETURNS jsonb AS $$
 DECLARE
     order_record record;
     current_wallet text;
 BEGIN
-    -- Get current user's wallet
-    current_wallet := public.current_user_wallet_address();
+    -- Get current user's wallet using the auth schema function
+    current_wallet := auth.get_header_values()->>'wallet_address';
     
     IF current_wallet IS NULL THEN
         RETURN jsonb_build_object(
@@ -137,8 +190,8 @@ DECLARE
     review_id uuid;
     order_status text;
 BEGIN
-    -- Get current wallet
-    current_wallet := public.current_user_wallet_address();
+    -- Get current wallet using the auth schema function
+    current_wallet := auth.get_header_values()->>'wallet_address';
     
     IF current_wallet IS NULL THEN
         RETURN jsonb_build_object(
@@ -209,7 +262,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function: Get formatted reviews for a product with pagination
+-- Function: Get formatted reviews with pagination
 CREATE OR REPLACE FUNCTION get_product_reviews_formatted(
     p_product_id uuid,
     p_limit integer DEFAULT 10,
@@ -263,7 +316,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
--- Grant execute permissions
+-- Grant permissions
+GRANT SELECT ON product_reviews TO anon;
+GRANT ALL ON product_reviews TO authenticated;
+
+-- Grant function permissions
+GRANT EXECUTE ON FUNCTION get_product_review_stats(UUID) TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION can_user_review_product(uuid, uuid) TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION submit_product_review(uuid, uuid, integer, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_product_reviews_formatted(uuid, integer, integer, text) TO authenticated, anon;
