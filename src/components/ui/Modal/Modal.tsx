@@ -55,7 +55,7 @@ export function Modal({
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, [isOpen]);
+  }, []);
 
   // Keyboard event handling
   useEffect(() => {
@@ -71,46 +71,6 @@ export function Modal({
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose, closeOnEscape]);
-
-  // Focus management
-  useEffect(() => {
-    if (!isOpen) return;
-
-    // Focus the modal when it opens
-    const modalElement = document.querySelector('[role="dialog"]') as HTMLElement;
-    if (modalElement) {
-      modalElement.focus();
-    }
-
-    // Trap focus within modal
-    const handleTabKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-
-      const focusableElements = modalElement?.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-
-      if (!focusableElements || focusableElements.length === 0) return;
-
-      const firstElement = focusableElements[0] as HTMLElement;
-      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-      if (e.shiftKey) {
-        if (document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        }
-      } else {
-        if (document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleTabKey);
-    return () => document.removeEventListener('keydown', handleTabKey);
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -209,12 +169,11 @@ export function Modal({
         >
           <div 
             className="h-full overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
-            data-modal-scrollable
-            data-allow-scroll="true"
             style={{
               maxHeight: `calc(100vh - ${getResponsivePadding()} - ${getNavbarHeight()} - ${getMarqueeHeight()} - ${getModalHeaderHeight()})`,
               overflowY: 'auto',
-              overscrollBehavior: 'contain'
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch' // Enable momentum scrolling on iOS
             }}
           >
             {children}
