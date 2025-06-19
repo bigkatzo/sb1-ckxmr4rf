@@ -99,7 +99,7 @@ export function FullReviewModal({
       onClose={onClose} 
       title="Product Reviews"
       maxWidth="3xl"
-      className="z-[70]"
+      className="z-[80]"
     >
       <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Review Statistics */}

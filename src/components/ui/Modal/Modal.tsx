@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { usePreventScroll } from '../../../hooks/usePreventScroll';
+import { useAppMessages } from '../../../contexts/AppMessagesContext';
 
 interface ModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export function Modal({
 }: ModalProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [hasMobileBuyButton, setHasMobileBuyButton] = useState(false);
+  const { activeMarquee } = useAppMessages();
 
   // Enhanced scroll prevention
   usePreventScroll(isOpen);
@@ -127,28 +129,26 @@ export function Modal({
     }
   };
 
-  // Calculate dynamic heights based on mobile buy button presence
+  // Calculate dynamic heights accounting for navbar, marquee, and mobile buy buttons
   const mobileBuyButtonHeight = hasMobileBuyButton ? 120 : 0;
   const basePadding = 32;
   const modalHeaderHeight = 80;
+  const navbarHeight = isMobile ? 56 : 64; // h-14 = 56px, h-16 = 64px
+  const marqueeHeight = activeMarquee ? 32 : 0; // top-8 = 32px when marquee is active
   
   const calculateMaxHeight = () => {
-    if (isMobile) {
-      return `calc(100vh - ${basePadding}px - ${mobileBuyButtonHeight}px)`;
-    }
-    return `calc(100vh - ${basePadding}px)`;
+    const totalSpacing = basePadding + navbarHeight + marqueeHeight + mobileBuyButtonHeight;
+    return `calc(100vh - ${totalSpacing}px)`;
   };
   
   const calculateContentMaxHeight = () => {
-    if (isMobile) {
-      return `calc(100vh - ${basePadding}px - ${modalHeaderHeight}px - ${mobileBuyButtonHeight}px)`;
-    }
-    return `calc(100vh - ${basePadding}px - ${modalHeaderHeight}px)`;
+    const totalSpacing = basePadding + navbarHeight + marqueeHeight + modalHeaderHeight + mobileBuyButtonHeight;
+    return `calc(100vh - ${totalSpacing}px)`;
   };
 
   return (
     <div 
-      className="fixed inset-0 z-[70] flex items-center justify-center"
+      className={`fixed inset-0 flex items-center justify-center ${className.includes('z-[') ? className.match(/z-\[[^\]]+\]/)?.[0] || 'z-[70]' : 'z-[70]'}`}
       style={{
         paddingTop: 'max(env(safe-area-inset-top), 16px)',
         paddingLeft: 'max(env(safe-area-inset-left), 16px)',
@@ -180,7 +180,8 @@ export function Modal({
           shadow-2xl transform transition-all duration-300 
           modal-content animate-fade-in
           flex flex-col
-          ${className}
+          ${activeMarquee ? 'with-marquee' : ''}
+          ${className.replace(/z-\[[^\]]+\]/g, '').trim()}
         `}
         style={{
           maxHeight: calculateMaxHeight(),

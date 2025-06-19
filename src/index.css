@@ -385,8 +385,8 @@ body.modal-open {
 @media (max-width: 640px) {
   .modal-content {
     min-height: 200px !important;
-    /* Account for mobile buy button space (typically 80-100px + safe areas) */
-    max-height: calc(100vh - 16px - 100px) !important;
+    /* Account for navbar (56px) + mobile buy button space (120px) + padding (16px) */
+    max-height: calc(100vh - 16px - 56px - 120px) !important;
     margin: 8px !important;
     border-radius: 1rem !important;
   }
@@ -396,17 +396,49 @@ body.modal-open {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     overflow-y: auto !important;
-    /* Account for mobile buy buttons */
-    max-height: calc(100vh - 180px) !important;
+    /* Account for navbar + mobile buy buttons + modal header */
+    max-height: calc(100vh - 56px - 120px - 80px) !important;
   }
   
   /* Additional space for mobile devices with buy buttons */
   body:has(.fixed.bottom-0) .modal-content {
-    max-height: calc(100vh - 16px - 120px) !important;
+    max-height: calc(100vh - 16px - 56px - 120px) !important;
   }
   
   body:has(.fixed.bottom-0) .modal-content [data-modal-scrollable] {
-    max-height: calc(100vh - 200px) !important;
+    max-height: calc(100vh - 56px - 120px - 80px) !important;
+  }
+  
+  /* Account for marquee when present on mobile */
+  .modal-content.with-marquee {
+    max-height: calc(100vh - 16px - 56px - 32px - 120px) !important;
+  }
+  
+  .modal-content.with-marquee [data-modal-scrollable] {
+    max-height: calc(100vh - 56px - 32px - 120px - 80px) !important;
+  }
+}
+
+/* Desktop modal spacing - account for navbar */
+@media (min-width: 641px) {
+  .modal-content {
+    /* Account for navbar (64px) + padding (32px) */
+    max-height: calc(100vh - 32px - 64px) !important;
+  }
+  
+  .modal-content [data-modal-scrollable] {
+    /* Account for navbar + modal header + padding */
+    max-height: calc(100vh - 64px - 80px - 32px) !important;
+  }
+  
+  .modal-content.with-marquee {
+    /* Account for navbar + marquee + padding */
+    max-height: calc(100vh - 32px - 64px - 32px) !important;
+  }
+  
+  .modal-content.with-marquee [data-modal-scrollable] {
+    /* Account for navbar + marquee + modal header + padding */
+    max-height: calc(100vh - 64px - 32px - 80px - 32px) !important;
   }
 }
 
@@ -414,22 +446,32 @@ body.modal-open {
 @media (max-height: 600px) {
   .modal-content {
     min-height: auto !important;
-    max-height: calc(100vh - 16px - 80px) !important;
+    /* Account for navbar on short screens */
+    max-height: calc(100vh - 16px - 56px - 60px) !important;
   }
   
   .modal-content [data-modal-scrollable] {
-    max-height: calc(100vh - 160px) !important;
+    max-height: calc(100vh - 56px - 80px - 60px) !important;
   }
 }
 
 /* Ultra-short screens (landscape mobile) */
 @media (max-height: 400px) {
   .modal-content {
-    max-height: calc(100vh - 8px - 60px) !important;
+    /* Account for navbar on ultra-short screens */
+    max-height: calc(100vh - 8px - 56px - 40px) !important;
   }
   
   .modal-content [data-modal-scrollable] {
-    max-height: calc(100vh - 140px) !important;
+    max-height: calc(100vh - 56px - 80px - 40px) !important;
+  }
+  
+  .modal-content.with-marquee {
+    max-height: calc(100vh - 8px - 56px - 32px - 40px) !important;
+  }
+  
+  .modal-content.with-marquee [data-modal-scrollable] {
+    max-height: calc(100vh - 56px - 32px - 80px - 40px) !important;
   }
   
   .modal-content .p-4 {
