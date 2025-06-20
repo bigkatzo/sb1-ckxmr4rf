@@ -257,52 +257,54 @@ export function DeliveredOrderReviewOverlay({
   return (
     <>
       {/* Compact bottom overlay - covers only ~40% of card */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent rounded-lg flex items-end p-3 z-10">
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent rounded-lg flex items-end justify-center p-3 z-10">
         <div 
-          className="w-full bg-gray-900/95 backdrop-blur-sm rounded-lg p-3 border border-gray-700/50 shadow-lg"
+          className="max-w-sm w-full bg-gray-900/95 backdrop-blur-sm rounded-lg p-3 border border-gray-700/50 shadow-lg"
           onClick={(e) => e.stopPropagation()}
         >
           {existingReview && !isEditing ? (
-            // Horizontal compact layout for existing review
-            <div className="flex items-center justify-between">
-              <div className="flex-1 space-y-1">
+            // Centered compact layout for existing review
+            <div className="space-y-2">
+              <div className="text-center">
                 <p className="text-white font-medium text-sm">Thank you for your review!</p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center gap-2 mt-1">
                   <StarRating rating={existingReview.product_rating} size="sm" />
                   <span className="text-sm text-gray-300">
                     {existingReview.product_rating}/5 stars
                   </span>
                 </div>
                 {existingReview.review_text && (
-                  <p className="text-sm text-gray-400 line-clamp-1">
+                  <p className="text-sm text-gray-400 line-clamp-2 mt-1">
                     "{existingReview.review_text}"
                   </p>
                 )}
+              </div>
+              
+              <div className="flex items-center justify-between pt-1">
                 <button
                   onClick={handleEditReview}
                   className="text-xs text-secondary hover:text-secondary-light transition-colors"
                 >
                   Edit Review
                 </button>
+                <button
+                  onClick={() => {
+                    setShowOverlay(false);
+                    if (forceShow && onDismiss) {
+                      onDismiss();
+                    }
+                  }}
+                  className="text-gray-400 hover:text-gray-300 p-1"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              
-              <button
-                onClick={() => {
-                  setShowOverlay(false);
-                  if (forceShow && onDismiss) {
-                    onDismiss();
-                  }
-                }}
-                className="text-gray-400 hover:text-gray-300 p-1 ml-3"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
           ) : (
-            // Compact review form
+            // Compact centered review form
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="text-center flex-1">
                   <h4 className="text-white font-medium text-sm">
                     {existingReview && isEditing ? 'Edit Your Review' : 'Leave a Review!'}
                   </h4>
@@ -330,7 +332,7 @@ export function DeliveredOrderReviewOverlay({
               </div>
 
               {/* Rating */}
-              <div>
+              <div className="flex justify-center">
                 <StarRating
                   rating={rating}
                   onRatingChange={setRating}
