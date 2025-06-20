@@ -172,9 +172,43 @@ export function OrdersPage() {
     });
   };
 
-  const handleViewProduct = (productId: string) => {
-    // Navigate to product page
-    window.open(`/products/${productId}`, '_blank');
+  const handleViewProduct = (order: any) => {
+    // Extract slugs from order data (similar to merchant OrderList logic)
+    let productSlug = '';
+    let collectionSlug = '';
+    
+    // Try direct properties first
+    if (order.product_slug) {
+      productSlug = order.product_slug;
+    }
+    if (order.collection_slug) {
+      collectionSlug = order.collection_slug;
+    }
+    
+    // Try snapshots if direct properties not available
+    if (!productSlug && order.product_snapshot?.slug) {
+      productSlug = order.product_snapshot.slug;
+    }
+    if (!collectionSlug && order.collection_snapshot?.slug) {
+      collectionSlug = order.collection_snapshot.slug;
+    }
+    
+    // Construct URL based on available data
+    let productUrl = '';
+    if (collectionSlug && productSlug) {
+      // Preferred: Collection/product slug URL
+      productUrl = `/${collectionSlug}/${productSlug}`;
+    } else if (order.product_id) {
+      // Fallback: Use product ID (this might not work with current routing)
+      productUrl = `/products/${order.product_id}`;
+    }
+    
+    if (productUrl) {
+      window.open(productUrl, '_blank');
+    } else {
+      console.error('Unable to construct product URL for order:', order);
+    }
+    
     setOpenDropdowns(new Set()); // Close dropdown
   };
 
@@ -590,7 +624,7 @@ export function OrdersPage() {
                             <div className="py-1">
                               {/* View Product - Always available */}
                               <button
-                                onClick={() => handleViewProduct(group[0].product_id)}
+                                onClick={() => handleViewProduct(group[0])}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
                               >
                                 <Package className="h-4 w-4" />
