@@ -61,9 +61,9 @@ export function DeliveredOrderReviewOverlay({
     }
   }, [forceShowModal]);
 
-  // Prevent body scroll when overlay or modal is open
+  // Only prevent scroll for modal, not for overlay
   useEffect(() => {
-    if ((showOverlay && !loading) || showReviewModal) {
+    if (showReviewModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -71,7 +71,7 @@ export function DeliveredOrderReviewOverlay({
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showOverlay, showReviewModal, loading]);
+  }, [showReviewModal]);
 
   const checkReviewStatus = async () => {
     try {
@@ -170,10 +170,10 @@ export function DeliveredOrderReviewOverlay({
         {/* Review Modal */}
         {showReviewModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300">
-            <div className="bg-gray-900 rounded-xl shadow-2xl max-w-md w-full transform transition-all duration-300 scale-100">
-              <div className="p-8">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-semibold text-white tracking-tight">
+            <div className="bg-gray-900 rounded-lg shadow-2xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-white">
                     {existingReview ? 'Edit Review' : 'Review'} {productName}
                   </h3>
                   <button
@@ -183,14 +183,14 @@ export function DeliveredOrderReviewOverlay({
                     }}
                     className="text-gray-400 hover:text-gray-300 transition-colors"
                   >
-                    <X className="h-6 w-6" />
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Rating */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-3">
+                    <label className="block text-sm font-medium text-gray-200 mb-2">
                       Rating
                     </label>
                     <StarRating
@@ -203,40 +203,40 @@ export function DeliveredOrderReviewOverlay({
 
                   {/* Review Text */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-3">
+                    <label className="block text-sm font-medium text-gray-200 mb-2">
                       Review (Optional)
                     </label>
                     <textarea
                       value={reviewText}
                       onChange={(e) => setReviewText(e.target.value)}
-                      className="w-full px-4 py-3 bg-gray-800/80 border border-gray-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent resize-none transition-all duration-200"
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent resize-none"
                       rows={4}
                       placeholder="Share your thoughts about this product..."
                       maxLength={500}
                     />
-                    <div className="text-xs text-gray-400 mt-2 text-right">
+                    <div className="text-xs text-gray-400 mt-1 text-right">
                       {reviewText.length}/500 characters
                     </div>
                   </div>
 
                   {error && (
-                    <div className="text-red-400 text-sm bg-red-500/10 px-4 py-2 rounded-lg">{error}</div>
+                    <div className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded">{error}</div>
                   )}
 
-                  <div className="flex gap-4 pt-2">
+                  <div className="flex gap-3 pt-2">
                     <button
                       onClick={() => {
                         setShowReviewModal(false);
                         if (onClose) onClose();
                       }}
-                      className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition-colors text-sm font-medium"
+                      className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSubmitReview}
                       disabled={submitting || rating === 0}
-                      className="flex-1 px-6 py-3 bg-secondary text-white rounded-xl hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-lg shadow-secondary/20"
+                      className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                     >
                       {submitting ? 'Submitting...' : (existingReview ? 'Update Review' : 'Submit Review')}
                     </button>
@@ -256,119 +256,62 @@ export function DeliveredOrderReviewOverlay({
 
   return (
     <>
-      {/* Semi-transparent background overlay - only covers bottom 70% */}
-      <div 
-        className="absolute inset-x-0 bottom-0 h-[70%] bg-black/60 backdrop-blur-[2px] z-40 transition-opacity duration-300 rounded-lg" 
-        onClick={() => {
-          if (!isEditing) {
-            setShowOverlay(false);
-            if (forceShow && onDismiss) {
-              onDismiss();
-            }
-          }
-        }} 
-      />
-      {/* Content container - positioned in bottom half */}
-      <div className="absolute inset-x-0 bottom-0 rounded-lg flex items-end p-4 z-50">
+      {/* Compact bottom overlay - covers only ~40% of card */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent rounded-lg flex items-end p-3 z-10">
         <div 
-          className="w-full bg-gray-900/95 backdrop-blur-md rounded-xl p-5 border border-gray-700/50 shadow-2xl transform transition-all duration-300 ease-out"
+          className="w-full bg-gray-900/95 backdrop-blur-sm rounded-lg p-3 border border-gray-700/50 shadow-lg"
           onClick={(e) => e.stopPropagation()}
         >
           {existingReview && !isEditing ? (
-            // Show existing review display - more compact
-            <div className="flex flex-col items-center space-y-4 max-w-md mx-auto">
-              <div className="text-center">
-                <h4 className="text-white font-semibold text-lg mb-1 tracking-tight">Your Review</h4>
-                <p className="text-gray-300 text-sm">
-                  Thank you for reviewing this product!
-                </p>
-              </div>
-
-              {/* Rating Display */}
-              <div className="flex flex-col items-center space-y-2">
-                <StarRating rating={existingReview.product_rating} size="md" />
-                <span className="text-gray-300 text-sm font-medium">
-                  {existingReview.product_rating}/5 stars
-                </span>
-              </div>
-
-              {/* Review Text Display - more compact */}
-              {existingReview.review_text && (
-                <div className="w-full bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
-                  <p className="text-gray-200 text-sm leading-relaxed text-center italic line-clamp-2">
+            // Horizontal compact layout for existing review
+            <div className="flex items-center justify-between">
+              <div className="flex-1 space-y-1">
+                <p className="text-white font-medium text-sm">Thank you for your review!</p>
+                <div className="flex items-center gap-2">
+                  <StarRating rating={existingReview.product_rating} size="sm" />
+                  <span className="text-sm text-gray-300">
+                    {existingReview.product_rating}/5 stars
+                  </span>
+                </div>
+                {existingReview.review_text && (
+                  <p className="text-sm text-gray-400 line-clamp-1">
                     "{existingReview.review_text}"
                   </p>
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div className="flex items-center gap-3 w-full max-w-xs">
-                <button
-                  onClick={() => {
-                    setShowOverlay(false);
-                    if (forceShow && onDismiss) {
-                      onDismiss();
-                    }
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-                >
-                  Close
-                </button>
+                )}
                 <button
                   onClick={handleEditReview}
-                  className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors text-sm font-medium shadow-lg shadow-secondary/20"
+                  className="text-xs text-secondary hover:text-secondary-light transition-colors"
                 >
                   Edit Review
                 </button>
               </div>
+              
+              <button
+                onClick={() => {
+                  setShowOverlay(false);
+                  if (forceShow && onDismiss) {
+                    onDismiss();
+                  }
+                }}
+                className="text-gray-400 hover:text-gray-300 p-1 ml-3"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           ) : (
-            // Show review form - more compact
-            <div className="flex flex-col items-center space-y-4 max-w-sm mx-auto">
-              <div className="text-center">
-                <h4 className="text-white font-semibold text-lg mb-1 tracking-tight">
-                  {existingReview && isEditing ? 'Edit Your Review' : 'Leave a Review!'}
-                </h4>
-                <p className="text-gray-300 text-sm">
-                  {existingReview && isEditing 
-                    ? 'Update your thoughts about this product:'
-                    : 'We hope you loved your products. Let us know:'}
-                </p>
-              </div>
-
-              {/* Rating */}
-              <div className="flex flex-col items-center space-y-2">
-                <StarRating
-                  rating={rating}
-                  onRatingChange={setRating}
-                  interactive
-                  size="md"
-                />
-              </div>
-
-              {/* Review Text */}
-              <div className="w-full">
-                <textarea
-                  value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent resize-none text-sm transition-all duration-200"
-                  rows={2}
-                  placeholder="Share your thoughts about this product..."
-                  maxLength={500}
-                />
-                <div className="text-xs text-gray-400 mt-1 text-right">
-                  {reviewText.length}/500 characters
+            // Compact review form
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-white font-medium text-sm">
+                    {existingReview && isEditing ? 'Edit Your Review' : 'Leave a Review!'}
+                  </h4>
+                  <p className="text-gray-300 text-xs">
+                    {existingReview && isEditing 
+                      ? 'Update your thoughts:'
+                      : 'We hope you loved your products!'}
+                  </p>
                 </div>
-              </div>
-
-              {error && (
-                <div className="text-red-400 text-sm bg-red-500/10 px-3 py-1.5 rounded-lg text-center">
-                  {error}
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div className="flex items-center gap-3 w-full max-w-xs">
                 <button
                   onClick={() => {
                     if (existingReview && isEditing) {
@@ -380,14 +323,62 @@ export function DeliveredOrderReviewOverlay({
                       }
                     }
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                  className="text-gray-400 hover:text-gray-300 p-1"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Rating */}
+              <div>
+                <StarRating
+                  rating={rating}
+                  onRatingChange={setRating}
+                  interactive
+                  size="sm"
+                />
+              </div>
+
+              {/* Review Text */}
+              <div>
+                <textarea
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent resize-none text-sm"
+                  rows={2}
+                  placeholder="Share your thoughts..."
+                  maxLength={500}
+                />
+                <div className="text-xs text-gray-400 mt-1 text-right">
+                  {reviewText.length}/500
+                </div>
+              </div>
+
+              {error && (
+                <div className="text-red-400 text-xs bg-red-500/10 px-2 py-1 rounded text-center">{error}</div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    if (existingReview && isEditing) {
+                      handleCancelEdit();
+                    } else {
+                      setShowOverlay(false);
+                      if (forceShow && onDismiss) {
+                        onDismiss();
+                      }
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-xs"
                 >
                   {existingReview && isEditing ? 'Cancel' : 'Skip'}
                 </button>
                 <button
                   onClick={handleSubmitReview}
                   disabled={submitting || rating === 0}
-                  className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-lg shadow-secondary/20"
+                  className="flex-1 px-3 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs"
                 >
                   {submitting ? 'Submitting...' : (existingReview && isEditing ? 'Update' : 'Submit')}
                 </button>
