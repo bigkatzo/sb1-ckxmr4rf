@@ -162,6 +162,16 @@ export function OrdersPage() {
     setShowReviewModal(null);
   };
 
+  // Update existing reviews when a new review is submitted
+  const updateExistingReview = (orderId: string, productId: string, review: any) => {
+    const key = `${orderId}-${productId}`;
+    setExistingReviews(prev => {
+      const newMap = new Map(prev);
+      newMap.set(key, review);
+      return newMap;
+    });
+  };
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
@@ -732,6 +742,7 @@ export function OrdersPage() {
                       return newSet;
                     });
                   }}
+                  onReviewSubmitted={updateExistingReview}
                 />
               )}
             </div>
@@ -748,6 +759,7 @@ export function OrdersPage() {
           orderStatus="delivered"
           forceShowModal={true}
           onClose={closeReviewModal}
+          onReviewSubmitted={updateExistingReview}
         />
       )}
     </div>
