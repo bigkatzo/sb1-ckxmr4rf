@@ -256,37 +256,48 @@ export function DeliveredOrderReviewOverlay({
 
   return (
     <>
-      {/* Compact bottom overlay - covers only ~40% of card */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent rounded-lg flex items-end justify-center p-3 z-10">
+      {/* Full width overlay with centered content */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent rounded-lg flex items-end justify-center p-4 z-10">
         <div 
-          className="max-w-sm w-full bg-gray-900/95 backdrop-blur-sm rounded-lg p-3 border border-gray-700/50 shadow-lg"
+          className="max-w-md w-full bg-gray-900/95 backdrop-blur-md rounded-xl p-4 border border-gray-700/30 shadow-2xl transition-all duration-300 ease-out"
           onClick={(e) => e.stopPropagation()}
         >
           {existingReview && !isEditing ? (
-            // Centered compact layout for existing review
-            <div className="space-y-2">
+            // Centered existing review display with modern styling
+            <div className="space-y-3">
               <div className="text-center">
-                <p className="text-white font-medium text-sm">Thank you for your review!</p>
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <StarRating rating={existingReview.product_rating} size="sm" />
-                  <span className="text-sm text-gray-300">
+                <div className="inline-flex items-center gap-2 bg-green-500/10 text-green-400 px-3 py-1.5 rounded-full text-sm font-medium mb-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Review Submitted
+                </div>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <StarRating rating={existingReview.product_rating} size="lg" />
+                  <span className="text-sm text-gray-300 font-medium">
                     {existingReview.product_rating}/5 stars
                   </span>
                 </div>
                 {existingReview.review_text && (
-                  <p className="text-sm text-gray-400 line-clamp-2 mt-1">
-                    "{existingReview.review_text}"
-                  </p>
+                  <div className="bg-gray-800/40 rounded-lg p-3 border border-gray-700/50">
+                    <p className="text-sm text-gray-200 leading-relaxed italic">
+                      "{existingReview.review_text}"
+                    </p>
+                  </div>
                 )}
               </div>
               
-              <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center justify-center gap-3 pt-2">
                 <button
                   onClick={handleEditReview}
-                  className="text-xs text-secondary hover:text-secondary-light transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm text-secondary hover:text-secondary-light transition-colors font-medium"
                 >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
                   Edit Review
                 </button>
+                <div className="h-4 w-px bg-gray-600"></div>
                 <button
                   onClick={() => {
                     setShowOverlay(false);
@@ -294,26 +305,32 @@ export function DeliveredOrderReviewOverlay({
                       onDismiss();
                     }
                   }}
-                  className="text-gray-400 hover:text-gray-300 p-1"
+                  className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-300 transition-colors"
                 >
                   <X className="h-4 w-4" />
+                  Close
                 </button>
               </div>
             </div>
           ) : (
-            // Compact centered review form
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-center flex-1">
-                  <h4 className="text-white font-medium text-sm">
-                    {existingReview && isEditing ? 'Edit Your Review' : 'Leave a Review!'}
-                  </h4>
-                  <p className="text-gray-300 text-xs">
-                    {existingReview && isEditing 
-                      ? 'Update your thoughts:'
-                      : 'We hope you loved your products!'}
-                  </p>
+            // Centered review form with modern styling
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="inline-flex items-center gap-2 bg-secondary/10 text-secondary px-3 py-1.5 rounded-full text-sm font-medium mb-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  {existingReview && isEditing ? 'Edit Your Review' : 'Leave a Review'}
                 </div>
+                <p className="text-gray-300 text-sm">
+                  {existingReview && isEditing 
+                    ? 'Update your thoughts about this product'
+                    : 'We hope you loved your products! Share your experience'}
+                </p>
+              </div>
+
+              {/* Close button */}
+              <div className="absolute top-3 right-3">
                 <button
                   onClick={() => {
                     if (existingReview && isEditing) {
@@ -325,7 +342,7 @@ export function DeliveredOrderReviewOverlay({
                       }
                     }
                   }}
-                  className="text-gray-400 hover:text-gray-300 p-1"
+                  className="text-gray-400 hover:text-gray-300 p-1.5 hover:bg-gray-800/50 rounded-lg transition-all duration-200"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -333,12 +350,14 @@ export function DeliveredOrderReviewOverlay({
 
               {/* Rating */}
               <div className="flex justify-center">
-                <StarRating
-                  rating={rating}
-                  onRatingChange={setRating}
-                  interactive
-                  size="sm"
-                />
+                <div className="bg-gray-800/30 rounded-lg p-3">
+                  <StarRating
+                    rating={rating}
+                    onRatingChange={setRating}
+                    interactive
+                    size="lg"
+                  />
+                </div>
               </div>
 
               {/* Review Text */}
@@ -346,22 +365,30 @@ export function DeliveredOrderReviewOverlay({
                 <textarea
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent resize-none text-sm"
-                  rows={2}
-                  placeholder="Share your thoughts..."
+                  className="w-full px-4 py-3 bg-gray-800/70 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary/50 transition-all duration-200 resize-none text-sm leading-relaxed"
+                  rows={3}
+                  placeholder="Share your thoughts about this product..."
                   maxLength={500}
                 />
-                <div className="text-xs text-gray-400 mt-1 text-right">
-                  {reviewText.length}/500
+                <div className="flex justify-between items-center mt-2">
+                  <div className="text-xs text-gray-500"></div>
+                  <div className="text-xs text-gray-400">
+                    {reviewText.length}/500
+                  </div>
                 </div>
               </div>
 
               {error && (
-                <div className="text-red-400 text-xs bg-red-500/10 px-2 py-1 rounded text-center">{error}</div>
+                <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg text-center flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {error}
+                </div>
               )}
 
               {/* Action buttons */}
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => {
                     if (existingReview && isEditing) {
@@ -373,16 +400,26 @@ export function DeliveredOrderReviewOverlay({
                       }
                     }
                   }}
-                  className="flex-1 px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-xs"
+                  className="flex-1 px-4 py-2.5 bg-gray-700/80 hover:bg-gray-600 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-gray-600/30"
                 >
-                  {existingReview && isEditing ? 'Cancel' : 'Skip'}
+                  {existingReview && isEditing ? 'Cancel' : 'Maybe Later'}
                 </button>
                 <button
                   onClick={handleSubmitReview}
                   disabled={submitting || rating === 0}
-                  className="flex-1 px-3 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                  className="flex-1 px-4 py-2.5 bg-secondary hover:bg-secondary-dark text-white rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-lg shadow-secondary/20 border border-secondary/30"
                 >
-                  {submitting ? 'Submitting...' : (existingReview && isEditing ? 'Update' : 'Submit')}
+                  {submitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </span>
+                  ) : (
+                    existingReview && isEditing ? 'Update Review' : 'Submit Review'
+                  )}
                 </button>
               </div>
             </div>
