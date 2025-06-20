@@ -172,6 +172,12 @@ export function OrdersPage() {
     });
   };
 
+  const handleViewProduct = (productId: string) => {
+    // Navigate to product page
+    window.open(`/products/${productId}`, '_blank');
+    setOpenDropdowns(new Set()); // Close dropdown
+  };
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
@@ -563,59 +569,72 @@ export function OrdersPage() {
                         )}
                       </div>
                       
-                      {/* Three Dots Menu for Delivered Orders */}
-                      {group[0].status === 'delivered' && (
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleDropdown(group[0].id, group[0].product_id);
-                            }}
-                            className="p-1 text-gray-400 hover:text-gray-300 hover:bg-gray-800 rounded-md transition-colors"
+                      {/* Three Dots Menu for All Orders */}
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleDropdown(group[0].id, group[0].product_id);
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-300 hover:bg-gray-800 rounded-md transition-colors"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                        
+                        {/* Dropdown Menu */}
+                        {openDropdowns.has(`${group[0].id}-${group[0].product_id}`) && (
+                          <div 
+                            className="absolute right-0 top-8 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-20 min-w-[160px]"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                          
-                          {/* Dropdown Menu */}
-                          {openDropdowns.has(`${group[0].id}-${group[0].product_id}`) && (
-                            <div 
-                              className="absolute right-0 top-8 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-20 min-w-[160px]"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="py-1">
-                                {(() => {
-                                  const reviewKey = `${group[0].id}-${group[0].product_id}`;
-                                  const existingReview = existingReviews.get(reviewKey);
-                                  
-                                  if (existingReview) {
-                                    // Show "See Review" option for existing reviews
-                                    return (
-                                      <button
-                                        onClick={() => handleSeeReview(group[0].id, group[0].product_id)}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
-                                      >
-                                        <Eye className="h-4 w-4" />
-                                        See Review
-                                      </button>
-                                    );
-                                  } else {
-                                    // Show "Leave Review" option for no existing reviews
-                                    return (
-                                      <button
-                                        onClick={() => handleReviewAction(group[0].id, group[0].product_id, group[0].product_name || 'Unknown Product')}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
-                                      >
-                                        <Star className="h-4 w-4" />
-                                        Leave Review
-                                      </button>
-                                    );
-                                  }
-                                })()}
-                              </div>
+                            <div className="py-1">
+                              {/* View Product - Always available */}
+                              <button
+                                onClick={() => handleViewProduct(group[0].product_id)}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
+                              >
+                                <Package className="h-4 w-4" />
+                                View Product
+                              </button>
+                              
+                              {/* Review Actions - Only for delivered orders */}
+                              {group[0].status === 'delivered' && (
+                                <>
+                                  <div className="border-t border-gray-700 my-1"></div>
+                                  {(() => {
+                                    const reviewKey = `${group[0].id}-${group[0].product_id}`;
+                                    const existingReview = existingReviews.get(reviewKey);
+                                    
+                                    if (existingReview) {
+                                      // Show "See Review" option for existing reviews
+                                      return (
+                                        <button
+                                          onClick={() => handleSeeReview(group[0].id, group[0].product_id)}
+                                          className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
+                                        >
+                                          <Eye className="h-4 w-4" />
+                                          See Review
+                                        </button>
+                                      );
+                                    } else {
+                                      // Show "Leave Review" option for no existing reviews
+                                      return (
+                                        <button
+                                          onClick={() => handleReviewAction(group[0].id, group[0].product_id, group[0].product_name || 'Unknown Product')}
+                                          className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2"
+                                        >
+                                          <Star className="h-4 w-4" />
+                                          Leave Review
+                                        </button>
+                                      );
+                                    }
+                                  })()}
+                                </>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Order Details */}
