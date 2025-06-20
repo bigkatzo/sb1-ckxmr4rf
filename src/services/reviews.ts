@@ -192,8 +192,36 @@ class ReviewService {
     return review;
   }
 
-  async updateReview(reviewId: string, data: ReviewFormData): Promise<ProductReview> {
-    // Update the review - RLS policies will ensure users can only update their own reviews
+  async updateReview(reviewId: string, data: ReviewFormData, walletAddress?: string, walletAuthToken?: string): Promise<ProductReview> {
+    // If wallet context is provided, use authenticated RPC
+    if (walletAddress && walletAuthToken) {
+      const result = await this.makeWalletAuthenticatedRPC('update_product_review', {
+        p_review_id: reviewId,
+        p_product_rating: data.productRating,
+        p_review_text: data.reviewText || null
+      }, walletAddress, walletAuthToken);
+
+      // Check if the function returned an error
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      // Fetch the updated review to return it
+      const { data: review, error: fetchError } = await supabase
+        .from('product_reviews')
+        .select('*')
+        .eq('id', reviewId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching updated review:', fetchError);
+        throw fetchError;
+      }
+
+      return review;
+    }
+
+    // Fallback to regular supabase client (will likely fail due to RLS)
     const { data: review, error } = await supabase
       .from('product_reviews')
       .update({

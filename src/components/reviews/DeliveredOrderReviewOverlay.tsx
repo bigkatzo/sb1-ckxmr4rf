@@ -129,7 +129,7 @@ export function DeliveredOrderReviewOverlay({
         updatedReview = await reviewService.updateReview(existingReview.id, {
           productRating: rating,
           reviewText: reviewText.trim() || null
-        });
+        }, walletAddress || undefined, walletAuthToken || undefined);
       } else {
         updatedReview = await reviewService.submitReview(productId, orderId, {
           productRating: rating,

@@ -316,6 +316,78 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
+-- Function: Update an existing product review
+CREATE OR REPLACE FUNCTION update_product_review(
+    p_review_id uuid,
+    p_product_rating integer,
+    p_review_text text DEFAULT NULL
+)
+RETURNS jsonb AS $$
+DECLARE
+    current_wallet text;
+    review_record record;
+BEGIN
+    -- Get current wallet using the auth schema function
+    current_wallet := auth.get_header_values()->>'wallet_address';
+    
+    IF current_wallet IS NULL THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Please connect your wallet'
+        );
+    END IF;
+    
+    -- Check if the review exists and belongs to the user
+    SELECT * INTO review_record
+    FROM product_reviews
+    WHERE id = p_review_id
+    AND wallet_address = current_wallet;
+    
+    IF review_record IS NULL THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Review not found or does not belong to you'
+        );
+    END IF;
+    
+    -- Validate rating
+    IF p_product_rating < 1 OR p_product_rating > 5 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Product rating must be between 1 and 5'
+        );
+    END IF;
+    
+    -- Validate review text if provided
+    IF p_review_text IS NOT NULL THEN
+        p_review_text := trim(p_review_text);
+        IF length(p_review_text) > 0 AND (length(p_review_text) < 10 OR length(p_review_text) > 1000) THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'Review text must be between 10 and 1000 characters if provided'
+            );
+        END IF;
+        -- Set to NULL if empty after trimming
+        IF length(p_review_text) = 0 THEN
+            p_review_text := NULL;
+        END IF;
+    END IF;
+    
+    -- Update the review
+    UPDATE product_reviews
+    SET 
+        product_rating = p_product_rating,
+        review_text = p_review_text,
+        updated_at = now()
+    WHERE id = p_review_id;
+    
+    RETURN jsonb_build_object(
+        'success', true,
+        'review_id', p_review_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Grant permissions
 GRANT SELECT ON product_reviews TO anon;
 GRANT ALL ON product_reviews TO authenticated;
@@ -326,5 +398,6 @@ GRANT EXECUTE ON FUNCTION can_user_review_product(uuid, uuid) TO authenticated, 
 GRANT EXECUTE ON FUNCTION submit_product_review(uuid, uuid, integer, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_product_reviews_formatted(uuid, integer, integer, text) TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION format_wallet_address(text) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION update_product_review(uuid, integer, text) TO authenticated;
 
 COMMIT; 

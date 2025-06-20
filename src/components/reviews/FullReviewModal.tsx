@@ -22,8 +22,8 @@ type SortOption = 'newest' | 'oldest' | 'highest' | 'lowest';
 const sortOptions: Record<SortOption, { label: string, value: string }> = {
   newest: { label: 'Newest First', value: 'created_at DESC' },
   oldest: { label: 'Oldest First', value: 'created_at ASC' },
-  highest: { label: 'Highest Rated', value: 'rating DESC' },
-  lowest: { label: 'Lowest Rated', value: 'rating ASC' }
+  highest: { label: 'Highest Rated', value: 'product_rating DESC' },
+  lowest: { label: 'Lowest Rated', value: 'product_rating ASC' }
 };
 
 export function FullReviewModal({
