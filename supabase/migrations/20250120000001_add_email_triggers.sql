@@ -30,6 +30,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Update notification creation function to include email sending
+-- CRITICAL: This function must handle all errors gracefully
 CREATE OR REPLACE FUNCTION create_notification_with_email(
   p_user_id UUID,
   p_type TEXT,
@@ -47,160 +48,59 @@ DECLARE
   v_notification_id UUID;
   v_user_email TEXT;
 BEGIN
-  -- Create the notification
-  SELECT create_notification(
-    p_user_id,
-    p_type,
-    p_title,
-    p_message,
-    p_data,
-    p_collection_id,
-    p_category_id,
-    p_product_id,
-    p_order_id,
-    p_target_user_id
-  ) INTO v_notification_id;
-  
-  -- Get user email
-  SELECT email INTO v_user_email
-  FROM auth.users
-  WHERE id = p_user_id;
-  
-  -- Send email notification if user has email
-  IF v_user_email IS NOT NULL AND v_user_email != '' THEN
-    PERFORM send_notification_email(v_user_email, p_type, p_data);
+  -- CRITICAL: Wrap all logic in exception handler
+  BEGIN
+    -- Create the notification
+    SELECT create_notification(
+      p_user_id,
+      p_type,
+      p_title,
+      p_message,
+      p_data,
+      p_collection_id,
+      p_category_id,
+      p_product_id,
+      p_order_id,
+      p_target_user_id
+    ) INTO v_notification_id;
     
-    -- Mark email as sent
-    UPDATE notifications
-    SET email_sent = TRUE
-    WHERE id = v_notification_id;
-  END IF;
+    -- Get user email
+    SELECT email INTO v_user_email
+    FROM auth.users
+    WHERE id = p_user_id;
+    
+    -- Send email notification if user has email
+    IF v_user_email IS NOT NULL AND v_user_email != '' THEN
+      BEGIN
+        PERFORM send_notification_email(v_user_email, p_type, p_data);
+        
+        -- Mark email as sent (only if notification was created successfully)
+        IF v_notification_id IS NOT NULL THEN
+          UPDATE notifications
+          SET email_sent = TRUE
+          WHERE id = v_notification_id;
+        END IF;
+      EXCEPTION
+        WHEN OTHERS THEN
+          -- Log email error but don't fail the entire operation
+          RAISE NOTICE 'Failed to send email for notification %: %', v_notification_id, SQLERRM;
+      END;
+    END IF;
+    
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- CRITICAL: Log error but return NULL instead of failing
+      RAISE NOTICE 'Failed to create notification with email for user %: %', p_user_id, SQLERRM;
+      RETURN NULL;
+  END;
   
   RETURN v_notification_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Update trigger functions to use the new email-enabled notification function
-CREATE OR REPLACE FUNCTION notify_order_created()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_product_name TEXT;
-  v_collection_name TEXT;
-  v_recipient RECORD;
-BEGIN
-  -- Get product and collection info
-  SELECT p.name, c.name
-  INTO v_product_name, v_collection_name
-  FROM products p
-  JOIN collections c ON c.id = p.collection_id
-  WHERE p.id = NEW.product_id;
-  
-  -- Create notifications for all relevant users
-  FOR v_recipient IN
-    SELECT * FROM get_collection_notification_recipients(NEW.collection_id)
-  LOOP
-    PERFORM create_notification_with_email(
-      v_recipient.user_id,
-      'order_created',
-      'New Order Received',
-      format('New order for "%s" in collection "%s"', v_product_name, v_collection_name),
-      jsonb_build_object(
-        'order_number', NEW.order_number,
-        'product_name', v_product_name,
-        'collection_name', v_collection_name,
-        'amount_sol', NEW.amount_sol
-      ),
-      NEW.collection_id,
-      NULL,
-      NEW.product_id,
-      NEW.id,
-      NULL
-    );
-  END LOOP;
-  
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Update category notification trigger
-CREATE OR REPLACE FUNCTION notify_category_created()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_collection_name TEXT;
-  v_recipient RECORD;
-BEGIN
-  -- Get collection info
-  SELECT name INTO v_collection_name
-  FROM collections
-  WHERE id = NEW.collection_id;
-  
-  -- Create notifications for all relevant users
-  FOR v_recipient IN
-    SELECT * FROM get_collection_notification_recipients(NEW.collection_id)
-  LOOP
-    PERFORM create_notification_with_email(
-      v_recipient.user_id,
-      'category_created',
-      'New Category Created',
-      format('New category "%s" created in collection "%s"', NEW.name, v_collection_name),
-      jsonb_build_object(
-        'category_name', NEW.name,
-        'collection_name', v_collection_name,
-        'category_type', NEW.type
-      ),
-      NEW.collection_id,
-      NEW.id,
-      NULL,
-      NULL,
-      NULL
-    );
-  END LOOP;
-  
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Update product notification trigger
-CREATE OR REPLACE FUNCTION notify_product_created()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_collection_name TEXT;
-  v_category_name TEXT;
-  v_recipient RECORD;
-BEGIN
-  -- Get collection and category info
-  SELECT c.name, cat.name
-  INTO v_collection_name, v_category_name
-  FROM collections c
-  LEFT JOIN categories cat ON cat.id = NEW.category_id
-  WHERE c.id = NEW.collection_id;
-  
-  -- Create notifications for all relevant users
-  FOR v_recipient IN
-    SELECT * FROM get_collection_notification_recipients(NEW.collection_id)
-  LOOP
-    PERFORM create_notification_with_email(
-      v_recipient.user_id,
-      'product_created',
-      'New Product Created',
-      format('New product "%s" created in collection "%s"', NEW.name, v_collection_name),
-      jsonb_build_object(
-        'product_name', NEW.name,
-        'collection_name', v_collection_name,
-        'category_name', v_category_name,
-        'price', NEW.price
-      ),
-      NEW.collection_id,
-      NEW.category_id,
-      NEW.id,
-      NULL,
-      NULL
-    );
-  END LOOP;
-  
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- REMOVED: Duplicate trigger function definitions
+-- These are already defined with proper error handling in the first migration
+-- The first migration now includes all necessary error handling
 
 -- Grant permissions
 GRANT EXECUTE ON FUNCTION send_notification_email(TEXT, TEXT, JSONB) TO authenticated;

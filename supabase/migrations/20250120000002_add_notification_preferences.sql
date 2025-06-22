@@ -60,22 +60,47 @@ TO authenticated
 WITH CHECK (user_id = auth.uid());
 
 -- Function to get or create user preferences
+-- CRITICAL: This function must handle all errors gracefully
 CREATE OR REPLACE FUNCTION get_user_notification_preferences(p_user_id UUID)
 RETURNS notification_preferences AS $$
 DECLARE
   v_preferences notification_preferences;
 BEGIN
-  -- Try to get existing preferences
-  SELECT * INTO v_preferences
-  FROM notification_preferences
-  WHERE user_id = p_user_id;
-  
-  -- If not found, create default preferences
-  IF NOT FOUND THEN
-    INSERT INTO notification_preferences (user_id)
-    VALUES (p_user_id)
-    RETURNING * INTO v_preferences;
-  END IF;
+  BEGIN
+    -- Try to get existing preferences
+    SELECT * INTO v_preferences
+    FROM notification_preferences
+    WHERE user_id = p_user_id;
+    
+    -- If not found, create default preferences
+    IF NOT FOUND THEN
+      INSERT INTO notification_preferences (user_id)
+      VALUES (p_user_id)
+      RETURNING * INTO v_preferences;
+    END IF;
+    
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- CRITICAL: Return default preferences if anything fails
+      RAISE NOTICE 'Error getting notification preferences for user %: %', p_user_id, SQLERRM;
+      
+      -- Return a default preferences record
+      v_preferences.user_id := p_user_id;
+      v_preferences.order_created_app := TRUE;
+      v_preferences.category_created_app := TRUE;
+      v_preferences.product_created_app := TRUE;
+      v_preferences.user_access_granted_app := TRUE;
+      v_preferences.user_created_app := TRUE;
+      v_preferences.collection_created_app := TRUE;
+      v_preferences.order_created_email := TRUE;
+      v_preferences.category_created_email := TRUE;
+      v_preferences.product_created_email := TRUE;
+      v_preferences.user_access_granted_email := TRUE;
+      v_preferences.user_created_email := TRUE;
+      v_preferences.collection_created_email := TRUE;
+      v_preferences.all_app_notifications := TRUE;
+      v_preferences.all_email_notifications := TRUE;
+  END;
   
   RETURN v_preferences;
 END;
@@ -135,6 +160,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to check if user should receive a notification
+-- CRITICAL: This function must default to TRUE if any error occurs
 CREATE OR REPLACE FUNCTION should_send_notification(
   p_user_id UUID,
   p_notification_type TEXT,
@@ -146,43 +172,52 @@ DECLARE
   v_should_send BOOLEAN := TRUE;
   v_column_name TEXT;
 BEGIN
-  -- Get user preferences
-  v_preferences := get_user_notification_preferences(p_user_id);
-  
-  -- Check master switch first
-  IF p_channel = 'app' AND NOT v_preferences.all_app_notifications THEN
-    RETURN FALSE;
-  END IF;
-  
-  IF p_channel = 'email' AND NOT v_preferences.all_email_notifications THEN
-    RETURN FALSE;
-  END IF;
-  
-  -- Build column name
-  v_column_name := p_notification_type || '_' || p_channel;
-  
-  -- Check specific preference
-  CASE v_column_name
-    WHEN 'order_created_app' THEN v_should_send := v_preferences.order_created_app;
-    WHEN 'order_created_email' THEN v_should_send := v_preferences.order_created_email;
-    WHEN 'category_created_app' THEN v_should_send := v_preferences.category_created_app;
-    WHEN 'category_created_email' THEN v_should_send := v_preferences.category_created_email;
-    WHEN 'product_created_app' THEN v_should_send := v_preferences.product_created_app;
-    WHEN 'product_created_email' THEN v_should_send := v_preferences.product_created_email;
-    WHEN 'user_access_granted_app' THEN v_should_send := v_preferences.user_access_granted_app;
-    WHEN 'user_access_granted_email' THEN v_should_send := v_preferences.user_access_granted_email;
-    WHEN 'user_created_app' THEN v_should_send := v_preferences.user_created_app;
-    WHEN 'user_created_email' THEN v_should_send := v_preferences.user_created_email;
-    WHEN 'collection_created_app' THEN v_should_send := v_preferences.collection_created_app;
-    WHEN 'collection_created_email' THEN v_should_send := v_preferences.collection_created_email;
-    ELSE v_should_send := TRUE; -- Default to true for unknown types
-  END CASE;
+  BEGIN
+    -- Get user preferences
+    v_preferences := get_user_notification_preferences(p_user_id);
+    
+    -- Check master switch first
+    IF p_channel = 'app' AND NOT v_preferences.all_app_notifications THEN
+      RETURN FALSE;
+    END IF;
+    
+    IF p_channel = 'email' AND NOT v_preferences.all_email_notifications THEN
+      RETURN FALSE;
+    END IF;
+    
+    -- Build column name
+    v_column_name := p_notification_type || '_' || p_channel;
+    
+    -- Check specific preference
+    CASE v_column_name
+      WHEN 'order_created_app' THEN v_should_send := v_preferences.order_created_app;
+      WHEN 'order_created_email' THEN v_should_send := v_preferences.order_created_email;
+      WHEN 'category_created_app' THEN v_should_send := v_preferences.category_created_app;
+      WHEN 'category_created_email' THEN v_should_send := v_preferences.category_created_email;
+      WHEN 'product_created_app' THEN v_should_send := v_preferences.product_created_app;
+      WHEN 'product_created_email' THEN v_should_send := v_preferences.product_created_email;
+      WHEN 'user_access_granted_app' THEN v_should_send := v_preferences.user_access_granted_app;
+      WHEN 'user_access_granted_email' THEN v_should_send := v_preferences.user_access_granted_email;
+      WHEN 'user_created_app' THEN v_should_send := v_preferences.user_created_app;
+      WHEN 'user_created_email' THEN v_should_send := v_preferences.user_created_email;
+      WHEN 'collection_created_app' THEN v_should_send := v_preferences.collection_created_app;
+      WHEN 'collection_created_email' THEN v_should_send := v_preferences.collection_created_email;
+      ELSE v_should_send := TRUE; -- Default to true for unknown types
+    END CASE;
+    
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- CRITICAL: Default to sending notifications if preferences check fails
+      RAISE NOTICE 'Error checking notification preferences for user % type % channel %: %', p_user_id, p_notification_type, p_channel, SQLERRM;
+      v_should_send := TRUE;
+  END;
   
   RETURN v_should_send;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Update the notification creation function to respect preferences
+-- CRITICAL: This function must handle all errors gracefully and never block core operations
 CREATE OR REPLACE FUNCTION create_notification_with_preferences(
   p_user_id UUID,
   p_type TEXT,
@@ -202,53 +237,72 @@ DECLARE
   v_should_send_app BOOLEAN;
   v_should_send_email BOOLEAN;
 BEGIN
-  -- Check if user wants app notifications
-  v_should_send_app := should_send_notification(p_user_id, p_type, 'app');
-  
-  -- Check if user wants email notifications
-  v_should_send_email := should_send_notification(p_user_id, p_type, 'email');
-  
-  -- Create app notification if user wants it
-  IF v_should_send_app THEN
-    SELECT create_notification(
-      p_user_id,
-      p_type,
-      p_title,
-      p_message,
-      p_data,
-      p_collection_id,
-      p_category_id,
-      p_product_id,
-      p_order_id,
-      p_target_user_id
-    ) INTO v_notification_id;
-  END IF;
-  
-  -- Send email notification if user wants it
-  IF v_should_send_email THEN
-    -- Get user email
-    SELECT email INTO v_user_email
-    FROM auth.users
-    WHERE id = p_user_id;
+  -- CRITICAL: Wrap all logic in exception handler
+  BEGIN
+    -- Check if user wants app notifications (defaults to TRUE on error)
+    v_should_send_app := should_send_notification(p_user_id, p_type, 'app');
     
-    -- Send email notification if user has email
-    IF v_user_email IS NOT NULL AND v_user_email != '' THEN
-      -- Use HTTP request to call edge function for email sending
-      -- This is handled asynchronously to avoid blocking the notification creation
-      PERFORM pg_notify('send_email', jsonb_build_object(
-        'to', v_user_email,
-        'type', p_type,
-        'data', p_data
-      )::text);
-      
-      -- Mark email as sent if we created a notification
-      IF v_notification_id IS NOT NULL THEN
-        UPDATE notifications
-        SET email_sent = TRUE
-        WHERE id = v_notification_id;
-      END IF;
+    -- Check if user wants email notifications (defaults to TRUE on error)
+    v_should_send_email := should_send_notification(p_user_id, p_type, 'email');
+    
+    -- Create app notification if user wants it
+    IF v_should_send_app THEN
+      BEGIN
+        SELECT create_notification(
+          p_user_id,
+          p_type,
+          p_title,
+          p_message,
+          p_data,
+          p_collection_id,
+          p_category_id,
+          p_product_id,
+          p_order_id,
+          p_target_user_id
+        ) INTO v_notification_id;
+      EXCEPTION
+        WHEN OTHERS THEN
+          -- Log error but continue
+          RAISE NOTICE 'Failed to create app notification for user %: %', p_user_id, SQLERRM;
+      END;
     END IF;
-  END IF;
+    
+    -- Send email notification if user wants it
+    IF v_should_send_email THEN
+      BEGIN
+        -- Get user email
+        SELECT email INTO v_user_email
+        FROM auth.users
+        WHERE id = p_user_id;
+        
+        -- Send email notification if user has email
+        IF v_user_email IS NOT NULL AND v_user_email != '' THEN
+          -- Use pg_notify to trigger async email sending
+          PERFORM pg_notify('send_email', jsonb_build_object(
+            'to', v_user_email,
+            'type', p_type,
+            'data', p_data
+          )::text);
+          
+          -- Mark email as sent if we created a notification
+          IF v_notification_id IS NOT NULL THEN
+            UPDATE notifications
+            SET email_sent = TRUE
+            WHERE id = v_notification_id;
+          END IF;
+        END IF;
+      EXCEPTION
+        WHEN OTHERS THEN
+          -- Log error but continue
+          RAISE NOTICE 'Failed to send email notification for user %: %', p_user_id, SQLERRM;
+      END;
+    END IF;
+    
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- CRITICAL: Log error but never fail the operation
+      RAISE NOTICE 'Critical error in create_notification_with_preferences for user %: %', p_user_id, SQLERRM;
+  END;
   
   RETURN v_notification_id;
 END;
