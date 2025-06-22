@@ -7,12 +7,14 @@ import { Loading, LoadingType } from '../../components/ui/LoadingStates';
 import { MerchantDashboardProvider } from '../../contexts/MerchantDashboardContext';
 import { ProfileButton } from '../../components/merchant/ProfileButton';
 import { clearUserFilters } from '../../hooks/useFilterPersistence';
+import { NotificationBell } from '../../components/notifications/NotificationBell';
 
 // Lazy load tab components
 const ProductsTab = lazy(() => import('./ProductsTab').then(module => ({ default: module.ProductsTab })));
 const CategoriesTab = lazy(() => import('./CategoriesTab').then(module => ({ default: module.CategoriesTab })));
 const CollectionsTab = lazy(() => import('./CollectionsTab').then(module => ({ default: module.CollectionsTab })));
 const OrdersTab = lazy(() => import('./OrdersTab').then(module => ({ default: module.OrdersTab })));
+const NotificationsTab = lazy(() => import('./NotificationsTab').then(module => ({ default: module.NotificationsTab })));
 const TransactionsTab = lazy(() => import('../../components/merchant/TransactionsTab').then(module => ({ default: module.TransactionsTab })));
 const CouponsTab = lazy(() => import('../../components/merchant/CouponsTab').then(module => ({ default: module.CouponsTab })));
 
@@ -28,7 +30,8 @@ const merchantTabs = [
   { id: 'collections', label: 'Collections' },
   { id: 'categories', label: 'Categories' },
   { id: 'products', label: 'Products' },
-  { id: 'orders', label: 'Orders' }
+  { id: 'orders', label: 'Orders' },
+  { id: 'notifications', label: 'Notifications' }
 ];
 
 // Define admin only tabs
@@ -242,6 +245,8 @@ export function DashboardPage() {
             return isMerchant ? <MerchantNoCollectionsMessage /> : <NoAccessMessage />;
           }
           return <Suspense fallback={<TabLoader />}><OrdersTab /></Suspense>;
+        case 'notifications':
+          return <Suspense fallback={<TabLoader />}><NotificationsTab /></Suspense>;
         case 'coupons':
           return isAdmin ? <Suspense fallback={<TabLoader />}><CouponsTab /></Suspense> : null;
         case 'transactions':
@@ -263,6 +268,7 @@ export function DashboardPage() {
             <div className="flex justify-between items-center gap-2 mb-3">
               <h1 className="text-xl sm:text-2xl font-bold leading-tight text-white">Merchant Dashboard</h1>
               <div className="flex items-center gap-2">
+                <NotificationBell />
                 {isAdmin && (
                   <button
                     onClick={() => navigate('/merchant/admin')}
