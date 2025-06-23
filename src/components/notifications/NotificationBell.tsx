@@ -8,7 +8,9 @@ import { NotificationSettingsModal } from './NotificationSettingsModal';
 
 interface Notification {
   id: string;
-  type: 'order_created' | 'category_created' | 'product_created' | 'user_access_granted' | 'user_created' | 'collection_created';
+  type: 'order_created' | 'category_created' | 'product_created' | 'user_access_granted' | 'user_created' | 'collection_created' |
+        'category_edited' | 'category_deleted' | 'product_edited' | 'product_deleted' | 'collection_edited' | 'collection_deleted' |
+        'user_access_removed' | 'order_status_changed' | 'tracking_added' | 'tracking_removed' | 'review_added' | 'review_updated';
   title: string;
   message: string;
   data: any;
@@ -18,15 +20,41 @@ interface Notification {
   category_id?: string;
   product_id?: string;
   order_id?: string;
+  review_id?: string;
 }
 
 const NotificationTypeIcons = {
+  // Orders
   order_created: '🛒',
+  order_status_changed: '📦',
+  tracking_added: '🚚',
+  tracking_removed: '❌',
+  
+  // Categories
   category_created: '📁',
+  category_edited: '✏️',
+  category_deleted: '🗑️',
+  
+  // Products
   product_created: '📦',
+  product_edited: '✏️',
+  product_deleted: '🗑️',
+  
+  // Collections
+  collection_created: '🏪',
+  collection_edited: '✏️',
+  collection_deleted: '🗑️',
+  
+  // User Access
   user_access_granted: '👥',
+  user_access_removed: '🚫',
+  
+  // Users
   user_created: '👤',
-  collection_created: '🏪'
+  
+  // Reviews
+  review_added: '⭐',
+  review_updated: '✨'
 };
 
 export function NotificationBell() {
@@ -112,22 +140,44 @@ export function NotificationBell() {
     }
 
     switch (notification.type) {
+      // Orders
       case 'order_created':
+      case 'order_status_changed':
+      case 'tracking_added':
+      case 'tracking_removed':
         navigate(`/merchant/dashboard?tab=orders&${searchParams.toString()}`);
         break;
+        
+      // Categories
       case 'category_created':
+      case 'category_edited':
+      case 'category_deleted':
         navigate(`/merchant/dashboard?tab=categories&${searchParams.toString()}`);
         break;
+        
+      // Products
       case 'product_created':
+      case 'product_edited':
+      case 'product_deleted':
+      case 'review_added':
+      case 'review_updated':
         navigate(`/merchant/dashboard?tab=products&${searchParams.toString()}`);
         break;
-      case 'user_access_granted':
+        
+      // Collections
       case 'collection_created':
+      case 'collection_edited':
+      case 'collection_deleted':
+      case 'user_access_granted':
+      case 'user_access_removed':
         navigate(`/merchant/dashboard?tab=collections&${searchParams.toString()}`);
         break;
+        
+      // Admin only
       case 'user_created':
         navigate('/merchant/admin?tab=users');
         break;
+        
       default:
         navigate('/merchant/dashboard');
     }

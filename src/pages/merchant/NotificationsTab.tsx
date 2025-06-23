@@ -9,7 +9,9 @@ import { toast } from 'react-toastify';
 
 interface Notification {
   id: string;
-  type: 'order_created' | 'category_created' | 'product_created' | 'user_access_granted' | 'user_created' | 'collection_created';
+  type: 'order_created' | 'category_created' | 'product_created' | 'user_access_granted' | 'user_created' | 'collection_created' |
+        'category_edited' | 'category_deleted' | 'product_edited' | 'product_deleted' | 'collection_edited' | 'collection_deleted' |
+        'user_access_removed' | 'order_status_changed' | 'tracking_added' | 'tracking_removed' | 'review_added' | 'review_updated';
   title: string;
   message: string;
   data: any;
@@ -19,24 +21,51 @@ interface Notification {
   category_id?: string;
   product_id?: string;
   order_id?: string;
+  review_id?: string;
 }
 
 const NotificationTypeConfig = {
+  // Orders
   order_created: { icon: Package, color: 'text-green-400', bg: 'bg-green-900/20', label: 'Orders' },
+  order_status_changed: { icon: Package, color: 'text-blue-400', bg: 'bg-blue-900/20', label: 'Orders' },
+  tracking_added: { icon: Package, color: 'text-cyan-400', bg: 'bg-cyan-900/20', label: 'Orders' },
+  tracking_removed: { icon: Package, color: 'text-red-400', bg: 'bg-red-900/20', label: 'Orders' },
+  
+  // Categories
   category_created: { icon: Folder, color: 'text-blue-400', bg: 'bg-blue-900/20', label: 'Categories' },
+  category_edited: { icon: Folder, color: 'text-yellow-400', bg: 'bg-yellow-900/20', label: 'Categories' },
+  category_deleted: { icon: Folder, color: 'text-red-400', bg: 'bg-red-900/20', label: 'Categories' },
+  
+  // Products
   product_created: { icon: Package, color: 'text-purple-400', bg: 'bg-purple-900/20', label: 'Products' },
-  user_access_granted: { icon: Users, color: 'text-yellow-400', bg: 'bg-yellow-900/20', label: 'Access' },
+  product_edited: { icon: Package, color: 'text-orange-400', bg: 'bg-orange-900/20', label: 'Products' },
+  product_deleted: { icon: Package, color: 'text-red-400', bg: 'bg-red-900/20', label: 'Products' },
+  
+  // Collections
+  collection_created: { icon: Store, color: 'text-pink-400', bg: 'bg-pink-900/20', label: 'Collections' },
+  collection_edited: { icon: Store, color: 'text-amber-400', bg: 'bg-amber-900/20', label: 'Collections' },
+  collection_deleted: { icon: Store, color: 'text-red-400', bg: 'bg-red-900/20', label: 'Collections' },
+  
+  // User Access
+  user_access_granted: { icon: Users, color: 'text-green-400', bg: 'bg-green-900/20', label: 'Access' },
+  user_access_removed: { icon: Users, color: 'text-red-400', bg: 'bg-red-900/20', label: 'Access' },
+  
+  // Users
   user_created: { icon: User, color: 'text-cyan-400', bg: 'bg-cyan-900/20', label: 'Users' },
-  collection_created: { icon: Store, color: 'text-pink-400', bg: 'bg-pink-900/20', label: 'Collections' }
+  
+  // Reviews
+  review_added: { icon: Package, color: 'text-yellow-400', bg: 'bg-yellow-900/20', label: 'Reviews' },
+  review_updated: { icon: Package, color: 'text-orange-400', bg: 'bg-orange-900/20', label: 'Reviews' }
 };
 
-type FilterType = 'all' | 'unread' | 'order_created' | 'category_created' | 'product_created' | 'user_access_granted' | 'user_created' | 'collection_created';
+type FilterType = 'all' | 'unread' | 'order_created' | 'category_created' | 'product_created' | 'user_access_granted' | 'user_created' | 'collection_created' |
+                  'category_edited' | 'category_deleted' | 'product_edited' | 'product_deleted' | 'collection_edited' | 'collection_deleted' |
+                  'user_access_removed' | 'order_status_changed' | 'tracking_added' | 'tracking_removed' | 'review_added' | 'review_updated';
 
 export function NotificationsTab() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
-  // Removed unused selectedNotifications state
   const { session } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -118,22 +147,46 @@ export function NotificationsTab() {
     }
 
     switch (notification.type) {
+      // Orders
       case 'order_created':
+      case 'order_status_changed':
+      case 'tracking_added':
+      case 'tracking_removed':
         navigate(`/merchant/dashboard?tab=orders&${baseParams.toString()}`);
         break;
+        
+      // Categories
       case 'category_created':
+      case 'category_edited':
+      case 'category_deleted':
         navigate(`/merchant/dashboard?tab=categories&${baseParams.toString()}`);
         break;
+        
+      // Products
       case 'product_created':
+      case 'product_edited':
+      case 'product_deleted':
+      case 'review_added':
+      case 'review_updated':
         navigate(`/merchant/dashboard?tab=products&${baseParams.toString()}`);
         break;
-      case 'user_access_granted':
+        
+      // Collections
       case 'collection_created':
+      case 'collection_edited':
+      case 'collection_deleted':
+      case 'user_access_granted':
+      case 'user_access_removed':
         navigate(`/merchant/dashboard?tab=collections&${baseParams.toString()}`);
         break;
+        
+      // Admin only
       case 'user_created':
         navigate('/merchant/admin?tab=users');
         break;
+        
+      default:
+        navigate('/merchant/dashboard');
     }
   };
 

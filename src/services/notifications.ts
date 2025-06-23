@@ -3,7 +3,9 @@ import { supabase } from '../lib/supabase';
 export interface Notification {
   id: string;
   user_id: string;
-  type: 'order_created' | 'category_created' | 'product_created' | 'user_access_granted' | 'user_created' | 'collection_created';
+  type: 'order_created' | 'category_created' | 'product_created' | 'user_access_granted' | 'user_created' | 'collection_created' |
+        'category_edited' | 'category_deleted' | 'product_edited' | 'product_deleted' | 'collection_edited' | 'collection_deleted' |
+        'user_access_removed' | 'order_status_changed' | 'tracking_added' | 'tracking_removed' | 'review_added' | 'review_updated';
   title: string;
   message: string;
   data: any;
@@ -16,6 +18,7 @@ export interface Notification {
   product_id?: string;
   order_id?: string;
   target_user_id?: string;
+  review_id?: string;
 }
 
 export interface NotificationFilters {
@@ -138,6 +141,7 @@ export class NotificationService {
       product_id?: string;
       order_id?: string;
       target_user_id?: string;
+      review_id?: string;
     } = {}
   ) {
     const { data, error } = await supabase.rpc('create_notification', {
@@ -256,18 +260,57 @@ export class NotificationService {
 
     const { data, error } = await supabase.rpc('update_user_notification_preferences', {
       p_user_id: session.user.id,
+      // Orders
       p_order_created_app: preferences.order_created_app,
-      p_category_created_app: preferences.category_created_app,
-      p_product_created_app: preferences.product_created_app,
-      p_user_access_granted_app: preferences.user_access_granted_app,
-      p_user_created_app: preferences.user_created_app,
-      p_collection_created_app: preferences.collection_created_app,
+      p_order_status_changed_app: preferences.order_status_changed_app,
+      p_tracking_added_app: preferences.tracking_added_app,
+      p_tracking_removed_app: preferences.tracking_removed_app,
       p_order_created_email: preferences.order_created_email,
+      p_order_status_changed_email: preferences.order_status_changed_email,
+      p_tracking_added_email: preferences.tracking_added_email,
+      p_tracking_removed_email: preferences.tracking_removed_email,
+      
+      // Categories
+      p_category_created_app: preferences.category_created_app,
+      p_category_edited_app: preferences.category_edited_app,
+      p_category_deleted_app: preferences.category_deleted_app,
       p_category_created_email: preferences.category_created_email,
+      p_category_edited_email: preferences.category_edited_email,
+      p_category_deleted_email: preferences.category_deleted_email,
+      
+      // Products
+      p_product_created_app: preferences.product_created_app,
+      p_product_edited_app: preferences.product_edited_app,
+      p_product_deleted_app: preferences.product_deleted_app,
       p_product_created_email: preferences.product_created_email,
-      p_user_access_granted_email: preferences.user_access_granted_email,
-      p_user_created_email: preferences.user_created_email,
+      p_product_edited_email: preferences.product_edited_email,
+      p_product_deleted_email: preferences.product_deleted_email,
+      
+      // Collections
+      p_collection_created_app: preferences.collection_created_app,
+      p_collection_edited_app: preferences.collection_edited_app,
+      p_collection_deleted_app: preferences.collection_deleted_app,
       p_collection_created_email: preferences.collection_created_email,
+      p_collection_edited_email: preferences.collection_edited_email,
+      p_collection_deleted_email: preferences.collection_deleted_email,
+      
+      // User Access
+      p_user_access_granted_app: preferences.user_access_granted_app,
+      p_user_access_removed_app: preferences.user_access_removed_app,
+      p_user_access_granted_email: preferences.user_access_granted_email,
+      p_user_access_removed_email: preferences.user_access_removed_email,
+      
+      // Users
+      p_user_created_app: preferences.user_created_app,
+      p_user_created_email: preferences.user_created_email,
+      
+      // Reviews
+      p_review_added_app: preferences.review_added_app,
+      p_review_updated_app: preferences.review_updated_app,
+      p_review_added_email: preferences.review_added_email,
+      p_review_updated_email: preferences.review_updated_email,
+      
+      // Master switches
       p_all_app_notifications: preferences.all_app_notifications,
       p_all_email_notifications: preferences.all_email_notifications
     });
@@ -280,6 +323,7 @@ export class NotificationService {
 // Helper function to get notification type display info
 export const getNotificationTypeInfo = (type: Notification['type']) => {
   const typeConfig = {
+    // Orders
     order_created: {
       icon: '🛒',
       color: 'text-green-400',
@@ -287,6 +331,29 @@ export const getNotificationTypeInfo = (type: Notification['type']) => {
       label: 'Order',
       description: 'New order received'
     },
+    order_status_changed: {
+      icon: '📦',
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-900/20',
+      label: 'Order',
+      description: 'Order status updated'
+    },
+    tracking_added: {
+      icon: '🚚',
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-900/20',
+      label: 'Tracking',
+      description: 'Tracking information added'
+    },
+    tracking_removed: {
+      icon: '❌',
+      color: 'text-red-400',
+      bgColor: 'bg-red-900/20',
+      label: 'Tracking',
+      description: 'Tracking information removed'
+    },
+    
+    // Categories
     category_created: {
       icon: '📁',
       color: 'text-blue-400',
@@ -294,6 +361,22 @@ export const getNotificationTypeInfo = (type: Notification['type']) => {
       label: 'Category',
       description: 'New category created'
     },
+    category_edited: {
+      icon: '✏️',
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-900/20',
+      label: 'Category',
+      description: 'Category updated'
+    },
+    category_deleted: {
+      icon: '🗑️',
+      color: 'text-red-400',
+      bgColor: 'bg-red-900/20',
+      label: 'Category',
+      description: 'Category deleted'
+    },
+    
+    // Products
     product_created: {
       icon: '📦',
       color: 'text-purple-400',
@@ -301,13 +384,61 @@ export const getNotificationTypeInfo = (type: Notification['type']) => {
       label: 'Product',
       description: 'New product added'
     },
+    product_edited: {
+      icon: '✏️',
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-900/20',
+      label: 'Product',
+      description: 'Product updated'
+    },
+    product_deleted: {
+      icon: '🗑️',
+      color: 'text-red-400',
+      bgColor: 'bg-red-900/20',
+      label: 'Product',
+      description: 'Product deleted'
+    },
+    
+    // Collections
+    collection_created: {
+      icon: '🏪',
+      color: 'text-pink-400',
+      bgColor: 'bg-pink-900/20',
+      label: 'Collection',
+      description: 'New collection created'
+    },
+    collection_edited: {
+      icon: '✏️',
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-900/20',
+      label: 'Collection',
+      description: 'Collection updated'
+    },
+    collection_deleted: {
+      icon: '🗑️',
+      color: 'text-red-400',
+      bgColor: 'bg-red-900/20',
+      label: 'Collection',
+      description: 'Collection deleted'
+    },
+    
+    // User Access
     user_access_granted: {
       icon: '👥',
-      color: 'text-yellow-400',
-      bgColor: 'bg-yellow-900/20',
+      color: 'text-green-400',
+      bgColor: 'bg-green-900/20',
       label: 'Access',
       description: 'User access granted'
     },
+    user_access_removed: {
+      icon: '🚫',
+      color: 'text-red-400',
+      bgColor: 'bg-red-900/20',
+      label: 'Access',
+      description: 'User access removed'
+    },
+    
+    // Users
     user_created: {
       icon: '👤',
       color: 'text-cyan-400',
@@ -315,12 +446,21 @@ export const getNotificationTypeInfo = (type: Notification['type']) => {
       label: 'User',
       description: 'New user registered'
     },
-    collection_created: {
-      icon: '🏪',
-      color: 'text-pink-400',
-      bgColor: 'bg-pink-900/20',
-      label: 'Collection',
-      description: 'New collection created'
+    
+    // Reviews
+    review_added: {
+      icon: '⭐',
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-900/20',
+      label: 'Review',
+      description: 'New review added'
+    },
+    review_updated: {
+      icon: '✨',
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-900/20',
+      label: 'Review',
+      description: 'Review updated'
     }
   };
 
