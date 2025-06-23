@@ -409,20 +409,20 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
       }}
     >
       <div 
-        className="bg-gray-900 rounded-lg border border-gray-700 w-full max-w-4xl max-h-[90vh] min-h-[50vh] flex flex-col shadow-2xl"
+        className="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-4xl max-h-[90vh] min-h-[50vh] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-900 flex-shrink-0">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-900 rounded-t-xl flex-shrink-0">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <Settings className="h-5 w-5" />
             Notification Settings
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700/50"
-            aria-label="Close notification settings"
-          >
+                      <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors p-1 rounded-xl hover:bg-gray-700/50"
+              aria-label="Close notification settings"
+            >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -452,7 +452,7 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
               <div>
                 <h3 className="text-base font-medium text-white mb-3">Master Controls</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-gray-800 rounded-xl">
                     <div className="flex items-center gap-3">
                       <Bell className="h-4 w-4 text-blue-400" />
                       <div>
@@ -471,7 +471,7 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
                     </label>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-gray-800 rounded-xl">
                     <div className="flex items-center gap-3">
                       <Mail className="h-4 w-4 text-green-400" />
                       <div>
@@ -512,7 +512,7 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
                               const emailKey = `${notification.key}_email` as keyof NotificationPreferences;
                               
                               return (
-                                <div key={notification.key} className="border border-gray-700 rounded-lg p-3">
+                                <div key={notification.key} className="border border-gray-700 rounded-xl p-3">
                                   <div className="flex items-start gap-3">
                                     <div className="text-lg">{notification.icon}</div>
                                     
@@ -568,7 +568,7 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
               </div>
 
               {/* Email Info */}
-              <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-3">
+              <div className="bg-blue-900/20 border border-blue-700/50 rounded-xl p-3">
                 <h4 className="text-blue-400 font-medium mb-1 flex items-center gap-2 text-sm">
                   <Mail className="h-3 w-3" />
                   Email Information
@@ -593,14 +593,14 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
           <div className="flex justify-end gap-3 p-4 border-t border-gray-700 bg-gray-900 flex-shrink-0">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm rounded-lg hover:bg-gray-700/50"
+              className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm rounded-xl hover:bg-gray-700/50"
             >
               Cancel
             </button>
             <button
               onClick={savePreferences}
               disabled={saving}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors text-sm shadow-lg"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-xl transition-colors text-sm shadow-lg"
             >
               <Save className="h-3 w-3" />
               {saving ? 'Saving...' : 'Save Settings'}

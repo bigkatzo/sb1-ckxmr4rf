@@ -272,14 +272,104 @@ export function NotificationBell() {
 
       {isOpen && (
         <>
-          {isMobile && (
-            <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setIsOpen(false)} />
-          )}
-          <div className={`absolute top-full mt-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl flex flex-col ${
-            isMobile 
-              ? 'fixed top-16 right-4 left-4 z-50 max-h-[calc(100vh-5rem)]' 
-              : 'right-0 w-80 max-w-[calc(100vw-2rem)] max-h-96 z-50'
-          }`}>
+          {/* Mobile overlay */}
+          <div className="sm:hidden fixed inset-0 bg-black/20 z-40" onClick={() => setIsOpen(false)} />
+          
+          {/* Desktop dropdown */}
+          <div className="hidden sm:block absolute top-full mt-2 right-0 w-80 max-w-[calc(100vw-2rem)] max-h-96 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-3 border-b border-gray-700">
+              <h3 className="text-sm font-medium text-white">Notifications</h3>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllAsRead}
+                    disabled={loading}
+                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'Marking...' : 'Mark all read'}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowSettings(true);
+                    setIsOpen(false);
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors p-1 rounded"
+                  title="Notification Settings"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Notifications List */}
+            <div className="flex-1 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-4 text-center text-gray-400 text-sm">
+                  No notifications yet
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-700">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-3 hover:bg-gray-800/50 cursor-pointer transition-colors ${
+                        !notification.read ? 'bg-blue-900/20' : ''
+                      }`}
+                      onClick={() => handleNotificationClick(notification)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="text-lg mt-0.5">
+                          {NotificationTypeIcons[notification.type]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium text-white truncate">
+                              {notification.title}
+                            </p>
+                            {!notification.read && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            {notifications.length > 0 && (
+              <div className="p-3 border-t border-gray-700">
+                <button
+                  onClick={() => {
+                    navigate('/merchant/dashboard?tab=notifications');
+                    setIsOpen(false);
+                  }}
+                  className="w-full text-xs text-center text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  View all notifications
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile drawer - WIDE and VISIBLE */}
+          <div className="sm:hidden fixed top-12 left-2 right-2 max-h-[calc(100vh-6rem)] bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-gray-700">
               <h3 className="text-sm font-medium text-white">Notifications</h3>
