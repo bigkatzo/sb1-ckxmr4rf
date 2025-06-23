@@ -63,8 +63,20 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { session } = useAuth();
   const navigate = useNavigate();
+
+  // Check for mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 640);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -214,17 +226,31 @@ export function NotificationBell() {
     };
   }, [session?.user?.id]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside or pressing ESC
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Element;
       if (isOpen && !target.closest('.notification-dropdown')) {
         setIsOpen(false);
       }
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    // Handle both mouse and touch events for better mobile support
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen]);
 
   if (!session?.user) return null;
@@ -245,7 +271,11 @@ export function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 max-h-96 flex flex-col">
+        <div className={`absolute top-full mt-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 flex flex-col ${
+          isMobile 
+            ? 'fixed right-2 left-2 w-auto max-h-[80vh]' 
+            : 'right-0 w-80 max-w-[calc(100vw-2rem)] max-h-96'
+        }`}>
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b border-gray-700">
             <h3 className="text-sm font-medium text-white">Notifications</h3>

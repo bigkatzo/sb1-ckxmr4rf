@@ -236,12 +236,49 @@ interface NotificationSettingsModalProps {
   onClose: () => void;
 }
 
+// Hook for managing body scroll lock
+const useBodyScrollLock = (isLocked: boolean) => {
+  useEffect(() => {
+    if (isLocked) {
+      // Store original overflow and prevent scroll
+      const originalOverflow = document.body.style.overflow;
+      const originalPaddingRight = document.body.style.paddingRight;
+      
+      // Calculate scrollbar width to prevent layout shift
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+      
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.paddingRight = originalPaddingRight;
+      };
+    }
+  }, [isLocked]);
+};
+
 export function NotificationSettingsModal({ isOpen, onClose }: NotificationSettingsModalProps) {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { session } = useAuth();
+
+  // Lock body scroll when modal is open
+  useBodyScrollLock(isOpen);
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
 
   const loadPreferences = async () => {
     if (!session?.user) return;
@@ -362,17 +399,29 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-lg border border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onClick={(e) => {
+        // Close modal when clicking backdrop
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        className="bg-gray-900 rounded-lg border border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col my-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-900/95 backdrop-blur-sm">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <Settings className="h-5 w-5" />
             Notification Settings
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700/50"
+            aria-label="Close notification settings"
           >
             <X className="h-5 w-5" />
           </button>
@@ -541,17 +590,17 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
 
         {/* Footer */}
         {preferences && (
-          <div className="flex justify-end gap-3 p-4 border-t border-gray-700">
+          <div className="flex justify-end gap-3 p-4 border-t border-gray-700 bg-gray-900/95 backdrop-blur-sm">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
+              className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm rounded-lg hover:bg-gray-700/50"
             >
               Cancel
             </button>
             <button
               onClick={savePreferences}
               disabled={saving}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors text-sm shadow-lg"
             >
               <Save className="h-3 w-3" />
               {saving ? 'Saving...' : 'Save Settings'}
