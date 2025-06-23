@@ -43,9 +43,16 @@ CREATE TABLE IF NOT EXISTS notifications (
 DO $$ 
 BEGIN
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'product_reviews') THEN
-    ALTER TABLE notifications 
-    ADD CONSTRAINT fk_notifications_review_id 
-    FOREIGN KEY (review_id) REFERENCES product_reviews(id) ON DELETE CASCADE;
+    -- Check if constraint already exists before adding it
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.table_constraints 
+      WHERE constraint_name = 'fk_notifications_review_id' 
+      AND table_name = 'notifications'
+    ) THEN
+      ALTER TABLE notifications 
+      ADD CONSTRAINT fk_notifications_review_id 
+      FOREIGN KEY (review_id) REFERENCES product_reviews(id) ON DELETE CASCADE;
+    END IF;
   END IF;
 END $$;
 
@@ -59,6 +66,11 @@ CREATE INDEX IF NOT EXISTS idx_notifications_review_id ON notifications(review_i
 
 -- Enable RLS
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist to avoid conflicts
+DROP POLICY IF EXISTS "Users can view their own notifications" ON notifications;
+DROP POLICY IF EXISTS "Users can update their own notifications" ON notifications;
+DROP POLICY IF EXISTS "System can create notifications" ON notifications;
 
 -- RLS Policy: Users can only see their own notifications
 CREATE POLICY "Users can view their own notifications"
@@ -329,39 +341,40 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_product_name TEXT;
   v_collection_name TEXT;
+  v_order_number TEXT;
+  v_collection_id UUID;
   v_recipient RECORD;
 BEGIN
-  -- Only trigger if tracking_number was added (was NULL, now has value)
-  IF OLD.tracking_number IS NOT NULL OR NEW.tracking_number IS NULL THEN
-    RETURN NEW;
-  END IF;
-  
+  -- This function is for order_tracking table inserts
   BEGIN
-    SELECT p.name, c.name
-    INTO v_product_name, v_collection_name
-    FROM products p
+    -- Get order details from the related order
+    SELECT p.name, c.name, o.order_number, o.collection_id
+    INTO v_product_name, v_collection_name, v_order_number, v_collection_id
+    FROM orders o
+    JOIN products p ON p.id = o.product_id
     JOIN collections c ON c.id = p.collection_id
-    WHERE p.id = NEW.product_id;
+    WHERE o.id = NEW.order_id;
     
     FOR v_recipient IN
-      SELECT * FROM get_collection_notification_recipients(NEW.collection_id)
+      SELECT * FROM get_collection_notification_recipients(v_collection_id)
     LOOP
       BEGIN
         PERFORM create_notification(
           v_recipient.user_id,
           'tracking_added',
           'Tracking Number Added',
-          format('Tracking number added for order "%s"', NEW.order_number),
+          format('Tracking number added for order "%s"', v_order_number),
           jsonb_build_object(
-            'order_number', NEW.order_number,
+            'order_number', v_order_number,
             'product_name', v_product_name,
             'collection_name', v_collection_name,
-            'tracking_number', NEW.tracking_number
+            'tracking_number', NEW.tracking_number,
+            'carrier', NEW.carrier
           ),
-          NEW.collection_id,
+          v_collection_id,
           NULL,
-          NEW.product_id,
-          NEW.id,
+          (SELECT product_id FROM orders WHERE id = NEW.order_id),
+          NEW.order_id,
           NULL,
           NULL
         );
@@ -372,7 +385,7 @@ BEGIN
     END LOOP;
   EXCEPTION
     WHEN OTHERS THEN
-      RAISE NOTICE 'Tracking added notification failed for order %: %', NEW.id, SQLERRM;
+      RAISE NOTICE 'Tracking added notification failed for order_tracking %: %', NEW.id, SQLERRM;
   END;
   
   RETURN NEW;
@@ -384,39 +397,40 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_product_name TEXT;
   v_collection_name TEXT;
+  v_order_number TEXT;
+  v_collection_id UUID;
   v_recipient RECORD;
 BEGIN
-  -- Only trigger if tracking_number was removed (had value, now NULL)
-  IF OLD.tracking_number IS NULL OR NEW.tracking_number IS NOT NULL THEN
-    RETURN NEW;
-  END IF;
-  
+  -- This function is for order_tracking table deletions
   BEGIN
-    SELECT p.name, c.name
-    INTO v_product_name, v_collection_name
-    FROM products p
+    -- Get order details from the related order
+    SELECT p.name, c.name, o.order_number, o.collection_id
+    INTO v_product_name, v_collection_name, v_order_number, v_collection_id
+    FROM orders o
+    JOIN products p ON p.id = o.product_id
     JOIN collections c ON c.id = p.collection_id
-    WHERE p.id = NEW.product_id;
+    WHERE o.id = OLD.order_id;
     
     FOR v_recipient IN
-      SELECT * FROM get_collection_notification_recipients(NEW.collection_id)
+      SELECT * FROM get_collection_notification_recipients(v_collection_id)
     LOOP
       BEGIN
         PERFORM create_notification(
           v_recipient.user_id,
           'tracking_removed',
           'Tracking Number Removed',
-          format('Tracking number removed for order "%s"', NEW.order_number),
+          format('Tracking number removed for order "%s"', v_order_number),
           jsonb_build_object(
-            'order_number', NEW.order_number,
+            'order_number', v_order_number,
             'product_name', v_product_name,
             'collection_name', v_collection_name,
-            'old_tracking_number', OLD.tracking_number
+            'old_tracking_number', OLD.tracking_number,
+            'carrier', OLD.carrier
           ),
-          NEW.collection_id,
+          v_collection_id,
           NULL,
-          NEW.product_id,
-          NEW.id,
+          (SELECT product_id FROM orders WHERE id = OLD.order_id),
+          OLD.order_id,
           NULL,
           NULL
         );
@@ -427,10 +441,10 @@ BEGIN
     END LOOP;
   EXCEPTION
     WHEN OTHERS THEN
-      RAISE NOTICE 'Tracking removed notification failed for order %: %', NEW.id, SQLERRM;
+      RAISE NOTICE 'Tracking removed notification failed for order_tracking %: %', OLD.id, SQLERRM;
   END;
   
-  RETURN NEW;
+  RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -1017,9 +1031,15 @@ CREATE OR REPLACE FUNCTION notify_user_created()
 RETURNS TRIGGER AS $$
 DECLARE
   v_recipient RECORD;
+  v_user_email TEXT;
 BEGIN
   BEGIN
-    -- Notify all admins about new user creation
+    -- Get the user's email from auth.users
+    SELECT email INTO v_user_email
+    FROM auth.users
+    WHERE id = NEW.id;
+    
+    -- Notify all admins about new user profile creation
     FOR v_recipient IN
       SELECT u.id as user_id, u.email, 'admin' as access_type
       FROM auth.users u
@@ -1031,11 +1051,13 @@ BEGIN
         PERFORM create_notification(
           v_recipient.user_id,
           'user_created',
-          'New User Registered',
-          format('New user "%s" has registered', COALESCE(NEW.email, 'unknown')),
+          'New User Profile Created',
+          format('New user profile created for "%s" with role "%s"', COALESCE(v_user_email, 'unknown'), NEW.role),
           jsonb_build_object(
-            'user_email', NEW.email,
-            'user_id', NEW.id
+            'user_email', v_user_email,
+            'user_id', NEW.id,
+            'role', NEW.role,
+            'full_name', NEW.full_name
           ),
           NULL,
           NULL,
@@ -1051,7 +1073,7 @@ BEGIN
     END LOOP;
   EXCEPTION
     WHEN OTHERS THEN
-      RAISE NOTICE 'User creation notification failed for user %: %', NEW.id, SQLERRM;
+      RAISE NOTICE 'User profile creation notification failed for user %: %', NEW.id, SQLERRM;
   END;
   
   RETURN NEW;
@@ -1064,15 +1086,13 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_product_name TEXT;
   v_collection_name TEXT;
-  v_reviewer_email TEXT;
   v_recipient RECORD;
 BEGIN
   BEGIN
-    SELECT p.name, c.name, u.email
-    INTO v_product_name, v_collection_name, v_reviewer_email
+    SELECT p.name, c.name
+    INTO v_product_name, v_collection_name
     FROM products p
     JOIN collections c ON c.id = p.collection_id
-    LEFT JOIN auth.users u ON u.id = NEW.user_id
     WHERE p.id = NEW.product_id;
     
     FOR v_recipient IN
@@ -1085,19 +1105,20 @@ BEGIN
           v_recipient.user_id,
           'review_added',
           'New Review Added',
-          format('New review added for "%s" by %s', v_product_name, COALESCE(v_reviewer_email, 'anonymous')),
+          format('New review added for "%s" by wallet %s', v_product_name, COALESCE(LEFT(NEW.wallet_address, 8) || '...', 'anonymous')),
           jsonb_build_object(
             'product_name', v_product_name,
             'collection_name', v_collection_name,
-            'reviewer_email', v_reviewer_email,
-            'rating', NEW.rating,
-            'review_text', LEFT(NEW.review_text, 100)
+            'wallet_address', NEW.wallet_address,
+            'rating', NEW.product_rating,
+            'review_text', LEFT(NEW.review_text, 100),
+            'is_verified_purchase', NEW.is_verified_purchase
           ),
           (SELECT collection_id FROM products WHERE id = NEW.product_id),
           NULL,
           NEW.product_id,
+          NEW.order_id,
           NULL,
-          NEW.user_id,
           NEW.id
         );
       EXCEPTION
@@ -1119,15 +1140,13 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_product_name TEXT;
   v_collection_name TEXT;
-  v_reviewer_email TEXT;
   v_recipient RECORD;
 BEGIN
   BEGIN
-    SELECT p.name, c.name, u.email
-    INTO v_product_name, v_collection_name, v_reviewer_email
+    SELECT p.name, c.name
+    INTO v_product_name, v_collection_name
     FROM products p
     JOIN collections c ON c.id = p.collection_id
-    LEFT JOIN auth.users u ON u.id = NEW.user_id
     WHERE p.id = NEW.product_id;
     
     FOR v_recipient IN
@@ -1140,20 +1159,21 @@ BEGIN
           v_recipient.user_id,
           'review_updated',
           'Review Updated',
-          format('Review updated for "%s" by %s', v_product_name, COALESCE(v_reviewer_email, 'anonymous')),
+          format('Review updated for "%s" by wallet %s', v_product_name, COALESCE(LEFT(NEW.wallet_address, 8) || '...', 'anonymous')),
           jsonb_build_object(
             'product_name', v_product_name,
             'collection_name', v_collection_name,
-            'reviewer_email', v_reviewer_email,
-            'old_rating', OLD.rating,
-            'new_rating', NEW.rating,
-            'review_text', LEFT(NEW.review_text, 100)
+            'wallet_address', NEW.wallet_address,
+            'old_rating', OLD.product_rating,
+            'new_rating', NEW.product_rating,
+            'review_text', LEFT(NEW.review_text, 100),
+            'is_verified_purchase', NEW.is_verified_purchase
           ),
           (SELECT collection_id FROM products WHERE id = NEW.product_id),
           NULL,
           NEW.product_id,
+          NEW.order_id,
           NULL,
-          NEW.user_id,
           NEW.id
         );
       EXCEPTION
@@ -1170,6 +1190,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+
+
 -- ===============================================
 -- CREATE ALL TRIGGERS WITH PROPER NAMES
 -- CRITICAL: Complete CRUD trigger coverage
@@ -1180,8 +1202,24 @@ DROP TRIGGER IF EXISTS orders_notification_trigger ON orders;
 DROP TRIGGER IF EXISTS categories_notification_trigger ON categories;
 DROP TRIGGER IF EXISTS products_notification_trigger ON products;
 DROP TRIGGER IF EXISTS collection_access_notification_trigger ON collection_access;
-DROP TRIGGER IF EXISTS users_notification_trigger ON auth.users;
+-- Note: Cannot drop triggers on auth.users (system table)
 DROP TRIGGER IF EXISTS collections_notification_trigger ON collections;
+
+-- Drop all specific triggers that we're about to create
+DROP TRIGGER IF EXISTS categories_insert_trigger ON categories;
+DROP TRIGGER IF EXISTS categories_update_trigger ON categories;
+DROP TRIGGER IF EXISTS categories_delete_trigger ON categories;
+DROP TRIGGER IF EXISTS products_insert_trigger ON products;
+DROP TRIGGER IF EXISTS products_update_trigger ON products;
+DROP TRIGGER IF EXISTS products_delete_trigger ON products;
+DROP TRIGGER IF EXISTS collections_insert_trigger ON collections;
+DROP TRIGGER IF EXISTS collections_update_trigger ON collections;
+DROP TRIGGER IF EXISTS collections_delete_trigger ON collections;
+DROP TRIGGER IF EXISTS collection_access_insert_trigger ON collection_access;
+DROP TRIGGER IF EXISTS collection_access_delete_trigger ON collection_access;
+DROP TRIGGER IF EXISTS orders_insert_trigger ON orders;
+DROP TRIGGER IF EXISTS orders_status_update_trigger ON orders;
+DROP TRIGGER IF EXISTS user_profiles_insert_trigger ON user_profiles;
 
 -- Category triggers (INSERT, UPDATE, DELETE)
 CREATE TRIGGER categories_insert_trigger
@@ -1253,19 +1291,30 @@ CREATE TRIGGER orders_status_update_trigger
   FOR EACH ROW
   EXECUTE FUNCTION notify_order_status_changed();
 
-CREATE TRIGGER orders_tracking_update_trigger
-  AFTER UPDATE ON orders
-  FOR EACH ROW
-  EXECUTE FUNCTION notify_tracking_added();
+-- Tracking triggers for order_tracking table (INSERT, DELETE) - conditionally create if table exists
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'order_tracking') THEN
+    -- Drop existing tracking triggers first
+    EXECUTE 'DROP TRIGGER IF EXISTS order_tracking_insert_trigger ON order_tracking';
+    EXECUTE 'DROP TRIGGER IF EXISTS order_tracking_delete_trigger ON order_tracking';
+    
+    -- Create fresh tracking triggers
+    EXECUTE 'CREATE TRIGGER order_tracking_insert_trigger
+      AFTER INSERT ON order_tracking
+      FOR EACH ROW
+      EXECUTE FUNCTION notify_tracking_added()';
+      
+    EXECUTE 'CREATE TRIGGER order_tracking_delete_trigger
+      AFTER DELETE ON order_tracking
+      FOR EACH ROW
+      EXECUTE FUNCTION notify_tracking_removed()';
+  END IF;
+END $$;
 
-CREATE TRIGGER orders_tracking_remove_trigger
-  AFTER UPDATE ON orders
-  FOR EACH ROW
-  EXECUTE FUNCTION notify_tracking_removed();
-
--- User creation trigger (for admins)
-CREATE TRIGGER users_creation_trigger
-  AFTER INSERT ON auth.users
+-- User profile creation trigger (when users become active in the system)
+CREATE TRIGGER user_profiles_insert_trigger
+  AFTER INSERT ON user_profiles
   FOR EACH ROW
   EXECUTE FUNCTION notify_user_created();
 
@@ -1273,6 +1322,12 @@ CREATE TRIGGER users_creation_trigger
 DO $$ 
 BEGIN
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'product_reviews') THEN
+    -- Drop existing review triggers first
+    EXECUTE 'DROP TRIGGER IF EXISTS product_reviews_insert_trigger ON product_reviews';
+    EXECUTE 'DROP TRIGGER IF EXISTS product_reviews_update_trigger ON product_reviews';
+    EXECUTE 'DROP TRIGGER IF EXISTS product_reviews_delete_trigger ON product_reviews';
+    
+    -- Create fresh triggers
     EXECUTE 'CREATE TRIGGER product_reviews_insert_trigger
       AFTER INSERT ON product_reviews
       FOR EACH ROW

@@ -28,7 +28,7 @@ The Store.fun notification system provides comprehensive real-time notifications
 | Type | Trigger | Recipients | Key Data |
 |------|---------|------------|----------|
 | `order_created` | New order placed | Collection team | Order details, product, amount |
-| `order_status_changed` | Status update (excluding draft/payment_pending) | Collection team | Status change, order details |
+| `order_status_changed` | Status update (excluding draft/pending_payment) | Collection team | Status change, order details |
 | `tracking_added` | Tracking info added | Collection team | Tracking details, order info |
 | `tracking_removed` | Tracking info removed | Collection team | Previous tracking, order info |
 

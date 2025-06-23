@@ -222,22 +222,31 @@ CREATE OR REPLACE FUNCTION notify_user_created()
 RETURNS TRIGGER AS $$
 DECLARE
   v_admin RECORD;
+  v_user_email TEXT;
 BEGIN
   BEGIN
+    -- Get the user's email from auth.users since trigger is on user_profiles table
+    SELECT email INTO v_user_email
+    FROM auth.users
+    WHERE id = NEW.id;
+    
     FOR v_admin IN
       SELECT u.id as user_id, u.email
       FROM auth.users u
       JOIN user_profiles up ON up.id = u.id
       WHERE up.role = 'admin'
+      AND u.id != NEW.id
     LOOP
       BEGIN
         PERFORM create_notification_with_preferences(
           v_admin.user_id,
           'user_created',
           'New User Registered',
-          format('New user "%s" has registered', NEW.email),
+          format('New user "%s" has registered with role "%s"', COALESCE(v_user_email, 'unknown'), NEW.role),
           jsonb_build_object(
-            'new_user_email', NEW.email,
+            'new_user_email', v_user_email,
+            'user_id', NEW.id,
+            'role', NEW.role,
             'created_at', NEW.created_at
           ),
           NULL,
@@ -425,7 +434,7 @@ DECLARE
   v_recipient RECORD;
 BEGIN
   IF OLD.status IS DISTINCT FROM NEW.status AND 
-     NEW.status NOT IN ('draft', 'payment_pending') THEN
+     NEW.status NOT IN ('draft', 'pending_payment') THEN
     
     BEGIN
       SELECT p.name, c.name

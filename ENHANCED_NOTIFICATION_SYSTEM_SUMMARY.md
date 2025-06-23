@@ -16,7 +16,7 @@
 
 ### 🛒 **Order Management (4 types)**
 - ✅ `order_created` - New orders placed
-- 🆕 `order_status_changed` - Status updates (excluding draft/payment_pending)
+- 🆕 `order_status_changed` - Status updates (excluding draft/pending_payment)
 - 🆕 `tracking_added` - Tracking information added
 - 🆕 `tracking_removed` - Tracking information removed
 
