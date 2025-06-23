@@ -65,13 +65,13 @@ const notificationTypeGroups = [
     group: 'Orders',
     icon: '🛒',
     types: [
-      {
-        key: 'order_created',
-        label: 'New Orders',
-        description: 'When orders are placed for your products',
-        icon: '🛒',
-        forAdmins: false
-      },
+  {
+    key: 'order_created',
+    label: 'New Orders',
+    description: 'When orders are placed for your products',
+    icon: '🛒',
+    forAdmins: false
+  },
       {
         key: 'order_status_changed',
         label: 'Order Status Changes',
@@ -99,13 +99,13 @@ const notificationTypeGroups = [
     group: 'Categories',
     icon: '📁',
     types: [
-      {
-        key: 'category_created',
-        label: 'New Categories',
-        description: 'When categories are added to your collections',
-        icon: '📁',
-        forAdmins: false
-      },
+  {
+    key: 'category_created',
+    label: 'New Categories',
+    description: 'When categories are added to your collections',
+    icon: '📁',
+    forAdmins: false
+  },
       {
         key: 'category_edited',
         label: 'Category Updates',
@@ -126,13 +126,13 @@ const notificationTypeGroups = [
     group: 'Products',
     icon: '📦',
     types: [
-      {
-        key: 'product_created',
-        label: 'New Products',
-        description: 'When products are added to your collections',
-        icon: '📦',
-        forAdmins: false
-      },
+  {
+    key: 'product_created',
+    label: 'New Products',
+    description: 'When products are added to your collections',
+    icon: '📦',
+    forAdmins: false
+  },
       {
         key: 'product_edited',
         label: 'Product Updates',
@@ -180,13 +180,13 @@ const notificationTypeGroups = [
     group: 'User Access',
     icon: '👥',
     types: [
-      {
-        key: 'user_access_granted',
+  {
+    key: 'user_access_granted',
         label: 'Access Granted',
-        description: 'When users are granted access to your collections',
-        icon: '👥',
-        forAdmins: false
-      },
+    description: 'When users are granted access to your collections',
+    icon: '👥',
+    forAdmins: false
+  },
       {
         key: 'user_access_removed',
         label: 'Access Removed',
@@ -220,12 +220,12 @@ const notificationTypeGroups = [
     group: 'Users',
     icon: '👤',
     types: [
-      {
-        key: 'user_created',
-        label: 'New Users',
-        description: 'When new users register (admin only)',
-        icon: '👤',
-        forAdmins: true
+  {
+    key: 'user_created',
+    label: 'New Users',
+    description: 'When new users register (admin only)',
+    icon: '👤',
+    forAdmins: true
       }
     ]
   }
@@ -325,8 +325,8 @@ export function NotificationSettings() {
     // Update all related preferences
     notificationTypeGroups.forEach(group => {
       group.types.forEach(notif => {
-        const key = `${notif.key}_${type}` as keyof NotificationPreferences;
-        updates[key] = newValue;
+      const key = `${notif.key}_${type}` as keyof NotificationPreferences;
+      updates[key] = newValue;
       });
     });
 
@@ -460,62 +460,62 @@ export function NotificationSettings() {
                 <div className="space-y-4 ml-6">
                   {group.types
                     .filter(type => !type.forAdmins || isAdmin)
-                    .map((notification) => {
-                      const appKey = `${notification.key}_app` as keyof NotificationPreferences;
-                      const emailKey = `${notification.key}_email` as keyof NotificationPreferences;
-                      
-                      return (
-                        <div key={notification.key} className="border border-gray-700 rounded-lg p-4">
-                          <div className="flex items-start gap-4">
-                            <div className="text-2xl">{notification.icon}</div>
-                            
-                            <div className="flex-1">
+            .map((notification) => {
+              const appKey = `${notification.key}_app` as keyof NotificationPreferences;
+              const emailKey = `${notification.key}_email` as keyof NotificationPreferences;
+              
+              return (
+                <div key={notification.key} className="border border-gray-700 rounded-lg p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="text-2xl">{notification.icon}</div>
+                    
+                    <div className="flex-1">
                               <h5 className="font-medium text-white mb-1">
                                 {notification.label}
                                 {notification.forAdmins && (
                                   <span className="ml-2 px-1.5 py-0.5 text-xs bg-blue-600 text-white rounded">Admin</span>
                                 )}
                               </h5>
-                              <p className="text-sm text-gray-400 mb-4">{notification.description}</p>
-                              
-                              <div className="flex flex-col sm:flex-row gap-4">
-                                {/* App Notification Toggle */}
-                                <div className="flex items-center gap-3">
-                                  <Bell className="h-4 w-4 text-blue-400" />
-                                  <span className="text-sm text-gray-300 min-w-[60px]">In-App</span>
-                                  <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={preferences[appKey]}
-                                      onChange={() => togglePreference(appKey)}
-                                      disabled={!preferences.all_app_notifications}
-                                      className="sr-only peer"
-                                    />
-                                    <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 peer-disabled:opacity-50"></div>
-                                  </label>
-                                </div>
-
-                                {/* Email Notification Toggle */}
-                                <div className="flex items-center gap-3">
-                                  <Mail className="h-4 w-4 text-green-400" />
-                                  <span className="text-sm text-gray-300 min-w-[60px]">Email</span>
-                                  <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={preferences[emailKey]}
-                                      onChange={() => togglePreference(emailKey)}
-                                      disabled={!preferences.all_email_notifications}
-                                      className="sr-only peer"
-                                    />
-                                    <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600 peer-disabled:opacity-50"></div>
-                                  </label>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                      <p className="text-sm text-gray-400 mb-4">{notification.description}</p>
+                      
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        {/* App Notification Toggle */}
+                        <div className="flex items-center gap-3">
+                          <Bell className="h-4 w-4 text-blue-400" />
+                          <span className="text-sm text-gray-300 min-w-[60px]">In-App</span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={preferences[appKey]}
+                              onChange={() => togglePreference(appKey)}
+                              disabled={!preferences.all_app_notifications}
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 peer-disabled:opacity-50"></div>
+                          </label>
                         </div>
-                      );
-                    })}
+
+                        {/* Email Notification Toggle */}
+                        <div className="flex items-center gap-3">
+                          <Mail className="h-4 w-4 text-green-400" />
+                          <span className="text-sm text-gray-300 min-w-[60px]">Email</span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={preferences[emailKey]}
+                              onChange={() => togglePreference(emailKey)}
+                              disabled={!preferences.all_email_notifications}
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600 peer-disabled:opacity-50"></div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
                 </div>
               </div>
             ))}
