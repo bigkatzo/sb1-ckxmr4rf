@@ -6,21 +6,69 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   
-  -- In-app notification preferences
-  order_created_app BOOLEAN DEFAULT TRUE,
+  -- In-app notification preferences - Categories
   category_created_app BOOLEAN DEFAULT TRUE,
-  product_created_app BOOLEAN DEFAULT TRUE,
-  user_access_granted_app BOOLEAN DEFAULT TRUE,
-  user_created_app BOOLEAN DEFAULT TRUE,
-  collection_created_app BOOLEAN DEFAULT TRUE,
+  category_edited_app BOOLEAN DEFAULT TRUE,
+  category_deleted_app BOOLEAN DEFAULT FALSE,
   
-  -- Email notification preferences
-  order_created_email BOOLEAN DEFAULT TRUE,
+  -- In-app notification preferences - Products
+  product_created_app BOOLEAN DEFAULT TRUE,
+  product_edited_app BOOLEAN DEFAULT TRUE,
+  product_deleted_app BOOLEAN DEFAULT FALSE,
+  
+  -- In-app notification preferences - Collections
+  collection_created_app BOOLEAN DEFAULT TRUE,
+  collection_edited_app BOOLEAN DEFAULT TRUE,
+  collection_deleted_app BOOLEAN DEFAULT FALSE,
+  
+  -- In-app notification preferences - User Access
+  user_access_granted_app BOOLEAN DEFAULT TRUE,
+  user_access_removed_app BOOLEAN DEFAULT TRUE,
+  
+  -- In-app notification preferences - Users
+  user_created_app BOOLEAN DEFAULT TRUE,
+  
+  -- In-app notification preferences - Orders
+  order_created_app BOOLEAN DEFAULT TRUE,
+  order_status_changed_app BOOLEAN DEFAULT TRUE,
+  tracking_added_app BOOLEAN DEFAULT TRUE,
+  tracking_removed_app BOOLEAN DEFAULT TRUE,
+  
+  -- In-app notification preferences - Reviews
+  review_added_app BOOLEAN DEFAULT TRUE,
+  review_updated_app BOOLEAN DEFAULT TRUE,
+  
+  -- Email notification preferences - Categories
   category_created_email BOOLEAN DEFAULT TRUE,
+  category_edited_email BOOLEAN DEFAULT TRUE,
+  category_deleted_email BOOLEAN DEFAULT FALSE,
+  
+  -- Email notification preferences - Products
   product_created_email BOOLEAN DEFAULT TRUE,
-  user_access_granted_email BOOLEAN DEFAULT TRUE,
-  user_created_email BOOLEAN DEFAULT TRUE,
+  product_edited_email BOOLEAN DEFAULT TRUE,
+  product_deleted_email BOOLEAN DEFAULT FALSE,
+  
+  -- Email notification preferences - Collections
   collection_created_email BOOLEAN DEFAULT TRUE,
+  collection_edited_email BOOLEAN DEFAULT TRUE,
+  collection_deleted_email BOOLEAN DEFAULT FALSE,
+  
+  -- Email notification preferences - User Access
+  user_access_granted_email BOOLEAN DEFAULT TRUE,
+  user_access_removed_email BOOLEAN DEFAULT TRUE,
+  
+  -- Email notification preferences - Users
+  user_created_email BOOLEAN DEFAULT TRUE,
+  
+  -- Email notification preferences - Orders
+  order_created_email BOOLEAN DEFAULT TRUE,
+  order_status_changed_email BOOLEAN DEFAULT TRUE,
+  tracking_added_email BOOLEAN DEFAULT TRUE,
+  tracking_removed_email BOOLEAN DEFAULT TRUE,
+  
+  -- Email notification preferences - Reviews
+  review_added_email BOOLEAN DEFAULT TRUE,
+  review_updated_email BOOLEAN DEFAULT TRUE,
   
   -- Master switches
   all_app_notifications BOOLEAN DEFAULT TRUE,
@@ -188,28 +236,66 @@ BEGIN
     -- Build column name
     v_column_name := p_notification_type || '_' || p_channel;
     
-    -- Check specific preference
+    -- Check specific preference - Enhanced with all new types
     CASE v_column_name
-      WHEN 'order_created_app' THEN v_should_send := v_preferences.order_created_app;
-      WHEN 'order_created_email' THEN v_should_send := v_preferences.order_created_email;
+      -- Categories
       WHEN 'category_created_app' THEN v_should_send := v_preferences.category_created_app;
       WHEN 'category_created_email' THEN v_should_send := v_preferences.category_created_email;
+      WHEN 'category_edited_app' THEN v_should_send := v_preferences.category_edited_app;
+      WHEN 'category_edited_email' THEN v_should_send := v_preferences.category_edited_email;
+      WHEN 'category_deleted_app' THEN v_should_send := v_preferences.category_deleted_app;
+      WHEN 'category_deleted_email' THEN v_should_send := v_preferences.category_deleted_email;
+      
+      -- Products
       WHEN 'product_created_app' THEN v_should_send := v_preferences.product_created_app;
       WHEN 'product_created_email' THEN v_should_send := v_preferences.product_created_email;
-      WHEN 'user_access_granted_app' THEN v_should_send := v_preferences.user_access_granted_app;
-      WHEN 'user_access_granted_email' THEN v_should_send := v_preferences.user_access_granted_email;
-      WHEN 'user_created_app' THEN v_should_send := v_preferences.user_created_app;
-      WHEN 'user_created_email' THEN v_should_send := v_preferences.user_created_email;
+      WHEN 'product_edited_app' THEN v_should_send := v_preferences.product_edited_app;
+      WHEN 'product_edited_email' THEN v_should_send := v_preferences.product_edited_email;
+      WHEN 'product_deleted_app' THEN v_should_send := v_preferences.product_deleted_app;
+      WHEN 'product_deleted_email' THEN v_should_send := v_preferences.product_deleted_email;
+      
+      -- Collections
       WHEN 'collection_created_app' THEN v_should_send := v_preferences.collection_created_app;
       WHEN 'collection_created_email' THEN v_should_send := v_preferences.collection_created_email;
+      WHEN 'collection_edited_app' THEN v_should_send := v_preferences.collection_edited_app;
+      WHEN 'collection_edited_email' THEN v_should_send := v_preferences.collection_edited_email;
+      WHEN 'collection_deleted_app' THEN v_should_send := v_preferences.collection_deleted_app;
+      WHEN 'collection_deleted_email' THEN v_should_send := v_preferences.collection_deleted_email;
+      
+      -- User Access
+      WHEN 'user_access_granted_app' THEN v_should_send := v_preferences.user_access_granted_app;
+      WHEN 'user_access_granted_email' THEN v_should_send := v_preferences.user_access_granted_email;
+      WHEN 'user_access_removed_app' THEN v_should_send := v_preferences.user_access_removed_app;
+      WHEN 'user_access_removed_email' THEN v_should_send := v_preferences.user_access_removed_email;
+      
+      -- Users
+      WHEN 'user_created_app' THEN v_should_send := v_preferences.user_created_app;
+      WHEN 'user_created_email' THEN v_should_send := v_preferences.user_created_email;
+      
+      -- Orders
+      WHEN 'order_created_app' THEN v_should_send := v_preferences.order_created_app;
+      WHEN 'order_created_email' THEN v_should_send := v_preferences.order_created_email;
+      WHEN 'order_status_changed_app' THEN v_should_send := v_preferences.order_status_changed_app;
+      WHEN 'order_status_changed_email' THEN v_should_send := v_preferences.order_status_changed_email;
+      WHEN 'tracking_added_app' THEN v_should_send := v_preferences.tracking_added_app;
+      WHEN 'tracking_added_email' THEN v_should_send := v_preferences.tracking_added_email;
+      WHEN 'tracking_removed_app' THEN v_should_send := v_preferences.tracking_removed_app;
+      WHEN 'tracking_removed_email' THEN v_should_send := v_preferences.tracking_removed_email;
+      
+      -- Reviews
+      WHEN 'review_added_app' THEN v_should_send := v_preferences.review_added_app;
+      WHEN 'review_added_email' THEN v_should_send := v_preferences.review_added_email;
+      WHEN 'review_updated_app' THEN v_should_send := v_preferences.review_updated_app;
+      WHEN 'review_updated_email' THEN v_should_send := v_preferences.review_updated_email;
+      
       ELSE v_should_send := TRUE; -- Default to true for unknown types
     END CASE;
     
   EXCEPTION
     WHEN OTHERS THEN
-      -- CRITICAL: Default to sending notifications if preferences check fails
+      -- CRITICAL: Default to TRUE if any error occurs
       RAISE NOTICE 'Error checking notification preferences for user % type % channel %: %', p_user_id, p_notification_type, p_channel, SQLERRM;
-      v_should_send := TRUE;
+      RETURN TRUE;
   END;
   
   RETURN v_should_send;
@@ -228,7 +314,8 @@ CREATE OR REPLACE FUNCTION create_notification_with_preferences(
   p_category_id UUID DEFAULT NULL,
   p_product_id UUID DEFAULT NULL,
   p_order_id UUID DEFAULT NULL,
-  p_target_user_id UUID DEFAULT NULL
+  p_target_user_id UUID DEFAULT NULL,
+  p_review_id UUID DEFAULT NULL
 )
 RETURNS UUID AS $$
 DECLARE
@@ -258,7 +345,8 @@ BEGIN
           p_category_id,
           p_product_id,
           p_order_id,
-          p_target_user_id
+          p_target_user_id,
+          p_review_id
         ) INTO v_notification_id;
       EXCEPTION
         WHEN OTHERS THEN
@@ -313,6 +401,12 @@ GRANT SELECT, INSERT, UPDATE ON notification_preferences TO authenticated;
 GRANT EXECUTE ON FUNCTION get_user_notification_preferences(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION update_user_notification_preferences(UUID, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN) TO authenticated;
 GRANT EXECUTE ON FUNCTION should_send_notification(UUID, TEXT, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION create_notification_with_preferences(UUID, TEXT, TEXT, TEXT, JSONB, UUID, UUID, UUID, UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_notification_with_preferences(UUID, TEXT, TEXT, TEXT, JSONB, UUID, UUID, UUID, UUID, UUID, UUID) TO authenticated;
+
+-- Grant anon permissions for system notification creation 
+GRANT SELECT ON notification_preferences TO anon;
+GRANT EXECUTE ON FUNCTION get_user_notification_preferences(UUID) TO anon;
+GRANT EXECUTE ON FUNCTION should_send_notification(UUID, TEXT, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION create_notification_with_preferences(UUID, TEXT, TEXT, TEXT, JSONB, UUID, UUID, UUID, UUID, UUID, UUID) TO anon;
 
 COMMIT; 
