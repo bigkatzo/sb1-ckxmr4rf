@@ -63,20 +63,8 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const { session } = useAuth();
   const navigate = useNavigate();
-
-  // Check for mobile viewport
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 640);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -276,9 +264,9 @@ export function NotificationBell() {
           <div className="sm:hidden fixed inset-0 bg-black/20 z-40" onClick={() => setIsOpen(false)} />
           
           {/* Desktop dropdown */}
-          <div className="hidden sm:block absolute top-full mt-2 right-0 w-80 max-w-[calc(100vw-2rem)] max-h-96 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 flex flex-col">
+          <div className="hidden sm:block absolute top-full mt-2 right-0 w-80 max-w-[calc(100vw-2rem)] max-h-96 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-gray-700">
+            <div className="flex items-center justify-between p-3 border-b border-gray-700 flex-shrink-0">
               <h3 className="text-sm font-medium text-white">Notifications</h3>
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
@@ -310,7 +298,7 @@ export function NotificationBell() {
             </div>
 
             {/* Notifications List */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-0">
               {notifications.length === 0 ? (
                 <div className="p-4 text-center text-gray-400 text-sm">
                   No notifications yet
@@ -326,10 +314,10 @@ export function NotificationBell() {
                       onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="text-lg mt-0.5">
+                        <div className="text-lg mt-0.5 flex-shrink-0">
                           {NotificationTypeIcons[notification.type]}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 overflow-hidden">
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium text-white truncate">
                               {notification.title}
@@ -338,10 +326,10 @@ export function NotificationBell() {
                               <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />
                             )}
                           </div>
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2 break-words">
                             {notification.message}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500 mt-1 truncate">
                             {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                           </p>
                         </div>
@@ -354,7 +342,7 @@ export function NotificationBell() {
 
             {/* Footer */}
             {notifications.length > 0 && (
-              <div className="p-3 border-t border-gray-700">
+              <div className="p-3 border-t border-gray-700 flex-shrink-0">
                 <button
                   onClick={() => {
                     navigate('/merchant/dashboard?tab=notifications');
@@ -369,9 +357,9 @@ export function NotificationBell() {
           </div>
 
           {/* Mobile drawer - WIDE and VISIBLE */}
-          <div className="sm:hidden fixed top-12 left-2 right-2 max-h-[calc(100vh-6rem)] bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 flex flex-col">
+          <div className="sm:hidden fixed top-12 left-2 right-2 max-h-[calc(100vh-6rem)] bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-gray-700">
+            <div className="flex items-center justify-between p-3 border-b border-gray-700 flex-shrink-0">
               <h3 className="text-sm font-medium text-white">Notifications</h3>
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
@@ -403,7 +391,7 @@ export function NotificationBell() {
             </div>
 
             {/* Notifications List */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-0">
               {notifications.length === 0 ? (
                 <div className="p-4 text-center text-gray-400 text-sm">
                   No notifications yet
@@ -419,10 +407,10 @@ export function NotificationBell() {
                       onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="text-lg mt-0.5">
+                        <div className="text-lg mt-0.5 flex-shrink-0">
                           {NotificationTypeIcons[notification.type]}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 overflow-hidden">
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium text-white truncate">
                               {notification.title}
@@ -431,10 +419,10 @@ export function NotificationBell() {
                               <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />
                             )}
                           </div>
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2 break-words">
                             {notification.message}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500 mt-1 truncate">
                             {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                           </p>
                         </div>
@@ -447,7 +435,7 @@ export function NotificationBell() {
 
             {/* Footer */}
             {notifications.length > 0 && (
-              <div className="p-3 border-t border-gray-700">
+              <div className="p-3 border-t border-gray-700 flex-shrink-0">
                 <button
                   onClick={() => {
                     navigate('/merchant/dashboard?tab=notifications');

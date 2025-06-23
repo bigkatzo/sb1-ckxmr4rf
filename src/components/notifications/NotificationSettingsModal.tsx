@@ -590,7 +590,7 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
 
         {/* Footer - Fixed */}
         {preferences && (
-          <div className="flex justify-end gap-3 p-4 border-t border-gray-700 bg-gray-900 flex-shrink-0">
+          <div className="flex justify-end gap-3 p-4 border-t border-gray-700 bg-gray-900 rounded-b-xl flex-shrink-0">
             <button
               onClick={onClose}
               className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm rounded-xl hover:bg-gray-700/50"
