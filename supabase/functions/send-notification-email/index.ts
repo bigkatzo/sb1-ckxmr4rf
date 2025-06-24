@@ -5,6 +5,312 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function safeGet(obj: any, path: string, fallback: any = 'N/A'): any {
+  try {
+    if (!obj || typeof obj !== 'object') return fallback;
+    const value = path.split('.').reduce((o, key) => o?.[key], obj);
+    return value !== null && value !== undefined && value !== '' ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function generateEmailContent(type: string, data: any) {
+  // ULTRA-SAFE data handling with beautiful templates
+  const safeData = data || {};
+  
+  let subject = 'Notification from Store.fun';
+  let html = '';
+  let text = '';
+
+  try {
+    switch (type) {
+      case 'order_created':
+        const productName = safeGet(safeData, 'product_name', 'Product');
+        const orderNumber = safeGet(safeData, 'order_number', 'N/A');
+        const amountSol = safeGet(safeData, 'amount_sol', null);
+        const customerName = safeGet(safeData, 'customer_name', 'Customer');
+        
+        subject = `🛒 New Order Received - ${productName}`;
+        text = `🛒 New Order Created!\n\nHi ${customerName},\n\nThank you for your order!\n\nOrder: ${orderNumber}\nProduct: ${productName}\n${amountSol ? `Amount: ${amountSol} SOL\n` : ''}\nYou'll receive updates as your order progresses.\n\nView your order at Store.fun`;
+        html = createBeautifulTemplate(subject, `
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; margin: 20px 0; color: white; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px;">🛒 Order Confirmed!</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Thank you for choosing Store.fun</p>
+          </div>
+          
+          <div style="background: #f8fafc; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+            <h3 style="color: #10b981; margin-top: 0;">Order Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Order Number:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${orderNumber}</td></tr>
+              <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Product:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${productName}</td></tr>
+              <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Customer:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${customerName}</td></tr>
+              ${amountSol ? `<tr><td style="padding: 8px 0;"><strong>Amount:</strong></td><td style="padding: 8px 0; color: #7c3aed; font-weight: bold;">${amountSol} SOL</td></tr>` : ''}
+            </table>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <p style="color: #6b7280; margin-bottom: 20px;">We'll keep you updated on your order progress!</p>
+            <a href="https://store.fun/orders" style="display: inline-block; background: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; box-shadow: 0 4px 6px rgba(124, 58, 237, 0.2);">Track Your Order</a>
+          </div>
+        `);
+        break;
+
+      case 'order_status_changed':
+        const orderNum = safeGet(safeData, 'order_number', 'N/A');
+        const prodName = safeGet(safeData, 'product_name', 'Product');
+        const oldStatus = safeGet(safeData, 'old_status', 'unknown');
+        const newStatus = safeGet(safeData, 'new_status', 'updated');
+        const trackingNumber = safeGet(safeData, 'tracking_number', null);
+        
+        const statusColor = getStatusColor(newStatus);
+        const statusEmoji = getStatusEmoji(newStatus);
+        
+        subject = `📦 Order Update: ${prodName} - ${newStatus}`;
+        text = `📦 Order Status Updated\n\nYour order has been updated!\n\nOrder: ${orderNum}\nProduct: ${prodName}\nStatus: ${oldStatus} → ${newStatus}\n${trackingNumber ? `Tracking: ${trackingNumber}\n` : ''}\nView details at Store.fun`;
+        html = createBeautifulTemplate(subject, `
+          <div style="background: linear-gradient(135deg, ${statusColor} 0%, ${statusColor}dd 100%); padding: 30px; border-radius: 12px; margin: 20px 0; color: white; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px;">${statusEmoji} Order Updated!</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Your order status has changed</p>
+          </div>
+          
+          <div style="background: #f8fafc; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusColor};">
+            <h3 style="color: ${statusColor}; margin-top: 0;">Order Status Update</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Order:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${orderNum}</td></tr>
+              <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Product:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${prodName}</td></tr>
+              <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Previous Status:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">${oldStatus}</td></tr>
+              <tr><td style="padding: 8px 0; ${trackingNumber ? 'border-bottom: 1px solid #e5e7eb;' : ''}"><strong>Current Status:</strong></td><td style="padding: 8px 0; ${trackingNumber ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: ${statusColor}; font-weight: bold;">${newStatus}</td></tr>
+              ${trackingNumber ? `<tr><td style="padding: 8px 0;"><strong>Tracking Number:</strong></td><td style="padding: 8px 0; color: #7c3aed; font-weight: bold;">${trackingNumber}</td></tr>` : ''}
+            </table>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            ${trackingNumber ? `<p style="color: #6b7280; margin-bottom: 20px;">Use your tracking number to get detailed shipping updates!</p>` : ''}
+            <a href="https://store.fun/orders/${orderNum}" style="display: inline-block; background: ${statusColor}; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">View Order Details</a>
+          </div>
+        `);
+        break;
+
+      case 'category_created':
+        const catName = safeGet(safeData, 'category_name', 'Category');
+        const collName = safeGet(safeData, 'collection_name', 'Collection');
+        const merchantName = safeGet(safeData, 'merchant_name', 'Merchant');
+        
+        subject = `📁 New Category Added: ${catName}`;
+        text = `📁 New Category Created\n\nGreat news! A new category has been added to your collection.\n\nCategory: ${catName}\nCollection: ${collName}\nMerchant: ${merchantName}\n\nStart exploring new products at Store.fun`;
+        html = createBeautifulTemplate(subject, `
+          <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; border-radius: 12px; margin: 20px 0; color: white; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px;">📁 New Category Added!</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Fresh products are now available</p>
+          </div>
+          
+          <div style="background: #fef3c7; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+            <h3 style="color: #d97706; margin-top: 0;">Category Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; border-bottom: 1px solid #fde68a;"><strong>Category Name:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #fde68a;">${catName}</td></tr>
+              <tr><td style="padding: 8px 0; border-bottom: 1px solid #fde68a;"><strong>Collection:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #fde68a;">${collName}</td></tr>
+              <tr><td style="padding: 8px 0;"><strong>Merchant:</strong></td><td style="padding: 8px 0;">${merchantName}</td></tr>
+            </table>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <p style="color: #6b7280; margin-bottom: 20px;">Discover new products in this category!</p>
+            <a href="https://store.fun/collections/${collName.toLowerCase().replace(/\\s+/g, '-')}" style="display: inline-block; background: #f59e0b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2);">Browse Category</a>
+          </div>
+        `);
+        break;
+
+      case 'test':
+        subject = '✅ Test Email from Store.fun';
+        text = 'This is a test email to verify the notification system is working perfectly!\n\nAll systems operational at Store.fun';
+        html = createBeautifulTemplate(subject, `
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; border-radius: 12px; margin: 20px 0; color: white; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px;">✅ Test Email Success!</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Your notification system is working perfectly</p>
+          </div>
+          
+          <div style="background: #ecfdf5; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+            <h3 style="color: #059669; margin-top: 0;">System Status</h3>
+            <p style="color: #065f46; margin: 0;">✅ Email delivery: <strong>Working</strong></p>
+            <p style="color: #065f46; margin: 5px 0 0 0;">✅ Template rendering: <strong>Working</strong></p>
+            <p style="color: #065f46; margin: 5px 0 0 0;">✅ Notification system: <strong>Operational</strong></p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <p style="color: #6b7280; margin-bottom: 20px;">Your email notification system is ready for production!</p>
+            <a href="https://store.fun" style="display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);">Visit Store.fun</a>
+          </div>
+        `);
+        break;
+
+      default:
+        subject = `🔔 New Notification - ${type}`;
+        text = `You have a new ${type} notification from Store.fun.\n\nCheck your account for more details at Store.fun`;
+        html = createBeautifulTemplate(subject, `
+          <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 30px; border-radius: 12px; margin: 20px 0; color: white; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px;">🔔 New Notification</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">You have a new ${type} notification</p>
+          </div>
+          
+          <div style="background: #f0f9ff; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6366f1;">
+            <h3 style="color: #4f46e5; margin-top: 0;">Notification Details</h3>
+            <p style="color: #1e40af;">Type: <strong>${type}</strong></p>
+            <p style="color: #1e40af;">Available data: <strong>${Object.keys(safeData).join(', ') || 'none'}</strong></p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <p style="color: #6b7280; margin-bottom: 20px;">Check your account for more details</p>
+            <a href="https://store.fun" style="display: inline-block; background: #6366f1; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; box-shadow: 0 4px 6px rgba(99, 102, 241, 0.2);">Visit Store.fun</a>
+          </div>
+        `);
+        break;
+    }
+  } catch (error) {
+    console.error('Template generation error:', error);
+    // ULTIMATE FALLBACK with basic template
+    subject = 'Notification from Store.fun';
+    text = `You have a ${type} notification from Store.fun.`;
+    html = createBeautifulTemplate('Notification', `
+      <div style="background: #f3f4f6; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center;">
+        <h2 style="color: #374151; margin-top: 0;">🔔 New Notification</h2>
+        <p style="color: #6b7280;">You have a new notification from Store.fun.</p>
+        <p style="color: #9ca3af; font-size: 14px;"><em>Type: ${type}</em></p>
+      </div>
+    `);
+  }
+
+  return { subject, html, text };
+}
+
+function getStatusColor(status: string): string {
+  const statusColors: { [key: string]: string } = {
+    'pending': '#f59e0b',
+    'confirmed': '#10b981',
+    'preparing': '#3b82f6', 
+    'shipped': '#8b5cf6',
+    'delivered': '#059669',
+    'cancelled': '#ef4444'
+  };
+  return statusColors[status.toLowerCase()] || '#6366f1';
+}
+
+function getStatusEmoji(status: string): string {
+  const statusEmojis: { [key: string]: string } = {
+    'pending': '⏳',
+    'confirmed': '✅',
+    'preparing': '🔧',
+    'shipped': '🚚',
+    'delivered': '📦',
+    'cancelled': '❌'
+  };
+  return statusEmojis[status.toLowerCase()] || '📦';
+}
+
+function createBeautifulTemplate(title: string, content: string): string {
+  try {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${title}</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+              line-height: 1.6; 
+              color: #374151; 
+              margin: 0; 
+              padding: 0; 
+              background-color: #f9fafb;
+            }
+            .email-container { 
+              max-width: 600px; 
+              margin: 0 auto; 
+              background-color: #ffffff;
+              box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            }
+            .header { 
+              background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); 
+              color: white; 
+              padding: 30px; 
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 24px;
+              font-weight: 700;
+            }
+            .header p {
+              margin: 8px 0 0 0;
+              opacity: 0.9;
+              font-size: 16px;
+            }
+            .content { 
+              padding: 30px;
+              background: #ffffff;
+            }
+            .footer { 
+              padding: 30px; 
+              text-align: center; 
+              background-color: #f9fafb;
+              border-top: 1px solid #e5e7eb;
+            }
+            .footer p {
+              color: #6b7280; 
+              font-size: 14px;
+              margin: 5px 0;
+            }
+            .footer a {
+              color: #7c3aed;
+              text-decoration: none;
+            }
+            .footer a:hover {
+              text-decoration: underline;
+            }
+            @media (max-width: 600px) {
+              .email-container {
+                margin: 0;
+                box-shadow: none;
+              }
+              .header, .content, .footer {
+                padding: 20px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="header">
+              <h1>🛍️ Store.fun</h1>
+              <p>Your premium blockchain marketplace</p>
+            </div>
+            <div class="content">
+              ${content}
+            </div>
+            <div class="footer">
+              <p><strong>Store.fun</strong> - Premium products on Solana</p>
+              <p>
+                <a href="https://store.fun">Visit Store.fun</a> • 
+                <a href="https://store.fun/account">Your Account</a> • 
+                <a href="https://store.fun/support">Support</a>
+              </p>
+              <p style="font-size: 12px; color: #9ca3af;">
+                This email was sent because you have an account with Store.fun.<br>
+                If you no longer wish to receive these emails, you can update your preferences in your account settings.
+              </p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  } catch (error) {
+    console.error('Template creation error:', error);
+    return `<html><body><h1>${title}</h1><p>Beautiful notification content could not be rendered.</p></body></html>`;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -14,981 +320,33 @@ serve(async (req) => {
     const { to, type, data } = await req.json();
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    const FRONTEND_URL = Deno.env.get('FRONTEND_URL') || 'https://store.fun';
     
     if (!RESEND_API_KEY) {
       throw new Error('RESEND_API_KEY not configured');
     }
 
-    // Enhanced email templates with preview cards and CTAs
-    let subject = 'New Notification';
-    let html = 'You have a new notification';
-    let text = 'You have a new notification from Store.fun';
-
-    const baseStyles = `
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #0f172a; color: #e2e8f0; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; padding: 20px 0; border-bottom: 1px solid #334155; }
-        .logo { font-size: 24px; font-weight: bold; color: #3b82f6; }
-        .content { padding: 30px 0; }
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 24px; margin: 20px 0; }
-        .card-header { display: flex; align-items: center; margin-bottom: 16px; }
-        .icon { font-size: 24px; margin-right: 12px; }
-        .card-title { font-size: 18px; font-weight: 600; color: #f1f5f9; margin: 0; }
-        .card-subtitle { color: #94a3b8; font-size: 14px; margin: 4px 0 0 0; }
-        .card-content { margin-top: 16px; }
-        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #334155; }
-        .detail-label { color: #94a3b8; font-size: 14px; }
-        .detail-value { color: #f1f5f9; font-weight: 500; font-size: 14px; }
-        .cta-button { display: inline-block; background: #3b82f6; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; margin: 20px 0; }
-        .cta-button:hover { background: #2563eb; }
-        .footer { text-align: center; padding: 20px 0; border-top: 1px solid #334155; color: #94a3b8; font-size: 12px; }
-        .highlight { color: #60a5fa; font-weight: 600; }
-        .warning { color: #f59e0b; font-weight: 600; }
-        .danger { color: #ef4444; font-weight: 600; }
-      </style>
-    `;
-
-    switch (type) {
-      // ===== ORDER NOTIFICATIONS =====
-      case 'order_created':
-        subject = `🛒 New Order Received - ${data.product_name}`;
-        text = `🎉 You've got a new order!\n\nOrder #${data.order_number || 'N/A'}\nProduct: ${data.product_name}\nCollection: ${data.collection_name}\n${data.amount_sol ? `Amount: ${data.amount_sol} SOL\n` : ''}\nView details: ${FRONTEND_URL}/merchant/dashboard?tab=orders\n\nThis email was sent from Store.fun notifications.`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">🎉 You've got a new order!</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">Someone just purchased from your collection. Here are the details:</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">🛒</span>
-                  <div>
-                    <h2 class="card-title">Order #${data.order_number || 'N/A'}</h2>
-                    <p class="card-subtitle">New order received</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Product</span>
-                    <span class="detail-value highlight">${data.product_name}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Collection</span>
-                    <span class="detail-value">${data.collection_name}</span>
-                  </div>
-                  ${data.amount_sol ? `<div class="detail-row">
-                    <span class="detail-label">Amount</span>
-                    <span class="detail-value">${data.amount_sol} SOL</span>
-                  </div>` : ''}
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=orders" class="cta-button">View Order Details</a>
-              </div>
-              
-              <p style="color: #94a3b8; font-size: 14px; margin-top: 24px;">
-                💡 <strong>Quick tip:</strong> Make sure to process this order promptly to maintain customer satisfaction!
-              </p>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'order_status_changed':
-        subject = `📦 Order Status Updated - ${data.order_number}`;
-        text = `📦 Order Status Updated\n\nOrder #${data.order_number}\nProduct: ${data.product_name}\nPrevious Status: ${data.old_status}\nNew Status: ${data.new_status}\n\nView details: ${FRONTEND_URL}/merchant/dashboard?tab=orders\n\nThis email was sent from Store.fun notifications.`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">📦 Order Status Updated</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">An order status has been updated in your collection.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">📦</span>
-                  <div>
-                    <h2 class="card-title">Order #${data.order_number}</h2>
-                    <p class="card-subtitle">Status change notification</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Product</span>
-                    <span class="detail-value">${data.product_name}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Previous Status</span>
-                    <span class="detail-value warning">${data.old_status}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">New Status</span>
-                    <span class="detail-value highlight">${data.new_status}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=orders" class="cta-button">View Order Details</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'tracking_added':
-        subject = `🚚 Tracking Added - Order ${data.order_number}`;
-        text = `🚚 Tracking Information Added\n\nOrder #${data.order_number}\nProduct: ${data.product_name}\nTracking Info: ${data.tracking_info}\n\nView details: ${FRONTEND_URL}/merchant/dashboard?tab=orders\n\nThis email was sent from Store.fun notifications.`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">🚚 Tracking Information Added</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">Tracking information has been added to an order.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">🚚</span>
-                  <div>
-                    <h2 class="card-title">Order #${data.order_number}</h2>
-                    <p class="card-subtitle">Tracking added</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Product</span>
-                    <span class="detail-value">${data.product_name}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Tracking Info</span>
-                    <span class="detail-value highlight">${data.tracking_info}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=orders" class="cta-button">View Order Details</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'tracking_removed':
-        subject = `❌ Tracking Removed - Order ${data.order_number}`;
-        text = `❌ Tracking Removed\n\nOrder #${data.order_number}\nProduct: ${data.product_name}\nTracking information has been removed.\n\nView details: ${FRONTEND_URL}/merchant/dashboard?tab=orders\n\nThis email was sent from Store.fun notifications.`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">❌ Tracking Information Removed</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">Tracking information has been removed from an order.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">❌</span>
-                  <div>
-                    <h2 class="card-title">Order #${data.order_number}</h2>
-                    <p class="card-subtitle">Tracking removed</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Product</span>
-                    <span class="detail-value">${data.product_name}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Previous Tracking</span>
-                    <span class="detail-value danger">${data.old_tracking_info}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=orders" class="cta-button">View Order Details</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      // ===== CATEGORY NOTIFICATIONS =====
-      case 'category_created':
-        subject = `📁 New Category Added - ${data.category_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">📁 Category Created!</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A new category has been added to your collection to help organize products better.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">📁</span>
-                  <div>
-                    <h2 class="card-title">${data.category_name}</h2>
-                    <p class="card-subtitle">New category</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Collection</span>
-                    <span class="detail-value highlight">${data.collection_name}</span>
-                  </div>
-                  ${data.category_type ? `<div class="detail-row">
-                    <span class="detail-label">Type</span>
-                    <span class="detail-value">${data.category_type}</span>
-                  </div>` : ''}
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=categories" class="cta-button">Manage Categories</a>
-              </div>
-              
-              <p style="color: #94a3b8; font-size: 14px; margin-top: 24px;">
-                🎯 <strong>Next step:</strong> Start adding products to this new category to improve your store organization!
-              </p>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'category_edited':
-        subject = `✏️ Category Updated - ${data.category_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">✏️ Category Updated</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A category has been modified in your collection.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">✏️</span>
-                  <div>
-                    <h2 class="card-title">${data.category_name}</h2>
-                    <p class="card-subtitle">Category updated</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Collection</span>
-                    <span class="detail-value">${data.collection_name}</span>
-                  </div>
-                  ${data.old_name && data.old_name !== data.category_name ? `<div class="detail-row">
-                    <span class="detail-label">Previous Name</span>
-                    <span class="detail-value warning">${data.old_name}</span>
-                  </div>` : ''}
-                  <div class="detail-row">
-                    <span class="detail-label">Current Name</span>
-                    <span class="detail-value highlight">${data.category_name}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=categories" class="cta-button">View Categories</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'category_deleted':
-        subject = `🗑️ Category Deleted - ${data.category_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">🗑️ Category Deleted</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A category has been removed from your collection.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">🗑️</span>
-                  <div>
-                    <h2 class="card-title">${data.category_name}</h2>
-                    <p class="card-subtitle">Category deleted</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Collection</span>
-                    <span class="detail-value">${data.collection_name}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Status</span>
-                    <span class="detail-value danger">Deleted</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=categories" class="cta-button">View Categories</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      // ===== PRODUCT NOTIFICATIONS =====
-      case 'product_created':
-        subject = `📦 New Product Added - ${data.product_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">📦 Product Added!</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A new product has been added to your collection. Your catalog is growing!</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">📦</span>
-                  <div>
-                    <h2 class="card-title">${data.product_name}</h2>
-                    <p class="card-subtitle">New product</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Collection</span>
-                    <span class="detail-value highlight">${data.collection_name}</span>
-                  </div>
-                  ${data.category_name ? `<div class="detail-row">
-                    <span class="detail-label">Category</span>
-                    <span class="detail-value">${data.category_name}</span>
-                  </div>` : ''}
-                  ${data.price ? `<div class="detail-row">
-                    <span class="detail-label">Price</span>
-                    <span class="detail-value">${data.price} SOL</span>
-                  </div>` : ''}
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=products" class="cta-button">View Products</a>
-              </div>
-              
-              <p style="color: #94a3b8; font-size: 14px; margin-top: 24px;">
-                🚀 <strong>Pro tip:</strong> Share your new product on social media to drive more sales!
-              </p>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'product_edited':
-        subject = `✏️ Product Updated - ${data.product_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">✏️ Product Updated</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A product has been modified in your collection.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">✏️</span>
-                  <div>
-                    <h2 class="card-title">${data.product_name}</h2>
-                    <p class="card-subtitle">Product updated</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Collection</span>
-                    <span class="detail-value">${data.collection_name}</span>
-                  </div>
-                  ${data.old_name && data.old_name !== data.product_name ? `<div class="detail-row">
-                    <span class="detail-label">Previous Name</span>
-                    <span class="detail-value warning">${data.old_name}</span>
-                  </div>` : ''}
-                  ${data.old_price && data.old_price !== data.price ? `<div class="detail-row">
-                    <span class="detail-label">Price Change</span>
-                    <span class="detail-value">${data.old_price} SOL → <span class="highlight">${data.price} SOL</span></span>
-                  </div>` : ''}
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=products" class="cta-button">View Products</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'product_deleted':
-        subject = `🗑️ Product Deleted - ${data.product_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">🗑️ Product Deleted</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A product has been removed from your collection.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">🗑️</span>
-                  <div>
-                    <h2 class="card-title">${data.product_name}</h2>
-                    <p class="card-subtitle">Product deleted</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Collection</span>
-                    <span class="detail-value">${data.collection_name}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Status</span>
-                    <span class="detail-value danger">Deleted</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=products" class="cta-button">View Products</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      // ===== REVIEWS =====
-      case 'review_added':
-        subject = `⭐ New Review Added - ${data.product_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">⭐ New Review Added!</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A customer has left a review for one of your products.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">⭐</span>
-                  <div>
-                    <h2 class="card-title">${data.product_name}</h2>
-                    <p class="card-subtitle">New customer review</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Rating</span>
-                    <span class="detail-value highlight">${data.rating}/5 ⭐</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Reviewer</span>
-                    <span class="detail-value">${data.reviewer_email || 'Anonymous'}</span>
-                  </div>
-                  ${data.review_text ? `<div class="detail-row">
-                    <span class="detail-label">Review</span>
-                    <span class="detail-value">"${data.review_text}"</span>
-                  </div>` : ''}
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=products" class="cta-button">View Product Reviews</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'review_updated':
-        subject = `✨ Review Updated - ${data.product_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">✨ Review Updated</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A customer has updated their review for one of your products.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">✨</span>
-                  <div>
-                    <h2 class="card-title">${data.product_name}</h2>
-                    <p class="card-subtitle">Review updated</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  ${data.old_rating && data.old_rating !== data.new_rating ? `<div class="detail-row">
-                    <span class="detail-label">Rating Change</span>
-                    <span class="detail-value">${data.old_rating}/5 → <span class="highlight">${data.new_rating}/5 ⭐</span></span>
-                  </div>` : `<div class="detail-row">
-                    <span class="detail-label">Rating</span>
-                    <span class="detail-value highlight">${data.new_rating}/5 ⭐</span>
-                  </div>`}
-                  <div class="detail-row">
-                    <span class="detail-label">Reviewer</span>
-                    <span class="detail-value">${data.reviewer_email || 'Anonymous'}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=products" class="cta-button">View Product Reviews</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      // ===== COLLECTION NOTIFICATIONS =====
-      case 'collection_created':
-        subject = `🏪 New Collection Created - ${data.collection_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">🏪 New Collection Created!</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A new collection has been created on the platform. (Admin notification)</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">🏪</span>
-                  <div>
-                    <h2 class="card-title">${data.collection_name}</h2>
-                    <p class="card-subtitle">New collection</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Creator</span>
-                    <span class="detail-value highlight">${data.creator_email}</span>
-                  </div>
-                  ${data.collection_slug ? `<div class="detail-row">
-                    <span class="detail-label">Slug</span>
-                    <span class="detail-value">${data.collection_slug}</span>
-                  </div>` : ''}
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/admin?tab=collections" class="cta-button">View All Collections</a>
-              </div>
-              
-              <p style="color: #94a3b8; font-size: 14px; margin-top: 24px;">
-                👀 <strong>Admin notice:</strong> You may want to review this new collection for compliance and quality.
-              </p>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'collection_edited':
-        subject = `✏️ Collection Updated - ${data.collection_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">✏️ Collection Updated</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A collection has been modified on the platform. (Admin notification)</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">✏️</span>
-                  <div>
-                    <h2 class="card-title">${data.collection_name}</h2>
-                    <p class="card-subtitle">Collection updated</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Owner</span>
-                    <span class="detail-value">${data.owner_email}</span>
-                  </div>
-                  ${data.old_name && data.old_name !== data.collection_name ? `<div class="detail-row">
-                    <span class="detail-label">Previous Name</span>
-                    <span class="detail-value warning">${data.old_name}</span>
-                  </div>` : ''}
-                  ${data.old_slug && data.old_slug !== data.collection_slug ? `<div class="detail-row">
-                    <span class="detail-label">Slug Change</span>
-                    <span class="detail-value">${data.old_slug} → <span class="highlight">${data.collection_slug}</span></span>
-                  </div>` : ''}
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/admin?tab=collections" class="cta-button">View All Collections</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'collection_deleted':
-        subject = `🗑️ Collection Deleted - ${data.collection_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">🗑️ Collection Deleted</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A collection has been deleted from the platform. (Admin notification)</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">🗑️</span>
-                  <div>
-                    <h2 class="card-title">${data.collection_name}</h2>
-                    <p class="card-subtitle">Collection deleted</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Previous Owner</span>
-                    <span class="detail-value">${data.owner_email}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Previous Slug</span>
-                    <span class="detail-value">${data.collection_slug}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Status</span>
-                    <span class="detail-value danger">Permanently Deleted</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/admin?tab=collections" class="cta-button">View All Collections</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      // ===== USER ACCESS NOTIFICATIONS =====
-      case 'user_access_granted':
-        subject = `👥 User Access Granted - ${data.collection_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">👥 Access Granted!</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A user has been granted access to one of your collections. Your team is growing!</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">👥</span>
-                  <div>
-                    <h2 class="card-title">${data.collection_name}</h2>
-                    <p class="card-subtitle">New team member</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">User</span>
-                    <span class="detail-value highlight">${data.granted_user_email}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Access Level</span>
-                    <span class="detail-value">${data.access_type}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Collection</span>
-                    <span class="detail-value">${data.collection_name}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=collections" class="cta-button">Manage Collection Access</a>
-              </div>
-              
-              <p style="color: #94a3b8; font-size: 14px; margin-top: 24px;">
-                🤝 <strong>Collaboration tip:</strong> Consider setting up clear guidelines for your new team member!
-              </p>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'user_access_removed':
-        subject = `🚫 User Access Removed - ${data.collection_name}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">🚫 Access Removed</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A user's access has been removed from one of your collections.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">🚫</span>
-                  <div>
-                    <h2 class="card-title">${data.collection_name}</h2>
-                    <p class="card-subtitle">Access revoked</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">User</span>
-                    <span class="detail-value danger">${data.removed_user_email}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Previous Access</span>
-                    <span class="detail-value warning">${data.previous_access_type}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Status</span>
-                    <span class="detail-value danger">Access Revoked</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard?tab=collections" class="cta-button">Manage Collection Access</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      // ===== USER MANAGEMENT (ADMIN ONLY) =====
-      case 'user_created':
-        subject = `👤 New User Registered - ${data.new_user_email}`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">👤 New User Registered!</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">A new user has joined the Store.fun platform. (Admin notification)</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">👤</span>
-                  <div>
-                    <h2 class="card-title">New Registration</h2>
-                    <p class="card-subtitle">Platform growth</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Email</span>
-                    <span class="detail-value highlight">${data.new_user_email}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Registration Date</span>
-                    <span class="detail-value">${new Date(data.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Status</span>
-                    <span class="detail-value highlight">Active</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/admin?tab=users" class="cta-button">View All Users</a>
-              </div>
-              
-              <p style="color: #94a3b8; font-size: 14px; margin-top: 24px;">
-                📈 <strong>Platform growth:</strong> Consider reaching out to welcome new users and help them get started!
-              </p>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
-
-      // ===== DEFAULT FALLBACK =====
-      default:
-        subject = `🔔 New Notification - ${type}`;
-        text = `🔔 New Notification\n\nType: ${type}\nData: ${JSON.stringify(data, null, 2)}\n\nView dashboard: ${FRONTEND_URL}/merchant/dashboard\n\nThis email was sent from Store.fun notifications.`;
-        html = `
-          ${baseStyles}
-          <div class="container">
-            <div class="header">
-              <div class="logo">Store.fun</div>
-            </div>
-            <div class="content">
-              <h1 style="color: #f1f5f9; margin-bottom: 8px;">🔔 New Notification</h1>
-              <p style="color: #94a3b8; margin-bottom: 24px;">You have received a new notification from Store.fun.</p>
-              
-              <div class="card">
-                <div class="card-header">
-                  <span class="icon">🔔</span>
-                  <div>
-                    <h2 class="card-title">Notification</h2>
-                    <p class="card-subtitle">${type}</p>
-                  </div>
-                </div>
-                <div class="card-content">
-                  <div class="detail-row">
-                    <span class="detail-label">Type</span>
-                    <span class="detail-value">${type}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="detail-label">Data</span>
-                    <span class="detail-value">${JSON.stringify(data, null, 2)}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${FRONTEND_URL}/merchant/dashboard" class="cta-button">View Dashboard</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>This email was sent from Store.fun notifications. You can manage your notification preferences in your dashboard.</p>
-            </div>
-          </div>
-        `;
-        break;
+    if (!to || !type) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: to, type' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // ✅ Generate unique idempotency key for each email
-    const idempotencyKey = `store-fun-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const emailContent = generateEmailContent(type, data);
 
-    // ✅ Enhanced email payload with all Resend best practices
-    const emailPayload = {
-      from: 'Store.fun <notifications@store.fun>',
-      to: [to],
-      subject,
-      html,
-      text,                                           // ✅ Added text version
-      reply_to: ['support@store.fun'],                // ✅ Added reply-to
-      tags: [                                         // ✅ Added tags for analytics
-        {
-          name: 'notification_type',
-          value: type
-        },
-        {
-          name: 'source',
-          value: 'store_fun_notifications'
-        },
-        {
-          name: 'environment',
-          value: Deno.env.get('ENVIRONMENT') || 'production'
-        }
-      ]
-    };
-
-    // ✅ Enhanced API call with idempotency key
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Idempotency-Key': idempotencyKey,            // ✅ Added idempotency key
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(emailPayload),
+      body: JSON.stringify({
+        from: 'Store.fun <notifications@store.fun>',
+        to: [to],
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+      }),
     });
 
     if (!response.ok) {
@@ -1001,12 +359,12 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        email_id: result.id,                          // ✅ Return Resend email ID
-        idempotency_key: idempotencyKey              // ✅ Return idempotency key for tracking
+        email_id: result.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
+    console.error('Email sending error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
