@@ -34,14 +34,37 @@ exports.handler = async (event, context) => {
     }
 
     // 🚀 PRODUCTION WEBHOOK HANDLER: Real-time email processing
+    console.log('🔍 WEBHOOK_DEBUG: Checking for webhook...', {
+      userAgent: event.headers['user-agent'],
+      hasBody: !!event.body,
+      bodyLength: event.body ? event.body.length : 0,
+      bodyPreview: event.body ? event.body.substring(0, 100) : 'empty'
+    });
+    
+    // Updated detection for Supabase webhook format
     const isWebhook = event.headers['user-agent']?.includes('Supabase') || 
-                     event.body && JSON.parse(event.body || '{}').type === 'INSERT';
+                     (event.body && (() => {
+                       try {
+                         const data = JSON.parse(event.body || '{}');
+                         return data.type === 'INSERT' && data.table === 'email_queue';
+                       } catch {
+                         return false;
+                       }
+                     })());
     
     if (isWebhook && event.body) {
       try {
         const webhookData = JSON.parse(event.body);
         
-        if (webhookData.type === 'INSERT' && webhookData.table === 'email_queue') {
+        console.log('🪝 WEBHOOK_PAYLOAD_DEBUG:', {
+          type: webhookData.type,
+          table: webhookData.table,
+          schema: webhookData.schema,
+          hasRecord: !!webhookData.record,
+          recordId: webhookData.record?.id
+        });
+        
+        if (webhookData.type === 'INSERT' && webhookData.table === 'email_queue' && webhookData.record) {
           const email = webhookData.record;
           const startTime = Date.now();
           
@@ -55,7 +78,11 @@ exports.handler = async (event, context) => {
           
           return result;
         } else {
-          console.log('🪝 WEBHOOK_SKIP: Not an email_queue INSERT event');
+          console.log('🪝 WEBHOOK_SKIP: Not an email_queue INSERT event', {
+            type: webhookData.type,
+            table: webhookData.table,
+            hasRecord: !!webhookData.record
+          });
           return {
             statusCode: 200,
             headers: { 'Access-Control-Allow-Origin': '*' },

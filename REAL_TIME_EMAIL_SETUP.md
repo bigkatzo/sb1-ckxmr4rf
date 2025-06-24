@@ -25,6 +25,7 @@ HTTP Headers:
   "Content-Type": "application/json",
   "User-Agent": "Supabase-Webhook/1.0"
 }
+HTTP Params: (leave empty)
 ```
 
 ### **⚠️ Critical Settings**
@@ -156,57 +157,3 @@ const kpis = {
 
 **1. Emails Not Sending**
 ```
-Check: Webhook configuration
-Check: Netlify function logs
-Check: Supabase webhook logs
-```
-
-**2. High Failure Rate**
-```
-Check: RESEND_API_KEY configuration
-Check: Email queue table permissions
-Check: Supabase Edge Function status
-```
-
-**3. Slow Delivery**
-```
-Check: Webhook response times
-Check: Netlify function cold starts
-Check: Supabase database performance
-```
-
-### **Debug Commands**
-```sql
--- Check recent failed emails
-SELECT * FROM email_queue 
-WHERE status = 'failed' 
-AND created_at > NOW() - INTERVAL '1 hour';
-
--- Check email delivery stats
-SELECT 
-  notification_type,
-  status,
-  COUNT(*) as count
-FROM email_queue 
-WHERE created_at > NOW() - INTERVAL '24 hours'
-GROUP BY notification_type, status;
-```
-
----
-
-## 🎉 **You're Done!**
-
-Your ecommerce app now has an **enterprise-grade real-time email system** that:
-
-✅ Delivers emails in **1-2 seconds**  
-✅ Provides **complete tracking** and monitoring  
-✅ Has **automatic backup** processing  
-✅ Scales to **high volumes**  
-✅ Meets **enterprise reliability** standards  
-
-**Next Steps:**
-1. Monitor performance for the first week
-2. Set up automated alerts for failures
-3. Consider adding email analytics for marketing optimization
-
-🚀 **Welcome to real-time email delivery!** 
