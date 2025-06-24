@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Real-Time Email Test - Store.fun</title>
+    <style>
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            color: #1f2937;
+            margin: 0 0 10px 0;
+            font-size: 32px;
+            font-weight: 700;
+        }
+        .header p {
+            color: #6b7280;
+            margin: 0;
+            font-size: 18px;
+        }
+        
+        .test-section {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 4px solid #10b981;
+        }
+        
+        .input-group {
+            margin: 15px 0;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #7c3aed;
+        }
+        
+        .button { 
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+            color: white; 
+            padding: 14px 28px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            margin: 10px 5px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+        }
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results { 
+            margin-top: 30px; 
+            padding: 20px; 
+            background: #f9fafb; 
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .results h3 {
+            margin-top: 0;
+            color: #1f2937;
+        }
+        
+        .log-entry {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+        }
+        .log-success { background: #ecfdf5; color: #065f46; border-left: 4px solid #10b981; }
+        .log-error { background: #fef2f2; color: #991b1b; border-left: 4px solid #ef4444; }
+        .log-info { background: #eff6ff; color: #1e40af; border-left: 4px solid #3b82f6; }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success { background: #10b981; }
+        .status-error { background: #ef4444; }
+        .status-pending { background: #f59e0b; animation: pulse 2s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .webhook-info {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .webhook-info h3 {
+            color: #92400e;
+            margin-top: 0;
+        }
+        .webhook-info code {
+            background: #fffbeb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Real-Time Email Test</h1>
+            <p>Test your Supabase Database Webhook email system</p>
+        </div>
+
+        <div class="webhook-info">
+            <h3>📋 Required Supabase Webhook Configuration</h3>
+            <p><strong>Table:</strong> <code>email_queue</code></p>
+            <p><strong>Events:</strong> <code>INSERT</code></p>
+            <p><strong>URL:</strong> <code>https://store.fun/.netlify/functions/auto-process-email-queue</code></p>
+            <p><strong>Method:</strong> <code>POST</code></p>
+        </div>
+
+        <div class="test-section">
+            <h3>⚡ Real-Time Email Test</h3>
+            <p>This will trigger a database INSERT which should immediately send an email via webhook</p>
+            
+            <div class="input-group">
+                <label for="testEmail">Email Address:</label>
+                <input type="email" id="testEmail" placeholder="your@email.com" value="arikkatzc@gmail.com">
+            </div>
+            
+            <div class="input-group">
+                <label for="testType">Notification Type:</label>
+                <select id="testType">
+                    <option value="test">Test Email</option>
+                    <option value="order_created">Order Created</option>
+                    <option value="order_status_changed">Order Status Changed</option>
+                    <option value="category_created">Category Created</option>
+                </select>
+            </div>
+            
+            <button class="button" onclick="testRealtimeEmail()">
+                🚀 Send Real-Time Email Test
+            </button>
+            
+            <button class="button" onclick="checkEmailQueue()">
+                📋 Check Email Queue
+            </button>
+            
+            <button class="button" onclick="clearResults()">
+                🧹 Clear Results
+            </button>
+        </div>
+
+        <div class="results" id="results">
+            <h3>📊 Test Results</h3>
+            <div id="logContainer">
+                <div class="log-info">Ready to test real-time email system...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const container = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const indicator = type === 'success' ? '✅' : type === 'error' ? '❌' : '📝';
+            
+            entry.innerHTML = `
+                <span class="status-indicator status-${type}"></span>
+                [${timestamp}] ${indicator} ${message}
+            `;
+            
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function testRealtimeEmail() {
+            const email = document.getElementById('testEmail').value;
+            const type = document.getElementById('testType').value;
+            
+            if (!email) {
+                log('Please enter an email address', 'error');
+                return;
+            }
+            
+            log(`🚀 Starting real-time email test to ${email}`, 'info');
+            
+            try {
+                // This will trigger the database INSERT which should fire the webhook
+                const response = await fetch('/api/test-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: email,
+                        type: type,
+                        data: {
+                            test: true,
+                            webhook_test: true,
+                            timestamp: new Date().toISOString(),
+                            message: 'Real-time webhook email test'
+                        }
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ Test email triggered successfully`, 'success');
+                    log(`📧 Method: ${result.method || 'unknown'}`, 'info');
+                    
+                    if (result.result) {
+                        log(`📊 Result: ${JSON.stringify(result.result)}`, 'info');
+                    }
+                    
+                    // Check the queue after a short delay to see if webhook processed it
+                    setTimeout(() => {
+                        log('🔍 Checking if webhook processed the email...', 'info');
+                        checkEmailQueue();
+                    }, 2000);
+                } else {
+                    log(`❌ Test failed: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Request failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkEmailQueue() {
+            log('📋 Checking email queue status...', 'info');
+            
+            try {
+                const response = await fetch('/.netlify/functions/auto-process-email-queue', {
+                    method: 'GET'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log(`📊 Queue check: ${result.message}`, result.processed > 0 ? 'success' : 'info');
+                    if (result.processed > 0) {
+                        log(`✅ Processed ${result.processed} emails, ${result.failed} failed`, 'success');
+                    }
+                } else {
+                    log(`❌ Queue check failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Queue check error: ${error.message}`, 'error');
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('logContainer').innerHTML = '<div class="log-info">Results cleared. Ready for new tests...</div>';
+        }
+
+        // Auto-check queue on load
+        window.addEventListener('load', () => {
+            log('🎯 Real-time email test page loaded', 'success');
+            log('ℹ️  Make sure your Supabase webhook is configured correctly', 'info');
+        });
+    </script>
+</body>
+</html> 
