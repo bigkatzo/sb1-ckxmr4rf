@@ -44,6 +44,18 @@
   to = "/.netlify/functions/upload-site-asset"
   status = 200
 
+# Email notification handler
+[[redirects]]
+  from = "/api/email-notification-handler"
+  to = "/.netlify/functions/email-notification-handler"
+  status = 200
+
+# Email test handler
+[[redirects]]
+  from = "/api/test-email"
+  to = "/.netlify/functions/test-email"
+  status = 200
+
 # Handle SPA routing
 [[redirects]]
   from = "/*"
