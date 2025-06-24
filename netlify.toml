@@ -381,10 +381,5 @@
   function = "verify-pending-transactions"
   schedule = "@hourly"
 
-# Function scheduling for email processing (backup only)
-[[plugins]]
-  package = "@netlify/plugin-scheduled-functions"
-
-[plugins.inputs]
-  # Process email queue every 30 minutes as backup (immediate processing is primary)
-  "process-email-queue" = "*/30 * * * *" 
+# Email processing is handled by immediate sending
+# Scheduled backup processing removed to avoid plugin dependency 
