@@ -1,5 +1,5 @@
-// 🚀 AUTO EMAIL QUEUE PROCESSOR
-// This function processes pending emails immediately when triggered
+// 🚀 AUTO EMAIL QUEUE PROCESSOR with Rate Limiting
+// This function processes pending emails with intelligent rate limiting for Resend API
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -11,6 +11,10 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Rate limiting state
+let lastSendTime = 0;
+const RATE_LIMIT_INTERVAL = 600; // 600ms between requests (safer than 500ms minimum)
 
 exports.handler = async (event, context) => {
   console.log('🚀 Auto Email Processor triggered:', {
@@ -99,14 +103,32 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // Get pending emails with immediate priority first
+    // Check if we can send emails now (rate limit check)
+    const { data: canSend } = await supabase.rpc('can_send_email_now');
+    
+    if (!canSend) {
+      console.log('🛑 RATE_LIMIT_PAUSE: Too many recent sends, waiting for rate limit reset');
+      return {
+        statusCode: 200,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({
+          success: true,
+          message: 'Rate limit pause - will retry shortly',
+          processed: 0,
+          rateLimited: true
+        }),
+      };
+    }
+
+    // Get pending emails that are ready to send (respecting scheduled_for)
     const { data: emails, error: fetchError } = await supabase
       .from('email_queue')
       .select('*')
       .eq('status', 'pending')
-      .order('priority', { ascending: false }) // immediate first
-      .order('created_at', { ascending: true })
-      .limit(50); // Process in batches
+      .lte('scheduled_for', new Date().toISOString()) // Only emails ready to send
+      .order('priority', { ascending: true }) // Higher priority first (1=urgent, 2=high, 3=normal)
+      .order('scheduled_for', { ascending: true })
+      .limit(10); // Smaller batches for rate limiting
 
     if (fetchError) {
       console.error('❌ Error fetching emails:', fetchError);
@@ -139,10 +161,20 @@ exports.handler = async (event, context) => {
     let failed = 0;
     const results = [];
 
-    // Process each email
+    // Process each email with rate limiting
     for (const email of emails) {
       try {
-        console.log(`📤 Processing email ${email.id} to ${email.recipient_email}`);
+        // ⏱️ RATE LIMITING: Ensure we don't exceed 2 requests/second
+        const now = Date.now();
+        const timeSinceLastSend = now - lastSendTime;
+        
+        if (timeSinceLastSend < RATE_LIMIT_INTERVAL) {
+          const waitTime = RATE_LIMIT_INTERVAL - timeSinceLastSend;
+          console.log(`⏳ RATE_LIMIT_WAIT: Waiting ${waitTime}ms before sending email ${email.id}`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
+        console.log(`📤 Processing email ${email.id} to ${email.recipient_email} (priority: ${email.priority || 3})`);
 
         // Mark as processing
         await supabase
@@ -152,6 +184,9 @@ exports.handler = async (event, context) => {
             last_attempt_at: new Date().toISOString()
           })
           .eq('id', email.id);
+
+        // Record send time for rate limiting
+        lastSendTime = Date.now();
 
         // Call Edge Function
         const response = await fetch(`${supabaseUrl}/functions/v1/send-notification-email`, {
@@ -281,11 +316,21 @@ exports.handler = async (event, context) => {
   }
 };
 
-// ✨ NEW: Process single email immediately for webhook real-time processing
+// ✨ NEW: Process single email immediately for webhook real-time processing with rate limiting
 async function processSingleEmailImmediate(email) {
   console.log(`⚡ IMMEDIATE: Processing email ${email.id} to ${email.recipient_email}`);
 
   try {
+    // ⏱️ RATE LIMITING: Check if we can send immediately or need to delay
+    const now = Date.now();
+    const timeSinceLastSend = now - lastSendTime;
+    
+    if (timeSinceLastSend < RATE_LIMIT_INTERVAL) {
+      const waitTime = RATE_LIMIT_INTERVAL - timeSinceLastSend;
+      console.log(`⏳ IMMEDIATE_RATE_LIMIT: Waiting ${waitTime}ms before sending`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
     // Mark as processing immediately
     await supabase
       .from('email_queue')
@@ -294,6 +339,9 @@ async function processSingleEmailImmediate(email) {
         last_attempt_at: new Date().toISOString()
       })
       .eq('id', email.id);
+
+    // Record send time for rate limiting
+    lastSendTime = Date.now();
 
     // Call Edge Function immediately
     const response = await fetch(`${supabaseUrl}/functions/v1/send-notification-email`, {
