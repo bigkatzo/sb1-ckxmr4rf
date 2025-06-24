@@ -56,6 +56,12 @@
   to = "/.netlify/functions/test-email"
   status = 200
 
+# Email queue processor
+[[redirects]]
+  from = "/api/process-email-queue"
+  to = "/.netlify/functions/process-email-queue"
+  status = 200
+
 # Handle SPA routing
 [[redirects]]
   from = "/*"
@@ -373,4 +379,18 @@
 # Configure scheduled functions for transaction verification
 [[scheduled-functions]]
   function = "verify-pending-transactions"
-  schedule = "@hourly" 
+  schedule = "@hourly"
+
+# Function scheduling for email processing
+[[functions]]
+  # Process email queue every 30 minutes as backup
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Function scheduling for email processing (backup only)
+[[plugins]]
+  package = "@netlify/plugin-scheduled-functions"
+
+[plugins.inputs]
+  # Process email queue every 30 minutes as backup (immediate processing is primary)
+  "process-email-queue" = "*/30 * * * *" 
