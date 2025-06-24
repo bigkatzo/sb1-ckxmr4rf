@@ -157,7 +157,9 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
 
       // Method 1: Try using the email notification handler
       try {
-        const handlerResponse = await fetch(`${event.headers.host}/api/email-notification-handler`, {
+        const protocol = event.headers['x-forwarded-proto'] || 'https';
+        const host = event.headers.host || 'store.fun';
+        const handlerResponse = await fetch(`${protocol}://${host}/api/email-notification-handler`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
