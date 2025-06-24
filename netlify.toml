@@ -381,12 +381,6 @@
   function = "verify-pending-transactions"
   schedule = "@hourly"
 
-# Function scheduling for email processing
-[[functions]]
-  # Process email queue every 30 minutes as backup
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-
 # Function scheduling for email processing (backup only)
 [[plugins]]
   package = "@netlify/plugin-scheduled-functions"
