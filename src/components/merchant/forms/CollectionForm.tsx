@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Palette, Info } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Toggle } from '../../ui/Toggle';
-import { formatDateForInput, formatDate, getUserTimezone } from '../../../utils/date-helpers';
+import { formatDateForInput, formatDate, getUserTimezone, parseFormDate } from '../../../utils/date-helpers';
 import type { Collection } from '../../../types/collections';
 import { Dialog } from '@headlessui/react';
 import { OptimizedImage } from '../../ui/OptimizedImage';
@@ -252,7 +252,9 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       // Add required fields
       formData.append('name', name);
       formData.append('description', description);
-      formData.append('launchDate', launchDate);
+      // Ensure the launch date is in UTC ISO format
+      const parsedDate = parseFormDate(launchDate);
+      formData.append('launchDate', parsedDate.toISOString());
       formData.append('slug', slug);
       formData.append('visible', visible.toString());
       formData.append('sale_ended', saleEnded.toString());
@@ -599,7 +601,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                   </p>
                   {launchDate && (
                     <p className="mt-1 text-xs text-gray-400">
-                      Launch scheduled for: {formatDate(new Date(launchDate), 'long')}
+                      Launch scheduled for: {formatDate(parseFormDate(launchDate), 'long')}
                     </p>
                   )}
                 </div>
