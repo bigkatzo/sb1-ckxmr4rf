@@ -1,11 +1,11 @@
-import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag, ExternalLink, UserCheck, Coins } from 'lucide-react';
+import { Image as ImageIcon, EyeOff, Ban, Trash, Eye, Tag, ExternalLink, UserCheck, Coins, Clock } from 'lucide-react';
 import { EditButton } from '../ui/EditButton';
 import { StarButton } from '../ui/StarButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { DropdownMenu } from '../ui/DropdownMenu';
 import { VerificationBadge } from '../ui/VerificationBadge';
 import { Link } from 'react-router-dom';
-import { formatDate, formatRelativeTime, isFutureDate } from '../../utils/date-helpers';
+import { formatDate, formatRelativeTime, isFutureDate, formatCountdown } from '../../utils/date-helpers';
 
 interface CollectionListItemProps {
   collection: {
@@ -142,6 +142,12 @@ export function CollectionListItem({
                       Sale Ended
                     </span>
                   )}
+                  {isFutureDate(collection.launchDate) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 whitespace-nowrap">
+                      <Clock className="h-3 w-3" />
+                      Scheduled
+                    </span>
+                  )}
                 </div>
               </div>
               <p className="text-gray-400 text-xs line-clamp-2 mt-1">
@@ -152,6 +158,7 @@ export function CollectionListItem({
                   <>
                     Launches {formatRelativeTime(collection.launchDate)}
                     <span className="text-gray-400"> ({formatDate(collection.launchDate, 'long')})</span>
+                    <span className="ml-2 text-blue-400">{formatCountdown(collection.launchDate)}</span>
                   </>
                 ) : (
                   <>

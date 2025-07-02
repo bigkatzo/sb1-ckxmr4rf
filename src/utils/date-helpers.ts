@@ -1,25 +1,28 @@
+import { formatDistanceToNow, formatDistanceToNowStrict, isAfter } from 'date-fns';
+
+// Format a date for datetime-local input
 export function formatDateForInput(date: Date | null | undefined): string {
   if (!date) return '';
   const d = new Date(date);
-  // Format as ISO string and return the date and time portion (YYYY-MM-DDTHH:MM)
-  // This is for the datetime-local input which expects this format
-  return d.toISOString().slice(0, 16);
+  // Convert to local timezone for input
+  const localDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
 }
 
+// Parse a date from datetime-local input
 export function parseFormDate(dateString: string): Date {
   if (!dateString) throw new Error('Date string is required');
   
-  // Create a date object from the input string
+  // Create a date object from the input string (which is in local time)
   const date = new Date(dateString);
   
   // Check if the date is valid
   if (isNaN(date.getTime())) throw new Error('Invalid date format');
   
-  // Set seconds and milliseconds to zero for consistency
-  date.setSeconds(0);
-  date.setMilliseconds(0);
+  // Convert local time to UTC
+  const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
   
-  return date;
+  return utcDate;
 }
 
 // Standard date format options
@@ -59,7 +62,7 @@ export const DATE_FORMAT_OPTIONS = {
 };
 
 // Format a date with consistent styling and timezone handling
-export function formatDate(date: Date | string | null | undefined, format: keyof typeof DATE_FORMAT_OPTIONS = 'medium'): string {
+export function formatDate(date: Date | string | null | undefined, style: keyof typeof DATE_FORMAT_OPTIONS = 'medium'): string {
   if (!date) return '';
   const dateObj = new Date(date);
   
@@ -69,56 +72,35 @@ export function formatDate(date: Date | string | null | undefined, format: keyof
   }
   
   try {
-    return new Intl.DateTimeFormat('en-US', DATE_FORMAT_OPTIONS[format]).format(dateObj);
+    return new Intl.DateTimeFormat('en-US', DATE_FORMAT_OPTIONS[style]).format(dateObj);
   } catch (error) {
     console.error('Error formatting date:', error);
-    return '';
+    return dateObj.toLocaleDateString();
   }
 }
 
-// Format a date relative to now (e.g., "2 hours ago", "in 3 days")
+// Format relative time (e.g., "2 hours ago", "in 3 days")
 export function formatRelativeTime(date: Date | string | null | undefined): string {
   if (!date) return '';
-  const dateObj = new Date(date);
-  
-  if (isNaN(dateObj.getTime())) {
-    console.error('Invalid date provided to formatRelativeTime:', date);
-    return '';
-  }
-  
+  const d = new Date(date);
   const now = new Date();
-  const diffInSeconds = (dateObj.getTime() - now.getTime()) / 1000;
-  const absSeconds = Math.abs(diffInSeconds);
+  const isInFuture = isAfter(d, now);
   
-  // Helper function to format the relative time
-  const formatTime = (value: number, unit: Intl.RelativeTimeFormatUnit): string => {
-    const rtf = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' });
-    return rtf.format(diffInSeconds > 0 ? Math.ceil(value) : -Math.ceil(value), unit);
-  };
-  
-  if (absSeconds < 60) return 'just now';
-  if (absSeconds < 3600) return formatTime(diffInSeconds / 60, 'minute');
-  if (absSeconds < 86400) return formatTime(diffInSeconds / 3600, 'hour');
-  if (absSeconds < 2592000) return formatTime(diffInSeconds / 86400, 'day');
-  if (absSeconds < 31536000) return formatTime(diffInSeconds / 2592000, 'month');
-  return formatTime(diffInSeconds / 31536000, 'year');
+  return isInFuture
+    ? `in ${formatDistanceToNowStrict(d)}`
+    : `${formatDistanceToNow(d)} ago`;
 }
 
-// Get timezone abbreviation for the current user
+// Get user's timezone
 export function getUserTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch (error) {
-    console.error('Error getting user timezone:', error);
-    return 'UTC';
-  }
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
 // Check if a date is in the future
 export function isFutureDate(date: Date | string | null | undefined): boolean {
   if (!date) return false;
-  const dateObj = new Date(date);
-  return dateObj > new Date();
+  const d = new Date(date);
+  return isAfter(d, new Date());
 }
 
 // Check if a date is in the past
@@ -126,6 +108,23 @@ export function isPastDate(date: Date | string | null | undefined): boolean {
   if (!date) return false;
   const dateObj = new Date(date);
   return dateObj < new Date();
+}
+
+// Format a countdown timer
+export function formatCountdown(targetDate: Date | string): string {
+  const target = new Date(targetDate);
+  const now = new Date();
+  const diff = target.getTime() - now.getTime();
+  
+  if (diff <= 0) return 'Launched';
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 
 // Format a date range
