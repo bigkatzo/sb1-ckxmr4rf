@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Palette, Info } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Toggle } from '../../ui/Toggle';
-import { formatDateForInput } from '../../../utils/date-helpers';
+import { formatDateForInput, formatDate, getUserTimezone } from '../../../utils/date-helpers';
 import type { Collection } from '../../../types/collections';
 import { Dialog } from '@headlessui/react';
 import { OptimizedImage } from '../../ui/OptimizedImage';
@@ -594,6 +594,14 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                     required
                     className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white"
                   />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Times are shown in your local timezone ({getUserTimezone()})
+                  </p>
+                  {launchDate && (
+                    <p className="mt-1 text-xs text-gray-400">
+                      Launch scheduled for: {formatDate(new Date(launchDate), 'long')}
+                    </p>
+                  )}
                 </div>
 
                 <div>

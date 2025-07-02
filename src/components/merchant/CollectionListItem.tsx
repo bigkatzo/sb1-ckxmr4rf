@@ -5,6 +5,7 @@ import { OptimizedImage } from '../ui/OptimizedImage';
 import { DropdownMenu } from '../ui/DropdownMenu';
 import { VerificationBadge } from '../ui/VerificationBadge';
 import { Link } from 'react-router-dom';
+import { formatDate, formatRelativeTime, isFutureDate } from '../../utils/date-helpers';
 
 interface CollectionListItemProps {
   collection: {
@@ -147,7 +148,17 @@ export function CollectionListItem({
                 {collection.description}
               </p>
               <p className="text-white text-xs mt-2">
-                Launches {new Date(collection.launchDate).toLocaleDateString()}
+                {isFutureDate(collection.launchDate) ? (
+                  <>
+                    Launches {formatRelativeTime(collection.launchDate)}
+                    <span className="text-gray-400"> ({formatDate(collection.launchDate, 'long')})</span>
+                  </>
+                ) : (
+                  <>
+                    Launched {formatRelativeTime(collection.launchDate)}
+                    <span className="text-gray-400"> ({formatDate(collection.launchDate, 'short')})</span>
+                  </>
+                )}
               </p>
               <div className="mt-1 flex items-center gap-2">
                 {isAdmin ? (
