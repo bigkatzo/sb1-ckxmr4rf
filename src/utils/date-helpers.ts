@@ -3,18 +3,23 @@ import { formatDistanceToNow, formatDistanceToNowStrict, isAfter } from 'date-fn
 // Format a date for datetime-local input
 export function formatDateForInput(date: Date | null | undefined): string {
   if (!date) return '';
+  
+  // Ensure we have a valid date object
   const utcDate = new Date(date);
-  if (isNaN(utcDate.getTime())) return '';
+  if (isNaN(utcDate.getTime())) {
+    console.error('Invalid date provided to formatDateForInput:', date);
+    return '';
+  }
   
-  // Get the local timezone offset in minutes
-  const timezoneOffset = utcDate.getTimezoneOffset();
-  
-  // Convert UTC to local time by subtracting the timezone offset
-  // We subtract the offset because getTimezoneOffset() returns the difference from UTC in minutes
-  const localDate = new Date(utcDate.getTime() - (timezoneOffset * 60000));
+  // Convert UTC to local time
+  const year = utcDate.getFullYear();
+  const month = String(utcDate.getMonth() + 1).padStart(2, '0');
+  const day = String(utcDate.getDate()).padStart(2, '0');
+  const hours = String(utcDate.getHours()).padStart(2, '0');
+  const minutes = String(utcDate.getMinutes()).padStart(2, '0');
   
   // Format as YYYY-MM-DDTHH:mm
-  return localDate.toISOString().slice(0, 16);
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 // Parse a date from datetime-local input
@@ -22,17 +27,23 @@ export function parseFormDate(dateString: string): Date {
   if (!dateString) throw new Error('Date string is required');
   
   // Create a date object from the input string (which is in local time)
-  const localDate = new Date(dateString);
+  const [datePart, timePart] = dateString.split('T');
+  if (!datePart || !timePart) throw new Error('Invalid date format');
   
-  // Check if the date is valid
-  if (isNaN(localDate.getTime())) throw new Error('Invalid date format');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
   
-  // Get the local timezone offset in minutes
-  const timezoneOffset = localDate.getTimezoneOffset();
+  if ([year, month, day, hours, minutes].some(isNaN)) {
+    throw new Error('Invalid date format');
+  }
   
-  // Convert local time to UTC by adding the timezone offset
-  // We add the offset because getTimezoneOffset() returns the difference from UTC in minutes
-  const utcDate = new Date(localDate.getTime() + (timezoneOffset * 60000));
+  // Create a date in local time
+  const localDate = new Date(year, month - 1, day, hours, minutes);
+  
+  // Convert to UTC
+  const utcDate = new Date(
+    localDate.getTime() + localDate.getTimezoneOffset() * 60000
+  );
   
   return utcDate;
 }
