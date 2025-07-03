@@ -79,7 +79,10 @@ export function transformCollection(data: Partial<DatabaseCollection>): Collecti
     theme_logo_url: data.theme_logo_url
   });
 
-  const launchDate = new Date(data.launch_date || Date.now());
+  // Ensure launch date is properly handled as UTC
+  const launchDate = data.launch_date
+    ? new Date(data.launch_date + 'Z') // Ensure UTC by appending Z if not present
+    : new Date();
 
   // Handle access type conversion
   let accessType: Collection['accessType'] = null;

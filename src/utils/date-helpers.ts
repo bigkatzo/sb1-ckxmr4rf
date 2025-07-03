@@ -3,9 +3,17 @@ import { formatDistanceToNow, formatDistanceToNowStrict, isAfter } from 'date-fn
 // Format a date for datetime-local input
 export function formatDateForInput(date: Date | null | undefined): string {
   if (!date) return '';
-  const d = new Date(date);
-  // Convert to local timezone for input
-  const localDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  const utcDate = new Date(date);
+  if (isNaN(utcDate.getTime())) return '';
+  
+  // Get the local timezone offset in minutes
+  const timezoneOffset = utcDate.getTimezoneOffset();
+  
+  // Convert UTC to local time by subtracting the timezone offset
+  // We subtract the offset because getTimezoneOffset() returns the difference from UTC in minutes
+  const localDate = new Date(utcDate.getTime() - (timezoneOffset * 60000));
+  
+  // Format as YYYY-MM-DDTHH:mm
   return localDate.toISOString().slice(0, 16);
 }
 
@@ -14,13 +22,17 @@ export function parseFormDate(dateString: string): Date {
   if (!dateString) throw new Error('Date string is required');
   
   // Create a date object from the input string (which is in local time)
-  const date = new Date(dateString);
+  const localDate = new Date(dateString);
   
   // Check if the date is valid
-  if (isNaN(date.getTime())) throw new Error('Invalid date format');
+  if (isNaN(localDate.getTime())) throw new Error('Invalid date format');
   
-  // Convert local time to UTC
-  const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+  // Get the local timezone offset in minutes
+  const timezoneOffset = localDate.getTimezoneOffset();
+  
+  // Convert local time to UTC by adding the timezone offset
+  // We add the offset because getTimezoneOffset() returns the difference from UTC in minutes
+  const utcDate = new Date(localDate.getTime() + (timezoneOffset * 60000));
   
   return utcDate;
 }
@@ -100,7 +112,9 @@ export function getUserTimezone(): string {
 export function isFutureDate(date: Date | string | null | undefined): boolean {
   if (!date) return false;
   const d = new Date(date);
-  return isAfter(d, new Date());
+  if (isNaN(d.getTime())) return false;
+  // Compare using UTC timestamps to avoid timezone issues
+  return d.getTime() > Date.now();
 }
 
 // Check if a date is in the past

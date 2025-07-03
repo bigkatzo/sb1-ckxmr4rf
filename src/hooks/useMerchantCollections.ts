@@ -337,7 +337,7 @@ export function useMerchantCollections(options: {
           image_url: collection.image_url || '',
           imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
           launch_date: collection.launch_date,
-          launchDate: collection.launch_date ? new Date(collection.launch_date) : undefined,
+          launchDate: collection.launch_date ? new Date(collection.launch_date + 'Z') : undefined,
           featured: collection.featured || false,
           visible: collection.visible,
           sale_ended: collection.sale_ended,
