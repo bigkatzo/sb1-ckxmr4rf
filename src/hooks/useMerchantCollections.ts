@@ -331,14 +331,6 @@ export function useMerchantCollections(options: {
 
       // Transform collections with counts
       const transformedCollections = filteredCollections.map((collection: any) => {
-        // Debug: Log launch date data
-        console.log('Collection launch_date debug:', {
-          id: collection.id,
-          name: collection.name,
-          launch_date: collection.launch_date,
-          launch_date_type: typeof collection.launch_date
-        });
-        
         return {
           id: collection.id,
           name: collection.name,
@@ -347,7 +339,7 @@ export function useMerchantCollections(options: {
           imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
           launch_date: collection.launch_date,
           launchDate: collection.launch_date 
-            ? new Date(collection.launch_date.includes('Z') ? collection.launch_date : collection.launch_date + 'Z') 
+            ? new Date(collection.launch_date)
             : new Date(),
           featured: collection.featured || false,
           visible: collection.visible,

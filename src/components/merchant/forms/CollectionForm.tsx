@@ -50,13 +50,16 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const [dexscreenerUrl, setDexscreenerUrl] = useState(collection?.dexscreener_url || '');
   const [pumpfunUrl, setPumpfunUrl] = useState(collection?.pumpfun_url || '');
   const [websiteUrl, setWebsiteUrl] = useState(collection?.website_url || '');
-  const [launchDate, setLaunchDate] = useState(
-    collection?.launchDate 
-      ? formatDateForInput(collection.launchDate)
-      : collection?.launch_date
-        ? formatDateForInput(collection.launch_date)
-        : formatDateForInput(new Date())
-  );
+  const [launchDate, setLaunchDate] = useState(() => {
+    // Try launchDate first, but fallback to launch_date if launchDate is invalid
+    if (collection?.launchDate && !isNaN(collection.launchDate.getTime())) {
+      return formatDateForInput(collection.launchDate);
+    } else if (collection?.launch_date) {
+      return formatDateForInput(collection.launch_date);
+    } else {
+      return formatDateForInput(new Date());
+    }
+  });
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [showImageTooltip, setShowImageTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });

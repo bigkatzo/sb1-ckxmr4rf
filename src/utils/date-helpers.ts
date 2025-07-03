@@ -2,8 +2,6 @@ import { formatDistanceToNow, formatDistanceToNowStrict, isAfter } from 'date-fn
 
 // Format a date for datetime-local input
 export function formatDateForInput(date: Date | string | null | undefined): string {
-  console.log('formatDateForInput input:', { date, type: typeof date });
-  
   if (!date) return '';
   
   // Handle different input types
@@ -11,7 +9,7 @@ export function formatDateForInput(date: Date | string | null | undefined): stri
   
   if (typeof date === 'string') {
     // If it's a string, parse it properly
-    utcDate = new Date(date.includes('Z') ? date : date + 'Z');
+    utcDate = new Date(date);
   } else if (date instanceof Date) {
     // If it's already a Date object
     utcDate = date;
@@ -34,7 +32,6 @@ export function formatDateForInput(date: Date | string | null | undefined): stri
   
   // Format as YYYY-MM-DDTHH:mm
   const result = `${year}-${month}-${day}T${hours}:${minutes}`;
-  console.log('formatDateForInput result:', result);
   return result;
 }
 
@@ -141,22 +138,8 @@ export function isFutureDate(date: Date | string | null | undefined): boolean {
   const d = new Date(date);
   if (isNaN(d.getTime())) return false;
   
-  // Debug logging
-  const now = Date.now();
-  const dateTime = d.getTime();
-  const isFuture = dateTime > now;
-  
-  console.log('isFutureDate debug:', {
-    input: date,
-    parsed: d.toISOString(),
-    nowISO: new Date(now).toISOString(),
-    dateTime,
-    nowTime: now,
-    isFuture
-  });
-  
   // Compare using UTC timestamps to avoid timezone issues
-  return isFuture;
+  return d.getTime() > Date.now();
 }
 
 // Check if a date is in the past
