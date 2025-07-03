@@ -23,14 +23,17 @@ export function formatDateForInput(date: Date | string | null | undefined): stri
     return '';
   }
   
-  // Convert UTC to local time
-  const year = utcDate.getFullYear();
-  const month = String(utcDate.getMonth() + 1).padStart(2, '0');
-  const day = String(utcDate.getDate()).padStart(2, '0');
-  const hours = String(utcDate.getHours()).padStart(2, '0');
-  const minutes = String(utcDate.getMinutes()).padStart(2, '0');
+  // Convert UTC to local time for display in the datetime-local input
+  // The datetime-local input expects the time to be in the user's local timezone
+  const localDate = new Date(utcDate.getTime() - utcDate.getTimezoneOffset() * 60000);
   
-  // Format as YYYY-MM-DDTHH:mm
+  // Format as YYYY-MM-DDTHH:mm using the local date
+  const year = localDate.getUTCFullYear();
+  const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getUTCDate()).padStart(2, '0');
+  const hours = String(localDate.getUTCHours()).padStart(2, '0');
+  const minutes = String(localDate.getUTCMinutes()).padStart(2, '0');
+  
   const result = `${year}-${month}-${day}T${hours}:${minutes}`;
   return result;
 }
@@ -39,7 +42,9 @@ export function formatDateForInput(date: Date | string | null | undefined): stri
 export function parseFormDate(dateString: string): Date {
   if (!dateString) throw new Error('Date string is required');
   
-  // Create a date object from the input string (which is in local time)
+  // The input comes as YYYY-MM-DDTHH:mm format in local time
+  // We need to treat it as local time and convert to UTC
+  
   const [datePart, timePart] = dateString.split('T');
   if (!datePart || !timePart) throw new Error('Invalid date format');
   
@@ -50,13 +55,13 @@ export function parseFormDate(dateString: string): Date {
     throw new Error('Invalid date format');
   }
   
-  // Create a date in local time
+  // Create a date in local time using the Date constructor
+  // This creates the date as if it were in the user's local timezone
   const localDate = new Date(year, month - 1, day, hours, minutes);
   
-  // Convert to UTC
-  const utcDate = new Date(
-    localDate.getTime() + localDate.getTimezoneOffset() * 60000
-  );
+  // Return the date as-is, since we want to store the exact time the user specified
+  // but treat it as UTC (this is what datetime-local inputs expect)
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
   
   return utcDate;
 }
