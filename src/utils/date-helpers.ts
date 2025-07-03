@@ -1,13 +1,25 @@
 import { formatDistanceToNow, formatDistanceToNowStrict, isAfter } from 'date-fns';
 
 // Format a date for datetime-local input
-export function formatDateForInput(date: Date | null | undefined): string {
+export function formatDateForInput(date: Date | string | null | undefined): string {
   console.log('formatDateForInput input:', { date, type: typeof date });
   
   if (!date) return '';
   
-  // Ensure we have a valid date object
-  const utcDate = new Date(date);
+  // Handle different input types
+  let utcDate: Date;
+  
+  if (typeof date === 'string') {
+    // If it's a string, parse it properly
+    utcDate = new Date(date.includes('Z') ? date : date + 'Z');
+  } else if (date instanceof Date) {
+    // If it's already a Date object
+    utcDate = date;
+  } else {
+    console.error('Unsupported date type provided to formatDateForInput:', date, typeof date);
+    return '';
+  }
+  
   if (isNaN(utcDate.getTime())) {
     console.error('Invalid date provided to formatDateForInput:', date);
     return '';

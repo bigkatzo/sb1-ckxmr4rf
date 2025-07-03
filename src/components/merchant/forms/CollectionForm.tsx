@@ -14,7 +14,7 @@ import { useCollectionContext } from '../../../contexts/CollectionContext';
 import { createPortal } from 'react-dom';
 
 export interface CollectionFormProps {
-  collection?: Partial<Collection & { tags?: string[] }>;
+  collection?: Partial<Collection & { tags?: string[]; launch_date?: string }>;
   onSubmit: (data: FormData) => Promise<void>;
   onClose: () => void;
 }
@@ -24,7 +24,10 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   console.log('CollectionForm collection data:', {
     collection,
     launchDate: collection?.launchDate,
-    launchDateType: typeof collection?.launchDate
+    launchDateType: typeof collection?.launchDate,
+    launch_date: collection?.launch_date,
+    launch_date_type: typeof collection?.launch_date,
+    allKeys: collection ? Object.keys(collection) : null
   });
   
   const [loading, setLoading] = useState(false);
@@ -50,7 +53,9 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const [launchDate, setLaunchDate] = useState(
     collection?.launchDate 
       ? formatDateForInput(collection.launchDate)
-      : formatDateForInput(new Date())
+      : collection?.launch_date
+        ? formatDateForInput(collection.launch_date)
+        : formatDateForInput(new Date())
   );
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [showImageTooltip, setShowImageTooltip] = useState(false);
