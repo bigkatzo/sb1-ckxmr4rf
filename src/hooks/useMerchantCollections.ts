@@ -330,14 +330,25 @@ export function useMerchantCollections(options: {
       ]);
 
       // Transform collections with counts
-      const transformedCollections = filteredCollections.map((collection: any) => ({
+      const transformedCollections = filteredCollections.map((collection: any) => {
+        // Debug: Log launch date data
+        console.log('Collection launch_date debug:', {
+          id: collection.id,
+          name: collection.name,
+          launch_date: collection.launch_date,
+          launch_date_type: typeof collection.launch_date
+        });
+        
+        return {
           id: collection.id,
           name: collection.name,
           description: collection.description || '',
           image_url: collection.image_url || '',
           imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
           launch_date: collection.launch_date,
-          launchDate: new Date(collection.launch_date + 'Z'),
+          launchDate: collection.launch_date 
+            ? new Date(collection.launch_date.includes('Z') ? collection.launch_date : collection.launch_date + 'Z') 
+            : new Date(),
           featured: collection.featured || false,
           visible: collection.visible,
           sale_ended: collection.sale_ended,
@@ -365,7 +376,8 @@ export function useMerchantCollections(options: {
           isOwner: collection.user_id === user.id || isAdmin,
           owner_username: collection.owner_username,
           ownerMerchantTier: collection.owner_merchant_tier
-        } as Collection));
+        } as Collection;
+      });
 
       if (isMountedRef.current) {
         setCollections(transformedCollections);

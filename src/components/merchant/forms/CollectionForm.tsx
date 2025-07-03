@@ -20,6 +20,13 @@ export interface CollectionFormProps {
 }
 
 export function CollectionForm({ collection, onSubmit, onClose }: CollectionFormProps) {
+  // Debug: Log collection data
+  console.log('CollectionForm collection data:', {
+    collection,
+    launchDate: collection?.launchDate,
+    launchDateType: typeof collection?.launchDate
+  });
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [image, setImage] = useState<File | null>(null);
