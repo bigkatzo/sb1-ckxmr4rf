@@ -339,7 +339,7 @@ export function useMerchantCollections(options: {
           imageUrl: collection.image_url ? normalizeStorageUrl(collection.image_url) : '',
           launch_date: collection.launch_date,
           launchDate: collection.launch_date 
-            ? new Date(collection.launch_date)
+            ? new Date(collection.launch_date) // Database provides proper UTC string
             : new Date(),
           featured: collection.featured || false,
           visible: collection.visible,

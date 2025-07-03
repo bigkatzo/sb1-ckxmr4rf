@@ -81,7 +81,7 @@ export function transformCollection(data: Partial<DatabaseCollection>): Collecti
 
   // Ensure launch date is properly handled as UTC
   const launchDate = data.launch_date
-    ? new Date(data.launch_date + 'Z') // Ensure UTC by appending Z if not present
+    ? new Date(data.launch_date) // Database provides proper UTC string
     : new Date();
 
   // Handle access type conversion

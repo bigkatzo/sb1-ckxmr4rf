@@ -628,6 +628,9 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                           Countdown: {formatCountdown(parseFormDate(launchDate))}
                         </p>
                       )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Debug: Input="{launchDate}" | Parsed={parseFormDate(launchDate).toISOString()} | UTC Offset={new Date().getTimezoneOffset()}min
+                      </p>
                     </div>
                   )}
                 </div>

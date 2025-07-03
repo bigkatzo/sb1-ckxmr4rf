@@ -1,69 +1,34 @@
 import { formatDistanceToNow, formatDistanceToNowStrict, isAfter } from 'date-fns';
 
-// Format a date for datetime-local input
+/**
+ * SIMPLEST POSSIBLE DATE HANDLING
+ * 
+ * User says "14:00" → Store as "14:00 UTC" → Display as "14:00 local"
+ * No timezone math, just store what user wants and show what they expect
+ */
+
+// Convert user input to UTC (treating input as desired UTC time)
+export function parseFormDate(dateString: string): Date {
+  if (!dateString) throw new Error('Date string is required');
+  
+  // User input: "2025-07-03T14:00"
+  // We want to store this as 14:00 UTC, not convert timezones
+  return new Date(dateString + ':00.000Z');
+}
+
+// Convert UTC back to input format (strip timezone info)
 export function formatDateForInput(date: Date | string | null | undefined): string {
   if (!date) return '';
   
-  // Handle different input types
-  let utcDate: Date;
-  
-  if (typeof date === 'string') {
-    // If it's a string, parse it properly
-    utcDate = new Date(date);
-  } else if (date instanceof Date) {
-    // If it's already a Date object
-    utcDate = date;
-  } else {
-    console.error('Unsupported date type provided to formatDateForInput:', date, typeof date);
-    return '';
-  }
+  const utcDate = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(utcDate.getTime())) {
     console.error('Invalid date provided to formatDateForInput:', date);
     return '';
   }
   
-  // Convert UTC to local time for display in the datetime-local input
-  // The datetime-local input expects the time to be in the user's local timezone
-  const localDate = new Date(utcDate.getTime() - utcDate.getTimezoneOffset() * 60000);
-  
-  // Format as YYYY-MM-DDTHH:mm using the local date
-  const year = localDate.getUTCFullYear();
-  const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(localDate.getUTCDate()).padStart(2, '0');
-  const hours = String(localDate.getUTCHours()).padStart(2, '0');
-  const minutes = String(localDate.getUTCMinutes()).padStart(2, '0');
-  
-  const result = `${year}-${month}-${day}T${hours}:${minutes}`;
-  return result;
-}
-
-// Parse a date from datetime-local input
-export function parseFormDate(dateString: string): Date {
-  if (!dateString) throw new Error('Date string is required');
-  
-  // The input comes as YYYY-MM-DDTHH:mm format in local time
-  // We need to treat it as local time and convert to UTC
-  
-  const [datePart, timePart] = dateString.split('T');
-  if (!datePart || !timePart) throw new Error('Invalid date format');
-  
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hours, minutes] = timePart.split(':').map(Number);
-  
-  if ([year, month, day, hours, minutes].some(isNaN)) {
-    throw new Error('Invalid date format');
-  }
-  
-  // Create a date in local time using the Date constructor
-  // This creates the date as if it were in the user's local timezone
-  const localDate = new Date(year, month - 1, day, hours, minutes);
-  
-  // Return the date as-is, since we want to store the exact time the user specified
-  // but treat it as UTC (this is what datetime-local inputs expect)
-  const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
-  
-  return utcDate;
+  // Just return the UTC time as local time format for the input
+  return utcDate.toISOString().slice(0, 16);
 }
 
 // Standard date format options
@@ -102,7 +67,7 @@ export const DATE_FORMAT_OPTIONS = {
   } as const
 };
 
-// Format a date with consistent styling and timezone handling
+// Format dates for display
 export function formatDate(date: Date | string | null | undefined, style: keyof typeof DATE_FORMAT_OPTIONS = 'medium'): string {
   if (!date) return '';
   const dateObj = new Date(date);
@@ -120,7 +85,7 @@ export function formatDate(date: Date | string | null | undefined, style: keyof 
   }
 }
 
-// Format relative time (e.g., "2 hours ago", "in 3 days")
+// Format relative time
 export function formatRelativeTime(date: Date | string | null | undefined): string {
   if (!date) return '';
   const d = new Date(date);
@@ -137,24 +102,23 @@ export function getUserTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
-// Check if a date is in the future
+// Check if date is in future
 export function isFutureDate(date: Date | string | null | undefined): boolean {
   if (!date) return false;
   const d = new Date(date);
   if (isNaN(d.getTime())) return false;
   
-  // Compare using UTC timestamps to avoid timezone issues
   return d.getTime() > Date.now();
 }
 
-// Check if a date is in the past
+// Check if date is in past
 export function isPastDate(date: Date | string | null | undefined): boolean {
   if (!date) return false;
   const dateObj = new Date(date);
   return dateObj < new Date();
 }
 
-// Format a countdown timer
+// Format countdown timer
 export function formatCountdown(targetDate: Date | string): string {
   const target = new Date(targetDate);
   const now = new Date();
@@ -171,7 +135,7 @@ export function formatCountdown(targetDate: Date | string): string {
   return `${minutes}m`;
 }
 
-// Format a date range
+// Format date range
 export function formatDateRange(startDate: Date | string | null | undefined, endDate: Date | string | null | undefined, format: keyof typeof DATE_FORMAT_OPTIONS = 'medium'): string {
   if (!startDate || !endDate) return '';
   
