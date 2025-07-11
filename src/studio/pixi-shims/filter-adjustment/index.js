@@ -1,2 +1,2 @@
 // Shim to redirect imports
-export * from 'pixi.js/filter-adjustment'; 
+export * from 'pixi.js/filter-adjustment';

@@ -1,2 +1,2 @@
 // Shim to redirect imports
-export * from 'pixi.js/core'; 
+export * from 'pixi.js/core';

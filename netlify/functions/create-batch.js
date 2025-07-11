@@ -3,7 +3,7 @@
  * 
  * Server-side function for creating batch orders from the cart
  * Uses service role credentials to access database functions
- * Modified to split quantities into separate orders with unique order IDs
+ * Modified to implement the same transaction flow as the original working implementation
  */
 const { createClient } = require('@supabase/supabase-js');
 const { v4: uuidv4 } = require('uuid');
@@ -30,7 +30,6 @@ try {
 // Generate a user-friendly order number (shorter and more memorable)
 const generateOrderNumber = () => {
   try {
-    // Always use the SF-MMDD-XXXX format for batch orders
     const now = new Date();
     const month = now.getMonth() + 1;
     const day = now.getDate();
@@ -92,17 +91,13 @@ exports.handler = async (event, context) => {
     // Generate a batch order ID
     const batchOrderId = uuidv4();
     
-    // Calculate the total quantity across all items upfront to determine how many orders we'll create
-    const totalQuantity = items.reduce((total, item) => {
-      return total + Math.max(1, Number(item.quantity) || 1);
-    }, 0);
+    // @mistake-generate 3 different order numbers, 1 batch number// so it's tracked differently..
+    // Generate a single order number for the entire batch
+    const orderNumbers = items.map(() => {
+      return generateOrderNumber();
+    });
     
-    // Pre-generate all order numbers for all quantities
-    const orderNumbers = [];
-    for (let i = 0; i < totalQuantity; i++) {
-      orderNumbers.push(generateOrderNumber());
-    }
-    
+    // Array to store created order IDs
     const createdOrders = [];
     
     // Check if this is a free order - ensure consistent signature for the entire batch
@@ -114,15 +109,19 @@ exports.handler = async (event, context) => {
       transactionSignature = `free_order_${Date.now()}_${walletAddress || 'anonymous'}`;
       console.log(`Free order batch detected, using transaction signature: ${transactionSignature}`);
     }
+
+    // Calculate the total quantity across all items upfront
+    const totalQuantity = items.reduce((total, item) => {
+      return total + Math.max(1, Number(item.quantity) || 1);
+    }, 0);
     
-    console.log(`Processing ${items.length} unique items with a total of ${totalQuantity} individual orders in batch`);
+    console.log(`Processing ${items.length} unique items with a total of ${totalQuantity} items in batch`);
 
     // Track all order IDs created for this batch
     const allOrderIds = [];
     
     // Process each item in the cart
-    let orderIndex = 0; // Track position across all orders
-    
+    let i = 0;
     for (const item of items) {
       const product = item.product;
       const selectedOptions = item.selectedOptions || {};
@@ -175,17 +174,21 @@ exports.handler = async (event, context) => {
         }
       }
       
-      // Process each quantity as a separate order with its own unique order ID
-      for (let quantityIndex = 0; quantityIndex < quantity; quantityIndex++) {
+      // Determine how many separate orders to create for this item
+      // Each quantity becomes a separate order in the same batch
+      // const quantityToProcess = quantity;
+      
+      // Process each quantity as a separate order: nope(process as one)...
+      // for (let i = 0; i < quantityToProcess; i++) {
         try {
+          // Include batchOrderId and orderNumber in metadata for immediate access
           const enhancedMetadata = {
             ...paymentMetadata,
-            batchOrderId,
-            orderNumber: orderNumbers[orderIndex],
+            batchOrderId, // Include in metadata
+            orderNumber: orderNumbers[i],
             isBatchOrder: true,
-            quantityIndex: quantityIndex + 1,
-            totalQuantityForProduct: quantity,
-            totalQuantityInBatch: totalQuantity,
+            quantityIndex: 1,
+            totalQuantity: quantity,
             variantKey: variantKey || undefined,
             variantPrices: product.variantPrices || undefined
           };
@@ -200,21 +203,25 @@ exports.handler = async (event, context) => {
           });
 
           if (functionError) {
-            console.error(`Error using create_order function for product ${product.name}, quantity ${quantityIndex + 1}/${quantity}:`, functionError);
+            console.error(`Error using create_order function for quantity ${i+1}/${quantity}:`, functionError);
             throw functionError;
           }
 
           if (orderId) {
-            console.log(`Order ${quantityIndex + 1}/${quantity} created successfully for product ${product.name}, updating with batch details:`, orderId);
+            console.log(`Order ${i+1}/${quantity} created successfully, updating with batch details:`, orderId);
             
+            // Track all created order IDs
             allOrderIds.push(orderId);
             
+            // Immediately update with batch_order_id and SF- format order number
+            // This is CRITICAL to ensure batch_order_id is properly set in the database
             try {
+              // Use immediate batch_order_id update for consistency
               const { error: batchIdError } = await supabase
                 .from('orders')
                 .update({
                   batch_order_id: batchOrderId,
-                  order_number: orderNumbers[orderIndex],
+                  order_number: orderNumbers[i],
                   status: isFreeOrder ? 'confirmed' : 'draft',
                   updated_at: new Date().toISOString()
                 })
@@ -222,49 +229,52 @@ exports.handler = async (event, context) => {
                 
               if (batchIdError) {
                 console.error('Error setting batch_order_id:', batchIdError);
+                // Continue with next update - we'll try again below
               } else {
                 console.log(`Successfully set batch_order_id for order ${orderId}`);
               }
             } catch (error) {
               console.error('Exception updating batch_order_id:', error);
+              // Continue with next update
             }
 
             createdOrders.push({
               orderId,
-              orderNumber: orderNumbers[orderIndex],
+              orderNumber: orderNumbers[i],
               productId: product.id,
               productName: product.name,
               status: isFreeOrder ? 'confirmed' : 'draft',
-              quantityIndex: quantityIndex + 1,
-              totalQuantityForProduct: quantity,
-              totalQuantityInBatch: totalQuantity
+              quantityIndex: 1,
+              totalQuantity: quantity
             });
           } else {
-            throw new Error(`Failed to create order: No order ID returned for product ${product.name}, quantity ${quantityIndex + 1}/${quantity}`);
+            throw new Error('Failed to create order: No order ID returned');
           }
         } catch (error) {
-          console.error(`Order creation failed for product ${product.name}, quantity ${quantityIndex + 1}/${quantity}:`, error);
-          // Re-throw the error to fail the entire batch
-          throw error;
+          console.error(`Order creation failed for quantity ${i+1}/${quantity}:`, error);
+          // Continue with next item to create as many orders as possible
+          i++;
+          continue;
         }
-
-        orderIndex++;
+        i++;
       }
-    }
+    // }
 
+    // If no orders were created, return an error
     if (createdOrders.length === 0) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ 
-          error: 'Failed to create any orders in the batch'
-        })
+        body: JSON.stringify({ error: 'Failed to create any orders in the batch' })
       };
     }
     
+    // FINAL PASS: Update ALL orders with proper index and total count for the entire batch
+    // This ensures consistent batch metadata across all orders
     if (allOrderIds.length > 0) {
       console.log(`Performing final batch update on ${allOrderIds.length} orders with complete batch information`);
       
+      // Update each order with its position in the batch
       for (let i = 0; i < allOrderIds.length; i++) {
         try {
           const { error: indexError } = await supabase
@@ -274,6 +284,7 @@ exports.handler = async (event, context) => {
               order_number: orderNumbers[i],
               item_index: i + 1,
               total_items_in_batch: allOrderIds.length,
+              // For free orders, add transaction signature
               ...(isFreeOrder && { 
                 transaction_signature: transactionSignature,
                 status: 'confirmed'
@@ -294,9 +305,10 @@ exports.handler = async (event, context) => {
     // At the end of the endpoint, add batch summary logging before returning
     console.log(`Batch order creation complete:`, {
       batchOrderId,
-      totalOrdersCreated: createdOrders.length,
-      expectedOrders: totalQuantity,
-      success: createdOrders.length === totalQuantity,
+      orderNumbers: JSON.stringify(orderNumbers),
+      totalOrders: createdOrders.length,
+      expectedItems: items.length,
+      success: createdOrders.length === items.length,
       isFreeOrder
     });
 
@@ -306,7 +318,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         batchOrderId,
-        orderNumbers: orderNumbers.slice(0, createdOrders.length), // Only return order numbers for successfully created orders
+        orderNumbers: orderNumbers,
         orderId: createdOrders[0]?.orderId, // Return the first order ID for backward compatibility
         isFreeOrder,
         transactionSignature: isFreeOrder ? transactionSignature : undefined,
@@ -325,4 +337,4 @@ exports.handler = async (event, context) => {
       })
     };
   }
-};
+}; 
