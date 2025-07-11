@@ -90,11 +90,19 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   // Initialize launch date with proper error handling
   const [launchDate, setLaunchDate] = useState(() => {
     try {
+      // For new collections (collection is null/undefined), use current date/time
+      if (!collection) {
+        console.log('New collection - using current date/time');
+        return getCurrentDateTimeLocal();
+      }
+      
       // Try to get date from collection object
-      if (collection?.launchDate && collection.launchDate instanceof Date && !isNaN(collection.launchDate.getTime())) {
+      if (collection.launchDate && collection.launchDate instanceof Date && !isNaN(collection.launchDate.getTime())) {
+        console.log('Using collection.launchDate:', collection.launchDate);
         return formatDateTimeLocal(collection.launchDate);
-      } else if (collection?.launch_date) {
+      } else if (collection.launch_date) {
         // Handle string dates
+        console.log('Using collection.launch_date:', collection.launch_date);
         const parsedDate = new Date(collection.launch_date);
         if (!isNaN(parsedDate.getTime())) {
           return formatDateTimeLocal(parsedDate);
@@ -102,6 +110,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       }
       
       // Default to current date/time if no valid date found
+      console.log('No valid date found - using current date/time');
       return getCurrentDateTimeLocal();
     } catch (error) {
       console.warn('Error parsing collection launch date:', error);
