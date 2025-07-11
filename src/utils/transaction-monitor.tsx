@@ -571,6 +571,14 @@ export async function verifyFinalTransaction(
         }
 
         // Add redundant onStatusUpdate calls to ensure the callback gets triggered
+        onStatusUpdate({
+          processing: false,
+          success: true,
+          error: null,
+          signature,
+          paymentConfirmed: true
+        });
+        
         // Use setTimeout with staggered delays for redundancy
         console.log('[TRANSACTION_MONITOR] Transaction monitoring completed successfully');
         return true;
