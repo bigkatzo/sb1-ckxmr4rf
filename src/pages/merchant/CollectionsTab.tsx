@@ -29,6 +29,22 @@ const initialFilterState: CollectionFilterState = {
   searchQuery: ''
 };
 
+// Helper function to parse datetime-local input to Date
+const parseDateTimeLocal = (dateTimeString: string): Date => {
+  if (!dateTimeString) {
+    throw new Error('Date time string is required');
+  }
+  
+  // Parse the datetime-local format: YYYY-MM-DDTHH:MM
+  const date = new Date(dateTimeString);
+  
+  if (isNaN(date.getTime())) {
+    throw new Error('Invalid date format');
+  }
+  
+  return date;
+};
+
 export function CollectionsTab() {
   const { setSelectedCollection, selectedCollection } = useMerchantDashboard();
   
@@ -74,6 +90,41 @@ export function CollectionsTab() {
 
   const handleSubmit = async (data: FormData) => {
     try {
+      // Validate and process the launch date before submission
+      const launchDateValue = data.get('launchDate') as string;
+      
+      if (!launchDateValue) {
+        throw new Error('Launch date is required');
+      }
+
+      // Parse and validate the date
+      let parsedDate: Date;
+      try {
+        // If it's already in ISO format, use it directly
+        if (launchDateValue.includes('T') && launchDateValue.includes('Z')) {
+          parsedDate = new Date(launchDateValue);
+        } else {
+          // Otherwise, parse as datetime-local format
+          parsedDate = parseDateTimeLocal(launchDateValue);
+        }
+        
+        if (isNaN(parsedDate.getTime())) {
+          throw new Error('Invalid date');
+        }
+      } catch (dateError) {
+        console.error('Date parsing error:', dateError);
+        throw new Error('Invalid launch date format. Please check the date and try again.');
+      }
+
+      // Update the FormData with the properly formatted date
+      data.set('launchDate', parsedDate.toISOString());
+
+      console.log('Submitting collection with date:', {
+        original: launchDateValue,
+        parsed: parsedDate.toISOString(),
+        isEdit: !!editingCollection
+      });
+
       if (editingCollection) {
         await updateCollection(editingCollection.id, data);
         toast.success('Collection updated successfully');
@@ -81,6 +132,7 @@ export function CollectionsTab() {
         await createCollection(data);
         toast.success('Collection created successfully');
       }
+      
       setShowForm(false);
       setEditingCollection(null);
       refetch();
