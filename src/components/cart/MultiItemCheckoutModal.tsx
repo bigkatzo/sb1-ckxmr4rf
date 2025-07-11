@@ -840,71 +840,72 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           const success = await verifyFinalTransaction(
             txSignature,
             async (status) => {
+              console.log('Status update received:', status);
+              
               // Handle transaction status updates
               if (status.error) {
+                console.log('Setting error state:', status.error);
                 setOrderProgress({ step: 'error', error: status.error });
               } else if (status.paymentConfirmed) {
-                // Transaction confirmed with server verification
+                console.log('Payment confirmed, setting success state');
+                
+                // IMMEDIATELY set success state and update order data
                 setOrderProgress({ step: 'success' });
                 setOrderData(prev => ({
                   ...prev,
                   transactionSignature: txSignature
                 }));
                 
-                // Refresh all order statuses to verify they're confirmed
+                // IMMEDIATELY clear cart - don't wait for batch refresh
+                console.log('Clearing cart immediately');
+                clearCart();
+                
+                // Handle batch order refresh in background (don't block success state)
                 if (batchOrderId) {
-                  try {
-                    console.log('Refreshing batch order status:', batchOrderId);
-                    const refreshResponse = await fetch('/.netlify/functions/get-batch-orders', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({
-                        batchOrderId: batchOrderId
-                      })
-                    });
-                    
-                    if (refreshResponse.ok) {
-                      const refreshData = await refreshResponse.json();
-                      console.log('Batch orders refresh result:', refreshData);
+                  console.log('Starting batch order refresh in background:', batchOrderId);
+                  
+                  // Use a non-blocking approach for batch refresh
+                  setTimeout(async () => {
+                    try {
+                      const refreshResponse = await fetch('/.netlify/functions/get-batch-orders', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                          batchOrderId: batchOrderId
+                        })
+                      });
                       
-                      if (refreshData.success && refreshData.orders) {
-                        // Count confirmed orders
-                        const confirmedOrders = refreshData.orders.filter((o: { status: string }) => o.status === 'confirmed').length;
-                        console.log(`${confirmedOrders}/${refreshData.orders.length} orders are confirmed`);
+                      if (refreshResponse.ok) {
+                        const refreshData = await refreshResponse.json();
+                        console.log('Batch orders refresh result:', refreshData);
                         
-                        if (confirmedOrders === refreshData.orders.length) {
-                          console.log('All orders in batch are confirmed');
-                          // Clear cart
-                          clearCart();
-                          // Auto-close after success with short delay
-                          setTimeout(() => onClose && onClose(), 3000);
-                        } else {
-                          console.log(`Only ${confirmedOrders} of ${refreshData.orders.length} orders confirmed, waiting...`);
+                        if (refreshData.success && refreshData.orders) {
+                          const confirmedOrders = refreshData.orders.filter((o: { status: string }) => o.status === 'confirmed').length;
+                          console.log(`Batch refresh: ${confirmedOrders}/${refreshData.orders.length} orders confirmed`);
                           
-                          // Set a safety timeout to auto-close even if not all orders confirmed
-                          setTimeout(() => {
-                            console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
-                            clearCart();
-                            onClose && onClose();
-                          }, 3000);
+                          // This is just for logging - success state is already set
+                          if (confirmedOrders === refreshData.orders.length) {
+                            console.log('All batch orders confirmed');
+                          } else {
+                            console.log('Some batch orders still pending, but transaction is confirmed');
+                          }
                         }
                       }
+                    } catch (refreshError) {
+                      console.error('Background batch refresh error:', refreshError);
+                      // Don't affect the success state - transaction is already confirmed
                     }
-                  } catch (refreshError) {
-                    console.error('Error refreshing batch order status:', refreshError);
-                    // Still mark as success even if refresh fails
-                    clearCart();
-                    // Auto-close after success with short delay
-                    setTimeout(() => onClose && onClose(), 3000);
-                  }
-                } else {
-                  // No batch ID, just a single order - clear cart and close
-                  clearCart();
-                  // Auto-close after success with short delay
-                  setTimeout(() => onClose && onClose(), 3000);
+                  }, 100); // Small delay to not block the main success flow
                 }
+                
+                // Auto-close modal after showing success
+                console.log('Setting auto-close timeout');
+                setTimeout(() => {
+                  console.log('Auto-closing modal');
+                  onClose && onClose();
+                }, 3000);
               }
             },
             orderId,
