@@ -31,8 +31,11 @@ export async function createCollection(data: FormData) {
       // Get launch date and ensure it's valid
       const launchDate = data.get('launchDate');
       if (!launchDate) throw new Error('Launch date is required');
-      const parsedDate = parseFormDate(launchDate as string);
-      if (!parsedDate) throw new Error('Invalid launch date format');
+      // const parsedDate = parseFormDate(launchDate as string);
+      // if (!parsedDate) throw new Error('Invalid launch date format');
+
+      // console.log('Parsed launch date:', parsedDate);
+      console.log('launchDate:', launchDate);
 
       // Generate or get slug
       const slug = data.get('slug') as string || generateSlug(name as string);
@@ -66,7 +69,8 @@ export async function createCollection(data: FormData) {
         name: name as string,
         description: data.get('description') as string || '',
         image_url: imageUrl || null,
-        launch_date: parsedDate.toISOString(),
+        // launch_date: parsedDate.toISOString(),
+        launch_date: launchDate,
         slug,
         visible: data.get('visible') === 'true',
         sale_ended: data.get('sale_ended') === 'true',
