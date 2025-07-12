@@ -81,6 +81,8 @@ export async function createCollection(data: FormData) {
         user_id: user.id  // Explicitly set the user_id
       };
 
+      console.log('Creating collection with data:', collectionData);
+
       // First, verify the table structure
       const { error: describeError } = await supabase
         .from('collections')
