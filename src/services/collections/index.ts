@@ -185,8 +185,8 @@ export async function updateCollection(id: string, data: FormData) {
     
     const launchDate = data.get('launchDate');
     if (!launchDate) throw new Error('Launch date is required');
-    const parsedDate = parseFormDate(launchDate as string);
-    if (!parsedDate) throw new Error('Invalid launch date format');
+    // const parsedDate = parseFormDate(launchDate as string);
+    // if (!parsedDate) throw new Error('Invalid launch date format');
     
     const slug = data.get('slug') as string;
     if (!slug) throw new Error('Slug is required');
@@ -221,7 +221,8 @@ export async function updateCollection(id: string, data: FormData) {
       name: name as string,
       description: data.get('description') as string,
       image_url: imageUrl,
-      launch_date: parsedDate.toISOString(),
+      // launch_date: parsedDate.toISOString(),
+      launch_date: launchDate,
       slug,
       visible: data.get('visible') === 'true',
       sale_ended: data.get('sale_ended') === 'true',
