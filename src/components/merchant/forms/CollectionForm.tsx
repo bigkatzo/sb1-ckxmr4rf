@@ -725,9 +725,9 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                               Countdown: {dateDisplay.countdown}
                             </p>
                           )}
-                          {/* <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500 mt-1">
                             Debug: Input="{launchDate}" | ISO={dateDisplay.iso} | UTC Offset={new Date().getTimezoneOffset()}min
-                          </p> */}
+                          </p>
                         </>
                       ) : (
                         <p className="text-red-400">
