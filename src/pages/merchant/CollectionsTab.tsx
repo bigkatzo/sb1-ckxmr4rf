@@ -107,6 +107,8 @@ export function CollectionsTab() {
           // Otherwise, parse as datetime-local format
           parsedDate = parseDateTimeLocal(launchDateValue);
         }
+
+        console.log("I am the parsed date:", parsedDate);
         
         if (isNaN(parsedDate.getTime())) {
           throw new Error('Invalid date');
