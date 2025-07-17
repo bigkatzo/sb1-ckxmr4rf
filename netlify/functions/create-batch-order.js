@@ -7,6 +7,7 @@
  */
 const { createClient } = require('@supabase/supabase-js');
 const { v4: uuidv4 } = require('uuid');
+const { verifyEligibilityAccess } = require('./validate-coupons');
 
 // Environment variables
 const ENV = {
@@ -27,21 +28,12 @@ try {
   console.error('Failed to initialize Supabase client:', err.message);
 }
 
-// Generate a user-friendly order number (shorter and more memorable)
 const generateOrderNumber = () => {
-  try {
-    // Always use the SF-MMDD-XXXX format for batch orders
+  // Always use the SF-MMDD-XXXX format for batch orders
     const now = new Date();
     const month = now.getMonth() + 1;
     const day = now.getDate();
     return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-  } catch (err) {
-    console.error('Error generating order number:', err);
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-  }
 };
 
 exports.handler = async (event, context) => {
@@ -78,7 +70,6 @@ exports.handler = async (event, context) => {
       hasShippingInfo: !!shippingInfo,
       walletAddress: walletAddress ? `${walletAddress.substring(0, 6)}...${walletAddress.substring(walletAddress.length - 4)}` : 'anonymous',
       paymentMethod: paymentMetadata?.paymentMethod || 'unknown',
-      isFreeOrder: paymentMetadata?.isFreeOrder === true
     });
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -99,15 +90,76 @@ exports.handler = async (event, context) => {
     
     // Pre-generate all order numbers for all quantities
     const orderNumbers = [];
-    for (let i = 0; i < totalQuantity; i++) {
+    for (let i = 0; i < items.length; i++) {
       orderNumbers.push(generateOrderNumber());
     }
     
     const createdOrders = [];
+    let totalPayment = 0;
+
+    // how much per merchant..
+    const walletAddresses = {};
+
+    for (const item of items) {
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const product = item.product;
+      let collectionId = product.collectionId
+      
+      if (!product || !product.id || !product.price || !collectionId) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: `Invalid product data for item ${item.name}` })
+        };
+      }
+
+      // get merchant wallet for collection.
+      const { data, error } = await supabase
+        .from('collection_wallets')
+        .select(`
+          wallet:wallet_id (
+            address
+          )
+        `)
+        .eq('collection_id', collectionId)
+        .single();
+
+      const address = data?.wallet?.address;
+      
+      // Calculate total payment for this item
+      // use the variant of product for price.
+      const itemTotal = product.price * quantity;
+      
+      walletAddresses[address] = walletAddresses[address] += itemTotal || 0;
+      totalPayment += itemTotal;
+    }
+
+    // verify and apply discount
+    const couponCode = paymentMetadata?.couponCode;
+    let couponDiscount = 0; 
+    if(couponCode) {
+      // verify coupon code
+      const { data: coupon, error } = await supabase
+        .from('coupon')
+        .select('*')
+        .eq('code', couponCode.toUpperCase())
+        .eq('status', 'active')
+        .single();
+
+      const { isValid } = await verifyEligibilityAccess(
+        coupon,
+        walletAddress,
+        items.map(item => item.product.collectionId)
+      );
+
+      if (isValid) {
+        couponDiscount = coupon.discount_type === 'fixed_sol' ? Math.min(coupon.discount_value, totalPayment) :
+          (totalPayment * coupon.discount_value) / 100;
+        console.log(`Coupon ${couponCode} applied: ${couponDiscount} discount`);
+      }
+    }
     
-    // Check if this is a free order - ensure consistent signature for the entire batch
-    const isFreeOrder = paymentMetadata?.isFreeOrder === true;
-    let transactionSignature = null;
+    let transactionSignature;
     
     if (isFreeOrder) {
       // Generate a consistent transaction ID for free orders

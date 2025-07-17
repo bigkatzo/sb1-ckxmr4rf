@@ -62,7 +62,7 @@ interface StripePaymentModalProps {
   onSuccess: (paymentIntentId: string, orderId?: string, batchOrderId?: string) => void;
   solAmount: number;
   productName: string;
-  productId: string;
+  batchOrderId: string;
   shippingInfo: ShippingInfo;
   variants?: Array<{
     name: string;
@@ -406,7 +406,7 @@ export function StripePaymentModal({
   onSuccess,
   solAmount,
   productName,
-  productId,
+  batchOrderId,
   shippingInfo,
   variants,
   couponCode,
@@ -488,7 +488,7 @@ export function StripePaymentModal({
         console.log('Creating payment intent for', {
           solAmount,
           productName,
-          productId,
+          batchOrderId,
           hasShippingInfo: !!finalShippingInfo,
           hasVariants: !!(variants && variants.length > 0),
           walletAddress,
@@ -510,7 +510,7 @@ export function StripePaymentModal({
             solAmount,
             solPrice,
             productName,
-            productId,
+            batchOrderId,
             variants,
             walletAddress,
             shippingInfo: finalShippingInfo,
@@ -591,7 +591,7 @@ export function StripePaymentModal({
     return () => {
       orderProcessedRef.current = false;
     };
-  }, [solPrice, solAmount, productId, productName, walletAddress, shippingInfo, couponCode, 
+  }, [solPrice, solAmount, batchOrderId, productName, walletAddress, shippingInfo, couponCode, 
       couponDiscount, originalPrice, variants, isLoading, clientSecret, onSuccess, isProcessingOrder]);
 
   // Handle successful payment - pass orderId if available
