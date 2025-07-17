@@ -71,6 +71,7 @@ interface StripePaymentModalProps {
   couponCode?: string;
   couponDiscount?: number;
   originalPrice?: number;
+  fee?: number;
 }
 
 type PaymentStatus = 'idle' | 'processing' | 'requires_action' | 'succeeded' | 'error';
@@ -410,7 +411,8 @@ export function StripePaymentModal({
   variants,
   couponCode,
   couponDiscount = 0,
-  originalPrice = 0
+  originalPrice = 0,
+  fee = 0,
 }: StripePaymentModalProps) {
   const [clientSecret, setClientSecret] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
