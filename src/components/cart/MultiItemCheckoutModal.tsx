@@ -791,14 +791,13 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           <CryptoPaymentModal
             onClose={() => setShowCryptoModal(false)}
             onSuccess={handleCryptoSuccess}
-            solAmount={(orderData.price || 0) + (orderData.fee || 0)}
+            totalAmount={(orderData.price || 0)}
             productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
             batchOrderId={orderData.batchOrderId || ''}
-            shippingInfo={formattedShippingInfo}
-            variants={[]}
-            couponCode={appliedCoupon?.code}
             couponDiscount={orderData.couponDiscount}
             originalPrice={orderData.price || 0}
+            walletAmounts={orderData.walletAmounts || []}
+            fee={orderData.fee || 0}
           />
         ) : (
           <div className="relative bg-gray-900 w-full max-w-2xl rounded-xl overflow-hidden">
