@@ -91,9 +91,18 @@ export class CouponService {
     totalPrice: number,
     code: string,
     walletAddress: string,
-    productCollectionId: Array<string>
+    productCollectionIds: Array<string>
   ): Promise<PriceWithDiscount> {
     try {
+
+      if(!walletAddress) {
+        return {
+          finalPrice: totalPrice,
+          couponDiscount: 0,
+          originalPrice: totalPrice,
+          error: 'Wallet address is required for coupon validation'
+        };
+      }
 
       const validateCouponResponse = await fetch('/.netlify/functions/validate-coupons', {
         method: 'POST',
@@ -103,7 +112,7 @@ export class CouponService {
         body: JSON.stringify({
           code,
           walletAddress,
-          productCollectionId
+          productCollectionIds
         })
       });
 

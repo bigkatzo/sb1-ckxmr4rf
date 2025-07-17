@@ -36,4 +36,4 @@ export function verifyWhitelistAccess(
       error: error instanceof Error ? error.message : 'Failed to verify whitelist access'
     };
   }
-} 
+}
