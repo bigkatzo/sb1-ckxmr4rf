@@ -199,7 +199,7 @@ exports.handler = async (event, context) => {
     
     const createdOrders = [];
     const walletAmounts = {}; // Track amounts per merchant wallet
-    let totalPayment = 0;
+    let totalPaymentForBatch = 0;
 
     // Process each item to calculate pricing and merchant wallet amounts
     const processedItems = [];
@@ -232,7 +232,7 @@ exports.handler = async (event, context) => {
       walletAmounts[merchantWallet] += itemTotal;
       
       // Add to total payment
-      totalPayment += itemTotal;
+      totalPaymentForBatch += itemTotal;
       
       // Store processed item data
       processedItems.push({
@@ -253,7 +253,7 @@ exports.handler = async (event, context) => {
         `${wallet.substring(0, 6)}...: ${amount}`
       )
     );
-    console.log('Total payment amount:', totalPayment);
+    console.log('Total payment amount:', totalPaymentForBatch);
 
     // Verify and apply discount
     const couponCode = paymentMetadata?.couponCode;
@@ -276,8 +276,8 @@ exports.handler = async (event, context) => {
 
           if (isValid) {
             couponDiscount = coupon.discount_type === 'fixed_sol' 
-              ? Math.min(coupon.discount_value, totalPayment) 
-              : (totalPayment * coupon.discount_value) / 100;
+              ? Math.min(coupon.discount_value, totalPaymentForBatch) 
+              : (totalPaymentForBatch * coupon.discount_value) / 100;
             console.log(`Coupon ${couponCode} applied: ${couponDiscount} discount`);
           }
         }
@@ -286,9 +286,11 @@ exports.handler = async (event, context) => {
       }
     }
     
-    const finalAmount = totalPayment - couponDiscount;
-    const isFreeOrder = finalAmount <= 0;
-    
+    const expectedMerchantAmount = totalPaymentForBatch - couponDiscount;
+    const isFreeOrder = expectedMerchantAmount <= 0;
+    const fee = paymentMethod === 'solana' && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
+    totalPaymentForBatch += fee - couponDiscount;
+
     let transactionSignature;
     if (isFreeOrder) {
       // Generate a consistent transaction ID for free orders
@@ -305,7 +307,7 @@ exports.handler = async (event, context) => {
     // Process each item in the cart as a single order with quantity
     for (let itemIndex = 0; itemIndex < processedItems.length; itemIndex++) {
       const processedItem = processedItems[itemIndex];
-      const { product, actualPrice, variantKey, variantSelections, quantity } = processedItem;
+      const { product, actualPrice, itemTotal, variantKey, variantSelections, quantity } = processedItem;
       
       console.log(`Creating order for item: ${product.name}, Quantity: ${quantity}, Price: ${actualPrice}`);
       
@@ -321,12 +323,13 @@ exports.handler = async (event, context) => {
           itemIndex: itemIndex + 1,
           totalItemsInBatch: processedItems.length,
           variantKey: variantKey || undefined,
-          actualPrice,
           merchantWallet: processedItem.merchantWallet,
-          walletAmounts,
-          totalPayment,
+          actualPrice,
+          itemTotal,
           couponDiscount,
-          finalAmount
+          totalPaymentForBatch,
+          fee,
+          walletAmounts,
         };
         
         // Create order using the database function
@@ -353,10 +356,11 @@ exports.handler = async (event, context) => {
             .from('orders')
             .update({
               batch_order_id: batchOrderId,
-              amount: actualPrice,
+              amount: itemTotal,
+              total_amount_paid_for_batch: totalPaymentForBatch,
               quantity,
               order_number: orderNumber,
-              status: isFreeOrder ? 'confirmed' : 'draft',
+              status: 'draft',
               item_index: itemIndex + 1,
               total_items_in_batch: processedItems.length,
               ...(isFreeOrder && { 
@@ -392,7 +396,6 @@ exports.handler = async (event, context) => {
     }
 
     const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
-    const fee = paymentMethod === 'solana' ? (0.001 * Object.keys(walletAmounts).length) : 0;
 
     if (createdOrders.length === 0) {
       return {
@@ -411,10 +414,10 @@ exports.handler = async (event, context) => {
       totalItems: processedItems.length,
       success: createdOrders.length === processedItems.length,
       isFreeOrder,
-      totalPayment,
+      totalPaymentForBatch,
       fee,
       couponDiscount,
-      finalAmount,
+      expectedMerchantAmount,
       merchantWallets: Object.keys(walletAmounts).length,
     });
 
@@ -430,9 +433,9 @@ exports.handler = async (event, context) => {
         fee,
         transactionSignature: isFreeOrder ? transactionSignature : undefined,
         orders: createdOrders,
-        totalPayment,
+        totalPaymentForBatch,
         couponDiscount,
-        finalAmount,
+        expectedMerchantAmount,
         walletAmounts
       })
     };

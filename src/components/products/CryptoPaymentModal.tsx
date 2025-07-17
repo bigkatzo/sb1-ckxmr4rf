@@ -144,9 +144,10 @@ function CryptoPaymentForm({
     setPaymentStatus('confirming');
 
     // the fee here is a little gas fee to execute the transaction to all required merchants
-    const totalAmountWithGasFee = totalAmount + fee - couponDiscount;
+    // const totalAmountWithGasFee = totalAmount + fee - couponDiscount;
+    console.log("fee: ", fee);
     
-    const { success: paymentSuccess, signature: txSignature, receiverWallet } = await processPayment(totalAmountWithGasFee, batchOrderId, walletAmounts);
+    const { success: paymentSuccess, signature: txSignature, receiverWallet } = await processPayment(totalAmount, batchOrderId, walletAmounts);
     
     if(!paymentSuccess || !txSignature) {
       setError('Payment failed or was cancelled');
@@ -223,7 +224,7 @@ function CryptoPaymentForm({
           <span className="text-gray-300">Amount:</span>
           <div className="text-right">
             <span className="text-white font-medium">
-              {(totalAmount + fee - couponDiscount).toFixed(2)} SOL 
+              {(totalAmount).toFixed(2)} SOL 
               {/* <span className="text-gray-400">(${usdAmount})</span> */}
             </span>
             {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (

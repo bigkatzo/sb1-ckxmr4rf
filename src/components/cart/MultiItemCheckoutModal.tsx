@@ -367,7 +367,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setPaymentMethod(method);
   };
 
-  const handleCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string, walletAddress?: string) => {
+  const handleCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => {
     console.log('Crypto payment successful:', txSignature, batchOrderId);
     
     setShowCryptoModal(false);
@@ -390,7 +390,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     const statusSuccess = await updateOrderTransactionSignature({
       transactionSignature: txSignature,
       amountSol: finalPrice,
-      walletAddress: walletAddress || 'anonymous',
+      walletAddress: receiverWallet || 'anonymous',
       batchOrderId,
     });
 
@@ -674,7 +674,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         orderIds: batchOrderData.orderIds || [],
         orderNumbers: batchOrderData.orderNumbers || [],
         batchOrderId: batchOrderData.batchOrderId,
-        price: batchOrderData.finalAmount,
+        price: batchOrderData.totalPaymentForBatch,
         fee: batchOrderData.fee,
         couponDiscount: batchOrderData.couponDiscount,
         transactionSignature: batchOrderData.transactionSignature,

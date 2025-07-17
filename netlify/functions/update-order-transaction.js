@@ -106,20 +106,21 @@ exports.handler = async (event, context) => {
     const {
       orderId: targetOrderId,
       transactionSignature,
-      amountSol,
+      // amountSol,
       batchOrderId: targetBatchOrderId,
-      isFreeOrder = false
+      // should not matter here
+      // isFreeOrder = false
     } = requestBody;
 
     // Validate essential parameters
-    if (!transactionSignature) {
-      log('error', 'Missing required parameter: transactionSignature');
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'Missing required parameter: transactionSignature' })
-      };
-    }
+    // if (!transactionSignature) {
+    //   log('error', 'Missing required parameter: transactionSignature');
+    //   return {
+    //     statusCode: 400,
+    //     headers,
+    //     body: JSON.stringify({ error: 'Missing required parameter: transactionSignature' })
+    //   };
+    // }
 
     // Must provide either orderId or batchOrderId
     if (!targetOrderId && !targetBatchOrderId) {
@@ -132,64 +133,25 @@ exports.handler = async (event, context) => {
     }
 
     // Format amount correctly
-    const amountSolFloat = parseFloat(amountSol || 0);
+    // const amountSolFloat = parseFloat(amountSol || 0);
 
     log('info', 'Request params:', {
       orderId: targetOrderId || 'none',
       batchOrderId: targetBatchOrderId || 'none',
       transactionSignature: transactionSignature ? transactionSignature.substring(0, 8) + '...' : 'none',
-      amountSol: amountSolFloat,
-      isFreeOrder
+      // amountSol: amountSolFloat,
+      // isFreeOrder
     });
 
     // Determine if we're dealing with a batch order
     let batchOrderId = targetBatchOrderId;
-    
-    // If orderId is provided, check if it's part of a batch
-    if (targetOrderId && !batchOrderId) {
-      log('info', `Checking if order ${targetOrderId} is part of a batch`);
-      
-      try {
-        const { data: orderData, error: orderError } = await supabase
-          .from('orders')
-          .select('id, status, batch_order_id, payment_metadata')
-          .eq('id', targetOrderId)
-          .single();
 
-        if (orderError) {
-          log('error', 'Error fetching order data:', orderError);
-          return {
-            statusCode: 404,
-            headers,
-            body: JSON.stringify({ error: 'Order not found' })
-          };
-        }
-
-        // Check if order is part of a batch
-        if (orderData.batch_order_id) {
-          batchOrderId = orderData.batch_order_id;
-          log('info', `Order ${targetOrderId} is part of batch ${batchOrderId}`);
-        } else if (orderData.payment_metadata?.batchOrderId) {
-          batchOrderId = orderData.payment_metadata.batchOrderId;
-          log('info', `Order ${targetOrderId} has batch ID in metadata: ${batchOrderId}`);
-        }
-      } catch (error) {
-        log('error', 'Exception checking order batch status:', error);
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({ error: 'Failed to check order status' })
-        };
-      }
-    }
-
-    // If we have a batch order ID, process as batch
     if (batchOrderId) {
       return await updateBatchOrderTransaction(
         batchOrderId,
         transactionSignature,
-        amountSolFloat,
-        isFreeOrder,
+        // amountSolFloat,
+        // isFreeOrder,
         headers
       );
     }
@@ -205,7 +167,7 @@ exports.handler = async (event, context) => {
           .update({
             transaction_signature: transactionSignature,
             amount_sol: amountSolFloat,
-            status: isFreeOrder ? 'confirmed' : 'pending_payment',
+            status: 'pending_payment',
             updated_at: new Date().toISOString()
           })
           .eq('id', targetOrderId);
@@ -227,7 +189,6 @@ exports.handler = async (event, context) => {
             p_details: {
               orderId: targetOrderId,
               amountSol: amountSolFloat,
-              isFreeOrder,
               timestamp: new Date().toISOString()
             }
           });
@@ -291,56 +252,18 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
 
   try {
     // Check if any orders in this batch already have the transaction signature
-    const { data: existingTx, error: existingError } = await supabase
-      .from('orders')
-      .select('id, status')
-      .eq('batch_order_id', batchOrderId)
-      .eq('transaction_signature', transactionSignature);
-      
-    if (!existingError && existingTx && existingTx.length > 0) {
-      log('info', `${existingTx.length} orders in batch already have this transaction signature`);
-      
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          success: true, 
-          data: { 
-            batchOrderId,
-            transactionSignature, 
-            amountSol: amountSolFloat,
-            isBatchOrder: true,
-            ordersUpdated: existingTx.length,
-            message: 'Orders already have this transaction signature'
-          } 
-        })
-      };
-    }
-  
-    // Find ALL orders related to this batch
+
     const { data: batchOrders, error: batchError } = await supabase
       .from('orders')
       .select('id, status, order_number, payment_metadata, batch_order_id')
       .eq('batch_order_id', batchOrderId);
 
-    if (batchError) {
+    if (batchError || !batchOrders || batchOrders.length === 0) {
       log('error', 'Error fetching batch orders:', batchError);
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: 'Failed to fetch batch orders' })
-      };
-    }
-
-    if (!batchOrders || batchOrders.length === 0) {
-      log('error', `No orders found for batch: ${batchOrderId}`);
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ 
-          error: 'No orders found for batch',
-          batchOrderId 
-        })
+        body: JSON.stringify({ error: 'Failed to fetch batch orders' })
       };
     }
     
