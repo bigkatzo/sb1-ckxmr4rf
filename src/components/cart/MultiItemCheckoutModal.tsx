@@ -12,13 +12,13 @@ import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../..
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
-import { usePayment } from '../../hooks/usePayment';
+// import { usePayment } from '../../hooks/usePayment';
 import { StripePaymentModal } from '../products/StripePaymentModal';
 import { verifyFinalTransaction } from '../../utils/transaction-monitor.tsx';
 import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
 import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
-import { create, set } from 'lodash';
+// import { create, set } from 'lodash';
 import { CryptoPaymentModal } from '../products/CryptoPaymentModal.tsx';
 
 interface MultiItemCheckoutModalProps {
@@ -29,7 +29,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   const { items, clearCart, verifyAllItems } = useCart();
   const { isConnected, walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
-  const { processPayment } = usePayment();
   
   // Form state
   const [shipping, setShipping] = useState<{
@@ -102,7 +101,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   
   // Payment method state
-  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'solana' | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'solana' | 'free' | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   
   // Define order progress steps
@@ -118,11 +117,15 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   const [showCryptoModal, setShowCryptoModal] = useState(false);
 
   const [orderData, setOrderData] = useState<{
-    orderId?: string;
-    orderNumber?: string;
+    orderIds?: Array<string>;
+    orderNumbers?: Array<string>;
     transactionSignature?: string;
     batchOrderId?: string;
-    createdOrderIds?: string[];
+    createdOrderIds?: Array<string>;
+    price?: number;
+    fee?: number;
+    couponDiscount?: number;
+    walletAmounts?: Array<{ [address: string]: number }>;
   }>({});
   
   // Add the showSuccessView state within the component
@@ -485,12 +488,13 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           
           if (orderDetails && orderDetails.success && orderDetails.order) {
             // Set the order data for display
-            setOrderData({
-              orderId: stripeOrderId,
-              orderNumber: orderDetails.order.order_number || '',
-              transactionSignature: paymentIntentId,
-              batchOrderId: batchOrderId || ''
-            });
+            // @note:= come back here
+            // setOrderData({
+            //   orderIds: [stripeOrderId],
+            //   orderNumber: orderDetails.order.order_number || '',
+            //   transactionSignature: paymentIntentId,
+            //   batchOrderId: batchOrderId || ''
+            // });
             
             // Show success state and clear cart
             setOrderProgress({ step: 'success' });
@@ -510,12 +514,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           
           // Still mark as successful even without order details
           setOrderProgress({ step: 'success' });
-          setOrderData({
-            orderId: stripeOrderId,
-            orderNumber: '',
-            transactionSignature: paymentIntentId,
-            batchOrderId: batchOrderId || ''
-          });
+          // setOrderData({
+          //   orderId: stripeOrderId,
+          //   orderNumber: '',
+          //   transactionSignature: paymentIntentId,
+          //   batchOrderId: batchOrderId || ''
+          // });
           
           clearCart();
           setShowSuccessView(true);
@@ -539,8 +543,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               
               // Set the order data for display
               setOrderData({
-                orderId: firstOrder.id,
-                orderNumber: firstOrder.order_number,
+                orderIds: firstOrder.id,
+                orderNumbers: firstOrder.order_number,
                 transactionSignature: paymentIntentId,
                 batchOrderId: batchOrderId
               });
@@ -567,8 +571,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           // If we couldn't get batch details, still show generic success
           setOrderProgress({ step: 'success' });
           setOrderData({
-            orderId: '',
-            orderNumber: '',
             transactionSignature: paymentIntentId,
             batchOrderId: batchOrderId
           });
@@ -581,8 +583,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           // Still mark as successful
           setOrderProgress({ step: 'success' });
           setOrderData({
-            orderId: '',
-            orderNumber: '',
             transactionSignature: paymentIntentId,
             batchOrderId: batchOrderId
           });
@@ -595,8 +595,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         console.log('No order ID available, showing generic success');
         setOrderProgress({ step: 'success' });
         setOrderData({
-          orderId: '',
-          orderNumber: '',
           transactionSignature: paymentIntentId
         });
         
@@ -641,9 +639,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       const batchOrderData = await batchOrderResponse.json();
 
       setOrderData({
-        orderId: "1234",
-        orderNumber: "Nullable",
+        orderIds: batchOrderData.orderIds || [],
+        orderNumbers: batchOrderData.orderNumbers || [],
         batchOrderId: batchOrderData.batchOrderId,
+        price: batchOrderData.finalAmount,
+        fee: batchOrderData.fee,
+        couponDiscount: batchOrderData.couponDiscount,
+        transactionSignature: batchOrderData.transactionSignature,
+        walletAmounts: batchOrderData.walletAmounts || [],
       });
       
       if(batchOrderData.batchOrderId) {
@@ -651,14 +654,16 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       }
 
       // depending on payment method, we can open modal
+      if (batchOrderData.isFreeOrder) {
+        setPaymentMethod('free');
+      }
       if( paymentMethod === 'stripe') {
         setShowStripeModal(true);
       } else if (paymentMethod === 'solana') {
         setShowCryptoModal(true);
-      }
-      return true;
+      } 
     } catch (error) {
-      return false;
+      throw new Error(`Failed to create batch transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
   
@@ -722,14 +727,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       return;
     }
     
-    // Calculate coupon discount consistently
-    const couponDiscount = appliedCoupon 
-      ? (appliedCoupon.discountPercentage 
-        ? (totalPrice * appliedCoupon.discountPercentage / 100) 
-        : appliedCoupon.discountAmount)
-      : 0;
-       
-    
     setProcessingPayment(true);
     try {
       const isValid = await validateItemsInCarts();
@@ -739,6 +736,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       }
 
       setOrderProgress({ step: 'creating_order' });
+
       await createBatchTransactions();
 
     } catch (error) {
@@ -768,7 +766,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             productName={items.length > 1 ? `${items.length} Items from Cart` : items[0]?.product.name}
             collectionName={items[0]?.product.collectionName || 'Various Collections'}
             productImage={items[0]?.product.imageUrl || '/placeholder.jpg'}
-            orderNumber={orderData.orderNumber || ''}
+            orderNumber={orderData?.orderNumbers?.[0] || ''}
             transactionSignature={orderData.transactionSignature || ''}
             onClose={onClose}
             receiptUrl={orderData.transactionSignature}
@@ -780,29 +778,27 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           <StripePaymentModal
             onClose={() => setShowStripeModal(false)}
             onSuccess={handleStripeSuccess}
-            solAmount={finalPrice}
+            solAmount={(orderData.price || 0) + (orderData.fee || 0)}
             productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
-            productId={orderData.batchOrderId || ''}
+            batchOrderId={orderData.batchOrderId || ''}
             shippingInfo={formattedShippingInfo}
             variants={[]}
             couponCode={appliedCoupon?.code}
-            couponDiscount={appliedCoupon?.discountAmount || 
-              (appliedCoupon?.discountPercentage ? (totalPrice * appliedCoupon.discountPercentage / 100) : 0)}
-            originalPrice={totalPrice}
+            couponDiscount={orderData.couponDiscount}
+            originalPrice={orderData.price || 0}
           />
         ) : showCryptoModal ? (
           <CryptoPaymentModal
             onClose={() => setShowCryptoModal(false)}
             onSuccess={handleCryptoSuccess}
-            solAmount={finalPrice}
+            solAmount={(orderData.price || 0) + (orderData.fee || 0)}
             productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
-            productId={orderData.batchOrderId || ''}
+            batchOrderId={orderData.batchOrderId || ''}
             shippingInfo={formattedShippingInfo}
             variants={[]}
             couponCode={appliedCoupon?.code}
-            couponDiscount={appliedCoupon?.discountAmount || 
-              (appliedCoupon?.discountPercentage ? (totalPrice * appliedCoupon.discountPercentage / 100) : 0)}
-            originalPrice={totalPrice}
+            couponDiscount={orderData.couponDiscount}
+            originalPrice={orderData.price || 0}
           />
         ) : (
           <div className="relative bg-gray-900 w-full max-w-2xl rounded-xl overflow-hidden">

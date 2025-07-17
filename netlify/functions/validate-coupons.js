@@ -78,7 +78,7 @@ async function verifyTokenHolding(walletAddress, tokenMintAddress, minAmount) {
   }
 }
 
-async function verifyEligibilityAccess(coupon, walletAddress, productCollectionIds) {
+export async function verifyEligibilityAccess(coupon, walletAddress, productCollectionIds) {
   try {
     if (!coupon) {
       return {

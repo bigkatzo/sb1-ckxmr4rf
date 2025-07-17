@@ -3,7 +3,7 @@
  * 
  * Server-side function for creating batch orders from the cart
  * Uses service role credentials to access database functions
- * Modified to split quantities into separate orders with unique order IDs
+ * Modified to create single orders with quantity field instead of splitting into individual orders
  */
 const { createClient } = require('@supabase/supabase-js');
 const { v4: uuidv4 } = require('uuid');
@@ -30,10 +30,124 @@ try {
 
 const generateOrderNumber = () => {
   // Always use the SF-MMDD-XXXX format for batch orders
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+};
+
+/**
+ * Get the actual price for a product variant from Supabase
+ */
+const getProductPrice = async (productId, selectedOptions) => {
+  try {
+    // Fetch the product with its variants from Supabase
+    const { data: product, error } = await supabase
+      .from('products')
+      .select('price, variants')
+      .eq('id', productId)
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to fetch product ${productId}: ${error.message}`);
+    }
+
+    if (!product) {
+      throw new Error(`Product ${productId} not found`);
+    }
+
+    // If no variants or no selected options, return base price
+    if (!product.variants || !selectedOptions || Object.keys(selectedOptions).length === 0) {
+      return {
+        price: product.price,
+        variantKey: null,
+        variantSelections: []
+      };
+    }
+
+    // Build variant key and find matching variant price
+    const variantSelections = [];
+    let variantKey = '';
+    
+    // Process selected options to build variant key
+    for (const [variantId, variantValue] of Object.entries(selectedOptions)) {
+      if (variantId && variantValue) {
+        // Find the variant name from the variants array
+        let variantName = 'Unknown';
+        if (Array.isArray(product.variants)) {
+          const variant = product.variants.find(v => v.id === variantId);
+          if (variant) {
+            variantName = variant.name;
+          }
+        }
+        
+        variantSelections.push({
+          name: variantName,
+          value: variantValue
+        });
+        
+        // Build variant key (assuming format: variantId:variantValue)
+        if (variantKey) {
+          variantKey += ',';
+        }
+        variantKey += `${variantId}:${variantValue}`;
+      }
+    }
+
+    // Check if product has variant prices in JSONB format
+    if (product.variants && typeof product.variants === 'object') {
+      // If variants is a JSONB object with pricing info
+      const variantPrice = product.variants[variantKey];
+      if (variantPrice && typeof variantPrice === 'number') {
+        return {
+          price: variantPrice,
+          variantKey,
+          variantSelections
+        };
+      }
+    }
+
+    // If no variant price found, return base price
+    return {
+      price: product.price,
+      variantKey: variantKey || null,
+      variantSelections
+    };
+
+  } catch (error) {
+    console.error(`Error fetching product price for ${productId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Get merchant wallet address for a collection
+ */
+const getMerchantWallet = async (collectionId) => {
+  try {
+    const { data, error } = await supabase
+      .from('collection_wallets')
+      .select(`
+        wallet:wallet_id (
+          address
+        )
+      `)
+      .eq('collection_id', collectionId)
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to fetch wallet for collection ${collectionId}: ${error.message}`);
+    }
+
+    if (!data?.wallet?.address) {
+      throw new Error(`No wallet address found for collection ${collectionId}`);
+    }
+
+    return data.wallet.address;
+  } catch (error) {
+    console.error(`Error fetching merchant wallet for collection ${collectionId}:`, error);
+    throw error;
+  }
 };
 
 exports.handler = async (event, context) => {
@@ -83,226 +197,202 @@ exports.handler = async (event, context) => {
     // Generate a batch order ID
     const batchOrderId = uuidv4();
     
-    // Calculate the total quantity across all items upfront to determine how many orders we'll create
-    const totalQuantity = items.reduce((total, item) => {
-      return total + Math.max(1, Number(item.quantity) || 1);
-    }, 0);
-    
-    // Pre-generate all order numbers for all quantities
-    const orderNumbers = [];
-    for (let i = 0; i < items.length; i++) {
-      orderNumbers.push(generateOrderNumber());
-    }
-    
     const createdOrders = [];
+    const walletAmounts = {}; // Track amounts per merchant wallet
     let totalPayment = 0;
 
-    // how much per merchant..
-    const walletAddresses = {};
-
+    // Process each item to calculate pricing and merchant wallet amounts
+    const processedItems = [];
+    
     for (const item of items) {
       const quantity = Math.max(1, Number(item.quantity) || 1);
       const product = item.product;
-      let collectionId = product.collectionId
+      const collectionId = product.collectionId;
       
-      if (!product || !product.id || !product.price || !collectionId) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ error: `Invalid product data for item ${item.name}` })
-        };
+      if (!collectionId) {
+        throw new Error(`Missing collectionId for product: ${product.name}`);
       }
 
-      // get merchant wallet for collection.
-      const { data, error } = await supabase
-        .from('collection_wallets')
-        .select(`
-          wallet:wallet_id (
-            address
-          )
-        `)
-        .eq('collection_id', collectionId)
-        .single();
-
-      const address = data?.wallet?.address;
+      // Get merchant wallet for this collection
+      const merchantWallet = await getMerchantWallet(collectionId);
       
-      // Calculate total payment for this item
-      // use the variant of product for price.
-      const itemTotal = product.price * quantity;
+      // Get actual price from Supabase
+      const { price, variantKey, variantSelections } = await getProductPrice(
+        product.id, 
+        item.selectedOptions
+      );
       
-      walletAddresses[address] = walletAddresses[address] += itemTotal || 0;
+      // Calculate total for this item
+      const itemTotal = price * quantity;
+      
+      // Add to merchant wallet amounts
+      if (!walletAmounts[merchantWallet]) {
+        walletAmounts[merchantWallet] = 0;
+      }
+      walletAmounts[merchantWallet] += itemTotal;
+      
+      // Add to total payment
       totalPayment += itemTotal;
+      
+      // Store processed item data
+      processedItems.push({
+        ...item,
+        actualPrice: price,
+        variantKey,
+        variantSelections,
+        merchantWallet,
+        itemTotal,
+        quantity
+      });
+      
+      console.log(`Processed item: ${product.name}, Price: ${price}, Quantity: ${quantity}, Total: ${itemTotal}, Merchant: ${merchantWallet.substring(0, 6)}...`);
     }
 
-    // verify and apply discount
+    console.log('Merchant wallet amounts:', 
+      Object.entries(walletAmounts).map(([wallet, amount]) => 
+        `${wallet.substring(0, 6)}...: ${amount}`
+      )
+    );
+    console.log('Total payment amount:', totalPayment);
+
+    // Verify and apply discount
     const couponCode = paymentMetadata?.couponCode;
     let couponDiscount = 0; 
-    if(couponCode) {
-      // verify coupon code
-      const { data: coupon, error } = await supabase
-        .from('coupon')
-        .select('*')
-        .eq('code', couponCode.toUpperCase())
-        .eq('status', 'active')
-        .single();
+    if (couponCode) {
+      try {
+        const { data: coupon, error } = await supabase
+          .from('coupon')
+          .select('*')
+          .eq('code', couponCode.toUpperCase())
+          .eq('status', 'active')
+          .single();
 
-      const { isValid } = await verifyEligibilityAccess(
-        coupon,
-        walletAddress,
-        items.map(item => item.product.collectionId)
-      );
+        if (!error && coupon) {
+          const { isValid } = await verifyEligibilityAccess(
+            coupon,
+            walletAddress,
+            processedItems.map(item => item.product.collectionId)
+          );
 
-      if (isValid) {
-        couponDiscount = coupon.discount_type === 'fixed_sol' ? Math.min(coupon.discount_value, totalPayment) :
-          (totalPayment * coupon.discount_value) / 100;
-        console.log(`Coupon ${couponCode} applied: ${couponDiscount} discount`);
+          if (isValid) {
+            couponDiscount = coupon.discount_type === 'fixed_sol' 
+              ? Math.min(coupon.discount_value, totalPayment) 
+              : (totalPayment * coupon.discount_value) / 100;
+            console.log(`Coupon ${couponCode} applied: ${couponDiscount} discount`);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing coupon:', error);
       }
     }
     
-    let transactionSignature;
+    const finalAmount = totalPayment - couponDiscount;
+    const isFreeOrder = finalAmount <= 0;
     
+    let transactionSignature;
     if (isFreeOrder) {
       // Generate a consistent transaction ID for free orders
       transactionSignature = `free_order_${Date.now()}_${walletAddress || 'anonymous'}`;
       console.log(`Free order batch detected, using transaction signature: ${transactionSignature}`);
     }
     
-    console.log(`Processing ${items.length} unique items with a total of ${totalQuantity} individual orders in batch`);
+    console.log(`Processing ${processedItems.length} unique items in batch`);
 
     // Track all order IDs created for this batch
     const allOrderIds = [];
+    const orderNumbers = [];
     
-    // Process each item in the cart
-    let orderIndex = 0; // Track position across all orders
-    
-    for (const item of items) {
-      const product = item.product;
-      const selectedOptions = item.selectedOptions || {};
-      const quantity = Math.max(1, Number(item.quantity) || 1);
+    // Process each item in the cart as a single order with quantity
+    for (let itemIndex = 0; itemIndex < processedItems.length; itemIndex++) {
+      const processedItem = processedItems[itemIndex];
+      const { product, actualPrice, variantKey, variantSelections, quantity } = processedItem;
       
-      console.log(`Processing item: ${product.name}, Quantity: ${quantity}, Selected options:`, 
-        Object.keys(selectedOptions).length > 0 ? selectedOptions : 'None');
+      console.log(`Creating order for item: ${product.name}, Quantity: ${quantity}, Price: ${actualPrice}`);
       
-      // Format variant selections for the database
-      const formattedVariantSelections = [];
-      if (selectedOptions && Object.keys(selectedOptions).length > 0) {
-        for (const variantId in selectedOptions) {
-          const variantValue = selectedOptions[variantId];
-          
-          // Only include if we have both id and value
-          if (variantId && variantValue) {
-            // Try to get the variant name if the product has a variants array
-            let variantName = 'Unknown';
-            
-            if (product.variants && Array.isArray(product.variants)) {
-              const variant = product.variants.find(v => v.id === variantId);
-              if (variant) {
-                variantName = variant.name;
-              }
-            }
-            
-            formattedVariantSelections.push({
-              name: variantName,
-              value: variantValue
-            });
-          }
-        }
-      }
-      
-      // Get the variant price based on selected options
-      let variantKey = '';
-      let variantPrice = null;
-      
-      if (product.variants && Array.isArray(product.variants) && product.variants.length > 0 
-          && selectedOptions && Object.keys(selectedOptions).length > 0) {
-        // Build the variant key based on the format used in the product
-        const firstVariantId = Object.keys(selectedOptions)[0];
-        const firstVariantValue = selectedOptions[firstVariantId];
+      try {
+        const orderNumber = generateOrderNumber();
+        orderNumbers.push(orderNumber);
         
-        if (firstVariantId && firstVariantValue && product.variantPrices) {
-          variantKey = `${firstVariantId}:${firstVariantValue}`;
-          variantPrice = product.variantPrices[variantKey] || null;
-          
-          console.log(`Using variant pricing - Key: ${variantKey}, Price: ${variantPrice || 'Not found'}`);
+        const enhancedMetadata = {
+          ...paymentMetadata,
+          batchOrderId,
+          orderNumber,
+          isBatchOrder: true,
+          itemIndex: itemIndex + 1,
+          totalItemsInBatch: processedItems.length,
+          variantKey: variantKey || undefined,
+          actualPrice,
+          merchantWallet: processedItem.merchantWallet,
+          walletAmounts,
+          totalPayment,
+          couponDiscount,
+          finalAmount
+        };
+        
+        // Create order using the database function
+        const { data: orderId, error: functionError } = await supabase.rpc('create_order', {
+          p_product_id: product.id,
+          p_variants: variantSelections || [],
+          p_shipping_info: shippingInfo,
+          p_wallet_address: walletAddress || 'anonymous',
+          p_payment_metadata: enhancedMetadata
+        });
+
+        if (functionError) {
+          console.error(`Error using create_order function for product ${product.name}:`, functionError);
+          throw functionError;
         }
-      }
-      
-      // Process each quantity as a separate order with its own unique order ID
-      for (let quantityIndex = 0; quantityIndex < quantity; quantityIndex++) {
-        try {
-          const enhancedMetadata = {
-            ...paymentMetadata,
-            batchOrderId,
-            orderNumber: orderNumbers[orderIndex],
-            isBatchOrder: true,
-            quantityIndex: quantityIndex + 1,
-            totalQuantityForProduct: quantity,
-            totalQuantityInBatch: totalQuantity,
-            variantKey: variantKey || undefined,
-            variantPrices: product.variantPrices || undefined
-          };
+
+        if (orderId) {
+          console.log(`Order created successfully for product ${product.name}:`, orderId);
           
-          // Try using the database function first (like original implementation)
-          const { data: orderId, error: functionError } = await supabase.rpc('create_order', {
-            p_product_id: product.id,
-            p_variants: formattedVariantSelections || [],
-            p_shipping_info: shippingInfo,
-            p_wallet_address: walletAddress || 'anonymous',
-            p_payment_metadata: enhancedMetadata
-          });
-
-          if (functionError) {
-            console.error(`Error using create_order function for product ${product.name}, quantity ${quantityIndex + 1}/${quantity}:`, functionError);
-            throw functionError;
-          }
-
-          if (orderId) {
-            console.log(`Order ${quantityIndex + 1}/${quantity} created successfully for product ${product.name}, updating with batch details:`, orderId);
-            
-            allOrderIds.push(orderId);
-            
-            try {
-              const { error: batchIdError } = await supabase
-                .from('orders')
-                .update({
-                  batch_order_id: batchOrderId,
-                  order_number: orderNumbers[orderIndex],
-                  status: isFreeOrder ? 'confirmed' : 'draft',
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', orderId);
-                
-              if (batchIdError) {
-                console.error('Error setting batch_order_id:', batchIdError);
-              } else {
-                console.log(`Successfully set batch_order_id for order ${orderId}`);
-              }
-            } catch (error) {
-              console.error('Exception updating batch_order_id:', error);
-            }
-
-            createdOrders.push({
-              orderId,
-              orderNumber: orderNumbers[orderIndex],
-              productId: product.id,
-              productName: product.name,
+          allOrderIds.push(orderId);
+          
+          // Update order with batch details and quantity
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update({
+              batch_order_id: batchOrderId,
+              amount: actualPrice,
+              quantity,
+              order_number: orderNumber,
               status: isFreeOrder ? 'confirmed' : 'draft',
-              quantityIndex: quantityIndex + 1,
-              totalQuantityForProduct: quantity,
-              totalQuantityInBatch: totalQuantity
-            });
-          } else {
-            throw new Error(`Failed to create order: No order ID returned for product ${product.name}, quantity ${quantityIndex + 1}/${quantity}`);
+              item_index: itemIndex + 1,
+              total_items_in_batch: processedItems.length,
+              ...(isFreeOrder && { 
+                transaction_signature: transactionSignature
+              }),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', orderId);
+              
+          if (updateError) {
+            console.error('Error updating order with batch details:', updateError);
           }
-        } catch (error) {
-          console.error(`Order creation failed for product ${product.name}, quantity ${quantityIndex + 1}/${quantity}:`, error);
-          // Re-throw the error to fail the entire batch
-          throw error;
-        }
 
-        orderIndex++;
+          createdOrders.push({
+            orderId,
+            orderNumber,
+            productId: product.id,
+            productName: product.name,
+            status: isFreeOrder ? 'confirmed' : 'draft',
+            quantity: quantity,
+            totalItemsInBatch: processedItems.length,
+            price: actualPrice,
+            itemTotal: actualPrice * quantity,
+            variantKey
+          });
+        } else {
+          throw new Error(`Failed to create order: No order ID returned for product ${product.name}`);
+        }
+      } catch (error) {
+        console.error(`Order creation failed for product ${product.name}:`, error);
+        throw error;
       }
     }
+
+    const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
+    const fee = paymentMethod === 'solana' ? (0.001 * Object.keys(walletAmounts).length) : 0;
 
     if (createdOrders.length === 0) {
       return {
@@ -313,43 +403,19 @@ exports.handler = async (event, context) => {
         })
       };
     }
-    
-    if (allOrderIds.length > 0) {
-      console.log(`Performing final batch update on ${allOrderIds.length} orders with complete batch information`);
-      
-      for (let i = 0; i < allOrderIds.length; i++) {
-        try {
-          const { error: indexError } = await supabase
-            .from('orders')
-            .update({
-              batch_order_id: batchOrderId,
-              order_number: orderNumbers[i],
-              item_index: i + 1,
-              total_items_in_batch: allOrderIds.length,
-              ...(isFreeOrder && { 
-                transaction_signature: transactionSignature,
-                status: 'confirmed'
-              }),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', allOrderIds[i]);
-            
-          if (indexError) {
-            console.error(`Error updating item_index for order ${allOrderIds[i]}:`, indexError);
-          }
-        } catch (error) {
-          console.error(`Exception updating item_index for order ${allOrderIds[i]}:`, error);
-        }
-      }
-    }
 
-    // At the end of the endpoint, add batch summary logging before returning
+    // Final batch summary logging
     console.log(`Batch order creation complete:`, {
       batchOrderId,
       totalOrdersCreated: createdOrders.length,
-      expectedOrders: totalQuantity,
-      success: createdOrders.length === totalQuantity,
-      isFreeOrder
+      totalItems: processedItems.length,
+      success: createdOrders.length === processedItems.length,
+      isFreeOrder,
+      totalPayment,
+      fee,
+      couponDiscount,
+      finalAmount,
+      merchantWallets: Object.keys(walletAmounts).length,
     });
 
     return {
@@ -358,11 +424,16 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         batchOrderId,
-        orderNumbers: orderNumbers.slice(0, createdOrders.length), // Only return order numbers for successfully created orders
-        orderId: createdOrders[0]?.orderId, // Return the first order ID for backward compatibility
+        orderNumbers,
+        orderIds: allOrderIds,
         isFreeOrder,
+        fee,
         transactionSignature: isFreeOrder ? transactionSignature : undefined,
-        orders: createdOrders
+        orders: createdOrders,
+        totalPayment,
+        couponDiscount,
+        finalAmount,
+        walletAmounts
       })
     };
   } catch (error) {
