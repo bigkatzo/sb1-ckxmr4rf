@@ -18,6 +18,8 @@ import { verifyFinalTransaction } from '../../utils/transaction-monitor.tsx';
 import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
 import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
+import { create } from 'lodash';
+import { CryptoPaymentModal } from '../products/CryptoPaymentModal.tsx';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -113,6 +115,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   
   // Add state for Stripe payment modal
   const [showStripeModal, setShowStripeModal] = useState(false);
+  const [showCryptoModal, setShowCryptoModal] = useState(false);
+
   const [orderData, setOrderData] = useState<{
     orderId?: string;
     orderNumber?: string;
@@ -501,59 +505,56 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
 
   const createBatchTransactions = async () => {
     try {
-      const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          items: items.map(item => ({
-            product: item.product,
-            selectedOptions: item.selectedOptions,
-            quantity: item.quantity
-          })),
-          shippingInfo: formattedShippingInfo,
-          walletAddress: walletAddress || 'anonymous',
-          // this won't be required on the backend though...
-          paymentMetadata: {
-            paymentMethod: paymentMethod || 'stripe',
-            couponCode: appliedCoupon?.code,
-            couponDiscount: finalPrice,
-            originalPrice: totalPrice
-          }
-        })
-      });
+      // const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify({
+      //     items: items.map(item => ({
+      //       product: item.product,
+      //       selectedOptions: item.selectedOptions,
+      //       quantity: item.quantity
+      //     })),
+      //     shippingInfo: formattedShippingInfo,
+      //     walletAddress: walletAddress || 'anonymous',
+      //     // this won't be required on the backend though...
+      //     paymentMetadata: {
+      //       paymentMethod: paymentMethod || 'stripe',
+      //       couponCode: appliedCoupon?.code,
+      //       couponDiscount: finalPrice,
+      //       originalPrice: totalPrice
+      //     }
+      //   })
+      // });
 
-      if(!batchOrderResponse.ok) {
-        const errorData = await batchOrderResponse.json();
-        throw new Error(errorData.error || 'Failed to create batch order');
-      }
+      // if(!batchOrderResponse.ok) {
+      //   const errorData = await batchOrderResponse.json();
+      //   throw new Error(errorData.error || 'Failed to create batch order');
+      // }
 
-      const batchOrderData = await batchOrderResponse.json();
+      // const batchOrderData = await batchOrderResponse.json();
 
-      setOrderData({
-        orderId: "1234",
-        orderNumber: "Nullable",
-        batchOrderId: batchOrderData.batchOrderId,
-      });
+      // setOrderData({
+      //   orderId: "1234",
+      //   orderNumber: "Nullable",
+      //   batchOrderId: batchOrderData.batchOrderId,
+      // });
       
-      if(batchOrderData.batchOrderId) {
-        window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
-      }
+      // if(batchOrderData.batchOrderId) {
+      //   window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
+      // }
 
       // depending on payment method, we can open modal
       if( paymentMethod === 'stripe') {
         setShowStripeModal(true);
       } else if (paymentMethod === 'solana') {
-        setShowStripeModal(true);
-        // use another modal insha Allah
+        setShowCryptoModal(true);
       }
-
+      return true;
     } catch (error) {
-      
+      return false;
     }
-
-
   };
   
   const handleCheckout = async (e: React.FormEvent) => {
@@ -716,298 +717,301 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         return;
       }
 
-      // For Stripe, create batch order and open the Stripe modal
-      if (paymentMethod === 'stripe') {
-        setOrderProgress({ step: 'creating_order' });
-        
-        try {
-          // Create batch order first with Stripe payment intent
-          const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              items: items.map(item => ({
-                product: item.product,
-                selectedOptions: item.selectedOptions,
-                quantity: item.quantity
-              })),
-              shippingInfo: formattedShippingInfo,
-              walletAddress: walletAddress || 'anonymous',
-              paymentMetadata: {
-                paymentMethod: 'stripe',
-                couponCode: appliedCoupon?.code,
-                couponDiscount,
-                originalPrice: totalPrice
-              }
-            })
-          });
-          
-          const batchOrderData = await batchOrderResponse.json();
-          
-          if (!batchOrderData.success) {
-            setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
-            throw new Error(batchOrderData.error || 'Failed to create batch order');
-          }
-          
-          console.log('Batch order created for Stripe payment:', {
-            batchOrderId: batchOrderData.batchOrderId,
-            orderNumber: batchOrderData.orderNumber,
-            orderCount: batchOrderData.orders?.length,
-            firstOrderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId
-          });
-          
-          // Save the order details for later
-          const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
-          setOrderData({
-            orderId,
-            orderNumber: batchOrderData.orderNumber,
-            batchOrderId: batchOrderData.batchOrderId
-          });
-          
-          // Set the createdOrderId for use in handleStripeSuccess
-          if (orderId) {
-            setCreatedOrderId(orderId);
-          }
-          
-          // Store order ID in session storage for Stripe payment to use
-          if (orderId) {
-            window.sessionStorage.setItem('lastCreatedOrderId', orderId);
-          }
-          if (batchOrderData.batchOrderId) {
-            window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
-          }
-          
-          // Show the Stripe payment modal
-          setShowStripeModal(true);
-        } catch (error) {
-          console.error('Error creating orders for Stripe payment:', error);
-          toast.error(error instanceof Error ? error.message : 'Failed to create orders');
-          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'Failed to create orders' });
-        }
-      }
-      // For Solana payments, use the processPayment function from usePayment
-      else if (paymentMethod === 'solana' && items.length > 0) {
-        try {
-          // Get collection ID from the first item (consistent with TokenVerificationModal)
-          const collectionId = items[0].product.collectionId;
-          
-          // First create the batch order
-          console.log('Creating batch order for Solana payment');
-          
-          const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              items: items.map(item => ({
-                product: item.product,
-                selectedOptions: item.selectedOptions,
-                quantity: item.quantity
-              })),
-              shippingInfo: formattedShippingInfo,
-              walletAddress: walletAddress || 'anonymous',
-              paymentMetadata: {
-                paymentMethod: 'solana',
-                couponCode: appliedCoupon?.code,
-                couponDiscount,
-                originalPrice: totalPrice
-              }
-            })
-          });
-          
-          const batchOrderData = await batchOrderResponse.json();
-          
-          if (!batchOrderData.success) {
-            setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
-            throw new Error(batchOrderData.error || 'Failed to create batch order');
-          }
-          
-          console.log('Batch order created for Solana payment:', {
-            batchOrderId: batchOrderData.batchOrderId,
-            orderNumber: batchOrderData.orderNumbers?.[0],
-            orderCount: batchOrderData.orders?.length,
-            firstOrderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId
-          });
-          
-          // Store the order information
-          const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
-          const orderNumber = batchOrderData.orderNumber?.[0];
-          const batchOrderId = batchOrderData.batchOrderId;
-          
-          setOrderData({
-            orderId,
-            orderNumber,
-            batchOrderId
-          });
-          
-          // Store order ID in session storage for Stripe payment to use
-          if (orderId) {
-            window.sessionStorage.setItem('lastCreatedOrderId', orderId);
-          }
-          if (batchOrderId) {
-            window.sessionStorage.setItem('lastBatchOrderId', batchOrderId);
-          }
-          
-          // Process payment step
-          setOrderProgress({ step: 'processing_payment' });
-          console.log('Processing Solana payment for amount:', finalPrice);
-          
-          // Use the usePayment hook's processPayment function - same as TokenVerificationModal
-          const { success: paymentSuccess, signature: txSignature } = await processPayment(finalPrice, collectionId);
-          
-          if (!paymentSuccess || !txSignature) {
-            setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
-            
-            // Update order to pending_payment status even if payment fails - consistent with TokenVerificationModal
-            try {
-              await updateOrderTransactionSignature({
-                orderId,
-                transactionSignature: 'rejected',
-                amountSol: finalPrice,
-                batchOrderId: orderData.batchOrderId
-              });
-            } catch (err) {
-              console.error('Error updating order status:', err);
-            }
-            
-            throw new Error('Payment failed or was cancelled');
-          }
-          
-          console.log('Payment processed successfully with signature:', txSignature);
-          
-          const statusSuccess = await updateOrderTransactionSignature({
-            orderId,
-            transactionSignature: txSignature,
-            amountSol: finalPrice,
-            walletAddress: walletAddress || 'anonymous',
-            batchOrderId,
-          });
-  
-          if (!statusSuccess) {
-            throw new Error('Failed to update order transaction');
-          }
+    try {
+      
+      await createBatchTransactions();
 
-          // Start transaction confirmation - using same monitoring as TokenVerificationModal
-          setOrderProgress({ step: 'confirming_transaction' });
-          console.log('Confirming transaction on-chain');
+      // For Stripe, create batch order and open the Stripe modal
+      // if (paymentMethod === 'stripe') {
+      //   setOrderProgress({ step: 'creating_order' });
+        
+      //   try {
+      //     // Create batch order first with Stripe payment intent
+      //     const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+      //       method: 'POST',
+      //       headers: {
+      //         'Content-Type': 'application/json'
+      //       },
+      //       body: JSON.stringify({
+      //         items: items.map(item => ({
+      //           product: item.product,
+      //           selectedOptions: item.selectedOptions,
+      //           quantity: item.quantity
+      //         })),
+      //         shippingInfo: formattedShippingInfo,
+      //         walletAddress: walletAddress || 'anonymous',
+      //         paymentMetadata: {
+      //           paymentMethod: 'stripe',
+      //           couponCode: appliedCoupon?.code,
+      //           couponDiscount,
+      //           originalPrice: totalPrice
+      //         }
+      //       })
+      //     });
           
-          // Add notification when starting Solana transaction for batch orders
-          toast.info(
-            items.length > 1 
-              ? `Processing batch order transaction...` 
-              : `Processing order transaction...`,
-            { autoClose: false }
-          );
+      //     const batchOrderData = await batchOrderResponse.json();
           
-          // Save transaction signature to state
-          setOrderData(prev => ({
-            ...prev,
-            transactionSignature: txSignature
-          }));
+      //     if (!batchOrderData.success) {
+      //       setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
+      //       throw new Error(batchOrderData.error || 'Failed to create batch order');
+      //     }
           
-          // confirm on chain
-          const success = await verifyFinalTransaction(
-            txSignature,
-            async (status) => {
-              console.log('Status update received:', status);
+      //     console.log('Batch order created for Stripe payment:', {
+      //       batchOrderId: batchOrderData.batchOrderId,
+      //       orderNumber: batchOrderData.orderNumber,
+      //       orderCount: batchOrderData.orders?.length,
+      //       firstOrderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId
+      //     });
+          
+      //     // Save the order details for later
+      //     const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
+      //     setOrderData({
+      //       orderId,
+      //       orderNumber: batchOrderData.orderNumber,
+      //       batchOrderId: batchOrderData.batchOrderId
+      //     });
+          
+      //     // Set the createdOrderId for use in handleStripeSuccess
+      //     if (orderId) {
+      //       setCreatedOrderId(orderId);
+      //     }
+          
+      //     // Store order ID in session storage for Stripe payment to use
+      //     if (orderId) {
+      //       window.sessionStorage.setItem('lastCreatedOrderId', orderId);
+      //     }
+      //     if (batchOrderData.batchOrderId) {
+      //       window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
+      //     }
+          
+      //     // Show the Stripe payment modal
+      //     setShowStripeModal(true);
+      //   } catch (error) {
+      //     console.error('Error creating orders for Stripe payment:', error);
+      //     toast.error(error instanceof Error ? error.message : 'Failed to create orders');
+      //     setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'Failed to create orders' });
+      //   }
+      // }
+      // For Solana payments, use the processPayment function from usePayment
+      // else if (paymentMethod === 'solana' && items.length > 0) {
+      // try {
+      //   // Get collection ID from the first item (consistent with TokenVerificationModal)
+      //   const collectionId = items[0].product.collectionId;
+        
+      //   // First create the batch order
+      //   console.log('Creating batch order for Solana payment');
+        
+      //   const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json'
+      //     },
+      //     body: JSON.stringify({
+      //       items: items.map(item => ({
+      //         product: item.product,
+      //         selectedOptions: item.selectedOptions,
+      //         quantity: item.quantity
+      //       })),
+      //       shippingInfo: formattedShippingInfo,
+      //       walletAddress: walletAddress || 'anonymous',
+      //       paymentMetadata: {
+      //         paymentMethod: 'solana',
+      //         couponCode: appliedCoupon?.code,
+      //         couponDiscount,
+      //         originalPrice: totalPrice
+      //       }
+      //     })
+      //   });
+        
+      //   const batchOrderData = await batchOrderResponse.json();
+        
+      //   if (!batchOrderData.success) {
+      //     setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
+      //     throw new Error(batchOrderData.error || 'Failed to create batch order');
+      //   }
+        
+      //   console.log('Batch order created for Solana payment:', {
+      //     batchOrderId: batchOrderData.batchOrderId,
+      //     orderNumber: batchOrderData.orderNumbers?.[0],
+      //     orderCount: batchOrderData.orders?.length,
+      //     firstOrderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId
+      //   });
+        
+      //   // Store the order information
+      //   const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
+      //   const orderNumber = batchOrderData.orderNumber?.[0];
+      //   const batchOrderId = batchOrderData.batchOrderId;
+        
+      //   setOrderData({
+      //     orderId,
+      //     orderNumber,
+      //     batchOrderId
+      //   });
+        
+      //   // Store order ID in session storage for Stripe payment to use
+      //   if (orderId) {
+      //     window.sessionStorage.setItem('lastCreatedOrderId', orderId);
+      //   }
+      //   if (batchOrderId) {
+      //     window.sessionStorage.setItem('lastBatchOrderId', batchOrderId);
+      //   }
+        
+      //   // Process payment step
+      //   setOrderProgress({ step: 'processing_payment' });
+      //   console.log('Processing Solana payment for amount:', finalPrice);
+        
+      //   // Use the usePayment hook's processPayment function - same as TokenVerificationModal
+      //   const { success: paymentSuccess, signature: txSignature } = await processPayment(finalPrice, collectionId);
+        
+      //   if (!paymentSuccess || !txSignature) {
+      //     setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
+          
+      //     // Update order to pending_payment status even if payment fails - consistent with TokenVerificationModal
+      //     try {
+      //       await updateOrderTransactionSignature({
+      //         orderId,
+      //         transactionSignature: 'rejected',
+      //         amountSol: finalPrice,
+      //         batchOrderId: orderData.batchOrderId
+      //       });
+      //     } catch (err) {
+      //       console.error('Error updating order status:', err);
+      //     }
+          
+      //     throw new Error('Payment failed or was cancelled');
+      //   }
+        
+      //   console.log('Payment processed successfully with signature:', txSignature);
+        
+      //   const statusSuccess = await updateOrderTransactionSignature({
+      //     orderId,
+      //     transactionSignature: txSignature,
+      //     amountSol: finalPrice,
+      //     walletAddress: walletAddress || 'anonymous',
+      //     batchOrderId,
+      //   });
+
+      //   if (!statusSuccess) {
+      //     throw new Error('Failed to update order transaction');
+      //   }
+
+      //   // Start transaction confirmation - using same monitoring as TokenVerificationModal
+      //   setOrderProgress({ step: 'confirming_transaction' });
+      //   console.log('Confirming transaction on-chain');
+        
+      //   // Add notification when starting Solana transaction for batch orders
+      //   toast.info(
+      //     items.length > 1 
+      //       ? `Processing batch order transaction...` 
+      //       : `Processing order transaction...`,
+      //     { autoClose: false }
+      //   );
+        
+      //   // Save transaction signature to state
+      //   setOrderData(prev => ({
+      //     ...prev,
+      //     transactionSignature: txSignature
+      //   }));
+        
+      //   // confirm on chain
+      //   const success = await verifyFinalTransaction(
+      //     txSignature,
+      //     async (status) => {
+      //       console.log('Status update received:', status);
+            
+      //       // Handle transaction status updates
+      //       if (status.error) {
+      //         console.log('Setting error state:', status.error);
+      //         setOrderProgress({ step: 'error', error: status.error });
+      //       } else if (status.paymentConfirmed) {
+      //         console.log('Payment confirmed, setting success state');
               
-              // Handle transaction status updates
-              if (status.error) {
-                console.log('Setting error state:', status.error);
-                setOrderProgress({ step: 'error', error: status.error });
-              } else if (status.paymentConfirmed) {
-                console.log('Payment confirmed, setting success state');
+      //         // IMMEDIATELY set success state and update order data
+      //         setOrderProgress({ step: 'success' });
+      //         setOrderData(prev => ({
+      //           ...prev,
+      //           transactionSignature: txSignature
+      //         }));
+              
+      //         // IMMEDIATELY clear cart - don't wait for batch refresh
+      //         console.log('Clearing cart immediately');
+      //         clearCart();
+              
+      //         // Handle batch order refresh in background (don't block success state)
+      //         if (batchOrderId) {
+      //           console.log('Starting batch order refresh in background:', batchOrderId);
                 
-                // IMMEDIATELY set success state and update order data
-                setOrderProgress({ step: 'success' });
-                setOrderData(prev => ({
-                  ...prev,
-                  transactionSignature: txSignature
-                }));
-                
-                // IMMEDIATELY clear cart - don't wait for batch refresh
-                console.log('Clearing cart immediately');
-                clearCart();
-                
-                // Handle batch order refresh in background (don't block success state)
-                if (batchOrderId) {
-                  console.log('Starting batch order refresh in background:', batchOrderId);
-                  
-                  // Use a non-blocking approach for batch refresh
-                  setTimeout(async () => {
-                    try {
-                      const refreshResponse = await fetch('/.netlify/functions/get-batch-orders', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                          batchOrderId: batchOrderId
-                        })
-                      });
+      //           // Use a non-blocking approach for batch refresh
+      //           setTimeout(async () => {
+      //             try {
+      //               const refreshResponse = await fetch('/.netlify/functions/get-batch-orders', {
+      //                 method: 'POST',
+      //                 headers: {
+      //                   'Content-Type': 'application/json'
+      //                 },
+      //                 body: JSON.stringify({
+      //                   batchOrderId: batchOrderId
+      //                 })
+      //               });
+                    
+      //               if (refreshResponse.ok) {
+      //                 const refreshData = await refreshResponse.json();
+      //                 console.log('Batch orders refresh result:', refreshData);
                       
-                      if (refreshResponse.ok) {
-                        const refreshData = await refreshResponse.json();
-                        console.log('Batch orders refresh result:', refreshData);
+      //                 if (refreshData.success && refreshData.orders) {
+      //                   const confirmedOrders = refreshData.orders.filter((o: { status: string }) => o.status === 'confirmed').length;
+      //                   console.log(`Batch refresh: ${confirmedOrders}/${refreshData.orders.length} orders confirmed`);
                         
-                        if (refreshData.success && refreshData.orders) {
-                          const confirmedOrders = refreshData.orders.filter((o: { status: string }) => o.status === 'confirmed').length;
-                          console.log(`Batch refresh: ${confirmedOrders}/${refreshData.orders.length} orders confirmed`);
-                          
-                          // This is just for logging - success state is already set
-                          if (confirmedOrders === refreshData.orders.length) {
-                            console.log('All batch orders confirmed');
-                          } else {
-                            console.log('Some batch orders still pending, but transaction is confirmed');
-                          }
-                        }
-                      }
-                    } catch (refreshError) {
-                      console.error('Background batch refresh error:', refreshError);
-                      // Don't affect the success state - transaction is already confirmed
-                    }
-                  }, 100); // Small delay to not block the main success flow
-                }
-                
-                // Auto-close modal after showing success
-                console.log('Setting auto-close timeout');
-                setTimeout(() => {
-                  console.log('Auto-closing modal');
-                  onClose && onClose();
-                }, 3000);
-              }
-            },
-            orderId,
-            batchOrderId,
-            {
-              amount: finalPrice,
-              buyer: walletAddress || '',
-              recipient: collectionId
-            },
-          );
-          
-          // SAFETY: Add a timeout to ensure modal closes properly
-          if (success || txSignature) {
-            console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
-            setTimeout(() => {
-              // Check if still in confirming_transaction state
-              if (orderProgress.step === 'confirming_transaction') {
-                console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
-                setOrderProgress({ step: 'success' });
-                
-                // Clear cart but let user decide when to close modal
-                clearCart();
-              }
-            }, 3000);
-          }
-        } catch (error) {
-          console.error("Solana payment error:", error);
-          toast.error(error instanceof Error ? error.message : "An error occurred during payment");
-          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'An unknown error occurred' });
-        }
+      //                   // This is just for logging - success state is already set
+      //                   if (confirmedOrders === refreshData.orders.length) {
+      //                     console.log('All batch orders confirmed');
+      //                   } else {
+      //                     console.log('Some batch orders still pending, but transaction is confirmed');
+      //                   }
+      //                 }
+      //               }
+      //             } catch (refreshError) {
+      //               console.error('Background batch refresh error:', refreshError);
+      //               // Don't affect the success state - transaction is already confirmed
+      //             }
+      //           }, 100); // Small delay to not block the main success flow
+      //         }
+              
+      //         // Auto-close modal after showing success
+      //         console.log('Setting auto-close timeout');
+      //         setTimeout(() => {
+      //           console.log('Auto-closing modal');
+      //           onClose && onClose();
+      //         }, 3000);
+      //       }
+      //     },
+      //     orderId,
+      //     batchOrderId,
+      //     {
+      //       amount: finalPrice,
+      //       buyer: walletAddress || '',
+      //       recipient: collectionId
+      //     },
+      //   );
+        
+      //   // SAFETY: Add a timeout to ensure modal closes properly
+      //   if (success || txSignature) {
+      //     console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
+      //     setTimeout(() => {
+      //       // Check if still in confirming_transaction state
+      //       if (orderProgress.step === 'confirming_transaction') {
+      //         console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
+      //         setOrderProgress({ step: 'success' });
+              
+      //         // Clear cart but let user decide when to close modal
+      //         clearCart();
+      //       }
+      //     }, 3000);
+      //   }
+      } catch (error) {
+        console.error("Solana payment error:", error);
+        toast.error(error instanceof Error ? error.message : "An error occurred during payment");
+        setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'An unknown error occurred' });
       }
     } catch (error) {
       console.error("Checkout error:", error);
@@ -1051,6 +1055,20 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             solAmount={finalPrice}
             productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
             productId={items[0]?.product.id || ''}
+            shippingInfo={formattedShippingInfo}
+            variants={[]}
+            couponCode={appliedCoupon?.code}
+            couponDiscount={appliedCoupon?.discountAmount || 
+              (appliedCoupon?.discountPercentage ? (totalPrice * appliedCoupon.discountPercentage / 100) : 0)}
+            originalPrice={totalPrice}
+          />
+        ) : showCryptoModal ? (
+          <CryptoPaymentModal
+            onClose={() => setShowCryptoModal(false)}
+            onSuccess={() => console.log('Crypto payment successful')}
+            solAmount={finalPrice}
+            productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
+            productIds={items[0]?.product.id || ''}
             shippingInfo={formattedShippingInfo}
             variants={[]}
             couponCode={appliedCoupon?.code}
