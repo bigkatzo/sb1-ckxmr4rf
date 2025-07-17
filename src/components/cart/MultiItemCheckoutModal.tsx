@@ -167,6 +167,30 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     }));
   }, [shipping]);
 
+  // validating
+  const validateItemsInCarts = async () => {
+    // Verify all items in the cart again just before checkout as a safety measure
+    const allItemsVerified = await verifyAllItems(walletAddress);
+    
+    if (!allItemsVerified) {
+      // Find unverified items
+      const unverifiedItems = items.filter(item => 
+        item.product.category?.eligibilityRules?.groups?.length && 
+        (!item.verificationStatus?.verified)
+      );
+      
+      if (unverifiedItems.length > 0) {
+        const itemNames = unverifiedItems.map(item => item.product.name).join(', ');
+        toast.error(`You don't have access to these items: ${itemNames}. Please remove them from your cart.`);
+        setOrderProgress({ step: 'error', error: 'Some items in your cart could not be verified' });
+        return false;
+      }
+
+      return false;
+    }
+    return true;
+  }
+
   // Enhanced zip code change handler with country/state detection
   const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newZip = e.target.value;
@@ -474,6 +498,63 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       setOrderProgress({ step: 'error', error: 'Failed to process payment confirmation' });
     }
   };
+
+  const createBatchTransactions = async () => {
+    try {
+      const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          items: items.map(item => ({
+            product: item.product,
+            selectedOptions: item.selectedOptions,
+            quantity: item.quantity
+          })),
+          shippingInfo: formattedShippingInfo,
+          walletAddress: walletAddress || 'anonymous',
+          // this won't be required on the backend though...
+          paymentMetadata: {
+            paymentMethod: paymentMethod || 'stripe',
+            couponCode: appliedCoupon?.code,
+            couponDiscount: finalPrice,
+            originalPrice: totalPrice
+          }
+        })
+      });
+
+      if(!batchOrderResponse.ok) {
+        const errorData = await batchOrderResponse.json();
+        throw new Error(errorData.error || 'Failed to create batch order');
+      }
+
+      const batchOrderData = await batchOrderResponse.json();
+
+      setOrderData({
+        orderId: "1234",
+        orderNumber: "Nullable",
+        batchOrderId: batchOrderData.batchOrderId,
+      });
+      
+      if(batchOrderData.batchOrderId) {
+        window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
+      }
+
+      // depending on payment method, we can open modal
+      if( paymentMethod === 'stripe') {
+        setShowStripeModal(true);
+      } else if (paymentMethod === 'solana') {
+        setShowStripeModal(true);
+        // use another modal insha Allah
+      }
+
+    } catch (error) {
+      
+    }
+
+
+  };
   
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -628,25 +709,13 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setProcessingPayment(true);
     
     try {
-      // Verify all items in the cart again just before checkout as a safety measure
-      const allItemsVerified = await verifyAllItems(walletAddress);
       
-      if (!allItemsVerified) {
-        // Find unverified items
-        const unverifiedItems = items.filter(item => 
-          item.product.category?.eligibilityRules?.groups?.length && 
-          (!item.verificationStatus?.verified)
-        );
-        
-        if (unverifiedItems.length > 0) {
-          const itemNames = unverifiedItems.map(item => item.product.name).join(', ');
-          toast.error(`You don't have access to these items: ${itemNames}. Please remove them from your cart.`);
-          setOrderProgress({ step: 'error', error: 'Some items in your cart could not be verified' });
-          setProcessingPayment(false);
-          return;
-        }
+      const isValid = await validateItemsInCarts();
+      if (!isValid) {
+        setProcessingPayment(false);
+        return;
       }
-      
+
       // For Stripe, create batch order and open the Stripe modal
       if (paymentMethod === 'stripe') {
         setOrderProgress({ step: 'creating_order' });
