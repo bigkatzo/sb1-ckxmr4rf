@@ -78,9 +78,9 @@ async function verifyTokenHolding(walletAddress, tokenMintAddress, minAmount) {
   }
 }
 
-async function verifyEligibilityAccess(coupons, walletAddress, productCollectionIds) {
+async function verifyEligibilityAccess(coupon, walletAddress, productCollectionIds) {
   try {
-    if (!coupons) {
+    if (!coupon) {
       return {
         isValid: false,
         discountAmount: 0,
@@ -90,11 +90,11 @@ async function verifyEligibilityAccess(coupons, walletAddress, productCollection
 
     if (
       productCollectionIds &&
-      Array.isArray(coupons.collection_ids) &&
-      coupons.collection_ids.length > 0
+      Array.isArray(coupon.collection_ids) &&
+      coupon.collection_ids.length > 0
     ) {
       const hasValidCollection = productCollectionIds.some(id =>
-        coupons.collection_ids.includes(id)
+        coupon.collection_ids.includes(id)
       );
       if (!hasValidCollection) {
         return {
@@ -105,9 +105,9 @@ async function verifyEligibilityAccess(coupons, walletAddress, productCollection
       }
     }
 
-    if (coupons.eligibility_rules?.groups?.length) {
+    if (coupon.eligibility_rules?.groups?.length) {
       const groupResults = await Promise.all(
-        coupons.eligibility_rules.groups.map(async group => {
+        coupon.eligibility_rules.groups.map(async group => {
           const ruleResults = await Promise.all(
             group.rules.map(async rule => {
               switch (rule.type) {
@@ -142,7 +142,7 @@ async function verifyEligibilityAccess(coupons, walletAddress, productCollection
 
       return {
         isValid: allValid,
-        discountAmount: allValid ? coupons.discount_amount || 0 : 0,
+        discountAmount: allValid ? coupon.discount_amount || 0 : 0,
         error: allValid ? undefined : firstError
       };
     }
@@ -150,7 +150,7 @@ async function verifyEligibilityAccess(coupons, walletAddress, productCollection
     // If no eligibility rules, allow by default
     return {
       isValid: true,
-      discountAmount: coupons.discount_amount || 0
+      discountAmount: coupon.discount_amount || 0
     };
   } catch (error) {
     console.error('Error verifying eligibility:', error);
@@ -192,14 +192,14 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { data: coupons, error } = await supabase
-      .from('coupons')
+    const { data: coupon, error } = await supabase
+      .from('coupon')
       .select('*')
       .eq('code', code.toUpperCase())
       .eq('status', 'active')
       .single();
 
-    if (error || !coupons) {
+    if (error || !coupon) {
       console.error('Coupon lookup failed:', error);
       return {
         statusCode: 404,
@@ -211,7 +211,7 @@ exports.handler = async (event, context) => {
     }
 
     const eligibilityResult = await verifyEligibilityAccess(
-      coupons,
+      coupon,
       walletAddress,
       productCollectionIds
     );
@@ -230,8 +230,7 @@ exports.handler = async (event, context) => {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        discountAmount: eligibilityResult.discountAmount,
-        coupon: coupons
+        coupon,
       })
     };
   } catch (error) {

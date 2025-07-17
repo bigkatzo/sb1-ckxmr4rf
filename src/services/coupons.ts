@@ -1,4 +1,3 @@
-import { supabase } from '../lib/supabase';
 import type { Coupon, CouponResult, PriceWithDiscount } from '../types/coupons';
 import { verifyTokenHolding } from '../utils/token-verification';
 import { verifyNFTHolding } from '../utils/nft-verification';
@@ -30,10 +29,10 @@ export class CouponService {
       if (coupons.eligibility_rules?.groups?.length) {
         // Verify each group of rules
         const groupResults = await Promise.all(
-          coupons.eligibility_rules.groups.map(async group => {
+          coupons.eligibility_rules.groups.map(async (group: any) => {
             // Verify all rules in the group
             const ruleResults = await Promise.all(
-              group.rules.map(async rule => {
+              group.rules.map(async (rule: any) => {
                 switch (rule.type) {
                   case 'token':
                     return verifyTokenHolding(walletAddress, rule.value, rule.quantity === undefined ? 1 : rule.quantity);
@@ -89,57 +88,54 @@ export class CouponService {
   }
 
   static async calculateDiscount(
-    modifiedPrice: number,
+    totalPrice: number,
     code: string,
     walletAddress: string,
-    // Array of strings
     productCollectionId: Array<string>
   ): Promise<PriceWithDiscount> {
     try {
-      const { data: coupons, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('code', code.toUpperCase())
-        .eq('status', 'active')
-        .single() as { data: Coupon | null; error: any };
 
-      // If any error or no coupon, return original price
-      if (error || !coupons) {
+      const validateCouponResponse = await fetch('/.netlify/functions/validate-coupons', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          code,
+          walletAddress,
+          productCollectionId
+        })
+      });
+
+      if (!validateCouponResponse.ok) {
+        const errorData = await validateCouponResponse.json();
+        console.error('Error validating coupon:', errorData);
         return {
-          finalPrice: modifiedPrice,
+          finalPrice: totalPrice,
           couponDiscount: 0,
-          originalPrice: modifiedPrice
+          originalPrice: totalPrice,
+          error: errorData.error || 'Failed to validate coupon'
         };
       }
 
-      // First validate eligibility
-      const eligibilityResult = await this.validateCoupon(coupons, walletAddress, productCollectionId);
-      if (!eligibilityResult.isValid) {
-        return {
-          finalPrice: modifiedPrice,
-          couponDiscount: 0,
-          originalPrice: modifiedPrice,
-          error: eligibilityResult.error
-        };
-      }
-
+      const couponData = await validateCouponResponse.json();
+      const coupons: Coupon = couponData.coupon;
       let discountAmount = 0;
       let discountDisplay = '';
 
       // Calculate discount based on type
-      // do not calculate the discount at all...
       if (coupons.discount_type === 'fixed_sol') {
-        discountAmount = Math.min(coupons.discount_value, modifiedPrice);
+        discountAmount = Math.min(coupons.discount_value, totalPrice);
         discountDisplay = `${discountAmount} SOL off`;
         console.log('Fixed SOL discount calculation:', {
           couponCode: code,
           discountValue: coupons.discount_value,
-          modifiedPrice,
+          totalPrice,
           finalDiscount: discountAmount,
-          percentageOfPrice: ((discountAmount / modifiedPrice) * 100).toFixed(2) + '%'
+          percentageOfPrice: ((discountAmount / totalPrice) * 100).toFixed(2) + '%'
         });
       } else {
-        discountAmount = (modifiedPrice * coupons.discount_value) / 100;
+        discountAmount = (totalPrice * coupons.discount_value) / 100;
         if (coupons.max_discount) {
           discountAmount = Math.min(discountAmount, coupons.max_discount);
         }
@@ -147,30 +143,29 @@ export class CouponService {
         console.log('Percentage discount calculation:', {
           couponCode: code,
           percentageValue: coupons.discount_value + '%',
-          modifiedPrice,
-          calculatedDiscount: (modifiedPrice * coupons.discount_value) / 100,
+          totalPrice,
+          calculatedDiscount: (totalPrice * coupons.discount_value) / 100,
           maxDiscount: coupons.max_discount,
           finalDiscount: discountAmount
         });
       }
 
       // Ensure we don't discount more than the price
-      discountAmount = Math.min(discountAmount, modifiedPrice);
+      discountAmount = Math.min(discountAmount, totalPrice);
 
       return {
-        finalPrice: modifiedPrice - discountAmount,
+        finalPrice: totalPrice - discountAmount,
         couponDiscount: discountAmount,
-        originalPrice: modifiedPrice,
+        originalPrice: totalPrice,
         discountDisplay,
         couponCode: code
       };
     } catch (error) {
       console.error('Error calculating discount:', error);
-      // Fallback to original price if anything goes wrong
       return {
-        finalPrice: modifiedPrice,
+        finalPrice: totalPrice,
         couponDiscount: 0,
-        originalPrice: modifiedPrice
+        originalPrice: totalPrice
       };
     }
   }
