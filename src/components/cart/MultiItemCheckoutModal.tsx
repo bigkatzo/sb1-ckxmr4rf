@@ -292,14 +292,15 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     
     try {
       // Get the collection ID from the first item in the cart for validation
-      const firstItemCollectionId = items[0]?.product.collectionId;
+      // Get unique collection IDs from all items in the cart
+      const collectionIds = Array.from(new Set(items.map(item => item.product.collectionId).filter(Boolean)));
       
       // Use the CouponService to validate and calculate the discount
       const result = await CouponService.calculateDiscount(
         totalPrice,
         couponCode,
         walletAddress || '',
-        firstItemCollectionId
+        collectionIds
       );
       
       if (result.error || result.couponDiscount <= 0) {
@@ -542,83 +543,85 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       : 0;
     
     // Check if the coupon provides a 100% discount (free order)
-    const isFreeOrder = appliedCoupon && 
-      totalPrice > 0 && 
-      ((appliedCoupon.discountPercentage === 100) || 
-       (appliedCoupon.discountAmount >= totalPrice));
+    // should not exist, backend chooses this.
+    // const isFreeOrder = appliedCoupon && 
+    //   totalPrice > 0 && 
+    //   ((appliedCoupon.discountPercentage === 100) || 
+    //    (appliedCoupon.discountAmount >= totalPrice));
     
-    if (isFreeOrder) {
-      setProcessingPayment(true);
-      try {
-        // For 100% discount, use the create-batch-order endpoint but mark it as a free order
-        const transactionId = `free_order_batch_${Date.now()}_${walletAddress || 'anonymous'}`;
+    // should not exist..
+    // if (isFreeOrder) {
+    //   setProcessingPayment(true);
+    //   try {
+    //     // For 100% discount, use the create-batch-order endpoint but mark it as a free order
+    //     const transactionId = `free_order_batch_${Date.now()}_${walletAddress || 'anonymous'}`;
         
-        setOrderProgress({ step: 'creating_order' });
+    //     setOrderProgress({ step: 'creating_order' });
         
-        const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            items: items.map(item => ({
-              product: item.product,
-              selectedOptions: item.selectedOptions,
-              quantity: item.quantity
-            })),
-            shippingInfo: formattedShippingInfo,
-            walletAddress: walletAddress || 'anonymous',
-            paymentMetadata: {
-              paymentMethod: 'free_order',
-              couponCode: appliedCoupon.code,
-              couponDiscount: totalPrice, // The entire amount is discounted
-              originalPrice: totalPrice,
-              isFreeOrder: true,
-              transactionId
-            }
-          })
-        });
+    //     const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+    //       method: 'POST',
+    //       headers: {
+    //         'Content-Type': 'application/json'
+    //       },
+    //       body: JSON.stringify({
+    //         items: items.map(item => ({
+    //           product: item.product,
+    //           selectedOptions: item.selectedOptions,
+    //           quantity: item.quantity
+    //         })),
+    //         shippingInfo: formattedShippingInfo,
+    //         walletAddress: walletAddress || 'anonymous',
+    //         paymentMetadata: {
+    //           paymentMethod: 'free_order',
+    //           couponCode: appliedCoupon.code,
+    //           couponDiscount: totalPrice, // The entire amount is discounted
+    //           originalPrice: totalPrice,
+    //           isFreeOrder: true,
+    //           transactionId
+    //         }
+    //       })
+    //     });
         
-        const batchOrderData = await batchOrderResponse.json();
+    //     const batchOrderData = await batchOrderResponse.json();
         
-        if (!batchOrderData.success) {
-          throw new Error(batchOrderData.error || 'Failed to create free order');
-        }
+    //     if (!batchOrderData.success) {
+    //       throw new Error(batchOrderData.error || 'Failed to create free order');
+    //     }
         
-        // Get the order number from either format of response
-        const orderNumber = batchOrderData.orderNumber || batchOrderData.orders?.[0]?.orderNumber;
+    //     // Get the order number from either format of response
+    //     const orderNumber = batchOrderData.orderNumber || batchOrderData.orders?.[0]?.orderNumber;
         
-        // Store the order information
-        setOrderData({
-          orderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId,
-          orderNumber,
-          transactionSignature: transactionId,
-          batchOrderId: batchOrderData.batchOrderId
-        });
+    //     // Store the order information
+    //     setOrderData({
+    //       orderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId,
+    //       orderNumber,
+    //       transactionSignature: transactionId,
+    //       batchOrderId: batchOrderData.batchOrderId
+    //     });
         
-        // Update order progress
-        setOrderProgress({ step: 'success' });
+    //     // Update order progress
+    //     setOrderProgress({ step: 'success' });
         
-        // More descriptive success message for batch orders
-        toast.success(
-          items.length > 1
-            ? `Order #${orderNumber} containing ${items.length} items was created successfully!`
-            : `Free order #${orderNumber} created successfully!`,
-          { autoClose: 5000 }
-        );
+    //     // More descriptive success message for batch orders
+    //     toast.success(
+    //       items.length > 1
+    //         ? `Order #${orderNumber} containing ${items.length} items was created successfully!`
+    //         : `Free order #${orderNumber} created successfully!`,
+    //       { autoClose: 5000 }
+    //     );
         
-        // Clear cart and show the OrderSuccessView (consistent with paid orders)
-        clearCart();
-        setShowSuccessView(true);
-        return; // Exit early to skip regular payment flow
-      } catch (error) {
-        console.error("Free order error:", error);
-        toast.error(error instanceof Error ? error.message : "Failed to process free order");
-        setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : "Failed to process free order" });
-        setProcessingPayment(false);
-        return; // Exit early if there's an error
-      }
-    }
+    //     // Clear cart and show the OrderSuccessView (consistent with paid orders)
+    //     clearCart();
+    //     setShowSuccessView(true);
+    //     return; // Exit early to skip regular payment flow
+    //   } catch (error) {
+    //     console.error("Free order error:", error);
+    //     toast.error(error instanceof Error ? error.message : "Failed to process free order");
+    //     setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : "Failed to process free order" });
+    //     setProcessingPayment(false);
+    //     return; // Exit early if there's an error
+    //   }
+    // }
     
     // Update to set order progress for both payment methods
     setOrderProgress({ step: 'creating_order' });
