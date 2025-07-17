@@ -29,7 +29,7 @@ import { usePayment } from '../../hooks/usePayment';
 
 interface CryptoPaymentModalProps {
   onClose: () => void;
-  onComplete: (status:any, txSignature: string, batchOrderId?: string) => void;
+  onComplete: (status:any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => void;
   totalAmount: number;
   productName: string;
   batchOrderId: string;
@@ -71,7 +71,7 @@ function CryptoPaymentForm({
   fee,
 }: {
   totalAmount: number;
-  onComplete: (status: any, txSignature: string, batchOrderId?: string) => void;
+  onComplete: (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => void;
   couponDiscount: number;
   originalPrice?: number;
   walletAmounts?: Array<{ [address: string]: number }>;
@@ -146,7 +146,7 @@ function CryptoPaymentForm({
     // the fee here is a little gas fee to execute the transaction to all required merchants
     const totalAmountWithGasFee = totalAmount + fee - couponDiscount;
     
-    const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmountWithGasFee, batchOrderId, walletAmounts);
+    const { success: paymentSuccess, signature: txSignature, receiverWallet } = await processPayment(totalAmountWithGasFee, batchOrderId, walletAmounts);
     
     if(!paymentSuccess || !txSignature) {
       setError('Payment failed or was cancelled');
@@ -155,10 +155,10 @@ function CryptoPaymentForm({
         {
           success: false
         },
-        txSignature || '', 
-        batchOrderId
+        txSignature || '',
+        batchOrderId,
+        receiverWallet
       );
-
       return;
     }
     
@@ -168,7 +168,8 @@ function CryptoPaymentForm({
         success: true
       },
       txSignature, 
-      batchOrderId
+      batchOrderId,
+      receiverWallet
     );
   };
 

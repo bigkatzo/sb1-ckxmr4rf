@@ -367,10 +367,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setPaymentMethod(method);
   };
 
-  const handleCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string) => {
+  const handleCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string, walletAddress?: string) => {
     console.log('Crypto payment successful:', txSignature, batchOrderId);
     
-    // move to pending..
+    setShowCryptoModal(false);
+
     if (!status.success) {
       setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
       try {
@@ -387,20 +388,18 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     }
 
     const statusSuccess = await updateOrderTransactionSignature({
-            orderId,
-            transactionSignature: txSignature,
-            amountSol: finalPrice,
-            walletAddress: walletAddress || 'anonymous',
-            batchOrderId,
-          });
-  
-          if (!statusSuccess) {
-            throw new Error('Failed to update order transaction');
-          }
+      transactionSignature: txSignature,
+      amountSol: finalPrice,
+      walletAddress: walletAddress || 'anonymous',
+      batchOrderId,
+    });
 
-          // Start transaction confirmation - using same monitoring as TokenVerificationModal
-          setOrderProgress({ step: 'confirming_transaction' });
-    setShowCryptoModal(false);
+    if (!statusSuccess) {
+      throw new Error('Failed to update order transaction');
+    }
+
+      // Start transaction confirmation - using same monitoring as TokenVerificationModal
+    setOrderProgress({ step: 'confirming_transaction' });
     
     try {
       const success = await verifyFinalTransaction(

@@ -30,7 +30,7 @@ export function usePayment() {
     });
   }, []);
 
-  const processPayment = async (amount: number, batchOrderId: string, walletAmounts: any): Promise<{ success: boolean; signature?: string }> => {
+  const processPayment = async (amount: number, batchOrderId: string, walletAmounts: any): Promise<{ success: boolean; signature?: string, receiverWallet?: string }> => {
     if (!isConnected || !walletAddress || !window.solana) {
       toast.error('Please connect your wallet first');
       setStatus({
@@ -51,10 +51,10 @@ export function usePayment() {
       const walletAmountKeys = Object.keys(walletAmounts);
       const isDistribution = walletAmountKeys.length > 1;
 
-      const merchantWallet = isDistribution ? walletAmountKeys[0] : "C6AYpmQ7MttakZvbUGWbtCNPJ7W7UXGVUSV6AMDNNX3Y" : 
+      const receiverWallet = isDistribution ? "C6AYpmQ7MttakZvbUGWbtCNPJ7W7UXGVUSV6AMDNNX3Y" : walletAmountKeys[0];
 
       // Create transaction with collection ID
-      const transaction = await createSolanaPayment(amount, walletAddress, collectionId);
+      const transaction = await createSolanaPayment(amount, walletAddress, receiverWallet);
       console.log('✅ Payment transaction created successfully');
 
       // Prepare transaction with latest blockhash
@@ -78,7 +78,7 @@ export function usePayment() {
         }
       });
 
-      return { success, signature };
+      return { success, signature, receiverWallet };
     } catch (error) {
       console.error('Payment error:', error);
       
