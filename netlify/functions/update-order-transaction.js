@@ -106,21 +106,18 @@ exports.handler = async (event, context) => {
     const {
       orderId: targetOrderId,
       transactionSignature,
-      // amountSol,
       batchOrderId: targetBatchOrderId,
-      // should not matter here
-      // isFreeOrder = false
     } = requestBody;
 
     // Validate essential parameters
-    // if (!transactionSignature) {
-    //   log('error', 'Missing required parameter: transactionSignature');
-    //   return {
-    //     statusCode: 400,
-    //     headers,
-    //     body: JSON.stringify({ error: 'Missing required parameter: transactionSignature' })
-    //   };
-    // }
+    if (!transactionSignature) {
+      log('error', 'Missing required parameter: transactionSignature');
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Missing required parameter: transactionSignature' })
+      };
+    }
 
     // Must provide either orderId or batchOrderId
     if (!targetOrderId && !targetBatchOrderId) {
@@ -132,15 +129,10 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Format amount correctly
-    // const amountSolFloat = parseFloat(amountSol || 0);
-
     log('info', 'Request params:', {
       orderId: targetOrderId || 'none',
       batchOrderId: targetBatchOrderId || 'none',
       transactionSignature: transactionSignature ? transactionSignature.substring(0, 8) + '...' : 'none',
-      // amountSol: amountSolFloat,
-      // isFreeOrder
     });
 
     // Determine if we're dealing with a batch order
@@ -150,8 +142,6 @@ exports.handler = async (event, context) => {
       return await updateBatchOrderTransaction(
         batchOrderId,
         transactionSignature,
-        // amountSolFloat,
-        // isFreeOrder,
         headers
       );
     }
@@ -166,7 +156,6 @@ exports.handler = async (event, context) => {
           .from('orders')
           .update({
             transaction_signature: transactionSignature,
-            amount_sol: amountSolFloat,
             status: 'pending_payment',
             updated_at: new Date().toISOString()
           })
@@ -188,7 +177,6 @@ exports.handler = async (event, context) => {
             p_status: 'pending',
             p_details: {
               orderId: targetOrderId,
-              amountSol: amountSolFloat,
               timestamp: new Date().toISOString()
             }
           });
@@ -209,8 +197,6 @@ exports.handler = async (event, context) => {
             data: {
               orderId: targetOrderId,
               transactionSignature,
-              amountSol: amountSolFloat,
-              isFreeOrder
             }
           })
         };
@@ -243,11 +229,9 @@ exports.handler = async (event, context) => {
 /**
  * Helper function to update a batch of orders with transaction signature
  */
-async function updateBatchOrderTransaction(batchOrderId, transactionSignature, amountSolFloat, isFreeOrder, headers) {
+async function updateBatchOrderTransaction(batchOrderId, transactionSignature, headers) {
   log('info', `Processing batch order transaction update for batch: ${batchOrderId}`, {
     transactionSignature: transactionSignature ? `${transactionSignature.substring(0, 8)}...` : 'none',
-    amountSol: amountSolFloat,
-    isFreeOrder
   });
 
   try {
@@ -297,60 +281,20 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
         })
       };
     }
-
-    // Calculate individual order amounts
-    const totalOrders = ordersToUpdate.length;
-    const updateResults = [];
     
-    for (const order of ordersToUpdate) {
-      try {
-        // Calculate amount for this order
-        let orderAmount = amountSolFloat / totalOrders; // Default: equal split
+    // Update the order
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        transaction_signature: transactionSignature,
+        status: 'pending_payment',
+        updated_at: new Date().toISOString()
+      })
+      .eq('batch_order_id', batchOrderId);
         
-        // Try to get variant-specific pricing from metadata
-        const metadata = order.payment_metadata || {};
-        const variantKey = metadata.variantKey;
-        const variantPrices = metadata.variantPrices;
-        
-        if (variantKey && variantPrices && variantPrices[variantKey]) {
-          orderAmount = parseFloat(variantPrices[variantKey]);
-          log('debug', `Using variant price for order ${order.id}: ${orderAmount} SOL`);
-        }
-        
-        // Update the order
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({
-            transaction_signature: transactionSignature,
-            amount_sol: orderAmount,
-            status: isFreeOrder ? 'confirmed' : 'pending_payment',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', order.id);
-          
-        if (updateError) {
-          log('error', `Error updating order ${order.id}:`, updateError);
-          updateResults.push({
-            orderId: order.id,
-            success: false,
-            error: updateError.message
-          });
-        } else {
-          log('info', `Successfully updated order ${order.id} with amount ${orderAmount}`);
-          updateResults.push({
-            orderId: order.id,
-            success: true,
-            amount: orderAmount
-          });
-        }
-      } catch (error) {
-        log('error', `Exception updating order ${order.id}:`, error);
-        updateResults.push({
-          orderId: order.id,
-          success: false,
-          error: error.message
-        });
-      }
+    if (updateError) {
+      log('error', `Error updating order ${order.id}:`, updateError);
+      throw new Error("Unable to update orders to pending!"); 
     }
     
     // Update the transaction log
@@ -361,9 +305,6 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
         p_details: {
           batchOrderId,
           orderCount: batchOrders.length,
-          updatedOrders: updateResults.filter(r => r.success).length,
-          amountSol: amountSolFloat,
-          isFreeOrder,
           timestamp: new Date().toISOString()
         }
       });
@@ -375,9 +316,7 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
       log('warn', 'Exception updating transaction log:', error);
     }
     
-    const successfulUpdates = updateResults.filter(r => r.success).length;
-    
-    log('info', `Batch order transaction update completed: ${successfulUpdates}/${ordersToUpdate.length} orders updated successfully`);
+    log('info', `Batch order transaction update completed`);
     
     return {
       statusCode: 200,
@@ -387,12 +326,9 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
         data: { 
           batchOrderId,
           transactionSignature, 
-          amountSol: amountSolFloat,
           isBatchOrder: true,
           totalOrders: batchOrders.length,
-          ordersUpdated: successfulUpdates,
-          updateDetails: updateResults,
-          isFreeOrder
+          ordersUpdated: successfulUpdates
         } 
       })
     };
