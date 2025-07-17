@@ -5,6 +5,7 @@ import { Loading, LoadingType } from '../ui/LoadingStates';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Button } from '../ui/Button';
+import { usePayment } from '../../hooks/usePayment';
 
 // Type definitions
 interface ShippingAddress {
@@ -29,10 +30,10 @@ interface ShippingInfo {
 
 interface CryptoPaymentModalProps {
   onClose: () => void;
-  onSuccess: (txSignature: string, orderId?: string, batchOrderId?: string) => void;
+  onSuccess: (txSignature: string, batchOrderId?: string) => void;
   solAmount: number;
   productName: string;
-  productIds: string;
+  batchOrderId: string;
   shippingInfo: ShippingInfo;
   variants?: Array<{
     name: string;
@@ -72,17 +73,17 @@ function CryptoPaymentForm({
   solPrice,
   shippingInfo,
   productName,
-  productIds,
+  batchOrderId,
   variants
 }: {
   solAmount: number;
-  onSuccess: (txSignature: string, orderId?: string, batchOrderId?: string) => void;
+  onSuccess: (txSignature: string, batchOrderId?: string) => void;
   couponDiscount?: number;
   originalPrice?: number;
   solPrice: number;
   shippingInfo: ShippingInfo;
   productName: string;
-  productIds: string;
+  batchOrderId: string;
   variants?: Array<{ name: string; value: string; }>;
 }) {
   const [selectedMethod, setSelectedMethod] = React.useState<PaymentMethod>('solana');
@@ -92,6 +93,7 @@ function CryptoPaymentForm({
   const [error, setError] = React.useState<string | null>(null);
   const [walletConnected, setWalletConnected] = React.useState(false);
   const { walletAddress, disconnect } = useWallet();
+  const { processPayment } = usePayment();
 
   // Check wallet connection status
   React.useEffect(() => {
@@ -132,7 +134,7 @@ function CryptoPaymentForm({
         console.log('100% discounted order detected, processing as free order');
         // For free orders, we can simulate success immediately
         setPaymentStatus('succeeded');
-        onSuccess('free_order_' + Date.now(), undefined, undefined);
+        onSuccess('free_order_' + Date.now(), undefined);
         return;
       }
 
@@ -160,13 +162,16 @@ function CryptoPaymentForm({
   const processSolanaPayment = async () => {
     setPaymentStatus('confirming');
     
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const { success: paymentSuccess, signature: txSignature } = await processPayment(solAmount, batchOrderId[0]);
     
-    // Mock successful transaction
-    const mockTxSignature = 'mock_solana_tx_' + Date.now();
+    if(!paymentSuccess || !txSignature) {
+      setError('Payment failed or was cancelled');
+      setPaymentStatus('error');
+      return;
+    }
+    
     setPaymentStatus('succeeded');
-    onSuccess(mockTxSignature, undefined, undefined);
+    onSuccess(txSignature, "batchOrderId");
   };
 
   const processTokenPayment = async () => {
@@ -178,7 +183,7 @@ function CryptoPaymentForm({
     // Mock successful transaction
     const mockTxSignature = `mock_${selectedToken.symbol.toLowerCase()}_tx_` + Date.now();
     setPaymentStatus('succeeded');
-    onSuccess(mockTxSignature, undefined, undefined);
+    onSuccess(mockTxSignature, undefined);
   };
 
   const processNetworkPayment = async () => {
@@ -190,7 +195,7 @@ function CryptoPaymentForm({
     // Mock successful transaction
     const mockTxSignature = `mock_${selectedNetwork.symbol.toLowerCase()}_tx_` + Date.now();
     setPaymentStatus('succeeded');
-    onSuccess(mockTxSignature, undefined, undefined);
+    onSuccess(mockTxSignature, undefined);
   };
 
   if (solPrice === 0) {
@@ -208,7 +213,8 @@ function CryptoPaymentForm({
           <span className="text-gray-300">Amount:</span>
           <div className="text-right">
             <span className="text-white font-medium">
-              {solAmount.toFixed(2)} SOL <span className="text-gray-400">(${usdAmount})</span>
+              {solAmount.toFixed(2)} SOL 
+              {/* <span className="text-gray-400">(${usdAmount})</span> */}
             </span>
             {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (
               <div className="text-sm">
@@ -219,7 +225,7 @@ function CryptoPaymentForm({
           </div>
         </div>
         <div className="text-xs text-gray-400">
-          Price updated in real-time based on current SOL/USD rate
+          Price updated in real-time based on current SOL rate
         </div>
       </div>
 
@@ -471,7 +477,7 @@ export function CryptoPaymentModal({
   onSuccess,
   solAmount,
   productName,
-  productIds,
+  batchOrderId,
   shippingInfo,
   variants,
   couponCode,
@@ -518,7 +524,7 @@ export function CryptoPaymentModal({
               couponDiscount={couponDiscount}
               originalPrice={originalPrice}
               productName={productName}
-              productIds={productIds}
+              batchOrderId={batchOrderId}
               variants={variants}
             />
           </ErrorBoundary>
