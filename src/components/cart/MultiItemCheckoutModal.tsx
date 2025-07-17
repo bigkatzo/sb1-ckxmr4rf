@@ -130,7 +130,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   
   // Add the showSuccessView state within the component
   const [showSuccessView, setShowSuccessView] = useState(false);
-  const [createdOrderId, setCreatedOrderId] = useState<string | undefined>();
+  const [createdOrderId, _] = useState<string | undefined>();
   
   // Try to load shipping info from localStorage
   useEffect(() => {
@@ -374,17 +374,33 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     if (!status.success) {
       setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
       try {
-          await updateOrderTransactionSignature({
-            orderId: "",
-            transactionSignature: 'rejected',
-            amountSol: finalPrice,
-            batchOrderId: orderData.batchOrderId
-          });
-        } catch (err) {
-          console.error('Error updating order status:', err);
-        }
-        return;
+        await updateOrderTransactionSignature({
+          orderId: "",
+          transactionSignature: 'rejected',
+          amountSol: finalPrice,
+          batchOrderId: orderData.batchOrderId
+        });
+      } catch (err) {
+        console.error('Error updating order status:', err);
+      }
+      return;
     }
+
+    const statusSuccess = await updateOrderTransactionSignature({
+            orderId,
+            transactionSignature: txSignature,
+            amountSol: finalPrice,
+            walletAddress: walletAddress || 'anonymous',
+            batchOrderId,
+          });
+  
+          if (!statusSuccess) {
+            throw new Error('Failed to update order transaction');
+          }
+
+          // Start transaction confirmation - using same monitoring as TokenVerificationModal
+          setOrderProgress({ step: 'confirming_transaction' });
+    setShowCryptoModal(false);
     
     try {
       const success = await verifyFinalTransaction(
@@ -1042,7 +1058,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       )}
                       
                       {/* Show order info if available */}
-                      {orderData.orderNumber && (
+                      {/* {orderData.orderNumber && (
                         <div className="mt-4 p-3 bg-gray-700/20 border border-gray-700 rounded-lg">
                           <p className="text-gray-300 text-sm">Order #{orderData.orderNumber}</p>
                           {orderData.transactionSignature && (
@@ -1051,7 +1067,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                             </p>
                           )}
                         </div>
-                      )}
+                      )} */}
                       
                       {/* Add cancel button */}
                       <div className="pt-2">

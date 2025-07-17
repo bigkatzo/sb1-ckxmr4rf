@@ -1,6 +1,5 @@
 import React from 'react';
-import { X, Wallet, ArrowRight, Check, ExternalLink } from 'lucide-react';
-import { useSolanaPrice } from '../../utils/price-conversion';
+import { X, ArrowRight, Check, ExternalLink } from 'lucide-react';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
@@ -8,20 +7,20 @@ import { Button } from '../ui/Button';
 import { usePayment } from '../../hooks/usePayment';
 
 // Type definitions
-interface ShippingAddress {
-  address: string;
-  city: string;
-  country: string;
-  zip: string;
-}
+// interface ShippingAddress {
+//   address: string;
+//   city: string;
+//   country: string;
+//   zip: string;
+// }
 
-interface ContactInfo {
-  method: string;
-  value: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber?: string;
-}
+// interface ContactInfo {
+//   method: string;
+//   value: string;
+//   firstName: string;
+//   lastName: string;
+//   phoneNumber?: string;
+// }
 
 // interface ShippingInfo {
 //   shipping_address: ShippingAddress;
@@ -67,7 +66,7 @@ function CryptoPaymentForm({
   couponDiscount,
   originalPrice,
   walletAmounts,
-  productName,
+  // productName,
   batchOrderId,
   fee,
 }: {

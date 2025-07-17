@@ -63,7 +63,7 @@ export async function monitorTransaction(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            action: 'verify', 
+            action: 'verify',
             paymentIntentId: signature,
           })
         });
