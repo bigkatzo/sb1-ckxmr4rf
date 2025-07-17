@@ -367,8 +367,25 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setPaymentMethod(method);
   };
 
-  const handleCryptoSuccess = async (txSignature: string, batchOrderId?: string) => {
+  const handleCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string) => {
     console.log('Crypto payment successful:', txSignature, batchOrderId);
+    
+    // move to pending..
+    if (!status.success) {
+      setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
+      try {
+          await updateOrderTransactionSignature({
+            orderId: "",
+            transactionSignature: 'rejected',
+            amountSol: finalPrice,
+            batchOrderId: orderData.batchOrderId
+          });
+        } catch (err) {
+          console.error('Error updating order status:', err);
+        }
+        return;
+    }
+    
     try {
       const success = await verifyFinalTransaction(
           txSignature,
@@ -790,7 +807,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         ) : showCryptoModal ? (
           <CryptoPaymentModal
             onClose={() => setShowCryptoModal(false)}
-            onSuccess={handleCryptoSuccess}
+            onComplete={handleCryptoComplete}
             totalAmount={(orderData.price || 0)}
             productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
             batchOrderId={orderData.batchOrderId || ''}

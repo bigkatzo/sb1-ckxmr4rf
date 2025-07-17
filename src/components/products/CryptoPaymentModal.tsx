@@ -30,7 +30,7 @@ interface ContactInfo {
 
 interface CryptoPaymentModalProps {
   onClose: () => void;
-  onSuccess: (txSignature: string, batchOrderId?: string) => void;
+  onComplete: (status:any, txSignature: string, batchOrderId?: string) => void;
   totalAmount: number;
   productName: string;
   batchOrderId: string;
@@ -63,7 +63,7 @@ const SUPPORTED_NETWORKS = [
 
 function CryptoPaymentForm({
   totalAmount,
-  onSuccess,
+  onComplete,
   couponDiscount,
   originalPrice,
   walletAmounts,
@@ -72,7 +72,7 @@ function CryptoPaymentForm({
   fee,
 }: {
   totalAmount: number;
-  onSuccess: (txSignature: string, batchOrderId?: string) => void;
+  onComplete: (status: any, txSignature: string, batchOrderId?: string) => void;
   couponDiscount: number;
   originalPrice?: number;
   walletAmounts?: Array<{ [address: string]: number }>;
@@ -152,11 +152,25 @@ function CryptoPaymentForm({
     if(!paymentSuccess || !txSignature) {
       setError('Payment failed or was cancelled');
       setPaymentStatus('error');
+      onComplete(
+        {
+          success: false
+        },
+        txSignature || '', 
+        batchOrderId
+      );
+
       return;
     }
     
     setPaymentStatus('succeeded');
-    onSuccess(txSignature, "batchOrderId");
+    onComplete(
+      {
+        success: true
+      },
+      txSignature, 
+      batchOrderId
+    );
   };
 
   const processTokenPayment = async () => {
@@ -168,7 +182,13 @@ function CryptoPaymentForm({
     // Mock successful transaction
     const mockTxSignature = `mock_${selectedToken.symbol.toLowerCase()}_tx_` + Date.now();
     setPaymentStatus('succeeded');
-    onSuccess(mockTxSignature, undefined);
+    onComplete(
+      {
+        success: true
+      },
+      mockTxSignature, 
+      batchOrderId
+    );
   };
 
   const processNetworkPayment = async () => {
@@ -180,7 +200,13 @@ function CryptoPaymentForm({
     // Mock successful transaction
     const mockTxSignature = `mock_${selectedNetwork.symbol.toLowerCase()}_tx_` + Date.now();
     setPaymentStatus('succeeded');
-    onSuccess(mockTxSignature, undefined);
+    onComplete(
+      {
+        success: true
+      },
+      mockTxSignature, 
+      batchOrderId
+    );
   };
 
   if (totalAmount === 0) {
@@ -458,7 +484,7 @@ function CryptoPaymentForm({
 
 export function CryptoPaymentModal({
   onClose,
-  onSuccess,
+  onComplete,
   totalAmount,
   productName,
   batchOrderId,
@@ -498,7 +524,7 @@ export function CryptoPaymentModal({
           }>
             <CryptoPaymentForm
               totalAmount={totalAmount}
-              onSuccess={onSuccess}
+              onComplete={onComplete}
               couponDiscount={couponDiscount}
               originalPrice={originalPrice}
               productName={productName}
