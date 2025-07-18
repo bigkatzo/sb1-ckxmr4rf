@@ -26,6 +26,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@headlessui/react": "^2.2.0",
     "@hookform/resolvers": "^5.0.1",
+    "@lifi/widget": "^3.24.3",
     "@metaplex-foundation/js": "^0.20.1",
     "@netlify/functions": "^3.0.4",
     "@pixi/filter-adjustment": "^5.1.1",

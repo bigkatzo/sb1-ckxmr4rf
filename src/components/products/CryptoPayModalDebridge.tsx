@@ -1,30 +1,49 @@
 import React from 'react';
-import { X, ArrowRight, Check } from 'lucide-react';
+import { X, ArrowRight, Check, ExternalLink } from 'lucide-react';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Button } from '../ui/Button';
 import { usePayment } from '../../hooks/usePayment';
-import { LiFiWidget, WidgetConfig, useWidgetEvents, WidgetEvent, ChainType } from '@lifi/widget';
 
 // Type definitions
+// interface ShippingAddress {
+//   address: string;
+//   city: string;
+//   country: string;
+//   zip: string;
+// }
+
+// interface ContactInfo {
+//   method: string;
+//   value: string;
+//   firstName: string;
+//   lastName: string;
+//   phoneNumber?: string;
+// }
+
+// interface ShippingInfo {
+//   shipping_address: ShippingAddress;
+//   contact_info: ContactInfo;
+// }
+
 interface CryptoPaymentModalProps {
   onClose: () => void;
   onComplete: (status:any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => void;
   totalAmount: number;
-  productName: string;
   batchOrderId: string;
+  walletAmounts: Array<{ [address: string]: number }>;
   couponCode?: string;
   couponDiscount?: number;
   originalPrice?: number;
-  walletAmounts?: Array<{ [address: string]: number }>;
-  fee?: number;
+  fee?: number; // Optional fee for the transaction
+  productName: string;
 }
 
-type PaymentMethod = 'solana' | 'other-tokens' | 'cross-chain';
+type PaymentMethod = 'solana' | 'other-tokens' | 'other-networks';
 type PaymentStatus = 'selecting' | 'processing' | 'confirming' | 'succeeded' | 'error';
 
-// Supported tokens for Solana network
+// Supported tokens and networks
 const SUPPORTED_TOKENS = [
   { symbol: 'SOL', name: 'Solana', icon: '◎', primary: true },
   { symbol: 'USDC', name: 'USD Coin', icon: '💰', primary: false },
@@ -33,111 +52,39 @@ const SUPPORTED_TOKENS = [
   { symbol: 'JUP', name: 'Jupiter', icon: '🪐', primary: false },
 ];
 
-// Widget Events Component - This needs to be separate from the main widget component
-function WidgetEventsHandler({
-  onComplete,
-  batchOrderId,
-  receiverWallet,
-  setPaymentStatus,
-  setError,
-}: {
-  onComplete: (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => void;
-  batchOrderId: string;
-  receiverWallet: string;
-  setPaymentStatus: (status: PaymentStatus) => void;
-  setError: (error: string | null) => void;
-}) {
-  const widgetEvents = useWidgetEvents();
-
-  React.useEffect(() => {
-    const onRouteExecutionStarted = (route: any) => {
-      console.log('Li.Fi: Route execution started', route);
-      setPaymentStatus('processing');
-    };
-
-    const onRouteExecutionCompleted = (route: any) => {
-      console.log('Li.Fi: Route execution completed', route);
-      setPaymentStatus('succeeded');
-      
-      // Get the transaction hash from the route
-      const txHash = route?.steps?.[route.steps.length - 1]?.execution?.txHash || 
-                    route?.transactionHash || 
-                    `lifi_${Date.now()}`;
-      
-      onComplete(
-        {
-          success: true,
-          crossChain: true,
-          route: route
-        },
-        txHash,
-        batchOrderId,
-        receiverWallet
-      );
-    };
-
-    const onRouteExecutionFailed = (update: any) => {
-      // update likely contains { route, error }
-      const { route, error } = update;
-      console.error('Li.Fi: Route execution failed', { route, error });
-      setError(error?.message || 'Cross-chain payment failed');
-      setPaymentStatus('error');
-    };
-
-    const onRouteHighValueLoss = (route: any) => {
-      console.warn('Li.Fi: High value loss detected', route);
-      // Handle high slippage warning - you could show a warning to the user
-    };
-
-    const onRouteExecutionUpdated = (routeExecutionUpdate: any) => {
-      console.log('Li.Fi: Route execution updated', routeExecutionUpdate);
-      // Handle route execution updates (progress, status changes, etc.)
-    };
-
-    // Subscribe to events
-    widgetEvents.on(WidgetEvent.RouteExecutionStarted, onRouteExecutionStarted);
-    widgetEvents.on(WidgetEvent.RouteExecutionCompleted, onRouteExecutionCompleted);
-    widgetEvents.on(WidgetEvent.RouteExecutionFailed, onRouteExecutionFailed);
-    widgetEvents.on(WidgetEvent.RouteHighValueLoss, onRouteHighValueLoss);
-    widgetEvents.on(WidgetEvent.RouteExecutionUpdated, onRouteExecutionUpdated);
-
-    // Cleanup function
-    return () => {
-      widgetEvents.off(WidgetEvent.RouteExecutionStarted, onRouteExecutionStarted);
-      widgetEvents.off(WidgetEvent.RouteExecutionCompleted, onRouteExecutionCompleted);
-      widgetEvents.off(WidgetEvent.RouteExecutionFailed, onRouteExecutionFailed);
-      widgetEvents.off(WidgetEvent.RouteHighValueLoss, onRouteHighValueLoss);
-      widgetEvents.off(WidgetEvent.RouteExecutionUpdated, onRouteExecutionUpdated);
-    };
-  }, [widgetEvents, onComplete, batchOrderId, receiverWallet, setPaymentStatus, setError]);
-
-  return null; // This component doesn't render anything
-}
+const SUPPORTED_NETWORKS = [
+  { name: 'Ethereum', symbol: 'ETH', icon: '⟠', color: 'text-blue-400' },
+  { name: 'Polygon', symbol: 'MATIC', icon: '⬟', color: 'text-purple-400' },
+  { name: 'Arbitrum', symbol: 'ARB', icon: '🔷', color: 'text-blue-300' },
+  { name: 'Optimism', symbol: 'OP', icon: '🔴', color: 'text-red-400' },
+  { name: 'Base', symbol: 'BASE', icon: '🔵', color: 'text-blue-500' },
+];
 
 function CryptoPaymentForm({
   totalAmount,
   onComplete,
   couponDiscount,
   originalPrice,
+  receiverWallet,
+  // productName,
   batchOrderId,
   fee,
-  receiverWallet,
 }: {
   totalAmount: number;
   onComplete: (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => void;
   couponDiscount: number;
   originalPrice?: number;
+  receiverWallet: string;
   productName: string;
   batchOrderId: string;
-  fee: number;
-  receiverWallet: string;
+  fee: number
 }) {
   const [selectedMethod, setSelectedMethod] = React.useState<PaymentMethod>('solana');
   const [selectedToken, setSelectedToken] = React.useState(SUPPORTED_TOKENS[0]);
+  const [selectedNetwork, setSelectedNetwork] = React.useState(SUPPORTED_NETWORKS[0]);
   const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>('selecting');
   const [error, setError] = React.useState<string | null>(null);
   const [walletConnected, setWalletConnected] = React.useState(false);
-  const [showLiFiWidget, setShowLiFiWidget] = React.useState(false);
   const { walletAddress, disconnect } = useWallet();
   const { processPayment } = usePayment();
 
@@ -146,62 +93,17 @@ function CryptoPaymentForm({
     setWalletConnected(!!walletAddress);
   }, [walletAddress]);
 
-  console.log(fee)
-
-  const toLifiAddress = {
-    name: "Store.fun",
-    address: receiverWallet,
-    chainType: ChainType.SVM,
-  };
-
-  // Li.Fi Widget Configuration
-  const lifiConfig: WidgetConfig = React.useMemo(() => ({
-    integrator: 'store.fun', // Replace with your app name
-    theme: {
-      palette: {
-        primary: { main: '#8B5CF6' },
-        secondary: { main: '#6B7280' },
-        background: {
-          default: '#111827',
-          paper: '#1F2937',
-        },
-        text: {
-          primary: '#FFFFFF',
-          secondary: '#9CA3AF',
-        },
-      },
-      shape: {
-        borderRadius: 12,
-      },
-    },
-    appearance: 'dark',
-    hiddenUI: ['language', 'appearance'],
-    toChain: 101, // Solana chain ID
-    toToken: 'SOL',
-    toAmount: totalAmount.toString(),
-    toAddress: toLifiAddress,
-    disabledUI: ['toToken', 'toAddress'],
-    variant: 'compact',
-    subvariant: 'default',
-    walletManagement: {
-      connect: true,
-      disconnect: true,
-    }
-  }), [totalAmount, receiverWallet]);
-
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
     setSelectedMethod(method);
     setError(null);
-    
-    if (method === 'cross-chain') {
-      setShowLiFiWidget(true);
-    } else {
-      setShowLiFiWidget(false);
-    }
   };
 
   const handleTokenSelect = (token: typeof SUPPORTED_TOKENS[0]) => {
     setSelectedToken(token);
+  };
+
+  const handleNetworkSelect = (network: typeof SUPPORTED_NETWORKS[0]) => {
+    setSelectedNetwork(network);
   };
 
   const handlePayment = async () => {
@@ -214,6 +116,10 @@ function CryptoPaymentForm({
     setError(null);
 
     try {
+      // in case of discount being 100%, should never get here tho, as it's handled outside.
+      // setPaymentStatus('succeeded');
+
+      // Here you would implement the actual payment logic based on selected method
       switch (selectedMethod) {
         case 'solana':
           await processSolanaPayment();
@@ -221,9 +127,8 @@ function CryptoPaymentForm({
         case 'other-tokens':
           await processTokenPayment();
           break;
-        case 'cross-chain':
-          // Li.Fi widget handles cross-chain payments
-          // We'll listen for completion events via the WidgetEventsHandler
+        case 'other-networks':
+          await processNetworkPayment();
           break;
         default:
           throw new Error('Invalid payment method selected');
@@ -237,6 +142,10 @@ function CryptoPaymentForm({
 
   const processSolanaPayment = async () => {
     setPaymentStatus('confirming');
+
+    // the fee here is a little gas fee to execute the transaction to all required merchants
+    // const totalAmountWithGasFee = totalAmount + fee - couponDiscount;
+    console.log("fee: ", fee);
     
     const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, batchOrderId, receiverWallet);
     
@@ -283,100 +192,29 @@ function CryptoPaymentForm({
     );
   };
 
+  const processNetworkPayment = async () => {
+    setPaymentStatus('confirming');
+    
+    // Simulate cross-chain payment processing
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Mock successful transaction
+    const mockTxSignature = `mock_${selectedNetwork.symbol.toLowerCase()}_tx_` + Date.now();
+    setPaymentStatus('succeeded');
+    onComplete(
+      {
+        success: true
+      },
+      mockTxSignature, 
+      batchOrderId
+    );
+  };
+
   if (totalAmount === 0) {
     return <Loading type={LoadingType.ACTION} text="Loading price data..." />;
   }
 
   const isProcessing = paymentStatus === 'processing' || paymentStatus === 'confirming';
-
-  // If showing Li.Fi widget, render it with the event handler
-  if (showLiFiWidget) {
-    return (
-      <div className="space-y-6">
-        {/* Widget Events Handler - This handles all Li.Fi events */}
-        <WidgetEventsHandler
-          onComplete={onComplete}
-          batchOrderId={batchOrderId}
-          receiverWallet={receiverWallet}
-          setPaymentStatus={setPaymentStatus}
-          setError={setError}
-        />
-
-        {/* Back Button */}
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => {
-              setShowLiFiWidget(false);
-              setSelectedMethod('solana');
-              setPaymentStatus('selecting');
-              setError(null);
-            }}
-            variant="ghost"
-            size="sm"
-            className="text-gray-400 hover:text-white"
-          >
-            ← Back to Payment Methods
-          </Button>
-        </div>
-
-        {/* Payment Info */}
-        <div className="bg-gray-800/50 p-4 rounded-lg">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-gray-300">You will receive:</span>
-            <div className="text-right">
-              <span className="text-white font-medium">
-                {totalAmount.toFixed(2)} SOL
-              </span>
-              {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (
-                <div className="text-sm">
-                  <span className="text-gray-400 line-through">{((originalPrice ?? 0)).toFixed(2)} SOL</span>
-                  <span className="text-primary-400 ml-2">Coupon applied</span>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="text-xs text-gray-400">
-            Destination: {receiverWallet || 'Connect wallet to see address'}
-          </div>
-        </div>
-
-        {/* Payment Status */}
-        {paymentStatus === 'processing' && (
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <Loading type={LoadingType.ACTION} />
-              <div>
-                <div className="text-blue-400 font-medium">Processing Cross-Chain Payment</div>
-                <div className="text-sm text-gray-400">Please complete the transaction in the widget below</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Li.Fi Widget Container */}
-        <div className="bg-gray-800/30 rounded-lg p-4">
-          <div className="text-sm text-gray-400 mb-4">
-            Use any token from any supported network to pay. The widget will automatically convert to SOL.
-          </div>
-          
-          {/* Li.Fi Widget */}
-          <div className="lifi-widget-container">
-            <LiFiWidget
-              config={lifiConfig}
-              integrator="store.fun"
-            />
-          </div>
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="text-red-500 text-sm p-4 bg-red-500/10 rounded-lg">
-            {error}
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -387,6 +225,7 @@ function CryptoPaymentForm({
           <div className="text-right">
             <span className="text-white font-medium">
               {(totalAmount).toFixed(2)} SOL 
+              {/* <span className="text-gray-400">(${usdAmount})</span> */}
             </span>
             {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (
               <div className="text-sm">
@@ -446,7 +285,7 @@ function CryptoPaymentForm({
               </div>
               <div>
                 <div className="text-white font-medium">Pay with Other Tokens</div>
-                <div className="text-sm text-gray-400">USDC, USDT, and more on Solana</div>
+                <div className="text-sm text-gray-400">USDC, USDT, and more</div>
               </div>
             </div>
             {selectedMethod === 'other-tokens' && (
@@ -455,11 +294,11 @@ function CryptoPaymentForm({
           </div>
         </div>
 
-        {/* Cross-Chain Payment with Li.Fi */}
+        {/* Other Networks */}
         <div
-          onClick={() => handlePaymentMethodSelect('cross-chain')}
+          onClick={() => handlePaymentMethodSelect('other-networks')}
           className={`p-4 rounded-lg border cursor-pointer transition-all ${
-            selectedMethod === 'cross-chain'
+            selectedMethod === 'other-networks'
               ? 'border-primary-500 bg-primary-500/10'
               : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
           }`}
@@ -470,11 +309,11 @@ function CryptoPaymentForm({
                 🔗
               </div>
               <div>
-                <div className="text-white font-medium">Pay from Any Network</div>
-                <div className="text-sm text-gray-400">Cross-chain payments via Li.Fi</div>
+                <div className="text-white font-medium">Pay with Other Networks</div>
+                <div className="text-sm text-gray-400">Ethereum, Polygon, and more</div>
               </div>
             </div>
-            {selectedMethod === 'cross-chain' && (
+            {selectedMethod === 'other-networks' && (
               <Check className="h-5 w-5 text-primary-400" />
             )}
           </div>
@@ -509,12 +348,62 @@ function CryptoPaymentForm({
         </div>
       )}
 
-      {/* Wallet Connection Warning */}
+      {/* Network Selection (when other-networks is selected) */}
+      {selectedMethod === 'other-networks' && (
+        <div className="space-y-3">
+          <h4 className="text-white font-medium text-sm">Select Network</h4>
+          <div className="space-y-2">
+            {SUPPORTED_NETWORKS.map((network) => (
+              <button
+                key={network.name}
+                onClick={() => handleNetworkSelect(network)}
+                className={`w-full p-3 rounded-lg border text-left transition-all ${
+                  selectedNetwork.name === network.name
+                    ? 'border-primary-500 bg-primary-500/10'
+                    : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-lg ${network.color}`}>{network.icon}</span>
+                    <div>
+                      <div className="text-white text-sm font-medium">{network.name}</div>
+                      <div className="text-xs text-gray-400">{network.symbol}</div>
+                    </div>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-gray-400" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Wallet Connection */}
+      {/* {!walletConnected && (
+        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+          <div className="flex items-center gap-3 mb-3">
+            <Wallet className="h-5 w-5 text-yellow-400" />
+            <span className="text-yellow-400 font-medium">Wallet Required</span>
+          </div>
+          <p className="text-sm text-gray-300 mb-4">
+            Connect your wallet to continue with crypto payment
+          </p>
+          <Button
+            onClick={handleConnectWallet}
+            variant="secondary"
+            size="sm"
+            className="w-full"
+          >
+            Connect Wallet
+          </Button>
+        </div>
+      )} */}
       {!walletConnected && (
         <p className="mt-2 text-xs text-yellow-400">
-          Please connect your wallet to continue with payment
+            Please connect your wallet to continue with Solana payment
         </p>
-      )}
+        )}
 
       {/* Connected Wallet Info */}
       {walletConnected && (
@@ -563,13 +452,11 @@ function CryptoPaymentForm({
             ? 'Confirming transaction...'
             : 'Processing...'
         }
-        disabled={!walletConnected || isProcessing || (selectedMethod !== 'cross-chain' && paymentStatus === 'selecting')}
+        disabled={!walletConnected || isProcessing || paymentStatus === 'selecting'}
         className="w-full"
       >
         {!walletConnected ? (
           'Connect Wallet to Continue'
-        ) : selectedMethod === 'cross-chain' ? (
-          'Open Cross-Chain Payment'
         ) : isProcessing ? (
           'Processing Payment...'
         ) : (
@@ -605,10 +492,10 @@ export function CryptoPaymentModal({
   walletAmounts = [],
   couponDiscount = 0,
   originalPrice = 0,
-  fee = 0,
+  fee = 0
 }: CryptoPaymentModalProps) {
 
-      // how many merchant wallets need to be paid.
+    // how many merchant wallets need to be paid.
   const walletAmountKeys = Object.keys(walletAmounts);
   const isDistribution = walletAmountKeys.length > 1;
 
