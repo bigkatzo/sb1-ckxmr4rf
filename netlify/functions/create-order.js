@@ -299,10 +299,9 @@ exports.handler = async (event, context) => {
       }
     }
 
-    const expectedMerchantAmount = itemTotal - couponDiscount;
-    const isFreeOrder = expectedMerchantAmount <= 0;
-    const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
-    const fee = paymentMethod === 'solana' && !isFreeOrder ? 0.002 : 0;
+    const originalPrice = itemTotal;
+    const isFreeOrder = originalPrice - couponDiscount <= 0;
+    const fee = 0;
     const totalPaymentAmount = itemTotal + fee - couponDiscount;
 
     let transactionSignature;
@@ -313,63 +312,61 @@ exports.handler = async (event, context) => {
     }
 
     // Check for duplicate free orders
-    if (isFreeOrder) {
-      console.log('Processing free order, checking for duplicates with product and wallet');
+    // if (isFreeOrder) {
+    //   console.log('Processing free order, checking for duplicates with product and wallet');
       
-      // Get the current timestamp and calculate 5 minutes ago
-      const now = new Date();
-      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+    //   // Get the current timestamp and calculate 5 minutes ago
+    //   const now = new Date();
+    //   const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
       
-      // Look for recent orders for the same product and wallet
-      const { data: existingOrders, error: searchError } = await supabase
-        .from('orders')
-        .select('id, status, created_at, order_number')
-        .eq('product_id', productId)
-        .eq('wallet_address', walletAddress || 'anonymous')
-        .gt('created_at', fiveMinutesAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1);
+    //   // Look for recent orders for the same product and wallet
+    //   const { data: existingOrders, error: searchError } = await supabase
+    //     .from('orders')
+    //     .select('id, status, created_at, order_number')
+    //     .eq('product_id', productId)
+    //     .eq('wallet_address', walletAddress || 'anonymous')
+    //     .gt('created_at', fiveMinutesAgo.toISOString())
+    //     .order('created_at', { ascending: false })
+    //     .limit(1);
       
-      if (searchError) {
-        console.error('Error searching for duplicate orders:', searchError);
-      } else if (existingOrders && existingOrders.length > 0) {
-        console.log('Found existing recent order:', {
-          orderId: existingOrders[0].id,
-          orderNumber: existingOrders[0].order_number,
-          orderStatus: existingOrders[0].status,
-          created: existingOrders[0].created_at
-        });
+    //   if (searchError) {
+    //     console.error('Error searching for duplicate orders:', searchError);
+    //   } else if (existingOrders && existingOrders.length > 0) {
+    //     console.log('Found existing recent order:', {
+    //       orderId: existingOrders[0].id,
+    //       orderNumber: existingOrders[0].order_number,
+    //       orderStatus: existingOrders[0].status,
+    //       created: existingOrders[0].created_at
+    //     });
         
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ 
-            success: true,
-            orderId: existingOrders[0].id,
-            orderNumber: existingOrders[0].order_number,
-            status: existingOrders[0].status,
-            isDuplicate: true,
-            isFreeOrder: true,
-            transactionSignature,
-            totalPaymentAmount,
-            orders: [{
-              orderId: existingOrders[0].id,
-              orderNumber: existingOrders[0].order_number,
-              status: existingOrders[0].status,
-              quantity: 1
-            }]
-          })
-        };
-      }
-    }
+    //     return {
+    //       statusCode: 200,
+    //       headers,
+    //       body: JSON.stringify({ 
+    //         success: true,
+    //         orderId: existingOrders[0].id,
+    //         orderNumber: existingOrders[0].order_number,
+    //         status: existingOrders[0].status,
+    //         isDuplicate: true,
+    //         isFreeOrder: true,
+    //         transactionSignature,
+    //         totalPaymentAmount,
+    //         orders: [{
+    //           orderId: existingOrders[0].id,
+    //           orderNumber: existingOrders[0].order_number,
+    //           status: existingOrders[0].status,
+    //           quantity: 1
+    //         }]
+    //       })
+    //     };
+    //   }
+    // }
 
     // Generate order ID and number
-    const orderId = uuidv4();
     const orderNumber = generateOrderNumber();
 
     const enhancedMetadata = {
       ...paymentMetadata,
-      orderId,
       orderNumber,
       isBatchOrder: false,
       isSingleItemOrder: true,
@@ -380,8 +377,9 @@ exports.handler = async (event, context) => {
       couponDiscount,
       isFreeOrder,
       totalPaymentAmount,
+      originalPrice,
       fee,
-      walletAmounts: { [merchantWallet]: expectedMerchantAmount },
+      walletAmounts: { [merchantWallet]: originalPrice },
       receiverWallet: merchantWallet,
     };
 
@@ -413,7 +411,7 @@ exports.handler = async (event, context) => {
       .update({
         amount: itemTotal,
         total_amount_paid_for_batch: totalPaymentAmount,
-        quantity: quantity,
+        quantity: 1,
         order_number: orderNumber,
         status: isFreeOrder ? 'confirmed' : 'draft',
         ...(isFreeOrder && { 
@@ -435,7 +433,7 @@ exports.handler = async (event, context) => {
       totalPaymentAmount,
       fee,
       couponDiscount,
-      expectedMerchantAmount,
+      originalPrice,
     });
 
     return {
@@ -450,19 +448,8 @@ exports.handler = async (event, context) => {
         transactionSignature: isFreeOrder ? transactionSignature : undefined,
         totalPaymentAmount,
         couponDiscount,
-        expectedMerchantAmount,
-        walletAmounts: { [merchantWallet]: expectedMerchantAmount },
-        orders: [{
-          orderId: createdOrderId,
-          orderNumber,
-          productId: productId,
-          productName: product.name,
-          status: isFreeOrder ? 'confirmed' : 'draft',
-          quantity: quantity,
-          price: price,
-          itemTotal: itemTotal,
-          variantKey
-        }]
+        originalPrice,
+        walletAmounts: { [merchantWallet]: originalPrice },
       })
     };
 

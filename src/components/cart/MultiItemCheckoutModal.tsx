@@ -481,8 +481,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       }
 
       if (batchOrderData.isFreeOrder) {
-        await verifyFinalTransaction(batchOrderData.transactionSignature, batchOrderData.batchOrderId);
-        return;  
+        await handleVerifyBatchTransactions(batchOrderData.transactionSignature, batchOrderData.batchOrderId);
+        return;
       }
 
       setOrderProgress({ step: 'processing_payment' });
