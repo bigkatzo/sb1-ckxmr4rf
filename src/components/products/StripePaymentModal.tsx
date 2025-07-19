@@ -62,7 +62,8 @@ interface StripePaymentModalProps {
   onSuccess: (paymentIntentId: string, orderId?: string, batchOrderId?: string) => void;
   solAmount: number;
   productName: string;
-  batchOrderId: string;
+  orderId?: string;
+  batchOrderId?: string;
   shippingInfo: ShippingInfo;
   variants?: Array<{
     name: string;
@@ -406,6 +407,7 @@ export function StripePaymentModal({
   onSuccess,
   solAmount,
   productName,
+  orderId,
   batchOrderId,
   shippingInfo,
   variants,
@@ -418,7 +420,7 @@ export function StripePaymentModal({
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
-  const [orderId, setOrderId] = React.useState<string | null>(null);
+  // const [orderId, setOrderId] = React.useState<string | null>(null);
   const isProcessingOrder = false; // Replace the state with a constant since we no longer need to change it
   const { walletAddress } = useWallet();
   const { price: rawSolPrice } = useSolanaPrice();
@@ -488,6 +490,7 @@ export function StripePaymentModal({
         console.log('Creating payment intent for', {
           solAmount,
           productName,
+          orderId,
           batchOrderId,
           hasShippingInfo: !!finalShippingInfo,
           hasVariants: !!(variants && variants.length > 0),
@@ -510,6 +513,7 @@ export function StripePaymentModal({
             solAmount,
             solPrice,
             productName,
+            orderId,
             batchOrderId,
             variants,
             walletAddress,
@@ -567,13 +571,13 @@ export function StripePaymentModal({
         }
 
         // Save orderId from response if available
-        if (data.orderId) {
-          console.log('Received order ID from payment intent creation:', data.orderId);
-          // Store it in component state
-          setOrderId(data.orderId);
-        } else {
-          console.warn('No orderId received from payment intent creation');
-        }
+        // if (data.orderId) {
+        //   console.log('Received order ID from payment intent creation:', data.orderId);
+        //   // Store it in component state
+        //   setOrderId(data.orderId);
+        // } else {
+        //   console.warn('No orderId received from payment intent creation');
+        // }
 
         console.log('Setting client secret:', data.clientSecret.substring(0, 10) + '...');
         setClientSecret(data.clientSecret);

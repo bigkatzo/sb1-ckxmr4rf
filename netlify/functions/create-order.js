@@ -464,7 +464,7 @@ exports.handler = async (event, context) => {
           variantKey
         }]
       })
-    });
+    };
 
   } catch (error) {
     console.error('Error in order creation:', error);
