@@ -101,8 +101,9 @@ export function TokenVerificationModal({
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [showSuccessView, setShowSuccessView] = useState(false);
   const [orderDetails, setOrderDetails] = useState<{
-    orderNumber: string;
-    transactionSignature: string;
+    orderNumber?: string;
+    transactionSignature?: string;
+    amount?: number;
   } | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showStripeModal, setShowStripeModal] = useState(false);
@@ -495,6 +496,11 @@ export function TokenVerificationModal({
 
                     updateProgressStep(0, 'completed');
 
+      setOrderDetails({
+        amount: orderData.totalAmount || 0,
+        orderNumber: orderNumber,
+      })
+
       const merchantWallet = orderNumber.receiverWallet;
 
       // Start payment processing
@@ -503,6 +509,11 @@ export function TokenVerificationModal({
       // Process payment with modified price
       const { success: paymentSuccess, signature: txSignature } = await processPayment(orderData.totalAmount, orderId, merchantWallet);
       
+      setOrderDetails({
+        ...orderDetails,
+        transactionSignature: txSignature,
+      });
+
       if (!paymentSuccess || !txSignature) {
         updateProgressStep(1, 'error', undefined, 'Payment failed');
         
@@ -511,7 +522,7 @@ export function TokenVerificationModal({
           const rejectBody = JSON.stringify({
             orderId,
             batchOrderId,
-            transactionSignature: 'rejected', // Use a special value for rejected transactions
+            transactionSignature: `rejected_${walletAddress}_${product.name}_${Date.now()}`, // Use a special value for rejected transactions
             amountSol: orderData.totalAmount,
             walletAddress: walletAddress || 'anonymous'
           });
@@ -579,8 +590,9 @@ export function TokenVerificationModal({
               
               // Important: Force full sequence order, use functional state update
               setOrderDetails({
+                amount: orderDetails?.amount ||0,
                 orderNumber: displayOrderNumber,
-                transactionSignature: txSignature || ''
+                transactionSignature: txSignature || '',
               });
               
               // Force re-render by triggering in the next tick
@@ -606,6 +618,7 @@ export function TokenVerificationModal({
               console.log('SAFETY TIMEOUT: Forcing success view to show as callback may have failed');
               const displayOrderNumber = orderNumber || `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
               setOrderDetails({
+                amount: orderDetails?.amount || 0,
                 orderNumber: displayOrderNumber,
                 transactionSignature: txSignature || ''
               });
@@ -629,6 +642,7 @@ export function TokenVerificationModal({
           
           // Force reliable state update sequence
           setOrderDetails({
+            amount: orderDetails?.amount || 0,
             orderNumber: displayOrderNumber,
             transactionSignature: txSignature || ''
           });
@@ -742,7 +756,8 @@ export function TokenVerificationModal({
             const displayOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
             
             setOrderDetails({
-              orderNumber: displayOrderNumber,
+              amount: orderDetails?.amount || 0,
+              orderNumber: orderDetails?.orderNumber || displayOrderNumber,
               transactionSignature: txSignature
             });
             
@@ -764,6 +779,7 @@ export function TokenVerificationModal({
           if (!showSuccessView) {
             const displayOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
             setOrderDetails({
+              amount: orderDetails?.amount || 0,
               orderNumber: displayOrderNumber,
               transactionSignature: txSignature
             });
@@ -784,6 +800,7 @@ export function TokenVerificationModal({
       // Still show success view even if verification fails
       const displayOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
       setOrderDetails({
+        amount: orderDetails?.amount || 0,
         orderNumber: displayOrderNumber,
         transactionSignature: txSignature
       });
@@ -850,6 +867,7 @@ export function TokenVerificationModal({
             
             // Use the retrieved order number
             setOrderDetails({
+              amount: orderDetails?.amount || 0,
               orderNumber: orderDetailsResult.order.order_number,
               transactionSignature: paymentIntentId
             });
@@ -871,6 +889,7 @@ export function TokenVerificationModal({
       // Create a proper order details object as fallback
       const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
       setOrderDetails({
+        amount: orderDetails?.amount || 0,
         orderNumber: fallbackOrderNumber,
         transactionSignature: paymentIntentId
       });
@@ -886,6 +905,7 @@ export function TokenVerificationModal({
       // Even if there's an error getting order details, still show success
       const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
       setOrderDetails({
+        amount: orderDetails?.amount || 0,
         orderNumber: fallbackOrderNumber,
         transactionSignature: paymentIntentId
       });
@@ -1287,7 +1307,7 @@ export function TokenVerificationModal({
           collectionName={product.collectionName || 'Unknown Collection'}
           productImage={product.imageUrl}
           orderNumber={orderDetails.orderNumber || `SF-${Date.now().toString().slice(-6)}`}
-          transactionSignature={orderDetails.transactionSignature}
+          transactionSignature={orderDetails?.transactionSignature || ''}
           onClose={onSuccess}
         />
       ) : showStripeModal ? (
