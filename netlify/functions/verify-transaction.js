@@ -46,6 +46,12 @@ try {
 }
 
 const { createClient } = require('@supabase/supabase-js');
+const Stripe = require('stripe');
+
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2025-02-24.acacia',
+});
 const { createConnectionWithRetry, verifyTransaction } = require('./shared/rpc-service');
 
 // Environment variables with multiple fallbacks
@@ -89,7 +95,7 @@ const LAMPORTS_PER_SOL = 1000000000;
 /**
  * Verify transaction details against the blockchain
  */
-async function verifyTransactionDetails(signature, expectedDetails) {
+async function verifySolanaTransactionDetails(signature, expectedDetails) {
   log('info', `Starting transaction verification for signature: ${signature?.substring(0, 10)}...`);
   
   try {
@@ -194,6 +200,19 @@ async function verifyTransactionDetails(signature, expectedDetails) {
   }
 }
 
+async function verifyStripePaymentIntent(paymentIntentId) {
+  try {
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    console.log('PaymentIntent retrieved:', paymentIntent.id);
+    console.log('Status:', paymentIntent.status);
+
+    return paymentIntent.status === 'succeeded';
+  } catch (error) {
+    console.error('❌ Error verifying PaymentIntent:', error.message);
+    return false;
+  }
+}
 /**
  * Handle non-blockchain payments (Stripe, free orders, etc.)
  */
@@ -219,21 +238,14 @@ async function verifyNonBlockChainDetails(signature, expectedDetails, isFreeOrde
     if (signature.startsWith('pi_')) {
       log('info', 'Processing Stripe payment');
       // In a real implementation, you would verify the payment with Stripe API
-      // For now, we'll do basic validation
-      if (signature.length < 10) {
-        return {
-          isValid: false,
-          error: 'Invalid Stripe payment intent ID format'
-        };
-      }
+      const isValid = await verifyStripePaymentIntent(signature);
       
       return { 
-        isValid: true, 
+        isValid, 
         details: {
           amount: expectedDetails?.amount || 0,
           paymentMethod: 'stripe',
           buyer: expectedDetails?.buyer,
-          recipient: expectedDetails?.recipient,
           stripePaymentIntentId: signature
         }
       };
@@ -527,7 +539,7 @@ exports.handler = async (event, context) => {
       }
 
       log('info', 'Processing blockchain payment');
-      verificationResult = await verifyTransactionDetails(signature, details);
+      verificationResult = await verifySolanaTransactionDetails(signature, details);
       
       if (!verificationResult.isValid) {
         log('warn', 'Blockchain payment verification failed');

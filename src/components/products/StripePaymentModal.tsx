@@ -170,35 +170,8 @@ function StripeCheckoutForm({
               console.warn('No orderId found in payment intent metadata');
             }
             
-            // Transaction verification
-            try {
-              const txSignature = result.paymentIntent.id;
-              
-              console.log('Attempting verification of Stripe payment:', {
-                txSignature,
-                metaOrderId,
-                metaBatchOrderId
-              });
-              
-              // Fire-and-forget verification request
-              fetch(`${API_BASE_URL}/verify-transaction`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  signature: txSignature,
-                  orderId: metaOrderId,
-                  batchOrderId: metaBatchOrderId,
-                  stripePayment: true
-                })
-              }).catch(e => {
-                console.warn('Failed to send verification request:', e);
-              });
-            } catch (e) {
-              console.warn('Error during verification attempt:', e);
-            }
-            
             onSuccess(
-              result.paymentIntent.id, 
+              result.paymentIntent.id,
               metaOrderId,
               metaBatchOrderId
             );

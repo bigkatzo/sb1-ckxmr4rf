@@ -1,7 +1,6 @@
 // import { PublicKey } from '@solana/web3.js';
 import { SOLANA_CONNECTION } from '../config/solana';
 import { toast } from 'react-toastify';
-// import { getCollectionWallet } from '../services/payments';
 
 // Keep track of processed signatures to prevent duplicate processing
 const processedSignatures = new Set<string>();
@@ -338,19 +337,6 @@ export async function verifyFinalTransaction(
       }
 
       payload.expectedDetails = expectedDetails;
-
-      // const merchantPubkey = new PublicKey(expectedDetails?.recipient || '');
-      // Include expected details if provided
-      // if (expectedDetails) {
-      //   const merchantWalletAddress = await getCollectionWallet(expectedDetails.recipient);
-      //   console.log("TRANSACTION SENT TO MERCHANT WALLET:", merchantWalletAddress);
-      //   if (merchantWalletAddress) {
-      //     merchantPubkey = new PublicKey(merchantWalletAddress);
-      //     console.log("TRANSACTION SENT TO MERCHANT WALLET:", merchantPubkey);
-      //     expectedDetails.recipient = merchantPubkey.toString();
-      //   } 
-      //   payload.expectedDetails = expectedDetails;
-      // }
 
       console.log('[TRANSACTION_MONITOR] Sending verification payload to server:', {
         ...payload,

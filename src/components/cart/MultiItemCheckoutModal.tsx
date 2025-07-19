@@ -12,13 +12,11 @@ import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../..
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
-// import { usePayment } from '../../hooks/usePayment';
 import { StripePaymentModal } from '../products/StripePaymentModal';
 import { verifyFinalTransaction } from '../../utils/transaction-monitor.tsx';
-import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
+import { updateOrderTransactionSignature } from '../../services/orders';
 import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
-// import { create, set } from 'lodash';
 import { CryptoPaymentModal } from '../products/CryptoPaymentModal.tsx';
 
 interface MultiItemCheckoutModalProps {
@@ -131,7 +129,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   
   // Add the showSuccessView state within the component
   const [showSuccessView, setShowSuccessView] = useState(false);
-  const [createdOrderId, _] = useState<string | undefined>();
   
   // Try to load shipping info from localStorage
   useEffect(() => {
@@ -400,238 +397,35 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
 
       // Start transaction confirmation - using same monitoring as TokenVerificationModal
     setOrderProgress({ step: 'confirming_transaction' });
-    
-    try {
-      const success = await verifyFinalTransaction(
-          txSignature,
-          async (status) => {
-            console.log('Status update received:', status);
-            
-            // Handle transaction status updates
-            if (status.error) {
-              console.log('Setting error state:', status.error);
-              setOrderProgress({ step: 'error', error: status.error });
-            } else if (status.paymentConfirmed) {
-              console.log('Payment confirmed, setting success state');
-              
-              // IMMEDIATELY set success state and update order data
-              setOrderProgress({ step: 'success' });
-              setOrderData(prev => ({
-                ...prev,
-                transactionSignature: txSignature
-              }));
-              
-              // IMMEDIATELY clear cart - don't wait for batch refresh
-              console.log('Clearing cart immediately');
-              clearCart();
-              
-              // Handle batch order refresh in background (don't block success state)
-              if (batchOrderId) {
-                console.log('Starting batch order refresh in background:', batchOrderId);
-                
-                // Use a non-blocking approach for batch refresh
-                setTimeout(async () => {
-                  try {
-                    const refreshResponse = await fetch('/.netlify/functions/get-batch-orders', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({
-                        batchOrderId: batchOrderId
-                      })
-                    });
-                    
-                    if (refreshResponse.ok) {
-                      const refreshData = await refreshResponse.json();
-                      console.log('Batch orders refresh result:', refreshData);
-                      
-                      if (refreshData.success && refreshData.orders) {
-                        const confirmedOrders = refreshData.orders.filter((o: { status: string }) => o.status === 'confirmed').length;
-                        console.log(`Batch refresh: ${confirmedOrders}/${refreshData.orders.length} orders confirmed`);
-                        
-                        // This is just for logging - success state is already set
-                        if (confirmedOrders === refreshData.orders.length) {
-                          console.log('All batch orders confirmed');
-                        } else {
-                          console.log('Some batch orders still pending, but transaction is confirmed');
-                        }
-                      }
-                    }
-                  } catch (refreshError) {
-                    console.error('Background batch refresh error:', refreshError);
-                    // Don't affect the success state - transaction is already confirmed
-                  }
-                }, 100); // Small delay to not block the main success flow
-              }
-              
-              // Auto-close modal after showing success
-              console.log('Setting auto-close timeout');
-              setTimeout(() => {
-                console.log('Auto-closing modal');
-                onClose && onClose();
-              }, 3000);
-            }
-          },
-          undefined,
-          batchOrderId,
-          {
-            amount: orderData.price || 0,
-            buyer: walletAddress || '',
-            recipient: receiverWallet || "",
-          },
-        );
-        
-        // SAFETY: Add a timeout to ensure modal closes properly
-        if (success || txSignature) {
-          console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
-          setTimeout(() => {
-            // Check if still in confirming_transaction state
-            if (orderProgress.step === 'confirming_transaction') {
-              console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
-              setOrderProgress({ step: 'success' });
-              
-              // Clear cart but let user decide when to close modal
-              clearCart();
-            }
-          }, 3000);
-        }
-    } catch (error) {
-      console.error("Checkout error:", error);
-      toast.error("An error occurred during checkout");
-      setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'An unknown error occurred' });
-    } finally {
-      setProcessingPayment(false);
-    }
+
+    await handleVerifyBatchTransactions(txSignature, batchOrderId, receiverWallet);
   }
   
   // Update the handleStripeSuccess function to receive and use batchOrderId
-  const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string, batchOrderId?: string) => {
-    console.log('Stripe payment successful:', paymentIntentId, stripeOrderId, batchOrderId);
-    try {
-      if (!stripeOrderId && createdOrderId) {
-        stripeOrderId = createdOrderId;
-      }
+  const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string, stripeBatchOrderId?: string) => {
+    console.log('Stripe payment successful:', paymentIntentId, stripeOrderId, stripeBatchOrderId);
 
-      if (stripeOrderId) {
-        console.log('Getting order details for confirmation page:', stripeOrderId);
-        try {
-          const orderDetails = await getOrderDetails(stripeOrderId);
-          
-          if (orderDetails && orderDetails.success && orderDetails.order) {
-            // Set the order data for display
-            // @note:= come back here
-            // setOrderData({
-            //   orderIds: [stripeOrderId],
-            //   orderNumber: orderDetails.order.order_number || '',
-            //   transactionSignature: paymentIntentId,
-            //   batchOrderId: batchOrderId || ''
-            // });
-            
-            // Show success state and clear cart
-            setOrderProgress({ step: 'success' });
-            clearCart();
-            
-            // Show the success view
-            setShowSuccessView(true);
-            
-            // Add success toast notification
-            toast.success(
-              `Order #${orderDetails.order.order_number || ''} payment confirmed!`,
-              { autoClose: 5000 }
-            );
-          }
-        } catch (error) {
-          console.error('Error getting order details:', error);
-          
-          // Still mark as successful even without order details
-          setOrderProgress({ step: 'success' });
-          // setOrderData({
-          //   orderId: stripeOrderId,
-          //   orderNumber: '',
-          //   transactionSignature: paymentIntentId,
-          //   batchOrderId: batchOrderId || ''
-          // });
-          
-          clearCart();
-          setShowSuccessView(true);
-        }
-      } else if (batchOrderId) {
-        // If we have a batch order ID but no specific order ID
-        console.log('Getting batch order details for confirmation page:', batchOrderId);
+    try {
+      if (stripeBatchOrderId) {
+          setShowStripeModal(false);
+          setOrderProgress({ step: 'confirming_transaction' });
         
-        try {
-          // Get all orders in the batch
-          const response = await fetch(`/.netlify/functions/get-batch-orders?batchOrderId=${batchOrderId}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-          });
+          // I think the verification should happen here tho
+          await handleVerifyBatchTransactions(paymentIntentId, stripeBatchOrderId);
           
-          if (response.ok) {
-            const batchData = await response.json();
-            
-            if (batchData.success && batchData.orders && batchData.orders.length > 0) {
-              const firstOrder = batchData.orders[0];
-              
-              // Set the order data for display
-              setOrderData({
-                orderIds: firstOrder.id,
-                orderNumbers: firstOrder.order_number,
-                transactionSignature: paymentIntentId,
-                batchOrderId: batchOrderId
-              });
-              
-              // Show success state and clear cart
-              setOrderProgress({ step: 'success' });
-              clearCart();
-              
-              // Show the success view
-              setShowSuccessView(true);
-              
-              // Add success toast notification
-              const batchSize = items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0);
-              toast.success(
-                batchSize > 1
-                  ? `Batch order #${firstOrder.order_number} with ${batchSize} items confirmed!`
-                  : `Order #${firstOrder.order_number} confirmed successfully!`,
-                { autoClose: 5000 }
-              );
-              return;
-            }
-          }
-          
-          // If we couldn't get batch details, still show generic success
-          setOrderProgress({ step: 'success' });
-          setOrderData({
-            transactionSignature: paymentIntentId,
-            batchOrderId: batchOrderId
-          });
-          
-          clearCart();
-          setShowSuccessView(true);
-        } catch (error) {
-          console.error('Error getting batch order details:', error);
-          
-          // Still mark as successful
-          setOrderProgress({ step: 'success' });
-          setOrderData({
-            transactionSignature: paymentIntentId,
-            batchOrderId: batchOrderId
-          });
-          
-          clearCart();
-          setShowSuccessView(true);
-        }
+          // Add success toast notification
+          const batchSize = items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0);
+          toast.success(
+            batchSize > 1
+              ? `Batch order with ${batchSize} items confirmed!`
+              : `Order  confirmed successfully!`,
+            { autoClose: 5000 }
+          );
       } else {
         // No order ID or batch ID, still mark as successful with minimal info
         console.log('No order ID available, showing generic success');
-        setOrderProgress({ step: 'success' });
-        setOrderData({
-          transactionSignature: paymentIntentId
-        });
-        
+        setOrderProgress({ step: 'error' });
         clearCart();
-        setShowSuccessView(true);
       }
     } catch (error) {
       console.error('Error in Stripe success handler:', error);
@@ -686,19 +480,90 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
       }
 
-      // depending on payment method, we can open modal
       if (batchOrderData.isFreeOrder) {
-        setPaymentMethod('free');
+        await verifyFinalTransaction(batchOrderData.transactionSignature, batchOrderData.batchOrderId);
+        return;  
       }
+
+      setOrderProgress({ step: 'processing_payment' });
+      
       if( paymentMethod === 'stripe') {
         setShowStripeModal(true);
       } else if (paymentMethod === 'solana') {
         setShowCryptoModal(true);
-      } 
+      }
     } catch (error) {
       throw new Error(`Failed to create batch transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
+
+  const handleVerifyBatchTransactions = async (txSignature: string, batchOrderId?: string, receiverWallet?: string) => {
+    try {
+      const success = await verifyFinalTransaction(
+          txSignature,
+          async (status) => {
+            console.log('Status update received:', status);
+            
+            if (status.error) {
+              console.log('Setting error state:', status.error);
+              setOrderProgress({ step: 'error', error: status.error });
+              return;
+            } 
+            
+            if (status.paymentConfirmed) {
+              console.log('Payment confirmed, setting success state');
+              
+              // IMMEDIATELY set success state and update order data
+              setOrderProgress({ step: 'success' });
+              setOrderData(prev => ({
+                ...prev,
+                transactionSignature: txSignature
+              }));
+              
+              // IMMEDIATELY clear cart - don't wait for batch refresh
+              console.log('Clearing cart immediately');
+              clearCart();
+              setShowSuccessView(true);
+              
+              // Auto-close modal after showing success
+              console.log('Setting auto-close timeout');
+              setTimeout(() => {
+                console.log('Auto-closing modal');
+                onClose && onClose();
+              }, 3000);
+            }
+          },
+          undefined,
+          batchOrderId,
+          {
+            amount: orderData.price || 0,
+            buyer: walletAddress || '',
+            recipient: receiverWallet || "",
+          },
+        );
+        
+        // SAFETY: Add a timeout to ensure modal closes properly
+        if (success || txSignature) {
+          console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
+          setTimeout(() => {
+            // Check if still in confirming_transaction state
+            if (orderProgress.step === 'confirming_transaction') {
+              console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
+              setOrderProgress({ step: 'success' });
+              
+              // Clear cart but let user decide when to close modal
+              clearCart();
+            }
+          }, 3000);
+        }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast.error("An error occurred during checkout");
+      setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'An unknown error occurred' });
+    } finally {
+      setProcessingPayment(false);
+    }
+  }
   
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
