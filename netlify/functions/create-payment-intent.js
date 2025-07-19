@@ -12,67 +12,20 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Generate a user-friendly order number (shared with create-batch-order.js to ensure consistency)
-const generateOrderNumber = async () => {
+const COINGECKO_API = 'https://api.coingecko.com/api/v3';
+
+export async function getSolanaPrice() {
   try {
-    // Get the current highest order number
-    const { data, error } = await supabase
-      .from('orders')
-      .select('order_number')
-      .order('order_number', { ascending: false })
-      .limit(1);
-    
-    if (error) {
-      console.error('Error getting latest order number:', error);
-      // Fallback to a simpler format with timestamp
-      const now = new Date();
-      const month = now.getMonth() + 1;
-      const day = now.getDate();
-      // Format: SF-MMDD-XXXX (e.g., SF-0415-1234)
-      return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-    }
-    
-    // If no orders exist, start with a sequential number
-    if (!data || data.length === 0 || !data[0].order_number) {
-      return 'SF-1001';
-    }
-    
-    // Extract current highest order number
-    const currentNumber = data[0].order_number;
-    
-    // Check if it's our standard format starting with SF-
-    if (currentNumber.startsWith('SF-')) {
-      // If it's our short format (SF-XXXX), increment
-      if (/^SF-\d+$/.test(currentNumber)) {
-        const numPart = currentNumber.split('-')[1];
-        const nextNum = parseInt(numPart, 10) + 1;
-        return `SF-${nextNum}`;
-      }
-      
-      // If it's our date format (SF-MMDD-XXXX), create a new one with today's date
-      if (/^SF-\d{4}-\d{4}$/.test(currentNumber)) {
-        const now = new Date();
-        const month = now.getMonth() + 1;
-        const day = now.getDate();
-        // Format: SF-MMDD-XXXX (e.g., SF-0415-1234)
-        return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-      }
-    }
-    
-    // For any other format, or if we can't parse the existing format, 
-    // default to our date-based format to ensure consistency
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-  } catch (err) {
-    console.error('Error generating order number:', err);
-    // If anything fails, use a timestamp-based fallback that matches our SF- pattern
-    const now = new Date();
-    const timestamp = now.getTime().toString().slice(-6);
-    return `SF-${timestamp}`;
+    const response = await fetch(
+      `${COINGECKO_API}/simple/price?ids=solana&vs_currencies=usd`
+    );
+    const data = await response.json();
+    return data.solana.usd;
+  } catch (error) {
+    console.error('Error fetching Solana price:', error);
+    throw new Error('Failed to fetch Solana price');
   }
-};
+}
 
 exports.handler = async (event, context) => {
   // Handle CORS preflight requests
@@ -97,68 +50,24 @@ exports.handler = async (event, context) => {
 
   try {
     const { 
-      solAmount, 
-      solPrice, 
-      productName, 
-      shippingInfo, 
-      productId, 
-      variants,
+      productName,
+      shippingInfo,
+      productId,
       walletAddress,
-      couponCode,
-      couponDiscount,
-      originalPrice,
-      cartItems,          // New parameter for cart items
-      isCartCheckout,     // Flag to indicate if this is coming from cart
-      paymentMetadata = {},
-      existingOrderId    // New parameter to pass an existing order ID
+      orderId,
+      batchOrderId,    // New parameter to pass an existing order ID
     } = JSON.parse(event.body);
-
-    // Check if this is a free order (100% discount)
-    const is100PercentDiscount = 
-      couponDiscount !== undefined && 
-      originalPrice !== undefined && 
-      couponDiscount > 0 && (
-        couponDiscount >= originalPrice || 
-        (originalPrice > 0 && (couponDiscount / originalPrice) * 100 >= 100)
-      );
     
     console.log('Payment details:', {
       productId,
       solAmount,
-      originalPrice,
-      couponDiscount,
-      is100PercentDiscount,
       walletAddress: walletAddress || 'stripe',
-      isCartCheckout,
-      hasCartItems: !!cartItems?.length,
-      existingOrderId: existingOrderId || 'none'
+      orderId,
+      batchOrderId,
     });
 
-    // For free orders, tell client to use create-order directly
-    if (is100PercentDiscount) {
-      console.log('Stripe - Free order detected (100% discount)');
-      
-      return {
-        statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          error: 'Free orders should be processed directly via the create-order endpoint',
-          code: 'FREE_ORDER',
-          isFreeOrder: true
-        })
-      };
-    }
-
-    // Regular payment flow for non-free orders
-    // Calculate USD amount, ensuring minimum of $0.50
-    const usdAmount = Math.max(solAmount * solPrice, 0.50);
-    const amountInCents = Math.round(usdAmount * 100);
-
     // We must have an existing order ID
-    if (!existingOrderId) {
+    if (!orderId && !batchOrderId) {
       console.error('No existing order ID provided');
       return {
         statusCode: 400,
@@ -174,12 +83,32 @@ exports.handler = async (event, context) => {
     }
 
     // Retrieve the existing order with all needed information
-    console.log('Retrieving existing order:', existingOrderId);
-    const { data: existingOrder, error: fetchError } = await supabase
-      .from('orders')
-      .select('id, order_number, batch_order_id, status')
-      .eq('id', existingOrderId)
-      .single();
+    console.log('Retrieving existing order:', orderId,
+      batchOrderId,
+    );
+
+    let existingOrder;
+    let fetchError;
+
+    if(orderId) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch, amount')
+        .eq('id', orderId)
+        .single();
+      existingOrder = data;
+      fetchError = error;
+    }
+
+    if(batchOrderId) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch, amount')
+        .eq('batch_order_id', batchOrderId)
+        .single();
+      existingOrder = data;
+      fetchError = error;
+    }
       
     if (fetchError || !existingOrder) {
       console.error('Error fetching existing order:', fetchError || 'Order not found');
@@ -198,40 +127,20 @@ exports.handler = async (event, context) => {
 
     console.log('Found existing order:', {
       id: existingOrder.id,
-      orderNumber: existingOrder.order_number,
       batchOrderId: existingOrder.batch_order_id || 'none',
       status: existingOrder.status
     });
 
     // Extract order information
-    const orderId = existingOrder.id;
-    const orderNumber = existingOrder.order_number;
-    const batchOrderId = existingOrder.batch_order_id;
+    const totalAmount = existingOrder.amount;
+    const paymentMetadata = existingOrder.payment_metadata;
 
-    // Create payment metadata
-    const finalPaymentMetadata = {
-      ...paymentMetadata,
-      paymentMethod: 'stripe',
-      couponCode,
-      couponDiscount,
-      originalPrice,
-      isBatchOrder: isCartCheckout || !!batchOrderId || paymentMetadata.isBatchOrder || false,
-      isSingleItemOrder: !isCartCheckout && !batchOrderId && (paymentMetadata.isSingleItemOrder || true)
-    };
+    // Regular payment flow for non-free orders
+    // Calculate USD amount, ensuring minimum of $0.50
 
-    // Update existing order with payment method info
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        payment_metadata: finalPaymentMetadata,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', orderId);
-      
-    if (updateError) {
-      console.warn('Error updating order with payment metadata:', updateError);
-      // Non-critical, continue with payment intent creation
-    }
+    const solPrice = getSolanaPrice();
+    const usdAmount = Math.max(totalAmount * solPrice, 0.50);
+    const amountInCents = Math.round(usdAmount * 100);
 
     // Prepare Stripe metadata (flat key-value pairs only)
     const simplifiedContact = {
@@ -245,11 +154,10 @@ exports.handler = async (event, context) => {
     const stripeMetadata = {
       orderIdStr: String(orderId || ''),
       batchOrderIdStr: String(batchOrderId || ''),
-      orderNumberStr: String(orderNumber || ''),
       productNameStr: String(productName || '').substring(0, 100),
       customerName: `${simplifiedContact.firstName} ${simplifiedContact.lastName}`.substring(0, 100),
       walletStr: String(walletAddress || 'stripe').substring(0, 100),
-      amountStr: String(solAmount || 0),
+      amountStr: String(totalAmount || 0),
       priceStr: String(solPrice || 0)
     };
 
@@ -307,7 +215,10 @@ exports.handler = async (event, context) => {
           .from('orders')
           .update({
             transaction_signature: paymentIntent.id,
-            amount_sol: solAmount / (cartItems?.length || 1), // Divide amount among items
+            payment_metadata: {
+              ...paymentMetadata,
+              amountInCents,
+            },
             status: 'pending_payment' // Update status from draft to pending_payment
           })
           .eq('batch_order_id', batchOrderId);
@@ -325,40 +236,17 @@ exports.handler = async (event, context) => {
           .from('orders')
           .update({
             transaction_signature: paymentIntent.id,
-            amount_sol: solAmount, // Store the SOL amount for reference
-            status: 'pending_payment' // Update status from draft to pending_payment
+            status: 'pending_payment', // Update status from draft to pending_payment
+            payment_metadata: {
+              ...paymentMetadata,
+              amountInCents,
+            },
           })
           .eq('id', orderId);
 
         if (paymentUpdateError) {
           console.error('Error updating order with payment intent ID:', paymentUpdateError);
           console.warn('Payment intent created but order not updated - will be fixed during payment confirmation');
-        }
-      }
-
-      // Get order details to return to the client
-      let orderIds = [];
-      if (batchOrderId) {
-        try {
-          const { data: batchOrders, error: fetchError } = await supabase
-            .from('orders')
-            .select('id, order_number, status, item_index, total_items_in_batch')
-            .eq('batch_order_id', batchOrderId)
-            .order('item_index', { ascending: true });
-            
-          if (!fetchError && batchOrders && batchOrders.length > 0) {
-            orderIds = batchOrders.map(order => ({
-              orderId: order.id,
-              orderNumber: order.order_number,
-              status: order.status,
-              itemIndex: order.item_index || 1,
-              totalItems: order.total_items_in_batch || batchOrders.length
-            }));
-            console.log(`Retrieved ${orderIds.length} order IDs for batch ${batchOrderId}`);
-          }
-        } catch (fetchError) {
-          console.warn('Error fetching batch order IDs:', fetchError);
-          // Continue without the IDs, not critical
         }
       }
 
@@ -372,19 +260,10 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({
           clientSecret: paymentIntent.client_secret,
           orderId: orderId,
-          orderNumber: orderNumber,
           batchOrderId: batchOrderId,
           paymentIntentId: paymentIntent.id,
+          solPrice,
           success: true,
-          orders: orderIds.length > 0 ? orderIds : [
-            {
-              orderId,
-              orderNumber: orderNumber,
-              status: 'pending_payment',
-              itemIndex: 1,
-              totalItems: cartItems?.length || 1
-            }
-          ]
         }),
       };
     } catch (stripeError) {

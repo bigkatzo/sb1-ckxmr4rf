@@ -276,7 +276,7 @@ async function processOrders(signature, orders, orderId = undefined, batchOrderI
 
   try {
     const updateData = {
-      status: 'paid',
+      status: 'successful',
       payment_verified: true,
       payment_verified_at: new Date().toISOString(),
       transaction_signature: signature,

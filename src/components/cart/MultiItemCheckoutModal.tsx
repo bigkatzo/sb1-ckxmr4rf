@@ -123,6 +123,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     batchOrderId?: string;
     createdOrderIds?: Array<string>;
     price?: number;
+    originalPrice?: number;
     fee?: number;
     couponDiscount?: number;
     walletAmounts?: Array<{ [address: string]: number }>;
@@ -675,6 +676,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         batchOrderId: batchOrderData.batchOrderId,
         price: batchOrderData.totalPaymentForBatch,
         fee: batchOrderData.fee,
+        originalPrice: batchOrderData.originalPrice,
         couponDiscount: batchOrderData.couponDiscount,
         transactionSignature: batchOrderData.transactionSignature,
         walletAmounts: batchOrderData.walletAmounts || [],
@@ -809,14 +811,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           <StripePaymentModal
             onClose={() => setShowStripeModal(false)}
             onSuccess={handleStripeSuccess}
-            solAmount={(orderData.price || 0) + (orderData.fee || 0)}
+            solAmount={(orderData.price || 0)}
             productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
             batchOrderId={orderData.batchOrderId || ''}
             shippingInfo={formattedShippingInfo}
-            variants={[]}
-            couponCode={appliedCoupon?.code}
             couponDiscount={orderData.couponDiscount}
-            originalPrice={orderData.price || 0}
+            originalPrice={orderData.originalPrice || 0}
           />
         ) : showCryptoModal ? (
           <CryptoPaymentModal
@@ -826,7 +826,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
             batchOrderId={orderData.batchOrderId || ''}
             couponDiscount={orderData.couponDiscount}
-            originalPrice={orderData.price || 0}
+            originalPrice={orderData.originalPrice || 0}
             walletAmounts={orderData.walletAmounts || []}
             fee={orderData.fee || 0}
           />

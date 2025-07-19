@@ -286,15 +286,15 @@ exports.handler = async (event, context) => {
       }
     }
     
-    const expectedMerchantAmount = totalPaymentForBatch - couponDiscount;
-    const isFreeOrder = expectedMerchantAmount <= 0;
+    const originalPrice = totalPaymentForBatch;
+    const isFreeOrder = originalPrice - couponDiscount <= 0;
     const fee = paymentMethod === 'solana' && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
-    totalPaymentForBatch += fee - couponDiscount;
+    totalPaymentForBatch = isFreeOrder ? 0 : totalPaymentForBatch + fee - couponDiscount;
 
     let transactionSignature;
     if (isFreeOrder) {
       // Generate a consistent transaction ID for free orders
-      transactionSignature = `free_order_${Date.now()}_${walletAddress || 'anonymous'}`;
+      transactionSignature = `free_order_${Date.now()}_${walletAddress}`;
       console.log(`Free order batch detected, using transaction signature: ${transactionSignature}`);
     }
     
@@ -337,6 +337,7 @@ exports.handler = async (event, context) => {
           totalPaymentForBatch,
           fee,
           walletAmounts,
+          originalPrice,
           receiverWallet,
         };
         
@@ -425,7 +426,7 @@ exports.handler = async (event, context) => {
       totalPaymentForBatch,
       fee,
       couponDiscount,
-      expectedMerchantAmount,
+      originalPrice,
       merchantWallets: Object.keys(walletAmounts).length,
     });
 
@@ -443,7 +444,7 @@ exports.handler = async (event, context) => {
         orders: createdOrders,
         totalPaymentForBatch,
         couponDiscount,
-        expectedMerchantAmount,
+        originalPrice,
         walletAmounts
       })
     };
