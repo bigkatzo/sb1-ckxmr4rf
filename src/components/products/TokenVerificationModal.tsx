@@ -17,12 +17,13 @@ import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../..
 import { StripePaymentModal } from './StripePaymentModal';
 import { CouponService } from '../../services/coupons';
 import type { PriceWithDiscount } from '../../types/coupons';
-import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
+// import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
 import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
 import { usePreventScroll } from '../../hooks/usePreventScroll';
+import { CryptoPaymentModal } from '../products/CryptoPaymentModal.tsx';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -105,6 +106,7 @@ export function TokenVerificationModal({
   } | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showStripeModal, setShowStripeModal] = useState(false);
+  const [showCryptoModal, setShowCryptoModal] = useState(false);
   const [showCoupon, setShowCoupon] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [couponResult, setCouponResult] = useState<PriceWithDiscount | null>(null);
@@ -386,120 +388,120 @@ export function TokenVerificationModal({
       // Start order creation process
       updateProgressStep(0, 'processing', 'Creating your order...');
       
-      let orderResponse;
-      let orderId: string | undefined;
-      let orderNumber: string;
       // should not even be a thing...
       let batchOrderId;
       
       // If user has a batch checkout from cart, use batch order endpoint
-      if (paymentMetadata?.isBatchOrder) {
-        // For batch orders, use the batch order endpoint
-        orderResponse = await fetch('/.netlify/functions/create-batch-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            items: [{
-              product,
-              selectedOptions: selectedOption,
-              quantity: 1
-            }],
-            shippingInfo: {
-              shipping_address: {
-                address: shippingInfoState.address,
-                city: shippingInfoState.city,
-                country: shippingInfoState.country,
-                state: shippingInfoState.state || undefined,
-                zip: shippingInfoState.zip,
-                taxId: shippingInfoState.taxId || undefined
-              },
-              contact_info: {
-                method: shippingInfoState.contactMethod,
-                value: shippingInfoState.contactValue,
-                firstName: shippingInfoState.firstName,
-                lastName: shippingInfoState.lastName,
-                phoneNumber: shippingInfoState.phoneNumber
-              }
-            },
-            walletAddress,
-            paymentMetadata: {
-              ...paymentMetadata,
-              paymentMethod: 'solana'
-            }
-          })
-        });
+      // if (paymentMetadata?.isBatchOrder) {
+      //   // For batch orders, use the batch order endpoint
+      //   orderResponse = await fetch('/.netlify/functions/create-batch-order', {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json'
+      //     },
+      //     body: JSON.stringify({
+      //       items: [{
+      //         product,
+      //         selectedOptions: selectedOption,
+      //         quantity: 1
+      //       }],
+      //       shippingInfo: {
+      //         shipping_address: {
+      //           address: shippingInfoState.address,
+      //           city: shippingInfoState.city,
+      //           country: shippingInfoState.country,
+      //           state: shippingInfoState.state || undefined,
+      //           zip: shippingInfoState.zip,
+      //           taxId: shippingInfoState.taxId || undefined
+      //         },
+      //         contact_info: {
+      //           method: shippingInfoState.contactMethod,
+      //           value: shippingInfoState.contactValue,
+      //           firstName: shippingInfoState.firstName,
+      //           lastName: shippingInfoState.lastName,
+      //           phoneNumber: shippingInfoState.phoneNumber
+      //         }
+      //       },
+      //       walletAddress,
+      //       paymentMetadata: {
+      //         ...paymentMetadata,
+      //         paymentMethod: 'solana'
+      //       }
+      //     })
+      //   });
             
-        const batchData = await orderResponse.json();
+      //   const batchData = await orderResponse.json();
             
-        if (!batchData.success) {
-          throw new Error(batchData.error || 'Failed to create batch order');
-        }
+      //   if (!batchData.success) {
+      //     throw new Error(batchData.error || 'Failed to create batch order');
+      //   }
             
 
-        orderNumber = batchData.orderNumbers?.[0]; 
-        batchOrderId = batchData.batchOrderId;
+      //   orderNumber = batchData.orderNumbers?.[0]; 
+      //   batchOrderId = batchData.batchOrderId;
 
-        console.log("Successfully created batch order data with batch id above: ", batchOrderId);
-      } else {
+      //   console.log("Successfully created batch order data with batch id above: ", batchOrderId);
+      // } else {
         // For regular single orders, use the regular order endpoint
-        orderResponse = await fetch('/.netlify/functions/create-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            productId: product.id,
-            variants: formattedVariantSelections,
-            shippingInfo: {
-              shipping_address: {
-                address: shippingInfoState.address,
-                city: shippingInfoState.city,
-                country: shippingInfoState.country,
-                state: shippingInfoState.state || undefined,
-                zip: shippingInfoState.zip,
-                taxId: shippingInfoState.taxId || undefined
-              },
-              contact_info: {
-                method: shippingInfoState.contactMethod,
-                value: shippingInfoState.contactValue,
-                firstName: shippingInfoState.firstName,
-                lastName: shippingInfoState.lastName,
-                phoneNumber: shippingInfoState.phoneNumber
-              }
+        // }
+        
+      const orderResponse = await fetch('/.netlify/functions/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          productId: product.id,
+          variants: formattedVariantSelections,
+          shippingInfo: {
+            shipping_address: {
+              address: shippingInfoState.address,
+              city: shippingInfoState.city,
+              country: shippingInfoState.country,
+              state: shippingInfoState.state || undefined,
+              zip: shippingInfoState.zip,
+              taxId: shippingInfoState.taxId || undefined
             },
-            walletAddress,
-            paymentMetadata: {
-              ...paymentMetadata,
-              orderSource: 'token_modal',
-              paymentMethod: 'solana',
-              isBatchOrder: false,
-              isSingleItemOrder: true
+            contact_info: {
+              method: shippingInfoState.contactMethod,
+              value: shippingInfoState.contactValue,
+              firstName: shippingInfoState.firstName,
+              lastName: shippingInfoState.lastName,
+              phoneNumber: shippingInfoState.phoneNumber
             }
-          })
-        });
+          },
+          walletAddress,
+          paymentMetadata: {
+            ...paymentMetadata,
+            orderSource: 'token_modal',
+            paymentMethod: 'solana',
+            isBatchOrder: false,
+            isSingleItemOrder: true
+          }
+        })
+      });
 
-        const orderData = await orderResponse.json();
-        if (orderData.error) {
-          throw new Error(orderData.error);
-        }
-        
-        orderId = orderData.orderId;
-        
-        // Get order number from any of the formats
-        orderNumber = orderData.orderNumber || 
-                     orderData.orders?.[0]?.orderNumber || 
-                     `SF-${Date.now().toString().slice(-6)}`;  // Fallback that matches pattern
+      const orderData = await orderResponse.json();
+      if (orderData.error) {
+        throw new Error(orderData.error);
       }
+      
+      const orderId = orderData.orderId || '';
+      
+      // Get order number from any of the formats
+      const orderNumber = orderData.orderNumber || 
+                    orderData.orders?.[0]?.orderNumber || 
+                    `SF-${Date.now().toString().slice(-6)}`;  // Fallback that matches pattern
 
-      updateProgressStep(0, 'completed');
+                    updateProgressStep(0, 'completed');
+
+      const merchantWallet = orderNumber.receiverWallet;
 
       // Start payment processing
       updateProgressStep(1, 'processing', 'Initiating payment on Solana network...');
       
       // Process payment with modified price
-      const { success: paymentSuccess, signature: txSignature } = await processPayment(finalPrice, product.collectionId);
+      const { success: paymentSuccess, signature: txSignature } = await processPayment(orderData.totalAmount, orderId, merchantWallet);
       
       if (!paymentSuccess || !txSignature) {
         updateProgressStep(1, 'error', undefined, 'Payment failed');
@@ -510,7 +512,7 @@ export function TokenVerificationModal({
             orderId,
             batchOrderId,
             transactionSignature: 'rejected', // Use a special value for rejected transactions
-            amountSol: finalPrice,
+            amountSol: orderData.totalAmount,
             walletAddress: walletAddress || 'anonymous'
           });
 
@@ -539,9 +541,8 @@ export function TokenVerificationModal({
         const success = await updateOrderTransactionSignature({
           orderId,
           transactionSignature: txSignature,
-          amountSol: finalPrice,
+          amountSol: orderData.totalAmount,
           walletAddress: walletAddress || 'anonymous',
-          batchOrderId,
         });
 
         if (!success) {
@@ -556,10 +557,9 @@ export function TokenVerificationModal({
         
         // Expected transaction details for server verification
         const expectedDetails = {
-          amount: finalPrice,
+          amount: orderData.totalAmount,
           buyer: walletAddress || '',
-          collectionId: product.collectionId,
-          recipient: product.collectionId // Collection address as recipient
+          recipient: merchantWallet // Collection address as recipient
         };
         
         // Monitor transaction status and confirm on chain
@@ -592,7 +592,7 @@ export function TokenVerificationModal({
             }
           },
           orderId,
-          paymentMetadata?.batchOrderId,
+          undefined,
           expectedDetails,
         );
 
@@ -677,7 +677,126 @@ export function TokenVerificationModal({
   };
 
   // Track the created order ID for Stripe payments
-  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [createdOrderId, setCreatedOrderId] = useState<string | undefined>(undefined);
+
+  // Add crypto payment completion handler
+  const handleCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => {
+    console.log('Crypto payment completed:', { status, txSignature, batchOrderId, receiverWallet });
+    
+    setShowCryptoModal(false);
+    
+    if (!status.success) {
+      updateProgressStep(1, 'error', undefined, 'Payment failed or was cancelled');
+      try {
+        if (createdOrderId) {
+          await updateOrderTransactionSignature({
+            orderId: createdOrderId,
+            transactionSignature: 'rejected',
+            amountSol: finalPrice,
+            walletAddress: walletAddress || 'anonymous'
+          });
+        }
+      } catch (err) {
+        console.error('Error updating order status:', err);
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    // Update order with transaction signature
+    try {
+      updateProgressStep(1, 'completed');
+      updateProgressStep(2, 'processing', 'Confirming transaction...');
+      
+      if (createdOrderId) {
+        const success = await updateOrderTransactionSignature({
+          orderId: createdOrderId,
+          transactionSignature: txSignature,
+          amountSol: finalPrice,
+          walletAddress: walletAddress || 'anonymous'
+        });
+
+        if (!success) {
+          throw new Error('Failed to update order transaction');
+        }
+      }
+      
+      // Start transaction confirmation
+      const expectedDetails = {
+        amount: finalPrice,
+        buyer: walletAddress || '',
+        recipient: receiverWallet || ''
+      };
+      
+      // Monitor transaction status
+      const transactionSuccess = await verifyFinalTransaction(
+        txSignature,
+        (status) => {
+          console.log('Transaction status update:', status);
+          if (status.error) {
+            updateProgressStep(2, 'error', undefined, status.error);
+          } else if (status.paymentConfirmed) {
+            updateProgressStep(2, 'completed', 'Transaction confirmed!');
+            
+            // Get order number from created order
+            const displayOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
+            
+            setOrderDetails({
+              orderNumber: displayOrderNumber,
+              transactionSignature: txSignature
+            });
+            
+            setTimeout(() => {
+              setShowSuccessView(true);
+              toastService.showOrderSuccess();
+              onSuccess();
+            }, 50);
+          }
+        },
+        createdOrderId,
+        undefined,
+        expectedDetails
+      );
+
+      // Safety timeout for success view
+      if (transactionSuccess) {
+        setTimeout(() => {
+          if (!showSuccessView) {
+            const displayOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
+            setOrderDetails({
+              orderNumber: displayOrderNumber,
+              transactionSignature: txSignature
+            });
+            
+            setTimeout(() => {
+              setShowSuccessView(true);
+              toastService.showOrderSuccess();
+              onSuccess();
+            }, 50);
+          }
+        }, 2000);
+      }
+      
+    } catch (error) {
+      console.error('Crypto payment error:', error);
+      updateProgressStep(2, 'error', undefined, error instanceof Error ? error.message : 'Transaction verification failed');
+      
+      // Still show success view even if verification fails
+      const displayOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
+      setOrderDetails({
+        orderNumber: displayOrderNumber,
+        transactionSignature: txSignature
+      });
+      
+      setTimeout(() => {
+        setShowSuccessView(true);
+        toastService.showOrderSuccess();
+        onSuccess();
+      }, 50);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleStripeSuccess = async (paymentIntentId: string) => {
     try {
@@ -856,112 +975,112 @@ export function TokenVerificationModal({
   );
 
   // Add this function to handle free orders consistently in the parent component
-  const handleFreeOrder = async (paymentMethod = 'free_order') => {
-    try {
-      console.log('Processing free order in parent component');
-      setSubmitting(true);
+  // const handleFreeOrder = async (paymentMethod = 'free_order') => {
+  //   try {
+  //     console.log('Processing free order in parent component');
+  //     setSubmitting(true);
       
-      // Generate a consistent transaction ID for free orders to prevent duplicates
-      const transactionId = `free_order_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
+  //     // Generate a consistent transaction ID for free orders to prevent duplicates
+  //     const transactionId = `free_order_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
       
-      let response;
-      let responseData;
+  //     let response;
+  //     let responseData;
       
-      try {
-        // Format variant selections for database (same as in regular order flow)
-        const formattedVariantSelections = Object.entries(selectedOption).map(([variantId, value]) => {
-          // Find the variant name from product.variants
-          const variant = product.variants?.find(v => v.id === variantId);
-          return {
-            name: variant?.name || variantId, // Use variant name, fallback to variant ID
-            value
-          };
-        });
+  //     try {
+  //       // Format variant selections for database (same as in regular order flow)
+  //       const formattedVariantSelections = Object.entries(selectedOption).map(([variantId, value]) => {
+  //         // Find the variant name from product.variants
+  //         const variant = product.variants?.find(v => v.id === variantId);
+  //         return {
+  //           name: variant?.name || variantId, // Use variant name, fallback to variant ID
+  //           value
+  //         };
+  //       });
 
-        // Call the create-order endpoint with the free order flag
-        response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({
-            productId: product.id,
-            variants: formattedVariantSelections,
-            shippingInfo: {
-              shipping_address: {
-                address: shippingInfoState.address,
-                city: shippingInfoState.city,
-                country: shippingInfoState.country,
-                state: shippingInfoState.state,
-                zip: shippingInfoState.zip
-              },
-              contact_info: {
-                method: shippingInfoState.contactMethod,
-                value: shippingInfoState.contactValue,
-                firstName: shippingInfoState.firstName,
-                lastName: shippingInfoState.lastName,
-                phoneNumber: shippingInfoState.phoneNumber
-              }
-            },
-            walletAddress: walletAddress || 'anonymous',
-            paymentMetadata: {
-              paymentMethod,
-              couponCode: couponResult?.couponCode,
-              couponDiscount: couponResult?.couponDiscount,
-              originalPrice: baseModifiedPrice,
-              isFreeOrder: true,
-              transactionId
-            }
-          }),
-        });
+  //       // Call the create-order endpoint with the free order flag
+  //       response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
+  //         method: 'POST',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //           'Accept': 'application/json',
+  //         },
+  //         body: JSON.stringify({
+  //           productId: product.id,
+  //           variants: formattedVariantSelections,
+  //           shippingInfo: {
+  //             shipping_address: {
+  //               address: shippingInfoState.address,
+  //               city: shippingInfoState.city,
+  //               country: shippingInfoState.country,
+  //               state: shippingInfoState.state,
+  //               zip: shippingInfoState.zip
+  //             },
+  //             contact_info: {
+  //               method: shippingInfoState.contactMethod,
+  //               value: shippingInfoState.contactValue,
+  //               firstName: shippingInfoState.firstName,
+  //               lastName: shippingInfoState.lastName,
+  //               phoneNumber: shippingInfoState.phoneNumber
+  //             }
+  //           },
+  //           walletAddress: walletAddress || 'anonymous',
+  //           paymentMetadata: {
+  //             paymentMethod,
+  //             couponCode: couponResult?.couponCode,
+  //             couponDiscount: couponResult?.couponDiscount,
+  //             originalPrice: baseModifiedPrice,
+  //             isFreeOrder: true,
+  //             transactionId
+  //           }
+  //         }),
+  //       });
           
-        responseData = await response.json();
+  //       responseData = await response.json();
           
-        if (responseData.error) {
-          throw new Error(responseData.error);
-        }
+  //       if (responseData.error) {
+  //         throw new Error(responseData.error);
+  //       }
         
-        console.log('Free order created successfully:', responseData);
+  //       console.log('Free order created successfully:', responseData);
           
-        // Get order number from any of the formats
-        const displayOrderNumber = responseData.orderNumber || 
-                                   responseData.orders?.[0]?.orderNumber || 
-                                   responseData.orderId || 
-                                   'Unknown';
+  //       // Get order number from any of the formats
+  //       const displayOrderNumber = responseData.orderNumber || 
+  //                                  responseData.orders?.[0]?.orderNumber || 
+  //                                  responseData.orderId || 
+  //                                  'Unknown';
         
-        // Show order success
-        setOrderDetails({
-          orderNumber: displayOrderNumber,
-          transactionSignature: responseData.transactionSignature || responseData.paymentIntentId || transactionId
-        });
+  //       // Show order success
+  //       setOrderDetails({
+  //         orderNumber: displayOrderNumber,
+  //         transactionSignature: responseData.transactionSignature || responseData.paymentIntentId || transactionId
+  //       });
           
-        setShowSuccessView(true);
-        toastService.showOrderSuccess();
-        onSuccess();
-      } catch (error) {
-        console.error('Error creating free order:', error);
-        toast.error('Failed to process order');
-      } finally {
-        setSubmitting(false);
-      }
-    } catch (error) {
-      console.error('Free order error:', error);
-      setSubmitting(false);
-    }
-  };
+  //       setShowSuccessView(true);
+  //       toastService.showOrderSuccess();
+  //       onSuccess();
+  //     } catch (error) {
+  //       console.error('Error creating free order:', error);
+  //       toast.error('Failed to process order');
+  //     } finally {
+  //       setSubmitting(false);
+  //     }
+  //   } catch (error) {
+  //     console.error('Free order error:', error);
+  //     setSubmitting(false);
+  //   }
+  // };
 
   // Add a helper method to check if an order is free
-  const isFreeOrder = useMemo(() => {
-    return couponResult?.couponDiscount !== undefined && 
-      baseModifiedPrice !== undefined &&
-      couponResult.couponDiscount > 0 && 
-      (couponResult.couponDiscount >= baseModifiedPrice || 
-       (baseModifiedPrice > 0 && (couponResult.couponDiscount / baseModifiedPrice) * 100 >= 100));
-  }, [couponResult, baseModifiedPrice]);
+  // const isFreeOrder = useMemo(() => {
+  //   return couponResult?.couponDiscount !== undefined && 
+  //     baseModifiedPrice !== undefined &&
+  //     couponResult.couponDiscount > 0 && 
+  //     (couponResult.couponDiscount >= baseModifiedPrice || 
+  //      (baseModifiedPrice > 0 && (couponResult.couponDiscount / baseModifiedPrice) * 100 >= 100));
+  // }, [couponResult, baseModifiedPrice]);
 
   // Add a click handler for the payment method buttons
-  const handlePaymentClick = (method: string) => (e: React.MouseEvent) => {
+  const handlePaymentClick = (method: 'stripe' | 'crypto') => (e: React.MouseEvent) => {
     e.preventDefault();
     
     // For free orders, handle them directly regardless of the payment method selected
@@ -974,8 +1093,88 @@ export function TokenVerificationModal({
     if (method === 'stripe') {
       // First create the order and save the order ID
       handleStripeOrderCreation();
-    } else if (method === 'solana') {
-      handleShippingSubmit(new Event('submit') as unknown as React.FormEvent);
+    } else if (method === 'crypto') {
+      // Create order for crypto payment
+      handleCryptoOrderCreation();
+    }
+  };
+
+  // Add a function to handle order creation for crypto payments
+  const handleCryptoOrderCreation = async () => {
+    try {
+      setSubmitting(true);
+      updateProgressStep(0, 'processing', 'Creating order for crypto payment...');
+      
+      // Format variant selections for database  
+      const formattedVariantSelections = Object.entries(selectedOption).map(([variantId, value]) => {
+        // Find the variant name from product.variants
+        const variant = product.variants?.find(v => v.id === variantId);
+        return {
+          name: variant?.name || variantId, // Use variant name, fallback to variant ID
+          value
+        };
+      });
+      
+      const response = await fetch('/.netlify/functions/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          productId: product.id,
+          variants: formattedVariantSelections,
+          shippingInfo: {
+            shipping_address: {
+              address: shippingInfoState.address,
+              city: shippingInfoState.city,
+              country: shippingInfoState.country,
+              state: shippingInfoState.state || undefined,
+              zip: shippingInfoState.zip,
+              taxId: shippingInfoState.taxId || undefined
+            },
+            contact_info: {
+              method: shippingInfoState.contactMethod,
+              value: shippingInfoState.contactValue,
+              firstName: shippingInfoState.firstName,
+              lastName: shippingInfoState.lastName,
+              phoneNumber: shippingInfoState.phoneNumber
+            }
+          },
+          walletAddress,
+          paymentMetadata: {
+            orderSource: 'token_modal',
+            paymentMethod: 'crypto',
+            isBatchOrder: false,
+            isSingleItemOrder: true,
+            couponCode: couponResult?.couponCode,
+            couponDiscount: couponResult?.couponDiscount
+          }
+        })
+      });
+      
+      const orderData = await response.json();
+      console.log('Created order for crypto payment:', orderData);
+      
+      if (orderData.error) {
+        updateProgressStep(0, 'error', undefined, orderData.error);
+        toast.error(orderData.error);
+        setSubmitting(false);
+        return;
+      }
+      
+      // Store the order ID for later use when crypto payment completes
+      setCreatedOrderId(orderData.orderId);
+      
+      updateProgressStep(0, 'completed');
+      
+      // Show the crypto modal
+      setShowCryptoModal(true);
+      setSubmitting(false);
+    } catch (error) {
+      console.error("Error creating order for crypto:", error);
+      updateProgressStep(0, 'error', undefined, error instanceof Error ? error.message : 'Failed to create order');
+      toast.error("Failed to create order for payment processing");
+      setSubmitting(false);
     }
   };
 
@@ -1097,7 +1296,7 @@ export function TokenVerificationModal({
           onSuccess={handleStripeSuccess}
           solAmount={finalPrice}
           productName={product.name}
-          productId={product.id}
+          orderId={createdOrderId}
           shippingInfo={{
             shipping_address: {
               address: shippingInfoState.address,
@@ -1124,6 +1323,18 @@ export function TokenVerificationModal({
           couponCode={couponResult?.couponCode}
           couponDiscount={couponResult?.couponDiscount}
           originalPrice={product.price}
+        />
+      ) : showCryptoModal ? (
+        <CryptoPaymentModal
+          onClose={() => setShowCryptoModal(false)}
+          onComplete={handleCryptoComplete}
+          totalAmount={finalPrice}
+          productName={product.name}
+          batchOrderId={createdOrderId || ''}
+          couponDiscount={couponResult?.couponDiscount}
+          originalPrice={product.price}
+          walletAmounts={createdOrderId ? [{ [createdOrderId]: finalPrice }] : []}
+          fee={0}
         />
       ) : (
         <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
@@ -1493,7 +1704,7 @@ export function TokenVerificationModal({
                       {/* Solana Payment Button - requires wallet verification */}
                       <button
                         type="button"
-                        onClick={handlePaymentClick('solana')}
+                       onClick={handlePaymentClick('crypto')}
                         disabled={submitting || !verificationResult?.isValid || 
                           !shippingInfoState.address || !shippingInfoState.city || 
                           !shippingInfoState.country || !shippingInfoState.zip || 
@@ -1504,7 +1715,7 @@ export function TokenVerificationModal({
                           !!phoneError || !!zipError}
                         className="w-full bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
-                        <span>Pay with Solana ({finalPrice.toFixed(2)} SOL)</span>
+                       <span>Pay with Crypto ({finalPrice.toFixed(2)} SOL)</span>
                       </button>
 
                       <div className="mt-4 text-center">

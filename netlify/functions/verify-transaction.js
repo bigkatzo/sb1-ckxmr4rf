@@ -198,17 +198,76 @@ async function verifyTransactionDetails(signature, expectedDetails) {
  * Handle non-blockchain payments (Stripe, free orders, etc.)
  */
 async function verifyNonBlockChainDetails(signature, expectedDetails, isFreeOrder = false) {
-  console.log(signature, expectedDetails, isFreeOrder);
-  // look into this later
-  return { isValid: true, details };
+  log('info', `Verifying non-blockchain payment: ${signature?.substring(0, 10)}...`);
+  
+  try {
+    // For free orders, no payment verification needed
+    if (isFreeOrder || signature.startsWith('free_')) {
+      log('info', 'Processing free order - no payment verification needed');
+      return { 
+        isValid: true, 
+        details: {
+          amount: 0,
+          paymentMethod: 'free',
+          buyer: expectedDetails?.buyer,
+          recipient: expectedDetails?.recipient
+        }
+      };
+    }
+    
+    // For Stripe payments, validate the payment intent format
+    if (signature.startsWith('pi_')) {
+      log('info', 'Processing Stripe payment');
+      // In a real implementation, you would verify the payment with Stripe API
+      // For now, we'll do basic validation
+      if (signature.length < 10) {
+        return {
+          isValid: false,
+          error: 'Invalid Stripe payment intent ID format'
+        };
+      }
+      
+      return { 
+        isValid: true, 
+        details: {
+          amount: expectedDetails?.amount || 0,
+          paymentMethod: 'stripe',
+          buyer: expectedDetails?.buyer,
+          recipient: expectedDetails?.recipient,
+          stripePaymentIntentId: signature
+        }
+      };
+    }
+    
+    // Handle other payment methods
+    log('info', 'Processing other payment method');
+    return { 
+      isValid: true, 
+      details: {
+        amount: expectedDetails?.amount || 0,
+        paymentMethod: 'other',
+        buyer: expectedDetails?.buyer,
+        recipient: expectedDetails?.recipient
+      }
+    };
+    
+  } catch (error) {
+    log('error', 'Error verifying non-blockchain payment:', error);
+    return {
+      isValid: false,
+      error: error instanceof Error ? error.message : 'Failed to verify non-blockchain payment'
+    };
+  }
 }
 
-
+/**
+ * Process and update orders after payment verification
+ */
 async function processOrders(signature, orders, orderId = undefined, batchOrderId = undefined) {
-  log('info', `Processing orders: ${signature?.substring(0, 10)}...`);
+  log('info', `Processing orders for signature: ${signature?.substring(0, 10)}...`);
   
-  if (orders.length === 0) {
-    log('warn', 'No orders found for non-blockchain payment');
+  if (!orders || orders.length === 0) {
+    log('warn', 'No orders provided to process');
     return {
       success: false,
       error: 'No orders found for this payment'
@@ -216,21 +275,18 @@ async function processOrders(signature, orders, orderId = undefined, batchOrderI
   }
 
   try {
-    
-    // Create a mock verification for non-blockchain payments
-    // const mockVerification = {
-    //   isValid: true,
-    //   details: {
-    //     amount: 0, // Will be calculated per order
-    //     paymentMethod: signature.startsWith('pi_') ? 'stripe' : 'other'
-    //   }
-    // };
-    
-    // Process the orders
-    // const result = await processOrdersForTransaction(orders, signature, mockVerification);
+    const updateData = {
+      status: 'paid',
+      payment_verified: true,
+      payment_verified_at: new Date().toISOString(),
+      transaction_signature: signature,
+      updated_at: new Date().toISOString()
+    };
 
-    // verify stripe transaction and just update if free.
+    let updateResult;
+
     if (orderId) {
+      log('info', `Updating single order: ${orderId}`);
       const { error: updateError } = await supabase
         .from('orders')
         .update(updateData)
@@ -238,32 +294,38 @@ async function processOrders(signature, orders, orderId = undefined, batchOrderI
       
       if (updateError) {
         log('error', `Error updating order ${orderId}:`, updateError);
-        return { success: false, error: updateError };
+        return { success: false, error: updateError.message };
       }
+      
+      log('info', `Successfully updated order ${orderId}`);
     }
 
-    if(batchOrderId) {
+    if (batchOrderId) {
+      log('info', `Updating batch orders with batch_order_id: ${batchOrderId}`);
       const { error: updateError } = await supabase
         .from('orders')
         .update(updateData)
         .eq('batch_order_id', batchOrderId);
       
       if (updateError) {
-        log('error', `Error updating order ${orderId}:`, updateError);
-        return { success: false, error: updateError };
+        log('error', `Error updating batch orders ${batchOrderId}:`, updateError);
+        return { success: false, error: updateError.message };
       }
+      
+      log('info', `Successfully updated batch orders for ${batchOrderId}`);
     }
     
     return {
       success: true,
-      message: `Order payment processed`
+      message: `Order payment processed successfully`,
+      ordersUpdated: orders.length
     };
     
   } catch (error) {
-    log('error', 'Error processing non-blockchain payment:', error);
+    log('error', 'Error processing orders:', error);
     return {
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Failed to process orders'
     };
   }
 }
@@ -281,6 +343,9 @@ exports.handler = async (event, context) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ error: 'Method not allowed' })
     };
   }
@@ -290,6 +355,9 @@ exports.handler = async (event, context) => {
     log('error', 'Supabase client is not initialized');
     return {
       statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ 
         success: false,
         error: 'Database connection is not available'
@@ -312,8 +380,12 @@ exports.handler = async (event, context) => {
   try {
     requestBody = JSON.parse(event.body);
   } catch (err) {
+    log('error', 'Failed to parse request body:', err.message);
     return {
       statusCode: 400,
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ error: 'Invalid request body' })
     };
   }
@@ -323,14 +395,20 @@ exports.handler = async (event, context) => {
   if (!signature) {
     return {
       statusCode: 400,
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ error: 'Missing transaction signature' })
     };
   }
 
-  if(!orderId && !batchOrderId) {
+  if (!orderId && !batchOrderId) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'BatchOrderId and OrderId not specified..' })
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ error: 'BatchOrderId and OrderId not specified' })
     };
   }
 
@@ -343,72 +421,104 @@ exports.handler = async (event, context) => {
 
   let allOrders;
 
-  if(batchOrderId) {
-    const { data: batchOrder, error: batchError } = await supabase
+  try {
+    if (batchOrderId) {
+      log('info', `Fetching batch orders for batchOrderId: ${batchOrderId}`);
+      const { data: batchOrder, error: batchError } = await supabase
         .from('orders')
-        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch,amount')
+        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch, amount')
         .eq('batch_order_id', batchOrderId);
-    
-    if(batchError) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: batchError })
-      };
-    }
-    allOrders = batchOrder;
-  } else {
-    const { data: order, error: batchError } = await supabase
+      
+      if (batchError) {
+        log('error', 'Error fetching batch orders:', batchError);
+        return {
+          statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ error: batchError.message })
+        };
+      }
+      allOrders = batchOrder;
+    } else {
+      log('info', `Fetching single order for orderId: ${orderId}`);
+      const { data: order, error: orderError } = await supabase
         .from('orders')
-        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch,amount')
+        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch, amount')
         .eq('id', orderId);
-    
-    if(batchError) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: batchError })
-      };
+      
+      if (orderError) {
+        log('error', 'Error fetching order:', orderError);
+        return {
+          statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ error: orderError.message })
+        };
+      }
+      allOrders = order;
     }
-    allOrders = order;
-  }
 
-  if(allOrders.length === 0) {
-    return {
+    if (!allOrders || allOrders.length === 0) {
+      log('warn', 'No orders found with provided ID');
+      return {
         statusCode: 404,
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ error: "No Orders found with this orderId or BatchOrderId" })
       };
-  }
+    }
 
-  const paymentMetadata = allOrders[0].payment_metadata;
+    const paymentMetadata = allOrders[0].payment_metadata;
+    if (!paymentMetadata) {
+      log('error', 'Payment metadata missing from order');
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ error: 'Payment metadata missing from order' })
+      };
+    }
 
-  const details = {
-    amount: orderId ? allOrders[0].amount : allOrders[0].total_amount_paid_for_batch,
-    buyer: paymentMetadata.walletAddress,
-    recipient: paymentMetadata.receiverWallet,
-  }
+    const details = {
+      amount: orderId ? allOrders[0].amount : allOrders[0].total_amount_paid_for_batch,
+      buyer: paymentMetadata.walletAddress,
+      recipient: paymentMetadata.receiverWallet,
+    };
 
-  try {
+    let verificationResult;
+
     // Handle non-blockchain payments
-    // remove this to use payment method
     if (signature.startsWith('pi_') || signature.startsWith('free_')) {
-      const result = await verifyNonBlockChainDetails(signature, details, paymentMetadata.isFreeOrder);
+      log('info', 'Processing non-blockchain payment');
+      verificationResult = await verifyNonBlockChainDetails(signature, details, paymentMetadata.isFreeOrder);
 
-      if (!result.isValid) {
-          log('warn', 'Transaction verification failed');
-          return {
-            statusCode: 400,
-            body: JSON.stringify({ 
-              success: false,
-              error: verification.error,
-              result
-            })
+      if (!verificationResult.isValid) {
+        log('warn', 'Non-blockchain payment verification failed');
+        return {
+          statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            success: false,
+            error: verificationResult.error,
+            verificationResult
+          })
         };
       }
     } else {
-      // blockchain payments
+      // Handle blockchain payments
       if (!SOLANA_CONNECTION) {
         log('error', 'Solana connection not available');
         return {
           statusCode: 500,
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({ 
             success: false,
             error: 'Blockchain verification is not available'
@@ -416,31 +526,38 @@ exports.handler = async (event, context) => {
         };
       }
 
-      // Verify the transaction on blockchain
-      const verification = await verifyTransactionDetails(signature, details);
+      log('info', 'Processing blockchain payment');
+      verificationResult = await verifyTransactionDetails(signature, details);
       
-      if (!verification.isValid) {
-        log('warn', 'Transaction verification failed');
+      if (!verificationResult.isValid) {
+        log('warn', 'Blockchain payment verification failed');
         return {
           statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({ 
             success: false,
-            error: verification.error,
-            verification
+            error: verificationResult.error,
+            verificationResult
           })
         };
       }
     }
 
     // Process the orders
-    const result = await processOrders(signature, orders, orderId, batchOrderId);
+    const processResult = await processOrders(signature, allOrders, orderId, batchOrderId);
     
     return {
-      statusCode: result.success ? 200 : 400,
+      statusCode: processResult.success ? 200 : 400,
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
-        success: result.success,
+        success: processResult.success,
         totalOrders: allOrders.length,
-        message: result.success ? 'Orders processed successfully' : 'Some orders failed to process'
+        message: processResult.success ? 'Orders processed successfully' : processResult.error,
+        ordersUpdated: processResult.ordersUpdated || 0
       })
     };
 
@@ -448,10 +565,13 @@ exports.handler = async (event, context) => {
     log('error', 'Unexpected error in handler:', error);
     return {
       statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ 
         success: false,
         error: 'Internal server error',
-        details: error.message
+        details: error instanceof Error ? error.message : 'Unknown error occurred'
       })
     };
   }

@@ -308,6 +308,7 @@ export async function monitorTransaction(
 export async function verifyFinalTransaction(
   signature: string,
   onStatusUpdate: (status: TransactionStatus) => void,
+  orderId?: string, 
   batchOrderId?: string, // Batch order ID for multi-item orders
   expectedDetails?: TransactionDetails,
 ) {
@@ -329,6 +330,11 @@ export async function verifyFinalTransaction(
       if (batchOrderId) {
         payload.batchOrderId = batchOrderId;
         payload.isBatchOrder = !!batchOrderId;
+      }
+
+      if (orderId) {
+        payload.orderId = orderId;
+        payload.isBatchOrder = false;
       }
 
       payload.expectedDetails = expectedDetails;

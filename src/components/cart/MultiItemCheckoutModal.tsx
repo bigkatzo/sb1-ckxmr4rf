@@ -472,6 +472,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               }, 3000);
             }
           },
+          undefined,
           batchOrderId,
           {
             amount: orderData.price || 0,
