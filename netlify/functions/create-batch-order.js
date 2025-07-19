@@ -305,6 +305,12 @@ exports.handler = async (event, context) => {
     const orderNumbers = [];
     
     // Process each item in the cart as a single order with quantity
+    const walletAmountKeys = Object.keys(walletAmounts);
+    const isDistribution = walletAmountKeys.length > 1;
+
+    // used our fixed wallet that will redistribute to the backend after..
+    const receiverWallet = isDistribution ? "C6AYpmQ7MttakZvbUGWbtCNPJ7W7UXGVUSV6AMDNNX3Y" : walletAmountKeys[0];
+
     for (let itemIndex = 0; itemIndex < processedItems.length; itemIndex++) {
       const processedItem = processedItems[itemIndex];
       const { product, actualPrice, itemTotal, variantKey, variantSelections, quantity } = processedItem;
@@ -327,9 +333,11 @@ exports.handler = async (event, context) => {
           actualPrice,
           itemTotal,
           couponDiscount,
+          isFreeOrder,
           totalPaymentForBatch,
           fee,
           walletAmounts,
+          receiverWallet,
         };
         
         // Create order using the database function

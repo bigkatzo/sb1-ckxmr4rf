@@ -30,7 +30,7 @@ export function usePayment() {
     });
   }, []);
 
-  const processPayment = async (amount: number, batchOrderId: string, receiverWallet: string): Promise<{ success: boolean; signature?: string }> => {
+  const processPayment = async (amount: number, orderId: string, receiverWallet: string): Promise<{ success: boolean; signature?: string }> => {
     if (!isConnected || !walletAddress || !window.solana) {
       toast.error('Please connect your wallet first');
       setStatus({

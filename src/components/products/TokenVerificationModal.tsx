@@ -377,11 +377,11 @@ export function TokenVerificationModal({
         )
       );
       
-      // For free orders with 100% discount, use a different flow
-      if (isFreeOrder && couponResult) {
-        await handleFreeOrder();
-        return;
-      }
+      // // For free orders with 100% discount, use a different flow
+      // if (isFreeOrder && couponResult) {
+      //   await handleFreeOrder();
+      //   return;
+      // }
 
       // Start order creation process
       updateProgressStep(0, 'processing', 'Creating your order...');
@@ -389,6 +389,7 @@ export function TokenVerificationModal({
       let orderResponse;
       let orderId: string | undefined;
       let orderNumber: string;
+      // should not even be a thing...
       let batchOrderId;
       
       // If user has a batch checkout from cart, use batch order endpoint
@@ -964,10 +965,10 @@ export function TokenVerificationModal({
     e.preventDefault();
     
     // For free orders, handle them directly regardless of the payment method selected
-    if (isFreeOrder) {
-      handleFreeOrder(`free_order_${method}`);
-      return;
-    }
+    // if (isFreeOrder) {
+    //   handleFreeOrder(`free_order_${method}`);
+    //   return;
+    // }
     
     // For non-free orders, proceed with normal payment flow
     if (method === 'stripe') {
@@ -1456,7 +1457,7 @@ export function TokenVerificationModal({
                                     baseModifiedPrice,
                                     couponCode,
                                     walletAddress,
-                                    product.collectionId
+                                    [product.collectionId]
                                   );
                                   setCouponResult(result);
                                   if (result.couponDiscount > 0) {

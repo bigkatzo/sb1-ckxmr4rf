@@ -376,7 +376,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
       try {
         await updateOrderTransactionSignature({
-          orderId: "",
           transactionSignature: 'rejected',
           amountSol: finalPrice,
           batchOrderId: orderData.batchOrderId
@@ -473,12 +472,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               }, 3000);
             }
           },
-          "orderId",
           batchOrderId,
           {
-            amount: finalPrice,
+            amount: orderData.price || 0,
             buyer: walletAddress || '',
-            recipient: ""
+            recipient: receiverWallet || "",
           },
         );
         

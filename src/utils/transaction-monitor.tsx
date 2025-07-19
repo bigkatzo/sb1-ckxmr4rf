@@ -308,7 +308,6 @@ export async function monitorTransaction(
 export async function verifyFinalTransaction(
   signature: string,
   onStatusUpdate: (status: TransactionStatus) => void,
-  orderId?: string,
   batchOrderId?: string, // Batch order ID for multi-item orders
   expectedDetails?: TransactionDetails,
 ) {
@@ -326,29 +325,26 @@ export async function verifyFinalTransaction(
         status: 'confirmed'
       };
 
-      // Include orderId if provided
-      if (orderId) {
-        payload.orderId = orderId;
-      }
-
       // Include batch information if provided
       if (batchOrderId) {
         payload.batchOrderId = batchOrderId;
         payload.isBatchOrder = !!batchOrderId;
       }
 
-      let merchantPubkey;
+      payload.expectedDetails = expectedDetails;
+
+      // const merchantPubkey = new PublicKey(expectedDetails?.recipient || '');
       // Include expected details if provided
-      if (expectedDetails) {
-        const merchantWalletAddress = await getCollectionWallet(expectedDetails.recipient);
-        console.log("TRANSACTION SENT TO MERCHANT WALLET:", merchantWalletAddress);
-        if (merchantWalletAddress) {
-          merchantPubkey = new PublicKey(merchantWalletAddress);
-          console.log("TRANSACTION SENT TO MERCHANT WALLET:", merchantPubkey);
-          expectedDetails.recipient = merchantPubkey.toString();
-        } 
-        payload.expectedDetails = expectedDetails;
-      }
+      // if (expectedDetails) {
+      //   const merchantWalletAddress = await getCollectionWallet(expectedDetails.recipient);
+      //   console.log("TRANSACTION SENT TO MERCHANT WALLET:", merchantWalletAddress);
+      //   if (merchantWalletAddress) {
+      //     merchantPubkey = new PublicKey(merchantWalletAddress);
+      //     console.log("TRANSACTION SENT TO MERCHANT WALLET:", merchantPubkey);
+      //     expectedDetails.recipient = merchantPubkey.toString();
+      //   } 
+      //   payload.expectedDetails = expectedDetails;
+      // }
 
       console.log('[TRANSACTION_MONITOR] Sending verification payload to server:', {
         ...payload,
