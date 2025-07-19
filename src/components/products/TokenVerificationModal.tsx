@@ -580,7 +580,7 @@ export function TokenVerificationModal({
       if (success || txSignature) {
         console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
         setTimeout(() => {
-          // Check if still in confirming_transaction state
+          // Chefck if still in confirming_transaction state
           if (progressSteps[2].status === 'processing') {
             console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
             updateProgressStep(2, 'completed');
