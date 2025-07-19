@@ -10,14 +10,15 @@ import { LiFiWidget, WidgetConfig, useWidgetEvents, WidgetEvent, ChainType } fro
 // Type definitions
 interface CryptoPaymentModalProps {
   onClose: () => void;
-  onComplete: (status:any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => void;
+  onComplete: (status:any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => void;
   totalAmount: number;
   productName: string;
-  batchOrderId: string;
+  orderId?: string;
+  batchOrderId?: string;
   couponCode?: string;
   couponDiscount?: number;
   originalPrice?: number;
-  walletAmounts?: Array<{ [address: string]: number }>;
+  walletAmounts?: { [address: string]: number };
   fee?: number;
 }
 
@@ -36,13 +37,15 @@ const SUPPORTED_TOKENS = [
 // Widget Events Component - This needs to be separate from the main widget component
 function WidgetEventsHandler({
   onComplete,
+  orderId,
   batchOrderId,
   receiverWallet,
   setPaymentStatus,
   setError,
 }: {
-  onComplete: (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => void;
-  batchOrderId: string;
+  onComplete: (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => void;
+  orderId?: string;
+  batchOrderId?: string;
   receiverWallet: string;
   setPaymentStatus: (status: PaymentStatus) => void;
   setError: (error: string | null) => void;
@@ -71,6 +74,7 @@ function WidgetEventsHandler({
           route: route
         },
         txHash,
+        orderId,
         batchOrderId,
         receiverWallet
       );
@@ -109,7 +113,7 @@ function WidgetEventsHandler({
       widgetEvents.off(WidgetEvent.RouteHighValueLoss, onRouteHighValueLoss);
       widgetEvents.off(WidgetEvent.RouteExecutionUpdated, onRouteExecutionUpdated);
     };
-  }, [widgetEvents, onComplete, batchOrderId, receiverWallet, setPaymentStatus, setError]);
+  }, [widgetEvents, onComplete, orderId, batchOrderId, receiverWallet, setPaymentStatus, setError]);
 
   return null; // This component doesn't render anything
 }
@@ -119,15 +123,17 @@ function CryptoPaymentForm({
   onComplete,
   couponDiscount,
   originalPrice,
+  orderId,
   batchOrderId,
   fee,
   receiverWallet,
 }: {
   totalAmount: number;
-  onComplete: (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => void;
+  onComplete: (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => void;
   couponDiscount: number;
   originalPrice?: number;
   productName: string;
+  orderId: string;
   batchOrderId: string;
   fee: number;
   receiverWallet: string;
@@ -238,7 +244,8 @@ function CryptoPaymentForm({
   const processSolanaPayment = async () => {
     setPaymentStatus('confirming');
     
-    const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, batchOrderId, receiverWallet);
+    let cartId = orderId ?? batchOrderId;
+    const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
     
     if(!paymentSuccess || !txSignature) {
       setError('Payment failed or was cancelled');
@@ -248,6 +255,7 @@ function CryptoPaymentForm({
           success: false
         },
         txSignature || '',
+        orderId,
         batchOrderId,
         receiverWallet
       );
@@ -260,6 +268,7 @@ function CryptoPaymentForm({
         success: true
       },
       txSignature, 
+      orderId,
       batchOrderId,
       receiverWallet
     );
@@ -279,6 +288,7 @@ function CryptoPaymentForm({
         success: true
       },
       mockTxSignature, 
+      orderId,
       batchOrderId
     );
   };
@@ -296,6 +306,7 @@ function CryptoPaymentForm({
         {/* Widget Events Handler - This handles all Li.Fi events */}
         <WidgetEventsHandler
           onComplete={onComplete}
+          orderId={orderId}
           batchOrderId={batchOrderId}
           receiverWallet={receiverWallet}
           setPaymentStatus={setPaymentStatus}
@@ -601,8 +612,9 @@ export function CryptoPaymentModal({
   onComplete,
   totalAmount,
   productName,
+  orderId,
   batchOrderId,
-  walletAmounts = [],
+  walletAmounts = {},
   couponDiscount = 0,
   originalPrice = 0,
   fee = 0,
@@ -649,7 +661,8 @@ export function CryptoPaymentModal({
               couponDiscount={couponDiscount}
               originalPrice={originalPrice}
               productName={productName}
-              batchOrderId={batchOrderId}
+              orderId={orderId || ''}
+              batchOrderId={batchOrderId || ''}
               receiverWallet={receiverWallet}
               fee={fee}
             />

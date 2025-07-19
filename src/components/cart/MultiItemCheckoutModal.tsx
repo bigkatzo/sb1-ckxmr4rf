@@ -124,7 +124,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     originalPrice?: number;
     fee?: number;
     couponDiscount?: number;
-    walletAmounts?: Array<{ [address: string]: number }>;
+    walletAmounts?: { [address: string]: number };
   }>({});
   
   // Add the showSuccessView state within the component
@@ -365,8 +365,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setPaymentMethod(method);
   };
 
-  const handleCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => {
-    console.log('Crypto payment successful:', txSignature, batchOrderId);
+  const handleCryptoComplete = async (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => {
+    console.log('Crypto payment successful:', txSignature, orderId, batchOrderId);
     
     setShowCryptoModal(false);
 
@@ -692,7 +692,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             batchOrderId={orderData.batchOrderId || ''}
             couponDiscount={orderData.couponDiscount}
             originalPrice={orderData.originalPrice || 0}
-            walletAmounts={orderData.walletAmounts || []}
+            walletAmounts={orderData.walletAmounts || {}}
             fee={orderData.fee || 0}
           />
         ) : (
