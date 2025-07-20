@@ -466,7 +466,7 @@ export function StripePaymentModal({
     return () => {
       orderProcessedRef.current = false;
     };
-  }, [isLoading, clientSecret]);
+  }, [clientSecret]);
 
   // Handle successful payment
   const handlePaymentSuccess = React.useCallback((paymentIntentId: string, orderIdFromPayment?: string, batchOrderIdFromPayment?: string) => {
