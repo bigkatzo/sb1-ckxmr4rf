@@ -438,7 +438,7 @@ exports.handler = async (event, context) => {
       log('info', `Fetching batch orders for batchOrderId: ${batchOrderId}`);
       const { data: batchOrder, error: batchError } = await supabase
         .from('orders')
-        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch, amount')
+        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch, amount_sol')
         .eq('batch_order_id', batchOrderId);
       
       if (batchError) {
@@ -456,7 +456,7 @@ exports.handler = async (event, context) => {
       log('info', `Fetching single order for orderId: ${orderId}`);
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch, amount')
+        .select('id, status, order_number, payment_metadata, batch_order_id, total_amount_paid_for_batch, amount_sol')
         .eq('id', orderId);
       
       if (orderError) {
@@ -496,7 +496,7 @@ exports.handler = async (event, context) => {
     }
 
     const details = {
-      amount: orderId ? allOrders[0].amount : allOrders[0].total_amount_paid_for_batch,
+      amount: orderId ? allOrders[0].amount_sol : allOrders[0].total_amount_paid_for_batch,
       buyer: paymentMetadata.walletAddress,
       recipient: paymentMetadata.receiverWallet,
     };
