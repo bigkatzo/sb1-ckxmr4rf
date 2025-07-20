@@ -26,7 +26,7 @@ interface CryptoPaymentModalProps {
   couponCode?: string;
   couponDiscount?: number;
   originalPrice?: number;
-  walletAmounts?: { [address: string]: number };
+  receiverWallet: string;
   fee?: number;
 }
 
@@ -752,18 +752,18 @@ export function CryptoPaymentModal({
   productName,
   orderId,
   batchOrderId,
-  walletAmounts = {},
+  receiverWallet,
   couponDiscount = 0,
   originalPrice = 0,
   fee = 0,
 }: CryptoPaymentModalProps) {
 
-      // how many merchant wallets need to be paid.
-  const walletAmountKeys = Object.keys(walletAmounts);
-  const isDistribution = walletAmountKeys.length > 1;
+  //     // how many merchant wallets need to be paid.
+  // const walletAmountKeys = Object.keys(walletAmounts);
+  // const isDistribution = walletAmountKeys.length > 1;
 
-  // used our fixed wallet that will redistribute to the backend after..
-  const receiverWallet = isDistribution ? "C6AYpmQ7MttakZvbUGWbtCNPJ7W7UXGVUSV6AMDNNX3Y" : walletAmountKeys[0];
+  // // used our fixed wallet that will redistribute to the backend after..
+  // const receiverWallet = isDistribution ? "C6AYpmQ7MttakZvbUGWbtCNPJ7W7UXGVUSV6AMDNNX3Y" : walletAmountKeys[0];
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg overflow-y-auto">

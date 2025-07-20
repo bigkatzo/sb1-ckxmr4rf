@@ -104,6 +104,7 @@ export function TokenVerificationModal({
     transactionSignature?: string;
     amount?: number;
     receiverWallet?: string;
+    walletAmounts?: { [address: string]: number };
   } | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showStripeModal, setShowStripeModal] = useState(false);
@@ -818,7 +819,7 @@ export function TokenVerificationModal({
       setCreatedOrderId(orderData.orderId);
       setOrderDetails({
         orderNumber: orderData.orderNumber,
-        amount: orderData.totalAmount,
+        amount: orderData.totalPaymentAmount,
         transactionSignature: orderData.transactionSignature,
         receiverWallet: orderData.receiverWallet
       })
@@ -920,7 +921,7 @@ export function TokenVerificationModal({
           orderId={createdOrderId || ''}
           couponDiscount={couponResult?.couponDiscount}
           originalPrice={product.price}
-          walletAmounts={{[orderDetails?.receiverWallet || "anon"] : orderDetails?.amount || 0}}
+          receiverWallet={orderDetails?.receiverWallet || ''}
           fee={0}
         />
       ) : (

@@ -452,6 +452,7 @@ exports.handler = async (event, context) => {
         fee,
         transactionSignature: isFreeOrder ? transactionSignature : undefined,
         orders: createdOrders,
+        receiverWallet,
         totalPaymentForBatch,
         couponDiscount,
         originalPrice,

@@ -461,6 +461,7 @@ exports.handler = async (event, context) => {
         couponDiscount,
         originalPrice,
         walletAmounts: { [merchantWallet]: originalPrice },
+        receiverWallet: merchantWallet,
       })
     };
 

@@ -125,6 +125,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     fee?: number;
     couponDiscount?: number;
     walletAmounts?: { [address: string]: number };
+    receiverWallet?: string;
   }>({});
   
   // Add the showSuccessView state within the component
@@ -473,7 +474,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         originalPrice: batchOrderData.originalPrice,
         couponDiscount: batchOrderData.couponDiscount,
         transactionSignature: batchOrderData.transactionSignature,
-        walletAmounts: batchOrderData.walletAmounts || [],
+        receiverWallet: batchOrderData.receiverWallet
       });
       
       if(batchOrderData.batchOrderId) {
@@ -692,7 +693,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             batchOrderId={orderData.batchOrderId || ''}
             couponDiscount={orderData.couponDiscount}
             originalPrice={orderData.originalPrice || 0}
-            walletAmounts={orderData.walletAmounts || {}}
+            receiverWallet={orderData.receiverWallet || ''}
             fee={orderData.fee || 0}
           />
         ) : (
