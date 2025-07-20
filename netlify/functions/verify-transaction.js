@@ -289,13 +289,8 @@ async function processOrders(signature, orders, orderId = undefined, batchOrderI
   try {
     const updateData = {
       status: 'successful',
-      payment_verified: true,
-      payment_verified_at: new Date().toISOString(),
-      transaction_signature: signature,
-      updated_at: new Date().toISOString()
+      updated_at: Date.now(),
     };
-
-    let updateResult;
 
     if (orderId) {
       log('info', `Updating single order: ${orderId}`);
@@ -329,6 +324,7 @@ async function processOrders(signature, orders, orderId = undefined, batchOrderI
     
     return {
       success: true,
+      payment_verified: true,
       message: `Order payment processed successfully`,
       ordersUpdated: orders.length
     };
@@ -337,6 +333,7 @@ async function processOrders(signature, orders, orderId = undefined, batchOrderI
     log('error', 'Error processing orders:', error);
     return {
       success: false,
+      payment_verified: false,
       error: error instanceof Error ? error.message : 'Failed to process orders'
     };
   }
