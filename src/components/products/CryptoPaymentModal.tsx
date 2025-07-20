@@ -313,67 +313,46 @@ function WormholeWidget({
 
   // Custom theme matching the existing design
   const wormholeTheme: any = {
-    background: {
-      default: '#0F172A'
-    },
-    primary: {
-      50: '#F0F9FF',
-      100: '#E0F2FE', 
-      200: '#BAE6FD',
-      300: '#7DD3FC',
-      400: '#38BDF8',
-      500: '#0EA5E9',
-      600: '#0284C7',
-      700: '#0369A1',
-      800: '#075985',
-      900: '#0C4A6E'
-    },
-    secondary: {
-      50: '#F8FAFC',
-      100: '#F1F5F9',
-      200: '#E2E8F0',
-      300: '#CBD5E1',
-      400: '#94A3B8',
-      500: '#64748B',
-      600: '#475569',
-      700: '#334155',
-      800: '#1E293B',
-      900: '#0F172A'
-    },
-    success: '#10B981',
-    error: '#EF4444',
-    warning: '#F59E0B',
-    text: {
-      primary: '#FFFFFF',
-      secondary: '#94A3B8'
-    },
-    button: {
-      primary: '#8B5CF6',
-      primaryText: '#FFFFFF',
-      disabled: '#374151',
-      disabledText: '#6B7280',
-      action: '#8B5CF6',
-      actionText: '#FFFFFF',
-      hover: '#7C3AED'
-    },
-    options: {
-      hover: '#1E293B',
-      select: '#8B5CF6'
-    },
-    card: {
-      background: '#1E293B',
-      secondary: '#334155',
-      elevation: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-    },
-    popover: {
-      background: '#1E293B',
-      secondary: '#334155',
-      elevation: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
-    },
-    modal: {
-      background: '#0F172A'
-    }
-  };
+  background: {
+    default: '#0F172A'
+  },
+  primary: '#0EA5E9', // Picked from the original 500
+  secondary: '#64748B', // Picked from the original 500
+  success: '#10B981',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  text: {
+    primary: '#FFFFFF',
+    secondary: '#94A3B8'
+  },
+  button: {
+    primary: '#8B5CF6',
+    primaryText: '#FFFFFF',
+    disabled: '#374151',
+    disabledText: '#6B7280',
+    action: '#8B5CF6',
+    actionText: '#FFFFFF',
+    hover: '#7C3AED'
+  },
+  options: {
+    hover: '#1E293B',
+    select: '#8B5CF6'
+  },
+  card: {
+    background: '#1E293B',
+    secondary: '#334155',
+    elevation: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+  },
+  popover: {
+    background: '#1E293B',
+    secondary: '#334155',
+    elevation: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+  },
+  modal: {
+    background: '#0F172A'
+  }
+};
+
 
   if (!isInitialized) {
     return (
