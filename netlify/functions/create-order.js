@@ -129,7 +129,7 @@ const getMerchantWallet = async (collectionId) => {
     const { data, error } = await supabase
       .from('collection_wallets')
       .select(`
-        wallet:wallet_id (
+        wallet:wallet_id ( 
           address
         )
       `)
@@ -137,7 +137,18 @@ const getMerchantWallet = async (collectionId) => {
       .single();
 
     if (error) {
-      throw new Error(`Failed to fetch wallet for collection ${collectionId}: ${error.message}`);
+      // If no specific wallet is assigned, get the main wallet
+      const { data: mainWallet, error: mainWalletError } = await supabase
+        .from('merchant_wallets')
+        .select('address')
+        .eq('is_main', true)
+        .eq('is_active', true)
+        .single();
+
+      if (mainWalletError) throw mainWalletError;
+      if (!mainWallet) throw new Error('No active main wallet found');
+
+      return mainWallet.address;
     }
 
     if (!data?.wallet?.address) {
