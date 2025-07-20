@@ -705,12 +705,12 @@ function CryptoPaymentForm({
             <p className="text-white text-2xl font-bold">
               {(totalAmount).toFixed(4)} SOL 
             </p>
-            {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (
+            {/* {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (
               <div className="text-sm mt-1">
                 <span className="text-gray-400 line-through">{((originalPrice ?? 0)).toFixed(4)} SOL</span>
                 <span className="text-purple-400 ml-2">Coupon applied</span>
               </div>
-            )}
+            )} */}
           </div>
         </div>
       </div>
