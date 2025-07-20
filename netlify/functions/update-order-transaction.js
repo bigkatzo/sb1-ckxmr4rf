@@ -328,7 +328,6 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, h
           transactionSignature, 
           isBatchOrder: true,
           totalOrders: batchOrders.length,
-          ordersUpdated: successfulUpdates
         } 
       })
     };

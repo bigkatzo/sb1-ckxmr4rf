@@ -300,7 +300,7 @@ exports.handler = async (event, context) => {
     const originalPrice = totalPaymentForBatch;
     const isFreeOrder = originalPrice - couponDiscount <= 0;
     const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
-    const fee = paymentMethod === 'solana' && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
+    const fee = paymentMethod === 'solana' && Object.keys(walletAmounts).length > 1 && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
     totalPaymentForBatch = isFreeOrder ? 0 : totalPaymentForBatch + fee - couponDiscount;
 
     let transactionSignature;
