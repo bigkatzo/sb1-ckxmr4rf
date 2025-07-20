@@ -289,7 +289,6 @@ async function processOrders(signature, orders, orderId = undefined, batchOrderI
   try {
     const updateData = {
       status: 'confirmed',
-      updated_at: Date.now(),
     };
 
     if (orderId) {
