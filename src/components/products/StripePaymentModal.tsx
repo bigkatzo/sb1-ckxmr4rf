@@ -452,6 +452,7 @@ export function StripePaymentModal({
 
         console.log('Setting client secret:', data.clientSecret.substring(0, 10) + '...');
         setSolPrice(data.solPrice || solPrice);
+        
         setClientSecret(data.clientSecret);
       } catch (err) {
         console.error('Error creating payment intent:', err);
