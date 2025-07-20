@@ -31,7 +31,6 @@
     "@hookform/resolvers": "^5.0.1",
     "@metaplex-foundation/js": "^0.20.1",
     "@mui/material": "^7.2.0",
-    "@mysten/dapp-kit": "^0.16.15",
     "@netlify/functions": "^3.0.4",
     "@pixi/filter-adjustment": "^5.1.1",
     "@pixi/filter-bulge-pinch": "^5.1.1",
