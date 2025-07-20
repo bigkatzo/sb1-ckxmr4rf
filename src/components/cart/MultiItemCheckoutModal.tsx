@@ -469,7 +469,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         orderIds: batchOrderData.orderIds || [],
         orderNumbers: batchOrderData.orderNumbers || [],
         batchOrderId: batchOrderData.batchOrderId,
-        price: batchOrderData.totalPaymentForBatch,
+        price: batchOrderData.totalPaymentAmount,
         fee: batchOrderData.fee,
         originalPrice: batchOrderData.originalPrice,
         couponDiscount: batchOrderData.couponDiscount,
