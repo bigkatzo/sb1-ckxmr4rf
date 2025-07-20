@@ -299,6 +299,7 @@ exports.handler = async (event, context) => {
     
     const originalPrice = totalPaymentForBatch;
     const isFreeOrder = originalPrice - couponDiscount <= 0;
+    const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
     const fee = paymentMethod === 'solana' && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
     totalPaymentForBatch = isFreeOrder ? 0 : totalPaymentForBatch + fee - couponDiscount;
 
@@ -376,7 +377,7 @@ exports.handler = async (event, context) => {
             .from('orders')
             .update({
               batch_order_id: batchOrderId,
-              amount: itemTotal,
+              amount_sol: itemTotal,
               total_amount_paid_for_batch: totalPaymentForBatch,
               quantity,
               order_number: orderNumber,
@@ -414,8 +415,6 @@ exports.handler = async (event, context) => {
         throw error;
       }
     }
-
-    const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
 
     if (createdOrders.length === 0) {
       return {

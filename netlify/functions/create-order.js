@@ -420,7 +420,7 @@ exports.handler = async (event, context) => {
     const { error: updateError } = await supabase
       .from('orders')
       .update({
-        amount: itemTotal,
+        amount_sol: itemTotal,
         total_amount_paid_for_batch: totalPaymentAmount,
         quantity: 1,
         order_number: orderNumber,
