@@ -407,7 +407,7 @@ export function StripePaymentModal({
           existingOrderId
         });
 
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
+        const response = await fetch(`/.netlify/functions/create-payment-intent`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -466,7 +466,7 @@ export function StripePaymentModal({
     return () => {
       orderProcessedRef.current = false;
     };
-  }, [solPrice, isLoading, clientSecret, orderId, batchOrderId, productName, walletAddress, shippingInfo, getCheckoutDataFromStorage]);
+  }, [isLoading, clientSecret]);
 
   // Handle successful payment
   const handlePaymentSuccess = React.useCallback((paymentIntentId: string, orderIdFromPayment?: string, batchOrderIdFromPayment?: string) => {
