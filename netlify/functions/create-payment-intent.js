@@ -52,14 +52,12 @@ exports.handler = async (event, context) => {
     const { 
       productName,
       shippingInfo,
-      productId,
       walletAddress,
       orderId,
       batchOrderId,    // New parameter to pass an existing order ID
     } = JSON.parse(event.body);
     
     console.log('Payment details:', {
-      productId,
       solAmount,
       walletAddress: walletAddress || 'stripe',
       orderId,
@@ -120,7 +118,7 @@ exports.handler = async (event, context) => {
         },
         body: JSON.stringify({
           error: 'Order not found',
-          details: 'The specified order ID could not be found'
+          details: `The specified order ID ${orderId ?? batchOrderId} could not be found`
         })
       };
     }
@@ -132,8 +130,9 @@ exports.handler = async (event, context) => {
     });
 
     // Extract order information
-    const totalAmount = existingOrder.amount;
+    // const totalAmount = existingOrder.amount;
     const paymentMetadata = existingOrder.payment_metadata;
+    const totalAmount = paymentMetadata.totalPaymentAmount;
 
     // Regular payment flow for non-free orders
     // Calculate USD amount, ensuring minimum of $0.50

@@ -376,7 +376,7 @@ export function StripePaymentModal({
 
   // Create payment intent
   React.useEffect(() => {
-    // if (isLoading || clientSecret || orderProcessedRef.current) return;
+    if (isLoading || clientSecret || orderProcessedRef.current) return;
     
     async function createPaymentIntent() {
       setIsLoading(true);
