@@ -231,9 +231,9 @@ function JupiterWidget({
             <p className="text-white text-xl font-semibold">
               {totalAmount.toFixed(4)} SOL
             </p>
-            <p className="text-gray-400 text-xs">
+            {/* <p className="text-gray-400 text-xs">
               ≈ ${(totalAmount * 100).toFixed(2)}
-            </p>
+            </p> */}
           </div>
         </div>
       </div>
