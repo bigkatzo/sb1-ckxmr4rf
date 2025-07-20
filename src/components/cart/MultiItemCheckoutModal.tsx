@@ -451,7 +451,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           paymentMetadata: {
             paymentMethod: paymentMethod ?? 'stripe',
             couponCode: appliedCoupon?.code,
-            couponDiscount: finalPrice,
+            couponDiscount: appliedCoupon?.discountAmount,
             originalPrice: totalPrice
           }
         })

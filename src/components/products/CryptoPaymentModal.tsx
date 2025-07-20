@@ -8,6 +8,14 @@ import { usePayment } from '../../hooks/usePayment';
 import { LiFiWidget, WidgetConfig, useWidgetEvents, WidgetEvent, ChainType } from '@lifi/widget';
 
 // Type definitions
+declare global {
+  interface Window {
+    Jupiter?: {
+      init: (config: any) => void;
+      syncProps?: (props: any) => void;
+    };
+  }
+}
 interface CryptoPaymentModalProps {
   onClose: () => void;
   onComplete: (status:any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => void;
@@ -25,14 +33,119 @@ interface CryptoPaymentModalProps {
 type PaymentMethod = 'solana' | 'other-tokens' | 'cross-chain';
 type PaymentStatus = 'selecting' | 'processing' | 'confirming' | 'succeeded' | 'error';
 
-// Supported tokens for Solana network
-const SUPPORTED_TOKENS = [
-  { symbol: 'SOL', name: 'Solana', icon: '◎', primary: true },
-  { symbol: 'USDC', name: 'USD Coin', icon: '💰', primary: false },
-  { symbol: 'USDT', name: 'Tether', icon: '₮', primary: false },
-  { symbol: 'BONK', name: 'Bonk', icon: '🐶', primary: false },
-  { symbol: 'JUP', name: 'Jupiter', icon: '🪐', primary: false },
-];
+// Jupiter Widget Component
+function JupiterWidget({ 
+  totalAmount, 
+  receiverWallet,
+  onComplete,
+  orderId,
+  batchOrderId,
+  setPaymentStatus,
+  setError
+}: {
+  totalAmount: number;
+  receiverWallet: string;
+  onComplete: (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => void;
+  orderId?: string;
+  batchOrderId?: string;
+  setPaymentStatus: (status: PaymentStatus) => void;
+  setError: (error: string | null) => void;
+}) {
+  const jupiterRef = React.useRef<HTMLDivElement>(null);
+  const { walletAddress } = useWallet();
+
+  React.useEffect(() => {
+    if (!jupiterRef.current || !walletAddress || !window.Jupiter) return;
+
+    // Initialize Jupiter Terminal
+    window.Jupiter.init({
+      displayMode: 'integrated',
+      integratedTargetId: 'jupiter-terminal',
+      endpoint: 'https://api.mainnet-beta.solana.com',
+      platformFeeAndAccounts: {
+        feeBps: 0, // No platform fee
+        feeAccounts: []
+      },
+      formProps: {
+        fixedOutputMint: true, // Lock output to SOL
+        swapMode: 'ExactOut', // User specifies output amount (SOL)
+        initialAmount: (totalAmount * 1e9).toString(), // Convert SOL to lamports
+        initialInputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC as default input
+        initialOutputMint: 'So11111111111111111111111111111111111111112', // SOL
+        fixedAmount: true,
+        strictTokenList: false,
+        defaultExplorer: 'SolanaFM'
+      },
+      enableWalletPassthrough: true,
+      onRequestConnectWallet: () => {
+        console.log('Wallet connection requested');
+      },
+      onSuccess: async ({ txid, swapResult }: any) => {
+        console.log('Jupiter swap successful:', { txid, swapResult });
+        setPaymentStatus('succeeded');
+        
+        onComplete(
+          {
+            success: true,
+            swapResult: swapResult,
+            outputAmount: totalAmount
+          },
+          txid,
+          orderId,
+          batchOrderId,
+          receiverWallet
+        );
+      },
+      onSwapError: ({ error }: any) => {
+        console.error('Jupiter swap error:', error);
+        setError(error?.message || 'Token swap failed');
+        setPaymentStatus('error');
+      },
+      onFormUpdate: (form: any) => {
+        // Handle form updates if needed
+        console.log('Jupiter form updated:', form);
+      },
+      onScreenUpdate: (screen: any) => {
+        // Handle screen changes
+        console.log('Jupiter screen updated:', screen);
+        if (screen === 'SwappingScreen') {
+          setPaymentStatus('processing');
+        }
+      }
+    });
+
+    // return () => {
+    //   // Cleanup Jupiter instance if needed
+    //   if (window.Jupiter?.close) {
+    //     window.Jupiter.close();
+    //   }
+    // };
+  }, [walletAddress, totalAmount, receiverWallet, onComplete, orderId, batchOrderId, setPaymentStatus, setError]);
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-gray-800/50 p-4 rounded-lg">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-300">You will receive:</span>
+          <div className="text-right">
+            <span className="text-white font-medium">
+              {totalAmount.toFixed(2)} SOL
+            </span>
+          </div>
+        </div>
+        <div className="text-xs text-gray-400">
+          Swap any token on Solana to SOL using Jupiter's best routes
+        </div>
+      </div>
+      
+      <div 
+        ref={jupiterRef}
+        id="jupiter-terminal"
+        className="bg-gray-800/30 rounded-lg overflow-hidden min-h-[600px]"
+      />
+    </div>
+  );
+}
 
 // Widget Events Component - This needs to be separate from the main widget component
 function WidgetEventsHandler({
@@ -139,11 +252,11 @@ function CryptoPaymentForm({
   receiverWallet: string;
 }) {
   const [selectedMethod, setSelectedMethod] = React.useState<PaymentMethod>('solana');
-  const [selectedToken, setSelectedToken] = React.useState(SUPPORTED_TOKENS[0]);
   const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>('selecting');
   const [error, setError] = React.useState<string | null>(null);
   const [walletConnected, setWalletConnected] = React.useState(false);
   const [showLiFiWidget, setShowLiFiWidget] = React.useState(false);
+  const [showJupiterWidget, setShowJupiterWidget] = React.useState(false);
   const { walletAddress, disconnect } = useWallet();
   const { processPayment } = usePayment();
 
@@ -152,7 +265,19 @@ function CryptoPaymentForm({
     setWalletConnected(!!walletAddress);
   }, [walletAddress]);
 
-  console.log(fee)
+  // Load Jupiter Terminal script
+  React.useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://terminal.jup.ag/main-v2.js';
+    script.async = true;
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
+
+  console.log(fee);
 
   const toLifiAddress = {
     name: "Store.fun",
@@ -201,13 +326,14 @@ function CryptoPaymentForm({
     
     if (method === 'cross-chain') {
       setShowLiFiWidget(true);
+      setShowJupiterWidget(false);
+    } else if (method === 'other-tokens') {
+      setShowJupiterWidget(true);
+      setShowLiFiWidget(false);
     } else {
       setShowLiFiWidget(false);
+      setShowJupiterWidget(false);
     }
-  };
-
-  const handleTokenSelect = (token: typeof SUPPORTED_TOKENS[0]) => {
-    setSelectedToken(token);
   };
 
   const handlePayment = async () => {
@@ -225,7 +351,9 @@ function CryptoPaymentForm({
           await processSolanaPayment();
           break;
         case 'other-tokens':
-          await processTokenPayment();
+          // Jupiter widget handles token swaps - user will interact directly with widget
+          setError('Please use the Jupiter widget below to complete your token swap');
+          setPaymentStatus('selecting');
           break;
         case 'cross-chain':
           // Li.Fi widget handles cross-chain payments
@@ -274,30 +402,66 @@ function CryptoPaymentForm({
     );
   };
 
-  const processTokenPayment = async () => {
-    setPaymentStatus('confirming');
-    
-    // Simulate token payment processing
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    
-    // Mock successful transaction
-    const mockTxSignature = `mock_${selectedToken.symbol.toLowerCase()}_tx_` + Date.now();
-    setPaymentStatus('succeeded');
-    onComplete(
-      {
-        success: true
-      },
-      mockTxSignature, 
-      orderId,
-      batchOrderId
-    );
-  };
-
   if (totalAmount === 0) {
     return <Loading type={LoadingType.ACTION} text="Loading price data..." />;
   }
 
   const isProcessing = paymentStatus === 'processing' || paymentStatus === 'confirming';
+
+  // If showing Jupiter widget, render it
+  if (showJupiterWidget) {
+    return (
+      <div className="space-y-6">
+        {/* Back Button */}
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => {
+              setShowJupiterWidget(false);
+              setSelectedMethod('solana');
+              setPaymentStatus('selecting');
+              setError(null);
+            }}
+            variant="ghost"
+            size="sm"
+            className="text-gray-400 hover:text-white"
+          >
+            ← Back to Payment Methods
+          </Button>
+        </div>
+
+        {/* Payment Status */}
+        {paymentStatus === 'processing' && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <Loading type={LoadingType.ACTION} />
+              <div>
+                <div className="text-blue-400 font-medium">Processing Token Swap</div>
+                <div className="text-sm text-gray-400">Please complete the swap in the widget below</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Jupiter Widget */}
+        <JupiterWidget
+          totalAmount={totalAmount}
+          receiverWallet={receiverWallet}
+          onComplete={onComplete}
+          orderId={orderId}
+          batchOrderId={batchOrderId}
+          setPaymentStatus={setPaymentStatus}
+          setError={setError}
+        />
+
+        {/* Error Display */}
+        {error && (
+          <div className="text-red-500 text-sm p-4 bg-red-500/10 rounded-lg">
+            {error}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // If showing Li.Fi widget, render it with the event handler
   if (showLiFiWidget) {
@@ -441,7 +605,7 @@ function CryptoPaymentForm({
           </div>
         </div>
 
-        {/* Other Tokens */}
+        {/* Other Tokens with Jupiter */}
         <div
           onClick={() => handlePaymentMethodSelect('other-tokens')}
           className={`p-4 rounded-lg border cursor-pointer transition-all ${
@@ -453,11 +617,11 @@ function CryptoPaymentForm({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold">
-                💰
+                🪐
               </div>
               <div>
                 <div className="text-white font-medium">Pay with Other Tokens</div>
-                <div className="text-sm text-gray-400">USDC, USDT, and more on Solana</div>
+                <div className="text-sm text-gray-400">Swap any Solana token via Jupiter</div>
               </div>
             </div>
             {selectedMethod === 'other-tokens' && (
@@ -491,34 +655,6 @@ function CryptoPaymentForm({
           </div>
         </div>
       </div>
-
-      {/* Token Selection (when other-tokens is selected) */}
-      {selectedMethod === 'other-tokens' && (
-        <div className="space-y-3">
-          <h4 className="text-white font-medium text-sm">Select Token</h4>
-          <div className="grid grid-cols-2 gap-2">
-            {SUPPORTED_TOKENS.map((token) => (
-              <button
-                key={token.symbol}
-                onClick={() => handleTokenSelect(token)}
-                className={`p-3 rounded-lg border text-left transition-all ${
-                  selectedToken.symbol === token.symbol
-                    ? 'border-primary-500 bg-primary-500/10'
-                    : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{token.icon}</span>
-                  <div>
-                    <div className="text-white text-sm font-medium">{token.symbol}</div>
-                    <div className="text-xs text-gray-400">{token.name}</div>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Wallet Connection Warning */}
       {!walletConnected && (
@@ -574,13 +710,15 @@ function CryptoPaymentForm({
             ? 'Confirming transaction...'
             : 'Processing...'
         }
-        disabled={!walletConnected || isProcessing || (selectedMethod !== 'cross-chain' && paymentStatus === 'selecting')}
+        disabled={!walletConnected || isProcessing || ((selectedMethod === 'cross-chain' || selectedMethod === 'other-tokens') && paymentStatus === 'selecting')}
         className="w-full"
       >
         {!walletConnected ? (
           'Connect Wallet to Continue'
         ) : selectedMethod === 'cross-chain' ? (
           'Open Cross-Chain Payment'
+        ) : selectedMethod === 'other-tokens' ? (
+          'Open Token Swap'
         ) : isProcessing ? (
           'Processing Payment...'
         ) : (
