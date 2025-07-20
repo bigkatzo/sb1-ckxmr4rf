@@ -5,34 +5,22 @@ import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Button } from '../ui/Button';
 import { usePayment } from '../../hooks/usePayment';
+import WormholeConnect from '@wormhole-foundation/wormhole-connect';
 
-// ========== Type Definitions =============
-
-type PaymentMethod = 'solana' | 'other-tokens' | 'cross-chain';
-type PaymentStatus = 'selecting' | 'processing' | 'confirming' | 'succeeded' | 'error';
-
+// Type definitions
 declare global {
   interface Window {
     Jupiter?: {
       init: (config: any) => void;
-      close: () => void;
-    };
-    WormholeConnect?: {
-      init: (element: HTMLElement, config: any) => void;
-      default?: any;
+      syncProps?: (props: any) => void;
+      close?: () => void;
     };
   }
 }
 
 interface CryptoPaymentModalProps {
   onClose: () => void;
-  onComplete: (
-    status: any,
-    txSignature: string,
-    orderId?: string,
-    batchOrderId?: string,
-    receiverWallet?: string
-  ) => void;
+  onComplete: (status:any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => void;
   totalAmount: number;
   productName: string;
   orderId?: string;
@@ -44,7 +32,9 @@ interface CryptoPaymentModalProps {
   fee?: number;
 }
 
-// =============== JUPITER Widget Unchanged ================
+type PaymentMethod = 'solana' | 'other-tokens' | 'cross-chain';
+type PaymentStatus = 'selecting' | 'processing' | 'confirming' | 'succeeded' | 'error';
+
 // Jupiter Widget Component
 function JupiterWidget({ 
   totalAmount, 
@@ -279,8 +269,8 @@ function JupiterWidget({
   );
 }
 
-// ================ Wormhole Connect Widget ==================
-function WormholeConnectWidget({
+// Wormhole Widget Component
+function WormholeWidget({
   totalAmount,
   receiverWallet,
   onComplete,
@@ -291,174 +281,101 @@ function WormholeConnectWidget({
 }: {
   totalAmount: number;
   receiverWallet: string;
-  onComplete: (
-    status: any,
-    txSignature: string,
-    orderId?: string,
-    batchOrderId?: string,
-    receiverWallet?: string
-  ) => void;
+  onComplete: (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => void;
   orderId?: string;
   batchOrderId?: string;
   setPaymentStatus: (status: PaymentStatus) => void;
-  setError: (err: string | null) => void;
+  setError: (error: string | null) => void;
 }) {
-  const [isWormholeLoaded, setIsWormholeLoaded] = React.useState(false);
-  const [isWormholeInitialized, setIsWormholeInitialized] = React.useState(false);
-  const [loadingError, setLoadingError] = React.useState(false);
-  const [isComplete, setIsComplete] = React.useState(false);
+  const [isInitialized, setIsInitialized] = React.useState(false);
 
-  // Load Wormhole Connect script
   React.useEffect(() => {
-    const loadWormholeConnect = async () => {
-      try {
-        // Check if Wormhole Connect is already loaded
-        if (window.WormholeConnect) {
-          setIsWormholeLoaded(true);
-          return;
-        }
+    setIsInitialized(true);
+  }, []);
 
-        // Import Wormhole Connect dynamically
-        const WormholeConnect = await import('@wormhole-foundation/wormhole-connect');
-        
-        // Attach to window for global access
-        window.WormholeConnect = WormholeConnect.default || WormholeConnect;
-        setIsWormholeLoaded(true);
-        setLoadingError(false);
-      } catch (error) {
-        console.error('Failed to load Wormhole Connect:', error);
-        setLoadingError(true);
-        setError('Failed to load Wormhole Connect widget. Please refresh and try again.');
-      }
-    };
+  // Wormhole configuration
+  const wormholeConfig: any = {
+    network: 'Mainnet',
+    chains: ['Ethereum', 'Solana', 'Polygon', 'Bsc', 'Avalanche', 'Base', 'Arbitrum', 'Optimism'],
+    rpcs: {
+      Solana: 'https://api.mainnet-beta.solana.com',
+      Ethereum: 'https://rpc.ankr.com/eth',
+      Polygon: 'https://polygon-rpc.com',
+      Bsc: 'https://bsc-dataseed.binance.org/',
+      Avalanche: 'https://api.avax.network/ext/bc/C/rpc',
+      Base: 'https://mainnet.base.org',
+      Arbitrum: 'https://arb1.arbitrum.io/rpc',
+      Optimism: 'https://mainnet.optimism.io'
+    },
+    tokensConfig: {},
+    routes: []
+  };
 
-    loadWormholeConnect();
-  }, [setError]);
-
-  // Initialize Wormhole Connect
-  React.useEffect(() => {
-    if (!isWormholeLoaded || !window.WormholeConnect || isWormholeInitialized || loadingError) {
-      return;
+  // Custom theme matching the existing design
+  const wormholeTheme: any = {
+    background: {
+      default: '#0F172A'
+    },
+    primary: {
+      50: '#F0F9FF',
+      100: '#E0F2FE', 
+      200: '#BAE6FD',
+      300: '#7DD3FC',
+      400: '#38BDF8',
+      500: '#0EA5E9',
+      600: '#0284C7',
+      700: '#0369A1',
+      800: '#075985',
+      900: '#0C4A6E'
+    },
+    secondary: {
+      50: '#F8FAFC',
+      100: '#F1F5F9',
+      200: '#E2E8F0',
+      300: '#CBD5E1',
+      400: '#94A3B8',
+      500: '#64748B',
+      600: '#475569',
+      700: '#334155',
+      800: '#1E293B',
+      900: '#0F172A'
+    },
+    success: '#10B981',
+    error: '#EF4444',
+    warning: '#F59E0B',
+    text: {
+      primary: '#FFFFFF',
+      secondary: '#94A3B8'
+    },
+    button: {
+      primary: '#8B5CF6',
+      primaryText: '#FFFFFF',
+      disabled: '#374151',
+      disabledText: '#6B7280',
+      action: '#8B5CF6',
+      actionText: '#FFFFFF',
+      hover: '#7C3AED'
+    },
+    options: {
+      hover: '#1E293B',
+      select: '#8B5CF6'
+    },
+    card: {
+      background: '#1E293B',
+      secondary: '#334155',
+      elevation: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+    },
+    popover: {
+      background: '#1E293B',
+      secondary: '#334155',
+      elevation: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+    },
+    modal: {
+      background: '#0F172A'
     }
+  };
 
-    const initializeWormhole = async () => {
-      try {
-        console.log('Initializing Wormhole Connect');
-
-        // Configuration for Wormhole Connect
-        const config = {
-          env: 'mainnet',
-          networks: ['ethereum', 'solana', 'polygon', 'bsc', 'avalanche'],
-          tokens: ['SOL', 'ETH', 'USDC', 'USDT'],
-          mode: 'dark',
-          customTheme: {
-            background: {
-              default: '#111827',
-              paper: '#1f2937',
-            },
-            primary: {
-              main: '#8b5cf6',
-            },
-            secondary: {
-              main: '#06b6d4',
-            },
-            text: {
-              primary: '#ffffff',
-              secondary: '#9ca3af',
-            },
-          },
-          bridgeDefaults: {
-            toNetwork: 'solana',
-            toToken: 'SOL',
-            toAddress: receiverWallet,
-            amount: totalAmount.toString(),
-          },
-          showHamburgerMenu: false,
-          cta: {
-            text: 'Bridge to Solana',
-            link: undefined,
-          },
-        };
-
-        // Render Wormhole Connect
-        const container = document.getElementById('wormhole-connect-container');
-        if (container && window.WormholeConnect) {
-          container.innerHTML = '';
-          
-          // Create Wormhole Connect element
-          const wormholeElement = document.createElement('div');
-          wormholeElement.id = 'wormhole-connect';
-          container.appendChild(wormholeElement);
-
-          // Initialize Wormhole Connect with config
-          window.WormholeConnect.init(wormholeElement, config);
-
-          // Listen for bridge completion events
-          const handleBridgeComplete = (event: CustomEvent) => {
-            console.log('Wormhole bridge completed:', event.detail);
-            setIsComplete(true);
-            setPaymentStatus('succeeded');
-            
-            onComplete(
-              {
-                success: true,
-                crossChain: true,
-                bridgeResult: event.detail,
-              },
-              event.detail?.txHash || event.detail?.transactionId || '',
-              orderId,
-              batchOrderId,
-              receiverWallet
-            );
-          };
-
-          const handleBridgeError = (event: CustomEvent) => {
-            console.error('Wormhole bridge error:', event.detail);
-            setError(event.detail?.message || 'Cross-chain bridge failed');
-            setPaymentStatus('error');
-          };
-
-          // Add event listeners
-          window.addEventListener('wormhole-bridge-complete', handleBridgeComplete as EventListener);
-          window.addEventListener('wormhole-bridge-error', handleBridgeError as EventListener);
-
-          setIsWormholeInitialized(true);
-
-          // Cleanup function
-          return () => {
-            window.removeEventListener('wormhole-bridge-complete', handleBridgeComplete as EventListener);
-            window.removeEventListener('wormhole-bridge-error', handleBridgeError as EventListener);
-          };
-        }
-      } catch (error) {
-        console.error('Wormhole Connect initialization error:', error);
-        setError('Failed to initialize Wormhole Connect widget');
-        setLoadingError(true);
-      }
-    };
-
-    initializeWormhole();
-  }, [isWormholeLoaded, receiverWallet, totalAmount, onComplete, orderId, batchOrderId, setPaymentStatus, setError, isWormholeInitialized, loadingError]);
-
-  if (loadingError) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <div className="text-red-400 text-center">
-          <p className="font-medium">Failed to load Wormhole Connect</p>
-          <p className="text-sm text-gray-400 mt-2">Please refresh the page and try again</p>
-        </div>
-        <Button
-          onClick={() => window.location.reload()}
-          variant="primary"
-          size="sm"
-        >
-          Refresh Page
-        </Button>
-      </div>
-    );
-  }
-
-  if (!isWormholeLoaded) {
+  if (!isInitialized) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-3">
@@ -475,7 +392,7 @@ function WormholeConnectWidget({
       <div className="bg-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-teal-500 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
               <Globe className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -489,85 +406,60 @@ function WormholeConnectWidget({
             </p>
           </div>
         </div>
-        <div className="text-xs text-gray-400 bg-gray-800/50 rounded-lg p-3 mt-2">
-          <span className="text-gray-300 font-medium">Destination:</span>{' '}
-          {receiverWallet.slice(0, 8)}...{receiverWallet.slice(-8)}
+        <div className="text-xs text-gray-400 bg-gray-800/50 rounded-lg p-3">
+          <span className="text-gray-300 font-medium">Destination:</span> {receiverWallet.slice(0, 8)}...{receiverWallet.slice(-8)}
         </div>
       </div>
 
-      {/* Wormhole Connect Container */}
+      {/* Wormhole Widget Container */}
       <div className="bg-gray-900/40 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden">
         <div className="p-4 border-b border-gray-700/50 bg-gray-900/60">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-teal-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              🔗
+            <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+              🌉
             </div>
             <div>
               <h3 className="text-white font-medium">Wormhole Connect</h3>
-              <p className="text-gray-400 text-xs">Cross-chain bridge protocol</p>
+              <p className="text-gray-400 text-xs">Secure cross-chain token transfers</p>
             </div>
           </div>
         </div>
         
         <div className="p-4">
-          <div 
-            id="wormhole-connect-container"
-            className="w-full min-h-[600px] bg-gray-950/50 rounded-lg border border-gray-800"
-          />
-
-          {!isWormholeInitialized && isWormholeLoaded && (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center space-y-3">
-                <Loading type={LoadingType.ACTION} />
-                <p className="text-gray-400 text-sm">Initializing Wormhole Connect...</p>
-              </div>
-            </div>
-          )}
-
-          {isComplete && (
-            <div className="mt-4 text-center text-green-400 text-sm">
-              ✅ Cross-chain transfer completed!
-            </div>
-          )}
+          <div className="wormhole-widget-container min-h-[600px]">
+            <WormholeConnect 
+              config={wormholeConfig}
+              theme={wormholeTheme}
+            />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ================ Main Form Component ===========================
-
 function CryptoPaymentForm({
   totalAmount,
   onComplete,
-  couponDiscount = 0,
-  originalPrice = 0,
-  productName,
+  couponDiscount,
+  originalPrice,
   orderId,
   batchOrderId,
-  fee = 0,
+  fee,
   receiverWallet,
 }: {
   totalAmount: number;
-  onComplete: (
-    status: any,
-    txSignature: string,
-    orderId?: string,
-    batchOrderId?: string,
-    receiverWallet?: string
-  ) => void;
-  couponDiscount?: number;
+  onComplete: (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => void;
+  couponDiscount: number;
   originalPrice?: number;
   productName: string;
   orderId: string;
   batchOrderId: string;
-  fee?: number;
+  fee: number;
   receiverWallet: string;
 }) {
-  const [selectedMethod, setSelectedMethod] =
-    React.useState<PaymentMethod>('solana');
-  const [paymentStatus, setPaymentStatus] =
-    React.useState<PaymentStatus>('selecting');
+  const [selectedMethod, setSelectedMethod] = React.useState<PaymentMethod>('solana');
+  const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>('selecting');
   const [error, setError] = React.useState<string | null>(null);
   const [walletConnected, setWalletConnected] = React.useState(false);
   const [showWormholeWidget, setShowWormholeWidget] = React.useState(false);
@@ -579,22 +471,23 @@ function CryptoPaymentForm({
     setWalletConnected(!!walletAddress);
   }, [walletAddress]);
 
-  const isProcessing =
-    paymentStatus === 'processing' || paymentStatus === 'confirming';
-
-  // --- PAYMENT METHOD TOGGLE LOGIC ---
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
     setSelectedMethod(method);
     setError(null);
     setPaymentStatus('selecting');
-    setShowJupiterWidget(false);
-    setShowWormholeWidget(false);
-    // Show widget if applicable
-    if (method === 'cross-chain') setShowWormholeWidget(true);
-    if (method === 'other-tokens') setShowJupiterWidget(true);
+    
+    if (method === 'cross-chain') {
+      setShowWormholeWidget(true);
+      setShowJupiterWidget(false);
+    } else if (method === 'other-tokens') {
+      setShowJupiterWidget(true);
+      setShowWormholeWidget(false);
+    } else {
+      setShowWormholeWidget(false);
+      setShowJupiterWidget(false);
+    }
   };
 
-  // --- BUTTON PAY LOGIC ---
   const handlePayment = async () => {
     if (!walletAddress) {
       setError('Please connect your wallet first');
@@ -610,36 +503,34 @@ function CryptoPaymentForm({
           await processSolanaPayment();
           break;
         case 'other-tokens':
-          setError(
-            'Please use the Jupiter widget below to complete your token swap.'
-          );
+          setError('Please use the Jupiter widget below to complete your token swap');
           setPaymentStatus('selecting');
           break;
         case 'cross-chain':
-          setError('Please use the Wormhole Connect widget below.');
-          setPaymentStatus('selecting');
           break;
         default:
-          throw new Error('Invalid payment method.');
+          throw new Error('Invalid payment method selected');
       }
-    } catch (err: any) {
-      setError(err?.message || 'Unexpected payment error.');
+    } catch (err) {
+      console.error('Payment error:', err);
+      setError(err instanceof Error ? err.message : 'Payment failed');
       setPaymentStatus('error');
     }
   };
 
-  // --- PROCESS SOLANA ONLY PAYMENT ---
   const processSolanaPayment = async () => {
     setPaymentStatus('confirming');
+    
     let cartId = orderId ?? batchOrderId;
-    const { success: paymentSuccess, signature: txSignature } =
-      await processPayment(totalAmount, cartId, receiverWallet);
-
-    if (!paymentSuccess || !txSignature) {
+    const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
+    
+    if(!paymentSuccess || !txSignature) {
       setError('Payment failed or was cancelled');
       setPaymentStatus('error');
       onComplete(
-        { success: false },
+        {
+          success: false
+        },
         txSignature || '',
         orderId,
         batchOrderId,
@@ -647,18 +538,19 @@ function CryptoPaymentForm({
       );
       return;
     }
-
+    
     setPaymentStatus('succeeded');
     onComplete(
-      { success: true },
-      txSignature,
+      {
+        success: true
+      },
+      txSignature, 
       orderId,
       batchOrderId,
       receiverWallet
     );
   };
 
-  // --- NO PRICE DATA (loading) ---
   if (totalAmount === 0) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -670,7 +562,9 @@ function CryptoPaymentForm({
     );
   }
 
-  // =================== JUPITER (OTHER TOKEN) WIDGET ==============
+  const isProcessing = paymentStatus === 'processing' || paymentStatus === 'confirming';
+
+  // Jupiter Widget View
   if (showJupiterWidget) {
     return (
       <div className="space-y-6">
@@ -684,11 +578,26 @@ function CryptoPaymentForm({
             }}
             variant="ghost"
             size="sm"
-            className="text-gray-400 hover:text-white"
+            className="text-gray-400 hover:text-white transition-colors"
           >
             ← Back to Payment Methods
           </Button>
         </div>
+
+        {paymentStatus === 'processing' && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <Loading type={LoadingType.ACTION} />
+              </div>
+              <div>
+                <h4 className="text-blue-400 font-medium">Processing Token Swap</h4>
+                <p className="text-sm text-gray-400 mt-1">Complete the swap in the widget below</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <JupiterWidget
           totalAmount={totalAmount}
           receiverWallet={receiverWallet}
@@ -698,8 +607,9 @@ function CryptoPaymentForm({
           setPaymentStatus={setPaymentStatus}
           setError={setError}
         />
+
         {error && (
-          <div className="text-red-400 text-sm p-4 bg-red-500/10 rounded-xl">
+          <div className="text-red-400 text-sm p-4 bg-red-500/10 rounded-xl border border-red-500/30 backdrop-blur-sm">
             <div className="flex items-start gap-3">
               <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <X className="h-3 w-3 text-white" />
@@ -715,24 +625,41 @@ function CryptoPaymentForm({
     );
   }
 
-  // ================== WORMHOLE CONNECT BRIDGE WIDGET ===================
+  // Wormhole Widget View
   if (showWormholeWidget) {
     return (
       <div className="space-y-6">
-        <Button
-          onClick={() => {
-            setShowWormholeWidget(false);
-            setSelectedMethod('solana');
-            setPaymentStatus('selecting');
-            setError(null);
-          }}
-          variant="ghost"
-          size="sm"
-          className="text-gray-400 hover:text-white"
-        >
-          ← Back to Payment Methods
-        </Button>
-        <WormholeConnectWidget
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={() => {
+              setShowWormholeWidget(false);
+              setSelectedMethod('solana');
+              setPaymentStatus('selecting');
+              setError(null);
+            }}
+            variant="ghost"
+            size="sm"
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            ← Back to Payment Methods
+          </Button>
+        </div>
+
+        {paymentStatus === 'processing' && (
+          <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <Loading type={LoadingType.ACTION} />
+              </div>
+              <div>
+                <h4 className="text-purple-400 font-medium">Processing Cross-Chain Transfer</h4>
+                <p className="text-sm text-gray-400 mt-1">Complete the transfer in the widget below</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <WormholeWidget
           totalAmount={totalAmount}
           receiverWallet={receiverWallet}
           onComplete={onComplete}
@@ -741,8 +668,9 @@ function CryptoPaymentForm({
           setPaymentStatus={setPaymentStatus}
           setError={setError}
         />
+
         {error && (
-          <div className="text-red-400 text-sm p-4 bg-red-500/10 rounded-xl">
+          <div className="text-red-400 text-sm p-4 bg-red-500/10 rounded-xl border border-red-500/30 backdrop-blur-sm">
             <div className="flex items-start gap-3">
               <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <X className="h-3 w-3 text-white" />
@@ -758,11 +686,10 @@ function CryptoPaymentForm({
     );
   }
 
-  // =================== MAIN PAYMENT SELECTION UI ==================
-
+  // Main Payment Method Selection
   return (
     <div className="space-y-6">
-      {/* Price Card */}
+      {/* Price Display */}
       <div className="bg-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -771,36 +698,27 @@ function CryptoPaymentForm({
             </div>
             <div>
               <p className="text-gray-300 text-sm font-medium">Total Amount</p>
-              <p className="text-xs text-gray-400">
-                Live pricing with real-time SOL rate
-              </p>
+              <p className="text-xs text-gray-400">Live pricing with real-time SOL rate</p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-white text-2xl font-bold">
-              {totalAmount.toFixed(4)} SOL
+              {(totalAmount).toFixed(4)} SOL 
             </p>
-            {couponDiscount > 0 && originalPrice > 0 && (
+            {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (
               <div className="text-sm mt-1">
-                <span className="text-gray-400 line-through">
-                  {originalPrice.toFixed(4)} SOL
-                </span>
+                <span className="text-gray-400 line-through">{((originalPrice ?? 0)).toFixed(4)} SOL</span>
                 <span className="text-purple-400 ml-2">Coupon applied</span>
               </div>
             )}
-            <p className="text-gray-400 text-xs mt-1">
-              ≈ ${(totalAmount * 100).toFixed(2)} USD
-            </p>
           </div>
         </div>
       </div>
 
-      {/* Payment Methods */}
+      {/* Payment Method Selection */}
       <div className="space-y-4">
-        <h3 className="text-white font-semibold text-lg">
-          Select Payment Method
-        </h3>
-
+        <h3 className="text-white font-semibold text-lg">Select Payment Method</h3>
+        
         {/* Solana Payment */}
         <div
           onClick={() => handlePaymentMethodSelect('solana')}
@@ -817,9 +735,7 @@ function CryptoPaymentForm({
               </div>
               <div>
                 <h4 className="text-white font-medium text-base">Pay with SOL</h4>
-                <p className="text-sm text-gray-400 mt-1">
-                  Direct Solana payment • Instant • Lowest fees
-                </p>
+                <p className="text-sm text-gray-400 mt-1">Direct Solana payment • Instant • Lowest fees</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -828,17 +744,14 @@ function CryptoPaymentForm({
                   <Check className="h-4 w-4 text-white" />
                 </div>
               )}
-              <ArrowRight
-                className={`h-5 w-5 transition-transform ${
-                  selectedMethod === 'solana'
-                    ? 'text-purple-400'
-                    : 'text-gray-400 group-hover:text-gray-300'
-                }`}
-              />
+              <ArrowRight className={`h-5 w-5 transition-transform ${
+                selectedMethod === 'solana' ? 'text-purple-400' : 'text-gray-400 group-hover:text-gray-300'
+              }`} />
             </div>
           </div>
         </div>
-        {/* Other Tokens w/ Jupiter Swaps */}
+
+        {/* Other Tokens with Jupiter */}
         <div
           onClick={() => handlePaymentMethodSelect('other-tokens')}
           className={`group p-5 rounded-xl border cursor-pointer transition-all duration-200 ${
@@ -853,12 +766,8 @@ function CryptoPaymentForm({
                 🪐
               </div>
               <div>
-                <h4 className="text-white font-medium text-base">
-                  Pay with Other Tokens
-                </h4>
-                <p className="text-sm text-gray-400 mt-1">
-                  Swap any Solana token via Jupiter • Best rates
-                </p>
+                <h4 className="text-white font-medium text-base">Pay with Other Tokens</h4>
+                <p className="text-sm text-gray-400 mt-1">Swap any Solana token via Jupiter • Best rates</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -867,79 +776,63 @@ function CryptoPaymentForm({
                   <Check className="h-4 w-4 text-white" />
                 </div>
               )}
-              <ArrowRight
-                className={`h-5 w-5 transition-transform ${
-                  selectedMethod === 'other-tokens'
-                    ? 'text-blue-400'
-                    : 'text-gray-400 group-hover:text-gray-300'
-                }`}
-              />
+              <ArrowRight className={`h-5 w-5 transition-transform ${
+                selectedMethod === 'other-tokens' ? 'text-blue-400' : 'text-gray-400 group-hover:text-gray-300'
+              }`} />
             </div>
           </div>
         </div>
 
-        {/* Cross-Chain via Wormhole */}
+        {/* Cross-Chain Payment with Wormhole */}
         <div
           onClick={() => handlePaymentMethodSelect('cross-chain')}
           className={`group p-5 rounded-xl border cursor-pointer transition-all duration-200 ${
             selectedMethod === 'cross-chain'
-              ? 'border-green-500/50 bg-green-500/10 shadow-lg shadow-green-500/20'
+              ? 'border-purple-500/50 bg-purple-500/10 shadow-lg shadow-purple-500/20'
               : 'border-gray-700/50 bg-gray-900/40 hover:border-gray-600/50 hover:bg-gray-900/60'
           }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
-                🔗
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                🌉
               </div>
               <div>
-                <h4 className="text-white font-medium text-base">
-                  Pay from Any Network
-                </h4>
-                <p className="text-sm text-gray-400 mt-1">
-                  Cross-chain payments via Wormhole • Multi-chain support
-                </p>
+                <h4 className="text-white font-medium text-base">Pay from Any Network</h4>
+                <p className="text-sm text-gray-400 mt-1">Cross-chain payments via Wormhole • Multi-chain support</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               {selectedMethod === 'cross-chain' && (
-                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
                   <Check className="h-4 w-4 text-white" />
                 </div>
               )}
-              <ArrowRight
-                className={`h-5 w-5 transition-transform ${
-                  selectedMethod === 'cross-chain'
-                    ? 'text-green-400'
-                    : 'text-gray-400 group-hover:text-gray-300'
-                }`}
-              />
+              <ArrowRight className={`h-5 w-5 transition-transform ${
+                selectedMethod === 'cross-chain' ? 'text-purple-400' : 'text-gray-400 group-hover:text-gray-300'
+              }`} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* WALLET STATUS */}
+      {/* Wallet Connection Status */}
       {!walletConnected && (
-        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center">
               <Wallet className="h-4 w-4 text-yellow-400" />
             </div>
             <div>
-              <p className="text-yellow-400 font-medium text-sm">
-                Wallet Required
-              </p>
-              <p className="text-yellow-300/80 text-xs mt-1">
-                Please connect your wallet to continue with payment
-              </p>
+              <p className="text-yellow-400 font-medium text-sm">Wallet Required</p>
+              <p className="text-yellow-300/80 text-xs mt-1">Please connect your wallet to continue with payment</p>
             </div>
           </div>
         </div>
       )}
 
       {walletConnected && (
-        <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+        <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
@@ -956,7 +849,7 @@ function CryptoPaymentForm({
               onClick={disconnect}
               variant="ghost"
               size="sm"
-              className="text-gray-400 hover:text-white"
+              className="text-gray-400 hover:text-white transition-colors"
             >
               Disconnect
             </Button>
@@ -964,9 +857,9 @@ function CryptoPaymentForm({
         </div>
       )}
 
-      {/* ERRORS */}
+      {/* Error Display */}
       {error && (
-        <div className="text-red-400 text-sm p-4 bg-red-500/10 rounded-xl border border-red-500/30">
+        <div className="text-red-400 text-sm p-4 bg-red-500/10 rounded-xl border border-red-500/30 backdrop-blur-sm">
           <div className="flex items-start gap-3">
             <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
               <X className="h-3 w-3 text-white" />
@@ -979,26 +872,21 @@ function CryptoPaymentForm({
         </div>
       )}
 
-      {/* PAYMENT BUTTON */}
+      {/* Payment Button */}
       <Button
         onClick={handlePayment}
         variant="primary"
         size="lg"
         isLoading={isProcessing}
         loadingText={
-          paymentStatus === 'processing'
-            ? 'Initializing payment...'
+          paymentStatus === 'processing' 
+            ? 'Initializing payment...' 
             : paymentStatus === 'confirming'
             ? 'Confirming transaction...'
             : 'Processing...'
         }
-        disabled={
-          !walletConnected ||
-          isProcessing ||
-          ((selectedMethod === 'cross-chain' || selectedMethod === 'other-tokens') &&
-            paymentStatus === 'selecting')
-        }
-        className="w-full h-14 text-base font-semibold rounded-xl"
+        disabled={!walletConnected || isProcessing || ((selectedMethod === 'cross-chain' || selectedMethod === 'other-tokens') && paymentStatus === 'selecting')}
+        className="w-full h-14 text-base font-semibold rounded-xl transition-all duration-200"
       >
         {!walletConnected ? (
           'Connect Wallet to Continue'
@@ -1026,20 +914,16 @@ function CryptoPaymentForm({
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-3">
             <Loading type={LoadingType.ACTION} />
-            <span className="text-gray-400 text-sm">
-              Waiting for transaction confirmation...
-            </span>
+            <span className="text-gray-400 text-sm">Waiting for transaction confirmation...</span>
           </div>
           <p className="text-xs text-gray-500">
-            Please approve the transaction in your wallet.
+            Please approve the transaction in your wallet
           </p>
         </div>
       )}
     </div>
   );
 }
-
-// ===================== MODAL EXPORT =====================
 
 export function CryptoPaymentModal({
   onClose,
@@ -1055,48 +939,41 @@ export function CryptoPaymentModal({
 }: CryptoPaymentModalProps) {
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-xl overflow-y-auto">
-      <div className="relative max-w-2xl w-full bg-gray-900/95 rounded-2xl border border-gray-700/50 shadow-2xl my-8">
-        <div className="p-6 border-b border-gray-700/50 flex justify-between items-center sticky top-0 bg-gray-900/95 z-10 rounded-t-2xl">
+      <div className="relative max-w-2xl w-full bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-700/50 shadow-2xl my-8">
+        <div className="p-6 border-b border-gray-700/50 flex justify-between items-center sticky top-0 bg-gray-900/95 backdrop-blur-xl z-10 rounded-t-2xl">
           <div>
             <h2 className="text-xl font-bold text-white">Crypto Payment</h2>
-            <p className="text-sm text-gray-400 mt-1">
-              Secure payment with multiple options
-            </p>
+            <p className="text-sm text-gray-400 mt-1">Secure payment with multiple options</p>
           </div>
           <Button
             onClick={onClose}
             variant="ghost"
             size="sm"
-            className="text-gray-400 hover:text-white p-2 rounded-lg"
+            className="text-gray-400 hover:text-white p-2 rounded-lg transition-colors"
           >
             <X className="h-6 w-6" />
           </Button>
         </div>
+
         <div className="p-6 overflow-y-auto max-h-[calc(100vh-12rem)]">
-          <ErrorBoundary
-            fallback={
-              <div className="p-8 text-center space-y-4">
-                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
-                  <X className="h-8 w-8 text-red-400" />
-                </div>
-                <div>
-                  <p className="text-red-400 font-medium">
-                    Failed to load payment form
-                  </p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    Please refresh the page and try again
-                  </p>
-                </div>
-                <Button
-                  onClick={() => window.location.reload()}
-                  variant="primary"
-                  className="mt-4"
-                >
-                  Refresh Page
-                </Button>
+          <ErrorBoundary fallback={
+            <div className="p-8 text-center space-y-4">
+              <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
+                <X className="h-8 w-8 text-red-400" />
               </div>
-            }
-          >
+              <div>
+                <p className="text-red-400 font-medium">Failed to load payment form</p>
+                <p className="text-gray-400 text-sm mt-2">Please refresh the page and try again</p>
+              </div>
+              <Button
+                onClick={() => window.location.reload()}
+                variant="primary"
+                className="mt-4"
+              >
+                Refresh Page
+              </Button>
+            </div>
+          }>
             <CryptoPaymentForm
               totalAmount={totalAmount}
               onComplete={onComplete}
