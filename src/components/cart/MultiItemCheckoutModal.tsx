@@ -436,9 +436,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             couponCode: appliedCoupon?.code,
             couponDiscount: appliedCoupon?.discountAmount,
             originalPrice: totalPrice,
-            // tokenAddress: paymentMethod?.tokenAddress,
-            // chainId: paymentMethod?.chainId,
-            // tokenSymbol: paymentMethod?.tokenSymbol
           }
         })
       });
@@ -475,7 +472,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       
       if(paymentMethod?.type === 'stripe') {
         setShowStripeModal(true);
-      } else if (paymentMethod?.type === 'tokens') {
+      } else if (paymentMethod?.type === 'solana') {
         // Handle token payments - you can implement your token payment flow here
         toast.info('Token payment flow will be implemented');
       } else if (paymentMethod?.type === 'other-chains') {
@@ -600,7 +597,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     }
     
     // Verify wallet connection for crypto payments
-    if (paymentMethod?.type === 'tokens' && !isConnected) {
+    if (paymentMethod?.type === 'solana' && !isConnected) {
       toast.info("Please connect your wallet to proceed with payment", {
         position: "bottom-center",
         autoClose: 3000

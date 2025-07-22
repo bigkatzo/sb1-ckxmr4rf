@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { toast } from 'react-toastify';
 
 export interface PaymentMethod {
-  type: 'stripe' | 'tokens' | 'other-chains';
+  type: 'stripe' | 'solana' | 'other-chains';
   tokenAddress?: string;
   chainId?: string;
   tokenSymbol?: string;
@@ -103,7 +103,7 @@ export function PaymentMethodSelector({
       available: true
     },
     {
-      type: 'tokens' as const,
+      type: 'solana' as const,
       label: 'Pay with Tokens',
       description: 'SOL, USDC, or any SPL token',
       icon: Wallet,
@@ -311,7 +311,7 @@ export function PaymentMethodSelector({
     setTokenInfo({ name: token.name, symbol: token.symbol });
     
     onMethodChange({
-      type: 'tokens',
+      type: 'solana',
       tokenAddress: token.address,
       tokenSymbol: token.symbol,
       tokenName: token.name
@@ -335,7 +335,7 @@ export function PaymentMethodSelector({
     // Wait a bit for token info to load
     setTimeout(async () => {
       onMethodChange({
-        type: 'tokens',
+        type: 'solana',
         tokenAddress: customTokenAddress,
         tokenSymbol: tokenInfo?.symbol || 'TOKEN',
         tokenName: tokenInfo?.name || 'Custom Token'
@@ -381,7 +381,7 @@ export function PaymentMethodSelector({
     switch (selectedMethod.type) {
       case 'stripe':
         return 'Credit Card';
-      case 'tokens':
+      case 'solana':
         return `${selectedMethod.tokenName || selectedMethod.tokenSymbol || 'Token'} Payment`;
       case 'other-chains':
         return `${selectedMethod.chainName} USDC Payment`;
@@ -446,7 +446,7 @@ export function PaymentMethodSelector({
       </div>
 
       {/* Token Payment Selection */}
-      {selectedMethod?.type === 'tokens' && (
+      {selectedMethod?.type === 'solana' && (
         <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
           <h4 className="text-sm font-medium text-white">Select Token</h4>
           
@@ -724,7 +724,7 @@ export function PaymentMethodSelector({
       )}
 
       {/* Connection Warning */}
-      {selectedMethod?.type === 'tokens' && !isConnected && (
+      {selectedMethod?.type === 'solana' && !isConnected && (
         <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-md p-3">
           <p className="text-xs text-yellow-400">
             Please connect your wallet to continue with token payment.
