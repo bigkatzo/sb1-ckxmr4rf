@@ -750,7 +750,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   onMethodChange={setPaymentMethod}
                   isConnected={isConnected}
                   disabled={processingPayment}
-                  usdAmount={finalPrice}
+                  usdAmount={1000}
                   onGetPriceQuote={handleGetPriceQuote}
                 />
                 
