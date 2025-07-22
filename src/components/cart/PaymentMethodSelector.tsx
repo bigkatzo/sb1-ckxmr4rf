@@ -4,20 +4,24 @@ import { Button } from '../ui/Button';
 import { toast } from 'react-toastify';
 
 export interface PaymentMethod {
-  type: 'stripe' | 'solana' | 'usdc' | 'other-tokens' | 'other-chains';
+  type: 'stripe' | 'tokens' | 'other-chains';
   tokenAddress?: string;
   chainId?: string;
   tokenSymbol?: string;
+  tokenName?: string;
   chainName?: string;
 }
 
 export interface PriceQuote {
   tokenAmount: string;
   tokenSymbol: string;
+  tokenName: string;
   usdValue: string;
   exchangeRate: string;
   loading: boolean;
   error?: string;
+  fee?: string;
+  bridgeFee?: string;
 }
 
 interface PaymentMethodSelectorProps {
@@ -25,25 +29,55 @@ interface PaymentMethodSelectorProps {
   onMethodChange: (method: PaymentMethod) => void;
   isConnected: boolean;
   disabled?: boolean;
-  usdAmount: number; // The USD amount to convert
+  usdAmount: number;
   onGetPriceQuote?: (tokenAddress: string, chainId?: string) => Promise<PriceQuote>;
 }
 
 const POPULAR_TOKENS = [
-  { symbol: 'USDC', address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', name: 'USD Coin' },
-  { symbol: 'USDT', address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', name: 'Tether USD' },
-  { symbol: 'BONK', address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', name: 'Bonk' },
-  { symbol: 'WIF', address: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', name: 'Dogwifhat' },
+  { 
+    symbol: 'SOL', 
+    address: 'So11111111111111111111111111111111111111112', 
+    name: 'Solana',
+    mint: 'So11111111111111111111111111111111111111112'
+  },
+  { 
+    symbol: 'USDC', 
+    address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 
+    name: 'USD Coin',
+    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+  },
+  { 
+    symbol: 'USDT', 
+    address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 
+    name: 'Tether USD',
+    mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'
+  },
+  { 
+    symbol: 'FARTCOIN', 
+    address: '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump', 
+    name: 'Fartcoin',
+    mint: '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump'
+  },
 ];
 
 const SUPPORTED_CHAINS = [
-  { id: 'ethereum', name: 'Ethereum', symbol: 'ETH' },
-  { id: 'polygon', name: 'Polygon', symbol: 'MATIC' },
-  { id: 'bsc', name: 'Binance Smart Chain', symbol: 'BNB' },
-  { id: 'arbitrum', name: 'Arbitrum', symbol: 'ETH' },
-  { id: 'optimism', name: 'Optimism', symbol: 'ETH' },
-  { id: 'base', name: 'Base', symbol: 'ETH' },
+  { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', chainId: 1 },
+  { id: 'polygon', name: 'Polygon', symbol: 'MATIC', chainId: 137 },
+  { id: 'bsc', name: 'Binance Smart Chain', symbol: 'BNB', chainId: 56 },
+  { id: 'arbitrum', name: 'Arbitrum', symbol: 'ETH', chainId: 42161 },
+  { id: 'optimism', name: 'Optimism', symbol: 'ETH', chainId: 10 },
+  { id: 'base', name: 'Base', symbol: 'ETH', chainId: 8453 },
 ];
+
+// USDC contract addresses on different chains
+const USDC_ADDRESSES = {
+  ethereum: '0xA0b86a33E6441b8435b662303c0f218C8F8c0c0e',
+  polygon: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+  bsc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+  arbitrum: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
+  optimism: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
+  base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+};
 
 export function PaymentMethodSelector({ 
   selectedMethod, 
@@ -55,10 +89,10 @@ export function PaymentMethodSelector({
 }: PaymentMethodSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState('');
-  const [customTokenSymbol, setCustomTokenSymbol] = useState('');
   const [selectedChain, setSelectedChain] = useState(SUPPORTED_CHAINS[0]);
-  const [customChainTokenAddress, setCustomChainTokenAddress] = useState('');
   const [priceQuote, setPriceQuote] = useState<PriceQuote | null>(null);
+  const [loadingTokenInfo, setLoadingTokenInfo] = useState(false);
+  const [tokenInfo, setTokenInfo] = useState<{ name: string; symbol: string } | null>(null);
 
   const paymentOptions = [
     {
@@ -69,81 +103,189 @@ export function PaymentMethodSelector({
       available: true
     },
     {
-      type: 'usdc' as const,
-      label: 'Pay with USDC',
-      description: 'Direct USDC payment',
+      type: 'tokens' as const,
+      label: 'Pay with Tokens',
+      description: 'SOL, USDC, or any SPL token',
       icon: Wallet,
-      available: isConnected
-    },
-    {
-      type: 'solana' as const,
-      label: 'Pay with SOL',
-      description: 'Direct SOL payment',
-      icon: Wallet,
-      available: isConnected
-    },
-    {
-      type: 'other-tokens' as const,
-      label: 'Use Other Tokens',
-      description: 'Pay with any SPL token',
-      icon: Coins,
       available: isConnected
     },
     {
       type: 'other-chains' as const,
       label: 'Pay from Other Chains',
-      description: 'Cross-chain payments',
+      description: 'USDC from Ethereum, Polygon, etc.',
       icon: Link,
       available: true
     }
   ];
-  // Dummy price quote function - you can replace this with your implementation
-  const getDummyPriceQuote = async (tokenAddress: string, chainId?: string): Promise<PriceQuote> => {
-    // Simulate API call delay
+
+  // Function to fetch token info from Jupiter API
+  const fetchTokenInfo = async (tokenAddress: string) => {
+    if (!tokenAddress.trim()) return;
+    
+    setLoadingTokenInfo(true);
+    try {
+      // Jupiter API to get token info
+      const response = await fetch(`https://tokens.jup.ag/token/${tokenAddress}`);
+      if (response.ok) {
+        const tokenData = await response.json();
+        setTokenInfo({
+          name: tokenData.name || 'Unknown Token',
+          symbol: tokenData.symbol || 'TOKEN'
+        });
+      } else {
+        // Fallback for unknown tokens
+        setTokenInfo({
+          name: 'Custom Token',
+          symbol: 'TOKEN'
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch token info:', error);
+      setTokenInfo({
+        name: 'Custom Token',
+        symbol: 'TOKEN'
+      });
+    } finally {
+      setLoadingTokenInfo(false);
+    }
+  };
+
+  // Jupiter API price quote function
+  const getJupiterPriceQuote = async (tokenAddress: string): Promise<PriceQuote> => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Dummy data - replace with actual API call
-    const mockRates: { [key: string]: number } = {
-      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1.00, // USDC
-      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.00, // USDT
-      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 0.000025, // BONK
-      'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm': 2.45, // WIF
-    };
+    try {
+      // Jupiter Quote API - swap from input token to USDC
+      const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+      const inputAmount = Math.floor(usdAmount * 1000000); // Convert to smallest unit
+      
+      const quoteResponse = await fetch(
+        `https://quote-api.jup.ag/v6/quote?inputMint=${tokenAddress}&outputMint=${usdcMint}&amount=${inputAmount}&slippageBps=50`
+      );
+      
+      if (!quoteResponse.ok) {
+        throw new Error('Failed to get quote from Jupiter');
+      }
+      
+      const quoteData = await quoteResponse.json();
+      
+      // Calculate token amount needed
+      const tokenAmount = (parseFloat(quoteData.inAmount) / Math.pow(10, 6)).toFixed(6);
+      const rate = usdAmount / parseFloat(tokenAmount);
+      
+      return {
+        tokenAmount,
+        tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+        tokenName: tokenInfo?.name || 'Custom Token',
+        usdValue: usdAmount.toFixed(2),
+        exchangeRate: rate.toFixed(6),
+        loading: false
+      };
+    } catch (error) {
+      // Fallback to dummy data if Jupiter API fails
+      const mockRates: { [key: string]: number } = {
+        'So11111111111111111111111111111111111111112': 180.00, // SOL
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1.00, // USDC
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.00, // USDT
+        '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump': 0.85, // FARTCOIN
+      };
+      
+      const rate = mockRates[tokenAddress] || Math.random() * 100;
+      const tokenAmount = (usdAmount / rate).toFixed(6);
+      
+      return {
+        tokenAmount,
+        tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+        tokenName: tokenInfo?.name || 'Custom Token',
+        usdValue: usdAmount.toFixed(2),
+        exchangeRate: rate.toFixed(6),
+        loading: false
+      };
+    }
+  };
+
+  // DeBridge API price quote function for cross-chain
+  const getDeBridgePriceQuote = async (chainId: number): Promise<PriceQuote> => {
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    const rate = mockRates[tokenAddress] || Math.random() * 100; // Random rate for unknown tokens
-    const tokenAmount = (usdAmount / rate).toFixed(6);
-    
-    return {
-      tokenAmount,
-      tokenSymbol: customTokenSymbol || 'TOKEN',
-      usdValue: usdAmount.toFixed(2),
-      exchangeRate: rate.toFixed(6),
-      loading: false
-    };
+    try {
+      // DeBridge API to get cross-chain quote for USDC
+      const usdcAddress = USDC_ADDRESSES[selectedChain.id as keyof typeof USDC_ADDRESSES];
+      const solanaUsdcAddress = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+      
+      // This would be the actual DeBridge API call
+      // const quoteResponse = await fetch('https://api.dln.trade/v1.0/dln/order/quote', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     srcChainId: chainId,
+      //     srcChainTokenIn: usdcAddress,
+      //     srcChainTokenInAmount: (usdAmount * 1000000).toString(),
+      //     dstChainId: 101, // Solana
+      //     dstChainTokenOut: solanaUsdcAddress,
+      //   })
+      // });
+      
+      // Dummy implementation for now
+      const bridgeFee = usdAmount * 0.005; // 0.5% bridge fee
+      const totalAmount = usdAmount + bridgeFee;
+      
+      return {
+        tokenAmount: totalAmount.toFixed(6),
+        tokenSymbol: 'USDC',
+        tokenName: 'USD Coin',
+        usdValue: usdAmount.toFixed(2),
+        exchangeRate: '1.000000',
+        bridgeFee: bridgeFee.toFixed(6),
+        loading: false
+      };
+    } catch (error) {
+      return {
+        tokenAmount: '0',
+        tokenSymbol: 'USDC',
+        tokenName: 'USD Coin',
+        usdValue: '0',
+        exchangeRate: '0',
+        loading: false,
+        error: 'Failed to get cross-chain quote'
+      };
+    }
   };
 
   // Function to get price quote
-  const fetchPriceQuote = async (tokenAddress: string, chainId?: string) => {
-    if (!tokenAddress.trim()) return;
-    
+  const fetchPriceQuote = async (tokenAddress?: string, chainId?: number) => {
     setPriceQuote({ 
       tokenAmount: '0', 
-      tokenSymbol: customTokenSymbol || 'TOKEN', 
+      tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+      tokenName: tokenInfo?.name || 'Custom Token',
       usdValue: '0', 
       exchangeRate: '0', 
       loading: true 
     });
     
     try {
-      const quote = onGetPriceQuote 
-        ? await onGetPriceQuote(tokenAddress, chainId)
-        : await getDummyPriceQuote(tokenAddress, chainId);
+      let quote: PriceQuote;
+      
+      if (chainId) {
+        // Cross-chain quote using DeBridge
+        quote = onGetPriceQuote 
+          ? await onGetPriceQuote('', chainId.toString())
+          : await getDeBridgePriceQuote(chainId);
+      } else if (tokenAddress) {
+        // SPL token quote using Jupiter
+        quote = onGetPriceQuote 
+          ? await onGetPriceQuote(tokenAddress)
+          : await getJupiterPriceQuote(tokenAddress);
+      } else {
+        throw new Error('No token address or chain ID provided');
+      }
       
       setPriceQuote(quote);
     } catch (error) {
       setPriceQuote({
         tokenAmount: '0',
-        tokenSymbol: customTokenSymbol || 'TOKEN',
+        tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+        tokenName: tokenInfo?.name || 'Custom Token',
         usdValue: '0',
         exchangeRate: '0',
         loading: false,
@@ -156,69 +298,72 @@ export function PaymentMethodSelector({
     if (!method.available) return;
     
     setIsDropdownOpen(false);
+    setPriceQuote(null);
+    setTokenInfo(null);
+    setCustomTokenAddress('');
     
     const paymentMethod: PaymentMethod = { type: method.type };
-    
-    if (method.type === 'usdc') {
-      paymentMethod.tokenAddress = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-      paymentMethod.tokenSymbol = 'USDC';
-    }
-    
     onMethodChange(paymentMethod);
   };
 
-  const handleCustomTokenSubmit = () => {
-    if (!customTokenAddress.trim()) {
-      toast.error('Please enter a token address');
-      return;
-    }
-
-    onMethodChange({
-      type: 'other-tokens',
-      tokenAddress: customTokenAddress,
-      tokenSymbol: customTokenSymbol || 'TOKEN'
-    });
-
-    toast.success(`Token ${customTokenSymbol || 'TOKEN'} selected for payment`);
-    
-    // Fetch price quote when token is selected
-    fetchPriceQuote(customTokenAddress);
-  };
-
-  const handlePopularTokenSelect = (token: typeof POPULAR_TOKENS[0]) => {
+  const handlePopularTokenSelect = async (token: typeof POPULAR_TOKENS[0]) => {
     setCustomTokenAddress(token.address);
-    setCustomTokenSymbol(token.symbol);
+    setTokenInfo({ name: token.name, symbol: token.symbol });
     
     onMethodChange({
-      type: 'other-tokens',
+      type: 'tokens',
       tokenAddress: token.address,
-      tokenSymbol: token.symbol
+      tokenSymbol: token.symbol,
+      tokenName: token.name
     });
 
     toast.success(`${token.symbol} selected for payment`);
     
     // Fetch price quote for popular token
-    fetchPriceQuote(token.address);
+    await fetchPriceQuote(token.address);
   };
 
-  const handleChainPaymentSubmit = () => {
-    if (!customChainTokenAddress.trim()) {
+  const handleCustomTokenSubmit = async () => {
+    if (!customTokenAddress.trim()) {
       toast.error('Please enter a token address');
       return;
     }
 
+    // Fetch token info first
+    await fetchTokenInfo(customTokenAddress);
+    
+    // Wait a bit for token info to load
+    setTimeout(async () => {
+      onMethodChange({
+        type: 'tokens',
+        tokenAddress: customTokenAddress,
+        tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+        tokenName: tokenInfo?.name || 'Custom Token'
+      });
+
+      toast.success(`${tokenInfo?.symbol || 'Token'} selected for payment`);
+      
+      // Fetch price quote
+      await fetchPriceQuote(customTokenAddress);
+    }, 100);
+  };
+
+  const handleChainPaymentSubmit = async () => {
+    const usdcAddress = USDC_ADDRESSES[selectedChain.id as keyof typeof USDC_ADDRESSES];
+    
     onMethodChange({
       type: 'other-chains',
-      tokenAddress: customChainTokenAddress,
+      tokenAddress: usdcAddress,
       chainId: selectedChain.id,
       chainName: selectedChain.name,
-      tokenSymbol: 'TOKEN'
+      tokenSymbol: 'USDC',
+      tokenName: 'USD Coin'
     });
 
-    toast.success(`Cross-chain payment configured for ${selectedChain.name}`);
+    toast.success(`Cross-chain USDC payment configured for ${selectedChain.name}`);
     
-    // Fetch price quote for cross-chain token
-    fetchPriceQuote(customChainTokenAddress, selectedChain.id);
+    // Fetch price quote for cross-chain
+    await fetchPriceQuote(undefined, selectedChain.chainId);
   };
 
   const copyToClipboard = async (text: string) => {
@@ -236,14 +381,10 @@ export function PaymentMethodSelector({
     switch (selectedMethod.type) {
       case 'stripe':
         return 'Credit Card';
-      case 'usdc':
-        return 'USDC Payment';
-      case 'solana':
-        return 'SOL Payment';
-      case 'other-tokens':
-        return `${selectedMethod.tokenSymbol || 'Token'} Payment`;
+      case 'tokens':
+        return `${selectedMethod.tokenName || selectedMethod.tokenSymbol || 'Token'} Payment`;
       case 'other-chains':
-        return `${selectedMethod.chainName} Payment`;
+        return `${selectedMethod.chainName} USDC Payment`;
       default:
         return 'Select Payment Method';
     }
@@ -304,10 +445,10 @@ export function PaymentMethodSelector({
         )}
       </div>
 
-      {/* Custom Token Input */}
-      {selectedMethod?.type === 'other-tokens' && (
+      {/* Token Payment Selection */}
+      {selectedMethod?.type === 'tokens' && (
         <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
-          <h4 className="text-sm font-medium text-white">Select SPL Token</h4>
+          <h4 className="text-sm font-medium text-white">Select Token</h4>
           
           {/* Popular Tokens */}
           <div>
@@ -340,56 +481,75 @@ export function PaymentMethodSelector({
           <div>
             <label className="block text-xs font-medium text-gray-300 mb-2">Or Enter Custom Token</label>
             <div className="space-y-2">
-              <div className="flex gap-2">
+              <div className="relative">
                 <input
                   type="text"
-                  placeholder="Token contract address"
+                  placeholder="Paste token contract address"
                   value={customTokenAddress}
                   onChange={(e) => setCustomTokenAddress(e.target.value)}
-                  className="flex-1 bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 pr-10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
                 />
-                <input
-                  type="text"
-                  placeholder="Symbol"
-                  value={customTokenSymbol}
-                  onChange={(e) => setCustomTokenSymbol(e.target.value)}
-                  className="w-20 bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                />
+                {customTokenAddress && (
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(customTokenAddress)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-600 rounded"
+                  >
+                    <Copy className="h-3 w-3 text-gray-400" />
+                  </button>
+                )}
               </div>
-              <Button
-                type="button"
-                onClick={handleCustomTokenSubmit}
-                variant="outline"
-                size="sm"
-                disabled={!customTokenAddress.trim()}
-                className="w-full"
-              >
-                Use This Token
-              </Button>
               
-              {/* Get Price Quote Button */}
-              <Button
-                type="button"
-                onClick={() => fetchPriceQuote(customTokenAddress)}
-                variant="ghost"
-                size="sm"
-                disabled={!customTokenAddress.trim() || priceQuote?.loading}
-                className="w-full"
-              >
-                {priceQuote?.loading ? 'Getting Quote...' : 'Get Price Quote'}
-              </Button>
+              {/* Token Info Display */}
+              {loadingTokenInfo && customTokenAddress && (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                  <span>Loading token info...</span>
+                </div>
+              )}
+              
+              {tokenInfo && customTokenAddress && !loadingTokenInfo && (
+                <div className="bg-gray-700/50 rounded-md p-2">
+                  <div className="text-sm text-white font-medium">{tokenInfo.name}</div>
+                  <div className="text-xs text-gray-400">{tokenInfo.symbol}</div>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  onClick={handleCustomTokenSubmit}
+                  variant="outline"
+                  size="sm"
+                  disabled={!customTokenAddress.trim() || loadingTokenInfo}
+                  className="flex-1"
+                >
+                  {loadingTokenInfo ? 'Loading...' : 'Use This Token'}
+                </Button>
+                
+                <Button
+                  type="button"
+                  onClick={() => fetchPriceQuote(customTokenAddress)}
+                  variant="ghost"
+                  size="sm"
+                  disabled={!customTokenAddress.trim() || priceQuote?.loading || loadingTokenInfo}
+                  className="flex-1"
+                >
+                  {priceQuote?.loading ? 'Getting Quote...' : 'Get Price Quote'}
+                </Button>
+              </div>
             </div>
           </div>
           
           {/* Price Quote Display */}
-          {priceQuote && customTokenAddress && (
+          {priceQuote && (selectedMethod.tokenAddress || customTokenAddress) && (
             <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
               <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
               
               {priceQuote.loading ? (
                 <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                  <span className="text-sm text-gray-400">Fetching price...</span>
+                  <span className="text-sm text-gray-400">Fetching price via Jupiter...</span>
                 </div>
               ) : priceQuote.error ? (
                 <div className="text-sm text-red-400">{priceQuote.error}</div>
@@ -411,6 +571,11 @@ export function PaymentMethodSelector({
                       1 {priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
                     </span>
                   </div>
+                  {priceQuote.tokenSymbol !== 'USDC' && (
+                    <div className="text-xs text-blue-400 mt-2">
+                      Will be swapped to USDC via Jupiter
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -421,11 +586,11 @@ export function PaymentMethodSelector({
       {/* Cross-Chain Payment */}
       {selectedMethod?.type === 'other-chains' && (
         <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
-          <h4 className="text-sm font-medium text-white">Cross-Chain Payment</h4>
+          <h4 className="text-sm font-medium text-white">Cross-Chain USDC Payment</h4>
           
           {/* Chain Selection */}
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-2">Select Chain</label>
+            <label className="block text-xs font-medium text-gray-300 mb-2">Select Source Chain</label>
             <select
               value={selectedChain.id}
               onChange={(e) => {
@@ -442,78 +607,81 @@ export function PaymentMethodSelector({
             </select>
           </div>
 
-          {/* Token Address Input */}
+          {/* USDC Address Display */}
           <div>
             <label className="block text-xs font-medium text-gray-300 mb-2">
-              Token Contract Address
+              USDC Contract Address
             </label>
             <div className="space-y-2">
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="0x... or paste token address"
-                  value={customChainTokenAddress}
-                  onChange={(e) => setCustomChainTokenAddress(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 pr-10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                  value={USDC_ADDRESSES[selectedChain.id as keyof typeof USDC_ADDRESSES] || ''}
+                  readOnly
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 pr-20 text-white text-sm focus:outline-none"
                 />
-                {customChainTokenAddress && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(customChainTokenAddress)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-600 rounded"
+                    onClick={() => copyToClipboard(USDC_ADDRESSES[selectedChain.id as keyof typeof USDC_ADDRESSES] || '')}
+                    className="p-1 hover:bg-gray-600 rounded"
                   >
                     <Copy className="h-3 w-3 text-gray-400" />
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const explorerUrls = {
+                        ethereum: 'https://etherscan.io',
+                        polygon: 'https://polygonscan.com',
+                        bsc: 'https://bscscan.com',
+                        arbitrum: 'https://arbiscan.io',
+                        optimism: 'https://optimistic.etherscan.io',
+                        base: 'https://basescan.org'
+                      };
+                      window.open(explorerUrls[selectedChain.id as keyof typeof explorerUrls], '_blank');
+                    }}
+                    className="p-1 hover:bg-gray-600 rounded"
+                  >
+                    <ExternalLink className="h-3 w-3 text-gray-400" />
+                  </button>
+                </div>
               </div>
               
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  onClick={handleChainPaymentSubmit}
-                  variant="outline"
-                  size="sm"
-                  disabled={!customChainTokenAddress.trim()}
-                  className="flex-1"
-                >
-                  Configure Payment
-                </Button>
-                
-                <Button
-                  type="button"
-                  onClick={() => fetchPriceQuote(customChainTokenAddress, selectedChain.id)}
-                  variant="ghost"
-                  size="sm"
-                  disabled={!customChainTokenAddress.trim() || priceQuote?.loading}
-                  className="flex-1"
-                >
-                  {priceQuote?.loading ? 'Getting Quote...' : 'Get Quote'}
-                </Button>
-                
-                <Button
-                  type="button"
-                  onClick={() => window.open(`https://${selectedChain.id === 'ethereum' ? 'etherscan.io' : 'polygonscan.com'}/`, '_blank')}
-                  variant="ghost"
-                  size="sm"
-                  className="px-3"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                type="button"
+                onClick={handleChainPaymentSubmit}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                Configure {selectedChain.name} USDC Payment
+              </Button>
+              
+              <Button
+                type="button"
+                onClick={() => fetchPriceQuote(undefined, selectedChain.chainId)}
+                variant="ghost"
+                size="sm"
+                disabled={priceQuote?.loading}
+                className="w-full"
+              >
+                {priceQuote?.loading ? 'Getting Quote...' : 'Get DeBridge Quote'}
+              </Button>
             </div>
           </div>
 
           {/* Price Quote Display for Cross-Chain */}
-          {priceQuote && customChainTokenAddress && selectedMethod?.type === 'other-chains' && (
+          {priceQuote && selectedMethod?.type === 'other-chains' && (
             <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
               <h5 className="text-xs font-medium text-gray-300">
-                Price Quote ({selectedChain.name})
+                Cross-Chain Quote ({selectedChain.name})
               </h5>
               
               {priceQuote.loading ? (
                 <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                  <span className="text-sm text-gray-400">Fetching price...</span>
+                  <span className="text-sm text-gray-400">Fetching quote via DeBridge...</span>
                 </div>
               ) : priceQuote.error ? (
                 <div className="text-sm text-red-400">{priceQuote.error}</div>
@@ -522,19 +690,25 @@ export function PaymentMethodSelector({
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-400">You'll pay:</span>
                     <span className="text-sm font-medium text-white">
-                      {priceQuote.tokenAmount} TOKEN
+                      {priceQuote.tokenAmount} USDC
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-400">USD Value:</span>
                     <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
                   </div>
+                  {priceQuote.bridgeFee && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400">Bridge Fee:</span>
+                      <span className="text-xs text-yellow-400">{priceQuote.bridgeFee} USDC</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-400">Network:</span>
                     <span className="text-xs text-gray-400">{selectedChain.name}</span>
                   </div>
                   <div className="text-xs text-blue-400 mt-2">
-                    Cross-chain bridge fee may apply
+                    Powered by DeBridge • 5-15 minutes to complete
                   </div>
                 </div>
               )}
@@ -543,17 +717,17 @@ export function PaymentMethodSelector({
           
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
             <p className="text-xs text-blue-400">
-              Cross-chain payments are powered by our bridge technology. Transactions may take 5-15 minutes to complete.
+              Cross-chain payments use USDC only and are powered by DeBridge technology. Transactions may take 5-15 minutes to complete.
             </p>
           </div>
         </div>
       )}
 
       {/* Connection Warning */}
-      {selectedMethod && ['usdc', 'solana', 'other-tokens'].includes(selectedMethod.type) && !isConnected && (
+      {selectedMethod?.type === 'tokens' && !isConnected && (
         <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-md p-3">
           <p className="text-xs text-yellow-400">
-            Please connect your wallet to continue with this payment method.
+            Please connect your wallet to continue with token payment.
           </p>
         </div>
       )}

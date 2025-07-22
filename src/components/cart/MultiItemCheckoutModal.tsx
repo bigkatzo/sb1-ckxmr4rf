@@ -14,12 +14,10 @@ import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
 import { StripePaymentModal } from '../products/StripePaymentModal';
 import { verifyFinalTransaction } from '../../utils/transaction-monitor.tsx';
-import { updateOrderTransactionSignature } from '../../services/orders';
+// import { updateOrderTransactionSignature } from '../../services/orders';
 import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
-import { CryptoPaymentModal } from '../products/CryptoPaymentModal.tsx';
 import { PaymentMethodSelector, PaymentMethod, PriceQuote } from './PaymentMethodSelector';
-// import { PaymentMethodSelector, PaymentMethod } from './PaymentMethodSelector';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -114,7 +112,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   
   // Add state for Stripe payment modal
   const [showStripeModal, setShowStripeModal] = useState(false);
-  const [showCryptoModal, setShowCryptoModal] = useState(false);
 
   const [orderData, setOrderData] = useState<{
     orderIds?: Array<string>;
@@ -197,7 +194,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       return false;
     }
     return true;
-  }
+  };
 
   // Enhanced zip code change handler with country/state detection
   const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,41 +361,23 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     toast.info("Coupon removed");
   };
 
-  const handleCryptoComplete = async (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => {
-    console.log('Crypto payment successful:', txSignature, orderId, batchOrderId);
+  // Dummy function for price quotes - you can implement Jupiter/DeBridge APIs here
+  const handleGetPriceQuote = async (tokenAddress: string, chainId?: string) => {
+    // This is where you'll implement your Jupiter/DeBridge API calls
+    console.log('Getting price quote for:', { tokenAddress, chainId });
     
-    setShowCryptoModal(false);
-
-    if (!status.success) {
-      setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
-      try {
-        await updateOrderTransactionSignature({
-          transactionSignature: `rejected_${walletAddress}_${orderData.batchOrderId}_${Date.now()}`,
-          amountSol: orderData.price || 0,
-          batchOrderId: orderData.batchOrderId
-        });
-      } catch (err) {
-        console.error('Error updating order status:', err);
-      }
-      return;
-    }
-
-    const statusSuccess = await updateOrderTransactionSignature({
-      transactionSignature: txSignature,
-      amountSol: orderData.price || 0,
-      walletAddress: walletAddress || 'anonymous',
-      batchOrderId,
-    });
-
-    if (!statusSuccess) {
-      throw new Error('Failed to update order transaction');
-    }
-
-      // Start transaction confirmation - using same monitoring as TokenVerificationModal
-    setOrderProgress({ step: 'confirming_transaction' });
-
-    await handleVerifyBatchTransactions(txSignature, batchOrderId, receiverWallet);
-  }
+    // Return dummy data for now
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      tokenAmount: '100.000000',
+      tokenSymbol: 'TOKEN',
+      tokenName: 'Custom Token',
+      usdValue: finalPrice.toFixed(2),
+      exchangeRate: '1.000000',
+      loading: false
+    };
+  };
   
   // Update the handleStripeSuccess function to receive and use batchOrderId
   const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string, stripeBatchOrderId?: string) => {
@@ -448,13 +427,18 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           shippingInfo: formattedShippingInfo,
           walletAddress: walletAddress || 'anonymous',
           paymentMetadata: {
-            paymentMethod: paymentMethod?.type || 'stripe',
+            paymentMethod: paymentMethod?.type ?? 'stripe',
+            tokenAddress: paymentMethod?.tokenAddress,
+            tokenSymbol: paymentMethod?.tokenSymbol,
+            tokenName: paymentMethod?.tokenName,
+            chainId: paymentMethod?.chainId,
+            chainName: paymentMethod?.chainName,
             couponCode: appliedCoupon?.code,
             couponDiscount: appliedCoupon?.discountAmount,
             originalPrice: totalPrice,
-            tokenAddress: paymentMethod?.tokenAddress,
-            chainId: paymentMethod?.chainId,
-            tokenSymbol: paymentMethod?.tokenSymbol
+            // tokenAddress: paymentMethod?.tokenAddress,
+            // chainId: paymentMethod?.chainId,
+            // tokenSymbol: paymentMethod?.tokenSymbol
           }
         })
       });
@@ -491,8 +475,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       
       if(paymentMethod?.type === 'stripe') {
         setShowStripeModal(true);
-      } else if (['solana', 'usdc', 'other-tokens', 'other-chains'].includes(paymentMethod?.type || '')) {
-        setShowCryptoModal(true);
+      } else if (paymentMethod?.type === 'tokens') {
+        // Handle token payments - you can implement your token payment flow here
+        toast.info('Token payment flow will be implemented');
+      } else if (paymentMethod?.type === 'other-chains') {
+        // Handle cross-chain payments - you can implement your DeBridge flow here
+        toast.info('Cross-chain payment flow will be implemented');
       }
     } catch (error) {
       throw new Error(`Failed to create batch transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -565,7 +553,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     } finally {
       setProcessingPayment(false);
     }
-  }
+  };
   
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -612,7 +600,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     }
     
     // Verify wallet connection for crypto payments
-    if (paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) && !isConnected) {
+    if (paymentMethod?.type === 'tokens' && !isConnected) {
       toast.info("Please connect your wallet to proceed with payment", {
         position: "bottom-center",
         autoClose: 3000
@@ -684,19 +672,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             shippingInfo={formattedShippingInfo}
             couponDiscount={orderData.couponDiscount}
             originalPrice={orderData.originalPrice || 0}
-          />
-        ) : showCryptoModal ? (
-          <CryptoPaymentModal
-            onClose={() => setShowCryptoModal(false)}
-            onComplete={handleCryptoComplete}
-            totalAmount={(orderData.price || 0)}
-            productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
-            batchOrderId={orderData.batchOrderId || ''}
-            couponDiscount={orderData.couponDiscount}
-            originalPrice={orderData.originalPrice || 0}
-            receiverWallet={orderData.receiverWallet || ''}
-            fee={orderData.fee || 0}
-            // paymentMethod={paymentMethod}
           />
         ) : (
           <div className="relative bg-gray-900 w-full max-w-2xl rounded-xl overflow-hidden">
@@ -770,51 +745,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   ))}
                 </div>
                 
-                {/* Coupon Section */}
-                <div className="mt-4 border-t border-gray-800 pt-4">
-                  {appliedCoupon ? (
-                    <div className="flex items-center justify-between bg-gray-800/70 rounded-lg p-3">
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-secondary" />
-                        <div>
-                          <span className="text-sm font-medium text-white">Coupon: {appliedCoupon.code}</span>
-                          <p className="text-xs text-gray-400">
-                            {appliedCoupon.discountPercentage 
-                              ? `${appliedCoupon.discountPercentage}% off` 
-                              : formatPrice(appliedCoupon.discountAmount) + ' off'}
-                          </p>
-                        </div>
-                      </div>
-                      <Button 
-                        onClick={handleRemoveCoupon}
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs text-gray-400 hover:text-red-400"
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Enter coupon code"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value)}
-                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                      />
-                      <Button
-                        onClick={handleApplyCoupon}
-                        variant="outline"
-                        size="sm"
-                        isLoading={validatingCoupon}
-                        disabled={validatingCoupon || !couponCode.trim()}
-                      >
-                        Apply
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <PaymentMethodSelector
+                  selectedMethod={paymentMethod}
+                  onMethodChange={setPaymentMethod}
+                  isConnected={isConnected}
+                  disabled={processingPayment}
+                  usdAmount={finalPrice}
+                  onGetPriceQuote={handleGetPriceQuote}
+                />
                 
                 {/* Price Summary */}
                 <div className="mt-4 border-t border-gray-800 pt-4">
@@ -1168,7 +1106,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     selectedMethod={paymentMethod}
                     onMethodChange={setPaymentMethod}
                     isConnected={isConnected}
-                    usdAmount={1000} // The USD amount to convert
+                    usdAmount={1000}
                     disabled={processingPayment}
                   />
                 </div>
