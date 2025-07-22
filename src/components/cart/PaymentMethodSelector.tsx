@@ -11,11 +11,22 @@ export interface PaymentMethod {
   chainName?: string;
 }
 
+export interface PriceQuote {
+  tokenAmount: string;
+  tokenSymbol: string;
+  usdValue: string;
+  exchangeRate: string;
+  loading: boolean;
+  error?: string;
+}
+
 interface PaymentMethodSelectorProps {
   selectedMethod: PaymentMethod | null;
   onMethodChange: (method: PaymentMethod) => void;
   isConnected: boolean;
   disabled?: boolean;
+  usdAmount: number; // The USD amount to convert
+  onGetPriceQuote?: (tokenAddress: string, chainId?: string) => Promise<PriceQuote>;
 }
 
 const POPULAR_TOKENS = [
@@ -34,12 +45,20 @@ const SUPPORTED_CHAINS = [
   { id: 'base', name: 'Base', symbol: 'ETH' },
 ];
 
-export function PaymentMethodSelector({ selectedMethod, onMethodChange, isConnected, disabled }: PaymentMethodSelectorProps) {
+export function PaymentMethodSelector({ 
+  selectedMethod, 
+  onMethodChange, 
+  isConnected, 
+  disabled, 
+  usdAmount, 
+  onGetPriceQuote 
+}: PaymentMethodSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState('');
   const [customTokenSymbol, setCustomTokenSymbol] = useState('');
   const [selectedChain, setSelectedChain] = useState(SUPPORTED_CHAINS[0]);
   const [customChainTokenAddress, setCustomChainTokenAddress] = useState('');
+  const [priceQuote, setPriceQuote] = useState<PriceQuote | null>(null);
 
   const paymentOptions = [
     {
@@ -78,6 +97,60 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange, isConnec
       available: true
     }
   ];
+  // Dummy price quote function - you can replace this with your implementation
+  const getDummyPriceQuote = async (tokenAddress: string, chainId?: string): Promise<PriceQuote> => {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Dummy data - replace with actual API call
+    const mockRates: { [key: string]: number } = {
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1.00, // USDC
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.00, // USDT
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 0.000025, // BONK
+      'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm': 2.45, // WIF
+    };
+    
+    const rate = mockRates[tokenAddress] || Math.random() * 100; // Random rate for unknown tokens
+    const tokenAmount = (usdAmount / rate).toFixed(6);
+    
+    return {
+      tokenAmount,
+      tokenSymbol: customTokenSymbol || 'TOKEN',
+      usdValue: usdAmount.toFixed(2),
+      exchangeRate: rate.toFixed(6),
+      loading: false
+    };
+  };
+
+  // Function to get price quote
+  const fetchPriceQuote = async (tokenAddress: string, chainId?: string) => {
+    if (!tokenAddress.trim()) return;
+    
+    setPriceQuote({ 
+      tokenAmount: '0', 
+      tokenSymbol: customTokenSymbol || 'TOKEN', 
+      usdValue: '0', 
+      exchangeRate: '0', 
+      loading: true 
+    });
+    
+    try {
+      const quote = onGetPriceQuote 
+        ? await onGetPriceQuote(tokenAddress, chainId)
+        : await getDummyPriceQuote(tokenAddress, chainId);
+      
+      setPriceQuote(quote);
+    } catch (error) {
+      setPriceQuote({
+        tokenAmount: '0',
+        tokenSymbol: customTokenSymbol || 'TOKEN',
+        usdValue: '0',
+        exchangeRate: '0',
+        loading: false,
+        error: 'Failed to get price quote'
+      });
+    }
+  };
 
   const handleMethodSelect = (method: typeof paymentOptions[0]) => {
     if (!method.available) return;
@@ -107,6 +180,9 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange, isConnec
     });
 
     toast.success(`Token ${customTokenSymbol || 'TOKEN'} selected for payment`);
+    
+    // Fetch price quote when token is selected
+    fetchPriceQuote(customTokenAddress);
   };
 
   const handlePopularTokenSelect = (token: typeof POPULAR_TOKENS[0]) => {
@@ -120,6 +196,9 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange, isConnec
     });
 
     toast.success(`${token.symbol} selected for payment`);
+    
+    // Fetch price quote for popular token
+    fetchPriceQuote(token.address);
   };
 
   const handleChainPaymentSubmit = () => {
@@ -137,6 +216,9 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange, isConnec
     });
 
     toast.success(`Cross-chain payment configured for ${selectedChain.name}`);
+    
+    // Fetch price quote for cross-chain token
+    fetchPriceQuote(customChainTokenAddress, selectedChain.id);
   };
 
   const copyToClipboard = async (text: string) => {
@@ -284,8 +366,55 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange, isConnec
               >
                 Use This Token
               </Button>
+              
+              {/* Get Price Quote Button */}
+              <Button
+                type="button"
+                onClick={() => fetchPriceQuote(customTokenAddress)}
+                variant="ghost"
+                size="sm"
+                disabled={!customTokenAddress.trim() || priceQuote?.loading}
+                className="w-full"
+              >
+                {priceQuote?.loading ? 'Getting Quote...' : 'Get Price Quote'}
+              </Button>
             </div>
           </div>
+          
+          {/* Price Quote Display */}
+          {priceQuote && customTokenAddress && (
+            <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
+              <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
+              
+              {priceQuote.loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                  <span className="text-sm text-gray-400">Fetching price...</span>
+                </div>
+              ) : priceQuote.error ? (
+                <div className="text-sm text-red-400">{priceQuote.error}</div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">You'll pay:</span>
+                    <span className="text-sm font-medium text-white">
+                      {priceQuote.tokenAmount} {priceQuote.tokenSymbol}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">USD Value:</span>
+                    <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Exchange Rate:</span>
+                    <span className="text-xs text-gray-400">
+                      1 {priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -352,6 +481,17 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange, isConnec
                 
                 <Button
                   type="button"
+                  onClick={() => fetchPriceQuote(customChainTokenAddress, selectedChain.id)}
+                  variant="ghost"
+                  size="sm"
+                  disabled={!customChainTokenAddress.trim() || priceQuote?.loading}
+                  className="flex-1"
+                >
+                  {priceQuote?.loading ? 'Getting Quote...' : 'Get Quote'}
+                </Button>
+                
+                <Button
+                  type="button"
                   onClick={() => window.open(`https://${selectedChain.id === 'ethereum' ? 'etherscan.io' : 'polygonscan.com'}/`, '_blank')}
                   variant="ghost"
                   size="sm"
@@ -363,6 +503,44 @@ export function PaymentMethodSelector({ selectedMethod, onMethodChange, isConnec
             </div>
           </div>
 
+          {/* Price Quote Display for Cross-Chain */}
+          {priceQuote && customChainTokenAddress && selectedMethod?.type === 'other-chains' && (
+            <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
+              <h5 className="text-xs font-medium text-gray-300">
+                Price Quote ({selectedChain.name})
+              </h5>
+              
+              {priceQuote.loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                  <span className="text-sm text-gray-400">Fetching price...</span>
+                </div>
+              ) : priceQuote.error ? (
+                <div className="text-sm text-red-400">{priceQuote.error}</div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">You'll pay:</span>
+                    <span className="text-sm font-medium text-white">
+                      {priceQuote.tokenAmount} TOKEN
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">USD Value:</span>
+                    <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Network:</span>
+                    <span className="text-xs text-gray-400">{selectedChain.name}</span>
+                  </div>
+                  <div className="text-xs text-blue-400 mt-2">
+                    Cross-chain bridge fee may apply
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
             <p className="text-xs text-blue-400">
               Cross-chain payments are powered by our bridge technology. Transactions may take 5-15 minutes to complete.

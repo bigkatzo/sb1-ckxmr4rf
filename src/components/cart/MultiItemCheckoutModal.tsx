@@ -18,7 +18,8 @@ import { updateOrderTransactionSignature } from '../../services/orders';
 import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
 import { CryptoPaymentModal } from '../products/CryptoPaymentModal.tsx';
-import { PaymentMethodSelector, PaymentMethod } from './PaymentMethodSelector.tsx';
+import { PaymentMethodSelector, PaymentMethod, PriceQuote } from './PaymentMethodSelector';
+// import { PaymentMethodSelector, PaymentMethod } from './PaymentMethodSelector';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -1167,6 +1168,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     selectedMethod={paymentMethod}
                     onMethodChange={setPaymentMethod}
                     isConnected={isConnected}
+                    usdAmount={1000} // The USD amount to convert
                     disabled={processingPayment}
                   />
                 </div>
@@ -1180,6 +1182,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     isLoading={processingPayment}
                     loadingText={processingPayment ? "Processing..." : ""}
                     disabled={processingPayment || 
+                      (['solana', 'usdc', 'other-tokens'].includes(paymentMethod?.type || '') && !isConnected) || 
+                      !paymentMethod || 
                       (paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) && !isConnected) || 
                       !paymentMethod || 
                       !shipping.address || !shipping.city || 
@@ -1191,7 +1195,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       !!phoneError || !!zipError}
                     className="w-full"
                   >
-                    {!isConnected && paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) ? (
+                    {!isConnected && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod?.type || '') ? (
                       <>
                         <Check className="h-4 w-4 mr-2" />
                         <span>Connect Wallet</span>
