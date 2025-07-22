@@ -1,11 +1,19 @@
 import { useState, useCallback } from 'react';
 import { useWallet } from '../contexts/WalletContext';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, Transaction } from '@solana/web3.js';
 import { createSolanaPayment } from '../services/payments';
 import { monitorTransaction } from '../utils/transaction-monitor';
 import { updateTransactionStatus } from '../services/orders';
 import { prepareTransaction } from '../utils/transaction';
 import { toast } from 'react-toastify';
+import {
+  createTransferInstruction,
+  getAssociatedTokenAddress,
+  getAccount,
+} from "@solana/spl-token";
+import { SOLANA_CONNECTION } from '../config/solana';
+
+const USDC_MINT = new PublicKey("Es9vMFrzaCERBzGBo4iK6d6VB7SGifdPMfShJT5PiyxP");
 
 interface PaymentStatus {
   processing: boolean;
@@ -121,4 +129,57 @@ export function usePayment() {
     status,
     resetStatus
   };
+}
+
+export async function createUsdcPayment(
+  amount: number,
+  buyerAddress: string,
+  merchantWalletAddress: string
+): Promise<Transaction> {
+  try {
+    if (!buyerAddress || !merchantWalletAddress) {
+      throw new Error("Invalid wallet addresses");
+    }
+
+    const buyerPubkey = new PublicKey(buyerAddress);
+    const merchantPubkey = new PublicKey(merchantWalletAddress);
+
+    const buyerTokenAccount = await getAssociatedTokenAddress(
+      USDC_MINT,
+      buyerPubkey
+    );
+
+    const merchantTokenAccount = await getAssociatedTokenAddress(
+      USDC_MINT,
+      merchantPubkey
+    );
+
+    // Check buyer has enough balance
+    const buyerTokenAccountInfo = await getAccount(SOLANA_CONNECTION, buyerTokenAccount);
+    const decimals = 6; // USDC has 6 decimals on Solana
+    const amountInSmallestUnit = BigInt(Math.floor(amount * 10 ** decimals));
+
+    if (buyerTokenAccountInfo.amount < amountInSmallestUnit) {
+      throw new Error("Insufficient USDC balance");
+    }
+
+    const transferIx = createTransferInstruction(
+      buyerTokenAccount,
+      merchantTokenAccount,
+      buyerPubkey, // Owner of source
+      amountInSmallestUnit
+    );
+
+    const transaction = await prepareTransaction([transferIx], buyerPubkey);
+
+    if (!validateTransaction(transaction)) {
+      throw new Error("Invalid transaction structure");
+    }
+
+    console.log("✅ USDC payment transaction created successfully");
+    return transaction;
+  } catch (error) {
+    console.error("Error creating USDC payment:", error);
+    throw error instanceof Error ? error : new Error("Failed to create USDC payment");
+  }
 }

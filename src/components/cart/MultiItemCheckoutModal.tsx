@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ChevronRight, CreditCard, Wallet, Tag, Check, AlertTriangle } from 'lucide-react';
+import { X, ChevronRight, Check, AlertTriangle } from 'lucide-react';
 import { useCart, CartItem } from '../../contexts/CartContext';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { formatPrice } from '../../utils/formatters';
@@ -18,6 +18,7 @@ import { updateOrderTransactionSignature } from '../../services/orders';
 import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
 import { CryptoPaymentModal } from '../products/CryptoPaymentModal.tsx';
+import { PaymentMethodSelector, PaymentMethod } from './PaymentMethodSelector.tsx';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -98,8 +99,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   
-  // Payment method state
-  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'solana' | 'free' | null>(null);
+  // Payment method state - updated to use new PaymentMethod type
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   
   // Define order progress steps
@@ -361,10 +362,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setCouponCode('');
     toast.info("Coupon removed");
   };
-  
-  const handlePaymentMethodSelect = (method: 'stripe' | 'solana') => {
-    setPaymentMethod(method);
-  };
 
   const handleCryptoComplete = async (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => {
     console.log('Crypto payment successful:', txSignature, orderId, batchOrderId);
@@ -450,10 +447,13 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           shippingInfo: formattedShippingInfo,
           walletAddress: walletAddress || 'anonymous',
           paymentMetadata: {
-            paymentMethod: paymentMethod ?? 'stripe',
+            paymentMethod: paymentMethod?.type || 'stripe',
             couponCode: appliedCoupon?.code,
             couponDiscount: appliedCoupon?.discountAmount,
-            originalPrice: totalPrice
+            originalPrice: totalPrice,
+            tokenAddress: paymentMethod?.tokenAddress,
+            chainId: paymentMethod?.chainId,
+            tokenSymbol: paymentMethod?.tokenSymbol
           }
         })
       });
@@ -488,9 +488,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
 
       setOrderProgress({ step: 'processing_payment' });
       
-      if( paymentMethod === 'stripe') {
+      if(paymentMethod?.type === 'stripe') {
         setShowStripeModal(true);
-      } else if (paymentMethod === 'solana') {
+      } else if (['solana', 'usdc', 'other-tokens', 'other-chains'].includes(paymentMethod?.type || '')) {
         setShowCryptoModal(true);
       }
     } catch (error) {
@@ -610,8 +610,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       return;
     }
     
-    // Verify wallet connection for Solana payments
-    if (paymentMethod === 'solana' && !isConnected) {
+    // Verify wallet connection for crypto payments
+    if (paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) && !isConnected) {
       toast.info("Please connect your wallet to proceed with payment", {
         position: "bottom-center",
         autoClose: 3000
@@ -695,6 +695,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             originalPrice={orderData.originalPrice || 0}
             receiverWallet={orderData.receiverWallet || ''}
             fee={orderData.fee || 0}
+            // paymentMethod={paymentMethod}
           />
         ) : (
           <div className="relative bg-gray-900 w-full max-w-2xl rounded-xl overflow-hidden">
@@ -733,21 +734,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                         </div>
                         {Object.keys(item.selectedOptions).length > 0 && (
                           <div className="mt-1 text-xs text-gray-400">
-                            {/* Debug output */}
-                            {(() => {
-                              console.log(`[Checkout] Rendering variants for ${item.product.name}:`, item.selectedOptions);
-                              console.log(`[Checkout] Product variants:`, item.product.variants);
-                              return null;
-                            })()}
-                            
                             {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
-                              console.log(`[Checkout] Processing variant ${variantId} with value ${optionValue}`);
-                              
                               const variant = item.product.variants?.find(v => v.id === variantId);
-                              console.log(`[Checkout] Found variant:`, variant);
                               
                               if (!variant) {
-                                console.warn(`[Checkout] Variant with ID ${variantId} not found in product`, item.product);
                                 return (
                                   <div key={variantId}>
                                     Option: {optionValue}
@@ -756,10 +746,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                               }
                               
                               const option = variant.options?.find(o => o.value === optionValue);
-                              console.log(`[Checkout] Found option:`, option);
                               
                               if (!option) {
-                                console.warn(`[Checkout] Option with value ${optionValue} not found in variant ${variant.name}`, variant);
                                 return (
                                   <div key={variantId}>
                                     {variant.name}: {optionValue}
@@ -786,7 +774,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   {appliedCoupon ? (
                     <div className="flex items-center justify-between bg-gray-800/70 rounded-lg p-3">
                       <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-secondary" />
+                        <Check className="h-4 w-4 text-secondary" />
                         <div>
                           <span className="text-sm font-medium text-white">Coupon: {appliedCoupon.code}</span>
                           <p className="text-xs text-gray-400">
@@ -920,18 +908,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                           <p className="text-red-500 text-sm">{orderProgress.error}</p>
                         </div>
                       )}
-                      
-                      {/* Show order info if available */}
-                      {/* {orderData.orderNumber && (
-                        <div className="mt-4 p-3 bg-gray-700/20 border border-gray-700 rounded-lg">
-                          <p className="text-gray-300 text-sm">Order #{orderData.orderNumber}</p>
-                          {orderData.transactionSignature && (
-                            <p className="text-xs text-gray-400 mt-1 truncate">
-                              Transaction: {orderData.transactionSignature}
-                            </p>
-                          )}
-                        </div>
-                      )} */}
                       
                       {/* Add cancel button */}
                       <div className="pt-2">
@@ -1185,56 +1161,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   </div>
                 </div>
                 
-                {/* Payment Method Selection */}
+                {/* Enhanced Payment Method Selection */}
                 <div className="pt-4 border-t border-gray-800 mt-4">
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Payment Method</h3>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button 
-                      type="button"
-                      onClick={() => handlePaymentMethodSelect('stripe')}
-                      className={`flex-1 flex items-center justify-between p-3 rounded-lg border ${
-                        paymentMethod === 'stripe' 
-                          ? 'border-secondary bg-gray-800' 
-                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800/80'
-                      } transition-colors`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <CreditCard className={`h-5 w-5 ${paymentMethod === 'stripe' ? 'text-secondary' : 'text-gray-400'}`} />
-                        <span className={`text-sm ${paymentMethod === 'stripe' ? 'text-white' : 'text-gray-300'}`}>
-                          Credit Card
-                        </span>
-                      </div>
-                      {paymentMethod === 'stripe' && (
-                        <Check className="h-4 w-4 text-secondary" />
-                      )}
-                    </button>
-                    
-                    <button 
-                      type="button"
-                      onClick={() => handlePaymentMethodSelect('solana')}
-                      className={`flex-1 flex items-center justify-between p-3 rounded-lg border ${
-                        paymentMethod === 'solana' 
-                          ? 'border-secondary bg-gray-800' 
-                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800/80'
-                      } transition-colors`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Wallet className={`h-5 w-5 ${paymentMethod === 'solana' ? 'text-secondary' : 'text-gray-400'}`} />
-                        <span className={`text-sm ${paymentMethod === 'solana' ? 'text-white' : 'text-gray-300'}`}>
-                          Solana {isConnected ? '(Connected)' : ''}
-                        </span>
-                      </div>
-                      {paymentMethod === 'solana' && (
-                        <Check className="h-4 w-4 text-secondary" />
-                      )}
-                    </button>
-                  </div>
-                  
-                  {paymentMethod === 'solana' && !isConnected && (
-                    <p className="mt-2 text-xs text-yellow-400">
-                      Please connect your wallet to continue with Solana payment
-                    </p>
-                  )}
+                  <PaymentMethodSelector
+                    selectedMethod={paymentMethod}
+                    onMethodChange={setPaymentMethod}
+                    isConnected={isConnected}
+                    disabled={processingPayment}
+                  />
                 </div>
                 
                 {/* Checkout button */}
@@ -1245,7 +1179,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     size="lg"
                     isLoading={processingPayment}
                     loadingText={processingPayment ? "Processing..." : ""}
-                    disabled={processingPayment || (paymentMethod === 'solana' && !isConnected) || !paymentMethod || 
+                    disabled={processingPayment || 
+                      (paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) && !isConnected) || 
+                      !paymentMethod || 
                       !shipping.address || !shipping.city || 
                       !shipping.country || !shipping.zip || 
                       (availableStates.length > 0 && !shipping.state) ||
@@ -1255,9 +1191,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       !!phoneError || !!zipError}
                     className="w-full"
                   >
-                    {!isConnected && paymentMethod === 'solana' ? (
+                    {!isConnected && paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) ? (
                       <>
-                        <Wallet className="h-4 w-4 mr-2" />
+                        <Check className="h-4 w-4 mr-2" />
                         <span>Connect Wallet</span>
                       </>
                     ) : (
@@ -1275,4 +1211,4 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       </div>
     </div>
   );
-} 
+}
