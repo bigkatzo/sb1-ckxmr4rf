@@ -742,14 +742,51 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   ))}
                 </div>
                 
-                <PaymentMethodSelector
-                  selectedMethod={paymentMethod}
-                  onMethodChange={setPaymentMethod}
-                  isConnected={isConnected}
-                  disabled={processingPayment}
-                  usdAmount={1000}
-                  onGetPriceQuote={handleGetPriceQuote}
-                />
+                {/* Coupon Section */}
+                <div className="mt-4 border-t border-gray-800 pt-4">
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between bg-gray-800/70 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-secondary" />
+                        <div>
+                          <span className="text-sm font-medium text-white">Coupon: {appliedCoupon.code}</span>
+                          <p className="text-xs text-gray-400">
+                            {appliedCoupon.discountPercentage 
+                              ? `${appliedCoupon.discountPercentage}% off` 
+                              : formatPrice(appliedCoupon.discountAmount) + ' off'}
+                          </p>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={handleRemoveCoupon}
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-gray-400 hover:text-red-400"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter coupon code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                      />
+                      <Button
+                        onClick={handleApplyCoupon}
+                        variant="outline"
+                        size="sm"
+                        isLoading={validatingCoupon}
+                        disabled={validatingCoupon || !couponCode.trim()}
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  )}
+                </div>
                 
                 {/* Price Summary */}
                 <div className="mt-4 border-t border-gray-800 pt-4">
