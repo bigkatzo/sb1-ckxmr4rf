@@ -600,7 +600,7 @@ export function PaymentMethodSelector({
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">Exchange Rate:</span>
                         <span className="text-xs text-gray-400">
-                          1 {priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
+                          1 {tokenInfo?.symbol || priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
