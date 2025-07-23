@@ -858,52 +858,46 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   />
                 
                 {paymentMethod?.type === 'default' && (
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center justify-center bg-gray-800 rounded-full p-1 w-fit mx-auto border border-gray-700">
                       <button
                         type="button"
-                        onClick={() => setPaymentMethod({
-                          type: 'default',
-                          defaultToken: 'usdc'
-                        })}
-                        className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                        onClick={() => setPaymentMethod({ type: 'default', defaultToken: 'usdc' })}
+                        className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
                           paymentMethod?.defaultToken === 'usdc'
-                            ? 'border-secondary bg-secondary/10 text-white'
-                            : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                            ? 'bg-secondary text-white'
+                            : 'text-gray-400 hover:text-white'
                         }`}
                       >
-                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                          <span className="text-xs font-bold text-white">$</span>
+                        <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-white">$</span>
                         </div>
-                        <span className="text-sm font-medium">USDC</span>
+                        USDC
                       </button>
-                      
+
                       <button
                         type="button"
-                        onClick={() => setPaymentMethod({
-                          type: 'default',
-                          defaultToken: 'sol'
-                        })}
-                        className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                        onClick={() => setPaymentMethod({ type: 'default', defaultToken: 'sol' })}
+                        className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
                           paymentMethod?.defaultToken === 'sol'
-                            ? 'border-secondary bg-secondary/10 text-white'
-                            : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                            ? 'bg-secondary text-white'
+                            : 'text-gray-400 hover:text-white'
                         }`}
                       >
-                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                          <span className="text-xs font-bold text-white">◎</span>
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-white">◎</span>
                         </div>
-                        <span className="text-sm font-medium">SOL</span>
+                        SOL
                       </button>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2 text-center">
-                      {paymentMethod?.defaultToken === 'usdc' 
-                        ? 'Pay directly with USDC (no swap needed)' 
-                        : 'Pay directly with SOL (no swap needed)'}
+
+                    <p className="text-[10px] text-gray-400 text-center">
+                      {paymentMethod?.defaultToken === 'usdc'
+                        ? 'Pay with USDC (no swap)'
+                        : 'Pay with SOL (no swap)'}
                     </p>
                   </div>
                 )}
-
 
                 {paymentMethod?.type === 'spl-tokens' || paymentMethod?.type === 'default' && !isConnected && (
                     <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
