@@ -847,51 +847,52 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     )}
                   </div>
                   
-                  {/* Default Token Selector */}
-                  <div className="mb-4">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod({
-                          type: 'default',
-                          defaultToken: 'usdc'
-                        })}
-                        className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
-                          paymentMethod?.defaultToken === 'usdc'
-                            ? 'border-secondary bg-secondary/10 text-white'
-                            : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
-                        }`}
-                      >
-                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                          <span className="text-xs font-bold text-white">$</span>
-                        </div>
-                        <span className="text-sm font-medium">Pay with USDC</span>
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod({
-                          type: 'default',
-                          defaultToken: 'sol'
-                        })}
-                        className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
-                          paymentMethod?.defaultToken === 'sol'
-                            ? 'border-secondary bg-secondary/10 text-white'
-                            : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
-                        }`}
-                      >
-                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                          <span className="text-xs font-bold text-white">◎</span>
-                        </div>
-                        <span className="text-sm font-medium">Pay with SOL</span>
-                      </button>
+                  {paymentMethod?.type === 'default' && (
+                    <div className="mb-4">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod({
+                            type: 'default',
+                            defaultToken: 'usdc'
+                          })}
+                          className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                            paymentMethod?.defaultToken === 'usdc'
+                              ? 'border-secondary bg-secondary/10 text-white'
+                              : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          }`}
+                        >
+                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                            <span className="text-xs font-bold text-white">$</span>
+                          </div>
+                          <span className="text-sm font-medium">Pay with USDC</span>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod({
+                            type: 'default',
+                            defaultToken: 'sol'
+                          })}
+                          className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                            paymentMethod?.defaultToken === 'sol'
+                              ? 'border-secondary bg-secondary/10 text-white'
+                              : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          }`}
+                        >
+                          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                            <span className="text-xs font-bold text-white">◎</span>
+                          </div>
+                          <span className="text-sm font-medium">Pay with SOL</span>
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-2 text-center">
+                        {paymentMethod?.defaultToken === 'usdc' 
+                          ? 'Pay directly with USDC (no swap needed)' 
+                          : 'Pay directly with SOL (no swap needed)'}
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2 text-center">
-                      {paymentMethod?.defaultToken === 'usdc' 
-                        ? 'Pay directly with USDC (no swap needed)' 
-                        : 'Pay directly with SOL (no swap needed)'}
-                    </p>
-                  </div>
+                  )}
                   
                   {/* Payment Method Selector */}
                   <PaymentMethodSelector
