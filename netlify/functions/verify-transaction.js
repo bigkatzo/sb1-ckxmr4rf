@@ -6,7 +6,10 @@
  */
 
 // Enable detailed logging
+// import { PublicKey } from '@solana/web3.js';
+// import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token';
 const DEBUG = true;
+
 
 /**
  * Enhanced logging function with prefixes and timestamps
@@ -92,28 +95,25 @@ try {
 let SOLANA_CONNECTION;
 const LAMPORTS_PER_SOL = 1000000000;
 
-/**
- * Verify transaction details against the blockchain
- */
 async function verifySolanaTransactionDetails(signature, expectedDetails) {
   log('info', `Starting transaction verification for signature: ${signature?.substring(0, 10)}...`);
-  
+
   try {
     if (!SOLANA_CONNECTION) {
       log('error', 'Solana verification unavailable: No connection available');
-      return { 
-        isValid: false, 
-        error: 'Solana verification is not available. Please try again later.' 
+      return {
+        isValid: false,
+        error: 'Solana verification is not available. Please try again later.'
       };
     }
 
     const result = await verifyTransaction(SOLANA_CONNECTION, signature);
-    
+
     if (!result.isValid) {
       log('warn', 'Transaction validation failed:', result.error);
       return result;
     }
-    
+
     const tx = result.transaction;
     if (!tx || !tx.meta) {
       log('error', 'Transaction object missing or incomplete');
@@ -123,82 +123,141 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
       };
     }
 
-    // Extract transaction details
-    const preBalances = tx.meta.preBalances;
-    const postBalances = tx.meta.postBalances;
-    const accounts = tx.transaction.message.getAccountKeys().keySegments().flat();
-    
-    const transfers = accounts.map((account, index) => {
-      const balanceChange = (postBalances[index] - preBalances[index]) / LAMPORTS_PER_SOL;
-      return {
-        address: account.toBase58(),
-        change: balanceChange
+    const message = tx.transaction.message;
+    const accountKeys = message.getAccountKeys().keySegments().flat();
+
+    // Default to SOL, or use tokenMint if provided
+    const tokenMint = expectedDetails?.tokenMint;
+
+    if (!tokenMint || tokenMint === 'SOL') {
+      const preBalances = tx.meta.preBalances;
+      const postBalances = tx.meta.postBalances;
+
+      const transfers = accountKeys.map((account, index) => {
+        const balanceChange = (postBalances[index] - preBalances[index]) / LAMPORTS_PER_SOL;
+        return {
+          address: account.toBase58(),
+          change: balanceChange
+        };
+      });
+
+      const recipient = transfers.find(t => t.change > 0);
+      const sender = transfers.find(t => t.change < 0);
+
+      if (!recipient || !sender) {
+        log('error', 'Could not identify SOL transfer details');
+        return {
+          isValid: false,
+          error: 'Could not identify SOL transfer details'
+        };
+      }
+
+      const details = {
+        amount: recipient.change,
+        buyer: sender.address,
+        recipient: recipient.address
       };
-    });
 
-    const recipient = transfers.find(t => t.change > 0);
-    const sender = transfers.find(t => t.change < 0);
+      log('info', 'Extracted SOL transaction details:', {
+        amount: details.amount,
+        buyer: details.buyer?.substring(0, 8) + '...',
+        recipient: details.recipient?.substring(0, 8) + '...'
+      });
 
-    if (!recipient || !sender) {
-      log('error', 'Could not identify transfer details in transaction');
-      return { 
-        isValid: false, 
-        error: 'Could not identify transfer details'
+      return validateDetails(details, expectedDetails);
+    }
+
+    const preTokenBalances = tx.meta.preTokenBalances || [];
+    const postTokenBalances = tx.meta.postTokenBalances || [];
+
+    const tokenAccounts = {};
+
+    // Build balance diffs by owner
+    for (let i = 0; i < postTokenBalances.length; i++) {
+      const post = postTokenBalances[i];
+      const pre = preTokenBalances.find(p => p.accountIndex === post.accountIndex && p.mint === post.mint);
+
+      if (post.mint !== tokenMint) continue;
+
+      const owner = post.owner;
+      const preAmount = Number(pre?.uiTokenAmount?.amount || '0');
+      const postAmount = Number(post.uiTokenAmount.amount);
+      const delta = postAmount - preAmount;
+
+      if (!tokenAccounts[owner]) tokenAccounts[owner] = 0;
+      tokenAccounts[owner] += delta;
+    }
+
+    const buyer = Object.entries(tokenAccounts).find(([, delta]) => delta < 0);
+    const recipient = Object.entries(tokenAccounts).find(([, delta]) => delta > 0);
+
+    if (!buyer || !recipient) {
+      log('error', 'Could not identify token transfer details');
+      return {
+        isValid: false,
+        error: 'Could not identify token transfer details'
       };
     }
-    
+
+    const amount = Math.abs(recipient[1]) / Math.pow(10, 6); // assuming USDC has 6 decimals
+
     const details = {
-      amount: recipient.change,
-      buyer: sender.address,
-      recipient: recipient.address
+      amount,
+      buyer: buyer[0],
+      recipient: recipient[0]
     };
 
-    log('info', 'Extracted transaction details:', {
+    log('info', 'Extracted token transaction details:', {
       amount: details.amount,
       buyer: details.buyer?.substring(0, 8) + '...',
-      recipient: details.recipient?.substring(0, 8) + '...',
+      recipient: details.recipient?.substring(0, 8) + '...'
     });
 
-    // Verify against expected details if provided
-    if (expectedDetails) {
-      if (Math.abs(details.amount - expectedDetails.amount) > 0.00001) {
-        log('warn', 'Amount mismatch in transaction verification');
-        return {
-          isValid: false,
-          error: `Amount mismatch: expected ${expectedDetails.amount} SOL, got ${details.amount} SOL`,
-          details
-        };
-      }
+    return validateDetails(details, expectedDetails);
 
-      if (details.buyer.toLowerCase() !== expectedDetails.buyer.toLowerCase()) {
-        log('warn', 'Buyer mismatch in transaction verification');
-        return {
-          isValid: false,
-          error: `Buyer mismatch: expected ${expectedDetails.buyer}, got ${details.buyer}`,
-          details
-        };
-      }
-
-      if (details.recipient.toLowerCase() !== expectedDetails.recipient.toLowerCase()) {
-        log('warn', 'Recipient mismatch in transaction verification');
-        return {
-          isValid: false,
-          error: `Recipient mismatch: expected ${expectedDetails.recipient}, got ${details.recipient}`,
-          details
-        };
-      }
-    }
-
-    log('info', 'Transaction verified successfully');
-    return { isValid: true, details };
   } catch (error) {
     log('error', 'Error verifying transaction:', error);
-    return { 
-      isValid: false, 
-      error: error instanceof Error ? error.message : 'Failed to verify transaction' 
+    return {
+      isValid: false,
+      error: error instanceof Error ? error.message : 'Failed to verify transaction'
     };
   }
 }
+
+function validateDetails(details, expected) {
+  if (!expected) return { isValid: true, details };
+
+  if (Math.abs(details.amount - expected.amount) > 0.00001) {
+    log('warn', 'Amount mismatch in transaction verification');
+    return {
+      isValid: false,
+      error: `Amount mismatch: expected ${expected.amount}, got ${details.amount}`,
+      details
+    };
+  }
+
+  if (details.buyer.toLowerCase() !== expected.buyer.toLowerCase()) {
+    log('warn', 'Buyer mismatch in transaction verification');
+    return {
+      isValid: false,
+      error: `Buyer mismatch: expected ${expected.buyer}, got ${details.buyer}`,
+      details
+    };
+  }
+
+  if (details.recipient.toLowerCase() !== expected.recipient.toLowerCase()) {
+    log('warn', 'Recipient mismatch in transaction verification');
+    return {
+      isValid: false,
+      error: `Recipient mismatch: expected ${expected.recipient}, got ${details.recipient}`,
+      details
+    };
+  }
+
+  log('info', 'Transaction verified successfully');
+  return { isValid: true, details };
+}
+
 
 async function verifyStripePaymentIntent(paymentIntentId) {
   try {
@@ -495,6 +554,7 @@ exports.handler = async (event, context) => {
       amount: orderId ? allOrders[0].amount_sol : allOrders[0].total_amount_paid_for_batch,
       buyer: allOrders[0].wallet_address,
       recipient: paymentMetadata.receiverWallet,
+      tokenMint: paymentMetadata.defaultToken,
     };
 
     let verificationResult;
@@ -535,7 +595,21 @@ exports.handler = async (event, context) => {
       }
 
       log('info', 'Processing blockchain payment');
-      verificationResult = await verifySolanaTransactionDetails(signature, details);
+      // if direct
+      if(paymentMetadata.paymentMethod === 'usdc' || 'sol') {
+        verificationResult = await verifySolanaTransactionDetails(signature, details);
+      } else {
+        // just verify for now
+        log('info', 'Skipping blockchain verification for cross chain and cross token payment for now');
+        verificationResult = {
+          isValid: true,
+          details: {
+            amount: details.amount,
+            buyer: details.buyer,
+            recipient: details.recipient
+          }
+        };
+      }
       
       if (!verificationResult.isValid) {
         log('warn', 'Blockchain payment verification failed');
