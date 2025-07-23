@@ -853,7 +853,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       <button
                         type="button"
                         onClick={() => setPaymentMethod({
-                          type: 'spl-tokens',
+                          type: 'default',
                           defaultToken: 'usdc'
                         })}
                         className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
@@ -871,7 +871,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       <button
                         type="button"
                         onClick={() => setPaymentMethod({
-                          type: 'spl-tokens',
+                          type: 'default',
                           defaultToken: 'sol'
                         })}
                         className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
