@@ -537,7 +537,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             }
           },
           undefined,
-          batchOrderId,
+          orderData.batchOrderId || batchOrderId,
           {
             amount: orderData.price || 0,
             buyer: walletAddress || '',

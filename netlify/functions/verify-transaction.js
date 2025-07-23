@@ -179,7 +179,8 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
       const post = postTokenBalances[i];
       const pre = preTokenBalances.find(p => p.accountIndex === post.accountIndex && p.mint === post.mint);
 
-      if (post.mint !== "Es9vMFrzaCERiYDV9cTgJp9RyTmDvP8fWsgGMpUoEUsU") continue;
+      // USDC mint address
+      if (post.mint !== "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v") continue;
 
       const owner = post.owner;
       const preAmount = Number(pre?.uiTokenAmount?.amount || '0');
